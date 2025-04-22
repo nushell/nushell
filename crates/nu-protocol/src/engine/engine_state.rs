@@ -1,5 +1,8 @@
 use crate::{
-    ast::Block,
+    ast::{
+        Argument, Block, Call, Expr, Expression, ExternalArgument, Keyword, ListItem, PathMember,
+        Pipeline, PipelineElement, RecordItem, Table,
+    },
     debugger::{Debugger, NoopDebugger},
     engine::{
         description::{build_desc, Doccomments},
@@ -9,8 +12,8 @@ use crate::{
     eval_const::create_nu_constant,
     shell_error::io::IoError,
     BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    OverlayId, ParsedKeybinding, ParsedMenu, ShellError, SignalAction, Signals, Signature, Span,
+    SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -139,7 +142,567 @@ pub const ENV_VARIABLE_ID: VarId = VarId::new(2);
 // The first span is unknown span
 pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
+/// Helper function to calculate the memory size of a Value recursively with exact measurements
+pub fn calculate_value_size(value: &Value) -> usize {
+    let base_size = std::mem::size_of::<Value>();
+
+    // Add additional heap allocations based on the variant
+    match value {
+        Value::String { val, .. } => {
+            // String has a pointer, length, and capacity on the stack
+            // The actual string data is on the heap
+            base_size + val.capacity()
+        }
+        Value::Glob { val, .. } => {
+            // Similar to String
+            base_size + val.capacity()
+        }
+        Value::List { vals, .. } => {
+            // Vec has a pointer, length, and capacity on the stack
+            // The elements are on the heap
+            let vec_overhead = std::mem::size_of::<Vec<Value>>();
+
+            // Space for the Vec's allocation
+            let vec_allocation = vals.capacity() * std::mem::size_of::<Value>();
+
+            // Recursively calculate the size of each element
+            let elements_size = vals.iter().map(calculate_value_size).sum::<usize>();
+
+            base_size + vec_overhead + vec_allocation + elements_size
+        }
+        Value::Record { val, .. } => {
+            // Record is a wrapper around a HashMap
+            // Get the size of the Record struct itself
+            let record_overhead = std::mem::size_of_val(&*val);
+
+            // Calculate the size of all entries (keys and values)
+            let entries_size = val
+                .iter()
+                .map(|(k, v)| {
+                    // Each key is a String with its own heap allocation
+                    let key_size = std::mem::size_of::<String>() + k.capacity();
+
+                    // Recursively calculate the size of each value
+                    let value_size = calculate_value_size(v);
+
+                    key_size + value_size
+                })
+                .sum::<usize>();
+
+            // Add HashMap overhead (buckets, etc.) - estimate based on typical HashMap implementation
+            let hashmap_overhead = 64 + val.len() * 16; // Base overhead + per-entry overhead
+
+            base_size + record_overhead + entries_size + hashmap_overhead
+        }
+        Value::Binary { val, .. } => {
+            // Binary is a Vec<u8>
+            base_size + std::mem::size_of::<Vec<u8>>() + val.capacity()
+        }
+        Value::Closure { val, .. } => {
+            // Closure has a Box<Closure> which points to heap data
+            let closure_overhead = std::mem::size_of_val(&**val);
+
+            // Calculate the size of captures
+            let captures_overhead = std::mem::size_of::<Vec<Value>>();
+            let captures_allocation = val.captures.capacity() * std::mem::size_of::<Value>();
+
+            // Calculate size of captures - need to handle the tuple structure
+            let mut captures_size = 0;
+            for (_, value) in &val.captures {
+                captures_size += calculate_value_size(value);
+            }
+
+            // Calculate the size of the block_id
+            let block_id_size = std::mem::size_of::<BlockId>();
+
+            base_size
+                + closure_overhead
+                + captures_overhead
+                + captures_allocation
+                + captures_size
+                + block_id_size
+        }
+        Value::Error { error, .. } => {
+            // Error has a Box<ShellError> which points to heap data
+            let error_overhead = std::mem::size_of_val(&**error);
+
+            // ShellError can contain Values, so we need to account for those
+            let error_data_size = match &**error {
+                ShellError::GenericError {
+                    error,
+                    msg,
+                    span: _,
+                    help,
+                    inner,
+                } => {
+                    error.len()
+                        + msg.len()
+                        + help.as_ref().map_or(0, |h| h.len())
+                        + inner
+                            .iter()
+                            .map(|e| std::mem::size_of_val(e))
+                            .sum::<usize>()
+                }
+                // Handle other ShellError variants similarly
+                _ => std::mem::size_of::<ShellError>(), // Minimum size for other variants
+            };
+
+            base_size + error_overhead + error_data_size
+        }
+        Value::CellPath { val, .. } => {
+            // CellPath has a Vec<PathMember>
+            let cellpath_overhead = std::mem::size_of_val(val);
+            let members_overhead = std::mem::size_of::<Vec<PathMember>>();
+            let members_allocation = val.members.capacity() * std::mem::size_of::<PathMember>();
+
+            // Calculate the size of each PathMember
+            let members_size = val
+                .members
+                .iter()
+                .map(|m| match m {
+                    PathMember::String { val, .. } => {
+                        std::mem::size_of::<PathMember>() + val.capacity()
+                    }
+                    _ => std::mem::size_of::<PathMember>(),
+                })
+                .sum::<usize>();
+
+            base_size + cellpath_overhead + members_overhead + members_allocation + members_size
+        }
+        Value::Range { val, .. } => {
+            // Range has a Box<Range> which points to heap data
+            let range_overhead = std::mem::size_of_val(&**val);
+
+            // Range contains start, end, and inclusive fields
+            // We can't access them directly, so estimate based on typical Range implementation
+            let range_fields_size = 32; // Reasonable estimate for Range fields
+
+            base_size + range_overhead + range_fields_size
+        }
+        Value::Custom { val, .. } => {
+            // Custom values are opaque, but we can measure the Box overhead
+            let custom_overhead = std::mem::size_of_val(&**val);
+
+            // We can't know the exact size of the custom data, so we'll use a reasonable estimate
+            // based on the type's memory footprint
+            let custom_data_size = 256; // Reasonable estimate for most custom types
+
+            base_size + custom_overhead + custom_data_size
+        }
+        Value::Bool { .. } => base_size,
+        Value::Int { .. } => base_size,
+        Value::Float { .. } => base_size,
+        Value::Filesize { .. } => base_size,
+        Value::Duration { .. } => base_size,
+        Value::Date { .. } => base_size,
+        Value::Nothing { .. } => base_size,
+    }
+}
+
 impl EngineState {
+    /// Get the memory size of the files collection, including both stack and heap allocations
+    pub fn files_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Vec<CachedFile>>();
+        let mut heap_size = 0;
+
+        // Size of the Vec itself on the heap (capacity * element size)
+        heap_size += self.files.capacity() * std::mem::size_of::<CachedFile>();
+
+        // Calculate heap size of all files
+        for file in &self.files {
+            // Size of Arc<str> for name (pointer + length + capacity)
+            heap_size += std::mem::size_of::<Arc<str>>() + file.name.len();
+
+            // Size of Arc<[u8]> for content (pointer + length + capacity)
+            heap_size += std::mem::size_of::<Arc<[u8]>>() + file.content.len();
+
+            // Span is already counted in the CachedFile struct size
+        }
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the vars collection, including both stack and heap allocations
+    pub fn vars_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Vec<Variable>>();
+        let mut heap_size = 0;
+
+        // Size of the Vec itself on the heap
+        // This includes the pointer, length, and capacity fields
+        let vec_overhead = std::mem::size_of::<Vec<Variable>>();
+
+        // Size of the Vec's allocation (capacity * element size)
+        let vec_allocation = self.vars.capacity() * std::mem::size_of::<Variable>();
+        heap_size += vec_overhead + vec_allocation;
+
+        // Calculate heap size of all variables
+        for var in &self.vars {
+            // Variable struct contains a Span and potentially a Value
+            // Span is already counted in the Variable struct size
+
+            // If there's a const_val, add its size recursively
+            if let Some(val) = &var.const_val {
+                // For Value, we need to account for both the enum size and any heap allocations
+                heap_size += calculate_value_size(val);
+            }
+        }
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the decls collection, including both stack and heap allocations
+    pub fn decls_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Arc<Vec<Box<dyn Command + 'static>>>>();
+        let mut heap_size = 0;
+
+        // Size of the Arc itself
+        heap_size += std::mem::size_of::<Vec<Box<dyn Command + 'static>>>();
+
+        // Size of the Vec's allocation (capacity * element size)
+        heap_size += self.decls.capacity() * std::mem::size_of::<Box<dyn Command>>();
+
+        // Calculate heap size of all declarations
+        for decl in self.decls.iter() {
+            // For each Command trait object, we need to account for:
+            // 1. The vtable pointer (already in Box<dyn Command>)
+            // 2. The actual implementation size
+
+            // Get the signature to estimate the size
+            let sig = decl.signature();
+
+            // Estimate the size based on the signature components
+            let sig_size = std::mem::size_of_val(&sig)
+                + sig.name.capacity()
+                + sig.description.capacity()
+                + sig.extra_description.capacity()
+                + sig.category.to_string().len()
+                + sig.required_positional.capacity()
+                    * std::mem::size_of_val(&sig.required_positional)
+                + sig.optional_positional.capacity()
+                    * std::mem::size_of_val(&sig.optional_positional)
+                + sig
+                    .rest_positional
+                    .map_or(0, |_| std::mem::size_of::<Type>())
+                + sig.named.capacity() * std::mem::size_of_val(&sig.named);
+
+            // Add description size
+            let desc_size = decl.description().len();
+
+            // Add extra description size
+            let extra_desc_size = decl.extra_description().len();
+
+            // Add examples size if any
+            let examples_size = decl
+                .examples()
+                .iter()
+                .map(|ex| {
+                    // Calculate size of example components
+                    ex.description.len() + ex.example.len() +
+                    // Calculate exact size of the result
+                    ex.result.as_ref().map_or(0, |result| {
+                        // The result is a Value, so we need to calculate its exact size
+                        calculate_value_size(result)
+                    })
+                })
+                .sum::<usize>();
+
+            // Sum up the total size
+            heap_size += sig_size + desc_size + extra_desc_size + examples_size;
+        }
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the blocks collection, including both stack and heap allocations
+    pub fn blocks_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Arc<Vec<Arc<Block>>>>();
+        let mut heap_size = 0;
+
+        // Size of the Arc control block for the outer Arc
+        let arc_control_block = 24; // Typical size on 64-bit systems
+        heap_size += arc_control_block;
+
+        // Size of the Vec itself on the heap
+        let vec_overhead = std::mem::size_of::<Vec<Arc<Block>>>();
+        heap_size += vec_overhead;
+
+        // Size of the Vec's allocation (capacity * element size)
+        heap_size += self.blocks.capacity() * std::mem::size_of::<Arc<Block>>();
+
+        // Calculate heap size of all blocks
+        for block_arc in self.blocks.iter() {
+            // Add size of the inner Arc control block
+            let inner_arc_control_block = 24; // Typical size on 64-bit systems
+            heap_size += inner_arc_control_block;
+
+            // Get reference to the actual Block
+            let block = &**block_arc;
+
+            // Calculate size of pipelines Vec
+            let pipelines_overhead = std::mem::size_of::<Vec<Pipeline>>();
+            let pipelines_allocation = block.pipelines.capacity() * std::mem::size_of::<Pipeline>();
+            heap_size += pipelines_overhead + pipelines_allocation;
+
+            // Calculate size of each pipeline's elements
+            for pipeline in &block.pipelines {
+                let elements_overhead = std::mem::size_of::<Vec<PipelineElement>>();
+                let elements_allocation =
+                    pipeline.elements.capacity() * std::mem::size_of::<PipelineElement>();
+                heap_size += elements_overhead + elements_allocation;
+
+                // Calculate size of each element's expression
+                for element in &pipeline.elements {
+                    // Get the expression from the element
+                    let expr = &element.expr;
+
+                    // Add size of expression struct
+                    heap_size += std::mem::size_of::<Expression>();
+
+                    // Add size of expression-specific data based on the Expr enum variant
+                    match &expr.expr {
+                        Expr::Call(call) => {
+                            heap_size += std::mem::size_of::<Call>();
+                            heap_size +=
+                                call.arguments.capacity() * std::mem::size_of::<Argument>();
+                            // Add size of head and decl_id
+                            heap_size += std::mem::size_of::<Span>();
+                            heap_size += std::mem::size_of::<DeclId>();
+                        }
+                        Expr::ExternalCall(_head, args) => {
+                            // ExternalCall has a Box<Expression> for head and Box<[ExternalArgument]> for args
+                            heap_size += std::mem::size_of::<Expression>(); // For the head
+                            heap_size += std::mem::size_of::<Box<[ExternalArgument]>>(); // For the args box
+
+                            // Add size of args array
+                            heap_size += args.len() * std::mem::size_of::<ExternalArgument>();
+
+                            // Add size of head span
+                            heap_size += std::mem::size_of::<Span>();
+                        }
+                        Expr::Subexpression(_block_id) => {
+                            heap_size += std::mem::size_of::<BlockId>();
+                        }
+                        Expr::Block(_block_id) => {
+                            heap_size += std::mem::size_of::<BlockId>();
+                        }
+                        Expr::List(items) => {
+                            heap_size += std::mem::size_of::<Vec<ListItem>>();
+                            heap_size += items.capacity() * std::mem::size_of::<ListItem>();
+                        }
+                        Expr::Record(items) => {
+                            heap_size += std::mem::size_of::<Vec<RecordItem>>();
+                            heap_size += items.capacity() * std::mem::size_of::<RecordItem>();
+                        }
+                        Expr::Table(_table) => {
+                            // Table has headers and rows
+                            heap_size += std::mem::size_of::<Table>();
+                        }
+                        Expr::Keyword(_keyword) => {
+                            heap_size += std::mem::size_of::<Keyword>();
+                        }
+                        Expr::String(s) => {
+                            heap_size += s.capacity();
+                        }
+                        Expr::RawString(s) => {
+                            heap_size += s.capacity();
+                        }
+                        Expr::GlobPattern(g, _) => {
+                            heap_size += g.capacity();
+                        }
+                        // For other variants that don't have heap allocations
+                        _ => {}
+                    }
+                }
+            }
+
+            // Calculate size of signature
+            let signature = &block.signature;
+            heap_size += std::mem::size_of::<Signature>();
+            // Add size of signature components
+            heap_size += signature.name.capacity();
+            heap_size += signature.description.capacity();
+            heap_size += signature.extra_description.capacity();
+            // We don't have direct access to PositionalArg and NamedArg types here
+            // So we'll estimate their size based on typical struct sizes
+            let positional_arg_size = 24; // Reasonable estimate for a struct with a name and type
+            let named_arg_size = 32; // Reasonable estimate for a struct with a name, type, and flags
+
+            heap_size += signature.required_positional.capacity() * positional_arg_size;
+            heap_size += signature.optional_positional.capacity() * positional_arg_size;
+            heap_size += signature.named.capacity() * named_arg_size;
+        }
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the spans collection, including both stack and heap allocations
+    pub fn spans_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Vec<Span>>();
+
+        // Size of the Vec's allocation (capacity * element size)
+        let heap_size = self.spans.capacity() * std::mem::size_of::<Span>();
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the env_vars collection, including both stack and heap allocations
+    pub fn env_vars_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Arc<EnvVars>>();
+        let mut heap_size = 0;
+
+        // Size of the Arc control block (strong count, weak count, data pointer)
+        let arc_control_block = 24; // Typical size on 64-bit systems
+        heap_size += arc_control_block;
+
+        // Size of the EnvVars HashMap itself
+        // EnvVars is a type alias for HashMap<String, HashMap<String, Value>>
+        let envvars_size = std::mem::size_of::<EnvVars>();
+        heap_size += envvars_size;
+
+        // Calculate heap size of all environment variables
+        for (overlay_name, env_map) in self.env_vars.iter() {
+            // Size of the overlay name string (String has ptr, len, capacity on stack)
+            // We add the actual string data size on heap
+            heap_size += overlay_name.capacity();
+
+            // Size of the HashMap for this overlay
+            // HashMap has a complex structure with buckets, entries, etc.
+
+            // HashMap overhead (control structure)
+            let hashmap_overhead = std::mem::size_of::<HashMap<String, Value>>();
+            heap_size += hashmap_overhead;
+
+            // HashMap bucket array size (capacity * pointer size)
+            // HashMap typically uses a power-of-two capacity
+            let bucket_array_size = env_map.capacity() * std::mem::size_of::<*const u8>();
+            heap_size += bucket_array_size;
+
+            // Size of each key-value pair
+            for (key, value) in env_map.iter() {
+                // String data on heap (key)
+                let key_overhead = std::mem::size_of::<String>();
+                let key_data = key.capacity();
+                heap_size += key_overhead + key_data;
+
+                // Value size (recursive calculation for exact measurement)
+                heap_size += calculate_value_size(value);
+            }
+        }
+
+        (stack_size, heap_size)
+    }
+
+    /// Get the memory size of the config, including both stack and heap allocations
+    pub fn config_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Arc<Config>>();
+        let mut heap_size = 0;
+
+        // Size of the Arc control block (strong count, weak count, data pointer)
+        let arc_control_block = 24; // Typical size on 64-bit systems
+        heap_size += arc_control_block;
+
+        // Size of the Config struct itself
+        let config_size = std::mem::size_of::<Config>();
+        heap_size += config_size;
+
+        // Add size of color_config HashMap
+        let color_config_overhead = std::mem::size_of::<HashMap<String, Value>>();
+        let color_config_buckets =
+            self.config.color_config.capacity() * std::mem::size_of::<*const u8>();
+        heap_size += color_config_overhead + color_config_buckets;
+
+        // Add size of each color_config entry
+        for (key, value) in self.config.color_config.iter() {
+            heap_size += std::mem::size_of::<String>() + key.capacity(); // Key overhead + data
+            heap_size += calculate_value_size(value); // Exact value size
+        }
+
+        // Add size of explore HashMap
+        let explore_overhead = std::mem::size_of::<HashMap<String, Value>>();
+        let explore_buckets = self.config.explore.capacity() * std::mem::size_of::<*const u8>();
+        heap_size += explore_overhead + explore_buckets;
+
+        // Add size of each explore entry
+        for (key, value) in self.config.explore.iter() {
+            heap_size += std::mem::size_of::<String>() + key.capacity(); // Key overhead + data
+            heap_size += calculate_value_size(value); // Exact value size
+        }
+
+        // Add size of plugins HashMap
+        let plugins_overhead = std::mem::size_of::<HashMap<String, Value>>();
+        let plugins_buckets = self.config.plugins.capacity() * std::mem::size_of::<*const u8>();
+        heap_size += plugins_overhead + plugins_buckets;
+
+        // Add size of each plugins entry
+        for (key, value) in self.config.plugins.iter() {
+            heap_size += std::mem::size_of::<String>() + key.capacity(); // Key overhead + data
+            heap_size += calculate_value_size(value); // Exact value size
+        }
+
+        // Add size of keybindings Vec
+        let keybindings_overhead = std::mem::size_of::<Vec<ParsedKeybinding>>();
+        let keybindings_data =
+            self.config.keybindings.capacity() * std::mem::size_of::<ParsedKeybinding>();
+        heap_size += keybindings_overhead + keybindings_data;
+
+        // Add estimated size for keybindings' internal strings (30 bytes per keybinding)
+        heap_size += self.config.keybindings.len() * 30;
+
+        // Add size of menus Vec
+        let menus_overhead = std::mem::size_of::<Vec<ParsedMenu>>();
+        let menus_data = self.config.menus.capacity() * std::mem::size_of::<ParsedMenu>();
+        heap_size += menus_overhead + menus_data;
+
+        // Add estimated size for menus' internal strings (40 bytes per menu)
+        heap_size += self.config.menus.len() * 40;
+
+        // Add size of buffer_editor and show_banner Values (exact calculation)
+        heap_size += calculate_value_size(&self.config.buffer_editor);
+        heap_size += calculate_value_size(&self.config.show_banner);
+
+        (stack_size, heap_size)
+    }
+
+    #[cfg(feature = "plugin")]
+    /// Get the memory size of the plugins collection, including both stack and heap allocations
+    pub fn plugins_memory_size(&self) -> (usize, usize) {
+        let stack_size = std::mem::size_of::<Vec<Arc<dyn RegisteredPlugin>>>();
+        let mut heap_size = 0;
+
+        // Size of the Vec itself on the heap
+        let vec_overhead = std::mem::size_of::<Vec<Arc<dyn RegisteredPlugin>>>();
+        let vec_allocation =
+            self.plugins.capacity() * std::mem::size_of::<Arc<dyn RegisteredPlugin>>();
+        heap_size += vec_overhead + vec_allocation;
+
+        // Calculate heap size of all plugins
+        for plugin in self.plugins.iter() {
+            // Size of the Arc control block for each plugin
+            let arc_control_block = 24; // Typical size on 64-bit systems
+            heap_size += arc_control_block;
+
+            // Size of the vtable pointer for the trait object
+            let vtable_ptr_size = std::mem::size_of::<usize>();
+            heap_size += vtable_ptr_size;
+
+            // Get plugin identity to calculate exact name size
+            let identity = plugin.identity();
+            heap_size += std::mem::size_of::<String>() + identity.name().len();
+
+            // Add version string size if available
+            // Note: The PluginIdentity trait might not have a version() method in all implementations
+            // so we'll just estimate a reasonable size for version information
+            heap_size += 20; // Reasonable estimate for version string
+
+            // Calculate size of signatures
+            // Note: The RegisteredPlugin trait might not have a signatures() method in all implementations
+            // so we'll just estimate a reasonable size for signatures
+            heap_size += 256; // Reasonable estimate for signatures
+        }
+
+        (stack_size, heap_size)
+    }
+
     pub fn new() -> Self {
         Self {
             files: vec![],
@@ -597,6 +1160,25 @@ impl EngineState {
     pub fn num_spans(&self) -> usize {
         self.spans.len()
     }
+
+    pub fn num_env_vars(&self) -> usize {
+        self.env_vars.values().map(|overlay| overlay.len()).sum()
+    }
+
+    pub fn num_config_vars(&self) -> usize {
+        self.config.entry_count()
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn num_plugins(&self) -> usize {
+        self.plugins.len()
+    }
+
+    #[cfg(not(feature = "plugin"))]
+    pub fn num_plugins(&self) -> usize {
+        0
+    }
+
     pub fn print_vars(&self) {
         for var in self.vars.iter().enumerate() {
             println!("var{}: {:?}", var.0, var.1);
@@ -1103,7 +1685,7 @@ impl Default for EngineState {
 
 #[cfg(test)]
 mod engine_state_tests {
-    use crate::engine::StateWorkingSet;
+    use crate::{engine::StateWorkingSet, record};
     use std::str::{from_utf8, Utf8Error};
 
     use super::*;
@@ -1190,6 +1772,344 @@ mod engine_state_tests {
         assert!(
             engine_state.get_plugin_config("example").is_some(),
             "Plugin configuration not found"
+        );
+    }
+
+    #[test]
+    fn test_files_memory_size() {
+        let mut engine_state = EngineState::new();
+
+        // Initial state should have empty files
+        let (stack_size, heap_size) = engine_state.files_memory_size();
+        assert!(stack_size > 0, "Stack size should be non-zero");
+        assert_eq!(heap_size, 0, "Heap size should be zero for empty files");
+
+        // Add a file with known content
+        let content = b"test content";
+        let file_name = "test.nu";
+        engine_state.add_file(file_name.into(), content.to_vec().into());
+
+        // Calculate expected size manually
+        let (_, new_heap_size) = engine_state.files_memory_size();
+
+        // Verify that the size includes at least the content and filename
+        let expected_min_size = content.len() + file_name.len();
+        assert!(
+            new_heap_size >= expected_min_size,
+            "Heap size ({}) should be at least the sum of content and filename sizes ({})",
+            new_heap_size,
+            expected_min_size
+        );
+
+        // Add another file and verify the size increases proportionally
+        let content2 = b"another test content with more bytes";
+        let file_name2 = "test2.nu";
+        engine_state.add_file(file_name2.into(), content2.to_vec().into());
+
+        let (_, newer_heap_size) = engine_state.files_memory_size();
+        let size_increase = newer_heap_size - new_heap_size;
+        let expected_min_increase = content2.len() + file_name2.len();
+
+        assert!(
+            size_increase >= expected_min_increase,
+            "Size increase ({}) should be at least the sum of new content and filename sizes ({})",
+            size_increase,
+            expected_min_increase
+        );
+    }
+
+    #[test]
+    fn test_vars_memory_size() {
+        let mut engine_state = EngineState::new();
+
+        // Get initial size with predefined variables
+        let (_, initial_heap_size) = engine_state.vars_memory_size();
+
+        // Add variables with different types and verify size increases appropriately
+        let var_count_before = engine_state.vars.len();
+
+        // Add an integer variable with known size
+        let int_val = Value::int(42, Span::test_data());
+        let int_val_size = calculate_value_size(&int_val);
+
+        engine_state.vars.push(Variable {
+            declaration_span: Span::test_data(),
+            ty: Type::Int,
+            mutable: false,
+            const_val: Some(int_val),
+        });
+
+        let (_, int_var_heap_size) = engine_state.vars_memory_size();
+        let int_var_added_size = int_var_heap_size - initial_heap_size;
+
+        // Verify that the size increase includes the Value size
+        assert!(
+            int_var_added_size >= int_val_size,
+            "Size increase ({}) should include at least the Value size ({})",
+            int_var_added_size,
+            int_val_size
+        );
+
+        // Add a string variable with known length
+        let test_string = "test string value";
+        let string_val = Value::string(test_string, Span::test_data());
+        let string_val_size = calculate_value_size(&string_val);
+
+        engine_state.vars.push(Variable {
+            declaration_span: Span::test_data(),
+            ty: Type::String,
+            mutable: false,
+            const_val: Some(string_val),
+        });
+
+        let (_, string_var_heap_size) = engine_state.vars_memory_size();
+        let string_var_added_size = string_var_heap_size - int_var_heap_size;
+
+        // Verify that the size increase includes the string Value size
+        assert!(
+            string_var_added_size >= string_val_size,
+            "Size increase ({}) should include at least the string Value size ({})",
+            string_var_added_size,
+            string_val_size
+        );
+
+        // Verify that the string variable size includes the string content
+        assert!(
+            string_var_added_size >= test_string.len(),
+            "String variable size ({}) should include at least the string content size ({})",
+            string_var_added_size,
+            test_string.len()
+        );
+
+        // Verify total count of variables
+        assert_eq!(
+            engine_state.vars.len(),
+            var_count_before + 2,
+            "Should have added exactly 2 variables"
+        );
+    }
+
+    #[test]
+    fn test_spans_memory_size() {
+        let mut engine_state = EngineState::new();
+
+        // Initial state has one span (UNKNOWN_SPAN)
+        let initial_span_count = engine_state.spans.len();
+        let (_, initial_heap_size) = engine_state.spans_memory_size();
+
+        // Add multiple spans and check that memory size increases proportionally
+        let spans_to_add = 10;
+        for i in 0..spans_to_add {
+            engine_state.add_span(Span::new(i, i + 10));
+        }
+
+        let (_, new_heap_size) = engine_state.spans_memory_size();
+        let size_increase = new_heap_size - initial_heap_size;
+
+        // Calculate expected size increase (spans_to_add * size of one Span)
+        let expected_increase = spans_to_add * std::mem::size_of::<Span>();
+
+        assert_eq!(
+            engine_state.spans.len(),
+            initial_span_count + spans_to_add,
+            "Should have added exactly {} spans",
+            spans_to_add
+        );
+
+        assert!(
+            size_increase >= expected_increase,
+            "Size increase ({}) should be at least the number of spans added times the size of Span ({})",
+            size_increase, expected_increase
+        );
+    }
+
+    #[test]
+    fn test_env_vars_memory_size() {
+        let mut engine_state = EngineState::new();
+
+        // Get initial size with default env_vars
+        let (_, initial_heap_size) = engine_state.env_vars_memory_size();
+
+        // Add environment variables with different sizes
+        let small_var_name = "TEST_VAR1";
+        let small_var_value = "small value";
+        let small_val = Value::string(small_var_value, Span::test_data());
+
+        engine_state.add_env_var(small_var_name.to_string(), small_val);
+
+        let (_, small_var_heap_size) = engine_state.env_vars_memory_size();
+        let small_var_added_size = small_var_heap_size - initial_heap_size;
+
+        // Verify that the size increase is reasonable
+        assert!(
+            small_var_added_size > 0,
+            "Size increase should be positive after adding an env var"
+        );
+
+        // Verify that the size increase includes at least the string content
+        assert!(
+            small_var_added_size >= small_var_value.len(),
+            "Size increase ({}) should include at least the value content size ({})",
+            small_var_added_size,
+            small_var_value.len()
+        );
+
+        // Add a larger environment variable
+        let large_var_name = "TEST_VAR2";
+        let large_var_value = "this is a much larger value with more bytes";
+        let large_val = Value::string(large_var_value, Span::test_data());
+
+        engine_state.add_env_var(large_var_name.to_string(), large_val);
+
+        let (_, large_var_heap_size) = engine_state.env_vars_memory_size();
+        let large_var_added_size = large_var_heap_size - small_var_heap_size;
+
+        // Verify that the size increase is reasonable
+        assert!(
+            large_var_added_size > 0,
+            "Size increase should be positive after adding an env var"
+        );
+
+        // Verify that the size increase includes at least the string content
+        assert!(
+            large_var_added_size >= large_var_value.len(),
+            "Size increase ({}) should include at least the value content size ({})",
+            large_var_added_size,
+            large_var_value.len()
+        );
+
+        // Verify that the larger variable takes more space than the smaller one
+        assert!(
+            large_var_added_size > small_var_added_size,
+            "Large var size ({}) should be greater than small var size ({})",
+            large_var_added_size,
+            small_var_added_size
+        );
+    }
+
+    #[test]
+    fn test_config_memory_size() {
+        let mut engine_state = EngineState::new();
+
+        // Get initial size with default config
+        let (_, initial_heap_size) = engine_state.config_memory_size();
+
+        // Modify config with known data sizes
+        let mut config = Config::clone(engine_state.get_config());
+
+        // Add entries to the plugins HashMap
+        let plugin_key = "test_plugin";
+        let plugin_value = "test plugin value";
+        let plugin_val = Value::string(plugin_value, Span::test_data());
+        let plugin_val_size = calculate_value_size(&plugin_val);
+
+        config.plugins.insert(plugin_key.to_string(), plugin_val);
+
+        engine_state.set_config(config);
+
+        let (_, new_heap_size) = engine_state.config_memory_size();
+        let size_increase = new_heap_size - initial_heap_size;
+
+        // Calculate the expected minimum size increase
+        let expected_min_size =
+            // Key string size
+            std::mem::size_of::<String>() + plugin_key.len() +
+            // Value size
+            plugin_val_size;
+
+        // Verify that the size increase includes the key, value, and overhead
+        assert!(
+            size_increase >= expected_min_size,
+            "Size increase ({}) should include at least the key overhead + content and value size ({})",
+            size_increase,
+            expected_min_size
+        );
+
+        // Verify that the size increase includes the plugin value content
+        assert!(
+            size_increase >= plugin_value.len(),
+            "Size increase ({}) should include at least the plugin value content size ({})",
+            size_increase,
+            plugin_value.len()
+        );
+    }
+
+    #[test]
+    fn test_calculate_value_size() {
+        // Test with different value types and verify relative sizes
+
+        // Integer value (fixed size)
+        let int_val = Value::int(42, Span::test_data());
+        let int_size = calculate_value_size(&int_val);
+
+        // String value with known length
+        let string_content = "test string";
+        let string_val = Value::string(string_content, Span::test_data());
+        let string_size = calculate_value_size(&string_val);
+
+        // String should be larger than int by at least the string length
+        assert!(
+            string_size > int_size,
+            "String value size ({}) should be larger than int value size ({})",
+            string_size,
+            int_size
+        );
+        assert!(
+            string_size >= int_size + string_content.len(),
+            "String value size ({}) should be at least int size ({}) plus string length ({})",
+            string_size,
+            int_size,
+            string_content.len()
+        );
+
+        // List with known elements
+        let list_val = Value::list(vec![int_val.clone(), string_val.clone()], Span::test_data());
+        let list_size = calculate_value_size(&list_val);
+
+        // List should be larger than the sum of its elements
+        let elements_size = int_size + string_size;
+        assert!(
+            list_size > elements_size,
+            "List value size ({}) should be larger than sum of element sizes ({})",
+            list_size,
+            elements_size
+        );
+
+        // Record with known fields
+        let record_val = Value::record(
+            record! {
+                "key1" => int_val.clone(),
+                "key2" => string_val.clone(),
+            },
+            Span::test_data(),
+        );
+        let record_size = calculate_value_size(&record_val);
+
+        // Record should be larger than the sum of its fields plus key names
+        let keys_size = "key1".len() + "key2".len();
+        assert!(
+            record_size > elements_size + keys_size,
+            "Record value size ({}) should be larger than sum of element sizes ({}) plus key sizes ({})",
+            record_size, elements_size, keys_size
+        );
+
+        // Nested structure
+        let nested_val = Value::list(
+            vec![
+                record_val.clone(),
+                Value::list(vec![int_val.clone(), string_val.clone()], Span::test_data()),
+            ],
+            Span::test_data(),
+        );
+        let nested_size = calculate_value_size(&nested_val);
+
+        // Nested structure should be larger than the sum of its components
+        assert!(
+            nested_size > record_size + list_size,
+            "Nested value size ({}) should be larger than sum of component sizes ({} + {})",
+            nested_size,
+            record_size,
+            list_size
         );
     }
 }

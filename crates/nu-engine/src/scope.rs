@@ -522,24 +522,117 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_engine_state(&self, span: Span) -> Value {
-        let num_env_vars = self
-            .engine_state
-            .env_vars
-            .values()
-            .map(|overlay| overlay.len() as i64)
-            .sum();
+        // let num_env_vars = self
+        //     .engine_state
+        //     .env_vars
+        //     .values()
+        //     .map(|overlay| overlay.len() as i64)
+        //     .sum();
 
-        Value::record(
+        // Value::record(
+        //     record! {
+        //         "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
+        //         "num_vars" => Value::int(self.engine_state.num_vars() as i64, span),
+        //         "num_decls" => Value::int(self.engine_state.num_decls() as i64, span),
+        //         "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
+        //         "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
+        //         "num_env_vars" => Value::int(num_env_vars, span),
+        //     },
+        //     span,
+        // )
+        let mut records = vec![];
+        let files_memory_size = self.engine_state.files_memory_size();
+        let vars_memory_size = self.engine_state.vars_memory_size();
+        let decls_memory_size = self.engine_state.decls_memory_size();
+        let blocks_memory_size = self.engine_state.blocks_memory_size();
+        let spans_memory_size = self.engine_state.spans_memory_size();
+        let env_vars_memory_size = self.engine_state.env_vars_memory_size();
+        let config_memory_size = self.engine_state.config_memory_size();
+        let plugins_memory_size = self.engine_state.plugins_memory_size();
+
+        records.push(Value::record(
             record! {
-                "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
-                "num_vars" => Value::int(self.engine_state.num_vars() as i64, span),
-                "num_decls" => Value::int(self.engine_state.num_decls() as i64, span),
-                "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
-                "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
-                "num_env_vars" => Value::int(num_env_vars, span),
+                "name" => Value::string("source_bytes", span),
+                "count" => Value::int(self.engine_state.next_span_start() as i64, span),
+                "stack_size" => Value::int(0, span),
+                "heap_size" => Value::int(0, span),
             },
             span,
-        )
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("files_memory_size", span),
+                "count" => Value::int(self.engine_state.num_files() as i64, span),
+                "stack_size" => Value::int(files_memory_size.0 as i64, span),
+                "heap_size" => Value::int(files_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("vars_memory_size", span),
+                "count" => Value::int(self.engine_state.num_vars() as i64, span),
+                "stack_size" => Value::int(vars_memory_size.0 as i64, span),
+                "heap_size" => Value::int(vars_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("decls_memory_size", span),
+                "count" => Value::int(self.engine_state.num_decls() as i64, span),
+                "stack_size" => Value::int(decls_memory_size.0 as i64, span),
+                "heap_size" => Value::int(decls_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("blocks_memory_size", span),
+                "count" => Value::int(self.engine_state.num_blocks() as i64, span),
+                "stack_size" => Value::int(blocks_memory_size.0 as i64, span),
+                "heap_size" => Value::int(blocks_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("spans_memory_size", span),
+                "count" => Value::int(self.engine_state.num_spans() as i64, span),
+                "stack_size" => Value::int(spans_memory_size.0 as i64, span),
+                "heap_size" => Value::int(spans_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("env_vars_memory_size", span),
+                "count" => Value::int(self.engine_state.num_env_vars() as i64, span),
+                "stack_size" => Value::int(env_vars_memory_size.0 as i64, span),
+                "heap_size" => Value::int(env_vars_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("config_memory_size", span),
+                "count" => Value::int(self.engine_state.num_config_vars() as i64, span),
+                "stack_size" => Value::int(config_memory_size.0 as i64, span),
+                "heap_size" => Value::int(config_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+        records.push(Value::record(
+            record! {
+                "name" => Value::string("plugins_memory_size", span),
+                "count" => Value::int(self.engine_state.num_plugins() as i64, span),
+                "stack_size" => Value::int(plugins_memory_size.0 as i64, span),
+                "heap_size" => Value::int(plugins_memory_size.1 as i64, span),
+            },
+            span,
+        ));
+
+        Value::list(records, span)
     }
 }
 
