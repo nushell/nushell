@@ -4189,30 +4189,49 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional {
-                                        arg: PositionalArg { shape, var_id, custom_completion, .. },
+                                        arg:
+                                            PositionalArg {
+                                                shape,
+                                                var_id,
+                                                custom_completion,
+                                                ..
+                                            },
                                         required: _,
                                         type_annotated,
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         // Extract custom_completion from CompleterWrapper if present
-                                        if let SyntaxShape::CompleterWrapper(_, decl_id) = &syntax_shape {
+                                        if let SyntaxShape::CompleterWrapper(_, decl_id) =
+                                            &syntax_shape
+                                        {
                                             *custom_completion = Some(*decl_id);
                                         }
                                         *shape = syntax_shape;
                                         *type_annotated = true;
                                     }
                                     Arg::RestPositional(PositionalArg {
-                                        shape, var_id, custom_completion, ..
+                                        shape,
+                                        var_id,
+                                        custom_completion,
+                                        ..
                                     }) => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         // Extract custom_completion from CompleterWrapper if present
-                                        if let SyntaxShape::CompleterWrapper(_, decl_id) = &syntax_shape {
+                                        if let SyntaxShape::CompleterWrapper(_, decl_id) =
+                                            &syntax_shape
+                                        {
                                             *custom_completion = Some(*decl_id);
                                         }
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag {
-                                        flag: Flag { arg, var_id, custom_completion, .. },
+                                        flag:
+                                            Flag {
+                                                arg,
+                                                var_id,
+                                                custom_completion,
+                                                ..
+                                            },
                                         type_annotated,
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
@@ -4224,7 +4243,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             ));
                                         }
                                         // Extract custom_completion from CompleterWrapper if present
-                                        if let SyntaxShape::CompleterWrapper(_, decl_id) = &syntax_shape {
+                                        if let SyntaxShape::CompleterWrapper(_, decl_id) =
+                                            &syntax_shape
+                                        {
                                             *custom_completion = Some(*decl_id);
                                         }
                                         *arg = Some(syntax_shape);
@@ -5185,8 +5206,7 @@ pub fn parse_value(
     match shape {
         SyntaxShape::CompleterWrapper(shape, _custom_completion) => {
             // Ignore the custom_completion field since it's now stored in PositionalArg/Flag
-            let expression = parse_value(working_set, span, shape);
-            expression
+            parse_value(working_set, span, shape)
         }
         SyntaxShape::Number => parse_number(working_set, span),
         SyntaxShape::Float => parse_float(working_set, span),
