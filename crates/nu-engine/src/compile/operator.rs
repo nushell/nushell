@@ -70,10 +70,10 @@ pub(crate) fn compile_binary_op(
                     Boolean::Xor => unreachable!(),
                 };
 
+                // Before match against lhs_reg, it's important to collect it first
+                builder.push(Instruction::Collect { src_dst: lhs_reg }.into_spanned(lhs.span))?;
                 // Short-circuit to return `lhs_reg`. `match` op does not consume `lhs_reg`.
                 let short_circuit_label = builder.label(None);
-                // Important to collect it first
-                builder.push(Instruction::Collect { src_dst: lhs_reg }.into_spanned(op.span))?;
                 builder.r#match(
                     Pattern::Value(Value::bool(short_circuit_value, op.span)),
                     lhs_reg,
