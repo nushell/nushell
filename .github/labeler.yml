@@ -30,9 +30,11 @@ parser:
 pr:plugins:
   - changed-files:
     - any-glob-to-any-file:
+      # plugins API
       - crates/nu-plugin/**
       - crates/nu-plugin-core/**
       - crates/nu-plugin-engine/**
       - crates/nu-plugin-protocol/**
       - crates/nu-plugin-test-support/**
-
+      # specific plugins (like polars)
+      - crates/nu_plugin_*
