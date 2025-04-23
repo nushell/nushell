@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{ast::PathMember, engine::StateWorkingSet, Config, ListStream};
+use uucore::format::{parse_spec_and_escape, FormatArgument, FormatError, FormatItem};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -12,20 +13,26 @@ impl Command for FormatPattern {
     fn signature(&self) -> Signature {
         Signature::build("format pattern")
             .input_output_types(vec![
+                (Type::list(Type::Any), Type::String),
                 (Type::table(), Type::List(Box::new(Type::String))),
                 (Type::record(), Type::Any),
+                (Type::Any, Type::String),
             ])
             .required(
                 "pattern",
                 SyntaxShape::String,
                 "The pattern to output. e.g.) \"{foo}: {bar}\".",
             )
+            .switch("printf", "Use printf style pattern.", None)
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
     fn description(&self) -> &str {
-        "Format columns into a string using a simple pattern."
+        r"Format values into a string using either a simple pattern or `printf`-compatible pattern.
+Simple pattern supports input of type list<any>, table, and record;
+`printf` pattern supports a limited set of primitive types as input, namely string, int and float, and composite types such as list, table 
+        "
     }
 
     fn run(
@@ -37,6 +44,7 @@ impl Command for FormatPattern {
     ) -> Result<PipelineData, ShellError> {
         let mut working_set = StateWorkingSet::new(engine_state);
 
+        let use_printf = call.has_flag(engine_state, stack, "printf")?;
         let specified_pattern: Result<Value, ShellError> = call.req(engine_state, stack, 0);
         let input_val = input.into_value(call.head)?;
         // add '$it' variable to support format like this: $it.column1.column2.
@@ -45,9 +53,9 @@ impl Command for FormatPattern {
 
         let config = stack.get_config(engine_state);
 
-        match specified_pattern {
-            Err(e) => Err(e),
-            Ok(pattern) => {
+        match (specified_pattern, use_printf) {
+            (Err(e), _) => Err(e),
+            (Ok(pattern), false) => {
                 let string_span = pattern.span();
                 let string_pattern = pattern.coerce_into_string()?;
                 // the string span is start as `"`, we don't need the character
@@ -60,6 +68,7 @@ impl Command for FormatPattern {
 
                 format(input_val, &ops, engine_state, &config, call.head)
             }
+            (Ok(pattern), true) => format_printf(input_val, pattern, call.head),
         }
     }
 
@@ -77,6 +86,16 @@ impl Command for FormatPattern {
                     vec![Value::test_string("v2"), Value::test_string("v4")],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Unescape a fully quoted json using printf",
+                example: r#""\{\\\"foo\\\": \\\"bar\\\"\}" | format pattern --printf "%b""#,
+                result: Some(Value::test_string(r#"{"foo": "bar"}"#)),
+            },
+            Example {
+                description: "Using printf to substitute multiple args",
+                example: r#"["a", 1] | format pattern --printf "first = %s, second = %d""#,
+                result: Some(Value::test_string("first = a, second = 1")),
             },
         ]
     }
@@ -263,6 +282,86 @@ fn format_record(
         }
     }
     Ok(output)
+}
+
+fn assert_specifier_count_eq_arg_count(
+    spec_count: usize,
+    arg_count: usize,
+    span: Span,
+) -> Result<(), ShellError> {
+    if spec_count != arg_count {
+        Err(ShellError::IncompatibleParametersSingle {
+            msg: format!(
+                "Number of arguments ({}) provided does not match the number of specifiers ({}) within the pattern.",
+                arg_count, spec_count,
+            )
+            .into(),
+            span: span,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn format_printf(
+    input_data: Value,
+    pattern: Value,
+    head_span: Span,
+) -> Result<PipelineData, ShellError> {
+    let pattern_str = pattern.coerce_into_string()?;
+    let spec_count = parse_spec_and_escape(pattern_str.as_ref())
+        .filter_map(|item| match item {
+            Ok(FormatItem::Spec(_)) => Some(()),
+            _ => None,
+        })
+        .count();
+    let args: Vec<String> = match input_data {
+        v @ Value::List { .. } => {
+            let span = v.span();
+            let vals = v.into_list()?;
+            let arg_count = Vec::len(&vals);
+            assert_specifier_count_eq_arg_count(spec_count, arg_count, span)?;
+            vals.into_iter()
+                .map(Value::coerce_into_string)
+                .collect::<Result<Vec<_>, _>>()?
+        }
+        v @ Value::Nothing {..} => {
+            assert_specifier_count_eq_arg_count(spec_count, 0, v.span())?;
+            vec![]
+        }
+        v => {
+            assert_specifier_count_eq_arg_count(spec_count, 1, v.span())?;
+            vec![v.coerce_into_string()?]
+        }
+    };
+
+    match printf_spec_escape(pattern_str, args) {
+        Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
+        Err(err) => Err(ShellError::GenericError {
+            error: err.to_string(),
+            msg: err.to_string(),
+            span: Some(head_span),
+            help: None,
+            inner: vec![],
+        }),
+    }
+}
+
+pub fn printf_spec_escape(pattern: String, args: Vec<String>) -> Result<String, FormatError> {
+    let mut writer: Vec<_> = Vec::new();
+    let args: Vec<FormatArgument> = args.into_iter().map(FormatArgument::Unparsed).collect();
+    let mut args = args.iter().peekable();
+
+    for item in parse_spec_and_escape(pattern.as_ref()) {
+        match item {
+            Ok(item) => {
+                item.write(&mut writer, &mut args)?;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(String::from_utf8_lossy(&writer).to_string())
 }
 
 #[cfg(test)]
