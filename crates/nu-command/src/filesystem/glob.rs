@@ -264,7 +264,7 @@ impl Command for Glob {
                     WalkBehavior {
                         depth: folder_depth,
                         link: link_behavior,
-                    }
+                    },
                 )
                 .into_owned()
                 .flatten();

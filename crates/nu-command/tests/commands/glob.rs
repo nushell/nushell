@@ -179,16 +179,17 @@ fn glob_follow_symlinks() {
     Playground::setup("glob_follow_symlinks", |dirs, sandbox| {
         // Create a directory with some files
         sandbox.mkdir("target_dir");
-        sandbox.within("target_dir").with_files(&[
-            EmptyFile("target_file.txt"),
-        ]);
-        
+        sandbox
+            .within("target_dir")
+            .with_files(&[EmptyFile("target_file.txt")]);
+
         let target_dir = dirs.test().join("target_dir");
         let symlink_path = dirs.test().join("symlink_dir");
         #[cfg(unix)]
         std::os::unix::fs::symlink(target_dir, &symlink_path).expect("Failed to create symlink");
         #[cfg(windows)]
-        std::os::windows::fs::symlink_dir(target_dir, &symlink_path).expect("Failed to create symlink");
+        std::os::windows::fs::symlink_dir(target_dir, &symlink_path)
+            .expect("Failed to create symlink");
 
         // on some systems/filesystems, symlinks are followed by default
         // on others (like Linux /sys), they aren't
@@ -198,6 +199,9 @@ fn glob_follow_symlinks() {
             "glob 'symlink_dir/*.txt' --follow-symlinks | length",
         );
 
-        assert_eq!(with_flag.out, "1", "Should find file with --follow-symlinks flag");
+        assert_eq!(
+            with_flag.out, "1",
+            "Should find file with --follow-symlinks flag"
+        );
     })
 }
