@@ -212,6 +212,7 @@ fn is_subexpression(expr: &Expr) -> bool {
         Expr::FullCellPath(inner) => {
             matches!(&inner.head.expr, &Expr::Subexpression(..))
         }
+        Expr::Subexpression(..) => true,
         _ => false,
     }
 }
