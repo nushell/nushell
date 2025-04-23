@@ -42,7 +42,10 @@ impl Command for MetadataAccess {
         // `ClosureEvalOnce` is not used as it uses `Stack::captures_to_stack` rather than
         // `Stack::captures_to_stack_preserve_out_dest`. This command shouldn't collect streams
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let metadata_record = Value::record(build_metadata_record(input.metadata().as_ref(), call.head), call.head);
+        let metadata_record = Value::record(
+            build_metadata_record(input.metadata().as_ref(), call.head),
+            call.head,
+        );
 
         if let Some(var_id) = block.signature.get_positional(0).and_then(|var| var.var_id) {
             callee_stack.add_var(var_id, metadata_record)
