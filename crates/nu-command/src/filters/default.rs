@@ -124,7 +124,6 @@ fn default(
                         val: ref mut record,
                         ..
                     } => {
-                        let record = record.to_mut();
                         if let Some(val) = record.get_mut(&column.item) {
                             if matches!(val, Value::Nothing { .. })
                                 || (default_when_empty && val.is_empty())

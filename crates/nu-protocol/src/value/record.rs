@@ -1,13 +1,12 @@
 //! Our insertion ordered map-type [`Record`]
-use std::{iter::FusedIterator, ops::RangeBounds};
-
 use crate::{ShellError, Span, Value};
-
+use ecow::EcoVec;
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
+use std::iter::FusedIterator;
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
-    inner: Vec<(String, Value)>,
+    inner: EcoVec<(String, Value)>,
 }
 
 impl Record {
@@ -17,7 +16,7 @@ impl Record {
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            inner: Vec::with_capacity(capacity),
+            inner: EcoVec::with_capacity(capacity),
         }
     }
 
@@ -100,12 +99,13 @@ impl Record {
 
     pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
         self.inner
+            .make_mut()
             .iter_mut()
             .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
     }
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
-        self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
+        self.inner.get(idx).map(|(col, val)| (col, val))
     }
 
     /// Remove single value by key
@@ -152,7 +152,7 @@ impl Record {
     ///
     /// fn remove_foo_recursively(val: &mut Value) {
     ///     if let Value::Record {val, ..} = val {
-    ///         val.to_mut().retain_mut(keep_non_foo);
+    ///         val.retain_mut(keep_non_foo);
     ///     }
     /// }
     ///
@@ -184,7 +184,7 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
-        self.inner.retain_mut(|(col, val)| keep(col, val));
+        self.inner.retain(|(k, v)| keep(k, v));
     }
 
     /// Truncate record to the first `len` elements.
@@ -235,35 +235,35 @@ impl Record {
         }
     }
 
-    /// Obtain an iterator to remove elements in `range`
-    ///
-    /// Elements not consumed from the iterator will be dropped
-    ///
-    /// ```rust
-    /// use nu_protocol::{record, Value};
-    ///
-    /// let mut rec = record!(
-    ///     "a" => Value::test_nothing(),
-    ///     "b" => Value::test_int(42),
-    ///     "c" => Value::test_string("foo"),
-    /// );
-    /// {
-    ///     let mut drainer = rec.drain(1..);
-    ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
-    ///     // Dropping the `Drain`
-    /// }
-    /// let mut rec_iter = rec.into_iter();
-    /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
-    /// assert_eq!(rec_iter.next(), None);
-    /// ```
-    pub fn drain<R>(&mut self, range: R) -> Drain
-    where
-        R: RangeBounds<usize> + Clone,
-    {
-        Drain {
-            iter: self.inner.drain(range),
-        }
-    }
+    // /// Obtain an iterator to remove elements in `range`
+    // ///
+    // /// Elements not consumed from the iterator will be dropped
+    // ///
+    // /// ```rust
+    // /// use nu_protocol::{record, Value};
+    // ///
+    // /// let mut rec = record!(
+    // ///     "a" => Value::test_nothing(),
+    // ///     "b" => Value::test_int(42),
+    // ///     "c" => Value::test_string("foo"),
+    // /// );
+    // /// {
+    // ///     let mut drainer = rec.drain(1..);
+    // ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
+    // ///     // Dropping the `Drain`
+    // /// }
+    // /// let mut rec_iter = rec.into_iter();
+    // /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
+    // /// assert_eq!(rec_iter.next(), None);
+    // /// ```
+    // pub fn drain<R>(&mut self, range: R) -> Drain
+    // where
+    //     R: RangeBounds<usize> + Clone,
+    // {
+    //     Drain {
+    //         iter: self.inner.drain(range)
+    //     }
+    // }
 
     /// Sort the record by its columns.
     ///
@@ -288,7 +288,7 @@ impl Record {
     /// );
     /// ```
     pub fn sort_cols(&mut self) {
-        self.inner.sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        self.inner.make_mut().sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
     }
 }
 
@@ -383,7 +383,7 @@ impl Extend<(String, Value)> for Record {
 }
 
 pub struct IntoIter {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoIter {
@@ -503,7 +503,7 @@ impl<'a> IntoIterator for &'a mut Record {
 
     fn into_iter(self) -> Self::IntoIter {
         IterMut {
-            iter: self.inner.iter_mut(),
+            iter: self.inner.make_mut().iter_mut(),
         }
     }
 }
@@ -539,7 +539,7 @@ impl ExactSizeIterator for Columns<'_> {
 impl FusedIterator for Columns<'_> {}
 
 pub struct IntoColumns {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoColumns {
@@ -599,7 +599,7 @@ impl ExactSizeIterator for Values<'_> {
 impl FusedIterator for Values<'_> {}
 
 pub struct IntoValues {
-    iter: std::vec::IntoIter<(String, Value)>,
+    iter: ecow::vec::IntoIter<(String, Value)>,
 }
 
 impl Iterator for IntoValues {
@@ -628,35 +628,39 @@ impl ExactSizeIterator for IntoValues {
 
 impl FusedIterator for IntoValues {}
 
-pub struct Drain<'a> {
-    iter: std::vec::Drain<'a, (String, Value)>,
-}
+// pub struct Drain<'a> {
+//     iter: std::slice::Iter<'a, (String, Value)>,
+// }
 
-impl Iterator for Drain<'_> {
-    type Item = (String, Value);
+// impl Iterator for Drain<'_> {
+//     type Item = (String, Value);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
+//     fn next(&mut self) -> Option<Self::Item> {
+//         self.iter
+//             .next()
+//             .map(|(col, val)| (col.clone(), val.clone()))
+//     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
+//     fn size_hint(&self) -> (usize, Option<usize>) {
+//         self.iter.size_hint()
+//     }
+// }
 
-impl DoubleEndedIterator for Drain<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back()
-    }
-}
+// impl DoubleEndedIterator for Drain<'_> {
+//     fn next_back(&mut self) -> Option<Self::Item> {
+//         self.iter
+//             .next_back()
+//             .map(|(col, val)| (col.clone(), val.clone()))
+//     }
+// }
 
-impl ExactSizeIterator for Drain<'_> {
-    fn len(&self) -> usize {
-        self.iter.len()
-    }
-}
+// impl ExactSizeIterator for Drain<'_> {
+//     fn len(&self) -> usize {
+//         self.iter.len()
+//     }
+// }
 
-impl FusedIterator for Drain<'_> {}
+// impl FusedIterator for Drain<'_> {}
 
 #[macro_export]
 macro_rules! record {

@@ -138,7 +138,7 @@ fn handle(
     values
         .into_iter()
         .map(|val| match val {
-            Value::Record { val, .. } => Ok(val.into_owned()),
+            Value::Record { val, .. } => Ok(val),
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: other.get_type().to_string(),

@@ -1,7 +1,6 @@
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Value};
-use nu_utils::SharedCow;
 
 use crate::{
     common::{get_index_style, load_theme, nu_value_to_string_clean},
@@ -41,18 +40,14 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
             // Take ownership of the record and reassign to &mut
             // We do this to have owned keys through `.into_iter`
             let record = std::mem::take(val);
-            *val = SharedCow::new(
-                record
-                    .into_owned()
-                    .into_iter()
-                    .map(|(mut header, mut val)| {
-                        colorize_value(&mut val, config, style_computer);
-                        header = colorize_text(&header, style.color_style).unwrap_or(header);
-
-                        (header, val)
-                    })
-                    .collect(),
-            );
+            *val = record
+                .into_iter()
+                .map(|(header, mut val)| {
+                    colorize_value(&mut val, config, style_computer);
+                    let header = colorize_text(&header, style.color_style).unwrap_or(header);
+                    (header, val)
+                })
+                .collect();
         }
         Value::List { vals, .. } => {
             for val in vals {

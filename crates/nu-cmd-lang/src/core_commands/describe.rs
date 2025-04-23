@@ -266,16 +266,15 @@ fn describe_value_inner(
         | Value::String { .. }
         | Value::Glob { .. }
         | Value::Nothing { .. } => Description::String(value.get_type().to_string()),
-        Value::Record { val, .. } => {
-            let mut columns = val.into_owned();
-            for (_, val) in &mut columns {
+        Value::Record { mut val, .. } => {
+            for (_, val) in &mut val {
                 *val =
                     describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
             }
 
             Description::Record(record! {
                 "type" => Value::string("record", head),
-                "columns" => Value::record(columns, head),
+                "columns" => Value::record(val, head),
             })
         }
         Value::List { mut vals, .. } => {

@@ -87,7 +87,7 @@ pub trait Eval {
                             let inner_span = inner.span(&state);
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in inner_val.into_owned() {
+                                    for (col_name, val) in inner_val {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,

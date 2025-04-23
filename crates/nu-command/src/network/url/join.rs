@@ -109,7 +109,6 @@ impl Command for UrlJoin {
                 match value {
                     Value::Record { val, .. } => {
                         let url_components = val
-                            .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
                                 url.add_component(k, v, head, engine_state)

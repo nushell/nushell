@@ -94,7 +94,6 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                         .collect()
                 }
                 Value::Record { val, .. } => val
-                    .into_owned()
                     .into_iter()
                     .map(move |(x, _)| Value::string(x, head))
                     .collect(),
