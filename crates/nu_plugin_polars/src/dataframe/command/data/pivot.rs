@@ -26,7 +26,7 @@ impl PluginCommand for PivotDF {
     }
 
     fn description(&self) -> &str {
-        "Pivot a DataFrame from wide to long format."
+        "Pivot a DataFrame from long to wide format."
     }
 
     fn signature(&self) -> Signature {
