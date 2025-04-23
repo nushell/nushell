@@ -482,7 +482,7 @@ fn subexpression_redirection(#[case] redir: &str, #[case] stdout_file_body: &str
     Playground::setup("file redirection with subexpression", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; nu --testbin echo_env_mixed out-err BAR BAZ {redir} result.txt")
+            format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; (nu --testbin echo_env_mixed out-err BAR BAZ) {redir} result.txt")
         );
         assert!(actual.status.success());
         assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
