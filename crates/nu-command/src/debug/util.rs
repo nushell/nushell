@@ -28,7 +28,6 @@ pub fn extend_record_with_metadata(
     };
 
     record
-
 }
 
 pub fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Record {
