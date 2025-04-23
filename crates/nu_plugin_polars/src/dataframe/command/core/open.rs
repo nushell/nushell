@@ -13,8 +13,9 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
     shell_error::{self, io::IoError},
 };
+use url::Url;
 
-use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
+use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, str::FromStr, sync::Arc};
 
 use polars::{
     lazy::frame::LazyJsonLineReader,
@@ -165,8 +166,17 @@ fn command(
     }
 
     let hive_options = build_hive_options(plugin, call)?;
-    let metadata = PipelineMetadata::default()
-        .with_data_source(DataSource::FilePath(spanned_file.item.clone().into()));
+
+    let uri = spanned_file.item.clone();
+    let data_source = if resource.cloud_options.is_none() {
+        Url::from_str(&uri)
+            .map(DataSource::Url)
+            .unwrap_or_else(|_| DataSource::FilePath(uri.into()))
+    } else {
+        DataSource::FilePath(uri.into())
+    };
+
+    let metadata = PipelineMetadata::default().with_data_source(data_source);
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {

@@ -1,8 +1,10 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    DataSource, PipelineData, PipelineMetadata, ShellError, Signature, SyntaxShape, Type, Value,
     engine::{Call, Closure, Command, EngineState, Stack},
+    PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
+
+use super::util::build_metadata_record;
 
 #[derive(Clone)]
 pub struct MetadataAccess;
@@ -40,7 +42,7 @@ impl Command for MetadataAccess {
         // `ClosureEvalOnce` is not used as it uses `Stack::captures_to_stack` rather than
         // `Stack::captures_to_stack_preserve_out_dest`. This command shouldn't collect streams
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let metadata_record = build_metadata_record(input.metadata().as_ref(), call.head);
+        let metadata_record = Value::record(build_metadata_record(input.metadata().as_ref(), call.head), call.head);
 
         if let Some(var_id) = block.signature.get_positional(0).and_then(|var| var.var_id) {
             callee_stack.add_var(var_id, metadata_record)
@@ -62,36 +64,6 @@ impl Command for MetadataAccess {
             })),
         }]
     }
-}
-
-fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Value {
-    let mut record = Record::new();
-
-    if let Some(x) = metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-                ..
-            } => record.push("source", Value::string("ls", head)),
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-                ..
-            } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::FilePath(path),
-                ..
-            } => record.push(
-                "source",
-                Value::string(path.to_string_lossy().to_string(), head),
-            ),
-            _ => {}
-        }
-        if let Some(ref content_type) = x.content_type {
-            record.push("content_type", Value::string(content_type, head));
-        }
-    }
-
-    Value::record(record, head)
 }
 
 #[cfg(test)]

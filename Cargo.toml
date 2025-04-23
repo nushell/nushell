@@ -169,7 +169,7 @@ umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
 ureq = { version = "2.12", default-features = false, features = ["socks-proxy"] }
-url = "2.2"
+url = { version = "2.2", features = [ "serde" ] }
 uu_cp = "0.0.30"
 uu_mkdir = "0.0.30"
 uu_mktemp = "0.0.30"

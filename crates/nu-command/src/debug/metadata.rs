@@ -4,6 +4,8 @@ use nu_protocol::{
     ast::{Expr, Expression},
 };
 
+use super::util::extend_record_with_metadata;
+
 #[derive(Clone)]
 pub struct Metadata;
 
@@ -79,31 +81,7 @@ impl Command for Metadata {
                     .into_pipeline_data())
             }
             None => {
-                let mut record = Record::new();
-                if let Some(x) = input.metadata().as_ref() {
-                    match x {
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            ..
-                        } => record.push("source", Value::string("ls", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::HtmlThemes,
-                            ..
-                        } => record.push("source", Value::string("into html --list", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::FilePath(path),
-                            ..
-                        } => record.push(
-                            "source",
-                            Value::string(path.to_string_lossy().to_string(), head),
-                        ),
-                        _ => {}
-                    }
-                    if let Some(ref content_type) = x.content_type {
-                        record.push("content_type", Value::string(content_type, head));
-                    }
-                }
-
+                let record = super::util::build_metadata_record(input.metadata().as_ref(), head);
                 Ok(Value::record(record, head).into_pipeline_data())
             }
         }
@@ -140,30 +118,7 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
         ),
     );
 
-    if let Some(x) = metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-                ..
-            } => record.push("source", Value::string("ls", head)),
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-                ..
-            } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::FilePath(path),
-                ..
-            } => record.push(
-                "source",
-                Value::string(path.to_string_lossy().to_string(), head),
-            ),
-            _ => {}
-        }
-        if let Some(ref content_type) = x.content_type {
-            record.push("content_type", Value::string(content_type, head));
-        }
-    }
-
+    record = extend_record_with_metadata(record, metadata, head);
     Value::record(record, head)
 }
 
