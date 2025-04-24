@@ -1,6 +1,7 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Value};
+use tabled::grid::config::Position;
 
 use crate::{
     clean_charset, colorize_space,
@@ -111,7 +112,7 @@ fn create_table_with_header(
         for (col, header) in headers.iter().enumerate() {
             let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = Position::new(row + 1, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -142,12 +143,12 @@ fn create_table_with_header_and_index(
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
-        table.insert((row + 1, 0), text);
+        table.insert(Position::new(row + 1, 0), text);
 
         for (col, header) in headers.iter().enumerate().skip(1) {
             let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = Position::new(row + 1, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -169,7 +170,7 @@ fn create_table_with_no_header(
 
         let (text, style) = get_string_value(item, opts);
 
-        let pos = (row, 0);
+        let pos = Position::new(row, 0);
         table.insert(pos, text);
         table.insert_style(pos, style);
     }
@@ -190,11 +191,11 @@ fn create_table_with_no_header_and_index(
         check_value(item)?;
 
         let text = get_table_row_index(item, opts.config, row, row_offset);
-        table.insert((row, 0), text);
+        table.insert(Position::new(row, 0), text);
 
         let (text, style) = get_string_value(item, opts);
 
-        let pos = (row, 1);
+        let pos = Position::new(row, 1);
         table.insert(pos, text);
         table.insert_style(pos, style);
     }

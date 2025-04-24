@@ -201,7 +201,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             let value = NuRecordsValue::new(cell.text);
             data[row].push(value);
-            data_styles.insert((row, with_index as usize), cell.style);
+            data_styles.insert(Position::new(row, with_index as usize), cell.style);
 
             rows_count = rows_count.saturating_add(cell.size);
         }
@@ -288,7 +288,10 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             let value = NuRecordsValue::new(cell.text);
             data[row + 1].push(value);
-            data_styles.insert((row + 1, col + with_index as usize), cell.style);
+            data_styles.insert(
+                Position::new(row + 1, col + with_index as usize),
+                cell.style,
+            );
 
             column_rows = column_rows.saturating_add(cell.size);
         }
