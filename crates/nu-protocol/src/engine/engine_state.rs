@@ -502,7 +502,7 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(
+    fn update_plugin_file(
         &self,
         updated_items: Vec<PluginRegistryItem>,
     ) -> Result<(), ShellError> {
