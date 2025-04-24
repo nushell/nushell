@@ -207,7 +207,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn move_predecls_to_overlay(&mut self) {
+    fn move_predecls_to_overlay(&mut self) {
         let predecls: HashMap<Vec<u8>, DeclId> =
             self.delta.last_scope_frame_mut().predecls.drain().collect();
 
