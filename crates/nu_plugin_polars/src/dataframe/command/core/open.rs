@@ -168,7 +168,7 @@ fn command(
     let hive_options = build_hive_options(plugin, call)?;
 
     let uri = spanned_file.item.clone();
-    let data_source = if resource.cloud_options.is_none() {
+    let data_source = if resource.cloud_options.is_some() {
         Url::from_str(&uri)
             .map(|url| DataSource::Url(url.into()))
             .unwrap_or_else(|_| DataSource::FilePath(uri.into()))
