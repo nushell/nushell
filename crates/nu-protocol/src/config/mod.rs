@@ -230,4 +230,59 @@ impl Config {
 
         errors.into_shell_error()
     }
+
+    /// Returns the total number of configuration entries across all collections and fields
+    pub fn entry_count(&self) -> usize {
+        let mut count = 0;
+
+        // Count entries in HashMaps
+        count += self.color_config.len();
+        count += self.explore.len();
+        count += self.plugins.len();
+        count += self.plugin_gc.plugins.len();
+
+        // Count entries in Vecs
+        count += self.keybindings.len();
+        count += self.menus.len();
+        count += self.hooks.pre_prompt.len();
+        count += self.hooks.pre_execution.len();
+        count += self.hooks.env_change.len();
+        count += if self.hooks.display_output.is_some() {
+            1
+        } else {
+            0
+        };
+        count += if self.hooks.command_not_found.is_some() {
+            1
+        } else {
+            0
+        };
+
+        // Count individual config fields
+        count += 1; // filesize
+        count += 1; // table
+        count += 1; // ls
+        count += 1; // footer_mode
+        count += 1; // float_precision
+        count += 1; // recursion_limit
+        count += 1; // use_ansi_coloring
+        count += 1; // completions
+        count += 1; // edit_mode
+        count += 1; // history
+        count += 1; // rm
+        count += 1; // shell_integration
+        count += 1; // buffer_editor
+        count += 1; // show_banner
+        count += 1; // bracketed_paste
+        count += 1; // render_right_prompt_on_last_line
+        count += 1; // cursor_shape
+        count += 1; // datetime_format
+        count += 1; // error_style
+        count += 1; // display_errors
+        count += 1; // use_kitty_protocol
+        count += 1; // highlight_resolved_externals
+        count += 1; // plugin_gc
+
+        count
+    }
 }
