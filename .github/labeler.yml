@@ -37,4 +37,4 @@ pr:plugins:
       - crates/nu-plugin-protocol/**
       - crates/nu-plugin-test-support/**
       # specific plugins (like polars)
-      - crates/nu_plugin_*
+      - crates/nu_plugin_*/**
