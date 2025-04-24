@@ -170,7 +170,7 @@ fn command(
     let uri = spanned_file.item.clone();
     let data_source = if resource.cloud_options.is_none() {
         Url::from_str(&uri)
-            .map(DataSource::Url)
+            .map(|url| DataSource::Url(url.into()))
             .unwrap_or_else(|_| DataSource::FilePath(uri.into()))
     } else {
         DataSource::FilePath(uri.into())
