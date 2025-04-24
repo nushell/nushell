@@ -36,13 +36,13 @@ impl Command for ToMd {
             Example {
                 description: "Outputs an MD string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to md",
-                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|\n")),
+                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|")),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
                 example: "[[foo bar]; [1 2]] | to md --pretty",
                 result: Some(Value::test_string(
-                    "| foo | bar |\n| --- | --- |\n| 1   | 2   |\n",
+                    "| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
             },
             Example {
@@ -56,6 +56,13 @@ impl Command for ToMd {
                 description: "Render a list",
                 example: "[0 1 2] | to md --pretty",
                 result: Some(Value::test_string("0\n1\n2")),
+            },
+            Example {
+                description: "Separate list into markdown tables",
+                example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4} {foo: 5}] | to md --per-element",
+                result: Some(Value::test_string(
+                    "|foo|bar|\n|-|-|\n|1|2|\n|3|4|\n|foo|\n|-|\n|5|",
+                )),
             },
         ]
     }
@@ -94,11 +101,14 @@ fn to_md(
             grouped_input
                 .into_iter()
                 .map(move |val| match val {
-                    Value::List { .. } => table(val.into_pipeline_data(), pretty, config),
+                    Value::List { .. } => {
+                        format!("{}\n", table(val.into_pipeline_data(), pretty, config))
+                    }
                     other => fragment(other, pretty, config),
                 })
                 .collect::<Vec<String>>()
-                .join(""),
+                .join("")
+                .trim(),
             head,
         )
         .into_pipeline_data_with_metadata(Some(metadata)));
@@ -152,7 +162,13 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 }
 
 fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
-    let vec_of_values = input.into_iter().collect::<Vec<Value>>();
+    let vec_of_values = input
+        .into_iter()
+        .flat_map(|val| match val {
+            Value::List { vals, .. } => vals,
+            other => vec![other],
+        })
+        .collect::<Vec<Value>>();
     let mut headers = merge_descriptors(&vec_of_values);
 
     let mut empty_header_index = 0;
@@ -460,6 +476,39 @@ mod tests {
             |-|-|
             |1|2|
             |3|4|
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_empty_row_value() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "foo" => Value::test_string("1"),
+                "bar" => Value::test_string("2"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("3"),
+                "bar" => Value::test_string("4"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("5"),
+                "bar" => Value::test_string(""),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            |foo|bar|
+            |-|-|
+            |1|2|
+            |3|4|
+            |5||
         "#)
         );
     }
