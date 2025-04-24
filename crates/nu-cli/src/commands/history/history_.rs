@@ -105,10 +105,9 @@ impl Command for History {
                         .ok()
                 })
                 .map(move |entries| {
-                    entries
-                        .into_iter()
-                        .enumerate()
-                        .map(move |(idx, entry)| create_history_record(idx, entry, long, head))
+                    entries.into_iter().enumerate().map(move |(idx, entry)| {
+                        create_sqlite_history_record(idx, entry, long, head)
+                    })
                 })
                 .ok_or(IoError::new(
                     std::io::ErrorKind::NotFound,
@@ -140,7 +139,7 @@ impl Command for History {
     }
 }
 
-fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
+fn create_sqlite_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
     //1. Format all the values
     //2. Create a record of either short or long columns and values
 
@@ -151,11 +150,8 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
             .unwrap_or_default(),
         head,
     );
-    let start_timestamp_value = Value::string(
-        entry
-            .start_timestamp
-            .map(|time| time.to_string())
-            .unwrap_or_default(),
+    let start_timestamp_value = Value::date(
+        entry.start_timestamp.unwrap_or_default().fixed_offset(),
         head,
     );
     let command_value = Value::string(entry.command_line, head);
