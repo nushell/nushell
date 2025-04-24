@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    DataSource, PipelineMetadata,
     ast::{Expr, Expression},
+    PipelineMetadata,
 };
 
 use super::util::extend_record_with_metadata;
