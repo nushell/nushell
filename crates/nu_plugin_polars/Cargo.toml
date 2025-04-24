@@ -61,6 +61,7 @@ features = [
   "cloud",
   "concat_str",
   "cross_join",
+  "iejoin",
   "csv",
   "cum_agg",
   "default",
