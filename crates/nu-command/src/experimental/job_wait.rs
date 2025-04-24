@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{engine::Job, JobId};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct JobWait;
@@ -10,14 +11,16 @@ impl Command for JobWait {
     }
 
     fn description(&self) -> &str {
-        r#"Wait for a job to complete and return its result value.
+        r#"Wait for a job to complete."#
+    }
 
-        Given the id of a running job currently in the job table, this command
-        waits for it to complete and returns the value returned
-        by the closure passed down to `job spawn`.
+    fn extra_description(&self) -> &str {
+        r#"Given the id of a running job currently in the job table, this command
+waits for it to complete and returns the value returned
+by the closure passed down to `job spawn` to create the given job.
 
-        Note that this command fails if a job is currently not in the job table
-        (as seen by `job list`), so it is not possible to wait for jobs that have already finished.
+Note that this command fails if the provided job id is currently not in the job table
+(as seen by `job list`), so it is not possible to wait for jobs that have already finished.   
         "#
     }
 
@@ -73,9 +76,13 @@ impl Command for JobWait {
                 // .wait() blocks so we drop our mutex guard
                 drop(jobs);
 
-                let result = waiter.wait().clone().with_span(head);
+                let value = wait_with_interrupt(
+                    |time| waiter.wait_timeout(time),
+                    || engine_state.signals().check(head),
+                    Duration::from_millis(100),
+                )?;
 
-                Ok(result.into_pipeline_data())
+                Ok(value.clone().with_span(head).into_pipeline_data())
             }
         }
     }
@@ -86,5 +93,20 @@ impl Command for JobWait {
             description: "Wait for a job to complete",
             result: Some(Value::test_string("hi there")),
         }]
+    }
+}
+
+pub fn wait_with_interrupt<R, E>(
+    mut wait: impl FnMut(Duration) -> Option<R>,
+    mut interrupted: impl FnMut() -> Result<(), E>,
+    check_interval: Duration,
+) -> Result<R, E> {
+    loop {
+        interrupted()?;
+
+        match wait(check_interval) {
+            Some(result) => return Ok(result),
+            None => {} // do nothing, try again
+        }
     }
 }

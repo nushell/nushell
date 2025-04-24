@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, WaitTimeoutResult},
+    time::Instant,
 };
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
@@ -198,7 +199,7 @@ impl ThreadJob {
     }
 
     pub fn on_termination(&self) -> &Waiter<Value> {
-        return &self.on_termination;
+        &self.on_termination
     }
 }
 
@@ -264,12 +265,12 @@ use std::sync::OnceLock;
 pub fn completion_signal<T>() -> (Completer<T>, Waiter<T>) {
     let inner = Arc::new(InnerWaitCompleteSignal::new());
 
-    return (
+    (
         Completer {
             inner: inner.clone(),
         },
         Waiter { inner },
-    );
+    )
 }
 
 /// Waiter and Completer are effectively just `Arc` wrappers around this type.
@@ -321,6 +322,26 @@ impl<T> Waiter<T> {
                 },
                 Some(value) => return value,
             }
+        }
+    }
+
+    pub fn wait_timeout(&self, duration: std::time::Duration) -> Option<&T> {
+        let inner: &InnerWaitCompleteSignal<T> = self.inner.as_ref();
+
+        let guard = inner.mutex.lock().expect("mutex is poisoned!");
+
+        match inner
+            .var
+            .wait_timeout_while(guard, duration, |_| inner.value.get().is_none())
+        {
+            Ok((_guard, result)) => {
+                if result.timed_out() {
+                    return None;
+                } else {
+                    return Some(inner.value.get().unwrap());
+                }
+            }
+            Err(_) => panic!("mutex is poisoned!"),
         }
     }
 

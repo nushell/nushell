@@ -1,5 +1,6 @@
 use std::io;
 use std::process::Command as CommandSys;
+use std::time::{Duration, Instant};
 
 /// Tries to forcefully kill a process by its PID
 pub fn kill_by_pid(pid: i64) -> io::Result<()> {
