@@ -320,6 +320,34 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .collect();
             Ok(Series::new(name, series_values?))
         }
+        DataType::Decimal(precision, scale) => {
+            let series_values: Result<Vec<_>, _> = column
+                .values
+                .iter()
+                .map(|v| {
+                    value_to_option(v, |v| match v {
+                        Value::Float { val, .. } => Ok(*val),
+                        Value::Int { val, .. } => Ok(*val as f64),
+                        x => Err(ShellError::GenericError {
+                            error: "Error converting to decimal".into(),
+                            msg: "".into(),
+                            span: None,
+                            help: Some(format!("Unexpected type: {x:?}")),
+                            inner: vec![],
+                        }),
+                    })
+                })
+                .collect();
+            Series::new(name, series_values?)
+                .cast_with_options(&DataType::Decimal(*precision, *scale), Default::default())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error parsing decimal".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })
+        }
         DataType::UInt8 => {
             let series_values: Result<Vec<_>, _> = column
                 .values
