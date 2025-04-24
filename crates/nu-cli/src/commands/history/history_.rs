@@ -86,6 +86,7 @@ impl Command for History {
                         Value::record(
                             record! {
                                 fields::COMMAND_LINE => Value::string(entry.command_line, head),
+                                // TODO: This name is inconsistent with create_history_record.
                                 "index" => Value::int(idx as i64, head),
                             },
                             head,
