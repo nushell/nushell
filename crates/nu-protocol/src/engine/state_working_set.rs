@@ -313,10 +313,6 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn global_span_offset(&self) -> usize {
-        self.permanent_state.next_span_start()
-    }
-
     pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
         self.permanent_state.files().chain(self.delta.files.iter())
     }
