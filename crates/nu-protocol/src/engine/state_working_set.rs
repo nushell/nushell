@@ -554,34 +554,6 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
-        let mut removed_overlays = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                for decl in &overlay_frame.decls {
-                    if decl.0.starts_with(name) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .rev()
-        {
-            for decl in &overlay_frame.decls {
-                if decl.0.starts_with(name) {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
     pub fn next_var_id(&self) -> VarId {
         let num_permanent_vars = self.permanent_state.num_vars();
         VarId::new(num_permanent_vars + self.delta.vars.len())
@@ -848,20 +820,6 @@ impl<'a> StateWorkingSet<'a> {
                 .map(Arc::make_mut)
                 .expect("internal error: missing block")
         }
-    }
-
-    pub fn has_overlay(&self, name: &[u8]) -> bool {
-        for scope_frame in self.delta.scope.iter().rev() {
-            if scope_frame
-                .overlays
-                .iter()
-                .any(|(overlay_name, _)| name == overlay_name)
-            {
-                return true;
-            }
-        }
-
-        self.permanent_state.has_overlay(name)
     }
 
     /// Find the overlay corresponding to `name`.
