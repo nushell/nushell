@@ -19,6 +19,7 @@ mod first;
 mod flatten;
 mod get;
 mod join;
+mod join_where;
 mod last;
 mod len;
 mod lit;
@@ -61,6 +62,7 @@ pub use first::FirstDF;
 use flatten::LazyFlatten;
 pub use get::GetDF;
 use join::LazyJoin;
+use join_where::LazyJoinWhere;
 pub use last::LastDF;
 pub use lit::ExprLit;
 use query_df::QueryDf;
@@ -106,6 +108,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFillNull),
         Box::new(LazyFlatten),
         Box::new(LazyJoin),
+        Box::new(LazyJoinWhere),
         Box::new(reverse::LazyReverse),
         Box::new(select::LazySelect),
         Box::new(LazySortBy),
