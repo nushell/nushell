@@ -15,7 +15,6 @@ pub fn empty(
     if !columns.is_empty() {
         for val in input {
             for column in &columns {
-                let val = val.clone();
                 match val.follow_cell_path(&column.members, false) {
                     Ok(Value::Nothing { .. }) => {}
                     Ok(_) => {

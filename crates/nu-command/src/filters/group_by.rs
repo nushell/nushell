@@ -322,9 +322,7 @@ fn group_cell_path(
     let mut groups = IndexMap::<_, Vec<_>>::new();
 
     for value in values.into_iter() {
-        let key = value
-            .clone()
-            .follow_cell_path(&column_name.members, false)?;
+        let key = value.follow_cell_path(&column_name.members, false)?;
 
         if matches!(key, Value::Nothing { .. }) {
             continue; // likely the result of a failed optional access, ignore this value

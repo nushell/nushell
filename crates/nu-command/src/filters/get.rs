@@ -188,7 +188,7 @@ fn action(
         let input = input.into_value(span)?;
 
         for path in paths {
-            let val = input.clone().follow_cell_path(&path.members, !sensitive);
+            let val = input.follow_cell_path(&path.members, !sensitive);
 
             output.push(val?);
         }

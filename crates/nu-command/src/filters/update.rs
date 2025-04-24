@@ -243,7 +243,7 @@ fn update_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
-    let value_at_path = value.clone().follow_cell_path(cell_path, false)?;
+    let value_at_path = value.follow_cell_path(cell_path, false)?;
 
     let arg = if first_path_member_int {
         &value_at_path
@@ -266,7 +266,7 @@ fn update_single_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
-    let value_at_path = value.clone().follow_cell_path(cell_path, false)?;
+    let value_at_path = value.follow_cell_path(cell_path, false)?;
 
     let arg = if first_path_member_int {
         &value_at_path

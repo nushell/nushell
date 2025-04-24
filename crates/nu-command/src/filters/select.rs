@@ -236,8 +236,7 @@ fn select(
                             if !columns.is_empty() {
                                 let mut record = Record::new();
                                 for path in &columns {
-                                    //FIXME: improve implementation to not clone
-                                    match input_val.clone().follow_cell_path(&path.members, false) {
+                                    match input_val.follow_cell_path(&path.members, false) {
                                         Ok(fetcher) => {
                                             record.push(path.to_column_name(), fetcher);
                                         }
@@ -261,8 +260,7 @@ fn select(
                         let mut record = Record::new();
 
                         for cell_path in columns {
-                            // FIXME: remove clone
-                            match v.clone().follow_cell_path(&cell_path.members, false) {
+                            match v.follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
                                     record.push(cell_path.to_column_name(), result);
                                 }
@@ -278,31 +276,24 @@ fn select(
                 }
             }
         }
-        PipelineData::ListStream(stream, metadata, ..) => {
-            Ok(stream
-                .map(move |x| {
-                    if !columns.is_empty() {
-                        let mut record = Record::new();
-                        for path in &columns {
-                            //FIXME: improve implementation to not clone
-                            match x.clone().follow_cell_path(&path.members, false) {
-                                Ok(value) => {
-                                    record.push(path.to_column_name(), value);
-                                }
-                                Err(e) => return Value::error(e, call_span),
+        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
+            .map(move |x| {
+                if !columns.is_empty() {
+                    let mut record = Record::new();
+                    for path in &columns {
+                        match x.follow_cell_path(&path.members, false) {
+                            Ok(value) => {
+                                record.push(path.to_column_name(), value);
                             }
+                            Err(e) => return Value::error(e, call_span),
                         }
-                        Value::record(record, call_span)
-                    } else {
-                        x
                     }
-                })
-                .into_pipeline_data_with_metadata(
-                    call_span,
-                    engine_state.signals().clone(),
-                    metadata,
-                ))
-        }
+                    Value::record(record, call_span)
+                } else {
+                    x
+                }
+            })
+            .into_pipeline_data_with_metadata(call_span, engine_state.signals().clone(), metadata)),
         _ => Ok(PipelineData::empty()),
     }
 }

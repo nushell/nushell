@@ -253,7 +253,7 @@ fn format_record(
                         optional: false,
                     })
                     .collect();
-                match data_as_value.clone().follow_cell_path(&path_members, false) {
+                match data_as_value.follow_cell_path(&path_members, false) {
                     Ok(value_at_column) => {
                         output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
                     }
