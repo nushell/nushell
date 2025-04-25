@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use url::Url;
 
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +34,7 @@ pub enum DataSource {
     Ls,
     HtmlThemes,
     FilePath(PathBuf),
-    Url(Box<Url>),
+    Url(String),
     #[default]
     None,
 }

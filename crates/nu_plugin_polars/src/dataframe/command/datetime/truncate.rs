@@ -154,6 +154,16 @@ impl PluginCommand for Truncate {
         self.run_inner(plugin, engine, call, input)
             .map(|pd| pd.set_metadata(metadata))
     }
+
+    fn extra_description(&self) -> &str {
+        r#"Each date/datetime is mapped to the start of its bucket using the corresponding local datetime. Note that weekly buckets start on Monday. Ambiguous results are localised using the DST offset of the original timestamp - for example, truncating '2022-11-06 01:30:00 CST' by '1h' results in '2022-11-06 01:00:00 CST', whereas truncating '2022-11-06 01:30:00 CDT' by '1h' results in '2022-11-06 01:00:00 CDT'.
+
+        See Notes in documentation for full list of compatible string values for `every`: https://docs.pola.rs/api/python/stable/reference/expressions/api/polars.Expr.dt.truncate.html"#
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
 }
 
 impl Truncate {
@@ -165,16 +175,6 @@ impl Truncate {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call, input).map_err(LabeledError::from)
-    }
-
-    fn extra_description(&self) -> &str {
-        r#"Each date/datetime is mapped to the start of its bucket using the corresponding local datetime. Note that weekly buckets start on Monday. Ambiguous results are localised using the DST offset of the original timestamp - for example, truncating '2022-11-06 01:30:00 CST' by '1h' results in '2022-11-06 01:00:00 CST', whereas truncating '2022-11-06 01:30:00 CDT' by '1h' results in '2022-11-06 01:00:00 CDT'.
-
-        See Notes in documentation for full list of compatible string values for `every`: https://docs.pola.rs/api/python/stable/reference/expressions/api/polars.Expr.dt.truncate.html"#
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec![]
     }
 }
 

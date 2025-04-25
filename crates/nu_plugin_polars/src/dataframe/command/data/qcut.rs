@@ -52,7 +52,7 @@ impl PluginCommand for QCutSeries {
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
+    ) -> Result<PipelineData, nu_protocol::LabeledError> {
         let metadata = input.metadata();
         self.run_inner(plugin, engine, call, input)
             .map(|pd| pd.set_metadata(metadata))
