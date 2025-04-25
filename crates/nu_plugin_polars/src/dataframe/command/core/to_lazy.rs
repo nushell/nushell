@@ -75,6 +75,20 @@ impl PluginCommand for ToLazyFrame {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl ToLazyFrame {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
             .get_flag("schema")?
             .map(|schema| NuSchema::try_from_value(plugin, &schema))

@@ -156,6 +156,20 @@ impl PluginCommand for Cumulative {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl Cumulative {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
         let cum_type: Spanned<String> = call.req(0)?;
         let cum_type = CumulativeType::from_str(&cum_type.item, cum_type.span)?;
