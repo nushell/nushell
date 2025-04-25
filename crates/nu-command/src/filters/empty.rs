@@ -15,16 +15,8 @@ pub fn empty(
     if !columns.is_empty() {
         for val in input {
             for column in &columns {
-                match val.follow_cell_path(&column.members, false) {
-                    Ok(Value::Nothing { .. }) => {}
-                    Ok(_) => {
-                        if negate {
-                            return Ok(Value::bool(true, head).into_pipeline_data());
-                        } else {
-                            return Ok(Value::bool(false, head).into_pipeline_data());
-                        }
-                    }
-                    Err(err) => return Err(err),
+                if !val.follow_cell_path(&column.members, false)?.is_nothing() {
+                    return Ok(Value::bool(negate, head).into_pipeline_data());
                 }
             }
         }

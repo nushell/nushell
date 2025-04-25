@@ -1084,7 +1084,7 @@ impl Value {
         &'out self,
         cell_path: &[PathMember],
         insensitive: bool,
-    ) -> Result<Value, ShellError> {
+    ) -> Result<Cow<'out, Value>, ShellError> {
         enum MultiLife<'out, 'local, T>
         where
             'out: 'local,
@@ -1117,7 +1117,7 @@ impl Value {
         for member in cell_path {
             current = match current {
                 MultiLife::Out(current) => match get_value_member(current, member, insensitive)? {
-                    ControlFlow::Break(span) => return Ok(Value::nothing(span)),
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
                     ControlFlow::Continue(x) => match x {
                         Cow::Borrowed(x) => MultiLife::Out(x),
                         Cow::Owned(x) => {
@@ -1128,7 +1128,7 @@ impl Value {
                 },
                 MultiLife::Local(current) => {
                     match get_value_member(current, member, insensitive)? {
-                        ControlFlow::Break(span) => return Ok(Value::nothing(span)),
+                        ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
                         ControlFlow::Continue(x) => match x {
                             Cow::Borrowed(x) => MultiLife::Local(x),
                             Cow::Owned(x) => {
@@ -1156,8 +1156,7 @@ impl Value {
                     };
                     Cow::Owned(x)
                 }
-            }
-            .into_owned())
+            })
         }
     }
 
@@ -1167,7 +1166,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(&self.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1267,7 +1266,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(&self.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),

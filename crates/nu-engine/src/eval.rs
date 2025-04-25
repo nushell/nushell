@@ -269,6 +269,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
                         .into_value(*span)?
                         .follow_cell_path(&full_cell_path.tail, false)?
+                        .into_owned()
                         .into_pipeline_data()
                 } else {
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?;
@@ -604,7 +605,7 @@ impl Eval for EvalRuntime {
 
                                 let is_config = original_key == "config";
 
-                                stack.add_env_var(original_key, value);
+                                stack.add_env_var(original_key, value.into_owned());
 
                                 // Trigger the update to config, if we modified that.
                                 if is_config {

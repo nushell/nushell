@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
@@ -101,7 +103,9 @@ pub(crate) fn eval_cell_path(
     } else {
         eval_constant(working_set, head)
     }?;
-    head_value.follow_cell_path(path_members, false)
+    head_value
+        .follow_cell_path(path_members, false)
+        .map(Cow::into_owned)
 }
 
 fn get_suggestions_by_value(

@@ -694,9 +694,8 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
                 let value = value.follow_cell_path(&path.members, true)?;
-                ctx.put_reg(*dst, value.into_pipeline_data());
+                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
                 Err(*error)

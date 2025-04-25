@@ -253,12 +253,11 @@ fn format_record(
                         optional: false,
                     })
                     .collect();
-                match data_as_value.follow_cell_path(&path_members, false) {
-                    Ok(value_at_column) => {
-                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
-                    }
-                    Err(se) => return Err(se),
-                }
+
+                let expanded_string = data_as_value
+                    .follow_cell_path(&path_members, false)?
+                    .to_expanded_string(", ", config);
+                output.push_str(expanded_string.as_str())
             }
         }
     }

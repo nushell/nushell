@@ -246,14 +246,14 @@ fn update_value_by_closure(
     let value_at_path = value.follow_cell_path(cell_path, false)?;
 
     let arg = if first_path_member_int {
-        &value_at_path
+        value_at_path.as_ref()
     } else {
         &*value
     };
 
     let new_value = closure
         .add_arg(arg.clone())
-        .run_with_input(value_at_path.into_pipeline_data())?
+        .run_with_input(value_at_path.into_owned().into_pipeline_data())?
         .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
@@ -269,14 +269,14 @@ fn update_single_value_by_closure(
     let value_at_path = value.follow_cell_path(cell_path, false)?;
 
     let arg = if first_path_member_int {
-        &value_at_path
+        value_at_path.as_ref()
     } else {
         &*value
     };
 
     let new_value = closure
         .add_arg(arg.clone())
-        .run_with_input(value_at_path.into_pipeline_data())?
+        .run_with_input(value_at_path.into_owned().into_pipeline_data())?
         .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)

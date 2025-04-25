@@ -63,7 +63,7 @@ impl LanguageServer {
                 let var = working_set.get_variable(*var_id);
                 Some(
                     var.const_val
-                        .clone()
+                        .as_ref()
                         .and_then(|val| val.follow_cell_path(cell_path, false).ok())
                         .map(|val| val.span())
                         .unwrap_or(var.declaration_span),

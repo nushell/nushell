@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
 use nu_protocol::ast::PathMember;
 
@@ -300,6 +302,7 @@ fn insert_value_by_closure(
     let value_at_path = if first_path_member_int {
         value
             .follow_cell_path(cell_path, false)
+            .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {
         value.clone()
@@ -319,6 +322,7 @@ fn insert_single_value_by_closure(
     let value_at_path = if first_path_member_int {
         value
             .follow_cell_path(cell_path, false)
+            .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {
         value.clone()
