@@ -115,6 +115,20 @@ impl PluginCommand for LazySortBy {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl LazySortBy {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;

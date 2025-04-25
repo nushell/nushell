@@ -59,6 +59,20 @@ impl PluginCommand for LazyReverse {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl LazyReverse {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
             .map_err(LabeledError::from)?;
         let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().reverse());

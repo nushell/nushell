@@ -130,6 +130,20 @@ impl PluginCommand for OpenDataFrame {
     fn run(
         &self,
         plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl OpenDataFrame {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         _input: nu_protocol::PipelineData,
