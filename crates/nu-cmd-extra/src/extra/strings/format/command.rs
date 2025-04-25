@@ -21,9 +21,9 @@ impl Command for FormatPattern {
             .required(
                 "pattern",
                 SyntaxShape::String,
-                "The pattern to output. e.g.) \"{foo}: {bar}\".",
+                "The pattern used to format the input values.",
             )
-            .switch("printf", "Use printf style pattern.", None)
+            .switch("printf", "Use `printf`-compatible pattern.", None)
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
@@ -31,7 +31,7 @@ impl Command for FormatPattern {
     fn description(&self) -> &str {
         r"Format values into a string using either a simple pattern or `printf`-compatible pattern.
 Simple pattern supports input of type list<any>, table, and record;
-`printf` pattern supports a limited set of primitive types as input, namely string, int and float, and composite types such as list, table 
+`printf` pattern supports input types that are coercible to string, namely bool, int, float, string, glob, binary and date, and also list of a mix of those types.
         "
     }
 
@@ -91,11 +91,6 @@ Simple pattern supports input of type list<any>, table, and record;
                 description: "Unescape a fully quoted json using printf",
                 example: r#""\{\\\"foo\\\": \\\"bar\\\"\}" | format pattern --printf "%b""#,
                 result: Some(Value::test_string(r#"{"foo": "bar"}"#)),
-            },
-            Example {
-                description: "Using printf to substitute multiple args",
-                example: r#"["a", 1] | format pattern --printf "first = %s, second = %d""#,
-                result: Some(Value::test_string("first = a, second = 1")),
             },
         ]
     }
@@ -292,7 +287,7 @@ fn assert_specifier_count_eq_arg_count(
     if spec_count != arg_count {
         Err(ShellError::IncompatibleParametersSingle {
             msg: format!(
-                "Number of arguments ({}) provided does not match the number of specifiers ({}) within the pattern.",
+                "Number of arguments ({}) provided does not match the number of specifiers ({}) given in the pattern.",
                 arg_count, spec_count,
             )
             .into(),
