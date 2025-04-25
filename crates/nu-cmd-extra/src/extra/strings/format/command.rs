@@ -31,8 +31,7 @@ impl Command for FormatPattern {
     fn description(&self) -> &str {
         r"Format values into a string using either a simple pattern or `printf`-compatible pattern.
 Simple pattern supports input of type list<any>, table, and record;
-`printf` pattern supports input types that are coercible to string, namely bool, int, float, string, glob, binary and date, and also list of a mix of those types.
-        "
+`printf` pattern supports input types that are coercible to string, namely bool, int, float, string, glob, binary and date, and also list of a mix of those types."
     }
 
     fn run(
@@ -289,9 +288,8 @@ fn assert_specifier_count_eq_arg_count(
             msg: format!(
                 "Number of arguments ({}) provided does not match the number of specifiers ({}) given in the pattern.",
                 arg_count, spec_count,
-            )
-            .into(),
-            span: span,
+            ),
+            span,
         })
     } else {
         Ok(())
@@ -320,7 +318,7 @@ fn format_printf(
                 .map(Value::coerce_into_string)
                 .collect::<Result<Vec<_>, _>>()?
         }
-        v @ Value::Nothing {..} => {
+        v @ Value::Nothing { .. } => {
             assert_specifier_count_eq_arg_count(spec_count, 0, v.span())?;
             vec![]
         }
