@@ -88,6 +88,14 @@ impl PluginCommand for GetDay {
         self.run_inner(plugin, engine, call, input)
             .map(|pd| pd.set_metadata(metadata))
     }
+
+    fn extra_description(&self) -> &str {
+        ""
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
 }
 
 impl GetDay {
@@ -99,14 +107,6 @@ impl GetDay {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call, input).map_err(LabeledError::from)
-    }
-
-    fn extra_description(&self) -> &str {
-        ""
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec![]
     }
 }
 

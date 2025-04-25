@@ -3995,7 +3995,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.12",
  "typetag",
- "url",
  "web-time",
  "windows-sys 0.48.0",
 ]
@@ -7663,7 +7662,6 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
- "serde",
 ]
 
 [[package]]

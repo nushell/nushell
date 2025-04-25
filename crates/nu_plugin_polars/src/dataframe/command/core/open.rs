@@ -12,9 +12,8 @@ use nu_protocol::{
     shell_error::io::IoError, Category, DataSource, Example, LabeledError, PipelineData,
     PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use url::Url;
 
-use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, str::FromStr, sync::Arc};
+use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use polars::{
     lazy::frame::LazyJsonLineReader,
@@ -129,8 +128,8 @@ impl PluginCommand for OpenDataFrame {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
+        engine: &nu_plugin::EngineInterface,
+        call: &nu_plugin::EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
@@ -182,9 +181,7 @@ fn command(
 
     let uri = spanned_file.item.clone();
     let data_source = if resource.cloud_options.is_some() {
-        Url::from_str(&uri)
-            .map(|url| DataSource::Url(url.into()))
-            .unwrap_or_else(|_| DataSource::FilePath(uri.into()))
+        DataSource::Url(uri)
     } else {
         DataSource::FilePath(uri.into())
     };
