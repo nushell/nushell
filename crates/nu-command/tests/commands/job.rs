@@ -385,3 +385,53 @@ fn job_extern_into_pipe_is_not_silent() {
     assert_eq!(actual.out, "11");
     assert_eq!(actual.err, "");
 }
+
+#[test]
+fn job_list_returns_no_tag_when_job_is_untagged() {
+    let actual = nu!(r#"
+        job spawn { sleep 10sec }
+        job spawn { sleep 10sec }
+        job spawn { sleep 10sec }
+
+        ('tag' in (job list | columns)) | to nuon"#);
+
+    assert_eq!(actual.out, "false");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_list_returns_tag_when_job_is_spawned_with_tag() {
+    let actual = nu!(r#"
+        job spawn { sleep 10sec } --tag abc
+        job list | where id == 1 | get tag.0
+        "#);
+
+    assert_eq!(actual.out, "abc");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_tag_modifies_untagged_job_tag() {
+    let actual = nu!(r#"
+        job spawn { sleep 10sec }
+
+        job tag 1 beep
+        
+        job list | where id == 1 | get tag.0"#);
+
+    assert_eq!(actual.out, "beep");
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_tag_modifies_tagged_job_tag() {
+    let actual = nu!(r#"
+        job spawn { sleep 10sec } --tag abc
+
+        job tag 1 beep
+
+        job list | where id == 1 | get tag.0"#);
+
+    assert_eq!(actual.out, "beep");
+    assert_eq!(actual.err, "");
+}

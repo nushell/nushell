@@ -17,6 +17,8 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
+// Note: When adding new constants to $nu, please update the doc at https://nushell.sh/book/special_variables.html
+// or at least add a TODO/reminder issue in nushell.github.io so we don't lose track of it.
 pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         #[allow(deprecated)]
@@ -508,6 +510,14 @@ impl Eval for EvalConst {
         block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
+        // If parsing errors exist in the subexpression, don't bother to evaluate it.
+        if working_set
+            .parse_errors
+            .iter()
+            .any(|error| span.contains_span(error.span()))
+        {
+            return Err(ShellError::ParseErrorInConstant { span });
+        }
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
         eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)

@@ -44,6 +44,10 @@ impl Jobs {
         self.jobs.get(&id)
     }
 
+    pub fn lookup_mut(&mut self, id: JobId) -> Option<&mut Job> {
+        self.jobs.get_mut(&id)
+    }
+
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
         if self.last_frozen_job_id.is_some_and(|last| id == last) {
             self.last_frozen_job_id = None;
@@ -140,15 +144,17 @@ pub enum Job {
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
+    tag: Option<String>,
     pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, sender: Sender<Mail>) -> Self {
+    pub fn new(signals: Signals, tag: Option<String>, sender: Sender<Mail>) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
             sender,
+            tag,
         }
     }
 
@@ -205,10 +211,25 @@ impl Job {
             Job::Frozen(frozen_job) => frozen_job.kill(),
         }
     }
+
+    pub fn tag(&self) -> Option<&String> {
+        match self {
+            Job::Thread(thread_job) => thread_job.tag.as_ref(),
+            Job::Frozen(frozen_job) => frozen_job.tag.as_ref(),
+        }
+    }
+
+    pub fn assign_tag(&mut self, tag: Option<String>) {
+        match self {
+            Job::Thread(thread_job) => thread_job.tag = tag,
+            Job::Frozen(frozen_job) => frozen_job.tag = tag,
+        }
+    }
 }
 
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
+    pub tag: Option<String>,
 }
 
 impl FrozenJob {

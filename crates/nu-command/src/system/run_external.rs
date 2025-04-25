@@ -3,12 +3,11 @@ use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
 use nu_protocol::{
     did_you_mean,
-    engine::{FrozenJob, Job},
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
     ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{kill_by_pid, ForegroundChild, ForegroundWaitStatus};
+use nu_system::{kill_by_pid, ForegroundChild};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -78,23 +77,32 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
-        // On Windows, the user could have run the cmd.exe built-in "assoc" command
-        // Example: "assoc .nu=nuscript" and then run the cmd.exe built-in "ftype" command
-        // Example: "ftype nuscript=C:\path\to\nu.exe '%1' %*" and then added the nushell
-        // script extension ".NU" to the PATHEXT environment variable. In this case, we use
-        // the which command, which will find the executable with or without the extension.
-        // If it "which" returns true, that means that we've found the nushell script and we
-        // believe the user wants to use the windows association to run the script. The only
+        let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+
+        // On Windows, the user could have run the cmd.exe built-in commands "assoc"
+        // and "ftype" to create a file association for an arbitrary file extension.
+        // They then could have added that extension to the PATHEXT environment variable.
+        // For example, a nushell script with extension ".nu" can be set up with
+        // "assoc .nu=nuscript" and "ftype nuscript=C:\path\to\nu.exe '%1' %*",
+        // and then by adding ".NU" to PATHEXT. In this case we use the which command,
+        // which will find the executable with or without the extension. If "which"
+        // returns true, that means that we've found the script and we believe the
+        // user wants to use the windows association to run the script. The only
         // easy way to do this is to run cmd.exe with the script as an argument.
-        let potential_nuscript_in_windows = if cfg!(windows) {
-            // let's make sure it's a .nu script
-            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+        // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows
+        // can run those files directly. PS1 files are also ignored and that
+        // extension is handled in a separate block below.
+        let pathext_script_in_windows = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_uppercase();
-                ext == "NU"
+
+                !["COM", "EXE", "BAT", "CMD", "PS1"]
+                    .iter()
+                    .any(|c| *c == ext)
             } else {
                 false
             }
@@ -121,33 +129,31 @@ impl Command for External {
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows)
-            && (is_cmd_internal_command(&name_str) || potential_nuscript_in_windows)
-        {
-            PathBuf::from("cmd.exe")
-        } else if cfg!(windows) && potential_powershell_script {
-            // If we're on Windows and we're trying to run a PowerShell script, we'll use
-            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
-            // it's automatically installed on all modern windows systems.
-            PathBuf::from("powershell.exe")
-        } else {
-            // Determine the PATH to be used and then use `which` to find it - though this has no
-            // effect if it's an absolute path already
-            let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                return Err(command_not_found(
-                    &name_str,
-                    call.head,
-                    engine_state,
-                    stack,
-                    &cwd,
-                ));
+        let executable =
+            if cfg!(windows) && (is_cmd_internal_command(&name_str) || pathext_script_in_windows) {
+                PathBuf::from("cmd.exe")
+            } else if cfg!(windows) && potential_powershell_script {
+                // If we're on Windows and we're trying to run a PowerShell script, we'll use
+                // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+                // it's automatically installed on all modern windows systems.
+                PathBuf::from("powershell.exe")
+            } else {
+                // Determine the PATH to be used and then use `which` to find it - though this has no
+                // effect if it's an absolute path already
+                let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+                    return Err(command_not_found(
+                        &name_str,
+                        call.head,
+                        engine_state,
+                        stack,
+                        &cwd,
+                    ));
+                };
+                executable
             };
-            executable
-        };
 
         // Create the command.
-        let mut command = std::process::Command::new(executable);
+        let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
         command.current_dir(cwd);
@@ -160,7 +166,7 @@ impl Command for External {
         // Configure args.
         let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) || potential_nuscript_in_windows {
+        if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
@@ -311,9 +317,6 @@ impl Command for External {
                 })?;
         }
 
-        let jobs = engine_state.jobs.clone();
-        let is_interactive = engine_state.is_interactive;
-        let this_job = engine_state.current_thread_job().cloned();
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::ByteStream`.
@@ -322,21 +325,15 @@ impl Command for External {
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
-            // handle wait statuses for job control
-            Some(PostWaitCallback(Box::new(move |status| {
-                if let Some(this_job) = this_job {
-                    this_job.remove_pid(child_pid);
-                }
-
-                if let ForegroundWaitStatus::Frozen(unfreeze) = status {
-                    let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
-
-                    let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze }));
-                    if is_interactive {
-                        println!("\nJob {} is frozen", job_id.get());
-                    }
-                }
-            }))),
+            Some(PostWaitCallback::for_job_control(
+                engine_state,
+                Some(child_pid),
+                executable
+                    .as_path()
+                    .file_name()
+                    .and_then(|it| it.to_str())
+                    .map(|it| it.to_string()),
+            )),
         )?;
 
         if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)

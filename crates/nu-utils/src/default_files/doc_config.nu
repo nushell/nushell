@@ -115,12 +115,13 @@ $env.config.cursor_shape.vi_normal = "underscore"  # Cursor shape in normal vi m
 # $env.config.completions.*
 # Apply to the Nushell completion system
 
-# algorithm (string): Either "prefix" or "fuzzy"
+# algorithm (string): "prefix", "substring" or "fuzzy"
 $env.config.completions.algorithm = "prefix"
 
 # sort (string): One of "smart" or "alphabetical"
 # In "smart" mode sort order is based on the "algorithm" setting.
 # When using the "prefix" algorithm, results are alphabetically sorted.
+# When using the "substring" algorithm, results are alphabetically sorted.
 # When using the "fuzzy" algorithm, results are sorted based on their fuzzy score.
 $env.config.completions.sort = "smart"
 
@@ -295,7 +296,8 @@ $env.config.display_errors.termination_signal = true
 $env.config.footer_mode = 25
 
 # table.*
-# table_mode (string):
+# mode (string):
+# Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
 # or "basic_compact"

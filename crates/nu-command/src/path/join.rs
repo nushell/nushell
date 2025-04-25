@@ -175,7 +175,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
             handle_value(stream.into_value(), args, head),
             metadata,
         )),
-        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
         _ => Err(ShellError::UnsupportedInput {
             msg: "Input value cannot be joined".to_string(),
             input: "value originates from here".into(),
@@ -221,11 +221,18 @@ fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value
 
                     Value::list(vals, span)
                 }
-                Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
+                Err(ShellError::CantConvert { from_type, .. }) => Value::error(
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or record".into(),
+                        wrong_type: from_type,
                         dst_span: head,
                         src_span: span,
+                    },
+                    span,
+                ),
+                Err(_) => Value::error(
+                    ShellError::NushellFailed {
+                        msg: "failed to join path".into(),
                     },
                     span,
                 ),

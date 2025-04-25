@@ -8,10 +8,7 @@ pub fn kill_by_pid(pid: i64) -> io::Result<()> {
     let output = cmd.output()?;
 
     if !output.status.success() {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            "failed to kill process",
-        ));
+        return Err(io::Error::other("failed to kill process"));
     }
 
     Ok(())

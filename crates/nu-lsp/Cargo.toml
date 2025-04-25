@@ -18,6 +18,7 @@ crossbeam-channel = { workspace = true }
 lsp-server = { workspace = true }
 lsp-textdocument = { workspace = true }
 lsp-types = { workspace = true }
+memchr = { workspace = true }
 miette = { workspace = true }
 nucleo-matcher = { workspace = true }
 serde = { workspace = true }
@@ -28,6 +29,7 @@ url = { workspace = true }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.103.1" }
 nu-command = { path = "../nu-command", version = "0.103.1" }
 nu-engine = { path = "../nu-engine", version = "0.103.1" }
+nu-std = { path = "../nu-std", version = "0.103.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.103.1" }
 
 assert-json-diff = "2.0"

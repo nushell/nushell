@@ -1,6 +1,7 @@
 [files]
 extend-exclude = [
     ".git/",
+    "crates/nu-command/tests/commands/table.rs",
     "crates/nu-cmd-extra/assets/228_themes.json",
     "tests/fixtures/formats/",
 ]
@@ -22,6 +23,7 @@ extend-ignore-re = [
 
 [type.rust.extend-words]
 nd = "nd"
+typ = "typ"
 numer = "numer"
 styl = "styl"
 

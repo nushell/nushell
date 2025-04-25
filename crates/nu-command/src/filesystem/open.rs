@@ -1,11 +1,15 @@
 #[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir, get_eval_block};
+use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_protocol::{
     ast,
+    debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
     DataSource, NuGlob, PipelineMetadata,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -30,7 +34,14 @@ impl Command for Open {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["load", "read", "load_file", "read_file"]
+        vec![
+            "load",
+            "read",
+            "load_file",
+            "read_file",
+            "cat",
+            "get-content",
+        ]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -63,7 +74,6 @@ impl Command for Open {
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
-        let eval_block = get_eval_block(engine_state);
 
         if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
@@ -192,13 +202,16 @@ impl Command for Open {
 
                     match converter {
                         Some((converter_id, ext)) => {
-                            let decl = engine_state.get_decl(converter_id);
-                            let command_output = if let Some(block_id) = decl.block_id() {
-                                let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, stream)
+                            let open_call = ast::Call {
+                                decl_id: converter_id,
+                                head: call_span,
+                                arguments: vec![],
+                                parser_info: HashMap::new(),
+                            };
+                            let command_output = if engine_state.is_debugging() {
+                                eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
                             } else {
-                                let call = ast::Call::new(call_span);
-                                decl.run(engine_state, stack, &(&call).into(), stream)
+                                eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{

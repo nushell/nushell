@@ -27,7 +27,7 @@ impl Completer for AttributeCompletion {
         let attr_commands =
             working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
 
-        for (name, desc, ty) in attr_commands {
+        for (decl_id, name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
@@ -41,7 +41,7 @@ impl Completer for AttributeCompletion {
                     },
                     append_whitespace: false,
                 },
-                kind: Some(SuggestionKind::Command(ty)),
+                kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
             });
         }
 
@@ -78,7 +78,7 @@ impl Completer for AttributableCompletion {
                     },
                     append_whitespace: false,
                 },
-                kind: Some(SuggestionKind::Command(cmd.command_type())),
+                kind: Some(SuggestionKind::Command(cmd.command_type(), None)),
             });
         }
 

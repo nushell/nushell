@@ -19,20 +19,19 @@ impl LanguageServer {
         docs.listen(notification.method.as_str(), &notification.params);
         match notification.method.as_str() {
             DidOpenTextDocument::METHOD => {
-                let params: DidOpenTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
-                        .expect("Expect receive DidOpenTextDocumentParams");
+                let params: DidOpenTextDocumentParams = serde_json::from_value(notification.params)
+                    .expect("Expect receive DidOpenTextDocumentParams");
                 Some(params.text_document.uri)
             }
             DidChangeTextDocument::METHOD => {
                 let params: DidChangeTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidChangeTextDocumentParams");
                 Some(params.text_document.uri)
             }
             DidCloseTextDocument::METHOD => {
                 let params: DidCloseTextDocumentParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidCloseTextDocumentParams");
                 let uri = params.text_document.uri;
                 self.symbol_cache.drop(&uri);
@@ -41,7 +40,7 @@ impl LanguageServer {
             }
             DidChangeWorkspaceFolders::METHOD => {
                 let params: DidChangeWorkspaceFoldersParams =
-                    serde_json::from_value(notification.params.clone())
+                    serde_json::from_value(notification.params)
                         .expect("Expect receive DidChangeWorkspaceFoldersParams");
                 for added in params.event.added {
                     self.workspace_folders.insert(added.name.clone(), added);
@@ -155,14 +154,14 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 0, 0);
+        let resp = send_hover_request(&client_connection, script, 0, 0);
 
         assert_json_eq!(
             result_from_message(resp),
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "Create a variable and give it a value.\n\nThis command is a parser keyword. For details, check:\n  https://www.nushell.sh/book/thinking_in_nu.html\n---\n### Usage \n```nu\n  let {flags} <var_name> <initial_value>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `var_name: any` - Variable name.\n\n  `initial_value: any` - Equals sign followed by value.\n\n\n### Input/output types\n\n```nu\n any | nothing\n\n```\n### Example(s)\n  Set a variable to a value\n```nu\n  let x = 10\n```\n  Set a variable to the result of an expression\n```nu\n  let x = 10 + 100\n```\n  Set a variable based on the condition\n```nu\n  let x = if false { -1 } else { 1 }\n```\n"
+                    "value": "Create a variable and give it a value.\n\nThis command is a parser keyword. For details, check:\n  https://www.nushell.sh/book/thinking_in_nu.html\n---\n### Usage \n```nu\n  let {flags} <var_name> = <initial_value>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `var_name`: `<vardecl>` - Variable name.\n\n  `initial_value`: `<variable>` - Equals sign followed by value.\n\n\n### Input/output types\n\n```nu\n any | nothing\n\n```\n### Example(s)\n  Set a variable to a value\n```nu\n  let x = 10\n```\n  Set a variable to the result of an expression\n```nu\n  let x = 10 + 100\n```\n  Set a variable based on the condition\n```nu\n  let x = if false { -1 } else { 1 }\n```\n"
                 }
             })
         );
@@ -190,7 +189,7 @@ hello"#,
             ),
             None,
         );
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -229,7 +228,7 @@ hello"#,
                 },
             }),
         );
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),

@@ -25,7 +25,7 @@ use crate::{
     engine::{Closure, EngineState},
     BlockId, Config, ShellError, Signals, Span, Type,
 };
-use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
@@ -953,7 +953,7 @@ impl Value {
                         } else {
                             val.to_rfc3339()
                         },
-                        HumanTime::from(*val),
+                        human_time_from_now(val),
                     )
                 }
             },
@@ -999,7 +999,7 @@ impl Value {
         match self {
             Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
-                None => HumanTime::from(*val).to_string(),
+                None => human_time_from_now(val).to_string(),
             },
             Value::List { ref vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
@@ -3056,7 +3056,7 @@ impl Value {
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::FloorDivide), op, rhs)
             }
             _ => Err(operator_type_error(
                 Operator::Math(Math::FloorDivide),
@@ -4014,6 +4014,24 @@ fn operator_type_error(
             unsupported_span: lhs.span(),
             help: None,
         },
+    }
+}
+
+fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+    let now = Local::now().with_timezone(val.offset());
+    let delta = *val - now;
+    match delta.num_nanoseconds() {
+        Some(num_nanoseconds) => {
+            let delta_seconds = num_nanoseconds as f64 / 1_000_000_000.0;
+            let delta_seconds_rounded = delta_seconds.round() as i64;
+            HumanTime::from(Duration::seconds(delta_seconds_rounded))
+        }
+        None => {
+            // Happens if the total number of nanoseconds exceeds what fits in an i64
+            // Note: not using delta.num_days() because it results is wrong for years before ~936: a extra year is added
+            let delta_years = val.year() - now.year();
+            HumanTime::from(Duration::days(delta_years as i64 * 365))
+        }
     }
 }
 

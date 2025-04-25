@@ -300,7 +300,7 @@ fn parse_long_duration() {
             "78.797877879789789sec" | into duration
         "#);
 
-    assert_eq!(actual.out, "1min 18sec 797ms");
+    assert_eq!(actual.out, "1min 18sec 797ms 877µs 879ns");
 }
 
 #[rstest]

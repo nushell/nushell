@@ -86,7 +86,7 @@ impl PluginCommand for OpenDataFrame {
             )
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
@@ -103,7 +103,7 @@ impl PluginCommand for OpenDataFrame {
             )
             .named(
                 "hive-schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Hive schema in format [{name: str}]. Parquet and Arrow files"#,
                 None,
             )
@@ -163,7 +163,7 @@ fn command(
         });
     }
 
-    let hive_options = build_hive_options(call)?;
+    let hive_options = build_hive_options(plugin, call)?;
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
@@ -388,7 +388,7 @@ fn from_json(
     })?;
     let maybe_schema = call
         .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
         .transpose()?;
 
     let buf_reader = BufReader::new(file);
@@ -429,11 +429,7 @@ fn from_ndjson(
             NonZeroUsize::new(DEFAULT_INFER_SCHEMA)
                 .expect("The default infer-schema should be non zero"),
         );
-    let maybe_schema = call
-        .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
-        .transpose()?;
-
+    let maybe_schema = get_schema(plugin, call)?;
     if !is_eager {
         let start_time = std::time::Instant::now();
 
@@ -511,10 +507,7 @@ fn from_csv(
         .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
-    let maybe_schema = call
-        .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
-        .transpose()?;
+    let maybe_schema = get_schema(plugin, call)?;
     let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
     if !is_eager {
@@ -627,12 +620,15 @@ fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
     }
 }
 
-fn build_hive_options(call: &EvaluatedCall) -> Result<HiveOptions, ShellError> {
+fn build_hive_options(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+) -> Result<HiveOptions, ShellError> {
     let enabled: Option<bool> = call.get_flag("hive-enabled")?;
     let hive_start_idx: Option<usize> = call.get_flag("hive-start-idx")?;
     let schema: Option<NuSchema> = call
         .get_flag::<Value>("hive-schema")?
-        .map(|schema| NuSchema::try_from(&schema))
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
         .transpose()?;
     let try_parse_dates: bool = call.has_flag("hive-try-parse-dates")?;
 
@@ -642,4 +638,12 @@ fn build_hive_options(call: &EvaluatedCall) -> Result<HiveOptions, ShellError> {
         schema: schema.map(|s| s.into()),
         try_parse_dates,
     })
+}
+
+fn get_schema(plugin: &PolarsPlugin, call: &EvaluatedCall) -> Result<Option<NuSchema>, ShellError> {
+    let schema: Option<NuSchema> = call
+        .get_flag("schema")?
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
+        .transpose()?;
+    Ok(schema)
 }

@@ -167,9 +167,10 @@ fn main() -> Result<()> {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![Value::test_string(
-            default_nu_plugin_dirs_path.to_string_lossy(),
-        )]),
+        Value::test_list(vec![
+            Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+            Value::test_string(current_exe_directory().to_string_lossy()),
+        ]),
     );
     engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS

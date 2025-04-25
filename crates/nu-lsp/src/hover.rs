@@ -1,7 +1,10 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
-use nu_protocol::engine::Command;
+use nu_protocol::{engine::Command, PositionalArg};
 
-use crate::{Id, LanguageServer};
+use crate::{
+    signature::{display_flag, doc_for_arg, get_signature_label},
+    Id, LanguageServer,
+};
 
 impl LanguageServer {
     pub(crate) fn get_decl_description(decl: &dyn Command, skip_description: bool) -> String {
@@ -19,35 +22,27 @@ impl LanguageServer {
         // Usage
         description.push_str("---\n### Usage \n```nu\n");
         let signature = decl.signature();
-        description.push_str(&Self::get_signature_label(&signature));
+        description.push_str(&get_signature_label(&signature, true));
         description.push_str("\n```\n");
 
         // Flags
         if !signature.named.is_empty() {
             description.push_str("\n### Flags\n\n");
             let mut first = true;
-            for named in &signature.named {
+            for named in signature.named {
                 if first {
                     first = false;
                 } else {
                     description.push('\n');
                 }
                 description.push_str("  ");
-                if let Some(short_flag) = &named.short {
-                    description.push_str(&format!("`-{short_flag}`"));
-                }
-                if !named.long.is_empty() {
-                    if named.short.is_some() {
-                        description.push_str(", ");
-                    }
-                    description.push_str(&format!("`--{}`", named.long));
-                }
-                if let Some(arg) = &named.arg {
-                    description.push_str(&format!(" `<{}>`", arg.to_type()));
-                }
-                if !named.desc.is_empty() {
-                    description.push_str(&format!(" - {}", named.desc));
-                }
+                description.push_str(&display_flag(&named, true));
+                description.push_str(&doc_for_arg(
+                    named.arg,
+                    named.desc,
+                    named.default_value,
+                    false,
+                ));
                 description.push('\n');
             }
             description.push('\n');
@@ -60,46 +55,38 @@ impl LanguageServer {
         {
             description.push_str("\n### Parameters\n\n");
             let mut first = true;
-            for required_arg in &signature.required_positional {
+            let mut write_arg = |arg: PositionalArg, optional: bool| {
                 if first {
                     first = false;
                 } else {
                     description.push('\n');
                 }
-                description.push_str(&format!(
-                    "  `{}: {}`",
-                    required_arg.name,
-                    required_arg.shape.to_type()
+                description.push_str(&format!("  `{}`", arg.name));
+                description.push_str(&doc_for_arg(
+                    Some(arg.shape),
+                    arg.desc,
+                    arg.default_value,
+                    optional,
                 ));
-                if !required_arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", required_arg.desc));
-                }
                 description.push('\n');
+            };
+            for required_arg in signature.required_positional {
+                write_arg(required_arg, false);
             }
-            for optional_arg in &signature.optional_positional {
-                if first {
-                    first = false;
-                } else {
-                    description.push('\n');
-                }
-                description.push_str(&format!(
-                    "  `{}: {}`",
-                    optional_arg.name,
-                    optional_arg.shape.to_type()
-                ));
-                if !optional_arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", optional_arg.desc));
-                }
-                description.push('\n');
+            for optional_arg in signature.optional_positional {
+                write_arg(optional_arg, true);
             }
-            if let Some(arg) = &signature.rest_positional {
+            if let Some(arg) = signature.rest_positional {
                 if !first {
                     description.push('\n');
                 }
-                description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
-                if !arg.desc.is_empty() {
-                    description.push_str(&format!(" - {}", arg.desc));
-                }
+                description.push_str(&format!(" `...{}`", arg.name));
+                description.push_str(&doc_for_arg(
+                    Some(arg.shape),
+                    arg.desc,
+                    arg.default_value,
+                    false,
+                ));
                 description.push('\n');
             }
             description.push('\n');
@@ -129,13 +116,12 @@ impl LanguageServer {
     }
 
     pub(crate) fn hover(&mut self, params: &HoverParams) -> Option<Hover> {
-        let mut engine_state = self.new_engine_state();
-
         let path_uri = params
             .text_document_position_params
             .text_document
             .uri
             .to_owned();
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
         let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,
@@ -156,7 +142,7 @@ impl LanguageServer {
         };
 
         match id {
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let value = var
                     .const_val
@@ -192,7 +178,7 @@ impl LanguageServer {
                 working_set.get_decl(decl_id),
                 false,
             )),
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let description = working_set
                     .get_module_comments(module_id)?
                     .iter()
@@ -245,7 +231,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 2, 0);
+        let resp = send_hover_request(&client_connection, script, 2, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -260,30 +246,44 @@ mod hover_tests {
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
-        script.push("cell_path.nu");
+        script.push("use.nu");
         let script = path_to_uri(&script);
-
         open_unchecked(&client_connection, script.clone());
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 3);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 3);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nlist<any>\n```")
         );
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 7);
+        let resp = send_hover_request(&client_connection, script.clone(), 2, 7);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nrecord<bar: int>\n```")
         );
 
-        let resp = send_hover_request(&client_connection, script.clone(), 4, 11);
+        let resp = send_hover_request(&client_connection, script, 2, 11);
         let result = result_from_message(resp);
         assert_json_eq!(
             result.pointer("/contents/value").unwrap(),
             serde_json::json!("```\nint\n```\n---\n2")
+        );
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("workspace");
+        script.push("baz.nu");
+        let script = path_to_uri(&script);
+        open_unchecked(&client_connection, script.clone());
+
+        // For module record
+        let resp = send_hover_request(&client_connection, script, 8, 42);
+        let result = result_from_message(resp);
+        assert_json_eq!(
+            result.pointer("/contents/value").unwrap(),
+            serde_json::json!("```\nstring\n```\n---\nconst value")
         );
     }
 
@@ -298,7 +298,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 0);
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -322,7 +322,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 9, 7);
+        let resp = send_hover_request(&client_connection, script, 9, 7);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -346,7 +346,7 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 6, 2);
+        let resp = send_hover_request(&client_connection, script, 6, 2);
 
         let hover_text = result_from_message(resp)
             .pointer("/contents/value")
@@ -372,14 +372,14 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 5, 8);
+        let resp = send_hover_request(&client_connection, script, 5, 8);
 
         assert_json_eq!(
             result_from_message(resp),
             serde_json::json!({
                     "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} (separator)\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator`: `<string>` - Optional separator to use when creating string. (optional)\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
@@ -391,12 +391,58 @@ mod hover_tests {
 
         let mut script = fixtures();
         script.push("lsp");
-        script.push("goto");
-        script.push("module.nu");
+        script.push("workspace");
+        script.push("foo.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script.clone(), 3, 12);
+        let resp = send_hover_request(&client_connection, script.clone(), 15, 15);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# cmt\""
+        );
+
+        let resp = send_hover_request(&client_connection, script.clone(), 17, 27);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# sub cmt\""
+        );
+
+        let resp = send_hover_request(&client_connection, script, 19, 33);
+        let result = result_from_message(resp);
+        assert_eq!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", ""),
+            "\"# sub sub cmt\""
+        );
+    }
+
+    #[test]
+    fn hover_on_use_command() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("use.nu");
+        let script_uri = path_to_uri(&script);
+
+        let config = format!("use {}", script.to_str().unwrap());
+        let (client_connection, _recv) = initialize_language_server(Some(&config), None);
+
+        open_unchecked(&client_connection, script_uri.clone());
+        let resp = send_hover_request(&client_connection, script_uri.clone(), 0, 19);
         let result = result_from_message(resp);
 
         assert_eq!(
@@ -405,7 +451,17 @@ mod hover_tests {
                 .unwrap()
                 .to_string()
                 .replace("\\r", ""),
-            "\"# module doc\""
+            "\"```\\nrecord<foo: list<any>>\\n``` \\n---\\nimmutable\""
         );
+
+        let resp = send_hover_request(&client_connection, script_uri, 0, 22);
+        let result = result_from_message(resp);
+
+        assert!(result
+            .pointer("/contents/value")
+            .unwrap()
+            .to_string()
+            .replace("\\r", "")
+            .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags"));
     }
 }

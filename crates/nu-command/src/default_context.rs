@@ -272,6 +272,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Date
         bind_command! {
             Date,
+            DateFromHuman,
             DateHumanize,
             DateListTimezones,
             DateNow,
@@ -452,6 +453,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobList,
             JobKill,
             JobId,
+            JobTag,
             Job,
         };
 

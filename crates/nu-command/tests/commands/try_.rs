@@ -82,6 +82,14 @@ fn catch_block_can_use_error_object() {
     assert_eq!(output.out, "Division by zero.")
 }
 
+#[test]
+fn catch_input_type_mismatch_and_rethrow() {
+    let actual = nu!(
+        "let x: any = 1; try { $x | get 1 } catch {|err| error make { msg: ($err | get msg) } }"
+    );
+    assert!(actual.err.contains("Input type not supported"));
+}
+
 // This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
 // For reasons we don't understand, the Windows CI runners are prone to stack overflow.
 // TODO: investigate so we can enable on Windows

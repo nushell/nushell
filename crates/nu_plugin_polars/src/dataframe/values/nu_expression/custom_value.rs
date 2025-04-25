@@ -101,7 +101,10 @@ fn with_operator(
             apply_arithmetic(plugin, engine, left, right, lhs_span, Rem::rem)
         }
         Operator::Math(Math::FloorDivide) => {
-            apply_arithmetic(plugin, engine, left, right, lhs_span, Div::div)
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Expr::floor_div)
+        }
+        Operator::Math(Math::Pow) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Expr::pow)
         }
         Operator::Comparison(Comparison::Equal) => Ok(left
             .clone()

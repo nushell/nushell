@@ -18,12 +18,11 @@ impl Command for Kill {
         let signature = Signature::build("kill")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required(
+            .rest(
                 "pid",
                 SyntaxShape::Int,
-                "Process id of process that is to be killed.",
+                "Process ids of processes that are to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
@@ -51,11 +50,17 @@ impl Command for Kill {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let pid: i64 = call.req(engine_state, stack, 0)?;
-        let rest: Vec<i64> = call.rest(engine_state, stack, 1)?;
+        let pids: Vec<i64> = call.rest(engine_state, stack, 0)?;
         let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
         let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
+
+        if pids.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "pid".to_string(),
+                span: call.arguments_span(),
+            });
+        }
 
         if cfg!(unix) {
             if let (
@@ -83,7 +88,7 @@ impl Command for Kill {
 
         let mut cmd = build_kill_command(
             force,
-            std::iter::once(pid).chain(rest),
+            pids.iter().copied(),
             signal.map(|spanned| spanned.item as u32),
         );
 

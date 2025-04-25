@@ -7,7 +7,7 @@ use miette::{miette, IntoDiagnostic, Result};
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
-        let mut engine_state = self.new_engine_state();
+        let mut engine_state = self.new_engine_state(Some(&uri));
         engine_state.generate_nu_constant();
 
         let Some((_, span, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {
@@ -33,6 +33,17 @@ impl LanguageServer {
             diagnostics.diagnostics.push(Diagnostic {
                 range: span_to_range(&err.span(), file, span.start),
                 severity: Some(DiagnosticSeverity::ERROR),
+                message,
+                ..Default::default()
+            });
+        }
+
+        for warn in working_set.parse_warnings.iter() {
+            let message = warn.to_string();
+
+            diagnostics.diagnostics.push(Diagnostic {
+                range: span_to_range(&warn.span(), file, span.start),
+                severity: Some(DiagnosticSeverity::WARNING),
                 message,
                 ..Default::default()
             });

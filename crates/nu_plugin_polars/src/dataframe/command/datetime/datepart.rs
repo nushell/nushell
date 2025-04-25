@@ -1,7 +1,8 @@
 use crate::values::NuExpression;
+use std::sync::Arc;
 
 use crate::{
-    dataframe::values::{Column, NuDataFrame},
+    dataframe::values::{Column, NuDataFrame, NuSchema},
     values::CustomValueSupport,
     PolarsPlugin,
 };
@@ -13,7 +14,7 @@ use nu_protocol::{
 };
 use polars::{
     datatypes::{DataType, TimeUnit},
-    prelude::NamedFrom,
+    prelude::{Field, NamedFrom, Schema},
     series::Series,
 };
 
@@ -54,14 +55,20 @@ impl PluginCommand for ExprDatePart {
         vec![
             Example {
                 description: "Creates an expression to capture the year date part",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | polars with-column [(polars col datetime | polars datepart year | polars as datetime_year )]"#,
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" --naive | polars with-column [(polars col datetime | polars datepart year | polars as datetime_year )]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
                             Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
                             Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
                         ],
-                        None,
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new(
+                                "datetime".into(),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
+                            ),
+                            Field::new("datetime_year".into(), DataType::Int64),
+                        ])))),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -69,7 +76,7 @@ impl PluginCommand for ExprDatePart {
             },
             Example {
                 description: "Creates an expression to capture multiple date parts",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" |
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" --naive |
                 polars with-column [ (polars col datetime | polars datepart year | polars as datetime_year ),
                 (polars col datetime | polars datepart month | polars as datetime_month ),
                 (polars col datetime | polars datepart day | polars as datetime_day ),

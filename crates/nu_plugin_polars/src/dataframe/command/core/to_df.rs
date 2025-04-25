@@ -34,8 +34,8 @@ impl PluginCommand for ToDataFrame {
         Signature::build(self.name())
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
-                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                SyntaxShape::Any,
+                r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
             .switch(
@@ -160,7 +160,7 @@ impl PluginCommand for ToDataFrame {
             },
             Example {
                 description: "Convert to a dataframe and provide a schema",
-                example: "[[a b c]; [1 {d: [1 2 3]} [10 11 12] ]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>}",
+                example: "[[a b c e]; [1 {d: [1 2 3]} [10 11 12] 1.618]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>, e: 'decimal<4,3>'}",
                 result: Some(
                     NuDataFrame::try_from_series_vec(vec![
                     Series::new("a".into(), &[1u8]),
@@ -172,11 +172,12 @@ impl PluginCommand for ToDataFrame {
                             .expect("Struct series should not fail")
                     },
                     {
-                        let dtype = DataType::List(Box::new(DataType::String));
+                        let dtype = DataType::List(Box::new(DataType::UInt8));
                         let vals = vec![AnyValue::List(Series::new("c".into(), &[10, 11, 12]))];
                         Series::from_any_values_and_dtype("c".into(), &vals, &dtype, false)
                             .expect("List series should not fail")
-                    }
+                    },
+                    Series::new("e".into(), &[1.618]),
                      ], Span::test_data())
                      .expect("simple df for test should not fail")
                      .into_value(Span::test_data()),
@@ -193,7 +194,28 @@ impl PluginCommand for ToDataFrame {
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
-            }
+            },
+            Example {
+                description: "If a provided schema specifies a subset of columns, only those columns are selected",
+                example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: str}"#,
+                result: Some(NuDataFrame::try_from_series_vec(vec![
+                        Series::new("a".into(), ["1", "2"]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Use a predefined schama",
+                example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s $schema"#,
+                result: Some(NuDataFrame::try_from_series_vec(vec![
+                        Series::new("a".into(), ["1", "2"]),
+                        Series::new("b".into(), ["foo", "bar"]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -206,7 +228,7 @@ impl PluginCommand for ToDataFrame {
     ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
             .get_flag("schema")?
-            .map(|schema| NuSchema::try_from(&schema))
+            .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
         debug!("schema: {:?}", maybe_schema);

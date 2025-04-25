@@ -3,7 +3,12 @@ use crate::{dataframe::values::NuSchema, values::CustomValueSupport, Cacheable, 
 use crate::values::{NuDataFrame, NuLazyFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    record, Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type,
+    Value,
+};
+use polars::prelude::NamedFrom;
+use polars::series::Series;
 
 #[derive(Clone)]
 pub struct ToLazyFrame;
@@ -23,8 +28,8 @@ impl PluginCommand for ToLazyFrame {
         Signature::build(self.name())
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
-                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                SyntaxShape::Any,
+                r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
@@ -32,16 +37,28 @@ impl PluginCommand for ToLazyFrame {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Takes a table and creates a lazyframe",
-            example: "[[a b];[1 2] [3 4]] | polars into-lazy",
-            result: None,
-        },
-        Example {
-            description: "Takes a table, creates a lazyframe, assigns column 'b' type str, displays the schema",
-            example: "[[a b];[1 2] [3 4]] | polars into-lazy --schema {b: str} | polars schema",
-            result: None
-        },
+        vec![
+            Example {
+                description: "Takes a table and creates a lazyframe",
+                example: "[[a b];[1 2] [3 4]] | polars into-lazy",
+                result: None,
+            },
+            Example {
+                description: "Takes a table, creates a lazyframe, assigns column 'b' type str, displays the schema",
+                example: "[[a b];[1 2] [3 4]] | polars into-lazy --schema {b: str} | polars schema",
+                result: Some(Value::test_record(record! {"b" => Value::test_string("str")})),
+            },
+            Example {
+                description: "Use a predefined schama",
+                example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-lazy -s $schema"#,
+                result: Some(NuDataFrame::try_from_series_vec(vec![
+                        Series::new("a".into(), ["1", "2"]),
+                        Series::new("b".into(), ["foo", "bar"]),
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -54,7 +71,7 @@ impl PluginCommand for ToLazyFrame {
     ) -> Result<PipelineData, LabeledError> {
         let maybe_schema = call
             .get_flag("schema")?
-            .map(|schema| NuSchema::try_from(&schema))
+            .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
@@ -70,6 +87,7 @@ impl PluginCommand for ToLazyFrame {
 
 #[cfg(test)]
 mod tests {
+    use crate::test::test_polars_plugin_command;
     use std::sync::Arc;
 
     use nu_plugin_test_support::PluginTest;
@@ -86,5 +104,10 @@ mod tests {
         let df = NuLazyFrame::try_from_value(&plugin, &value)?;
         assert!(!df.from_eager);
         Ok(())
+    }
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ToLazyFrame)
     }
 }

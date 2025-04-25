@@ -2678,7 +2678,7 @@ pub fn parse_unit_value<'res>(
 
     if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
         let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
+        let lhs = strip_underscores(&value.as_bytes()[..lhs_len]);
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
         if lhs.ends_with('$') {
@@ -2701,12 +2701,31 @@ pub fn parse_unit_value<'res>(
             }
         });
 
-        let (num, unit) = match convert {
-            Some(convert_to) => (
-                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
-                convert_to.0,
-            ),
-            None => (number_part as i64, *unit),
+        let mut unit = match convert {
+            Some(convert_to) => convert_to.0,
+            None => *unit,
+        };
+
+        let num_float = match convert {
+            Some(convert_to) => {
+                (number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)
+            }
+            None => number_part,
+        };
+
+        // Convert all durations to nanoseconds to not lose precision
+        let num = match unit_to_ns_factor(&unit) {
+            Some(factor) => {
+                let num_ns = num_float * factor;
+                if i64::MIN as f64 <= num_ns && num_ns <= i64::MAX as f64 {
+                    unit = Unit::Nanosecond;
+                    num_ns as i64
+                } else {
+                    // not safe to convert, because of the overflow
+                    num_float as i64
+                }
+            }
+            None => num_float as i64,
         };
 
         trace!("-- found {} {:?}", num, unit);
@@ -2784,7 +2803,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
     (
         Unit::Filesize(FilesizeUnit::EiB),
         "EIB",
-        Some((Unit::Filesize(FilesizeUnit::EiB), 1024)),
+        Some((Unit::Filesize(FilesizeUnit::PiB), 1024)),
     ),
     (Unit::Filesize(FilesizeUnit::B), "B", None),
 ];
@@ -2812,6 +2831,20 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Day, "day", Some((Unit::Minute, 1440))),
     (Unit::Week, "wk", Some((Unit::Day, 7))),
 ];
+
+fn unit_to_ns_factor(unit: &Unit) -> Option<f64> {
+    match unit {
+        Unit::Nanosecond => Some(1.0),
+        Unit::Microsecond => Some(1_000.0),
+        Unit::Millisecond => Some(1_000_000.0),
+        Unit::Second => Some(1_000_000_000.0),
+        Unit::Minute => Some(60.0 * 1_000_000_000.0),
+        Unit::Hour => Some(60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Day => Some(24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Week => Some(7.0 * 24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        _ => None,
+    }
+}
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {
@@ -5208,7 +5241,7 @@ pub fn parse_assignment_expression(
         rhs_span.start,
         &[],
         &[],
-        true,
+        false,
     );
     working_set.parse_errors.extend(rhs_error);
 
@@ -6878,13 +6911,9 @@ pub fn parse(
 
     let mut output = {
         if let Some(block) = previously_parsed_block {
-            // dbg!("previous block");
             return block;
         } else {
-            // dbg!("starting lex");
             let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            // dbg!("finished lex");
-            // dbg!(&output);
             if let Some(err) = err {
                 working_set.error(err)
             }
