@@ -30,6 +30,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
+ "const-random",
  "getrandom 0.2.15",
  "once_cell",
  "version_check",
@@ -4610,8 +4611,7 @@ checksum = "fb37767f6569cd834a413442455e0f066d0d522de8630436e2a1761d9726ba56"
 [[package]]
 name = "papergrid"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30268a8d20c2c0d126b2b6610ab405f16517f6ba9f244d8c59ac2c512a8a1ce7"
+source = "git+https://github.com/zhiburt/tabled?rev=fd48cef72a3e87beada497689509f9ab7b5823dd#fd48cef72a3e87beada497689509f9ab7b5823dd"
 dependencies = [
  "ahash",
  "ansi-str 0.9.0",
@@ -7061,8 +7061,7 @@ dependencies = [
 [[package]]
 name = "tabled"
 version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "228d124371171cd39f0f454b58f73ddebeeef3cef3207a82ffea1c29465aea43"
+source = "git+https://github.com/zhiburt/tabled?rev=fd48cef72a3e87beada497689509f9ab7b5823dd#fd48cef72a3e87beada497689509f9ab7b5823dd"
 dependencies = [
  "ansi-str 0.9.0",
  "ansitok 0.3.0",
