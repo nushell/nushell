@@ -55,20 +55,16 @@ Note that this command fails if the provided job id is currently not in the job 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup_mut(id) {
-            None => {
-                return Err(ShellError::JobNotFound {
-                    id: id.get(),
-                    span: head,
-                });
-            }
+            None => Err(ShellError::JobNotFound {
+                id: id.get(),
+                span: head,
+            }),
 
-            Some(Job::Frozen { .. }) => {
-                return Err(ShellError::UnsupportedJobType {
-                    id: id.get() as usize,
-                    span: head,
-                    kind: "frozen".to_string(),
-                });
-            }
+            Some(Job::Frozen { .. }) => Err(ShellError::UnsupportedJobType {
+                id: id.get() as usize,
+                span: head,
+                kind: "frozen".to_string(),
+            }),
 
             Some(Job::Thread(job)) => {
                 let waiter = job.on_termination().clone();
@@ -104,9 +100,8 @@ pub fn wait_with_interrupt<R, E>(
     loop {
         interrupted()?;
 
-        match wait(check_interval) {
-            Some(result) => return Ok(result),
-            None => {} // do nothing, try again
+        if let Some(result) = wait(check_interval) {
+            return Ok(result);
         }
     }
 }

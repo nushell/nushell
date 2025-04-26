@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex, WaitTimeoutResult},
-    time::Instant,
+    sync::{Arc, Mutex},
 };
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
@@ -336,9 +335,9 @@ impl<T> Waiter<T> {
         {
             Ok((_guard, result)) => {
                 if result.timed_out() {
-                    return None;
+                    None
                 } else {
-                    return Some(inner.value.get().unwrap());
+                    Some(inner.value.get().unwrap())
                 }
             }
             Err(_) => panic!("mutex is poisoned!"),
