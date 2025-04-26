@@ -36,7 +36,7 @@ fn headers_handles_missing_values() {
         "
             [{x: a, y: b}, {x: 1, y: 2}, {x: 1, z: 3}]
             | headers
-            | to nuon --raw
+            | to nuon
         "
     ));
 

@@ -125,7 +125,7 @@ def process_call [
   # Use this information to implement your plugin logic
 
   # Print the call to stderr, in raw nuon and as a table
-  $plugin_call | to nuon --raw | print -e
+  $plugin_call | to nuon | print -e
   $plugin_call | table -e | print -e
 
   # Get the span from the call

@@ -6,9 +6,13 @@ use nu_utils::{escape_quote_string, needs_quoting};
 
 /// control the way Nushell [`Value`] is converted to NUON data
 pub enum ToStyle {
-    /// no indentation at all
+    /// no extra indentation
     ///
     /// `{ a: 1, b: 2 }` will be converted to `{a: 1, b: 2}`
+    Default,
+    /// no white space at all
+    ///
+    /// `{ a: 1, b: 2 }` will be converted to `{a:1,b:2}`
     Raw,
     #[allow(clippy::tabs_in_doc_comments)]
     /// tabulation-based indentation
@@ -52,7 +56,8 @@ pub fn to_nuon(
     let span = span.unwrap_or(Span::unknown());
 
     let indentation = match style {
-        ToStyle::Raw => None,
+        ToStyle::Default => None,
+        ToStyle::Raw => Some("".to_string()),
         ToStyle::Tabs(t) => Some("\t".repeat(t)),
         ToStyle::Spaces(s) => Some(" ".repeat(s)),
     };
@@ -77,7 +82,7 @@ fn value_to_string(
     indent: Option<&str>,
     serialize_types: bool,
 ) -> Result<String, ShellError> {
-    let (nl, sep) = get_true_separators(indent);
+    let (nl, sep, kv_sep) = get_true_separators(indent);
     let idt = get_true_indentation(depth, indent);
     let idt_po = get_true_indentation(depth + 1, indent);
     let idt_pt = get_true_indentation(depth + 2, indent);
@@ -211,7 +216,7 @@ fn value_to_string(
                     col
                 };
                 collection.push(format!(
-                    "{idt_po}{col}: {}",
+                    "{idt_po}{col}:{kv_sep}{}",
                     value_to_string_without_quotes(
                         engine_state,
                         val,
@@ -241,10 +246,11 @@ fn get_true_indentation(depth: usize, indent: Option<&str>) -> String {
     }
 }
 
-fn get_true_separators(indent: Option<&str>) -> (String, String) {
+fn get_true_separators(indent: Option<&str>) -> (String, String, String) {
     match indent {
-        Some(_) => ("\n".to_string(), "".to_string()),
-        None => ("".to_string(), " ".to_string()),
+        Some("") => ("".to_string(), "".to_string(), "".to_string()),
+        Some(_) => ("\n".to_string(), "".to_string(), " ".to_string()),
+        None => ("".to_string(), " ".to_string(), " ".to_string()),
     }
 }
 

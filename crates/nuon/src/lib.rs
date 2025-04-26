@@ -31,7 +31,7 @@ mod tests {
             assert_eq!(val, m);
         }
         assert_eq!(
-            to_nuon(&engine_state, &val, ToStyle::Raw, None, false).unwrap(),
+            to_nuon(&engine_state, &val, ToStyle::Default, None, false).unwrap(),
             input
         );
     }
@@ -186,7 +186,7 @@ mod tests {
                 block_id: BlockId::new(0),
                 captures: vec![]
             }),
-            ToStyle::Raw,
+            ToStyle::Default,
             None,
             false,
         )
@@ -211,7 +211,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &from_nuon("0x[1f ff]", None).unwrap(),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -261,7 +261,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(1.0),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false
             )
@@ -278,7 +278,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::INFINITY),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -295,7 +295,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::NEG_INFINITY),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -312,7 +312,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(-f64::NAN),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -340,7 +340,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -357,7 +357,7 @@ mod tests {
         let res = to_nuon(
             &engine_state,
             &Value::test_string(""),
-            ToStyle::Raw,
+            ToStyle::Default,
             None,
             false,
         );
@@ -423,7 +423,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -438,7 +438,7 @@ mod tests {
                     "ro name" => Value::test_string("sam"),
                     "rank" => Value::test_int(10)
                 )),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
