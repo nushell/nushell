@@ -101,11 +101,23 @@ in no particular order, regardless of the specified timeout parameter.
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "job recv",
-            description: "Block the current thread while no message arrives",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "job recv",
+                description: "Block the current thread while no message arrives",
+                result: None,
+            },
+            Example {
+                example: "job recv --timeout 10sec",
+                description: "Receive a message, wait for at most 10 seconds.",
+                result: None,
+            },
+            Example {
+                example: "job recv --timeout 0sec",
+                description: "Get a message or fail if no message is available immediately",
+                result: None,
+            },
+        ]
     }
 }
 
