@@ -60,6 +60,7 @@ pub fn parse_shape_name(
         b"int" => SyntaxShape::Int,
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span, use_loc),
         b"nothing" => SyntaxShape::Nothing,
+        _ if bytes.starts_with(b"one_of") => parse_one_of_shape(working_set, bytes, span, use_loc),
         b"number" => SyntaxShape::Number,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
@@ -143,7 +144,8 @@ fn parse_collection_shape(
     if bytes == name.as_bytes() {
         mk_shape(vec![])
     } else if bytes.starts_with(prefix) {
-        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len) else {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len, b'>')
+        else {
             return SyntaxShape::Any;
         };
 
@@ -245,6 +247,84 @@ fn parse_collection_shape(
     }
 }
 
+fn parse_one_of_shape(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+    use_loc: ShapeDescriptorUse,
+) -> SyntaxShape {
+    assert!(bytes.starts_with(b"one_of"));
+
+    let name = "one_of";
+    let prefix = b"one_of(";
+    let prefix_len = prefix.len();
+    let mk_shape = |ty| -> SyntaxShape { SyntaxShape::OneOf(ty) };
+
+    if bytes == name.as_bytes() {
+        mk_shape(vec![])
+    } else if bytes.starts_with(prefix) {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len, b')')
+        else {
+            return SyntaxShape::Any;
+        };
+
+        // one_of()
+        if inner_span.end - inner_span.start == 0 {
+            return mk_shape(vec![]);
+        }
+        let source = working_set.get_span_contents(inner_span);
+        let (tokens, err) = lex_signature(
+            source,
+            inner_span.start,
+            &[b'\n', b'\r'],
+            &[b':', b','],
+            true,
+        );
+
+        if let Some(err) = err {
+            working_set.error(err);
+            // lexer errors cause issues with span overflows
+            return mk_shape(vec![]);
+        }
+
+        let mut sig = vec![];
+        let mut idx = 0;
+
+        let key_error = |span| {
+            ParseError::LabeledError(
+                format!("`{name}` type annotations key not string"),
+                "must be a string".into(),
+                span,
+            )
+        };
+
+        while idx < tokens.len() {
+            let TokenContents::Item = tokens[idx].contents else {
+                working_set.error(key_error(tokens[idx].span));
+                return mk_shape(vec![]);
+            };
+
+            if working_set
+                .get_span_contents(tokens[idx].span)
+                .starts_with(b",")
+            {
+                idx += 1;
+                continue;
+            }
+
+            let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
+            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span, use_loc);
+            sig.push(shape);
+            idx += 1;
+        }
+
+        mk_shape(sig)
+    } else {
+        working_set.error(ParseError::UnknownType(span));
+        SyntaxShape::Any
+    }
+}
+
 fn parse_list_shape(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
@@ -256,7 +336,7 @@ fn parse_list_shape(
     if bytes == b"list" {
         SyntaxShape::List(Box::new(SyntaxShape::Any))
     } else if bytes.starts_with(b"list<") {
-        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
+        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 5, b'>') else {
             return SyntaxShape::Any;
         };
 
@@ -284,14 +364,15 @@ fn prepare_inner_span(
     bytes: &[u8],
     span: Span,
     prefix_len: usize,
+    terminator: u8,
 ) -> Option<Span> {
     let start = span.start + prefix_len;
 
-    if bytes.ends_with(b">") {
+    if bytes.ends_with(&[terminator]) {
         let end = span.end - 1;
         Some(Span::new(start, end))
-    } else if bytes.contains(&b'>') {
-        let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
+    } else if bytes.contains(&terminator) {
+        let angle_start = bytes.split(|it| it == &terminator).collect::<Vec<_>>()[0].len() + 1;
         let span = Span::new(span.start + angle_start, span.end);
 
         working_set.error(ParseError::LabeledError(
@@ -302,7 +383,7 @@ fn prepare_inner_span(
 
         None
     } else {
-        working_set.error(ParseError::Unclosed(">".into(), span));
+        working_set.error(ParseError::Unclosed((terminator as char).into(), span));
         None
     }
 }
