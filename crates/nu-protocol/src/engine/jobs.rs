@@ -254,7 +254,7 @@ use std::sync::OnceLock;
 /// - Multiple threads can wait for the completion of an event (`Waiter` is `Clone` unlike `Receiver`)
 ///
 /// This type differs from `OnceLock` only in a few regards:
-/// - It is split into `Waiter` and `Completer` halfs
+/// - It is split into `Waiter` and `Completer` halves
 /// - It allows users to `wait` on the completion event with a timeout
 ///
 /// Threads that call the [`wait`] method of the `Waiter` block until the [`complete`] method of a matching `Completer` is called.
@@ -337,7 +337,14 @@ impl<T> Waiter<T> {
                 if result.timed_out() {
                     None
                 } else {
-                    Some(inner.value.get().unwrap())
+                    // SAFETY:
+                    // This should never fail, since we just ran a `wait_timeout_while`
+                    // that should run while the `inner.value` OnceLock is not defined.
+                    // Therefore, it by this point in the code, either a timeout happened,
+                    // or a call to the `.get()` method of the OnceLock returned `Some`thing.
+                    // A OnceLock cannot be undefined once it is defined, so any subsequent call
+                    // to `inner.value.get()` should return `Some`thing.
+                    Some(inner.value.get().expect("OnceLock was not defined!"))
                 }
             }
             Err(_) => panic!("mutex is poisoned!"),
@@ -468,7 +475,7 @@ mod completion_signal_tests {
     }
 
     #[test]
-    fn was_signaled_returns_false_when_struct_is_initalized() {
+    fn was_signaled_returns_false_when_struct_is_initialized() {
         let (_, wait) = completion_signal::<()>();
 
         assert!(!wait.is_completed())
