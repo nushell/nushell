@@ -69,12 +69,10 @@ This command never blocks.
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
 
-        let value = input.into_value(head)?;
-
         if id == 0 {
             engine_state
                 .root_job_sender
-                .send((tag, value))
+                .send((tag, input))
                 .expect("this should NEVER happen.");
         } else {
             let jobs = engine_state.jobs.lock().expect("failed to acquire lock");
@@ -84,7 +82,7 @@ This command never blocks.
                     nu_protocol::engine::Job::Thread(thread_job) => {
                         // it is ok to send this value while holding the lock, because
                         // mail channels are always unbounded, so this send never blocks
-                        let _ = thread_job.sender.send((tag, value));
+                        let _ = thread_job.sender.send((tag, input));
                     }
                     nu_protocol::engine::Job::Frozen(_) => {
                         return Err(ShellError::NeedThreadJob {

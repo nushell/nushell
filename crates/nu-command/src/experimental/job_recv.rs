@@ -97,7 +97,6 @@ in no particular order, regardless of the specified timeout parameter.
         } else {
             recv_without_time_limit(&mut mailbox, tag, engine_state.signals(), head)
         }
-        .map(|value| value.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -126,7 +125,7 @@ fn recv_without_time_limit(
     tag: Option<FilterTag>,
     signals: &Signals,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     loop {
         if signals.interrupted() {
             return Err(ShellError::Interrupted { span });
@@ -143,7 +142,7 @@ fn recv_instantly(
     mailbox: &mut Mailbox,
     tag: Option<FilterTag>,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     match mailbox.try_recv(tag) {
         Ok(value) => Ok(value),
         Err(TryRecvError::Empty) => Err(ShellError::RecvTimeout { span }),
@@ -157,7 +156,7 @@ fn recv_with_time_limit(
     signals: &Signals,
     span: Span,
     timeout: Duration,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     let deadline = Instant::now() + timeout;
 
     loop {

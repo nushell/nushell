@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
 
-use crate::{Signals, Value};
+use crate::{PipelineData, Signals};
 
 use crate::JobId;
 
@@ -284,7 +284,7 @@ impl Mailbox {
         &mut self,
         filter_tag: Option<FilterTag>,
         timeout: Duration,
-    ) -> Result<Value, RecvTimeoutError> {
+    ) -> Result<PipelineData, RecvTimeoutError> {
         if let Some(value) = self.ignored_mail.pop(filter_tag) {
             Ok(value)
         } else {
@@ -309,7 +309,10 @@ impl Mailbox {
     }
 
     #[cfg(not(target_family = "wasm"))]
-    pub fn try_recv(&mut self, filter_tag: Option<FilterTag>) -> Result<Value, TryRecvError> {
+    pub fn try_recv(
+        &mut self,
+        filter_tag: Option<FilterTag>,
+    ) -> Result<PipelineData, TryRecvError> {
         if let Some(value) = self.ignored_mail.pop(filter_tag) {
             Ok(value)
         } else {
@@ -342,7 +345,7 @@ struct IgnoredMail {
 }
 
 pub type FilterTag = u64;
-pub type Mail = (Option<FilterTag>, Value);
+pub type Mail = (Option<FilterTag>, PipelineData);
 
 impl IgnoredMail {
     pub fn add(&mut self, (tag, value): Mail) {
@@ -356,7 +359,7 @@ impl IgnoredMail {
         }
     }
 
-    pub fn pop(&mut self, tag: Option<FilterTag>) -> Option<Value> {
+    pub fn pop(&mut self, tag: Option<FilterTag>) -> Option<PipelineData> {
         if let Some(tag) = tag {
             self.pop_oldest_with_tag(tag)
         } else {
@@ -369,7 +372,7 @@ impl IgnoredMail {
         self.by_tag.clear();
     }
 
-    fn pop_oldest(&mut self) -> Option<Value> {
+    fn pop_oldest(&mut self) -> Option<PipelineData> {
         let (id, (tag, value)) = self.messages.pop_first()?;
 
         if let Some(tag) = tag {
@@ -388,7 +391,7 @@ impl IgnoredMail {
         Some(value)
     }
 
-    fn pop_oldest_with_tag(&mut self, tag: FilterTag) -> Option<Value> {
+    fn pop_oldest_with_tag(&mut self, tag: FilterTag) -> Option<PipelineData> {
         let ids = self.by_tag.get_mut(&tag)?;
 
         let id = ids.pop_first()?;
