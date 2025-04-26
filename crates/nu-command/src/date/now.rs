@@ -58,6 +58,12 @@ impl Command for DateNow {
                 example: r#"(date now) - 2019-05-01T04:12:05.20+08:00"#,
                 result: None,
             },
+            Example {
+                description:
+                    "Get current time and format it in the debug format (RFC 2822 with timezone)",
+                example: r#"date now | debug"#,
+                result: None,
+            },
         ]
     }
 }
