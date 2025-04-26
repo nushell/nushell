@@ -183,8 +183,10 @@ fn parse_collection_shape(
                 return mk_shape(vec![]);
             };
 
-            let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-            if key_bytes.first().copied() == Some(b',') {
+            if working_set
+                .get_span_contents(tokens[idx].span)
+                .starts_with(b",")
+            {
                 idx += 1;
                 continue;
             }
@@ -205,8 +207,8 @@ fn parse_collection_shape(
                 idx += 1;
             }
 
-            let maybe_colon = working_set.get_span_contents(tokens[idx].span).to_vec();
-            match maybe_colon.as_slice() {
+            let maybe_colon = working_set.get_span_contents(tokens[idx].span);
+            match maybe_colon {
                 b":" => {
                     if idx + 1 == tokens.len() {
                         working_set
