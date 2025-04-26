@@ -85,7 +85,7 @@ This command never blocks.
                         let _ = thread_job.sender.send((tag, input));
                     }
                     nu_protocol::engine::Job::Frozen(_) => {
-                        return Err(ShellError::NeedThreadJob {
+                        return Err(ShellError::JobIsFrozen {
                             id: id as usize,
                             span: id_arg.span,
                         });
