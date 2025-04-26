@@ -71,10 +71,9 @@ pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style_comp: &StyleCom
     (text, style)
 }
 
-pub fn error_sign(style_computer: &StyleComputer) -> (String, TextStyle) {
+pub fn error_sign(text: String, style_computer: &StyleComputer) -> (String, TextStyle) {
     // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
 
-    let text = String::from("❎");
     let style = style_computer.compute("empty", &Value::nothing(Span::unknown()));
     (text, TextStyle::with_style(Alignment::Center, style))
 }
@@ -122,9 +121,9 @@ pub fn get_value_style(value: &Value, config: &Config, style_computer: &StyleCom
     }
 }
 
-pub fn get_empty_style(style_computer: &StyleComputer) -> NuText {
+pub fn get_empty_style(text: String, style_computer: &StyleComputer) -> NuText {
     (
-        String::from("❎"),
+        text,
         TextStyle::with_style(
             Alignment::Right,
             style_computer.compute("empty", &Value::nothing(Span::unknown())),

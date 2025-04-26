@@ -355,6 +355,9 @@ $env.config.table.abbreviated_row_count = null
 # false: Always apply `footer_mode` rules to the parent table
 $env.config.table.footer_inheritance = false
 
+# missing_symbol (string): The symbol shown for missing values
+$env.config.table.missing_symbol = "❎"
+
 # ----------------
 # Datetime Display
 # ----------------
