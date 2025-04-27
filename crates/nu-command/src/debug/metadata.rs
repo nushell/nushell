@@ -133,7 +133,7 @@ pub(super) fn build_metadata_record(
     if let Some(x) = metadata {
         let source: Option<String> = match &x.data_source {
             DataSource::Ls => Some("ls".into()),
-            DataSource::HtmlThemes => Some("into html --list".into()),
+            DataSource::HtmlThemes => Some("to html --list".into()),
             DataSource::FilePath(path) => Some(path.to_string_lossy().into()),
             DataSource::Uri(uri) => Some(uri.into()),
             DataSource::None => None,
