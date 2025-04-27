@@ -6,7 +6,9 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
+use nu_protocol::{
+    shell_error::io::IoError, ByteStream, DataSource, LabeledError, PipelineMetadata, Signals,
+};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -736,8 +738,17 @@ fn transform_response_using_content_type(
     };
 
     let output = response_to_buffer(resp, engine_state, span);
+
+    // lazily evaluate metadata as most of the time we can handle requests
+    let metadata = || {
+        Some(PipelineMetadata {
+            data_source: DataSource::Uri(requested_url.into()),
+            content_type: content_type.essence_str().to_string().into(),
+        })
+    };
+
     if flags.raw {
-        Ok(output)
+        Ok(output.set_metadata(metadata()))
     } else if let Some(ext) = ext {
         match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => engine_state.get_decl(converter_id).run(
@@ -749,7 +760,7 @@ fn transform_response_using_content_type(
             None => Ok(output),
         }
     } else {
-        Ok(output)
+        Ok(output.set_metadata(metadata()))
     }
 }
 
