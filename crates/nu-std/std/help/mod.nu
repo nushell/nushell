@@ -484,6 +484,63 @@ export def operators [
     }
 }
 
+def get-extension-by-prefix [prefix: string] {
+  scope commands
+  | where name starts-with $prefix
+  | insert extension { get name | parse $"($prefix){ext}" | get ext.0 | $"*.($in)" }
+  | select extension name
+  | rename --column { name: command }
+}
+
+
+def get-command-extensions [command: string] {
+  # low-tech version of `nu-highlight`, which produces suboptimal results with unknown commands
+  def hl [shape: string] {
+    let color = $env.config.color_config | get $"shape_($shape)"
+    $"(ansi $color)($in)(ansi reset)"
+  }
+
+  let extensions = {
+    "open": {||
+      [
+        (
+          $"('open' | hl internalcall) will attempt to automatically parse the file according to its extension,"
+          + $" by calling ('from ext' | hl internalcall) on the file contents. For example,"
+          + $" ('open' | hl internalcall) ('file.json' | hl globpattern) will call"
+          + $" ('from json' | hl internalcall). If the file is not a supported type, its content will be returned"
+          + $" as a binary stream instead."
+        )
+        ""
+        "The following extensions are recognized:"
+        (get-extension-by-prefix "from " | table --index false)
+      ]
+    }
+
+    "save": {||
+      [
+        (
+          $"('save' | hl internalcall) will attempt to automatically serialize its input into the format"
+          + $" determined by the file extension, by calling ('to ext' | hl internalcall) before writing the data" 
+          + $" to the file. For example, ('save' | hl internalcall) ('file.json' | hl globpattern)"
+          + $" will call ('to json' | hl internalcall)."
+        )
+        ""
+        "The following extensions are recognized:"
+        (get-extension-by-prefix "to " | table --index false)
+      ]
+    }
+  }
+
+  if $command in $extensions {
+    $extensions
+    | get $command
+    | do $in
+    | each { lines | each { $"  ($in)" } | str join "\n" }
+  } else {
+    []
+  }
+}
+
 def build-command-page [command: record] {
     let description = (if not ($command.description? | is-empty) {[
         $command.description
@@ -653,6 +710,16 @@ def build-command-page [command: record] {
         ] | flatten)
     } else { [] })
 
+    let extensions = (
+      get-command-extensions $command.name
+      | if ($in | is-not-empty) {
+        prepend [
+          ""
+          (build-help-header -n "Extensions")
+        ]
+      } else {}
+    )
+
     let examples = (if not ($command.examples | is-empty) {[
         ""
         (build-help-header -n "Examples")
@@ -683,6 +750,7 @@ def build-command-page [command: record] {
         $cli_usage
         $subcommands
         $rest
+        $extensions
         $examples
     ] | flatten | str join "\n"
 }
