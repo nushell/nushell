@@ -340,7 +340,7 @@ pub struct TableConfig {
     pub header_on_separator: bool,
     pub abbreviated_row_count: Option<usize>,
     pub footer_inheritance: bool,
-    pub missing_symbol: String,
+    pub missing_value_symbol: String,
 }
 
 impl IntoValue for TableConfig {
@@ -359,7 +359,7 @@ impl IntoValue for TableConfig {
             "header_on_separator" => self.header_on_separator.into_value(span),
             "abbreviated_row_count" => abbv_count,
             "footer_inheritance" => self.footer_inheritance.into_value(span),
-            "missing_symbol" => self.missing_symbol.into_value(span),
+            "missing_value_symbol" => self.missing_value_symbol.into_value(span),
         }
         .into_value(span)
     }
@@ -376,7 +376,7 @@ impl Default for TableConfig {
             padding: TableIndent::default(),
             abbreviated_row_count: None,
             footer_inheritance: false,
-            missing_symbol: "❎".into(),
+            missing_value_symbol: "❎".into(),
         }
     }
 }
@@ -414,8 +414,8 @@ impl UpdateFromValue for TableConfig {
                     _ => errors.type_mismatch(path, Type::custom("int or nothing"), val),
                 },
                 "footer_inheritance" => self.footer_inheritance.update(val, path, errors),
-                "missing_symbol" => match val.as_str() {
-                    Ok(val) => self.missing_symbol = val.to_string(),
+                "missing_value_symbol" => match val.as_str() {
+                    Ok(val) => self.missing_value_symbol = val.to_string(),
                     Err(_) => errors.type_mismatch(path, Type::String, val),
                 },
                 _ => errors.unknown_option(path, val),

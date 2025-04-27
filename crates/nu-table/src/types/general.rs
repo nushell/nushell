@@ -207,7 +207,7 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
         Value::Record { val, .. } => match val.get(header) {
             Some(value) => get_string_value(value, opts),
             None => get_empty_style(
-                opts.config.table.missing_symbol.clone(),
+                opts.config.table.missing_value_symbol.clone(),
                 &opts.style_computer,
             ),
         },

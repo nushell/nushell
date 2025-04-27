@@ -508,7 +508,7 @@ fn expand_entry_with_header(item: &Value, header: &str, cfg: Cfg<'_>) -> CellOut
         Value::Record { val, .. } => match val.get(header) {
             Some(val) => expand_entry(val, cfg),
             None => CellOutput::styled(error_sign(
-                cfg.opts.config.table.missing_symbol.clone(),
+                cfg.opts.config.table.missing_value_symbol.clone(),
                 &cfg.opts.style_computer,
             )),
         },
