@@ -492,7 +492,6 @@ def get-extension-by-prefix [prefix: string] {
   | rename --column { name: command }
 }
 
-
 def get-command-extensions [command: string] {
   # low-tech version of `nu-highlight`, which produces suboptimal results with unknown commands
   def hl [shape: string] {
@@ -710,6 +709,8 @@ def build-command-page [command: record] {
         ] | flatten)
     } else { [] })
 
+    # This section documents how the command can be extended
+    # E.g. `open` can be extended by adding more `from ...` commands
     let extensions = (
       get-command-extensions $command.name
       | if ($in | is-not-empty) {
