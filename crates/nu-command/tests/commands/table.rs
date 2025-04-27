@@ -3359,3 +3359,36 @@ fn table_expand_big_header() {
          ╰───┴──────────────────────────────────────────────────────────────────────────╯"
     );
 }
+
+#[test]
+fn table_missing_value() {
+    let actual = nu!(r###"[{foo: null} {} {}] | table"###);
+    assert_eq!(
+        actual.out,
+        "╭───┬─────╮\
+         │ # │ foo │\
+         ├───┼─────┤\
+         │ 0 │     │\
+         │ 1 │  ❎ │\
+         │ 2 │  ❎ │\
+         ╰───┴─────╯",
+    )
+}
+
+#[test]
+fn table_missing_value_custom() {
+    let actual = nu!(r###"
+        $env.config.table.missing_value_symbol = "NULL";
+        [{foo: null} {} {}] | table
+    "###);
+    assert_eq!(
+        actual.out,
+        "╭───┬──────╮\
+         │ # │ foo  │\
+         ├───┼──────┤\
+         │ 0 │      │\
+         │ 1 │ NULL │\
+         │ 2 │ NULL │\
+         ╰───┴──────╯",
+    )
+}
