@@ -452,10 +452,18 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobSpawn,
             JobList,
             JobKill,
+            JobId,
             JobTag,
             JobWait,
             Job,
         };
+
+        #[cfg(not(target_family = "wasm"))]
+        bind_command! {
+            JobSend,
+            JobRecv,
+            JobFlush,
+        }
 
         #[cfg(all(unix, feature = "os"))]
         bind_command! {

@@ -1,11 +1,17 @@
 use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    sync::{
+        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
+        Arc, Mutex,
+    },
 };
+
+#[cfg(not(target_family = "wasm"))]
+use std::time::{Duration, Instant};
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
 
-use crate::{Signals, Value};
+use crate::{PipelineData, Signals, Value};
 
 use crate::JobId;
 
@@ -140,13 +146,20 @@ pub struct ThreadJob {
     pids: Arc<Mutex<HashSet<u32>>>,
     tag: Option<String>,
     on_termination: Waiter<Value>,
+    pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, tag: Option<String>, on_termination: Waiter<Value>) -> Self {
+    pub fn new(
+        signals: Signals,
+        tag: Option<String>,
+        sender: Sender<Mail>,
+        on_termination: Waiter<Value>,
+    ) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
+            sender,
             tag,
             on_termination,
         }
@@ -384,6 +397,163 @@ impl<T> Completer<T> {
         let _ = inner.value.set(value);
 
         inner.var.notify_all();
+    }
+}
+
+/// Stores the information about the background job currently being executed by this thread, if any
+#[derive(Clone)]
+pub struct CurrentJob {
+    pub id: JobId,
+
+    // The background thread job associated with this thread.
+    // If None, it indicates this thread is currently the main job
+    pub background_thread_job: Option<ThreadJob>,
+
+    // note: although the mailbox is Mutex'd, it is only ever accessed
+    // by the current job's threads
+    pub mailbox: Arc<Mutex<Mailbox>>,
+}
+
+// The storage for unread messages
+//
+// Messages are initially sent over a mpsc channel,
+// and may then be stored in a IgnoredMail struct when
+// filtered out by a tag.
+pub struct Mailbox {
+    receiver: Receiver<Mail>,
+    ignored_mail: IgnoredMail,
+}
+
+impl Mailbox {
+    pub fn new(receiver: Receiver<Mail>) -> Self {
+        Mailbox {
+            receiver,
+            ignored_mail: IgnoredMail::default(),
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn recv_timeout(
+        &mut self,
+        filter_tag: Option<FilterTag>,
+        timeout: Duration,
+    ) -> Result<PipelineData, RecvTimeoutError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            let mut waited_so_far = Duration::ZERO;
+            let mut before = Instant::now();
+
+            while waited_so_far < timeout {
+                let (tag, value) = self.receiver.recv_timeout(timeout - waited_so_far)?;
+
+                if filter_tag.is_none() || filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                    let now = Instant::now();
+                    waited_so_far += now - before;
+                    before = now;
+                }
+            }
+
+            Err(RecvTimeoutError::Timeout)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn try_recv(
+        &mut self,
+        filter_tag: Option<FilterTag>,
+    ) -> Result<PipelineData, TryRecvError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            loop {
+                let (tag, value) = self.receiver.try_recv()?;
+
+                if filter_tag.is_none() || filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                }
+            }
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.ignored_mail.clear();
+
+        while self.receiver.try_recv().is_ok() {}
+    }
+}
+
+// A data structure used to store messages which were received, but currently ignored by a tag filter
+// messages are added and popped in a first-in-first-out matter.
+#[derive(Default)]
+struct IgnoredMail {
+    next_id: usize,
+    messages: BTreeMap<usize, Mail>,
+    by_tag: HashMap<FilterTag, BTreeSet<usize>>,
+}
+
+pub type FilterTag = u64;
+pub type Mail = (Option<FilterTag>, PipelineData);
+
+impl IgnoredMail {
+    pub fn add(&mut self, (tag, value): Mail) {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        self.messages.insert(id, (tag, value));
+
+        if let Some(tag) = tag {
+            self.by_tag.entry(tag).or_default().insert(id);
+        }
+    }
+
+    pub fn pop(&mut self, tag: Option<FilterTag>) -> Option<PipelineData> {
+        if let Some(tag) = tag {
+            self.pop_oldest_with_tag(tag)
+        } else {
+            self.pop_oldest()
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.by_tag.clear();
+    }
+
+    fn pop_oldest(&mut self) -> Option<PipelineData> {
+        let (id, (tag, value)) = self.messages.pop_first()?;
+
+        if let Some(tag) = tag {
+            let needs_cleanup = if let Some(ids) = self.by_tag.get_mut(&tag) {
+                ids.remove(&id);
+                ids.is_empty()
+            } else {
+                false
+            };
+
+            if needs_cleanup {
+                self.by_tag.remove(&tag);
+            }
+        }
+
+        Some(value)
+    }
+
+    fn pop_oldest_with_tag(&mut self, tag: FilterTag) -> Option<PipelineData> {
+        let ids = self.by_tag.get_mut(&tag)?;
+
+        let id = ids.pop_first()?;
+
+        if ids.is_empty() {
+            self.by_tag.remove(&tag);
+        }
+
+        Some(self.messages.remove(&id)?.1)
     }
 }
 

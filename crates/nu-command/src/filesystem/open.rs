@@ -34,7 +34,14 @@ impl Command for Open {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["load", "read", "load_file", "read_file"]
+        vec![
+            "load",
+            "read",
+            "load_file",
+            "read_file",
+            "cat",
+            "get-content",
+        ]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

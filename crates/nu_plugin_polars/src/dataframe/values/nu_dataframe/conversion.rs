@@ -320,6 +320,34 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .collect();
             Ok(Series::new(name, series_values?))
         }
+        DataType::Decimal(precision, scale) => {
+            let series_values: Result<Vec<_>, _> = column
+                .values
+                .iter()
+                .map(|v| {
+                    value_to_option(v, |v| match v {
+                        Value::Float { val, .. } => Ok(*val),
+                        Value::Int { val, .. } => Ok(*val as f64),
+                        x => Err(ShellError::GenericError {
+                            error: "Error converting to decimal".into(),
+                            msg: "".into(),
+                            span: None,
+                            help: Some(format!("Unexpected type: {x:?}")),
+                            inner: vec![],
+                        }),
+                    })
+                })
+                .collect();
+            Series::new(name, series_values?)
+                .cast_with_options(&DataType::Decimal(*precision, *scale), Default::default())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error parsing decimal".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })
+        }
         DataType::UInt8 => {
             let series_values: Result<Vec<_>, _> = column
                 .values
@@ -412,8 +440,8 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 .iter()
                 .map(|v| {
                     value_to_option(v, |v| {
-                        v.as_duration().map(|v| nanos_from_timeunit(v, *time_unit))
-                    })
+                        v.as_duration().map(|v| nanos_to_timeunit(v, *time_unit))
+                    }?)
                 })
                 .collect();
             Ok(Series::new(name, series_values?))
@@ -461,8 +489,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                         (Some(tz), Value::Date { val, .. }) => {
                             // If there is a timezone specified, make sure
                             // the value is converted to it
-                            Ok(tz
-                                .parse::<Tz>()
+                            tz.parse::<Tz>()
                                 .map(|tz| val.with_timezone(&tz))
                                 .map_err(|e| ShellError::GenericError {
                                     error: "Error parsing timezone".into(),
@@ -472,11 +499,13 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                                     inner: vec![],
                                 })?
                                 .timestamp_nanos_opt()
-                                .map(|nanos| nanos_from_timeunit(nanos, *tu)))
+                                .map(|nanos| nanos_to_timeunit(nanos, *tu))
+                                .transpose()
                         }
-                        (None, Value::Date { val, .. }) => Ok(val
+                        (None, Value::Date { val, .. }) => val
                             .timestamp_nanos_opt()
-                            .map(|nanos| nanos_from_timeunit(nanos, *tu))),
+                            .map(|nanos| nanos_to_timeunit(nanos, *tu))
+                            .transpose(),
 
                         _ => Ok(None),
                     }
@@ -1132,7 +1161,7 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
-                    let nanos = nanos_from_timeunit(a, *time_unit);
+                    let nanos = nanos_from_timeunit(a, *time_unit)?;
                     let datetime = datetime_from_epoch_nanos(nanos, tz, span)?;
                     Ok(Value::date(datetime, span))
                 }
@@ -1250,7 +1279,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 .map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Datetime(a, time_unit, tz) => {
-            let nanos = nanos_from_timeunit(*a, *time_unit);
+            let nanos = nanos_from_timeunit(*a, *time_unit)?;
             datetime_from_epoch_nanos(nanos, &tz.cloned(), span)
                 .map(|datetime| Value::date(datetime, span))
         }
@@ -1337,12 +1366,35 @@ fn nanos_per_day(days: i32) -> i64 {
     days as i64 * NANOS_PER_DAY
 }
 
-fn nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> i64 {
-    a * match time_unit {
+fn nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
+    a.checked_mul(match time_unit {
         TimeUnit::Microseconds => 1_000, // Convert microseconds to nanoseconds
         TimeUnit::Milliseconds => 1_000_000, // Convert milliseconds to nanoseconds
         TimeUnit::Nanoseconds => 1,      // Already in nanoseconds
-    }
+    })
+    .ok_or_else(|| ShellError::GenericError {
+        error: format!("Converting from {time_unit} to nanoseconds caused an overflow"),
+        msg: "".into(),
+        span: None,
+        help: None,
+        inner: vec![],
+    })
+}
+
+fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
+    // integer division (rounds to 0)
+    a.checked_div(match time_unit {
+        TimeUnit::Microseconds => 1_000i64, // Convert microseconds to nanoseconds
+        TimeUnit::Milliseconds => 1_000_000i64, // Convert milliseconds to nanoseconds
+        TimeUnit::Nanoseconds => 1i64,      // Already in nanoseconds
+    })
+    .ok_or_else(|| ShellError::GenericError {
+        error: format!("Converting from nanoseconds to {time_unit} caused an overflow"),
+        msg: "".into(),
+        span: None,
+        help: None,
+        inner: vec![],
+    })
 }
 
 fn datetime_from_epoch_nanos(

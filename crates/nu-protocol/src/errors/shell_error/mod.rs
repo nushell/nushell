@@ -1370,7 +1370,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 
     #[error("Job {id} is not frozen")]
     #[diagnostic(
-        code(nu::shell::os_disabled),
+        code(nu::shell::job_not_frozen),
         help("You tried to unfreeze a job which is not frozen")
     )]
     JobNotFrozen {
@@ -1379,12 +1379,26 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
-    #[error("Job {id} is a job of type {kind}")]
+    #[error("The job {id} is frozen")]
     #[diagnostic(
-        code(nu::shell::os_disabled),
-        help("This operation does not support the given job type")
+        code(nu::shell::job_is_frozen),
+        help("This operation cannot be performed because the job is frozen")
     )]
-    UnsupportedJobType { id: usize, span: Span, kind: String },
+    JobIsFrozen {
+        id: usize,
+        #[label = "This job is frozen"]
+        span: Span,
+    },
+
+    #[error("No message was received in the requested time interval")]
+    #[diagnostic(
+        code(nu::shell::recv_timeout),
+        help("No message arrived within the specified time limit")
+    )]
+    RecvTimeout {
+        #[label = "timeout"]
+        span: Span,
+    },
 
     #[error(transparent)]
     #[diagnostic(transparent)]

@@ -60,10 +60,9 @@ Note that this command fails if the provided job id is currently not in the job 
                 span: head,
             }),
 
-            Some(Job::Frozen { .. }) => Err(ShellError::UnsupportedJobType {
+            Some(Job::Frozen { .. }) => Err(ShellError::JobIsFrozen {
                 id: id.get() as usize,
                 span: head,
-                kind: "frozen".to_string(),
             }),
 
             Some(Job::Thread(job)) => {
