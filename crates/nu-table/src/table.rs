@@ -3,7 +3,7 @@
 // NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
 //       currently it seems like we do recacalculate it for `table -e`?
 
-use std::{cmp::min, collections::HashMap};
+use std::cmp::min;
 
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
@@ -13,6 +13,7 @@ use tabled::{
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
+        colors::Colors,
         config::{
             AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
         },
@@ -47,27 +48,24 @@ pub struct NuTable {
     count_rows: usize,
     count_cols: usize,
     styles: Styles,
-    alignments: Alignments,
     config: TableConfig,
 }
 
 impl NuTable {
     /// Creates an empty [`NuTable`] instance.
-    pub fn new(count_rows: usize, count_columns: usize) -> Self {
-        // TODO: maybe to optmize hashmap::with_dimension call
-        //       need to check performance
-
+    pub fn new(count_rows: usize, count_cols: usize) -> Self {
         Self {
-            data: vec![vec![Text::default(); count_columns]; count_rows],
+            data: vec![vec![Text::default(); count_cols]; count_rows],
             count_rows,
-            count_cols: count_columns,
-            styles: Styles::default(),
-            alignments: Alignments {
-                data: AlignmentHorizontal::Left,
-                index: AlignmentHorizontal::Right,
-                header: AlignmentHorizontal::Center,
-                columns: HashMap::default(),
-                cells: HashMap::default(),
+            count_cols,
+            styles: Styles {
+                cfg: ColoredConfig::default(),
+                alignments: CellConfiguration {
+                    data: AlignmentHorizontal::Left,
+                    index: AlignmentHorizontal::Right,
+                    header: AlignmentHorizontal::Center,
+                },
+                colors: CellConfiguration::default(),
             },
             config: TableConfig {
                 theme: TableTheme::basic(),
@@ -119,55 +117,51 @@ impl NuTable {
         self.count_cols += 1;
     }
 
-    pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
-        if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.columns.insert(column, style);
-        }
-
-        let alignment = convert_alignment(style.alignment);
-        if alignment != self.alignments.data {
-            self.alignments.columns.insert(column, alignment);
-        }
-    }
-
     pub fn insert_style(&mut self, pos: Position, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = convert_style(style);
-            self.styles.cells.insert(pos, style);
+            self.styles.cfg.set_color(pos.into(), style.into());
         }
 
         let alignment = convert_alignment(style.alignment);
-        if alignment != self.alignments.data {
-            self.alignments.cells.insert(pos, alignment);
+        if alignment != self.styles.alignments.data {
+            self.styles
+                .cfg
+                .set_alignment_horizontal(pos.into(), alignment);
         }
     }
 
     pub fn set_header_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = convert_style(style);
-            self.styles.header = style;
+            self.styles.colors.header = style;
         }
 
-        self.alignments.header = convert_alignment(style.alignment);
+        self.styles.alignments.header = convert_alignment(style.alignment);
     }
 
     pub fn set_index_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = convert_style(style);
-            self.styles.index = style;
+            self.styles.colors.index = style;
         }
 
-        self.alignments.index = convert_alignment(style.alignment);
+        self.styles.alignments.index = convert_alignment(style.alignment);
     }
 
     pub fn set_data_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.data = style;
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.cfg.set_color(Entity::Global, style.into());
+            }
         }
 
-        self.alignments.data = convert_alignment(style.alignment);
+        let alignment = convert_alignment(style.alignment);
+        self.styles
+            .cfg
+            .set_alignment_horizontal(Entity::Global, alignment);
+        self.styles.alignments.data = alignment;
     }
 
     pub fn set_indent(&mut self, indent: TableIndent) {
@@ -231,17 +225,18 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
     }
 }
 
-type Alignments = CellConfiguration<AlignmentHorizontal>;
-
-type Styles = CellConfiguration<Color>;
-
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
 struct CellConfiguration<Value> {
-    data: Value,
     index: Value,
     header: Value,
-    columns: HashMap<usize, Value>,
-    cells: HashMap<Position, Value>,
+    data: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Styles {
+    cfg: ColoredConfig,
+    colors: CellConfiguration<Color>,
+    alignments: CellConfiguration<AlignmentHorizontal>,
 }
 
 #[derive(Debug, Clone)]
@@ -335,40 +330,40 @@ fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> 
 }
 
 fn remove_header(t: &mut NuTable) -> HeadInfo {
-    let head: Vec<String> = t
+    // move settings by one row down
+    for row in 1..t.data.len() {
+        for col in 0..t.count_cols {
+            let alignment = *t
+                .styles
+                .cfg
+                .get_alignment_horizontal(Entity::Cell(row, col));
+            if alignment != t.styles.alignments.data {
+                t.styles
+                    .cfg
+                    .set_alignment_horizontal(Entity::Cell(row - 1, col), alignment);
+            }
+
+            let color = t.styles.cfg.get_colors().get_color((row, col)).cloned();
+            if let Some(color) = color {
+                t.styles.cfg.set_color(Entity::Cell(row - 1, col), color);
+            }
+        }
+    }
+
+    let head = t
         .data
         .remove(0)
         .into_iter()
         .map(|s| s.to_string())
         .collect();
-    let align = t.alignments.header;
-    let color = if is_color_empty(&t.styles.header) {
-        None
-    } else {
-        Some(t.styles.header.clone())
-    };
 
-    // move settings by one row down
-    t.alignments.cells = t
-        .alignments
-        .cells
-        .drain()
-        .filter(|(k, _)| k.0 != 0)
-        .map(|(k, v)| ((k.0 - 1, k.1), v))
-        .collect();
-    t.alignments.header = AlignmentHorizontal::Center;
+    let alignment = t.styles.alignments.header;
+    let color = get_color_if_exists(&t.styles.colors.header);
 
-    // move settings by one row down
-    t.styles.cells = t
-        .styles
-        .cells
-        .drain()
-        .filter(|(k, _)| k.0 != 0)
-        .map(|(k, v)| ((k.0 - 1, k.1), v))
-        .collect();
-    t.styles.header = Color::empty();
+    t.styles.alignments.header = AlignmentHorizontal::Center;
+    t.styles.colors.header = Color::empty();
 
-    HeadInfo::new(head, align, color)
+    HeadInfo::new(head, alignment, color)
 }
 
 fn draw_table(
@@ -384,14 +379,19 @@ fn draw_table(
     let data = t.data;
     let mut table = Builder::from_vec(data).build();
 
+    set_styles(&mut table, t.styles, &structure);
     set_indent(&mut table, t.config.indent);
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
-    align_table(&mut table, t.alignments, &structure);
-    colorize_table(&mut table, t.styles, &structure);
     truncate_table(&mut table, &t.config, width, termwidth);
     table_set_border_header(&mut table, head, &t.config);
 
     table_to_string(table, termwidth)
+}
+
+fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
+    table.with(styles.cfg);
+    align_table(table, styles.alignments, &structure);
+    colorize_table(table, styles.colors, &structure);
 }
 
 fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &TableConfig) {
@@ -567,17 +567,12 @@ fn width_ctrl_truncate(
     dims.set_widths(ctrl.width.needed);
 }
 
-fn align_table(table: &mut Table, alignments: Alignments, structure: &TableStructure) {
+fn align_table(
+    table: &mut Table,
+    alignments: CellConfiguration<AlignmentHorizontal>,
+    structure: &TableStructure,
+) {
     table.with(AlignmentStrategy::PerLine);
-    table.with(Alignment::from(alignments.data));
-
-    for (column, alignment) in alignments.columns {
-        table.modify(Columns::single(column), Alignment::from(alignment));
-    }
-
-    for (pos, alignment) in alignments.cells {
-        table.modify(pos, Alignment::from(alignment));
-    }
 
     if structure.with_header {
         table.modify(Rows::first(), Alignment::from(alignments.header));
@@ -592,23 +587,7 @@ fn align_table(table: &mut Table, alignments: Alignments, structure: &TableStruc
     }
 }
 
-fn colorize_table(table: &mut Table, styles: Styles, structure: &TableStructure) {
-    if !is_color_empty(&styles.data) {
-        table.with(styles.data);
-    }
-
-    for (column, color) in styles.columns {
-        if !is_color_empty(&color) {
-            table.modify(Columns::single(column), color);
-        }
-    }
-
-    for (pos, color) in styles.cells {
-        if !is_color_empty(&color) {
-            table.modify(pos, color);
-        }
-    }
-
+fn colorize_table(table: &mut Table, styles: CellConfiguration<Color>, structure: &TableStructure) {
     if structure.with_index && !is_color_empty(&styles.index) {
         table.modify(Columns::first(), styles.index);
     }
@@ -1071,6 +1050,14 @@ impl<R, C> TableOption<R, C, CompleteDimensionVecRecords<'_>> for &mut GetDims {
     }
 
     fn hint_change(&self) -> Option<Entity> {
+        None
+    }
+}
+
+pub fn get_color_if_exists(c: &Color) -> Option<Color> {
+    if !is_color_empty(c) {
+        Some(c.clone())
+    } else {
         None
     }
 }
