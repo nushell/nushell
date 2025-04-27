@@ -33,7 +33,11 @@ impl PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
+    // TODO: get rid of this by using `file://` protocol
     FilePath(PathBuf),
+    // maybe use a more strict URI type here, in our dependency graph we would already have
+    // `fluent_uri::Uri`
+    Uri(String),
     #[default]
     None,
 }

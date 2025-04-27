@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
     engine::{Call, Closure, Command, EngineState, Stack},
-    DataSource, PipelineData, PipelineMetadata, ShellError, Signature, SyntaxShape, Type, Value,
+    PipelineData, PipelineMetadata, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -65,33 +65,7 @@ impl Command for MetadataAccess {
 }
 
 fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Value {
-    let mut record = Record::new();
-
-    if let Some(x) = metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-                ..
-            } => record.push("source", Value::string("ls", head)),
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-                ..
-            } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::FilePath(path),
-                ..
-            } => record.push(
-                "source",
-                Value::string(path.to_string_lossy().to_string(), head),
-            ),
-            _ => {}
-        }
-        if let Some(ref content_type) = x.content_type {
-            record.push("content_type", Value::string(content_type, head));
-        }
-    }
-
-    Value::record(record, head)
+    super::metadata::build_metadata_record(None, metadata, head)
 }
 
 #[cfg(test)]

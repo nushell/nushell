@@ -56,55 +56,39 @@ impl Command for Metadata {
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
 
-                            Ok(
-                                build_metadata_record(&origin, input.metadata().as_ref(), head)
-                                    .into_pipeline_data(),
+                            Ok(build_metadata_record(
+                                Some(&origin),
+                                input.metadata().as_ref(),
+                                head,
                             )
+                            .into_pipeline_data())
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                                .into_pipeline_data())
+                            Ok(
+                                build_metadata_record(Some(&val), input.metadata().as_ref(), head)
+                                    .into_pipeline_data(),
+                            )
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                        .into_pipeline_data())
+                    Ok(
+                        build_metadata_record(Some(&val), input.metadata().as_ref(), head)
+                            .into_pipeline_data(),
+                    )
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                    .into_pipeline_data())
+                Ok(
+                    build_metadata_record(Some(&val), input.metadata().as_ref(), head)
+                        .into_pipeline_data(),
+                )
             }
             None => {
-                let mut record = Record::new();
-                if let Some(x) = input.metadata().as_ref() {
-                    match x {
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            ..
-                        } => record.push("source", Value::string("ls", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::HtmlThemes,
-                            ..
-                        } => record.push("source", Value::string("into html --list", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::FilePath(path),
-                            ..
-                        } => record.push(
-                            "source",
-                            Value::string(path.to_string_lossy().to_string(), head),
-                        ),
-                        _ => {}
-                    }
-                    if let Some(ref content_type) = x.content_type {
-                        record.push("content_type", Value::string(content_type, head));
-                    }
-                }
-
-                Ok(Value::record(record, head).into_pipeline_data())
+                Ok(build_metadata_record(None, input.metadata().as_ref(), head)
+                    .into_pipeline_data())
             }
         }
     }
@@ -125,40 +109,40 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head: Span) -> Value {
+pub(super) fn build_metadata_record(
+    arg: Option<&Value>,
+    metadata: Option<&PipelineMetadata>,
+    head: Span,
+) -> Value {
     let mut record = Record::new();
 
-    let span = arg.span();
-    record.push(
-        "span",
-        Value::record(
-            record! {
-                "start" => Value::int(span.start as i64,span),
-                "end" => Value::int(span.end as i64, span),
-            },
-            head,
-        ),
-    );
+    if let Some(arg) = arg {
+        let span = arg.span();
+        record.push(
+            "span",
+            Value::record(
+                record! {
+                    "start" => Value::int(span.start as i64,span),
+                    "end" => Value::int(span.end as i64, span),
+                },
+                head,
+            ),
+        );
+    }
 
     if let Some(x) = metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-                ..
-            } => record.push("source", Value::string("ls", head)),
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-                ..
-            } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::FilePath(path),
-                ..
-            } => record.push(
-                "source",
-                Value::string(path.to_string_lossy().to_string(), head),
-            ),
-            _ => {}
+        let source: Option<String> = match &x.data_source {
+            DataSource::Ls => Some("ls".into()),
+            DataSource::HtmlThemes => Some("into html --list".into()),
+            DataSource::FilePath(path) => Some(path.to_string_lossy().into()),
+            DataSource::Uri(uri) => Some(uri.into()),
+            DataSource::None => None,
+        };
+
+        if let Some(source) = source {
+            record.push("source", Value::string(source, head));
         }
+
         if let Some(ref content_type) = x.content_type {
             record.push("content_type", Value::string(content_type, head));
         }
