@@ -17,8 +17,8 @@ use nu_protocol::{
     Signals, TableMode, ValueIterator,
 };
 use nu_table::{
-    common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue, NuTable,
-    StringResult, TableOpts, TableOutput,
+    common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult,
+    TableOpts, TableOutput,
 };
 use nu_utils::{get_ls_colors, terminal_size};
 
@@ -609,7 +609,7 @@ fn build_table_kv(
     span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&record, opts),
+        TableView::General => JustTable::kv_table(record, opts),
         TableView::Expanded {
             limit,
             flatten,
@@ -645,7 +645,7 @@ fn build_table_batch(
     }
 
     match view {
-        TableView::General => JustTable::table(&vals, opts),
+        TableView::General => JustTable::table(vals, opts),
         TableView::Expanded {
             limit,
             flatten,
@@ -1090,9 +1090,9 @@ fn create_empty_placeholder(
         return String::new();
     }
 
-    let cell = NuRecordsValue::new(format!("empty {}", value_type_name));
-    let data = vec![vec![cell]];
-    let mut table = NuTable::from(data);
+    let cell = format!("empty {}", value_type_name);
+    let mut table = NuTable::new(1, 1);
+    table.insert((0, 0), cell);
     table.set_data_style(TextStyle::default().dimmed());
     let mut out = TableOutput::from_table(table, false, false);
 

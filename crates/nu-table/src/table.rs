@@ -19,7 +19,7 @@ use tabled::{
         dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
             vec_records::{Text, VecRecords},
-            ExactRecords, Records,
+            IntoRecords, IterRecords, Records,
         },
     },
     settings::{
@@ -43,7 +43,9 @@ pub type NuRecordsValue = Text<String>;
 /// NuTable is a table rendering implementation.
 #[derive(Debug, Clone)]
 pub struct NuTable {
-    data: NuRecords,
+    data: Vec<Vec<NuRecordsValue>>,
+    count_rows: usize,
+    count_cols: usize,
     styles: Styles,
     alignments: Alignments,
     config: TableConfig,
@@ -52,8 +54,13 @@ pub struct NuTable {
 impl NuTable {
     /// Creates an empty [`NuTable`] instance.
     pub fn new(count_rows: usize, count_columns: usize) -> Self {
+        // TODO: maybe to optmize hashmap::with_dimension call
+        //       need to check performance
+
         Self {
-            data: VecRecords::new(vec![vec![Text::default(); count_columns]; count_rows]),
+            data: vec![vec![Text::default(); count_columns]; count_rows],
+            count_rows,
+            count_cols: count_columns,
             styles: Styles::default(),
             alignments: Alignments {
                 data: AlignmentHorizontal::Left,
@@ -76,29 +83,40 @@ impl NuTable {
 
     /// Return amount of rows.
     pub fn count_rows(&self) -> usize {
-        self.data.count_rows()
+        self.count_rows
     }
 
     /// Return amount of columns.
     pub fn count_columns(&self) -> usize {
-        self.data.count_columns()
+        self.count_cols
     }
 
     pub fn insert(&mut self, pos: Position, text: String) {
         self.data[pos.0][pos.1] = Text::new(text);
     }
 
-    pub fn insert_row(&mut self, index: usize, row: Vec<String>) {
-        let data = &mut self.data[index];
-
-        for (col, text) in row.into_iter().enumerate() {
-            data[col] = Text::new(text);
-        }
-    }
-
     pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
         assert_eq!(self.data[index].len(), row.len());
         self.data[index] = row;
+    }
+
+    pub fn pop_column(&mut self, count: usize) {
+        for row in &mut self.data[..] {
+            for _ in 0..count {
+                row.pop();
+            }
+        }
+
+        self.count_cols -= count;
+    }
+
+    pub fn push_column(&mut self, text: String) {
+        let value = Text::new(text);
+        for row in &mut self.data[..] {
+            row.push(value.clone());
+        }
+
+        self.count_cols += 1;
     }
 
     pub fn set_column_style(&mut self, column: usize, style: TextStyle) {
@@ -180,7 +198,7 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
-    pub fn get_records_mut(&mut self) -> &mut NuRecords {
+    pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
         &mut self.data
     }
 
@@ -195,15 +213,19 @@ impl NuTable {
     pub fn total_width(&self) -> usize {
         let config = create_config(&self.config.theme, false, None);
         let pad = indent_sum(self.config.indent);
-        let widths = build_width(&self.data, pad);
+        let records = IterRecords::new(&self.data, self.count_cols, Some(self.count_rows));
+        let widths = build_width(records, pad);
         get_total_width2(&widths, &config)
     }
 }
 
 impl From<Vec<Vec<Text<String>>>> for NuTable {
     fn from(value: Vec<Vec<Text<String>>>) -> Self {
-        let mut nutable = Self::new(0, 0);
-        nutable.data = VecRecords::new(value);
+        let count_rows = value.len();
+        let count_cols = if value.is_empty() { 0 } else { value[0].len() };
+
+        let mut nutable = Self::new(count_rows, count_cols);
+        nutable.data = value;
 
         nutable
     }
@@ -359,7 +381,7 @@ fn draw_table(
     structure.with_footer = structure.with_footer && head.is_none();
     let sep_color = t.config.border_color;
 
-    let data: Vec<Vec<_>> = t.data.into();
+    let data = t.data;
     let mut table = Builder::from_vec(data).build();
 
     set_indent(&mut table, t.config.indent);
@@ -420,7 +442,6 @@ fn set_indent(table: &mut Table, indent: TableIndent) {
 
 fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
     let total_width = table.total_width();
-
     if total_width > termwidth {
         None
     } else {
@@ -629,7 +650,7 @@ fn load_theme(
 }
 
 fn maybe_truncate_columns(
-    data: &mut NuRecords,
+    data: &mut Vec<Vec<NuRecordsValue>>,
     cfg: &TableConfig,
     termwidth: usize,
 ) -> WidthEstimation {
@@ -647,7 +668,7 @@ fn maybe_truncate_columns(
 
 // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
 fn truncate_columns_by_content(
-    data: &mut NuRecords,
+    data: &mut Vec<Vec<NuRecordsValue>>,
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
@@ -658,13 +679,15 @@ fn truncate_columns_by_content(
     let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
     let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
 
+    let count_columns = data[0].len();
+
     let config = create_config(theme, false, None);
-    let widths_original = build_width(data, pad);
+    let records = IterRecords::new(&*data, count_columns, Some(data.len()));
+    let widths_original = build_width(records, pad);
     let mut widths = vec![];
 
     let borders = config.get_borders();
     let vertical = borders.has_vertical() as usize;
-    let count_columns = data.count_columns();
 
     let mut width = borders.has_left() as usize + borders.has_right() as usize;
     let mut truncate_pos = 0;
@@ -818,7 +841,7 @@ fn truncate_columns_by_content(
 //       Point being of the column needs more space we do can give it a little more based on it's distance from the start.
 //       Percentage wise.
 fn truncate_columns_by_columns(
-    data: &mut NuRecords,
+    data: &mut Vec<Vec<NuRecordsValue>>,
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
@@ -829,13 +852,15 @@ fn truncate_columns_by_columns(
     let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
     let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
 
+    let count_columns = data[0].len();
+
     let config = create_config(theme, false, None);
-    let widths_original = build_width(data, pad);
+    let records = IterRecords::new(&*data, count_columns, Some(data.len()));
+    let widths_original = build_width(records, pad);
     let mut widths = vec![];
 
     let borders = config.get_borders();
     let vertical = borders.has_vertical() as usize;
-    let count_columns = data.count_columns();
 
     let mut width = borders.has_left() as usize + borders.has_right() as usize;
     let mut truncate_pos = 0;
@@ -921,37 +946,22 @@ fn create_config(theme: &TableTheme, with_header: bool, color: Option<Style>) ->
     table.get_config().clone()
 }
 
-fn push_empty_column(data: &mut NuRecords) {
-    let records = std::mem::take(data);
-    let mut inner: Vec<Vec<_>> = records.into();
-
+fn push_empty_column(data: &mut Vec<Vec<NuRecordsValue>>) {
     let empty_cell = Text::new(String::from(EMPTY_COLUMN_TEXT));
-    for row in &mut inner {
+    for row in data {
         row.push(empty_cell.clone());
     }
-
-    *data = VecRecords::new(inner);
 }
 
-fn duplicate_row(data: &mut NuRecords, row: usize) {
-    let records = std::mem::take(data);
-    let mut inner: Vec<Vec<_>> = records.into();
-
-    let duplicate = inner[row].clone();
-    inner.push(duplicate);
-
-    *data = VecRecords::new(inner);
+fn duplicate_row(data: &mut Vec<Vec<NuRecordsValue>>, row: usize) {
+    let duplicate = data[row].clone();
+    data.push(duplicate);
 }
 
-fn truncate_rows(data: &mut NuRecords, count: usize) {
-    let records = std::mem::take(data);
-    let mut inner: Vec<Vec<_>> = records.into();
-
-    for row in &mut inner {
+fn truncate_rows(data: &mut Vec<Vec<NuRecordsValue>>, count: usize) {
+    for row in data {
         row.truncate(count);
     }
-
-    *data = VecRecords::new(inner);
 }
 
 fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizontal {
@@ -971,7 +981,11 @@ impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDi
     }
 }
 
-fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
+fn build_width<R>(records: R, pad: usize) -> Vec<usize>
+where
+    R: Records,
+    <R::Iter as IntoRecords>::Cell: AsRef<str>,
+{
     // TODO: Expose not spaned version (could be optimized).
     let mut cfg = SpannedConfig::default();
     let padding = Sides {
@@ -981,6 +995,7 @@ fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
 
     cfg.set_padding(Entity::Global, padding);
 
+    // TODO: Use peekable width
     SpannedGridDimension::width(records, &cfg)
 }
 
