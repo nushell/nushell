@@ -62,6 +62,14 @@ impl Command for FormatDate {
                 )),
             },
             Example {
+                description: "Format a given date-time according to the RFC 3339 standard.",
+                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date "%+""#,
+                result: Some(Value::string(
+                    "2021-10-22T20:00:12+01:00".to_string(),
+                    Span::test_data(),
+                )),
+            },
+            Example {
                 description: "Format the current date-time using a given format string.",
                 example: r#"date now | format date "%Y-%m-%d %H:%M:%S""#,
                 result: None,
