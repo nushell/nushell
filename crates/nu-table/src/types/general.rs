@@ -31,8 +31,6 @@ fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, 
         None => return Ok(None),
     };
 
-    out.table.set_indent(opts.config.table.padding);
-
     // TODO: It would be more effitient to do right away inster of second pass over the data.
     colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
@@ -93,6 +91,9 @@ fn create_table_with_header(
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
+    table.set_header_style(get_header_style(&opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -110,9 +111,6 @@ fn create_table_with_header(
     let headers = collect_headers(headers, false);
     table.set_row(0, headers);
 
-    table.set_header_style(get_header_style(&opts.style_computer));
-    table.set_index_style(get_index_style(&opts.style_computer));
-
     Ok(Some(table))
 }
 
@@ -128,9 +126,11 @@ fn create_table_with_header_and_index(
     let count_columns = head.len();
 
     let mut table = NuTable::new(count_rows, count_columns);
-    table.set_row(0, head.clone());
     table.set_header_style(get_header_style(&opts.style_computer));
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
+
+    table.set_row(0, head.clone());
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -157,6 +157,7 @@ fn create_table_with_no_header(
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1);
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
@@ -178,6 +179,7 @@ fn create_table_with_no_header_and_index(
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1 + 1);
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;

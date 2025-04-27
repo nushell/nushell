@@ -3,7 +3,7 @@
 // NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
 //       currently it seems like we do recacalculate it for `table -e`?
 
-use std::cmp::min;
+use std::cmp::{max, min};
 
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
@@ -19,7 +19,7 @@ use tabled::{
         },
         dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
-            vec_records::{Text, VecRecords},
+            vec_records::{Cell, Text, VecRecords},
             IntoRecords, IterRecords, Records,
         },
     },
@@ -45,6 +45,7 @@ pub type NuRecordsValue = Text<String>;
 #[derive(Debug, Clone)]
 pub struct NuTable {
     data: Vec<Vec<NuRecordsValue>>,
+    widths: Vec<usize>,
     count_rows: usize,
     count_cols: usize,
     styles: Styles,
@@ -56,6 +57,7 @@ impl NuTable {
     pub fn new(count_rows: usize, count_cols: usize) -> Self {
         Self {
             data: vec![vec![Text::default(); count_cols]; count_rows],
+            widths: vec![2; count_cols],
             count_rows,
             count_cols,
             styles: Styles {
@@ -90,26 +92,41 @@ impl NuTable {
     }
 
     pub fn insert(&mut self, pos: Position, text: String) {
-        self.data[pos.0][pos.1] = Text::new(text);
+        let text = Text::new(text);
+        self.widths[pos.1] = max(
+            self.widths[pos.1],
+            text.width() + indent_sum(self.config.indent),
+        );
+        self.data[pos.0][pos.1] = text;
     }
 
     pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
         assert_eq!(self.data[index].len(), row.len());
+
+        for (i, text) in row.iter().enumerate() {
+            self.widths[i] = max(
+                self.widths[i],
+                text.width() + indent_sum(self.config.indent),
+            );
+        }
+
         self.data[index] = row;
     }
 
     pub fn pop_column(&mut self, count: usize) {
-        for row in &mut self.data[..] {
-            for _ in 0..count {
-                row.pop();
-            }
-        }
-
         self.count_cols -= count;
+        self.widths.truncate(self.count_cols);
+        for row in &mut self.data[..] {
+            row.truncate(self.count_cols);
+        }
     }
 
     pub fn push_column(&mut self, text: String) {
         let value = Text::new(text);
+
+        self.widths
+            .push(value.width() + indent_sum(self.config.indent));
+
         for row in &mut self.data[..] {
             row.push(value.clone());
         }
@@ -164,8 +181,14 @@ impl NuTable {
         self.styles.alignments.data = alignment;
     }
 
+    // NOTE: Crusial to be called before data changes (todo fix interface)
     pub fn set_indent(&mut self, indent: TableIndent) {
         self.config.indent = indent;
+
+        let pad = indent_sum(indent);
+        for w in &mut self.widths {
+            *w = pad;
+        }
     }
 
     pub fn set_theme(&mut self, theme: TableTheme) {
@@ -192,6 +215,8 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
+    // NOTE: BE CARREFULL TO KEEP WIDTH UNCHANGED
+    // TODO: fix interface
     pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
         &mut self.data
     }
@@ -206,10 +231,7 @@ impl NuTable {
     /// Return a total table width.
     pub fn total_width(&self) -> usize {
         let config = create_config(&self.config.theme, false, None);
-        let pad = indent_sum(self.config.indent);
-        let records = IterRecords::new(&self.data, self.count_cols, Some(self.count_rows));
-        let widths = build_width(records, pad);
-        get_total_width2(&widths, &config)
+        get_total_width2(&self.widths, &config)
     }
 }
 
@@ -218,11 +240,19 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
         let count_rows = value.len();
         let count_cols = if value.is_empty() { 0 } else { value[0].len() };
 
-        let mut nutable = Self::new(count_rows, count_cols);
-        nutable.data = value;
+        let mut t = Self::new(count_rows, count_cols);
+        t.data = value;
+        table_recalculate_widths(&mut t);
 
-        nutable
+        t
     }
+}
+
+fn table_recalculate_widths(t: &mut NuTable) {
+    let pad = indent_sum(t.config.indent);
+    let records = IterRecords::new(&t.data, t.count_cols, Some(t.count_rows));
+    let widths = build_width(records, pad);
+    t.widths = widths;
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
@@ -321,7 +351,7 @@ fn table_insert_footer_if(t: &mut NuTable) {
 }
 
 fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
-    let widths = maybe_truncate_columns(&mut t.data, &t.config, termwidth);
+    let widths = maybe_truncate_columns(&mut t.data, t.widths.clone(), &t.config, termwidth);
     if widths.needed.is_empty() {
         return None;
     }
@@ -343,6 +373,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
                     .set_alignment_horizontal(Entity::Cell(row - 1, col), alignment);
             }
 
+            // TODO: use get_color from upstream (when released)
             let color = t.styles.cfg.get_colors().get_color((row, col)).cloned();
             if let Some(color) = color {
                 t.styles.cfg.set_color(Entity::Cell(row - 1, col), color);
@@ -356,6 +387,10 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .into_iter()
         .map(|s| s.to_string())
         .collect();
+
+    // WE NEED TO RELCULATE WIDTH.
+    // TODO: cause we have configuration beforehand we can just not calculate it in?
+    table_recalculate_widths(t);
 
     let alignment = t.styles.alignments.header;
     let color = get_color_if_exists(&t.styles.colors.header);
@@ -630,6 +665,7 @@ fn load_theme(
 
 fn maybe_truncate_columns(
     data: &mut Vec<Vec<NuRecordsValue>>,
+    widths: Vec<usize>,
     cfg: &TableConfig,
     termwidth: usize,
 ) -> WidthEstimation {
@@ -639,15 +675,16 @@ fn maybe_truncate_columns(
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
 
     if preserve_content {
-        truncate_columns_by_columns(data, &cfg.theme, pad, termwidth)
+        truncate_columns_by_columns(data, widths, &cfg.theme, pad, termwidth)
     } else {
-        truncate_columns_by_content(data, &cfg.theme, pad, termwidth)
+        truncate_columns_by_content(data, widths, &cfg.theme, pad, termwidth)
     }
 }
 
 // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
 fn truncate_columns_by_content(
     data: &mut Vec<Vec<NuRecordsValue>>,
+    widths: Vec<usize>,
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
@@ -661,8 +698,7 @@ fn truncate_columns_by_content(
     let count_columns = data[0].len();
 
     let config = create_config(theme, false, None);
-    let records = IterRecords::new(&*data, count_columns, Some(data.len()));
-    let widths_original = build_width(records, pad);
+    let widths_original = widths;
     let mut widths = vec![];
 
     let borders = config.get_borders();
@@ -821,6 +857,7 @@ fn truncate_columns_by_content(
 //       Percentage wise.
 fn truncate_columns_by_columns(
     data: &mut Vec<Vec<NuRecordsValue>>,
+    widths: Vec<usize>,
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
@@ -834,8 +871,7 @@ fn truncate_columns_by_columns(
     let count_columns = data[0].len();
 
     let config = create_config(theme, false, None);
-    let records = IterRecords::new(&*data, count_columns, Some(data.len()));
-    let widths_original = build_width(records, pad);
+    let widths_original = widths;
     let mut widths = vec![];
 
     let borders = config.get_borders();
