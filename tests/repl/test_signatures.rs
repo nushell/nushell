@@ -109,7 +109,7 @@ fn list_annotations_space_before() -> TestResult {
 #[test]
 fn list_annotations_unknown_separators() -> TestResult {
     let input = "def run [list: list<int, string>] {$list | length}; run [2 5 4]";
-    let expected = "unknown type";
+    let expected = "only one parameter allowed";
     fail_test(input, expected)
 }
 
