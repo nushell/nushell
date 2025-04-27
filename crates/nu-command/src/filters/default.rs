@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
@@ -29,6 +29,11 @@ impl Command for Default {
                 "also replace empty items like \"\", {}, and []",
                 Some('e'),
             )
+            .switch(
+                "lazy",
+                "if default value is a closure, evaluate it",
+                Some('l'),
+            )
             .category(Category::Filters)
     }
 
@@ -44,7 +49,8 @@ impl Command for Default {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
-        default(engine_state, stack, call, input, empty)
+        let lazy = call.has_flag(engine_state, stack, "lazy")?;
+        default2(engine_state, stack, call, input, empty, lazy)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -102,6 +108,58 @@ impl Command for Default {
                 ])),
             },
         ]
+    }
+}
+
+fn default2(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    empty: bool,
+    lazy: bool,
+) -> Result<PipelineData, ShellError> {
+    let default_value: Value = call.req(engine_state, stack, 0)?;
+    let _column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
+
+    if input.is_nothing()
+        || (empty && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
+    {
+        // If input is empty, use default value
+        default_value_or_eval_once(engine_state, stack, input, default_value, lazy)
+    } else if let PipelineData::ByteStream(stream, ..) = input {
+        // Else if input is a bytestream, collect the stream into value and check if it's empty
+        let value = stream.into_value()?;
+        if value.is_nothing() || (empty && value.is_empty()) {
+            default_value_or_eval_once(
+                engine_state,
+                stack,
+                PipelineData::Empty,
+                default_value,
+                lazy,
+            )
+        } else {
+            Ok(value.into_pipeline_data())
+        }
+    } else {
+        // Else input should be liststream or single value, so map over it like previous implementation
+        default(engine_state, stack, call, input, empty) // TODO: copy logic and handle lazy evaluation
+    }
+}
+
+fn default_value_or_eval_once(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    input: PipelineData,
+    default_value: Value,
+    lazy: bool,
+) -> Result<PipelineData, ShellError> {
+    match (&default_value, lazy) {
+        (Value::Closure { val, .. }, true) => {
+            let closure = ClosureEvalOnce::new(engine_state, stack, *val.clone());
+            closure.run_with_input(input)
+        }
+        _ => Ok(default_value.into_pipeline_data()),
     }
 }
 
