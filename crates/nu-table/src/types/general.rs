@@ -31,7 +31,7 @@ fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, 
         None => return Ok(None),
     };
 
-    // TODO: It would be more effitient to do right away inster of second pass over the data.
+    // TODO: It would be WAY more effitient to do right away instead of second pass over the data.
     colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
     configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);

@@ -214,7 +214,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         return Ok(Some(TableOutput::new(table, false, true, total_rows)));
     }
 
-    // NOTE: redine to not break above logic (fixme)
+    // NOTE: redefine to not break above logic (fixme)
     let mut available_width = cfg.opts.width - SPLIT_LINE_SPACE;
 
     let mut table = NuTable::new(input.len() + 1, headers.len() + with_index as usize);
@@ -272,12 +272,10 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         let mut available = available_width - extra_space;
 
         // We want to reserver some space for next column
-        // If we can't fit it in it will be poped anyhow.
+        // If we can't fit it in it will be popped anyhow.
         let is_last_column = col + 1 == count_columns;
-        if !is_last_column {
-            if available > TRUNCATE_CELL_WIDTH {
-                available -= TRUNCATE_CELL_WIDTH;
-            }
+        if !is_last_column && available > TRUNCATE_CELL_WIDTH {
+            available -= TRUNCATE_CELL_WIDTH;
         }
 
         let mut total_column_rows = 0usize;
@@ -294,7 +292,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             column_width = max(column_width, value_width);
 
             table.insert((row + 1, column), cell.text);
-            table.insert_style((row + 1, column), cell.style); // FIXME: We clearly fool it when poping
+            table.insert_style((row + 1, column), cell.style);
 
             total_column_rows = total_column_rows.saturating_add(cell.size);
         }

@@ -119,6 +119,19 @@ impl NuTable {
         for row in &mut self.data[..] {
             row.truncate(self.count_cols);
         }
+
+        // set to default styles of the popped columns
+        for i in 0..count {
+            let col = self.count_cols + i;
+            for row in 0..self.count_rows {
+                self.styles
+                    .cfg
+                    .set_alignment_horizontal(Entity::Cell(row, col), self.styles.alignments.data);
+                self.styles
+                    .cfg
+                    .set_color(Entity::Cell(row, col), ANSIBuf::default());
+            }
+        }
     }
 
     pub fn push_column(&mut self, text: String) {
@@ -215,7 +228,7 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
-    // NOTE: BE CARREFULL TO KEEP WIDTH UNCHANGED
+    // NOTE: BE CAREFUL TO KEEP WIDTH UNCHANGED
     // TODO: fix interface
     pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
         &mut self.data
@@ -356,6 +369,19 @@ fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> 
         return None;
     }
 
+    // reset style for last column which is a trail one
+    if widths.trail {
+        let col = widths.needed.len() - 1;
+        for row in 0..t.count_rows {
+            t.styles
+                .cfg
+                .set_alignment_horizontal(Entity::Cell(row, col), t.styles.alignments.data);
+            t.styles
+                .cfg
+                .set_color(Entity::Cell(row, col), ANSIBuf::default());
+        }
+    }
+
     Some(widths)
 }
 
@@ -425,8 +451,8 @@ fn draw_table(
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
     table.with(styles.cfg);
-    align_table(table, styles.alignments, &structure);
-    colorize_table(table, styles.colors, &structure);
+    align_table(table, styles.alignments, structure);
+    colorize_table(table, styles.colors, structure);
 }
 
 fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &TableConfig) {
@@ -518,15 +544,23 @@ struct WidthEstimation {
     #[allow(dead_code)]
     total: usize,
     truncate: bool,
+    trail: bool,
 }
 
 impl WidthEstimation {
-    fn new(original: Vec<usize>, needed: Vec<usize>, total: usize, truncate: bool) -> Self {
+    fn new(
+        original: Vec<usize>,
+        needed: Vec<usize>,
+        total: usize,
+        truncate: bool,
+        trail: bool,
+    ) -> Self {
         Self {
             original,
             needed,
             total,
             truncate,
+            trail,
         }
     }
 }
@@ -723,7 +757,7 @@ fn truncate_columns_by_content(
     }
 
     if truncate_pos == count_columns {
-        return WidthEstimation::new(widths_original, widths, width, false);
+        return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
     if truncate_pos == 0 {
@@ -740,11 +774,11 @@ fn truncate_columns_by_content(
                 widths.push(trailing_column_width);
                 width += trailing_column_width + vertical;
 
-                return WidthEstimation::new(widths_original, widths, width, true);
+                return WidthEstimation::new(widths_original, widths, width, true, true);
             }
         }
 
-        return WidthEstimation::new(widths_original, widths, width, false);
+        return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
     let available = termwidth - width;
@@ -756,7 +790,7 @@ fn truncate_columns_by_content(
         widths.push(w);
         width += w + vertical;
 
-        return WidthEstimation::new(widths_original, widths, width, true);
+        return WidthEstimation::new(widths_original, widths, width, true, false);
     }
 
     // special case where the last column is smaller then a trailing column
@@ -774,7 +808,7 @@ fn truncate_columns_by_content(
             widths.push(next_column_width);
             width += next_column_width + vertical;
 
-            return WidthEstimation::new(widths_original, widths, width, true);
+            return WidthEstimation::new(widths_original, widths, width, true, false);
         }
     }
 
@@ -791,7 +825,7 @@ fn truncate_columns_by_content(
         widths.push(trailing_column_width);
         width += trailing_column_width + vertical;
 
-        return WidthEstimation::new(widths_original, widths, width, true);
+        return WidthEstimation::new(widths_original, widths, width, true, true);
     }
 
     if available >= trailing_column_width + vertical {
@@ -801,7 +835,7 @@ fn truncate_columns_by_content(
         widths.push(trailing_column_width);
         width += trailing_column_width + vertical;
 
-        return WidthEstimation::new(widths_original, widths, width, false);
+        return WidthEstimation::new(widths_original, widths, width, false, true);
     }
 
     let last_width = widths.last().cloned().expect("ok");
@@ -825,7 +859,7 @@ fn truncate_columns_by_content(
             widths.push(trailing_column_width);
             width += trailing_column_width + vertical;
 
-            return WidthEstimation::new(widths_original, widths, width, true);
+            return WidthEstimation::new(widths_original, widths, width, true, true);
         }
     }
 
@@ -839,10 +873,10 @@ fn truncate_columns_by_content(
 
     if widths.len() == 1 {
         // nothing to show anyhow
-        return WidthEstimation::new(widths_original, vec![], width, false);
+        return WidthEstimation::new(widths_original, vec![], width, false, true);
     }
 
-    WidthEstimation::new(widths_original, widths, width, false)
+    WidthEstimation::new(widths_original, widths, width, false, true)
 }
 
 // VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
@@ -897,7 +931,7 @@ fn truncate_columns_by_columns(
     }
 
     if truncate_pos == 0 {
-        return WidthEstimation::new(widths_original, widths, width, false);
+        return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
     let mut available = termwidth - width;
@@ -922,7 +956,7 @@ fn truncate_columns_by_columns(
     }
 
     if truncate_pos == count_columns {
-        return WidthEstimation::new(widths_original, widths, width, true);
+        return WidthEstimation::new(widths_original, widths, width, true, false);
     }
 
     if available >= trailing_column_width + vertical {
@@ -932,7 +966,7 @@ fn truncate_columns_by_columns(
         widths.push(trailing_column_width);
         width += trailing_column_width + vertical;
 
-        return WidthEstimation::new(widths_original, widths, width, true);
+        return WidthEstimation::new(widths_original, widths, width, true, true);
     }
 
     truncate_rows(data, truncate_pos - 1);
@@ -943,7 +977,7 @@ fn truncate_columns_by_columns(
     widths.push(trailing_column_width);
     width += trailing_column_width;
 
-    WidthEstimation::new(widths_original, widths, width, true)
+    WidthEstimation::new(widths_original, widths, width, true, true)
 }
 
 fn get_total_width2(widths: &[usize], cfg: &ColoredConfig) -> usize {
