@@ -36,7 +36,7 @@ impl Command for Default {
             )
             .switch(
                 "lazy-once",
-                "evaluate the closure only once, even for lists (no input)",
+                "evaluate the closure only once, even for lists (no closure input)",
                 Some('L'),
             )
             .category(Category::Filters)
