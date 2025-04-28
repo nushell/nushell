@@ -113,6 +113,25 @@ impl Command for Default {
                     }),
                 ])),
             },
+            Example {
+                description: r#"Generate a default value from a closure"#,
+                example: "null | default --lazy { 1 + 2 }",
+                result: Some(Value::test_int(3)),
+            },
+            Example {
+                description: r#"Generate missing values in a column from a closure"#,
+                example: "[{a:1 b:2} {b:1}] | default -l { $in.b + 1 } a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                        "b" => Value::test_int(1),
+                    }),
+                ])),
+            },
         ]
     }
 }
