@@ -15,7 +15,7 @@ impl PluginCommand for LazyJoinWhere {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars join_where"
+        "polars join-where"
     }
 
     fn description(&self) -> &str {
@@ -38,7 +38,7 @@ impl PluginCommand for LazyJoinWhere {
             description: "Join two lazy dataframes with a condition",
             example: r#"let df_a = ([[name cash];[Alice 5] [Bob 10]] | polars into-lazy)
     let df_b = ([[item price];[A 3] [B 7] [C 12]] | polars into-lazy)
-    $df_a | polars join_where $df_b ((polars col cash) > (polars col price)) | polars collect"#,
+    $df_a | polars join-where $df_b ((polars col cash) > (polars col price)) | polars collect"#,
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
