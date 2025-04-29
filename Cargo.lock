@@ -3880,7 +3880,7 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "serde",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "typetag",
 ]
 
@@ -3987,7 +3987,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tempfile",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "typetag",
  "web-time",
  "windows-sys 0.48.0",
@@ -4677,7 +4677,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b7cafe60d6cf8e62e1b9b2ea516a089c008945bb5a275416789e7db0bc199dc"
 dependencies = [
  "memchr",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "ucd-trie",
 ]
 
@@ -4992,7 +4992,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum_macros",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "version_check",
  "xxhash-rust",
 ]
@@ -5008,7 +5008,7 @@ dependencies = [
  "polars-arrow-format",
  "regex",
  "simdutf8",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -5671,7 +5671,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "rustls 0.23.20",
  "socket2",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -5690,7 +5690,7 @@ dependencies = [
  "rustls 0.23.20",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "tinyvec",
  "tracing",
  "web-time",
@@ -5894,8 +5894,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd4728ee71d2aa3a364ee64470d1aa64b3f0467b2d28b73df15259d005dec64a"
+source = "git+https://github.com/nushell/reedline?branch=main#75f2c500d83cb09632d9069d42f75fd6e6693713"
 dependencies = [
  "arboard",
  "chrono",
@@ -5909,9 +5908,9 @@ dependencies = [
  "strip-ansi-escapes",
  "strum",
  "strum_macros",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "unicode-segmentation",
- "unicode-width 0.1.11",
+ "unicode-width 0.2.0",
 ]
 
 [[package]]
@@ -6035,7 +6034,7 @@ dependencies = [
  "chumsky",
  "memchr",
  "quoted_printable",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -7135,11 +7134,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.6"
+version = "2.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fec2a1820ebd077e2b90c4df007bebf344cd394098a13c563957d0afc83ea47"
+checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
 dependencies = [
- "thiserror-impl 2.0.6",
+ "thiserror-impl 2.0.12",
 ]
 
 [[package]]
@@ -7155,9 +7154,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.6"
+version = "2.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d65750cab40f4ff1929fb1ba509e9914eb756131cef4210da8d5d700d26f6312"
+checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7711,7 +7710,7 @@ dependencies = [
  "clap",
  "rand 0.9.0",
  "tempfile",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "uucore",
 ]
 
@@ -7725,7 +7724,7 @@ dependencies = [
  "fs_extra",
  "indicatif",
  "libc",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "uucore",
  "windows-sys 0.59.0",
 ]
@@ -7740,7 +7739,7 @@ dependencies = [
  "clap",
  "filetime",
  "parse_datetime",
- "thiserror 2.0.6",
+ "thiserror 2.0.12",
  "uucore",
  "windows-sys 0.59.0",
 ]
