@@ -21,7 +21,7 @@ nu-plugin-core = { path = "../nu-plugin-core", version = "0.103.1", default-feat
 nu-utils = { path = "../nu-utils", version = "0.103.1" }
 
 log = { workspace = true }
-thiserror = "2.0"
+thiserror = "2.0.12"
 
 [dev-dependencies]
 serde = { workspace = true }

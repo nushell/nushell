@@ -24,21 +24,21 @@ nu-derive-value = { path = "../nu-derive-value", version = "0.103.1" }
 
 brotli = { workspace = true, optional = true }
 bytes = { workspace = true }
-chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
+chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
 chrono-humanize = { workspace = true }
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
-miette = { workspace = true, features = ["fancy-no-backtrace"]}
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
-thiserror = "2.0"
+thiserror = "2.0.12"
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
