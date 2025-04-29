@@ -30,14 +30,14 @@ impl Command for Default {
                 Some('e'),
             )
             .switch(
-                "lazy",
-                "if default value is a closure, evaluate it",
-                Some('l'),
+                "no-eval",
+                "if default value is a closure, pass it as-is",
+                Some('n'),
             )
             .switch(
-                "lazy-once",
-                "evaluate the closure only once, even for lists (no closure input)",
-                Some('L'),
+                "eval-once",
+                "evaluate default value closure only once, even for lists (no closure input)",
+                Some('o'),
             )
             .category(Category::Filters)
     }
@@ -54,9 +54,23 @@ impl Command for Default {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
-        let lazy = call.has_flag(engine_state, stack, "lazy")?;
-        let lazy_once = call.has_flag(engine_state, stack, "lazy-once")?;
-        default(engine_state, stack, call, input, empty, lazy, lazy_once)
+        let no_eval = call.has_flag(engine_state, stack, "no-eval")?;
+        let eval_once = call.has_flag(engine_state, stack, "eval-once")?;
+
+        if no_eval && eval_once {
+            Err(ShellError::IncompatibleParameters {
+                left_message: String::from("incompatible flag"),
+                left_span: call
+                    .get_flag_span(stack, "no-eval")
+                    .unwrap_or_else(Span::unknown),
+                right_message: String::from("cannot be used with --no-eval"),
+                right_span: call
+                    .get_flag_span(stack, "eval-once")
+                    .unwrap_or_else(Span::unknown),
+            })
+        } else {
+            default(engine_state, stack, call, input, empty, !no_eval, eval_once)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -115,12 +129,12 @@ impl Command for Default {
             },
             Example {
                 description: r#"Generate a default value from a closure"#,
-                example: "null | default --lazy { 1 + 2 }",
+                example: "null | default { 1 + 2 }",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 description: r#"Generate missing values in a column from a closure"#,
-                example: "[{a:1 b:2} {b:1}] | default -l { $in.b + 1 } a",
+                example: "[{a:1 b:2} {b:1}] | default { $in.b + 1 } a",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
