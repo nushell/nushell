@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.103.1"
+# version = "0.104.0"
 $env.config.color_config = {
     separator: white
     leading_trailing_space_bg: { attr: n }
