@@ -288,7 +288,7 @@ fn default(
             return default_value_or_eval_once(
                 engine_state,
                 stack,
-                PipelineData::Empty,
+                PipelineData::ListStream(ListStream::new(stream, span, Signals::empty()), metadata),
                 value,
                 lazy_eval || lazy_eval_once,
             );
