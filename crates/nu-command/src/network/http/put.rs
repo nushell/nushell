@@ -118,6 +118,11 @@ impl Command for HttpPut {
                 result: None,
             },
             Example {
+                description: "Put content to example.com, with custom header using a list",
+                example: "http put --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                result: None,
+            },
+            Example {
                 description: "Put content to example.com, with JSON body",
                 example: "http put --content-type application/json https://www.example.com { field: value }",
                 result: None,

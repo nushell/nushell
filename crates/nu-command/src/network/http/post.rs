@@ -118,6 +118,11 @@ impl Command for HttpPost {
                 result: None,
             },
             Example {
+                description: "Post content to example.com, with custom header using a list",
+                example: "http post --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                result: None,
+            },
+            Example {
                 description: "Post content to example.com, with JSON body",
                 example: "http post --content-type application/json https://www.example.com { field: value }",
                 result: None,
