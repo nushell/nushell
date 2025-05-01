@@ -114,9 +114,9 @@ impl Command for HttpPatch {
                 result: None,
             },
             Example {
-                description: "Patch content to example.com, with custom header",
+                description: "Patch content to example.com, with custom header using a record",
                 example:
-                    "http patch --headers [my-header-key my-header-value] https://www.example.com",
+                    "http patch --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
