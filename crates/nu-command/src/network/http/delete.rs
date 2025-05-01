@@ -117,8 +117,13 @@ impl Command for HttpDelete {
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with custom header",
-                example: "http delete --headers [my-header-key my-header-value] https://www.example.com",
+                description: "http delete from example.com, with custom header using a record",
+                example: "http delete --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "http delete from example.com, with custom header using a list",
+                example: "http delete --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
