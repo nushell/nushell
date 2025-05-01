@@ -33,11 +33,12 @@ impl PluginCommand for StructJsonEncode {
             example: r#"[[id person]; [1 {name: "Bob", age: 36}] [2 {name: "Betty", age: 63}]] 
                     | polars into-df -s {id: i64, person: {name: str, age: u8}} 
                     | polars select id (polars col person | polars struct-json-encode | polars as encoded)
-                    | polars sort-by id"#,
+                    | polars sort-by id
+                    | polars collect"#,
             result: Some(
                 NuDataFrame::from(
                     df!(
-                        "id" => [1, 2],
+                        "id" => [1i32, 2],
                         "encoded" => [
                             r#"{"name":"Bob","age":36}"#,
                             r#"{"name":"Betty","age":63}"#,
