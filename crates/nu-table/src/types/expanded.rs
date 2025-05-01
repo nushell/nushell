@@ -1,10 +1,8 @@
-use std::{cmp::max, collections::HashMap};
+use std::cmp::max;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
-
-use tabled::grid::config::Position;
 
 use crate::{
     common::{
@@ -14,7 +12,7 @@ use crate::{
     },
     string_width,
     types::has_index,
-    NuRecordsValue, NuTable, TableOpts, TableOutput,
+    NuTable, TableOpts, TableOutput,
 };
 
 #[derive(Debug, Clone)]
@@ -106,7 +104,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
     const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
-    const MIN_CELL_CONTENT_WIDTH: usize = 1;
+    const MIN_CELL_CONTENT_WIDTH: usize = 3;
     const TRUNCATE_CONTENT_WIDTH: usize = 3;
     const TRUNCATE_CELL_WIDTH: usize = TRUNCATE_CONTENT_WIDTH + PADDING_SPACE;
 
@@ -124,10 +122,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     }
 
     let headers = get_columns(input);
-
     let with_index = has_index(&cfg.opts, &headers);
-    let row_offset = cfg.opts.index_offset;
-    let mut rows_count = 0usize;
 
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
@@ -135,162 +130,171 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         .into_iter()
         .filter(|header| header != INDEX_COLUMN_NAME)
         .collect();
-
     let with_header = !headers.is_empty();
+    let row_offset = cfg.opts.index_offset;
 
-    let mut data = vec![vec![]; input.len() + with_header as usize];
-    let mut data_styles = HashMap::new();
+    let mut total_rows = 0usize;
 
-    if with_index {
-        if with_header {
-            data[0].push(NuRecordsValue::exact(String::from("#"), 1, vec![]));
-        }
-
-        for (row, item) in input.iter().enumerate() {
-            cfg.opts.signals.check(cfg.opts.span)?;
-            check_value(item)?;
-
-            let index = row + row_offset;
-            let text = item
-                .as_record()
-                .ok()
-                .and_then(|val| val.get(INDEX_COLUMN_NAME))
-                .map(|value| value.to_expanded_string("", cfg.opts.config))
-                .unwrap_or_else(|| index.to_string());
-
-            let row = row + with_header as usize;
-            let value = NuRecordsValue::new(text);
-            data[row].push(value);
-        }
-
-        let column_width = string_width(data[data.len() - 1][0].as_ref());
-
-        if column_width + ADDITIONAL_CELL_SPACE > available_width {
-            available_width = 0;
-        } else {
-            available_width -= column_width + ADDITIONAL_CELL_SPACE;
-        }
-    }
-
-    if !with_header {
-        if available_width > ADDITIONAL_CELL_SPACE {
-            available_width -= PADDING_SPACE;
-        } else {
+    if !with_index && !with_header {
+        if available_width <= ADDITIONAL_CELL_SPACE {
             // it means we have no space left for actual content;
             // which means there's no point in index itself if it was even used.
             // so we do not print it.
             return Ok(None);
         }
 
+        available_width -= PADDING_SPACE;
+
+        let mut table = NuTable::new(input.len(), 1);
+        table.set_index_style(get_index_style(&cfg.opts.style_computer));
+        table.set_header_style(get_header_style(&cfg.opts.style_computer));
+        table.set_indent(cfg.opts.config.table.padding);
+
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
             check_value(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
-            let mut cell = expand_entry(item, inner_cfg);
+            let cell = expand_entry(item, inner_cfg);
 
-            let value_width = string_width(&cell.text);
-            if value_width > available_width {
-                // it must only happen when a string is produced, so we can safely wrap it.
-                // (it might be string table representation as well) (I guess I mean default { table ...} { list ...})
-                //
-                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller code?
+            table.insert((row, 0), cell.text);
+            table.insert_style((row, 0), cell.style);
 
-                cell.text = wrap_text(&cell.text, available_width, cfg.opts.config);
-            }
-
-            let value = NuRecordsValue::new(cell.text);
-            data[row].push(value);
-            data_styles.insert((row, with_index as usize), cell.style);
-
-            rows_count = rows_count.saturating_add(cell.size);
+            total_rows = total_rows.saturating_add(cell.size);
         }
 
-        let mut table = NuTable::from(data);
-        table.set_indent(cfg.opts.config.table.padding);
-        table.set_index_style(get_index_style(&cfg.opts.style_computer));
-        set_data_styles(&mut table, data_styles);
-
-        return Ok(Some(TableOutput::new(table, false, with_index, rows_count)));
+        return Ok(Some(TableOutput::new(table, false, false, total_rows)));
     }
 
-    if !headers.is_empty() {
-        let mut pad_space = PADDING_SPACE;
-        if headers.len() > 1 {
-            pad_space += SPLIT_LINE_SPACE;
+    if !with_header && with_index {
+        let mut table = NuTable::new(input.len(), 2);
+        table.set_index_style(get_index_style(&cfg.opts.style_computer));
+        table.set_header_style(get_header_style(&cfg.opts.style_computer));
+        table.set_indent(cfg.opts.config.table.padding);
+
+        let mut index_column_width = 0;
+
+        for (row, item) in input.iter().enumerate() {
+            cfg.opts.signals.check(cfg.opts.span)?;
+            check_value(item)?;
+
+            let index = row + row_offset;
+            let index_value = item
+                .as_record()
+                .ok()
+                .and_then(|val| val.get(INDEX_COLUMN_NAME))
+                .map(|value| value.to_expanded_string("", cfg.opts.config))
+                .unwrap_or_else(|| index.to_string());
+            let index_width = string_width(&index_value);
+            if available_width <= index_width + ADDITIONAL_CELL_SPACE + PADDING_SPACE {
+                // NOTE: we don't wanna wrap index; so we return
+                return Ok(None);
+            }
+
+            table.insert((row, 0), index_value);
+
+            index_column_width = max(index_column_width, index_width);
         }
 
-        if available_width < pad_space {
-            // there's no space for actual data so we don't return index if it's present.
-            // (also see the comment after the loop)
+        available_width -= index_column_width + ADDITIONAL_CELL_SPACE + PADDING_SPACE;
 
+        for (row, item) in input.iter().enumerate() {
+            cfg.opts.signals.check(cfg.opts.span)?;
+            check_value(item)?;
+
+            let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
+            let cell = expand_entry(item, inner_cfg);
+
+            table.insert((row, 1), cell.text);
+            table.insert_style((row, 1), cell.style);
+
+            total_rows = total_rows.saturating_add(cell.size);
+        }
+
+        return Ok(Some(TableOutput::new(table, false, true, total_rows)));
+    }
+
+    // NOTE: redefine to not break above logic (fixme)
+    let mut available_width = cfg.opts.width - SPLIT_LINE_SPACE;
+
+    let mut table = NuTable::new(input.len() + 1, headers.len() + with_index as usize);
+    table.set_index_style(get_index_style(&cfg.opts.style_computer));
+    table.set_header_style(get_header_style(&cfg.opts.style_computer));
+    table.set_indent(cfg.opts.config.table.padding);
+
+    let mut widths = Vec::new();
+
+    if with_index {
+        table.insert((0, 0), String::from("#"));
+
+        let mut index_column_width = 1;
+
+        for (row, item) in input.iter().enumerate() {
+            cfg.opts.signals.check(cfg.opts.span)?;
+            check_value(item)?;
+
+            let index = row + row_offset;
+            let index_value = item
+                .as_record()
+                .ok()
+                .and_then(|val| val.get(INDEX_COLUMN_NAME))
+                .map(|value| value.to_expanded_string("", cfg.opts.config))
+                .unwrap_or_else(|| index.to_string());
+            let index_width = string_width(&index_value);
+
+            table.insert((row + 1, 0), index_value);
+            index_column_width = max(index_column_width, index_width);
+        }
+
+        if available_width <= index_column_width + ADDITIONAL_CELL_SPACE {
+            // NOTE: we don't wanna wrap index; so we return
             return Ok(None);
         }
+
+        available_width -= index_column_width + ADDITIONAL_CELL_SPACE;
+        widths.push(index_column_width);
     }
 
     let count_columns = headers.len();
-    let mut widths = Vec::new();
     let mut truncate = false;
     let mut rendered_column = 0;
     for (col, header) in headers.into_iter().enumerate() {
+        let column = col + with_index as usize;
+        let extra_space = PADDING_SPACE + SPLIT_LINE_SPACE;
+
+        if available_width <= extra_space {
+            table.pop_column(table.count_columns() - column);
+            widths.pop();
+            truncate = true;
+            break;
+        }
+
+        let mut available = available_width - extra_space;
+
+        // We want to reserver some space for next column
+        // If we can't fit it in it will be popped anyhow.
         let is_last_column = col + 1 == count_columns;
-        let mut pad_space = PADDING_SPACE;
-        if !is_last_column {
-            pad_space += SPLIT_LINE_SPACE;
+        if !is_last_column && available > TRUNCATE_CELL_WIDTH {
+            available -= TRUNCATE_CELL_WIDTH;
         }
 
-        let mut available = available_width - pad_space;
+        let mut total_column_rows = 0usize;
         let mut column_width = 0;
-
-        if !is_last_column {
-            // we need to make sure that we have a space for a next column if we use available width
-            // so we might need to decrease a bit it.
-
-            // we consider a header width be a minimum width
-            let pad_space = PADDING_SPACE + TRUNCATE_CONTENT_WIDTH;
-
-            if available > pad_space {
-                // In we have no space for a next column,
-                // We consider showing something better then nothing,
-                // So we try to decrease the width to show at least a truncution column
-
-                available -= pad_space;
-            } else {
-                truncate = true;
-                break;
-            }
-
-            if available < column_width {
-                truncate = true;
-                break;
-            }
-        }
-
-        let mut column_rows = 0usize;
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
             check_value(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
-            let mut cell = expand_entry_with_header(item, &header, inner_cfg);
-
-            let mut value_width = string_width(&cell.text);
-            if value_width > available {
-                // it must only happen when a string is produced, so we can safely wrap it.
-                // (it might be string table representation as well)
-
-                cell.text = wrap_text(&cell.text, available, cfg.opts.config);
-                value_width = available;
-            }
+            let cell = expand_entry_with_header(item, &header, inner_cfg);
+            let value_width = string_width(&cell.text); // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
 
             column_width = max(column_width, value_width);
 
-            let value = NuRecordsValue::new(cell.text);
-            data[row + 1].push(value);
-            data_styles.insert((row + 1, col + with_index as usize), cell.style);
+            table.insert((row + 1, column), cell.text);
+            table.insert_style((row + 1, column), cell.style);
 
-            column_rows = column_rows.saturating_add(cell.size);
+            total_column_rows = total_column_rows.saturating_add(cell.size);
         }
 
         let mut head_width = string_width(&header);
@@ -300,50 +304,37 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             head_width = available;
         }
 
-        let head_cell = NuRecordsValue::new(header);
-        data[0].push(head_cell);
+        table.insert((0, column), header);
 
         column_width = max(column_width, head_width);
-
-        if column_width > available {
-            // remove the column we just inserted
-            for row in &mut data {
-                row.pop();
-            }
-
-            truncate = true;
-            break;
-        }
+        assert!(column_width <= available);
 
         widths.push(column_width);
 
-        available_width -= pad_space + column_width;
+        available_width -= column_width + extra_space;
         rendered_column += 1;
 
-        rows_count = std::cmp::max(rows_count, column_rows);
-    }
-
-    if truncate && rendered_column == 0 {
-        // it means that no actual data was rendered, there might be only index present,
-        // so there's no point in rendering the table.
-        //
-        // It's actually quite important in case it's called recursively,
-        // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
-        //
-        // But potentially if its reached as a 1st called function we might would love to see the index.
-
-        return Ok(None);
+        total_rows = std::cmp::max(total_rows, total_column_rows);
     }
 
     if truncate {
+        if rendered_column == 0 {
+            // it means that no actual data was rendered, there might be only index present,
+            // so there's no point in rendering the table.
+            //
+            // It's actually quite important in case it's called recursively,
+            // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
+            //
+            // But potentially if its reached as a 1st called function we might would love to see the index.
+
+            return Ok(None);
+        }
+
         if available_width < TRUNCATE_CELL_WIDTH {
             // back up by removing last column.
             // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
-
             while let Some(width) = widths.pop() {
-                for row in &mut data {
-                    row.pop();
-                }
+                table.pop_column(1);
 
                 available_width += width + PADDING_SPACE;
                 if !widths.is_empty() {
@@ -364,22 +355,12 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         let is_last_column = widths.len() == count_columns;
         if !is_last_column {
-            let shift = NuRecordsValue::exact(String::from("..."), 3, vec![]);
-            for row in &mut data {
-                row.push(shift.clone());
-            }
-
+            table.push_column(String::from("..."));
             widths.push(3);
         }
     }
 
-    let mut table = NuTable::from(data);
-    table.set_index_style(get_index_style(&cfg.opts.style_computer));
-    table.set_header_style(get_header_style(&cfg.opts.style_computer));
-    table.set_indent(cfg.opts.config.table.padding);
-    set_data_styles(&mut table, data_styles);
-
-    Ok(Some(TableOutput::new(table, true, with_index, rows_count)))
+    Ok(Some(TableOutput::new(table, true, with_index, total_rows)))
 }
 
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
@@ -400,10 +381,13 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
 
     let value_width = cfg.opts.width - key_width - count_borders - padding - padding;
 
-    let mut count_rows = 0usize;
+    let mut total_rows = 0usize;
 
-    let mut data = Vec::with_capacity(record.len());
-    for (key, value) in record {
+    let mut table = NuTable::new(record.len(), 2);
+    table.set_index_style(get_key_style(&cfg));
+    table.set_indent(cfg.opts.config.table.padding);
+
+    for (i, (key, value)) in record.iter().enumerate() {
         cfg.opts.signals.check(cfg.opts.span)?;
 
         let cell = match expand_value(value, value_width, &cfg)? {
@@ -411,29 +395,24 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
             None => return Ok(None),
         };
 
+        let value = cell.text;
+        let mut key = key.to_owned();
+
         // we want to have a key being aligned to 2nd line,
         // we could use Padding for it but,
         // the easiest way to do so is just push a new_line char before
-        let mut key = key.to_owned();
         let is_key_on_next_line = !key.is_empty() && cell.is_expanded && theme.borders_has_top();
         if is_key_on_next_line {
             key.insert(0, '\n');
         }
 
-        let key = NuRecordsValue::new(key);
-        let val = NuRecordsValue::new(cell.text);
-        let row = vec![key, val];
+        table.insert((i, 0), key);
+        table.insert((i, 1), value);
 
-        data.push(row);
-
-        count_rows = count_rows.saturating_add(cell.size);
+        total_rows = total_rows.saturating_add(cell.size);
     }
 
-    let mut table = NuTable::from(data);
-    table.set_index_style(get_key_style(&cfg));
-    table.set_indent(cfg.opts.config.table.padding);
-
-    let mut out = TableOutput::new(table, false, true, count_rows);
+    let mut out = TableOutput::new(table, false, true, total_rows);
 
     configure_table(
         &mut out,
@@ -443,7 +422,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     );
 
     maybe_expand_table(out, cfg.opts.width)
-        .map(|value| value.map(|value| CellOutput::clean(value, count_rows, false)))
+        .map(|value| value.map(|value| CellOutput::clean(value, total_rows, false)))
 }
 
 // the flag is used as an optimization to not do `value.lines().count()` search.
@@ -519,6 +498,7 @@ fn expand_entry_with_header(item: &Value, header: &str, cfg: Cfg<'_>) -> CellOut
 fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
     if is_limit_reached(&cfg) {
         let value = nu_value_to_string_clean(item, cfg.opts.config, &cfg.opts.style_computer);
+        let value = nutext_wrap(value, &cfg);
         return CellOutput::styled(value);
     }
 
@@ -527,6 +507,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
         Value::Record { val: record, .. } => {
             if record.is_empty() {
                 let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
+                let value = nutext_wrap(value, &cfg);
                 return CellOutput::styled(value);
             }
 
@@ -538,6 +519,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
                 Ok(Some(table)) => table,
                 _ => {
                     let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
+                    let value = nutext_wrap(value, &cfg);
                     CellOutput::styled(value)
                 }
             }
@@ -560,6 +542,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
                 Ok(Some(out)) => out,
                 _ => {
                     let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
+                    let value = nutext_wrap(value, &cfg);
                     return CellOutput::styled(value);
                 }
             };
@@ -571,15 +554,26 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
                 Some(table) => CellOutput::clean(table, out.count_rows, false),
                 None => {
                     let value = nu_value_to_string(item, cfg.opts.config, &cfg.opts.style_computer);
+                    let value = nutext_wrap(value, &cfg);
                     CellOutput::styled(value)
                 }
             }
         }
         _ => {
             let value = nu_value_to_string_clean(item, cfg.opts.config, &cfg.opts.style_computer);
+            let value = nutext_wrap(value, &cfg);
             CellOutput::styled(value)
         }
     }
+}
+
+fn nutext_wrap(mut text: NuText, cfg: &Cfg<'_>) -> NuText {
+    let width = string_width(&text.0);
+    if width > cfg.opts.width {
+        text.0 = wrap_text(&text.0, cfg.opts.width, cfg.opts.config);
+    }
+
+    text
 }
 
 fn is_limit_reached(cfg: &Cfg<'_>) -> bool {
@@ -624,12 +618,6 @@ fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {
     let table = out.table.draw(term_width);
 
     Ok(table)
-}
-
-fn set_data_styles(table: &mut NuTable, styles: HashMap<Position, TextStyle>) {
-    for (pos, style) in styles {
-        table.insert_style(pos, style);
-    }
 }
 
 fn table_apply_config(out: &mut TableOutput, cfg: &Cfg<'_>) {

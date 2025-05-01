@@ -21,10 +21,12 @@ fn main() {
     let headers = to_cell_info_vec(&table_headers);
     let rows = to_cell_info_vec(&row_data);
 
-    let mut rows = vec![rows; 3];
-    rows.insert(0, headers);
+    let mut table = NuTable::new(4, 3);
+    table.set_row(0, headers);
 
-    let mut table = NuTable::from(rows);
+    for i in 0..3 {
+        table.set_row(i + 1, rows.clone());
+    }
 
     table.set_data_style(TextStyle::basic_left());
     table.set_header_style(TextStyle::basic_center().style(Style::new().on(Color::Blue)));
