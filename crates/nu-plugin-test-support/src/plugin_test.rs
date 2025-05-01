@@ -244,7 +244,10 @@ impl PluginTest {
                             // If they're not equal, print a diff of the debug format
                             let (expectation_formatted, value_formatted) =
                                 match (expectation, &value) {
-                                    (Value::Custom { val: ex_val, .. }, Value::Custom { val: v_val, .. }) => {
+                                    (
+                                        Value::Custom { val: ex_val, .. },
+                                        Value::Custom { val: v_val, .. },
+                                    ) => {
                                         // We have to serialize both custom values before handing them to the plugin
                                         let expectation_serialized =
                                             PluginCustomValue::serialize_from_custom_value(
