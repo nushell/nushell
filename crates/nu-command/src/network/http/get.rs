@@ -115,12 +115,12 @@ impl Command for HttpGet {
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom header",
+                description: "Get content from example.com, with custom header using a record",
                 example: "http get --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom headers",
+                description: "Get content from example.com, with custom headers using a list",
                 example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
