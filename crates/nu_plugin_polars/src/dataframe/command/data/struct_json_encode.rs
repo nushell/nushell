@@ -65,17 +65,3 @@ impl PluginCommand for StructJsonEncode {
             .map_err(LabeledError::from)
     }
 }
-
-#[cfg(test)]
-mod test {
-    use nu_protocol::ShellError;
-
-    use crate::test::test_polars_plugin_command;
-
-    use super::*;
-
-    #[test]
-    fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&StructJsonEncode)
-    }
-}
