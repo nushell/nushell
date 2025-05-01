@@ -27,7 +27,7 @@ impl Command for JobRecv {
     fn extra_description(&self) -> &str {
         r#"When messages are sent to the current process, they get stored in what is called the "mailbox".
 This commands reads and returns a message from the mailbox, in a first-in-first-out fashion.
-j
+
 Messages may have numeric flags attached to them. This commands supports filtering out messages that do not satisfy a given tag, by using the `tag` flag.
 If no tag is specified, this command will accept any message.
 
