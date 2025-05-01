@@ -116,7 +116,7 @@ impl Command for HttpGet {
             },
             Example {
                 description: "Get content from example.com, with custom header",
-                example: "http get --headers [my-header-key my-header-value] https://www.example.com",
+                example: "http get --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
