@@ -239,8 +239,8 @@ pub fn compare_cell_path(
     insensitive: bool,
     natural: bool,
 ) -> Result<Ordering, ShellError> {
-    let left = left.clone().follow_cell_path(&cell_path.members, false)?;
-    let right = right.clone().follow_cell_path(&cell_path.members, false)?;
+    let left = left.follow_cell_path(&cell_path.members, false)?;
+    let right = right.follow_cell_path(&cell_path.members, false)?;
     compare_values(&left, &right, insensitive, natural)
 }
 
