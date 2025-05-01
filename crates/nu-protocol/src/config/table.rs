@@ -20,6 +20,7 @@ pub enum TableMode {
     Restructured,
     AsciiRounded,
     BasicCompact,
+    Single,
 }
 
 impl FromStr for TableMode {
@@ -44,7 +45,8 @@ impl FromStr for TableMode {
             "restructured" => Ok(Self::Restructured),
             "ascii_rounded" => Ok(Self::AsciiRounded),
             "basic_compact" => Ok(Self::BasicCompact),
-            _ => Err("'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
+            "single" => Ok(Self::Single),
+            _ => Err("'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact' or 'single'"),
         }
     }
 }

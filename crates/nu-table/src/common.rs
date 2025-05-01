@@ -186,6 +186,7 @@ pub fn load_theme(mode: TableMode) -> TableTheme {
         TableMode::Restructured => TableTheme::restructured(),
         TableMode::AsciiRounded => TableTheme::ascii_rounded(),
         TableMode::BasicCompact => TableTheme::basic_compact(),
+        TableMode::Single => TableTheme::single(),
     }
 }
 
