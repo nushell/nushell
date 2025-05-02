@@ -1,6 +1,6 @@
 use crate::{
     command,
-    config_files::{self, read_vendor_autoload_files, setup_config, nu_autoload_on_command},
+    config_files::{self, nu_autoload_on_command, read_vendor_autoload_files, setup_config},
 };
 use log::trace;
 #[cfg(feature = "plugin")]
