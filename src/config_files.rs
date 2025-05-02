@@ -157,7 +157,7 @@ fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
     Ok(entries)
 }
 
-pub(crate) fn should_run_autoload(engine_state: &EngineState, stack: &Stack) -> bool {
+pub(crate) fn nu_autoload_on_command(engine_state: &EngineState, stack: &Stack) -> bool {
     let env_vars = stack.get_env_vars(engine_state);
     env_vars
         .get("NU_AUTOLOAD_ON_COMMAND")
@@ -179,7 +179,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         column!()
     );
     let mut autoload_dirs = get_vendor_autoload_dirs(engine_state);
-    if should_run_autoload(engine_state, stack) {
+    if nu_autoload_on_command(engine_state, stack) {
         // Check for custom autoload dir in Nushell's environment
         let env_vars = stack.get_env_vars(engine_state);
         if let Some(val) = env_vars.get("NU_VENDOR_AUTOLOAD_DIR") {
