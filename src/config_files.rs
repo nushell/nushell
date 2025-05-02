@@ -157,6 +157,20 @@ fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
     Ok(entries)
 }
 
+pub(crate) fn should_run_autoload(engine_state: &EngineState, stack: &Stack) -> bool {
+    let env_vars = stack.get_env_vars(engine_state);
+    env_vars
+        .get("NU_AUTOLOAD_ON_COMMAND")
+        .and_then(|val| {
+            if let Ok(val_str) = val.as_str() {
+                Some(val_str.to_lowercase() == "true")
+            } else {
+                None
+            }
+        })
+        .unwrap_or(false)
+}
+
 pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
     warn!(
         "read_vendor_autoload_files() {}:{}:{}",
@@ -164,10 +178,20 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         line!(),
         column!()
     );
+    let mut autoload_dirs = get_vendor_autoload_dirs(engine_state);
+    if should_run_autoload(engine_state, stack) {
+        // Check for custom autoload dir in Nushell's environment
+        let env_vars = stack.get_env_vars(engine_state);
+        if let Some(val) = env_vars.get("NU_VENDOR_AUTOLOAD_DIR") {
+            if let Ok(path_str) = val.as_str() {
+                let path = std::path::PathBuf::from(path_str);
+                autoload_dirs.push(path);
+            }
+        }
+    }
 
-    // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
-    // to determine the order of directories to evaluate
-    get_vendor_autoload_dirs(engine_state)
+    // Use our modified autoload_dirs list
+    autoload_dirs // Changed: use our modified list instead of calling get_vendor_autoload_dirs again
         .iter()
         // User autoload directories are evaluated after vendor, which means that
         // the user can override vendor autoload files
@@ -190,6 +214,11 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                 }
             }
         });
+
+    // Add environment merging here to ensure changes take effect
+    if let Err(e) = engine_state.merge_env(stack) {
+        report_shell_error(engine_state, &e);
+    }
 }
 
 fn eval_default_config(
