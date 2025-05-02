@@ -2725,6 +2725,23 @@ mod input_types {
     }
 
     #[test]
+    fn closure_in_block_position_errors_correctly() {
+        let mut engine_state = EngineState::new();
+        add_declarations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let inputs = [
+            r#"if true { || print hi }"#,
+            r#"match true { || print hi }"#,
+        ];
+
+        for input in inputs {
+            parse(&mut working_set, None, input.as_bytes(), true);
+            assert!(!working_set.parse_errors.is_empty(), "testing: {input}");
+        }
+    }
+
+    #[test]
     fn else_errors_correctly() {
         let mut engine_state = EngineState::new();
         add_declarations(&mut engine_state);
