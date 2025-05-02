@@ -77,7 +77,7 @@ pub(crate) fn run_commands(
         }
 
         perf!("read login.nu", start_time, use_color);
-        // Only run vendor autoload if NU_AUTOLOAD_ON_COMMAND is set to true
+        // Only run vendor autoload if NU_AUTOLOAD_ON_COMMAND is set
 
         if nu_autoload_on_command(engine_state, &stack) {
             read_vendor_autoload_files(engine_state, &mut stack);
