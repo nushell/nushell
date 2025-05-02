@@ -342,30 +342,30 @@ fn table_annotations_with_extra_characters() -> TestResult {
 #[rstest]
 fn one_of_annotations(
     #[values(
-        ("cell-path, list<cell-path>", "a.b.c", "cell-path"),
-        ("cell-path, list<cell-path>", "[a.b.c d.e.f]", "list<cell-path>"),
-        ("closure, any", "{}", "closure"),
-        ("closure, any", "{a: 1}", "record<a: int>"),
+        ("(cell-path | list<cell-path>)", "a.b.c", "cell-path"),
+        ("(cell-path | list<cell-path>)", "[a.b.c d.e.f]", "list<cell-path>"),
+        ("(closure | any)", "{}", "closure"),
+        ("(closure | any)", "{a: 1}", "record<a: int>"),
     )]
     annotation_data: (&str, &str, &str),
 ) -> TestResult {
-    let (types, argument, expected) = annotation_data;
+    let (one_of_type, argument, expected) = annotation_data;
 
-    let input = format!("def run [t: one_of({types})] {{ $t }}; run {argument} | describe");
+    let input = format!("def run [t: {one_of_type}] {{ $t }}; run {argument} | describe");
     run_test(&input, expected)
 }
 
 #[test]
 fn one_of_annotations_not_terminated() -> TestResult {
-    let input = "def run [t: one_of(binary, string] { $t }";
+    let input = "def run [t: (binary | string] { $t }";
     let expected = "expected closing )";
     fail_test(input, expected)
 }
 
 #[test]
 fn one_of_annotations_with_extra_characters() -> TestResult {
-    let input = "def run [t: one_of(int, string)extra] {$t}";
-    let expected = "Extra characters in the parameter name";
+    let input = "def run [t: (int | string)extra] {$t}";
+    let expected = "Unknown type.";
     fail_test(input, expected)
 }
 
