@@ -159,16 +159,7 @@ fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
 
 pub(crate) fn nu_autoload_on_command(engine_state: &EngineState, stack: &Stack) -> bool {
     let env_vars = stack.get_env_vars(engine_state);
-    env_vars
-        .get("NU_AUTOLOAD_ON_COMMAND")
-        .and_then(|val| {
-            if let Ok(val_str) = val.as_str() {
-                Some(val_str.to_lowercase() == "true")
-            } else {
-                None
-            }
-        })
-        .unwrap_or(false)
+    env_vars.get("NU_AUTOLOAD_ON_COMMAND").is_some()
 }
 
 pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
