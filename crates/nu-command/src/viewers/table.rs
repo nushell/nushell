@@ -1153,6 +1153,7 @@ fn supported_table_modes() -> Vec<Value> {
         Value::test_string("restructured"),
         Value::test_string("ascii_rounded"),
         Value::test_string("basic_compact"),
+        Value::test_string("single"),
     ]
 }
 
