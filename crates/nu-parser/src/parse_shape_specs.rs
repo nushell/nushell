@@ -64,17 +64,12 @@ pub fn parse_shape_name(
         b"number" => SyntaxShape::Number,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        _ if bytes.starts_with(b"one_of")
-            || bytes.starts_with(b"list")
+        _ if bytes.starts_with(b"list")
             || bytes.starts_with(b"record")
             || bytes.starts_with(b"table") =>
         {
             let (type_name, type_params) = split_generic_params(working_set, bytes, span);
             match type_name {
-                b"one_of" => SyntaxShape::OneOf(match type_params {
-                    Some(params) => parse_type_params(working_set, params, use_loc),
-                    None => vec![],
-                }),
                 b"list" => SyntaxShape::List(Box::new(match type_params {
                     Some(params) => {
                         let mut parsed_params = parse_type_params(working_set, params, use_loc);
@@ -106,6 +101,11 @@ pub fn parse_shape_name(
             }
         }
         b"string" => SyntaxShape::String,
+        _ if bytes.starts_with(b"(") && bytes.ends_with(b")") => {
+            let source =
+                bytes[1..(bytes.len() - 1)].into_spanned(Span::new(span.start + 1, span.end - 1));
+            parse_one_of(working_set, source, use_loc)
+        }
         _ => {
             if bytes.contains(&b'@') {
                 let mut split = bytes.splitn(2, |b| b == &b'@');
@@ -161,10 +161,9 @@ fn split_generic_params<'a>(
     bytes: &'a [u8],
     span: Span,
 ) -> (&'a [u8], Option<Spanned<&'a [u8]>>) {
-    let n = bytes.iter().position(|&c| c == b'<' || c == b'(');
+    let n = bytes.iter().position(|&c| c == b'<');
     let (open_delim_pos, close_delim) = match n.and_then(|n| Some((n, bytes.get(n)?))) {
         Some((n, b'<')) => (n, b'>'),
-        Some((n, b'(')) => (n, b')'),
         _ => return (bytes, None),
     };
 
@@ -312,4 +311,45 @@ fn parse_type_params(
     }
 
     sig
+}
+
+fn parse_one_of(
+    working_set: &mut StateWorkingSet,
+    Spanned { item: source, span }: Spanned<&[u8]>,
+    use_loc: ShapeDescriptorUse,
+) -> SyntaxShape {
+    let (tokens, err) = lex_signature(source, span.start, &[b'\n', b'\r'], &[b':', b','], true);
+
+    if let Some(err) = err {
+        working_set.error(err);
+        return SyntaxShape::Any;
+    }
+
+    let mut sig = vec![];
+
+    let mut tokens = tokens.into_iter().peekable();
+    while let Some(token) = tokens.next() {
+        let TokenContents::Item = token.contents else {
+            working_set.error(ParseError::Expected("a type", token.span));
+            return SyntaxShape::Any;
+        };
+
+        let shape_bytes = working_set.get_span_contents(token.span).to_vec();
+        let shape = parse_shape_name(working_set, &shape_bytes, token.span, use_loc);
+        sig.push(shape);
+
+        let Some(token_pipe) = tokens.next() else {
+            break;
+        };
+
+        match token_pipe.contents {
+            TokenContents::Pipe => {}
+            _ => {
+                working_set.error(ParseError::Expected("pipe '|'", token_pipe.span));
+                return SyntaxShape::Any;
+            }
+        }
+    }
+
+    SyntaxShape::OneOf(sig)
 }
