@@ -287,7 +287,7 @@ impl Command for Open {
     | where name starts-with "from "
     | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }
     | select extension name
-    | rename --column { name: command }
+    | rename extension command
 "#,
                 result: None,
             }

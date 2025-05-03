@@ -270,7 +270,7 @@ impl Command for Save {
     | where name starts-with "to "
     | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }
     | select extension name
-    | rename --column { name: command }
+    | rename extension command
 "#,
                 result: None,
             },
