@@ -26,7 +26,7 @@ impl Command for HistoryImport {
 
     fn extra_description(&self) -> &str {
         r#"Can import history from input, either successive command lines or more detailed records. If providing records, available fields are:
-    command_line, id, start_timestamp, hostname, cwd, duration, exit_status.
+    command, start_timestamp, hostname, cwd, duration, exit_status.
 
 If no input is provided, will import all history items from existing history in the other format: if current history is stored in sqlite, it will store it in plain text and vice versa.
 
