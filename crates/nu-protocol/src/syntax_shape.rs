@@ -250,14 +250,14 @@ impl Display for SyntaxShape {
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
-                write!(f, "(")?;
+                write!(f, "oneof<")?;
                 if let Some((last, rest)) = list.split_last() {
                     for ty in rest {
-                        write!(f, "{ty} | ")?;
+                        write!(f, "{ty}, ")?;
                     }
                     write!(f, "{last}")?;
                 }
-                write!(f, ")")
+                write!(f, ">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }
