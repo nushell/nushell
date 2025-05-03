@@ -112,12 +112,12 @@ impl Jobs {
     pub fn kill_all(&mut self) -> std::io::Result<()> {
         self.last_frozen_job_id = None;
 
-        self.jobs.clear();
-
         let first_err = self
             .iter()
             .map(|(_, job)| job.kill().err())
             .fold(None, |acc, x| acc.or(x));
+
+        self.jobs.clear();
 
         if let Some(err) = first_err {
             Err(err)
