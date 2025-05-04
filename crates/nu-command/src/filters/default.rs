@@ -146,12 +146,12 @@ fn default(
     default_when_empty: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
-    let dv: Spanned<Value> = call.req(engine_state, stack, 0)?;
-    let default = eval_default(engine_state, stack, dv.item)?;
+    let default_value: Spanned<Value> = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     if let Some(column) = column {
-        let default = default.into_value(dv.span)?;
+        let default = eval_default(engine_state, stack, default_value.item)?
+            .into_value(default_value.span)?;
         input
             .map(
                 move |mut item| match item {
@@ -181,7 +181,7 @@ fn default(
         || (default_when_empty
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
-        Ok(default)
+        eval_default(engine_state, stack, default_value.item)
     } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
         let PipelineData::ListStream(ls, metadata) = input else {
             unreachable!()
@@ -189,7 +189,7 @@ fn default(
         let span = ls.span();
         let mut stream = ls.into_inner().peekable();
         if stream.peek().is_none() {
-            return Ok(default);
+            return eval_default(engine_state, stack, default_value.item);
         }
 
         // stream's internal state already preserves the original signals config, so if this
