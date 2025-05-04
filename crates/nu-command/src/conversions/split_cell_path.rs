@@ -16,7 +16,12 @@ impl Command for SplitCellPath {
                 (
                     Type::CellPath,
                     Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                        [
+                            ("value".into(), Type::Any),
+                            ("optional".into(), Type::Bool),
+                            ("insensitive".into(), Type::Bool),
+                        ]
+                        .into(),
                     ))),
                 ),
             ])
@@ -114,19 +119,29 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
     struct PathMemberRecord {
         value: Value,
         optional: bool,
+        insensitive: bool,
     }
 
     impl PathMemberRecord {
         fn from_path_member(pm: PathMember) -> Self {
-            let (optional, internal_span) = match pm {
-                PathMember::String { optional, span, .. }
-                | PathMember::Int { optional, span, .. } => (optional, span),
+            let (optional, insensitive, internal_span) = match pm {
+                PathMember::String {
+                    optional,
+                    insensitive,
+                    span,
+                    ..
+                } => (optional, insensitive, span),
+                PathMember::Int { optional, span, .. } => (optional, false, span),
             };
             let value = match pm {
                 PathMember::String { val, .. } => Value::string(val, internal_span),
                 PathMember::Int { val, .. } => Value::int(val as i64, internal_span),
             };
-            Self { value, optional }
+            Self {
+                value,
+                optional,
+                insensitive,
+            }
         }
     }
 
