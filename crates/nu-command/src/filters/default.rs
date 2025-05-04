@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
@@ -29,16 +29,6 @@ impl Command for Default {
                 "also replace empty items like \"\", {}, and []",
                 Some('e'),
             )
-            .switch(
-                "no-eval",
-                "if default value is a closure, pass it as-is",
-                Some('n'),
-            )
-            .switch(
-                "eval-once",
-                "evaluate default value closure only once, even for lists (no closure input)",
-                Some('o'),
-            )
             .category(Category::Filters)
     }
 
@@ -54,23 +44,7 @@ impl Command for Default {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
-        let no_eval = call.has_flag(engine_state, stack, "no-eval")?;
-        let eval_once = call.has_flag(engine_state, stack, "eval-once")?;
-
-        if no_eval && eval_once {
-            Err(ShellError::IncompatibleParameters {
-                left_message: String::from("incompatible flag"),
-                left_span: call
-                    .get_flag_span(stack, "no-eval")
-                    .unwrap_or_else(Span::unknown),
-                right_message: String::from("cannot be used with --no-eval"),
-                right_span: call
-                    .get_flag_span(stack, "eval-once")
-                    .unwrap_or_else(Span::unknown),
-            })
-        } else {
-            default(engine_state, stack, call, input, empty, !no_eval, eval_once)
-        }
+        default(engine_state, stack, call, input, empty)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -133,8 +107,8 @@ impl Command for Default {
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: r#"Generate missing values in a column from a closure"#,
-                example: "[{a:1 b:2} {b:1}] | default { $in.b + 1 } a",
+                description: r#"Fill missing column values based on other columns"#,
+                example: "[{a:1 b:2} {b:1}] | upsert a {|rc| default { $rc.b + 1 } }",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
@@ -150,17 +124,15 @@ impl Command for Default {
     }
 }
 
-fn default_value_or_eval_once(
+fn eval_default(
     engine_state: &EngineState,
     stack: &mut Stack,
-    input: PipelineData,
     default_value: Value,
-    lazy: bool,
 ) -> Result<PipelineData, ShellError> {
-    match (&default_value, lazy) {
-        (Value::Closure { val, .. }, true) => {
+    match &default_value {
+        Value::Closure { val, .. } => {
             let closure = ClosureEvalOnce::new(engine_state, stack, *val.clone());
-            closure.run_with_input(input)
+            closure.run_with_input(PipelineData::Empty)
         }
         _ => Ok(default_value.into_pipeline_data()),
     }
@@ -172,112 +144,44 @@ fn default(
     call: &Call,
     input: PipelineData,
     default_when_empty: bool,
-    lazy_eval: bool,
-    lazy_eval_once: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
-    let value: Value = call.req(engine_state, stack, 0)?;
+    let dv: Spanned<Value> = call.req(engine_state, stack, 0)?;
+    let default = eval_default(engine_state, stack, dv.item)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     if let Some(column) = column {
-        if lazy_eval && !lazy_eval_once && matches!(value, Value::Closure { .. }) {
-            let Value::Closure {
-                val: ref closure,
-                internal_span: closure_span,
-            } = value
-            else {
-                unreachable!()
-            };
-            let mut closure = ClosureEval::new(engine_state, stack, *closure.clone());
-            input
-                .map(
-                    move |mut item| match item {
-                        Value::Record {
-                            val: ref mut record,
-                            internal_span: record_span,
-                        } => {
-                            let closure_input = record.clone().into_owned();
-                            let record = record.to_mut();
-                            if let Some(val) = record.get_mut(&column.item) {
-                                if matches!(val, Value::Nothing { .. })
-                                    || (default_when_empty && val.is_empty())
-                                {
-                                    *val = match closure
-                                        .run_with_value(Value::record(closure_input, record_span))
-                                    {
-                                        Ok(value) => value
-                                            .into_value(closure_span)
-                                            .unwrap_or_else(|err| Value::error(err, closure_span)),
-                                        Err(err) => Value::error(err, closure_span),
-                                    };
-                                }
-                            } else {
-                                let new_value = match closure
-                                    .run_with_value(Value::record(closure_input, record_span))
-                                {
-                                    Ok(value) => value
-                                        .into_value(closure_span)
-                                        .unwrap_or_else(|err| Value::error(err, closure_span)),
-                                    Err(err) => Value::error(err, closure_span),
-                                };
-                                record.push(column.item.clone(), new_value);
+        let default = default.into_value(dv.span)?;
+        input
+            .map(
+                move |mut item| match item {
+                    Value::Record {
+                        val: ref mut record,
+                        ..
+                    } => {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(&column.item) {
+                            if matches!(val, Value::Nothing { .. })
+                                || (default_when_empty && val.is_empty())
+                            {
+                                *val = default.clone();
                             }
-
-                            item
+                        } else {
+                            record.push(column.item.clone(), default.clone());
                         }
-                        _ => item,
-                    },
-                    engine_state.signals(),
-                )
-                .map(|x| x.set_metadata(metadata))
-        } else {
-            let value_span = value.span();
-            let value = default_value_or_eval_once(
-                engine_state,
-                stack,
-                PipelineData::Empty,
-                value,
-                lazy_eval_once,
-            )?
-            .into_value(value_span)?;
 
-            input
-                .map(
-                    move |mut item| match item {
-                        Value::Record {
-                            val: ref mut record,
-                            ..
-                        } => {
-                            let record = record.to_mut();
-                            if let Some(val) = record.get_mut(&column.item) {
-                                if matches!(val, Value::Nothing { .. })
-                                    || (default_when_empty && val.is_empty())
-                                {
-                                    *val = value.clone();
-                                }
-                            } else {
-                                record.push(column.item.clone(), value.clone());
-                            }
-
-                            item
-                        }
-                        _ => item,
-                    },
-                    engine_state.signals(),
-                )
-                .map(|x| x.set_metadata(metadata))
-        }
+                        item
+                    }
+                    _ => item,
+                },
+                engine_state.signals(),
+            )
+            .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing()
         || (default_when_empty
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
-        default_value_or_eval_once(
-            engine_state,
-            stack,
-            input,
-            value,
-            lazy_eval || lazy_eval_once,
-        )
+        Ok(default)
     } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
         let PipelineData::ListStream(ls, metadata) = input else {
             unreachable!()
@@ -285,13 +189,7 @@ fn default(
         let span = ls.span();
         let mut stream = ls.into_inner().peekable();
         if stream.peek().is_none() {
-            return default_value_or_eval_once(
-                engine_state,
-                stack,
-                PipelineData::ListStream(ListStream::new(stream, span, Signals::empty()), metadata),
-                value,
-                lazy_eval || lazy_eval_once,
-            );
+            return Ok(default);
         }
 
         // stream's internal state already preserves the original signals config, so if this
