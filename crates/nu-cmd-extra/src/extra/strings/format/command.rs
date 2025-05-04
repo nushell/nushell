@@ -256,7 +256,7 @@ fn format_record(
                     .collect();
 
                 let expanded_string = data_as_value
-                    .follow_cell_path(&path_members, false)?
+                    .follow_cell_path(&path_members)?
                     .to_expanded_string(", ", config);
                 output.push_str(expanded_string.as_str())
             }

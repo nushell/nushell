@@ -1083,7 +1083,6 @@ impl Value {
     pub fn follow_cell_path<'out>(
         &'out self,
         cell_path: &[PathMember],
-        insensitive: bool,
     ) -> Result<Cow<'out, Value>, ShellError> {
         enum MultiLife<'out, 'local, T>
         where
@@ -1116,7 +1115,7 @@ impl Value {
 
         for member in cell_path {
             current = match current {
-                MultiLife::Out(current) => match get_value_member(current, member, insensitive)? {
+                MultiLife::Out(current) => match get_value_member(current, member)? {
                     ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
                     ControlFlow::Continue(x) => match x {
                         Cow::Borrowed(x) => MultiLife::Out(x),
@@ -1126,18 +1125,16 @@ impl Value {
                         }
                     },
                 },
-                MultiLife::Local(current) => {
-                    match get_value_member(current, member, insensitive)? {
-                        ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
-                        ControlFlow::Continue(x) => match x {
-                            Cow::Borrowed(x) => MultiLife::Local(x),
-                            Cow::Owned(x) => {
-                                store = x;
-                                MultiLife::Local(&store)
-                            }
-                        },
-                    }
-                }
+                MultiLife::Local(current) => match get_value_member(current, member)? {
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                    ControlFlow::Continue(x) => match x {
+                        Cow::Borrowed(x) => MultiLife::Local(x),
+                        Cow::Owned(x) => {
+                            store = x;
+                            MultiLife::Local(&store)
+                        }
+                    },
+                },
             };
         }
 
@@ -1166,7 +1163,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1266,7 +1263,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -2007,7 +2004,6 @@ impl Value {
 fn get_value_member<'a>(
     current: &'a Value,
     member: &PathMember,
-    insensitive: bool,
 ) -> Result<ControlFlow<Span, Cow<'a, Value>>, ShellError> {
     match member {
         PathMember::Int {
@@ -2100,7 +2096,7 @@ fn get_value_member<'a>(
             match current {
                 Value::Record { val, .. } => {
                     if let Some(found) = val.iter().rev().find(|x| {
-                        if insensitive {
+                        if *insensitive {
                             x.0.eq_ignore_case(column_name)
                         } else {
                             x.0 == column_name
@@ -2134,7 +2130,7 @@ fn get_value_member<'a>(
                             match val {
                                 Value::Record { val, .. } => {
                                     if let Some(found) = val.iter().rev().find(|x| {
-                                        if insensitive {
+                                        if *insensitive {
                                             x.0.eq_ignore_case(column_name)
                                         } else {
                                             x.0 == column_name

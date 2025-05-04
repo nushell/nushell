@@ -268,7 +268,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
                         .into_value(*span)?
-                        .follow_cell_path(&full_cell_path.tail, false)?
+                        .follow_cell_path(&full_cell_path.tail)?
                         .into_owned()
                         .into_pipeline_data()
                 } else {

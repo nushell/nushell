@@ -181,7 +181,7 @@ fn action(
     }
 
     if rest.is_empty() {
-        follow_cell_path_into_stream(input, signals, cell_path.members, span, !sensitive)
+        follow_cell_path_into_stream(input, signals, cell_path.members, span)
     } else {
         let mut output = vec![];
 
@@ -190,11 +190,7 @@ fn action(
         let input = input.into_value(span)?;
 
         for path in paths {
-            output.push(
-                input
-                    .follow_cell_path(&path.members, !sensitive)?
-                    .into_owned(),
-            );
+            output.push(input.follow_cell_path(&path.members)?.into_owned());
         }
 
         Ok(output.into_iter().into_pipeline_data(span, signals))
@@ -213,7 +209,6 @@ pub fn follow_cell_path_into_stream(
     signals: Signals,
     cell_path: Vec<PathMember>,
     head: Span,
-    insensitive: bool,
 ) -> Result<PipelineData, ShellError> {
     // when given an integer/indexing, we fallback to
     // the default nushell indexing behaviour
@@ -228,7 +223,7 @@ pub fn follow_cell_path_into_stream(
                     let span = value.span();
 
                     value
-                        .follow_cell_path(&cell_path, insensitive)
+                        .follow_cell_path(&cell_path)
                         .map(Cow::into_owned)
                         .unwrap_or_else(|error| Value::error(error, span))
                 })
@@ -238,7 +233,7 @@ pub fn follow_cell_path_into_stream(
         }
 
         _ => data
-            .follow_cell_path(&cell_path, head, insensitive)
+            .follow_cell_path(&cell_path, head)
             .map(|x| x.into_pipeline_data()),
     }
 }
