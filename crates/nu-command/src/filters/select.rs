@@ -67,6 +67,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             val,
                             span: col_span,
                             optional: false,
+                            insensitive: false,
                         }],
                     };
                     new_columns.push(cv);

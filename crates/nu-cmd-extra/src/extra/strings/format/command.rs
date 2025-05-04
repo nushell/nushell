@@ -251,6 +251,7 @@ fn format_record(
                         val: path.to_string(),
                         span: *span,
                         optional: false,
+                        insensitive: false,
                     })
                     .collect();
 

@@ -396,8 +396,8 @@ mod tests {
             r#"$.foo.bar.0"#,
             Some(Value::test_cell_path(CellPath {
                 members: vec![
-                    PathMember::string("foo".to_string(), false, Span::new(2, 5)),
-                    PathMember::string("bar".to_string(), false, Span::new(6, 9)),
+                    PathMember::string("foo".to_string(), false, false, Span::new(2, 5)),
+                    PathMember::string("bar".to_string(), false, false, Span::new(6, 9)),
                     PathMember::int(0, false, Span::new(10, 11)),
                 ],
             })),

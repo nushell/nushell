@@ -526,6 +526,7 @@ fn test_sort_equivalent() {
             val: "value".to_string(),
             span: Span::test_data(),
             optional: false,
+            insensitive: false,
         }],
     });
 

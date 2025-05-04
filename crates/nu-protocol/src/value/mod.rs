@@ -1373,6 +1373,7 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        insensitive,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -1448,6 +1449,7 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        insensitive,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
@@ -2092,6 +2094,7 @@ fn get_value_member<'a>(
             val: column_name,
             span: origin_span,
             optional,
+            insensitive,
         } => {
             let span = current.span();
             match current {
@@ -4100,10 +4103,10 @@ mod tests {
             assert_eq!(
                 Value::with_data_at_cell_path(
                     &[
-                        PathMember::test_string("a".to_string(), false),
-                        PathMember::test_string("b".to_string(), false),
-                        PathMember::test_string("c".to_string(), false),
-                        PathMember::test_string("d".to_string(), false),
+                        PathMember::test_string("a".to_string(), false, false),
+                        PathMember::test_string("b".to_string(), false, false),
+                        PathMember::test_string("c".to_string(), false, false),
+                        PathMember::test_string("d".to_string(), false, false),
                     ],
                     value_to_insert,
                 ),
@@ -4147,13 +4150,13 @@ mod tests {
             assert_eq!(
                 Value::with_data_at_cell_path(
                     &[
-                        PathMember::test_string("a".to_string(), false),
+                        PathMember::test_string("a".to_string(), false, false),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("b".to_string(), false),
+                        PathMember::test_string("b".to_string(), false, false),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("c".to_string(), false),
+                        PathMember::test_string("c".to_string(), false, false),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("d".to_string(), false),
+                        PathMember::test_string("d".to_string(), false, false),
                         PathMember::test_int(0, false),
                     ],
                     value_to_insert.clone(),
@@ -4183,9 +4186,9 @@ mod tests {
             let value_to_insert = Value::test_string("value");
             let res = base_value.upsert_data_at_cell_path(
                 &[
-                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_string("a".to_string(), false, false),
                     PathMember::test_int(0, false),
-                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_string("b".to_string(), false, false),
                     PathMember::test_int(0, false),
                 ],
                 value_to_insert.clone(),
@@ -4217,9 +4220,9 @@ mod tests {
             let value_to_insert = Value::test_string("value");
             let res = base_value.insert_data_at_cell_path(
                 &[
-                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_string("a".to_string(), false, false),
                     PathMember::test_int(0, false),
-                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_string("b".to_string(), false, false),
                     PathMember::test_int(0, false),
                 ],
                 value_to_insert.clone(),
