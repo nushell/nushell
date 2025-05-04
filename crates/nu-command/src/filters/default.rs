@@ -108,7 +108,7 @@ impl Command for Default {
             },
             Example {
                 description: r#"Fill missing column values based on other columns"#,
-                example: "[{a:1 b:2} {b:1}] | upsert a {|rc| default { $rc.b + 1 } }",
+                example: r#"[{a:1 b:2} {b:1}] | upsert a {|rc| default { $rc.b + 1 } }"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
@@ -203,12 +203,14 @@ fn default(
 
 #[cfg(test)]
 mod test {
+    use crate::Upsert;
+
     use super::*;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
 
-        test_examples(Default {})
+        test_examples_with_commands(Default {}, &[&Upsert]);
     }
 }
