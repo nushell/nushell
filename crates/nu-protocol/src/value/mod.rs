@@ -31,7 +31,7 @@ use fancy_regex::Regex;
 use nu_utils::{
     contains_emoji,
     locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    IgnoreCaseExt, SharedCow,
+    SharedCow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1182,6 +1182,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    insensitive,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1189,7 +1190,9 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) =
+                                        record.cased_mut(*insensitive).get_mut(col_name)
+                                    {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col =
@@ -1210,7 +1213,7 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*insensitive).get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
@@ -1282,6 +1285,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    insensitive,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1289,7 +1293,9 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    if let Some(val) =
+                                        record.to_mut().cased_mut(*insensitive).get_mut(col_name)
+                                    {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         return Err(ShellError::CantFindColumn {
@@ -1311,7 +1317,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        if let Some(val) = record.to_mut().cased_mut(*insensitive).get_mut(col_name)
+                        {
                             val.update_data_at_cell_path(path, new_val)?;
                         } else {
                             return Err(ShellError::CantFindColumn {
@@ -1377,7 +1384,11 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if record.to_mut().remove(col_name).is_none() && !optional {
+                                        let value = record
+                                            .to_mut()
+                                            .cased_mut(*insensitive)
+                                            .remove(col_name);
+                                        if value.is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
                                                 span: Some(*span),
@@ -1397,7 +1408,13 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if record.to_mut().remove(col_name).is_none() && !optional {
+                            if record
+                                .to_mut()
+                                .cased_mut(*insensitive)
+                                .remove(col_name)
+                                .is_none()
+                                && !optional
+                            {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
                                     span: Some(*span),
@@ -1453,7 +1470,11 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                                        let val = record
+                                            .to_mut()
+                                            .cased_mut(*insensitive)
+                                            .get_mut(col_name);
+                                        if let Some(val) = val {
                                             val.remove_data_at_cell_path(path)?;
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
@@ -1475,7 +1496,9 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if let Some(val) = record.to_mut().get_mut(col_name) {
+                            if let Some(val) =
+                                record.to_mut().cased_mut(*insensitive).get_mut(col_name)
+                            {
                                 val.remove_data_at_cell_path(path)?;
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
@@ -1532,6 +1555,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    insensitive,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1540,7 +1564,9 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) =
+                                        record.cased_mut(*insensitive).get_mut(col_name)
+                                    {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1574,7 +1600,7 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*insensitive).get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -2095,14 +2121,9 @@ fn get_value_member<'a>(
             let span = current.span();
             match current {
                 Value::Record { val, .. } => {
-                    if let Some(found) = val.iter().rev().find(|x| {
-                        if *insensitive {
-                            x.0.eq_ignore_case(column_name)
-                        } else {
-                            x.0 == column_name
-                        }
-                    }) {
-                        Ok(ControlFlow::Continue(Cow::Borrowed(found.1)))
+                    let found = val.cased(*insensitive).get(column_name);
+                    if let Some(found) = found {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(found)))
                     } else if *optional {
                         Ok(ControlFlow::Break(*origin_span))
                         // short-circuit
@@ -2129,14 +2150,9 @@ fn get_value_member<'a>(
                             let val_span = val.span();
                             match val {
                                 Value::Record { val, .. } => {
-                                    if let Some(found) = val.iter().rev().find(|x| {
-                                        if *insensitive {
-                                            x.0.eq_ignore_case(column_name)
-                                        } else {
-                                            x.0 == column_name
-                                        }
-                                    }) {
-                                        Ok(found.1.clone())
+                                    let found = val.cased(*insensitive).get(column_name);
+                                    if let Some(found) = found {
+                                        Ok(found.clone())
                                     } else if *optional {
                                         Ok(Value::nothing(*origin_span))
                                     } else if let Some(suggestion) =
