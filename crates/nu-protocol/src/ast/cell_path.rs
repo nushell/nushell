@@ -250,6 +250,10 @@ impl Display for CellPath {
                 }
             }
         }
+        // Empty cell-paths are `$.` not `$`
+        if self.members.is_empty() {
+            write!(f, ".")?;
+        }
         Ok(())
     }
 }
