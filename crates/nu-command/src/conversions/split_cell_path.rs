@@ -77,36 +77,43 @@ impl Command for SplitCellPath {
                     Value::test_record(record! {
                         "value" => Value::test_int(5),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
             Example {
                 description: "Split a complex cell-path",
-                example: r#"$.a.b?.1."2"."c.d" | split cell-path"#,
+                example: r#"$.a!.b?.1."2"."c.d" | split cell-path"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_string("a"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(true),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("b"),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_int(1),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("2"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c.d"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
