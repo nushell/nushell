@@ -35,7 +35,10 @@ not supported."#
             ])
             .required(
                 "row_condition",
-                SyntaxShape::RowCondition,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::RowCondition,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                ]),
                 "Filter condition.",
             )
             .allow_variants_without_examples(true)
@@ -125,9 +128,24 @@ not supported."#
                 description: "same as above but with regex only",
                 example: "ls | where name =~ '(?i)readme'",
                 result: None,
-            }
-
-
+            },
+            Example {
+                description: "Filter rows of a table according to a stored condition",
+                example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | where $cond",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
+            },
+            Example {
+                description: "List all numbers above 3, using an existing closure condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | where $a",
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_int(5),
+                        Value::test_int(6)
+                    ],
+                )),
+            },
         ]
     }
 }

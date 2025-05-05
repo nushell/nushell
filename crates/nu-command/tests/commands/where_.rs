@@ -209,3 +209,16 @@ fn has_operator() {
     let actual = nu!(r#"{foo: 1} has bar "#);
     assert_eq!(actual.out, "false");
 }
+
+#[test]
+fn stored_condition() {
+    let actual = nu!(r#"let cond = { $in mod 2 == 0 }; 1..10 | where $cond | to nuon"#);
+    assert_eq!(actual.out, r#"[2, 4, 6, 8, 10]"#)
+}
+
+#[test]
+fn nested_stored_condition() {
+    let actual =
+        nu!(r#"let nested = {cond: { $in mod 2 == 0 }}; 1..10 | where $nested.cond | to nuon"#);
+    assert_eq!(actual.out, r#"[2, 4, 6, 8, 10]"#)
+}
