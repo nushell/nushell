@@ -4,17 +4,18 @@
 #   2. https://github.com/JasonEtco/create-an-issue
 #   3. https://docs.github.com/en/actions/learn-github-actions/variables
 #   4. https://github.com/actions/github-script
+#   5. https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idneeds
 #
 name: Nightly Build
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - nightly   # Just for test purpose only with the nightly repo
   # This schedule will run only from the default branch
   schedule:
     - cron: '15 0 * * *' # run at 00:15 AM UTC
+  workflow_dispatch:
 
 defaults:
   run:
@@ -26,6 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     # This job is required by the release job, so we should make it run both from Nushell repo and nightly repo
     # if: github.repository == 'nushell/nightly'
+    # Map a step output to a job output
+    outputs:
+      skip: ${{ steps.vars.outputs.skip }}
+      build_date: ${{ steps.vars.outputs.build_date }}
+      nightly_tag: ${{ steps.vars.outputs.nightly_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,16 +64,52 @@ jobs:
           # All the changes will be overwritten by the upstream main branch
           git reset --hard src/main
           git push origin main -f
-          let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..7)
-          let tag_name = $'nightly-($sha_short)'
-          if (git ls-remote --tags origin $tag_name | is-empty) {
-            git tag -a $tag_name -m $'Nightly build from ($sha_short)'
+
+      - name: Create Tag and Output Tag Name
+        if: github.repository == 'nushell/nightly'
+        id: vars
+        shell: nu {0}
+        run: |
+          let date = date now | format date %m%d
+          let version = open Cargo.toml | get package.version
+          let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..6)
+          let latest_meta = http get https://api.github.com/repos/nushell/nightly/releases
+                            | sort-by -r created_at
+                            | where tag_name =~ nightly
+                            | get tag_name?.0? | default ''
+                            | parse '{version}-nightly.{build}+{hash}'
+          if ($latest_meta.0?.hash? | default '') == $sha_short {
+            print $'(ansi g)Latest nightly build is up-to-date, skip rebuilding.(ansi reset)'
+            $'skip=true(char nl)' o>> $env.GITHUB_OUTPUT
+            exit 0
+          }
+          let prev_ver = $latest_meta.0?.version? | default '0.0.0'
+          let build = if ($latest_meta | is-empty) or ($version != $prev_ver) { 1 } else {
+              ($latest_meta | get build?.0? | default 0 | into int) + 1
+            }
+          let nightly_tag = $'($version)-nightly.($build)+($sha_short)'
+          $'build_date=($date)(char nl)' o>> $env.GITHUB_OUTPUT
+          $'nightly_tag=($nightly_tag)(char nl)' o>> $env.GITHUB_OUTPUT
+          if (git ls-remote --tags origin $nightly_tag | is-empty) {
+            ls **/Cargo.toml | each {|file|
+              open --raw $file.name
+                  | str replace --all $'version = "($version)"' $'version = "($version)-nightly.($build)"'
+                  | save --force $file.name
+            }
+            # Disable the following two workflows for the automatic committed changes
+            rm .github/workflows/ci.yml
+            rm .github/workflows/audit.yml
+            git add .
+            git commit -m $'Update version to ($version)-nightly.($build)'
+            git tag -a $nightly_tag -m $'Nightly build from ($sha_short)'
             git push origin --tags
+            git push origin main -f
           }
 
-  standard:
+  release:
     name: Nu
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -120,7 +162,6 @@ jobs:
           os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
-
     steps:
     - uses: actions/checkout@v4
       with:
@@ -132,7 +173,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         rustflags: ''
@@ -153,20 +194,13 @@ jobs:
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
-      uses: JasonEtco/create-an-issue@v2.9.2
+      uses: JasonEtco/create-an-issue@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         update_existing: true
         search_existing: open
         filename: .github/AUTO_ISSUE_TEMPLATE/nightly-build-fail.md
-
-    - name: Set Outputs of Short SHA
-      id: vars
-      run: |
-        echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-        sha_short=$(git rev-parse --short HEAD)
-        echo "sha_short=${sha_short:0:7}" >> $GITHUB_OUTPUT
 
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
@@ -176,8 +210,34 @@ jobs:
       with:
         prerelease: true
         files: ${{ steps.nu.outputs.archive }}
-        tag_name: nightly-${{ steps.vars.outputs.sha_short }}
-        name: Nu-nightly-${{ steps.vars.outputs.date }}-${{ steps.vars.outputs.sha_short }}
+        tag_name: ${{ needs.prepare.outputs.nightly_tag }}
+        name: ${{ needs.prepare.outputs.build_date }}-${{ needs.prepare.outputs.nightly_tag }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sha256sum:
+    needs: [prepare, release]
+    name: Create Sha256sum
+    runs-on: ubuntu-latest
+    if: github.repository == 'nushell/nightly'
+    steps:
+    - name: Download Release Archives
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: >-
+        gh release download ${{ needs.prepare.outputs.nightly_tag }}
+        --repo ${{ github.repository }}
+        --pattern '*'
+        --dir release
+    - name: Create Checksums
+      run: cd release && shasum -a 256 * > ../SHA256SUMS
+    - name: Publish Checksums
+      uses: softprops/action-gh-release@v2.0.9
+      with:
+        draft: false
+        prerelease: true
+        files: SHA256SUMS
+        tag_name: ${{ needs.prepare.outputs.nightly_tag }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -185,12 +245,9 @@ jobs:
     name: Cleanup
     # Should only run in nushell/nightly repo
     if: github.repository == 'nushell/nightly'
+    needs: [release, sha256sum]
     runs-on: ubuntu-latest
     steps:
-      # Sleep for 30 minutes, waiting for the release to be published
-      - name: Waiting for Release
-        run: sleep 1800
-
       - uses: actions/checkout@v4
         with:
           ref: main
