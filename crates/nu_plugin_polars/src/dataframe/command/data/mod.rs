@@ -40,6 +40,7 @@ mod unnest;
 mod unpivot;
 mod with_column;
 use filter::LazyFilter;
+mod replace;
 mod shift;
 mod unique;
 
@@ -68,6 +69,7 @@ pub use last::LastDF;
 pub use lit::ExprLit;
 use query_df::QueryDf;
 pub use rename::RenameDF;
+pub use replace::Replace;
 pub use sample::SampleDF;
 pub use shift::Shift;
 pub use slice::SliceDF;
@@ -114,6 +116,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(select::LazySelect),
         Box::new(LazySortBy),
         Box::new(LazyFilter),
+        Box::new(Replace),
         Box::new(Shift),
         Box::new(struct_json_encode::StructJsonEncode),
         Box::new(qcut::QCutSeries),
