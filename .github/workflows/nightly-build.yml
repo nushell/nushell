@@ -12,6 +12,7 @@ on:
   push:
     branches:
       - nightly   # Just for test purpose only with the nightly repo
+      - fix/arm64-and-winget
   # This schedule will run only from the default branch
   schedule:
     - cron: '15 0 * * *' # run at 00:15 AM UTC
@@ -99,6 +100,16 @@ jobs:
             # Disable the following two workflows for the automatic committed changes
             rm .github/workflows/ci.yml
             rm .github/workflows/audit.yml
+
+            # Test the latest release script before merging
+            # TODO: Remove the following two lines after the test
+            git fetch origin
+            if ((git branch -r) =~ fix/arm64-and-winget) {
+              git checkout scripts/build.rs
+              git checkout origin/fix/arm64-and-winget wix
+              git checkout origin/fix/arm64-and-winget .github/workflows/release-pkg.nu
+            }
+            # ----------- REMOVE END OF TESTING ------------------
             git add .
             git commit -m $'Update version to ($version)-nightly.($build)'
             git tag -a $nightly_tag -m $'Nightly build from ($sha_short)'
@@ -126,24 +137,15 @@ jobs:
         - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
         - loongarch64-unknown-linux-gnu
-        extra: ['bin']
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
         - target: x86_64-apple-darwin
           os: macos-latest
         - target: x86_64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-        - target: x86_64-pc-windows-msvc
-          extra: msi
           os: windows-latest
         - target: aarch64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-        - target: aarch64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
+          os: windows-11-arm
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-22.04
         - target: x86_64-unknown-linux-musl
@@ -168,6 +170,26 @@ jobs:
         ref: main
         fetch-depth: 0
 
+    - name: Install Rustup for Windows ARM64
+      shell: pwsh
+      if: ${{ matrix.os == 'windows-11-arm' }}
+      run: |
+        curl.exe -sSf -o rustup-init.exe https://win.rustup.rs
+        ./rustup-init.exe -y
+        echo "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+
+    - name: Install Wix Toolset 6 for Windows
+      shell: pwsh
+      if: ${{ startsWith(matrix.os, 'windows') }}
+      run: |
+        dotnet tool install --global wix --version 6.0.0
+        dotnet workload install wix
+        $wixPath = "$env:USERPROFILE\.dotnet\tools"
+        echo "$wixPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        $env:PATH = "$wixPath;$env:PATH"
+        wix --version
+
     - name: Update Rust Toolchain Target
       run: |
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
@@ -180,17 +202,31 @@ jobs:
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
+      if: ${{ matrix.os != 'windows-11-arm' }}
       with:
         version: 0.103.0
 
     - name: Release Nu Binary
       id: nu
+      if: ${{ matrix.os != 'windows-11-arm' }}
       run: nu .github/workflows/release-pkg.nu
       env:
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
-        _EXTRA_: ${{ matrix.extra }}
+
+    - name: Build Nu for Windows ARM64
+      id: nu0
+      shell: pwsh
+      if: ${{ matrix.os == 'windows-11-arm' }}
+      run: |
+        $env:OS = 'windows'
+        $env:REF = '${{ github.ref }}'
+        $env:TARGET = '${{ matrix.target }}'
+        cargo build --release --all --target aarch64-pc-windows-msvc
+        cp ./target/${{ matrix.target }}/release/nu.exe .
+        ./nu.exe -c 'version'
+        ./nu.exe ${{github.workspace}}/.github/workflows/release-pkg.nu
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
@@ -209,7 +245,11 @@ jobs:
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         prerelease: true
-        files: ${{ steps.nu.outputs.archive }}
+        files: |
+          ${{ steps.nu.outputs.msi }}
+          ${{ steps.nu0.outputs.msi }}
+          ${{ steps.nu.outputs.archive }}
+          ${{ steps.nu0.outputs.archive }}
         tag_name: ${{ needs.prepare.outputs.nightly_tag }}
         name: ${{ needs.prepare.outputs.build_date }}-${{ needs.prepare.outputs.nightly_tag }}
       env:
