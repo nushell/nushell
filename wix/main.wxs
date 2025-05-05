@@ -1,468 +1,174 @@
-<?xml version='1.0' encoding='windows-1252'?>
-<!--
-  Copyright (C) 2017 Christopher R. Field.
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  <?define ProductName = "Nushell" ?>
+  <?define ApplicationFolderName = "nu" ?>
+  <?define ProductVersion = "$(env.NU_RELEASE_VERSION)" ?>
+  <?define Manufacturer = "The Nushell Project Developers" ?>
+  <?define UpgradeCode = "82D756D2-19FA-4F09-B10F-64942E89F364" ?>
 
-  http://www.apache.org/licenses/LICENSE-2.0
+  <!-- https://docs.firegiant.com/wix/schema/wxs/package/ -->
+  <Package
+    Compressed="yes"
+    Id="Nushell.Nushell"
+    InstallerVersion="500"
+    Scope="perUserOrMachine"
+    Name="$(var.ProductName)"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="$(var.UpgradeCode)"
+    Manufacturer="$(var.Manufacturer)" >
 
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
--->
+    <MajorUpgrade
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
 
-<!--
-  Please do not remove these pre-processor If-Else blocks. These are used with
-  the `cargo wix` subcommand to automatically determine the installation
-  destination for 32-bit versus 64-bit installers. Removal of these lines will
-  cause installation errors.
--->
-<?if $(var.Platform) = x64 ?>
-    <?define Win64 = "yes" ?>
-    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
-<?else ?>
-  <?define Win64 = "no" ?>
-  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
-<?endif ?>
+    <!-- Embed cab media to MSI file -->
+    <Media Id="1" Cabinet="cab1.cab" EmbedCab="yes" />
 
-<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <!-- Allow install for Current User Or Machine -->
+    <Property Id="WixUISupportPerUser" Value="1" />
+    <Property Id="WixUISupportPerMachine" Value="1" />
+    <!-- Install for PerUser by default -->
+    <!-- If set to WixPerMachineFolder will install for PerMachine by default -->
+    <Property Id="WixAppFolder" Value="WixPerUserFolder" />
 
-    <Product
-        Id='*'
-        Name='nu'
-        UpgradeCode='82D756D2-19FA-4F09-B10F-64942E89F364'
-        Manufacturer='The Nushell Project Developers'
-        Language='1033'
-        Codepage='1252'
-        Version='$(var.Version)'>
+    <Property Id="ApplicationFolderName" Value="$(var.ApplicationFolderName)" />
 
-        <Package Id='*'
-            Keywords='Installer'
-            Description='A new type of shell'
-            Manufacturer='The Nushell Project Developers'
-            InstallerVersion='450'
-            Languages='1033'
-            Compressed='yes'
-            InstallScope='perUser'
-            SummaryCodepage='1252'
-            Platform='$(var.Platform)'/>
+    <!-- Per Machine Install -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLDIR" Name="$(var.ApplicationFolderName)">
+        <Directory Id="BINDIR" Name="bin" />
+      </Directory>
+    </StandardDirectory>
 
-        <MajorUpgrade
-            Schedule='afterInstallInitialize'
-            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
-
-        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
-        <Property Id='DiskPrompt' Value='nu Installation'/>
-        <Property Id="ALLUSERS" Secure="yes" Value="2" />
-        <Property Id="MSIINSTALLPERUSER" Secure="yes" Value="1" />
-
-        <Directory Id='TARGETDIR' Name='SourceDir'>
-            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
-                <Directory Id='APPLICATIONFOLDER' Name='nu'>
-                    <!--
-                      Disabling the license sidecar file in the installer is a two step process:
-
-                      1. Comment out or remove the `Component` tag along with its contents.
-                      2. Comment out or remove the `ComponentRef` tag with the "License" Id
-                         attribute value further down in this file.
-                    -->
-                    <Component Id='License' Guid='*' Win64='$(var.Win64)'>
-                        <File Id='LicenseFile'
-                            Name='License.rtf'
-                            DiskId='1'
-                            Source='wix\License.rtf'
-                            KeyPath='yes'/>
-                    </Component>
-
-                    <Component Id='icon0' Guid='*' Win64='$(var.Win64)'>
-                        <File
-                            Id='icon0'
-                            Name='nu.ico'
-                            DiskId='1'
-                            Source='assets/nu_logo.ico'
-                            KeyPath='yes'/>
-                    </Component>
-
-                    <Directory Id='Bin' Name='bin'>
-                        <Component Id='Path' Guid='285921EA-6DC0-4632-B12C-D7D737F30686' Win64='$(var.Win64)' KeyPath='yes'>
-                            <Environment
-                                Id='PATH'
-                                Name='PATH'
-                                Value='[Bin]'
-                                Permanent='no'
-                                Part='last'
-                                Action='set'
-                                System='no'/>
-                        </Component>
-                        <Component Id='binary0' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe0'
-                                Name='nu.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!-- <Component Id='binary1' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe1'
-                                Name='nu_plugin_binaryview.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_binaryview.exe'
-                                KeyPath='yes'/>
-                        </Component> -->
-                        <Component Id='binary2' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe2'
-                                Name='nu_plugin_inc.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_inc.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!-- <Component Id='binary3' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe3'
-                                Name='nu_plugin_start.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_start.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary4' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe4'
-                                Name='nu_plugin_textview.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_textview.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary5' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe5'
-                                Name='nu_plugin_tree.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_tree.exe'
-                                KeyPath='yes'/>
-                        </Component> -->
-                        <!-- Downloaded from here https://github.com/jftuga/less-Windows/releases/download/less-v562.0/less.exe -->
-                        <Component Id='binary6' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe6'
-                                Name='less.exe'
-                                DiskId='1'
-                                Source='output\less.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!-- <Component Id='binary7' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe7'
-                                Name='nu_plugin_match.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_match.exe'
-                                KeyPath='yes'/>
-                        </Component> -->
-                        <Component Id='binary8' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe8'
-                                Name='README.txt'
-                                DiskId='1'
-                                Source='output\README.txt'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary9' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe9'
-                                Name='LICENSE'
-                                DiskId='1'
-                                Source='output\LICENSE'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary10' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe10'
-                                Name='LICENSE-for-less.txt'
-                                DiskId='1'
-                                Source='output\LICENSE-for-less.txt'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!-- <Component Id='binary11' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe11'
-                                Name='nu_plugin_s3.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_s3.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary12' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe12'
-                                Name='nu_plugin_chart_bar.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_chart_bar.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary13' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe13'
-                                Name='nu_plugin_chart_line.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_chart_line.exe'
-                                KeyPath='yes'/>
-                        </Component> -->
-                        <Component Id='binary14' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe14'
-                                Name='nu_plugin_query.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_query.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!-- <Component Id='binary15' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe15'
-                                Name='nu_plugin_from_bson.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_from_bson.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary16' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe16'
-                                Name='nu_plugin_to_bson.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_to_bson.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary17' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe17'
-                                Name='nu_plugin_from_sqlite.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_from_sqlite.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary18' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe18'
-                                Name='nu_plugin_to_sqlite.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_to_sqlite.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary19' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe19'
-                                Name='nu_plugin_selector.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_selector.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary20' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe20'
-                                Name='nu_plugin_query_json.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_query_json.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <Component Id='binary21' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe21'
-                                Name='nu_plugin_example.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_example.exe'
-                                KeyPath='yes'/>
-                        </Component> -->
-                        <Component Id='binary22' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe22'
-                                Name='nu_plugin_gstat.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_gstat.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        <!--
-                        <Component Id='binary23' Guid='*' Win64='$(var.Win64)'>
-                            <File
-                                Id='exe23'
-                                Name='nu_plugin_stream_example.exe'
-                                DiskId='1'
-                                Source='target\$(var.Profile)\nu_plugin_stream_example.exe'
-                                KeyPath='yes'/>
-                        </Component>
-                        -->
-                        <Component Id='binary24' Guid='*' Win64='$(var.Win64)'>
-                            <File 
-                                Id='exe24' 
-                                Name='nu_plugin_polars.exe' 
-                                DiskId='1' 
-                                Source='target\$(var.Profile)\nu_plugin_polars.exe' 
-                                KeyPath='yes'/>
-                        </Component>
-                    </Directory>
-                </Directory>
-            </Directory>
-
-            <Directory Id='LocalAppDataFolder'>
-                <Directory Id='AppDataMicrosoftFolder' Name='Microsoft'>
-                    <Directory Id='AppDataWindowsTerminalFolder' Name='Windows Terminal'>
-                        <Directory Id='WindowsTerminalProfileFolder' Name='Fragments'>
-                            <Directory Id='WindowsTerminalProfileAppFolder' Name='nu'>
-                                <Component Id='WindowsTerminalProfile' Guid='957239F4-7B87-4399-9F91-7DF2ABE5ED8B' Win64='$(var.Win64)'>
-                                    <File
-                                        Id='WindowsTerminalProfileFile'
-                                        Name='nu.json'
-                                        DiskId='1'
-                                        Source='wix\windows-terminal-profile.json'
-                                        System='no'/>
-                                    <RegistryKey Root='HKCU' Key='Software\nu'>
-                                        <RegistryValue Name='WindowsTerminalProfile' Value='1' Type='integer' KeyPath='yes'/>
-                                    </RegistryKey>
-                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder1' Directory='WindowsTerminalProfileAppFolder' On='uninstall'/>
-                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder2' Directory='WindowsTerminalProfileFolder' On='uninstall'/>
-                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder3' Directory='AppDataWindowsTerminalFolder' On='uninstall'/>
-                                    <RemoveFolder Id='RemoveWindowsTerminalProfileFolder4' Directory='AppDataMicrosoftFolder' On='uninstall'/>                                        
-                                </Component>
-                            </Directory>
-                        </Directory>
-                    </Directory>
-                </Directory>
-            </Directory>
+    <!-- Install for Current User -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalAppProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLDIR_USER" Name="$(var.ApplicationFolderName)">
+          <Directory Id="BINDIR_USER" Name="bin" />
         </Directory>
+      </Directory>
+    </StandardDirectory>
 
-        <Feature
-            Id='Binaries'
-            Title='Application'
-            Description='Installs all binaries and the license.'
-            Level='1'
-            ConfigurableDirectory='APPLICATIONFOLDER'
-            AllowAdvertise='no'
-            Display='expand'
-            Absent='disallow'>
-            <!--
-              Comment out or remove the following `ComponentRef` tag to remove
-              the license sidecar file from the installer.
-            -->
-            <ComponentRef Id='License'/>
+    <ComponentGroup Id="NushellBinaries" Directory="BINDIR">
+      <Component Id="Nu_Main" Guid="*">
+        <File Id="nu.exe" Source="$(var.SourceDir)\nu.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Inc" Guid="*">
+        <File Id="nu_plugin_inc.exe" Source="$(var.SourceDir)\nu_plugin_inc.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Gstat" Guid="*">
+        <File Id="nu_plugin_gstat.exe" Source="$(var.SourceDir)\nu_plugin_gstat.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Query" Guid="*">
+        <File Id="nu_plugin_query.exe" Source="$(var.SourceDir)\nu_plugin_query.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Polars" Guid="*">
+        <File Id="nu_plugin_polars.exe" Source="$(var.SourceDir)\nu_plugin_polars.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Formats" Guid="*">
+        <File Id="nu_plugin_formats.exe" Source="$(var.SourceDir)\nu_plugin_formats.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
 
-            <ComponentRef Id='icon0'/>
+    <!-- License and Icon in main directory -->
+    <ComponentGroup Id="NushellResources" Directory="INSTALLDIR">
+      <Component Id="Nu_Icon" Guid="*">
+        <File Id="nu.ico" Source="$(var.ProjectDir)\nu.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_License" Guid="*">
+        <File Id="License.rtf" Source="$(var.ProjectDir)\License.rtf" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
 
-            <ComponentRef Id='binary0'/>
-            <!-- <ComponentRef Id='binary1'/> -->
-            <ComponentRef Id='binary2'/>
-            <!-- <ComponentRef Id='binary3'/>
-            <ComponentRef Id='binary4'/>
-            <ComponentRef Id='binary5'/> -->
-            <ComponentRef Id='binary6'/>
-            <!-- <ComponentRef Id='binary7'/> -->
-            <ComponentRef Id='binary8'/>
-            <ComponentRef Id='binary9'/>
-            <ComponentRef Id='binary10'/>
-            <!-- <ComponentRef Id='binary11'/>
-            <ComponentRef Id='binary12'/>
-            <ComponentRef Id='binary13'/> -->
-            <ComponentRef Id='binary14'/>
-            <!-- <ComponentRef Id='binary15'/>
-            <ComponentRef Id='binary16'/>
-            <ComponentRef Id='binary17'/>
-            <ComponentRef Id='binary18'/>
-            <ComponentRef Id='binary19'/>
-            <ComponentRef Id='binary20'/>
-            <ComponentRef Id='binary21'/> -->
-            <ComponentRef Id='binary22'/>
-            <!-- <ComponentRef Id='binary23'/> -->
-            <ComponentRef Id='binary24'/>
+    <!-- Environment PATH variable components - separated for per-user and per-machine -->
+    <DirectoryRef Id="BINDIR">
+      <!-- Per-user PATH component -->
+      <Component Id="EnvironmentPathUser" Guid="{D6A3A7B2-1F3A-4B6A-8A3B-3A7B2D6A3A7B}" Condition="MSIINSTALLPERUSER=1">
+        <Environment Id="PATHUser"
+                    Name="PATH"
+                    Value="[BINDIR]"
+                    Permanent="no"
+                    Part="last"
+                    Action="set"
+                    System="no"/>
+        <RegistryValue Root="HKCU"
+                      Key="Software\nu"
+                      Name="installed"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes"/>
+      </Component>
 
-            <Feature
-                Id='Environment'
-                Title='PATH Environment Variable'
-                Description='Add the install location of the [ProductName] executable to the PATH system environment variable. This allows the [ProductName] executable to be called from any location.'
-                Level='1'
-                Absent='allow'>
-                <ComponentRef Id='Path'/>
-            </Feature>
+      <!-- Per-machine PATH component -->
+      <Component Id="EnvironmentPathMachine" Guid="{47781325-8A2B-4F8D-A058-9A2C4136E25F}" Condition="ALLUSERS=1">
+        <Environment Id="PATHMachine"
+                    Name="PATH"
+                    Value="[BINDIR]"
+                    Permanent="no"
+                    Part="last"
+                    Action="set"
+                    System="yes"/>
+        <RegistryValue Root="HKLM"
+                      Key="Software\nu"
+                      Name="installed"
+                      Type="integer"
+                      Value="1"
+                      KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
 
-            <Feature
-                Id='WindowsTerminalProfile'
-                Title='Windows Terminal Profile'
-                Description='Add [ProductName] profile to Windows Terminal.'
-                Level='1'
-                Absent='allow'>
-                <ComponentRef Id='WindowsTerminalProfile'/>
-            </Feature>
-        </Feature>
+    <!-- Main feature set -->
+    <Feature Id="ProductFeature" Title="Nushell" Level="1">
+      <ComponentGroupRef Id="NushellBinaries" />
+      <ComponentGroupRef Id="NushellResources" />
+      <ComponentRef Id="EnvironmentPathUser" />
+      <ComponentRef Id="EnvironmentPathMachine" />
+    </Feature>
 
-        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+    <!-- Load Advanced UI -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" />
+    <ui:WixUI Id="WixUI_Advanced" />
 
-        <Icon Id='ProductICO' SourceFile='assets/nu_logo.ico'/>
-        <Property Id='ARPPRODUCTICON' Value='ProductICO' />
+    <!-- Windows Version Check -->
+    <Launch Condition="VersionNT >= 601" Message="This application requires Windows 7 or later." />
 
-        <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
+    <!-- Arch checking -->
+    <?if $(sys.BUILDARCH) = x64 ?>
+      <Launch Condition="VersionNT64" Message="This installation package is only supported on 64-bit Windows." />
+    <?endif?>
 
-        <!-- for Value, see https://learn.microsoft.com/en-ca/windows/win32/msi/formatted -->
-        <SetProperty
-            Id="ReplacePathsInWindowsTerminalProfile"
-            Sequence="execute"
-            Value="&quot;[#exe0]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#exe0]` | update profiles.icon `[#icon0]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
-            After='CostFinalize'/>
-        <CustomAction
-            Id="ReplacePathsInWindowsTerminalProfile"
-            BinaryKey="WixCA"
-            DllEntry="CAQuietExec"
-            Execute="deferred"
-            Return="check"
-            Impersonate="yes"/>
-        <InstallExecuteSequence>
-            <Custom Action='ReplacePathsInWindowsTerminalProfile' Before='InstallFinalize'>
-                <!-- Run the custom action if the feature is enabled -->
-                <![CDATA[&WindowsTerminalProfile=3 OR (!WindowsTerminalProfile=3 AND REINSTALL<>"")]]>
-            </Custom>
-        </InstallExecuteSequence>
+    <?if $(sys.BUILDARCH) = arm64 ?>
+      <Launch Condition="ProcessorArchitecture = 'ARM64'" Message="This installation package is only supported on ARM64 Windows." />
+    <?endif?>
 
-        <UI>
-            <UIRef Id='WixUI_FeatureTree'/>
-            <!--
-              Disabling the EULA dialog in the installer is a two step process:
+    <SetProperty Id="INSTALLDIR"
+                 Action="SetINSTALLDIR_User"
+                 Value="[INSTALLDIR_USER]"
+                 After="AppSearch"
+                 Condition="MSIINSTALLPERUSER=1"
+                 Sequence="both"/>
+    <SetProperty Id="BINDIR"
+                 Action="SetBINDIR_User"
+                 Value="[BINDIR_USER]"
+                 After="AppSearch"
+                 Condition="MSIINSTALLPERUSER=1"
+                 Sequence="both"/>
 
-                 1. Uncomment the following two `Publish` tags
-                 2. Comment out or remove the `<WiXVariable Id='WixUILicenseRtf'...` tag further down
-
-            -->
-            <!--<Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='CustomizeDlg' Order='99'>1</Publish>-->
-            <!--<Publish Dialog='CustomizeDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='99'>1</Publish>-->
-
-        </UI>
-
-        <!--
-          Disabling the EULA dialog in the installer requires commenting out
-          or removing the following `WixVariable` tag
-        -->
-        <WixVariable Id='WixUILicenseRtf' Value='wix\License.rtf'/>
-
-
-        <!--
-          Uncomment the next `WixVariable` tag to customize the installer's
-          Graphical User Interface (GUI) and add a custom banner image across
-          the top of each screen. See the WiX Toolset documentation for details
-          about customization.
-
-          The banner BMP dimensions are 493 x 58 pixels.
-        -->
-        <!--<WixVariable Id='WixUIBannerBmp' Value='wix\Banner.bmp'/>-->
-
-
-        <!--
-          Uncomment the next `WixVariable` tag to customize the installer's
-          Graphical User Interface (GUI) and add a custom image to the first
-          dialog, or screen. See the WiX Toolset documentation for details about
-          customization.
-
-          The dialog BMP dimensions are 493 x 312 pixels.
-        -->
-        <!--<WixVariable Id='WixUIDialogBmp' Value='wix\Dialog.bmp'/>-->
-
-    </Product>
-
+    <!-- If Installed with ALLUSERS=1 set the default Install dir to ProgramFiles64Folder -->
+    <SetProperty Id="INSTALLDIR"
+             Action="SetINSTALLDIR_Machine"
+             Value="[ProgramFiles64Folder][ApplicationFolderName]"
+             After="AppSearch"
+             Condition="ALLUSERS=1"
+             Sequence="both"/>
+    <SetProperty Id="BINDIR"
+             Action="SetBINDIR_Machine"
+             Value="[ProgramFiles64Folder][ApplicationFolderName]\bin"
+             After="AppSearch"
+             Condition="ALLUSERS=1"
+             Sequence="both"/>
+  </Package>
 </Wix>
