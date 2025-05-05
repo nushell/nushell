@@ -1,14 +1,26 @@
+use std::str::FromStr;
+
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::{Filesize, FilesizeUnit, Unit};
 
 use nu_utils::get_system_locale;
+
+const NS_PER_US: i64 = 1_000;
+const NS_PER_MS: i64 = 1_000_000;
+const NS_PER_SEC: i64 = 1_000_000_000;
+const NS_PER_MINUTE: i64 = 60 * NS_PER_SEC;
+const NS_PER_HOUR: i64 = 60 * NS_PER_MINUTE;
+const NS_PER_DAY: i64 = 24 * NS_PER_HOUR;
+const NS_PER_WEEK: i64 = 7 * NS_PER_DAY;
 
 struct Arguments {
     radix: u32,
     cell_paths: Option<Vec<CellPath>>,
     signed: bool,
     little_endian: bool,
+    unit: Option<Spanned<Unit>>,
 }
 
 impl CmdArgument for Arguments {
@@ -75,6 +87,12 @@ impl Command for IntoInt {
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
+            )
+            .named(
+                "unit",
+                SyntaxShape::String,
+                "the unit of the duration or filesize output",
+                Some('u'),
             )
             .switch(
                 "signed",
@@ -152,11 +170,45 @@ impl Command for IntoInt {
 
         let signed = call.has_flag(engine_state, stack, "signed")?;
 
+        let span = input.span().unwrap_or(call.head);
+        let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
+            Some(spanned_unit) => {
+                let parsed_filesize_unit = FilesizeUnit::from_str(&spanned_unit.item);
+                let parsed_unit = {
+                    match parsed_filesize_unit {
+                        Ok(u) => Unit::Filesize(u),
+                        Err(_) => match spanned_unit.item.as_str() {
+                            "ns" => Unit::Nanosecond,
+                            "us" | "µs" => Unit::Microsecond,
+                            "ms" => Unit::Millisecond,
+                            "sec" => Unit::Second,
+                            "min" => Unit::Minute,
+                            "hr" => Unit::Hour,
+                            "day" => Unit::Day,
+                            "wk" => Unit::Week,
+                            _ => {
+                                // TODO add filesize units here
+                                // TODO refactor in Unit::from_str ?
+                                return Err(ShellError::IncorrectValue { msg: "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
+                                            .to_string(), val_span: span, call_span: call.head });
+                            }
+                        },
+                    }
+                };
+                Some(Spanned {
+                    item: parsed_unit,
+                    span: spanned_unit.span,
+                })
+            }
+            None => None,
+        };
+
         let args = Arguments {
             radix,
             little_endian,
             signed,
             cell_paths,
+            unit,
         };
         operate(action, args, input, call.head, engine_state.signals())
     }
@@ -240,58 +292,85 @@ impl Command for IntoInt {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let radix = args.radix;
     let signed = args.signed;
     let little_endian = args.little_endian;
+    let unit_option = &args.unit;
     let val_span = input.span();
+
     match input {
         Value::Int { val: _, .. } => {
             if radix == 10 {
                 input.clone()
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, head, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::int(val.get(), span),
+        Value::Filesize { val, .. } => {
+            let val_in_unit: i64 = match unit_option {
+                Some(spanned_unit) => match spanned_unit.item {
+                    Unit::Filesize(filesize_unit) => {
+                        match Filesize::from_unit(val.get(), filesize_unit) {
+                            Some(filesize) => filesize.get(),
+                            None => {
+                                return Value::error(ShellError::CantConvert { to_type: "int".to_string(), from_type: "filesize".to_string(), span: head, help: Some("an overflow occurred when trying to convert the filesize to the specified unit".to_string()) }, head);
+                            }
+                        }
+                    }
+                    _ => {
+                        return Value::error(
+                            ShellError::IncorrectValue {
+                                msg: "must be a valid filesize unit".to_string(),
+                                val_span: val_span,
+                                call_span: spanned_unit.span,
+                            },
+                            head,
+                        );
+                    }
+                },
+                None => val.get(),
+            };
+            Value::int(val_in_unit, head)
+        }
         Value::Float { val, .. } => Value::int(
             {
                 if radix == 10 {
                     *val as i64
                 } else {
-                    match convert_int(&Value::int(*val as i64, span), span, radix).as_int() {
+                    match convert_int(&Value::int(*val as i64, head), head, radix).as_int() {
                         Ok(v) => v,
                         _ => {
                             return Value::error(
                                 ShellError::CantConvert {
                                     to_type: "float".to_string(),
                                     from_type: "int".to_string(),
-                                    span,
+                                    span: head,
                                     help: None,
                                 },
-                                span,
+                                head,
                             );
                         }
                     }
                 }
             },
-            span,
+            head,
         ),
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, span) {
-                    Ok(val) => Value::int(val, span),
-                    Err(error) => Value::error(error, span),
+                match int_from_string(val, head) {
+                    Ok(val) => Value::int(val, head),
+                    Err(error) => Value::error(error, head),
                 }
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, head, radix)
             }
         }
         Value::Bool { val, .. } => {
             if *val {
-                Value::int(1, span)
+                Value::int(1, head)
             } else {
-                Value::int(0, span)
+                Value::int(0, head)
             }
         }
         Value::Date { val, .. } => {
@@ -310,15 +389,15 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         val_span,
-                        call_span: span,
+                        call_span: head,
                     },
-                    span,
+                    head,
                 )
             } else {
-                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), span)
+                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), head)
             }
         }
-        Value::Duration { val, .. } => Value::int(*val, span),
+        Value::Duration { val, .. } => Value::int(*val, head),
         Value::Binary { val, .. } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
@@ -326,7 +405,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let size = val.len();
 
             if size == 0 {
-                return Value::int(0, span);
+                return Value::int(0, head);
             }
 
             if size > 8 {
@@ -334,22 +413,22 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     ShellError::IncorrectValue {
                         msg: format!("binary input is too large to convert to int ({size} bytes)"),
                         val_span,
-                        call_span: span,
+                        call_span: head,
                     },
-                    span,
+                    head,
                 );
             }
 
             match (little_endian, signed) {
-                (true, true) => Value::int(LittleEndian::read_int(&val, size), span),
-                (false, true) => Value::int(BigEndian::read_int(&val, size), span),
+                (true, true) => Value::int(LittleEndian::read_int(&val, size), head),
+                (false, true) => Value::int(BigEndian::read_int(&val, size), head),
                 (true, false) => {
                     while val.len() < 8 {
                         val.push(0);
                     }
                     val.resize(8, 0);
 
-                    Value::int(LittleEndian::read_i64(&val), span)
+                    Value::int(LittleEndian::read_i64(&val), head)
                 }
                 (false, false) => {
                     while val.len() < 8 {
@@ -357,7 +436,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     }
                     val.resize(8, 0);
 
-                    Value::int(BigEndian::read_i64(&val), span)
+                    Value::int(BigEndian::read_i64(&val), head)
                 }
             }
         }
@@ -368,10 +447,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 exp_input_type: "int, float, filesize, date, string, binary, duration, or bool"
                     .into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: span,
+                dst_span: head,
                 src_span: other.span(),
             },
-            span,
+            head,
         ),
     }
 }
@@ -505,6 +584,20 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                 }),
             },
         },
+    }
+}
+
+fn unit_to_ns_factor(unit: &str) -> i64 {
+    match unit {
+        "ns" => 1,
+        "us" | "µs" => NS_PER_US,
+        "ms" => NS_PER_MS,
+        "sec" => NS_PER_SEC,
+        "min" => NS_PER_MINUTE,
+        "hr" => NS_PER_HOUR,
+        "day" => NS_PER_DAY,
+        "wk" => NS_PER_WEEK,
+        _ => 0,
     }
 }
 

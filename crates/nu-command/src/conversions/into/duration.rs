@@ -95,10 +95,7 @@ impl Command for IntoDuration {
         let cell_paths = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        let span = match input.span() {
-            Some(t) => t,
-            None => call.head,
-        };
+        let span = input.span().unwrap_or(call.head);
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => {
                 if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
