@@ -3613,7 +3613,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
         Expr::Closure(block_id) => block_id,
-        Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var() != Some(var_id) => {
+        Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var().is_some_and(|id| id != var_id) => {
             let mut expression = expression;
             expression.ty = Type::Any;
             return expression;
