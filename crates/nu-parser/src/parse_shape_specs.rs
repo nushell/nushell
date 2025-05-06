@@ -64,48 +64,14 @@ pub fn parse_shape_name(
         b"number" => SyntaxShape::Number,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
+        b"string" => SyntaxShape::String,
         _ if bytes.starts_with(b"oneof")
             || bytes.starts_with(b"list")
             || bytes.starts_with(b"record")
             || bytes.starts_with(b"table") =>
         {
-            let (type_name, type_params) = split_generic_params(working_set, bytes, span);
-            match type_name {
-                b"oneof" => SyntaxShape::OneOf(match type_params {
-                    Some(params) => parse_type_params(working_set, params, use_loc),
-                    None => vec![],
-                }),
-                b"list" => SyntaxShape::List(Box::new(match type_params {
-                    Some(params) => {
-                        let mut parsed_params = parse_type_params(working_set, params, use_loc);
-                        if parsed_params.len() > 1 {
-                            working_set.error(ParseError::LabeledError(
-                                "expected a single type parameter".into(),
-                                "only one parameter allowed".into(),
-                                params.span,
-                            ));
-                            SyntaxShape::Any
-                        } else {
-                            parsed_params.pop().unwrap_or(SyntaxShape::Any)
-                        }
-                    }
-                    None => SyntaxShape::Any,
-                })),
-                b"record" => SyntaxShape::Record(match type_params {
-                    Some(params) => parse_named_type_params(working_set, params, use_loc),
-                    None => vec![],
-                }),
-                b"table" => SyntaxShape::Table(match type_params {
-                    Some(params) => parse_named_type_params(working_set, params, use_loc),
-                    None => vec![],
-                }),
-                _ => {
-                    working_set.error(ParseError::UnknownType(span));
-                    SyntaxShape::Any
-                }
-            }
+            parse_generic_shape(working_set, bytes, span, use_loc)
         }
-        b"string" => SyntaxShape::String,
         _ => {
             if bytes.contains(&b'@') {
                 let mut split = bytes.splitn(2, |b| b == &b'@');
@@ -154,6 +120,49 @@ pub fn parse_shape_name(
     };
 
     result
+}
+
+fn parse_generic_shape(
+    working_set: &mut StateWorkingSet<'_>,
+    bytes: &[u8],
+    span: Span,
+    use_loc: ShapeDescriptorUse,
+) -> SyntaxShape {
+    let (type_name, type_params) = split_generic_params(working_set, bytes, span);
+    match type_name {
+        b"oneof" => SyntaxShape::OneOf(match type_params {
+            Some(params) => parse_type_params(working_set, params, use_loc),
+            None => vec![],
+        }),
+        b"list" => SyntaxShape::List(Box::new(match type_params {
+            Some(params) => {
+                let mut parsed_params = parse_type_params(working_set, params, use_loc);
+                if parsed_params.len() > 1 {
+                    working_set.error(ParseError::LabeledError(
+                        "expected a single type parameter".into(),
+                        "only one parameter allowed".into(),
+                        params.span,
+                    ));
+                    SyntaxShape::Any
+                } else {
+                    parsed_params.pop().unwrap_or(SyntaxShape::Any)
+                }
+            }
+            None => SyntaxShape::Any,
+        })),
+        b"record" => SyntaxShape::Record(match type_params {
+            Some(params) => parse_named_type_params(working_set, params, use_loc),
+            None => vec![],
+        }),
+        b"table" => SyntaxShape::Table(match type_params {
+            Some(params) => parse_named_type_params(working_set, params, use_loc),
+            None => vec![],
+        }),
+        _ => {
+            working_set.error(ParseError::UnknownType(span));
+            SyntaxShape::Any
+        }
+    }
 }
 
 fn split_generic_params<'a>(
