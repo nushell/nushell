@@ -101,16 +101,17 @@ impl CellOutput {
 type CellResult = Result<Option<CellOutput>, ShellError>;
 
 fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
-    const PADDING_SPACE: usize = 2;
     const SPLIT_LINE_SPACE: usize = 1;
-    const ADDITIONAL_CELL_SPACE: usize = PADDING_SPACE + SPLIT_LINE_SPACE;
     const MIN_CELL_CONTENT_WIDTH: usize = 3;
     const TRUNCATE_CONTENT_WIDTH: usize = 3;
-    const TRUNCATE_CELL_WIDTH: usize = TRUNCATE_CONTENT_WIDTH + PADDING_SPACE;
 
     if input.is_empty() {
         return Ok(None);
     }
+
+    let pad_width = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
+    let extra_width = pad_width + SPLIT_LINE_SPACE;
+    let truncate_column_width = TRUNCATE_CONTENT_WIDTH + pad_width;
 
     // 2 - split lines
     let mut available_width = cfg
@@ -136,14 +137,14 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut total_rows = 0usize;
 
     if !with_index && !with_header {
-        if available_width <= ADDITIONAL_CELL_SPACE {
+        if available_width <= extra_width {
             // it means we have no space left for actual content;
             // which means there's no point in index itself if it was even used.
             // so we do not print it.
             return Ok(None);
         }
 
-        available_width -= PADDING_SPACE;
+        available_width -= pad_width;
 
         let mut table = NuTable::new(input.len(), 1);
         table.set_index_style(get_index_style(&cfg.opts.style_computer));
@@ -186,7 +187,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .map(|value| value.to_expanded_string("", cfg.opts.config))
                 .unwrap_or_else(|| index.to_string());
             let index_width = string_width(&index_value);
-            if available_width <= index_width + ADDITIONAL_CELL_SPACE + PADDING_SPACE {
+            if available_width <= index_width + extra_width + pad_width {
                 // NOTE: we don't wanna wrap index; so we return
                 return Ok(None);
             }
@@ -196,7 +197,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             index_column_width = max(index_column_width, index_width);
         }
 
-        available_width -= index_column_width + ADDITIONAL_CELL_SPACE + PADDING_SPACE;
+        available_width -= index_column_width + extra_width + pad_width;
 
         for (row, item) in input.iter().enumerate() {
             cfg.opts.signals.check(cfg.opts.span)?;
@@ -246,12 +247,12 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             index_column_width = max(index_column_width, index_width);
         }
 
-        if available_width <= index_column_width + ADDITIONAL_CELL_SPACE {
+        if available_width <= index_column_width + extra_width {
             // NOTE: we don't wanna wrap index; so we return
             return Ok(None);
         }
 
-        available_width -= index_column_width + ADDITIONAL_CELL_SPACE;
+        available_width -= index_column_width + extra_width;
         widths.push(index_column_width);
     }
 
@@ -260,22 +261,19 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut rendered_column = 0;
     for (col, header) in headers.into_iter().enumerate() {
         let column = col + with_index as usize;
-        let extra_space = PADDING_SPACE + SPLIT_LINE_SPACE;
-
-        if available_width <= extra_space {
+        if available_width <= extra_width {
             table.pop_column(table.count_columns() - column);
-            widths.pop();
             truncate = true;
             break;
         }
 
-        let mut available = available_width - extra_space;
+        let mut available = available_width - extra_width;
 
         // We want to reserver some space for next column
         // If we can't fit it in it will be popped anyhow.
         let is_last_column = col + 1 == count_columns;
-        if !is_last_column && available > TRUNCATE_CELL_WIDTH {
-            available -= TRUNCATE_CELL_WIDTH;
+        if !is_last_column && available > truncate_column_width + SPLIT_LINE_SPACE {
+            available -= truncate_column_width + SPLIT_LINE_SPACE;
         }
 
         let mut total_column_rows = 0usize;
@@ -311,7 +309,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         widths.push(column_width);
 
-        available_width -= column_width + extra_space;
+        available_width -= column_width + extra_width;
         rendered_column += 1;
 
         total_rows = std::cmp::max(total_rows, total_column_rows);
@@ -330,18 +328,18 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             return Ok(None);
         }
 
-        if available_width < TRUNCATE_CELL_WIDTH {
+        if available_width < truncate_column_width {
             // back up by removing last column.
             // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
             while let Some(width) = widths.pop() {
                 table.pop_column(1);
 
-                available_width += width + PADDING_SPACE;
+                available_width += width + pad_width;
                 if !widths.is_empty() {
                     available_width += SPLIT_LINE_SPACE;
                 }
 
-                if available_width > TRUNCATE_CELL_WIDTH {
+                if available_width > truncate_column_width {
                     break;
                 }
             }
@@ -349,7 +347,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         // this must be a RARE case or even NEVER happen,
         // but we do check it just in case.
-        if available_width < TRUNCATE_CELL_WIDTH {
+        if available_width < truncate_column_width {
             return Ok(None);
         }
 
@@ -374,12 +372,12 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
     let count_borders = theme.borders_has_vertical() as usize
         + theme.borders_has_right() as usize
         + theme.borders_has_left() as usize;
-    let padding = 2;
-    if key_width + count_borders + padding + padding > cfg.opts.width {
+    let pad = cfg.opts.config.table.padding.left + cfg.opts.config.table.padding.right;
+    if key_width + count_borders + pad + pad > cfg.opts.width {
         return Ok(None);
     }
 
-    let value_width = cfg.opts.width - key_width - count_borders - padding - padding;
+    let value_width = cfg.opts.width - key_width - count_borders - pad - pad;
 
     let mut total_rows = 0usize;
 
