@@ -202,7 +202,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         cp -r ($'($dist)/*' | into glob) nu/
         ls -f nu/* | print
         let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
-        ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)' 
+        ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)'
         glob **/*.msi | print
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
         let wixRelease = (glob **/*.msi | where $it =~ bin | get 0 | str replace --all '\' '/')

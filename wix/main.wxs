@@ -21,6 +21,7 @@
     Manufacturer="$(var.Manufacturer)" >
 
     <MajorUpgrade
+      MigrateFeatures="yes"
       Schedule="afterInstallInitialize"
       DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
 
