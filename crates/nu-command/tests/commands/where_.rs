@@ -29,6 +29,12 @@ fn where_inside_block_works() {
 }
 
 #[test]
+fn it_inside_complex_subexpression() {
+    let actual = nu!(r#"1..10 | where [($it * $it)].0 > 40  | to nuon"#);
+    assert_eq!(actual.out, r#"[7, 8, 9, 10]"#)
+}
+
+#[test]
 fn filters_with_0_arity_block() {
     let actual = nu!("[1 2 3 4] | where {|| $in < 3 } | to nuon");
 
