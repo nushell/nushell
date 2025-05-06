@@ -377,6 +377,20 @@ mod tests {
     }
 
     #[test]
+    fn test_numbers_proceeding_escape_char_not_ignored() {
+        assert_eq!(
+            str_expand("1\\\\{a,b}", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("1\\a"), Span::test_data(),),
+                    Value::string(String::from("1\\b"), Span::test_data(),)
+                ],
+                Span::test_data(),
+            )
+        );
+    }
+
+    #[test]
     fn test_examples() {
         use crate::test_examples;
         test_examples(StrExpand {})

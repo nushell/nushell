@@ -3,6 +3,7 @@ mod aggregate;
 mod count;
 mod cumulative;
 pub mod groupby;
+mod horizontal;
 mod implode;
 mod max;
 mod mean;
@@ -25,6 +26,7 @@ use nu_plugin::PluginCommand;
 pub use aggregate::LazyAggregate;
 use count::ExprCount;
 pub use cumulative::Cumulative;
+pub use horizontal::Horizontal;
 use implode::ExprImplode;
 use max::ExprMax;
 use mean::ExprMean;
@@ -45,19 +47,20 @@ pub(crate) fn aggregation_commands() -> Vec<Box<dyn PluginCommand<Plugin = Polar
         Box::new(ExprCount),
         Box::new(ExprImplode),
         Box::new(ExprMax),
-        Box::new(ExprMin),
-        Box::new(ExprSum),
         Box::new(ExprMean),
+        Box::new(ExprMin),
         Box::new(ExprStd),
+        Box::new(ExprSum),
         Box::new(ExprVar),
+        Box::new(Horizontal),
         Box::new(LazyAggregate),
-        Box::new(median::LazyMedian),
-        Box::new(quantile::LazyQuantile),
-        Box::new(groupby::ToLazyGroupBy),
+        Box::new(NNull),
+        Box::new(NUnique),
         Box::new(Over),
         Box::new(Rolling),
         Box::new(ValueCount),
-        Box::new(NNull),
-        Box::new(NUnique),
+        Box::new(groupby::ToLazyGroupBy),
+        Box::new(median::LazyMedian),
+        Box::new(quantile::LazyQuantile),
     ]
 }

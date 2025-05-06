@@ -34,7 +34,14 @@ impl Command for Open {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["load", "read", "load_file", "read_file"]
+        vec![
+            "load",
+            "read",
+            "load_file",
+            "read_file",
+            "cat",
+            "get-content",
+        ]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -274,6 +281,16 @@ impl Command for Open {
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
                 result: None,
             },
+            Example {
+                description: "Show the extensions for which the `open` command will automatically parse",
+                example: r#"scope commands
+    | where name starts-with "from "
+    | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
+                result: None,
+            }
         ]
     }
 }

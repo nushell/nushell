@@ -222,6 +222,7 @@ Please submit an issue or PR to be added to this list.
 -   [Dorothy](http://github.com/bevry/dorothy)
 -   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
 -   [x-cmd](https://x-cmd.com/mod/nu)
+-   [vfox](https://github.com/version-fox/vfox)
 
 ## Contributing
 

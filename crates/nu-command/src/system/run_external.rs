@@ -285,7 +285,7 @@ impl Command for External {
             )
         })?;
 
-        if let Some(thread_job) = &engine_state.current_thread_job {
+        if let Some(thread_job) = engine_state.current_thread_job() {
             if !thread_job.try_add_pid(child.pid()) {
                 kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(

@@ -38,7 +38,7 @@ export def "kv set" [
   # If passed a closure, execute it
   let arg_type = ($value_or_closure | describe)
   let value = match $arg_type {
-    closure => { kv get $key --universal=$universal | do $value_or_closure }
+    closure => { $input | do $value_or_closure }
     _ => ($value_or_closure | default $input)
   }
 

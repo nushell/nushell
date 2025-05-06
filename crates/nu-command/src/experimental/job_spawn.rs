@@ -1,14 +1,14 @@
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicU32},
-        Arc,
+        mpsc, Arc, Mutex,
     },
     thread,
 };
 
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    engine::{Closure, Job, Redirection, ThreadJob},
+    engine::{Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob},
     report_shell_error, OutDest, Signals,
 };
 
@@ -57,11 +57,10 @@ impl Command for JobSpawn {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let tag: Option<String> = call.get_flag(engine_state, stack, "tag")?;
+        let job_stack = stack.clone();
 
         let mut job_state = engine_state.clone();
         job_state.is_interactive = false;
-
-        let job_stack = stack.clone();
 
         // the new job should have its ctrl-c independent of foreground
         let job_signals = Signals::new(Arc::new(AtomicBool::new(false)));
@@ -75,10 +74,20 @@ impl Command for JobSpawn {
         let jobs = job_state.jobs.clone();
         let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
+        let (send, recv) = mpsc::channel();
+
         let id = {
-            let thread_job = ThreadJob::new(job_signals, tag);
-            job_state.current_thread_job = Some(thread_job.clone());
-            jobs.add_job(Job::Thread(thread_job))
+            let thread_job = ThreadJob::new(job_signals, tag, send);
+
+            let id = jobs.add_job(Job::Thread(thread_job.clone()));
+
+            job_state.current_job = CurrentJob {
+                id,
+                background_thread_job: Some(thread_job),
+                mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+            };
+
+            id
         };
 
         let result = thread::Builder::new()

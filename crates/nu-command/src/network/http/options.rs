@@ -96,12 +96,12 @@ impl Command for HttpOptions {
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom header",
-                example: "http options --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Get options from example.com, with custom header using a record",
+                example: "http options --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom headers",
+                description: "Get options from example.com, with custom headers using a list",
                 example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },

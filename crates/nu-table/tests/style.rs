@@ -451,6 +451,52 @@ fn test_with_love() {
     assert_eq!(create_table_with_size(vec![], true, theme::with_love()), "");
 }
 
+#[test]
+fn test_single() {
+    assert_eq!(
+        create_table(vec![row(4); 3], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         ├───┼───┼───┼───┤\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         ├───┼───┼───┼───┤\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], false, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], false, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(create_table_with_size(vec![], true, theme::single()), "");
+}
+
 fn create_table(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {
     let mut case = TestCase::new(usize::MAX).theme(theme);
     if with_header {

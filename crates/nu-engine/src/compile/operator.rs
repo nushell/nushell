@@ -70,6 +70,8 @@ pub(crate) fn compile_binary_op(
                     Boolean::Xor => unreachable!(),
                 };
 
+                // Before match against lhs_reg, it's important to collect it first to get a concrete value if there is a subexpression.
+                builder.push(Instruction::Collect { src_dst: lhs_reg }.into_spanned(lhs.span))?;
                 // Short-circuit to return `lhs_reg`. `match` op does not consume `lhs_reg`.
                 let short_circuit_label = builder.label(None);
                 builder.r#match(

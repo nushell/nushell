@@ -88,7 +88,14 @@ where
 }
 
 pub fn create_table(data: Data, case: TestCase) -> Option<String> {
-    let mut table = NuTable::from(data);
+    let count_rows = data.len();
+    let count_cols = data[0].len();
+
+    let mut table = NuTable::new(count_rows, count_cols);
+    for (i, row) in data.into_iter().enumerate() {
+        table.set_row(i, row);
+    }
+
     table.set_theme(case.theme);
     table.set_structure(case.with_index, case.with_header, case.with_footer);
     table.set_trim(case.strategy);

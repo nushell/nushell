@@ -6,7 +6,7 @@ use crate::{
     ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
     Signals, Span, Type, Value,
 };
-use std::io::Write;
+use std::{borrow::Cow, io::Write};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -416,8 +416,11 @@ impl PipelineData {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path, insensitive),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
+                .follow_cell_path(cell_path, insensitive)
+                .map(Cow::into_owned),
+            PipelineData::Value(v, ..) => v
+                .follow_cell_path(cell_path, insensitive)
+                .map(Cow::into_owned),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
                 span: head,

@@ -97,9 +97,15 @@ impl Command for HttpHead {
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header",
+                description: "Get headers from example.com, with custom header using a record",
                 example:
-                    "http head --headers [my-header-key my-header-value] https://www.example.com",
+                    "http head --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get headers from example.com, with custom header using a list",
+                example:
+                    "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
         ]

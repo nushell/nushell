@@ -38,6 +38,7 @@ Drill down into records+tables:  Press <Enter> to select a cell, move around wit
  Expand (show all nested data):  Press "e"
           Open this help page :  Type ":help" then <Enter>
       Open an interactive REPL:  Type ":try" then <Enter>
+         Run a Nushell command:  Type ":nu <command>" then <Enter>. The data currently being explored is piped into it.
                      Scroll up:  Press "Page Up", Ctrl+B, or Alt+V
                    Scroll down:  Press "Page Down", Ctrl+F, or Ctrl+V
                   Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> or "q" until Explore exits

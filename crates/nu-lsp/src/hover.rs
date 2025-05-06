@@ -160,16 +160,15 @@ impl LanguageServer {
                 let var = working_set.get_variable(var_id);
                 markdown_hover(
                     var.const_val
-                        .clone()
+                        .as_ref()
                         .and_then(|val| val.follow_cell_path(&cell_path, false).ok())
                         .map(|val| {
-                            let ty = val.get_type().clone();
-                            let value_string = val
-                                .coerce_into_string()
-                                .ok()
-                                .map(|s| format!("\n---\n{}", s))
-                                .unwrap_or_default();
-                            format!("```\n{}\n```{}", ty, value_string)
+                            let ty = val.get_type();
+                            if let Ok(s) = val.coerce_str() {
+                                format!("```\n{}\n```\n---\n{}", ty, s)
+                            } else {
+                                format!("```\n{}\n```", ty)
+                            }
                         })
                         .unwrap_or("`unknown`".into()),
                 )

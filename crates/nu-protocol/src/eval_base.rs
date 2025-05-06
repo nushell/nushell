@@ -7,7 +7,7 @@ use crate::{
     debugger::DebugContext,
     BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -43,11 +43,8 @@ pub trait Eval {
 
                 // Cell paths are usually case-sensitive, but we give $env
                 // special treatment.
-                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
-                    value.follow_cell_path(&cell_path.tail, true)
-                } else {
-                    value.follow_cell_path(&cell_path.tail, false)
-                }
+                let insensitive = cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID);
+                value.follow_cell_path(&cell_path.tail, insensitive).map(Cow::into_owned)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr_span)),
             Expr::List(list) => {
