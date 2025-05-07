@@ -39,7 +39,7 @@
     <!-- <Property Id="MSIUSEREALADMINDETECTION" Value="1" /> -->
 
     <Property Id="ARPPRODUCTICON" Value="nu.ico" />
-    <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
+    <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/' />
     <Property Id="ApplicationFolderName" Value="$(var.ApplicationFolderName)" />
 
     <!-- Per Machine Install -->
@@ -224,11 +224,11 @@
                   Impersonate="yes"
                   Execute="deferred"
                   DllEntry="WixQuietExec"
-                  BinaryRef="Wix4UtilCA_X64" />
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
 
     <InstallExecuteSequence>
       <Custom Action="ReplacePathsInWindowsTerminalProfile" Before="InstallFinalize"
-              Condition="(&amp;WindowsTerminalProfile=3) OR ((!WindowsTerminalProfile=3) AND (REINSTALL&lt;&gt;&quot;&quot;))"/>
+              Condition="(&amp;WindowsTerminalProfile=3) OR ((!WindowsTerminalProfile=3) AND (REINSTALL&lt;&gt;&quot;&quot;))" />
     </InstallExecuteSequence>
   </Package>
 </Wix>

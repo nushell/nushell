@@ -200,6 +200,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         cd $src; cd wix; hr-line; mkdir nu
         # Wix need the binaries be stored in nu folder
         cp -r ($'($dist)/*' | into glob) nu/
+        cp $'($dist)/README.txt' .
         ls -f nu/* | print
         let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
         ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)'
