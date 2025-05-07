@@ -36,7 +36,7 @@
     <Property Id="WixAppFolder" Value="WixPerUserFolder" />
 
     <!-- Enable UAC prompt when installing for all users -->
-    <Property Id="MSIUSEREALADMINDETECTION" Value="1" />
+    <!-- <Property Id="MSIUSEREALADMINDETECTION" Value="1" /> -->
 
     <Property Id="ApplicationFolderName" Value="$(var.ApplicationFolderName)" />
 
