@@ -102,7 +102,7 @@ type CellResult = Result<Option<CellOutput>, ShellError>;
 
 fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     const SPLIT_LINE_SPACE: usize = 1;
-    const MIN_CELL_CONTENT_WIDTH: usize = 3;
+    const MIN_CELL_WIDTH: usize = 3;
     const TRUNCATE_CONTENT_WIDTH: usize = 3;
 
     if input.is_empty() {
@@ -118,7 +118,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         .opts
         .width
         .saturating_sub(SPLIT_LINE_SPACE + SPLIT_LINE_SPACE);
-    if available_width < MIN_CELL_CONTENT_WIDTH {
+    if available_width < MIN_CELL_WIDTH {
         return Ok(None);
     }
 
@@ -271,9 +271,18 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
         // We want to reserver some space for next column
         // If we can't fit it in it will be popped anyhow.
+        let is_prelast_column = col + 2 == count_columns;
         let is_last_column = col + 1 == count_columns;
-        if !is_last_column && available > truncate_column_width + SPLIT_LINE_SPACE {
-            available -= truncate_column_width + SPLIT_LINE_SPACE;
+        if is_prelast_column {
+            let need_width = MIN_CELL_WIDTH + SPLIT_LINE_SPACE;
+            if available > need_width {
+                available -= need_width;
+            }
+        } else if !is_last_column {
+            let need_width: usize = truncate_column_width + SPLIT_LINE_SPACE;
+            if available > need_width {
+                available -= need_width;
+            }
         }
 
         let mut total_column_rows = 0usize;
