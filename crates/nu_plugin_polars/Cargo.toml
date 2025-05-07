@@ -33,11 +33,11 @@ indexmap = { version = "2.9" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.53" }
-polars-io = { version = "0.46", features = ["avro", "cloud", "aws"] }
-polars-arrow = { version = "0.46" }
-polars-ops = { version = "0.46", features = ["pivot", "cutqcut"] }
-polars-plan = { version = "0.46", features = ["regex"] }
-polars-utils = { version = "0.46" }
+polars-io = { version = "0.47", features = ["avro", "cloud", "aws"] }
+polars-arrow = { version = "0.47" }
+polars-ops = { version = "0.47", features = ["pivot", "cutqcut"] }
+polars-plan = { version = "0.47", features = ["regex"] }
+polars-utils = { version = "0.47" }
 typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
@@ -95,7 +95,7 @@ features = [
   "to_dummies",
 ]
 optional = false
-version = "0.46"
+version = "0.47"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.1" }
