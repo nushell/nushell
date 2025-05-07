@@ -1,8 +1,9 @@
 use crate::{
-    PolarsPlugin, missing_flag_error,
+    missing_flag_error,
     values::{
-        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
     },
+    PolarsPlugin,
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -12,16 +13,16 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{IntoSeries, StringNameSpaceImpl, lit};
+use polars::prelude::{lit, IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
-pub struct Replace;
+pub struct StrReplace;
 
-impl PluginCommand for Replace {
+impl PluginCommand for StrReplace {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars replace"
+        "polars str-replace"
     }
 
     fn description(&self) -> &str {
@@ -59,12 +60,16 @@ impl PluginCommand for Replace {
         vec![
             Example {
                 description: "Replaces string in column",
-                example: "[[a]; [abc] [abcabc]] | polars into-df | polars select (polars col a | polars replace --pattern ab --replace AB) | polars collect",
+                example:
+                    "[[a]; [abc] [abcabc]] | polars into-df | polars select (polars col a | polars str-replace --pattern ab --replace AB) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "a".to_string(),
-                            vec![Value::test_string("ABc"), Value::test_string("ABcabc")],
+                            vec![
+                                Value::test_string("ABc"),
+                                Value::test_string("ABcabc"),
+                            ],
                         )],
                         None,
                     )
@@ -74,7 +79,8 @@ impl PluginCommand for Replace {
             },
             Example {
                 description: "Replaces string",
-                example: "[abc abc abc] | polars into-df | polars replace --pattern ab --replace AB",
+                example:
+                    "[abc abc abc] | polars into-df | polars str-replace --pattern ab --replace AB",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -101,7 +107,6 @@ impl PluginCommand for Replace {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -119,7 +124,6 @@ impl PluginCommand for Replace {
             )),
         }
         .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -193,6 +197,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&Replace)
+        test_polars_plugin_command(&StrReplace)
     }
 }
