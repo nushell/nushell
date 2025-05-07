@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
 use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
@@ -13,13 +13,25 @@ impl Command for Default {
         Signature::build("default")
             // TODO: Give more specific type signature?
             // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
-            .input_output_types(vec![(Type::Any, Type::Any)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Any),
+                (Type::String, Type::Any),
+                (Type::record(), Type::Any),
+                (Type::list(Type::Any), Type::Any),
+                (Type::Number, Type::Number),
+                (Type::Closure, Type::Closure),
+                (Type::Filesize, Type::Filesize),
+                (Type::Bool, Type::Bool),
+                (Type::Date, Type::Date),
+                (Type::Duration, Type::Duration),
+                (Type::Range, Type::Range),
+            ])
             .required(
                 "default value",
                 SyntaxShape::Any,
                 "The value to use as a default.",
             )
-            .optional(
+            .rest(
                 "column name",
                 SyntaxShape::String,
                 "The name of the column.",
@@ -138,6 +150,55 @@ fn eval_default(
     }
 }
 
+fn default_record_columns(
+    record: &mut Record,
+    default_value: Spanned<Value>,
+    columns: &[String],
+    empty: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    calculated_value: &mut Option<Value>,
+) -> Result<PipelineData, ShellError> {
+    if let Value::Closure { val: closure, .. } = &default_value.item {
+        // Cache the value of the closure to avoid running it multiple times
+        let mut closure = ClosureEval::new(engine_state, stack, *closure.clone());
+        for col in columns {
+            if let Some(val) = record.get_mut(col) {
+                if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
+                    if let Some(ref new_value) = calculated_value {
+                        *val = new_value.clone();
+                    } else {
+                        let new_value = closure
+                            .run_with_input(PipelineData::Empty)?
+                            .into_value(default_value.span)?;
+                        *calculated_value = Some(new_value.clone());
+                        *val = new_value;
+                    }
+                }
+            } else if let Some(ref new_value) = calculated_value {
+                record.push(col.clone(), new_value.clone());
+            } else {
+                let new_value = closure
+                    .run_with_input(PipelineData::Empty)?
+                    .into_value(default_value.span)?;
+                *calculated_value = Some(new_value.clone());
+                record.push(col.clone(), new_value);
+            }
+        }
+    } else {
+        for col in columns {
+            if let Some(val) = record.get_mut(col) {
+                if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
+                    *val = default_value.item.clone();
+                }
+            } else {
+                record.push(col.clone(), default_value.item.clone());
+            }
+        }
+    }
+    Ok(Value::record(record.clone(), Span::unknown()).into_pipeline_data())
+}
+
 fn default(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -145,38 +206,76 @@ fn default(
     input: PipelineData,
     default_when_empty: bool,
 ) -> Result<PipelineData, ShellError> {
+    let input_span = input.span().unwrap_or_else(Span::unknown);
     let metadata = input.metadata();
     let default_value: Spanned<Value> = call.req(engine_state, stack, 0)?;
-    let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
+    let columns: Vec<String> = call.rest(engine_state, stack, 1)?;
 
-    if let Some(column) = column {
-        let default = eval_default(engine_state, stack, default_value.item)?
-            .into_value(default_value.span)?;
-        input
-            .map(
-                move |mut item| match item {
-                    Value::Record {
-                        val: ref mut record,
-                        ..
-                    } => {
-                        let record = record.to_mut();
-                        if let Some(val) = record.get_mut(&column.item) {
-                            if matches!(val, Value::Nothing { .. })
-                                || (default_when_empty && val.is_empty())
-                            {
-                                *val = default.clone();
-                            }
-                        } else {
-                            record.push(column.item.clone(), default.clone());
-                        }
-
-                        item
-                    }
-                    _ => item,
-                },
-                engine_state.signals(),
+    // If user supplies columns, check if input is a record or list of records
+    // and set the default value for the specified record columns
+    if !columns.is_empty() {
+        // Single record arm
+        if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
+            let Value::Record {
+                val: ref mut record,
+                ..
+            } = input.into_value(input_span)?
+            else {
+                unreachable!()
+            };
+            let record = record.to_mut();
+            default_record_columns(
+                record,
+                default_value,
+                columns.as_slice(),
+                default_when_empty,
+                engine_state,
+                stack,
+                &mut None,
             )
             .map(|x| x.set_metadata(metadata))
+        // ListStream arm
+        } else if matches!(input, PipelineData::ListStream(..))
+            || matches!(input, PipelineData::Value(Value::List { .. }, _))
+        {
+            let mut calculated_value: Option<Value> = None;
+            let mut output_list: Vec<Value> = vec![];
+            for mut item in input {
+                if let Value::Record {
+                    val: ref mut record,
+                    internal_span,
+                } = item
+                {
+                    let item = default_record_columns(
+                        record.to_mut(),
+                        default_value.clone(),
+                        columns.as_slice(),
+                        default_when_empty,
+                        engine_state,
+                        stack,
+                        &mut calculated_value,
+                    )?;
+                    output_list.push(item.into_value(internal_span)?);
+                } else {
+                    output_list.push(item);
+                }
+            }
+            let ls = ListStream::new(
+                output_list.into_iter(),
+                call.head,
+                engine_state.signals().clone(),
+            );
+            Ok(PipelineData::ListStream(ls, metadata))
+        // If columns are given, but input does not use columns, return an error
+        } else {
+            Err(ShellError::PipelineMismatch {
+                exp_input_type: "record, table".to_string(),
+                dst_span: input_span,
+                src_span: input_span,
+            })
+        }
+    // Otherwise, if no column name is given, check if value is null
+    // or an empty string, list, or record when --empty is passed
     } else if input.is_nothing()
         || (default_when_empty
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
@@ -196,6 +295,7 @@ fn default(
         // Signals::empty list stream gets interrupted it will be caught by the underlying iterator
         let ls = ListStream::new(stream, span, Signals::empty());
         Ok(PipelineData::ListStream(ls, metadata))
+    // Otherwise, return the input as is
     } else {
         Ok(input)
     }
