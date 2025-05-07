@@ -32,7 +32,7 @@ fancy-regex = { workspace = true }
 indexmap = { version = "2.9" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.53" }
+sqlparser = { version = "0.56" }
 polars-io = { version = "0.46", features = ["avro", "cloud", "aws"] }
 polars-arrow = { version = "0.46" }
 polars-ops = { version = "0.46", features = ["pivot", "cutqcut"] }
