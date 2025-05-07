@@ -13,19 +13,7 @@ impl Command for Default {
         Signature::build("default")
             // TODO: Give more specific type signature?
             // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
-            .input_output_types(vec![
-                (Type::Nothing, Type::Any),
-                (Type::String, Type::Any),
-                (Type::record(), Type::Any),
-                (Type::list(Type::Any), Type::Any),
-                (Type::Number, Type::Number),
-                (Type::Closure, Type::Closure),
-                (Type::Filesize, Type::Filesize),
-                (Type::Bool, Type::Bool),
-                (Type::Date, Type::Date),
-                (Type::Duration, Type::Duration),
-                (Type::Range, Type::Range),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "default value",
                 SyntaxShape::Any,
