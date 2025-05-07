@@ -107,6 +107,9 @@
       <Component Id="Nu_Icon" Guid="*">
         <File Id="nu.ico" Source="$(var.ProjectDir)\nu.ico" KeyPath="yes" />
       </Component>
+      <Component Id="Nu_Readme" Guid="*">
+        <File Id="README.txt" Source="$(var.ProjectDir)\README.txt" KeyPath="yes" />
+      </Component>
       <Component Id="Nu_License" Guid="*">
         <File Id="License.rtf" Source="$(var.ProjectDir)\License.rtf" KeyPath="yes" />
       </Component>
