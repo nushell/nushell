@@ -23,7 +23,7 @@
     <MajorUpgrade
       MigrateFeatures="yes"
       Schedule="afterInstallInitialize"
-      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit." />
 
     <!-- Embed cab media to MSI file -->
     <Media Id="1" Cabinet="cab1.cab" EmbedCab="yes" />
@@ -52,6 +52,31 @@
       <Directory Id="LocalAppProgramsFolder" Name="Programs">
         <Directory Id="INSTALLDIR_USER" Name="$(var.ApplicationFolderName)">
           <Directory Id="BINDIR_USER" Name="bin" />
+        </Directory>
+      </Directory>
+
+      <!-- Windows Terminal Profile Directories -->
+      <Directory Id="AppDataMicrosoftFolder" Name="Microsoft">
+        <Directory Id="AppDataWindowsTerminalFolder" Name="Windows Terminal">
+          <Directory Id="WindowsTerminalProfileFolder" Name="Fragments">
+            <Directory Id="WindowsTerminalProfileAppFolder" Name="nu">
+              <Component Id="WindowsTerminalProfile" Guid="957239F4-7B87-4399-9F91-7DF2ABE5ED8B">
+                <File Id="WindowsTerminalProfileFile"
+                      Name="nu.json"
+                      Source="$(var.ProjectDir)\windows-terminal-profile.json" />
+                <RegistryValue Root="HKCU"
+                               Key="Software\nu"
+                               Name="WindowsTerminalProfile"
+                               Value="1"
+                               Type="integer"
+                               KeyPath="yes" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderA" Directory="WindowsTerminalProfileAppFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderB" Directory="WindowsTerminalProfileFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderC" Directory="AppDataWindowsTerminalFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderD" Directory="AppDataMicrosoftFolder" On="uninstall" />
+              </Component>
+            </Directory>
+          </Directory>
         </Directory>
       </Directory>
     </StandardDirectory>
@@ -92,35 +117,35 @@
       <!-- Per-user PATH component -->
       <Component Id="EnvironmentPathUser" Guid="{D6A3A7B2-1F3A-4B6A-8A3B-3A7B2D6A3A7B}" Condition="MSIINSTALLPERUSER=1">
         <Environment Id="PATHUser"
-                    Name="PATH"
-                    Value="[BINDIR]"
-                    Permanent="no"
-                    Part="last"
-                    Action="set"
-                    System="no"/>
+                     Name="PATH"
+                     Value="[BINDIR]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="no" />
         <RegistryValue Root="HKCU"
-                      Key="Software\nu"
-                      Name="installed"
-                      Type="integer"
-                      Value="1"
-                      KeyPath="yes"/>
+                       Key="Software\nu"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
       </Component>
 
       <!-- Per-machine PATH component -->
       <Component Id="EnvironmentPathMachine" Guid="{47781325-8A2B-4F8D-A058-9A2C4136E25F}" Condition="ALLUSERS=1">
         <Environment Id="PATHMachine"
-                    Name="PATH"
-                    Value="[BINDIR]"
-                    Permanent="no"
-                    Part="last"
-                    Action="set"
-                    System="yes"/>
+                     Name="PATH"
+                     Value="[BINDIR]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="yes" />
         <RegistryValue Root="HKLM"
-                      Key="Software\nu"
-                      Name="installed"
-                      Type="integer"
-                      Value="1"
-                      KeyPath="yes"/>
+                       Key="Software\nu"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
@@ -130,6 +155,14 @@
       <ComponentGroupRef Id="NushellResources" />
       <ComponentRef Id="EnvironmentPathUser" />
       <ComponentRef Id="EnvironmentPathMachine" />
+    </Feature>
+
+    <!-- Windows Terminal Profile Feature -->
+    <Feature Id="WindowsTerminalProfile"
+             Title="Windows Terminal Profile"
+             Description="Add $(var.ProductName) profile to Windows Terminal."
+             Level="1">
+      <ComponentRef Id="WindowsTerminalProfile" />
     </Feature>
 
     <!-- Load Advanced UI -->
@@ -153,26 +186,44 @@
                  Value="[INSTALLDIR_USER]"
                  After="AppSearch"
                  Condition="MSIINSTALLPERUSER=1"
-                 Sequence="both"/>
+                 Sequence="both" />
     <SetProperty Id="BINDIR"
                  Action="SetBINDIR_User"
                  Value="[BINDIR_USER]"
                  After="AppSearch"
                  Condition="MSIINSTALLPERUSER=1"
-                 Sequence="both"/>
+                 Sequence="both" />
 
     <!-- If Installed with ALLUSERS=1 set the default Install dir to ProgramFiles64Folder -->
     <SetProperty Id="INSTALLDIR"
-             Action="SetINSTALLDIR_Machine"
-             Value="[ProgramFiles64Folder][ApplicationFolderName]"
-             After="AppSearch"
-             Condition="ALLUSERS=1"
-             Sequence="both"/>
+                 Action="SetINSTALLDIR_Machine"
+                 Value="[ProgramFiles64Folder][ApplicationFolderName]"
+                 After="AppSearch"
+                 Condition="ALLUSERS=1"
+                 Sequence="both" />
     <SetProperty Id="BINDIR"
-             Action="SetBINDIR_Machine"
-             Value="[ProgramFiles64Folder][ApplicationFolderName]\bin"
-             After="AppSearch"
-             Condition="ALLUSERS=1"
-             Sequence="both"/>
+                 Action="SetBINDIR_Machine"
+                 Value="[ProgramFiles64Folder][ApplicationFolderName]\bin"
+                 After="AppSearch"
+                 Condition="ALLUSERS=1"
+                 Sequence="both" />
+
+    <!-- Custom Action for Windows Terminal Profile -->
+    <SetProperty Id="ReplacePathsInWindowsTerminalProfile"
+                 Sequence="execute"
+                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
+                 After="CostFinalize" />
+
+    <CustomAction Id="ReplacePathsInWindowsTerminalProfile"
+                  Return="check"
+                  Impersonate="yes"
+                  Execute="deferred"
+                  DllEntry="WixQuietExec"
+                  BinaryRef="Wix4UtilCA_X64" />
+
+    <InstallExecuteSequence>
+      <Custom Action="ReplacePathsInWindowsTerminalProfile" Before="InstallFinalize"
+              Condition="(&amp;WindowsTerminalProfile=3) OR ((!WindowsTerminalProfile=3) AND (REINSTALL&lt;&gt;&quot;&quot;))"/>
+    </InstallExecuteSequence>
   </Package>
 </Wix>

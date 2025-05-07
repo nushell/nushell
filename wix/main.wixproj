@@ -29,6 +29,7 @@
     <BindPath Include="." />
     <Content Include="nu.ico" />
     <Content Include="License.rtf" />
+    <Content Include="windows-terminal-profile.json" />
   </ItemGroup>
 
 </Project>
