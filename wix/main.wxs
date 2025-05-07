@@ -38,6 +38,8 @@
     <!-- Enable UAC prompt when installing for all users -->
     <!-- <Property Id="MSIUSEREALADMINDETECTION" Value="1" /> -->
 
+    <Property Id="ARPPRODUCTICON" Value="nu.ico" />
+    <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
     <Property Id="ApplicationFolderName" Value="$(var.ApplicationFolderName)" />
 
     <!-- Per Machine Install -->
