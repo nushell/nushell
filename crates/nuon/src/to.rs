@@ -246,6 +246,10 @@ fn get_true_indentation(depth: usize, indent: Option<&str>) -> String {
     }
 }
 
+/// Converts the provided indent into three types of separator:
+/// - New line separators
+/// - Inline separator
+/// - Key-value separators inside Records
 fn get_true_separators(indent: Option<&str>) -> (String, String, String) {
     match indent {
         Some("") => ("".to_string(), "".to_string(), "".to_string()),
