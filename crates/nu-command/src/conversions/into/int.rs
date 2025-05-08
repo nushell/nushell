@@ -311,8 +311,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             let val_in_unit: i64 = match unit_option {
                 Some(spanned_unit) => match spanned_unit.item {
                     Unit::Filesize(filesize_unit) => {
+                        dbg!(val.get());
                         match Filesize::from_unit(val.get(), filesize_unit) {
-                            Some(filesize) => filesize.get(),
+                            Some(filesize) => {
+                                dbg!(filesize.get());
+                                filesize.get()
+                            },
                             None => {
                                 return Value::error(ShellError::CantConvert { to_type: "int".to_string(), from_type: "filesize".to_string(), span: head, help: Some("an overflow occurred when trying to convert the filesize to the specified unit".to_string()) }, head);
                             }
