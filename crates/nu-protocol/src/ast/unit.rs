@@ -1,5 +1,33 @@
-use crate::{Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value};
+use crate::{Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value, SUPPORTED_FILESIZE_UNITS};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
+use thiserror::Error;
+
+pub const SUPPORTED_DURATION_UNITS: [&str; 9] =
+    ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"];
+
+pub fn all_supported_units() -> String {
+    SUPPORTED_DURATION_UNITS
+        .iter()
+        .copied()
+        .chain(SUPPORTED_FILESIZE_UNITS.iter().copied())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The error returned when failing to parse a [`Unit`].
+///
+/// This occurs when the string being parsed does not exactly match the name of one of the
+/// enum cases in [`Unit`].
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+pub struct ParseUnitError(());
+
+impl fmt::Display for ParseUnitError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "invalid file size or duration unit")
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Unit {
@@ -76,6 +104,28 @@ impl Unit {
                     inner: vec![],
                 }),
             },
+        }
+    }
+}
+
+impl FromStr for Unit {
+    type Err = ParseUnitError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(filesize_unit) = FilesizeUnit::from_str(s) {
+            return Ok(Unit::Filesize(filesize_unit));
+        };
+
+        match s {
+            "ns" => Ok(Unit::Nanosecond),
+            "us" | "µs" => Ok(Unit::Microsecond),
+            "ms" => Ok(Unit::Millisecond),
+            "sec" => Ok(Unit::Second),
+            "min" => Ok(Unit::Minute),
+            "hr" => Ok(Unit::Hour),
+            "day" => Ok(Unit::Day),
+            "wk" => Ok(Unit::Week),
+            _ => Err(ParseUnitError(())),
         }
     }
 }

@@ -3,17 +3,9 @@ use std::str::FromStr;
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{Filesize, FilesizeUnit, Unit};
+use nu_protocol::{all_supported_units, FilesizeUnit, Unit};
 
 use nu_utils::get_system_locale;
-
-const NS_PER_US: i64 = 1_000;
-const NS_PER_MS: i64 = 1_000_000;
-const NS_PER_SEC: i64 = 1_000_000_000;
-const NS_PER_MINUTE: i64 = 60 * NS_PER_SEC;
-const NS_PER_HOUR: i64 = 60 * NS_PER_MINUTE;
-const NS_PER_DAY: i64 = 24 * NS_PER_HOUR;
-const NS_PER_WEEK: i64 = 7 * NS_PER_DAY;
 
 struct Arguments {
     radix: u32,
@@ -170,7 +162,6 @@ impl Command for IntoInt {
 
         let signed = call.has_flag(engine_state, stack, "signed")?;
 
-        let span = input.span().unwrap_or(call.head);
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => {
                 let parsed_filesize_unit = FilesizeUnit::from_str(&spanned_unit.item);
@@ -187,10 +178,10 @@ impl Command for IntoInt {
                             "day" => Unit::Day,
                             "wk" => Unit::Week,
                             _ => {
-                                // TODO add filesize units here
-                                // TODO refactor in Unit::from_str ?
-                                return Err(ShellError::IncorrectValue { msg: "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
-                                            .to_string(), val_span: span, call_span: call.head });
+                                return Err(ShellError::InvalidUnit {
+                                    supported_units: all_supported_units(),
+                                    span: spanned_unit.span,
+                                });
                             }
                         },
                     }
@@ -299,6 +290,18 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let unit_option = &args.unit;
     let val_span = input.span();
 
+    if let Some(spanned_unit) = unit_option {
+        let value_one_in_unit = match spanned_unit.item.build_value(1, head) {
+            Ok(v) => v,
+            Err(err) => {
+                return Value::error(err, head);
+            }
+        };
+        return input
+            .div(val_span, &value_one_in_unit, head)
+            .unwrap_or_else(|err| Value::error(err, head));
+    }
+
     match input {
         Value::Int { val: _, .. } => {
             if radix == 10 {
@@ -308,33 +311,35 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             }
         }
         Value::Filesize { val, .. } => {
-            let val_in_unit: i64 = match unit_option {
-                Some(spanned_unit) => match spanned_unit.item {
-                    Unit::Filesize(filesize_unit) => {
-                        dbg!(val.get());
-                        match Filesize::from_unit(val.get(), filesize_unit) {
-                            Some(filesize) => {
-                                dbg!(filesize.get());
-                                filesize.get()
-                            },
-                            None => {
-                                return Value::error(ShellError::CantConvert { to_type: "int".to_string(), from_type: "filesize".to_string(), span: head, help: Some("an overflow occurred when trying to convert the filesize to the specified unit".to_string()) }, head);
-                            }
-                        }
-                    }
-                    _ => {
-                        return Value::error(
-                            ShellError::IncorrectValue {
-                                msg: "must be a valid filesize unit".to_string(),
-                                val_span: val_span,
-                                call_span: spanned_unit.span,
-                            },
-                            head,
-                        );
-                    }
-                },
-                None => val.get(),
-            };
+            // let val_in_unit: i64 = match unit_option {
+            //     Some(spanned_unit) => match spanned_unit.item {
+            //         Unit::Filesize(filesize_unit) => {
+            //             dbg!(val.get());
+            //             match Filesize::from_unit(val.get(), filesize_unit) {
+            //                 Some(filesize) => {
+            //                     dbg!(filesize.get());
+            //                     filesize.get()
+            //                 },
+            //                 None => {
+            //                     return Value::error(ShellError::CantConvert { to_type: "int".to_string(), from_type: "filesize".to_string(), span: head, help: Some("an overflow occurred when trying to convert the filesize to the specified unit".to_string()) }, head);
+            //                 }
+            //             }
+            //         }
+            //         _ => {
+            //             return Value::error(
+            //                 ShellError::IncorrectValue {
+            //                     msg: "must be a valid filesize unit".to_string(),
+            //                     val_span: val_span,
+            //                     call_span: spanned_unit.span,
+            //                 },
+            //                 head,
+            //             );
+            //         }
+            //     },
+            //     None => val.get(),
+            // };
+
+            let val_in_unit = val.get();
             Value::int(val_in_unit, head)
         }
         Value::Float { val, .. } => Value::int(
@@ -591,20 +596,6 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     }
 }
 
-fn unit_to_ns_factor(unit: &str) -> i64 {
-    match unit {
-        "ns" => 1,
-        "us" | "µs" => NS_PER_US,
-        "ms" => NS_PER_MS,
-        "sec" => NS_PER_SEC,
-        "min" => NS_PER_MINUTE,
-        "hr" => NS_PER_HOUR,
-        "day" => NS_PER_DAY,
-        "wk" => NS_PER_WEEK,
-        _ => 0,
-    }
-}
-
 #[cfg(test)]
 mod test {
     use chrono::{DateTime, FixedOffset};
@@ -633,6 +624,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );
@@ -649,6 +641,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );
@@ -665,6 +658,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );
@@ -682,6 +676,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );
@@ -705,6 +700,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );
@@ -728,6 +724,7 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
+                unit: None,
             },
             Span::test_data(),
         );

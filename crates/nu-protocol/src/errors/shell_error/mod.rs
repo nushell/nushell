@@ -1238,6 +1238,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// Invalid unit
+    ///
+    /// ## Resolution
+    ///
+    /// Correct unit
+    #[error("Invalid unit")]
+    #[diagnostic(
+        code(nu::shell::invalid_unit),
+        help("Supported units are: {supported_units}")
+    )]
+    InvalidUnit {
+        supported_units: String,
+        #[label("encountered here")]
+        span: Span,
+    },
+
     /// Tried spreading a non-list inside a list or command call.
     ///
     /// ## Resolution

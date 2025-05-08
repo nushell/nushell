@@ -1,7 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
-use nu_protocol::{Unit, ast::Expr};
+use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
+use nu_protocol::{ast::Expr, Unit, SUPPORTED_DURATION_UNITS};
 
 const NS_PER_US: i64 = 1_000;
 const NS_PER_MS: i64 = 1_000_000;
@@ -95,7 +95,6 @@ impl Command for IntoDuration {
         let cell_paths = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        let span = input.span().unwrap_or(call.head);
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => {
                 if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
@@ -103,14 +102,9 @@ impl Command for IntoDuration {
                 {
                     Some(spanned_unit)
                 } else {
-                    return Err(ShellError::CantConvertToDuration {
-                        details: spanned_unit.item,
-                        dst_span: span,
-                        src_span: span,
-                        help: Some(
-                            "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
-                                .to_string(),
-                        ),
+                    return Err(ShellError::InvalidUnit {
+                        span: spanned_unit.span,
+                        supported_units: SUPPORTED_DURATION_UNITS.join(", "),
                     });
                 }
             }
