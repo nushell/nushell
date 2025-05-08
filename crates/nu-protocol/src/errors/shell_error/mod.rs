@@ -431,18 +431,6 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    #[error("Can't convert string `{details}` to duration.")]
-    #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertToDuration {
-        details: String,
-        #[label("can't be converted to duration")]
-        dst_span: Span,
-        #[label("this string value...")]
-        src_span: Span,
-        #[help]
-        help: Option<String>,
-    },
-
     /// An environment variable cannot be represented as a string.
     ///
     /// ## Resolution
