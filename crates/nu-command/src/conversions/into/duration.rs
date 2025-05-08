@@ -235,11 +235,9 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         }
     }
 
-    Err(ShellError::CantConvertToDuration {
-        details: s.to_string(),
-        dst_span: span,
-        src_span: span,
-        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
+    Err(ShellError::InvalidUnit {
+        span,
+        supported_units: SUPPORTED_DURATION_UNITS.join(", "),
     })
 }
 
