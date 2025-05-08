@@ -42,6 +42,7 @@ impl Command for Return {
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
+        eprintln!("Tried to execute 'run' for the 'return' command: this code path should never be reached in IR mode");
         unreachable!()
     }
 
