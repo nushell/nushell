@@ -1,7 +1,5 @@
-use nu_engine::{
-    command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
-};
-use nu_protocol::engine::{CommandType, Matcher};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Match;
@@ -38,58 +36,15 @@ impl Command for Match {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let value: Value = call.req(engine_state, stack, 0)?;
-        let matches = call
-            .positional_nth(1)
-            .expect("checked through parser")
-            .as_match_block()
-            .expect("missing match block");
-
-        let eval_expression = get_eval_expression(engine_state);
-        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-        let eval_block = get_eval_block(engine_state);
-
-        let mut match_variables = vec![];
-        for (pattern, expr) in matches {
-            if pattern.match_value(&value, &mut match_variables) {
-                // This case does match, go ahead and return the evaluated expression
-                for (id, value) in match_variables.drain(..) {
-                    stack.add_var(id, value);
-                }
-
-                let guard_matches = if let Some(guard) = &pattern.guard {
-                    let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
-                    else {
-                        return Err(ShellError::MatchGuardNotBool { span: guard.span });
-                    };
-
-                    val
-                } else {
-                    true
-                };
-
-                if guard_matches {
-                    return if let Some(block_id) = expr.as_block() {
-                        let block = engine_state.get_block(block_id);
-                        eval_block(engine_state, stack, block, input)
-                    } else {
-                        eval_expression_with_input(engine_state, stack, expr, input)
-                    };
-                }
-            } else {
-                match_variables.clear();
-            }
-        }
-
-        Ok(PipelineData::Empty)
+        eprintln!("Tried to execute 'run' for the 'match' command: this code path should never be reached in IR mode");
+        unreachable!()
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -41,35 +41,15 @@ impl Command for Const {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let var_id = if let Some(id) = call.positional_nth(0).and_then(|pos| pos.as_var()) {
-            id
-        } else {
-            return Err(ShellError::NushellFailedSpanned {
-                msg: "Could not get variable".to_string(),
-                label: "variable not added by the parser".to_string(),
-                span: call.head,
-            });
-        };
-
-        if let Some(constval) = &engine_state.get_var(var_id).const_val {
-            stack.add_var(var_id, constval.clone());
-
-            Ok(PipelineData::empty())
-        } else {
-            Err(ShellError::NushellFailedSpanned {
-                msg: "Missing Constant".to_string(),
-                label: "constant not added by the parser".to_string(),
-                span: call.head,
-            })
-        }
+        eprintln!("Tried to execute 'run' for the 'const' command: this code path should never be reached in IR mode");
+        unreachable!()
     }
 
     fn run_const(
