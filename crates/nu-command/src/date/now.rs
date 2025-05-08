@@ -38,8 +38,14 @@ impl Command for DateNow {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get the current date and display it in a given format string.",
+                description: "Get the current date and format it in a given format string.",
                 example: r#"date now | format date "%Y-%m-%d %H:%M:%S""#,
+                result: None,
+            },
+            Example {
+                description:
+                    "Get the current date and format it according to the RFC 3339 standard.",
+                example: r#"date now | format date "%+""#,
                 result: None,
             },
             Example {
@@ -53,7 +59,8 @@ impl Command for DateNow {
                 result: None,
             },
             Example {
-                description: "Get current time in full RFC 3339 format with time zone.",
+                description:
+                    "Get current time and format it in the debug format (RFC 2822 with timezone)",
                 example: r#"date now | debug"#,
                 result: None,
             },

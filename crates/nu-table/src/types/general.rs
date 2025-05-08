@@ -15,23 +15,23 @@ use crate::{
 pub struct JustTable;
 
 impl JustTable {
-    pub fn table(input: &[Value], opts: TableOpts<'_>) -> StringResult {
+    pub fn table(input: Vec<Value>, opts: TableOpts<'_>) -> StringResult {
         list_table(input, opts)
     }
 
-    pub fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+    pub fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
         kv_table(record, opts)
     }
 }
 
-fn list_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
-    let mut out = match create_table(input, &opts)? {
+fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
+    let output = create_table(input, &opts)?;
+    let mut out = match output {
         Some(out) => out,
         None => return Ok(None),
     };
 
-    out.table.set_indent(opts.config.table.padding);
-
+    // TODO: It would be WAY more effitient to do right away instead of second pass over the data.
     colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
     configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
@@ -40,24 +40,19 @@ fn list_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, Sh
     Ok(table)
 }
 
-fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
-    let mut data = vec![Vec::with_capacity(2); record.len()];
-
-    for ((column, value), row) in record.iter().zip(data.iter_mut()) {
-        opts.signals.check(opts.span)?;
-
-        let key = NuRecordsValue::new(column.to_string());
-
-        let value = nu_value_to_string_colored(value, opts.config, &opts.style_computer);
-        let value = NuRecordsValue::new(value);
-
-        row.push(key);
-        row.push(value);
-    }
-
-    let mut table = NuTable::from(data);
+fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
+    let mut table = NuTable::new(record.len(), 2);
     table.set_index_style(TextStyle::default_field());
     table.set_indent(opts.config.table.padding);
+
+    for (i, (key, value)) in record.into_iter().enumerate() {
+        opts.signals.check(opts.span)?;
+
+        let value = nu_value_to_string_colored(&value, opts.config, &opts.style_computer);
+
+        table.insert((i, 0), key);
+        table.insert((i, 1), value);
+    }
 
     let mut out = TableOutput::from_table(table, false, true);
     configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
@@ -66,12 +61,12 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     Ok(table)
 }
 
-fn create_table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
+fn create_table(input: Vec<Value>, opts: &TableOpts<'_>) -> TableResult {
     if input.is_empty() {
         return Ok(None);
     }
 
-    let headers = get_columns(input);
+    let headers = get_columns(&input);
     let with_index = has_index(opts, &headers);
     let with_header = !headers.is_empty();
     let row_offset = opts.index_offset;
@@ -89,27 +84,23 @@ fn create_table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
 }
 
 fn create_table_with_header(
-    input: &[Value],
+    input: Vec<Value>,
     headers: Vec<String>,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    let headers = collect_headers(headers, false);
-
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
-
     table.set_header_style(get_header_style(&opts.style_computer));
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    table.set_row(0, headers.clone());
-
-    for (row, item) in input.iter().enumerate() {
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
-        check_value(item)?;
+        check_value(&item)?;
 
         for (col, header) in headers.iter().enumerate() {
-            let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
+            let (text, style) = get_string_value_with_header(&item, header, opts);
 
             let pos = (row + 1, col);
             table.insert(pos, text);
@@ -117,35 +108,39 @@ fn create_table_with_header(
         }
     }
 
+    let headers = collect_headers(headers, false);
+    table.set_row(0, headers);
+
     Ok(Some(table))
 }
 
 fn create_table_with_header_and_index(
-    input: &[Value],
+    input: Vec<Value>,
     headers: Vec<String>,
     row_offset: usize,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    let headers = collect_headers(headers, true);
+    let head = collect_headers(headers, true);
 
     let count_rows = input.len() + 1;
-    let count_columns = headers.len();
-    let mut table = NuTable::new(count_rows, count_columns);
+    let count_columns = head.len();
 
+    let mut table = NuTable::new(count_rows, count_columns);
     table.set_header_style(get_header_style(&opts.style_computer));
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    table.set_row(0, headers.clone());
+    table.set_row(0, head.clone());
 
-    for (row, item) in input.iter().enumerate() {
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
-        check_value(item)?;
+        check_value(&item)?;
 
-        let text = get_table_row_index(item, opts.config, row, row_offset);
+        let text = get_table_row_index(&item, opts.config, row, row_offset);
         table.insert((row + 1, 0), text);
 
-        for (col, header) in headers.iter().enumerate().skip(1) {
-            let (text, style) = get_string_value_with_header(item, header.as_ref(), opts);
+        for (col, head) in head.iter().enumerate().skip(1) {
+            let (text, style) = get_string_value_with_header(&item, head.as_ref(), opts);
 
             let pos = (row + 1, col);
             table.insert(pos, text);
@@ -157,46 +152,45 @@ fn create_table_with_header_and_index(
 }
 
 fn create_table_with_no_header(
-    input: &[Value],
+    input: Vec<Value>,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1);
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    for (row, item) in input.iter().enumerate() {
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
-        check_value(item)?;
+        check_value(&item)?;
 
-        let (text, style) = get_string_value(item, opts);
+        let (text, style) = get_string_value(&item, opts);
 
-        let pos = (row, 0);
-        table.insert(pos, text);
-        table.insert_style(pos, style);
+        table.insert((row, 0), text);
+        table.insert_style((row, 0), style);
     }
 
     Ok(Some(table))
 }
 
 fn create_table_with_no_header_and_index(
-    input: &[Value],
+    input: Vec<Value>,
     row_offset: usize,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), 1 + 1);
     table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    for (row, item) in input.iter().enumerate() {
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
-        check_value(item)?;
+        check_value(&item)?;
 
-        let text = get_table_row_index(item, opts.config, row, row_offset);
-        table.insert((row, 0), text);
+        let index = get_table_row_index(&item, opts.config, row, row_offset);
+        let (value, style) = get_string_value(&item, opts);
 
-        let (text, style) = get_string_value(item, opts);
-
-        let pos = (row, 1);
-        table.insert(pos, text);
-        table.insert_style(pos, style);
+        table.insert((row, 0), index);
+        table.insert((row, 1), value);
+        table.insert_style((row, 1), style);
     }
 
     Ok(Some(table))
@@ -206,7 +200,10 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
     match item {
         Value::Record { val, .. } => match val.get(header) {
             Some(value) => get_string_value(value, opts),
-            None => get_empty_style(&opts.style_computer),
+            None => get_empty_style(
+                opts.config.table.missing_value_symbol.clone(),
+                &opts.style_computer,
+            ),
         },
         value => get_string_value(value, opts),
     }

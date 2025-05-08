@@ -1,22 +1,188 @@
-use nu_test_support::{nu, playground::Playground};
+use nu_test_support::nu;
 
 #[test]
-fn jobs_do_run() {
-    Playground::setup("job_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[]);
+fn job_send_root_job_works() {
+    let actual = nu!(r#"
+        job spawn { 'beep' | job send 0 }
+        job recv --timeout 10sec"#);
 
-        let actual = nu!(
-            cwd: dirs.root(),
-            r#"
-            rm -f a.txt;
-            job spawn { sleep 200ms; 'a' | save a.txt };
-            let before = 'a.txt' | path exists;
-            sleep 400ms;
-            let after = 'a.txt' | path exists;
-            [$before, $after] | to nuon"#
-        );
-        assert_eq!(actual.out, "[false, true]");
-    })
+    assert_eq!(actual.out, "beep");
+}
+
+#[test]
+fn job_send_background_job_works() {
+    let actual = nu!(r#"
+        let job = job spawn { job recv | job send 0 }
+        'boop' | job send $job
+        job recv --timeout 10sec"#);
+
+    assert_eq!(actual.out, "boop");
+}
+
+#[test]
+fn job_send_to_self_works() {
+    let actual = nu!(r#"
+        "meep" | job send 0
+        job recv"#);
+
+    assert_eq!(actual.out, "meep");
+}
+
+#[test]
+fn job_send_to_self_from_background_works() {
+    let actual = nu!(r#"
+        job spawn {
+            'beep' | job send (job id)
+            job recv | job send 0
+        }
+
+        job recv --timeout 10sec"#);
+
+    assert_eq!(actual.out, "beep");
+}
+
+#[test]
+fn job_id_of_root_job_is_zero() {
+    let actual = nu!(r#"job id"#);
+
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn job_id_of_background_jobs_works() {
+    let actual = nu!(r#"
+        let job1 = job spawn { job id | job send 0 }
+        let id1 = job recv --timeout 5sec
+
+        let job2 = job spawn { job id | job send 0 }
+        let id2 = job recv --timeout 5sec
+
+        let job3 = job spawn { job id | job send 0 }
+        let id3 = job recv --timeout 5sec 
+
+        [($job1 == $id1) ($job2 == $id2) ($job3 == $id3)] | to nuon
+
+        "#);
+
+    assert_eq!(actual.out, "[true, true, true]");
+}
+
+#[test]
+fn untagged_job_recv_accepts_tagged_messages() {
+    let actual = nu!(r#"
+        job spawn { "boop" | job send 0 --tag 123 }
+        job recv --timeout 10sec
+        "#);
+
+    assert_eq!(actual.out, "boop");
+}
+
+#[test]
+fn tagged_job_recv_filters_untagged_messages() {
+    let actual = nu!(r#"
+        job spawn { "boop" | job send 0 }
+        job recv --tag 123 --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("timeout"));
+}
+
+#[test]
+fn tagged_job_recv_filters_badly_tagged_messages() {
+    let actual = nu!(r#"
+        job spawn { "boop" | job send 0 --tag 321 }
+        job recv  --tag 123 --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("timeout"));
+}
+
+#[test]
+fn tagged_job_recv_accepts_properly_tagged_messages() {
+    let actual = nu!(r#"
+        job spawn { "boop" | job send 0 --tag 123 }
+        job recv --tag 123 --timeout 5sec
+        "#);
+
+    assert_eq!(actual.out, "boop");
+}
+
+#[test]
+fn filtered_messages_are_not_erased() {
+    let actual = nu!(r#"
+        "msg1" | job send 0 --tag 123
+        "msg2" | job send 0 --tag 456
+        "msg3" | job send 0 --tag 789
+
+        let first  = job recv --tag 789 --timeout 5sec
+        let second = job recv --timeout 1sec
+        let third  = job recv --timeout 1sec
+        
+
+        [($first) ($second) ($third)] | to nuon
+        "#);
+
+    assert_eq!(actual.out, r#"["msg3", "msg1", "msg2"]"#);
+}
+
+#[test]
+fn job_recv_timeout_works() {
+    let actual = nu!(r#"
+        job spawn { 
+            sleep 2sec
+            "boop" | job send 0
+        }
+
+        job recv --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("timeout"));
+}
+
+#[test]
+fn job_recv_timeout_zero_works() {
+    let actual = nu!(r#"
+        "hi there" | job send 0
+        job recv --timeout 0sec
+        "#);
+
+    assert_eq!(actual.out, "hi there");
+}
+
+#[test]
+fn job_flush_clears_messages() {
+    let actual = nu!(r#"
+        "SALE!!!" | job send 0
+        "[HYPERLINK BLOCKED]" | job send 0
+
+        job flush
+
+        job recv --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("timeout"));
+}
+
+#[test]
+fn job_flush_clears_filtered_messages() {
+    let actual = nu!(r#"
+        "msg1" | job send 0 --tag 123
+        "msg2" | job send 0 --tag 456
+        "msg3" | job send 0 --tag 789
+
+        job recv --tag 789 --timeout 1sec
+
+        job flush
+
+        job recv --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("timeout"));
 }
 
 #[test]
@@ -31,11 +197,11 @@ fn job_list_adds_jobs_correctly() {
     let actual = nu!(format!(
         r#"
             let list0 = job list | get id;
-            let job1 = job spawn {{ sleep 20ms }};
+            let job1 = job spawn {{ job recv }};
             let list1 = job list | get id;
-            let job2 = job spawn {{ sleep 20ms }};
+            let job2 = job spawn {{ job recv }};
             let list2 = job list | get id;
-            let job3 = job spawn {{ sleep 20ms }};
+            let job3 = job spawn {{ job recv }};
             let list3 = job list | get id;
             [({}), ({}), ({}), ({})] | to nuon
             "#,
@@ -52,11 +218,13 @@ fn job_list_adds_jobs_correctly() {
 fn jobs_get_removed_from_list_after_termination() {
     let actual = nu!(format!(
         r#"
-            let job = job spawn {{ sleep 0.5sec }};
+            let job = job spawn {{ job recv }};
 
             let list0 = job list | get id;
 
-            sleep 1sec
+            "die!" | job send $job
+
+            sleep 0.2sec
 
             let list1 = job list | get id;
 
@@ -68,6 +236,8 @@ fn jobs_get_removed_from_list_after_termination() {
     assert_eq!(actual.out, "[true, true]");
 }
 
+// TODO: find way to communicate between process in windows
+// so these tests can fail less often
 #[test]
 fn job_list_shows_pids() {
     let actual = nu!(format!(
@@ -89,9 +259,9 @@ fn job_list_shows_pids() {
 fn killing_job_removes_it_from_table() {
     let actual = nu!(format!(
         r#"
-            let job1 = job spawn {{ sleep 100ms }}
-            let job2 = job spawn {{ sleep 100ms }}
-            let job3 = job spawn {{ sleep 100ms }}
+            let job1 = job spawn {{ job recv }}
+            let job2 = job spawn {{ job recv }}
+            let job3 = job spawn {{ job recv }}
 
             let list_before = job list | get id
 

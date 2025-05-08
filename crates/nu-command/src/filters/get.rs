@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::{ast::PathMember, Signals};
 
@@ -188,9 +190,11 @@ fn action(
         let input = input.into_value(span)?;
 
         for path in paths {
-            let val = input.clone().follow_cell_path(&path.members, !sensitive);
-
-            output.push(val?);
+            output.push(
+                input
+                    .follow_cell_path(&path.members, !sensitive)?
+                    .into_owned(),
+            );
         }
 
         Ok(output.into_iter().into_pipeline_data(span, signals))
@@ -223,10 +227,10 @@ pub fn follow_cell_path_into_stream(
                 .map(move |value| {
                     let span = value.span();
 
-                    match value.follow_cell_path(&cell_path, insensitive) {
-                        Ok(v) => v,
-                        Err(error) => Value::error(error, span),
-                    }
+                    value
+                        .follow_cell_path(&cell_path, insensitive)
+                        .map(Cow::into_owned)
+                        .unwrap_or_else(|error| Value::error(error, span))
                 })
                 .into_pipeline_data(head, signals);
 

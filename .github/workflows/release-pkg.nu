@@ -8,7 +8,7 @@
 
 # Instructions for manually creating an MSI for Winget Releases when they fail
 # Added 2022-11-29 when Windows packaging wouldn't work
-# Updated again on 2023-02-23 because msis are still failing validation
+# Updated again on 2023-02-23 because MSIs are still failing validation
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
 # 1. git checkout 0.86.0
@@ -117,14 +117,14 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 # ----------------------------------------------------------------------------
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
-if $os in ['windows-latest'] {
+if $os =~ 'windows' {
     cargo-build-nu
 }
 
 # ----------------------------------------------------------------------------
 # Prepare for the release archive
 # ----------------------------------------------------------------------------
-let suffix = if $os == 'windows-latest' { '.exe' }
+let suffix = if $os =~ 'windows' { '.exe' }
 # nu, nu_plugin_* were all included
 let executable = $'target/($target)/release/($bin)*($suffix)'
 print $'Current executable file: ($executable)'
@@ -148,10 +148,10 @@ For more information, refer to https://www.nushell.sh/book/plugins.html
 [LICENSE ...(glob $executable)] | each {|it| cp -rv $it $dist } | flatten
 
 print $'(char nl)Check binary release version detail:'; hr-line
-let ver = if $os == 'windows-latest' {
-    (do -i { .\output\nu.exe -c 'version' }) | str join
+let ver = if $os =~ 'windows' {
+    (do -i { .\output\nu.exe -c 'version' }) | default '' | str join
 } else {
-    (do -i { ./output/nu -c 'version' }) | str join
+    (do -i { ./output/nu -c 'version' }) | default '' | str join
 }
 if ($ver | str trim | is-empty) {
     print $'(ansi r)Incompatible Nu binary: The binary cross compiled is not runnable on current arch...(ansi reset)'
@@ -177,7 +177,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     # REF: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
     echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
 
-} else if $os == 'windows-latest' {
+} else if $os =~ 'windows' {
 
     let releaseStem = $'($bin)-($version)-($target)'
 
@@ -221,7 +221,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 }
 
 def 'cargo-build-nu' [] {
-    if $os == 'windows-latest' {
+    if $os =~ 'windows' {
         cargo build --release --all --target $target
     } else {
         cargo build --release --all --target $target --features=static-link-openssl

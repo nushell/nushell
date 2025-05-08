@@ -143,6 +143,10 @@ fn export_module_which_defined_const() -> TestResult {
     run_test(
         r#"module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
         "7",
+    )?;
+    fail_test(
+        r#"module spam { export const b = 3; export const c = 4 }; use spam; $b"#,
+        "variable not found",
     )
 }
 

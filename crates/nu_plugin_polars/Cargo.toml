@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.103.1"
+version = "0.104.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,10 +17,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.103.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.103.1" }
-nu-path = { path = "../nu-path", version = "0.103.1" }
-nu-utils = { path = "../nu-utils", version = "0.103.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.104.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.104.1" }
+nu-path = { path = "../nu-path", version = "0.104.1" }
+nu-utils = { path = "../nu-utils", version = "0.104.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = [
@@ -49,7 +49,7 @@ hashbrown = { version = "0.15", features = ["rayon", "serde"] }
 # Cloud support
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
-tokio = { version = "1.44", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
 object_store = { version = "0.11", default-features = false }
 url.workspace = true
 
@@ -98,9 +98,9 @@ optional = false
 version = "0.46"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.103.1" }
-nu-engine = { path = "../nu-engine", version = "0.103.1" }
-nu-parser = { path = "../nu-parser", version = "0.103.1" }
-nu-command = { path = "../nu-command", version = "0.103.1" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.103.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.1" }
+nu-engine = { path = "../nu-engine", version = "0.104.1" }
+nu-parser = { path = "../nu-parser", version = "0.104.1" }
+nu-command = { path = "../nu-command", version = "0.104.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.104.1" }
 tempfile.workspace = true

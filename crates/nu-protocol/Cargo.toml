@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
 edition = "2021"
 license = "MIT"
 name = "nu-protocol"
-version = "0.103.1"
+version = "0.104.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,29 +16,29 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.103.1", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.103.1" }
-nu-path = { path = "../nu-path", version = "0.103.1" }
-nu-system = { path = "../nu-system", version = "0.103.1" }
-nu-derive-value = { path = "../nu-derive-value", version = "0.103.1" }
+nu-utils = { path = "../nu-utils", version = "0.104.1", default-features = false }
+nu-glob = { path = "../nu-glob", version = "0.104.1" }
+nu-path = { path = "../nu-path", version = "0.104.1" }
+nu-system = { path = "../nu-system", version = "0.104.1" }
+nu-derive-value = { path = "../nu-derive-value", version = "0.104.1" }
 
 brotli = { workspace = true, optional = true }
 bytes = { workspace = true }
-chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
+chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
 chrono-humanize = { workspace = true }
 dirs = { workspace = true }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
-miette = { workspace = true, features = ["fancy-no-backtrace"]}
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
-thiserror = "2.0"
+thiserror = "2.0.12"
 typetag = "0.2"
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
@@ -67,8 +67,8 @@ plugin = [
 
 [dev-dependencies]
 serde_json = { workspace = true }
-nu-test-support = { path = "../nu-test-support", version = "0.103.1" }
-nu-utils = { path = "../nu-utils", version = "0.103.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.104.1" }
+nu-utils = { path = "../nu-utils", version = "0.104.1" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }

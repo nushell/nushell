@@ -194,7 +194,7 @@ impl PostWaitCallback {
         child_pid: Option<u32>,
         tag: Option<String>,
     ) -> Self {
-        let this_job = engine_state.current_thread_job.clone();
+        let this_job = engine_state.current_thread_job().cloned();
         let jobs = engine_state.jobs.clone();
         let is_interactive = engine_state.is_interactive;
 

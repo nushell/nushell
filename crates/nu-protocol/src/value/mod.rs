@@ -38,7 +38,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
-    ops::Bound,
+    ops::{Bound, ControlFlow, Deref},
     path::PathBuf,
 };
 
@@ -1080,224 +1080,83 @@ impl Value {
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
-    pub fn follow_cell_path(
-        self,
+    pub fn follow_cell_path<'out>(
+        &'out self,
         cell_path: &[PathMember],
         insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        let mut current = self;
+    ) -> Result<Cow<'out, Value>, ShellError> {
+        enum MultiLife<'out, 'local, T>
+        where
+            'out: 'local,
+            T: ?Sized,
+        {
+            Out(&'out T),
+            Local(&'local T),
+        }
 
-        for member in cell_path {
-            match member {
-                PathMember::Int {
-                    val: count,
-                    span: origin_span,
-                    optional,
-                } => {
-                    // Treat a numeric path member as `select <val>`
-                    match current {
-                        Value::List { mut vals, .. } => {
-                            if *count < vals.len() {
-                                // `vals` is owned and will be dropped right after this,
-                                // so we can `swap_remove` the value at index `count`
-                                // without worrying about preserving order.
-                                current = vals.swap_remove(*count);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if vals.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
-                            } else {
-                                return Err(ShellError::AccessBeyondEnd {
-                                    max_idx: vals.len() - 1,
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Binary { val, .. } => {
-                            if let Some(item) = val.get(*count) {
-                                current = Value::int(*item as i64, *origin_span);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
-                            } else {
-                                return Err(ShellError::AccessBeyondEnd {
-                                    max_idx: val.len() - 1,
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Range { ref val, .. } => {
-                            if let Some(item) = val
-                                .into_range_iter(current.span(), Signals::empty())
-                                .nth(*count)
-                            {
-                                current = item;
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else {
-                                return Err(ShellError::AccessBeyondEndOfStream {
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Custom { ref val, .. } => {
-                            current =
-                                match val.follow_path_int(current.span(), *count, *origin_span) {
-                                    Ok(val) => val,
-                                    Err(err) => {
-                                        if *optional {
-                                            return Ok(Value::nothing(*origin_span));
-                                        // short-circuit
-                                        } else {
-                                            return Err(err);
-                                        }
-                                    }
-                                };
-                        }
-                        Value::Nothing { .. } if *optional => {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        }
-                        // Records (and tables) are the only built-in which support column names,
-                        // so only use this message for them.
-                        Value::Record { .. } => {
-                            return Err(ShellError::TypeMismatch {
-                                err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
-                                span: *origin_span,
-                            });
-                        }
-                        Value::Error { error, .. } => return Err(*error),
-                        x => {
-                            return Err(ShellError::IncompatiblePathAccess {
-                                type_name: format!("{}", x.get_type()),
-                                span: *origin_span,
-                            });
-                        }
-                    }
-                }
-                PathMember::String {
-                    val: column_name,
-                    span: origin_span,
-                    optional,
-                } => {
-                    let span = current.span();
+        impl<'out, 'local, T> Deref for MultiLife<'out, 'local, T>
+        where
+            'out: 'local,
+            T: ?Sized,
+        {
+            type Target = T;
 
-                    match current {
-                        Value::Record { mut val, .. } => {
-                            // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                            if let Some(found) = val.to_mut().iter_mut().rev().find(|x| {
-                                if insensitive {
-                                    x.0.eq_ignore_case(column_name)
-                                } else {
-                                    x.0 == column_name
-                                }
-                            }) {
-                                current = std::mem::take(found.1);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if let Some(suggestion) =
-                                did_you_mean(val.columns(), column_name)
-                            {
-                                return Err(ShellError::DidYouMean {
-                                    suggestion,
-                                    span: *origin_span,
-                                });
-                            } else {
-                                return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.clone(),
-                                    span: Some(*origin_span),
-                                    src_span: span,
-                                });
-                            }
-                        }
-                        // String access of Lists always means Table access.
-                        // Create a List which contains each matching value for contained
-                        // records in the source list.
-                        Value::List { vals, .. } => {
-                            let list = vals
-                                .into_iter()
-                                .map(|val| {
-                                    let val_span = val.span();
-                                    match val {
-                                        Value::Record { mut val, .. } => {
-                                            if let Some(found) =
-                                                val.to_mut().iter_mut().rev().find(|x| {
-                                                    if insensitive {
-                                                        x.0.eq_ignore_case(column_name)
-                                                    } else {
-                                                        x.0 == column_name
-                                                    }
-                                                })
-                                            {
-                                                Ok(std::mem::take(found.1))
-                                            } else if *optional {
-                                                Ok(Value::nothing(*origin_span))
-                                            } else if let Some(suggestion) =
-                                                did_you_mean(val.columns(), column_name)
-                                            {
-                                                Err(ShellError::DidYouMean {
-                                                    suggestion,
-                                                    span: *origin_span,
-                                                })
-                                            } else {
-                                                Err(ShellError::CantFindColumn {
-                                                    col_name: column_name.clone(),
-                                                    span: Some(*origin_span),
-                                                    src_span: val_span,
-                                                })
-                                            }
-                                        }
-                                        Value::Nothing { .. } if *optional => {
-                                            Ok(Value::nothing(*origin_span))
-                                        }
-                                        _ => Err(ShellError::CantFindColumn {
-                                            col_name: column_name.clone(),
-                                            span: Some(*origin_span),
-                                            src_span: val_span,
-                                        }),
-                                    }
-                                })
-                                .collect::<Result<_, _>>()?;
-
-                            current = Value::list(list, span);
-                        }
-                        Value::Custom { ref val, .. } => {
-                            current = match val.follow_path_string(
-                                current.span(),
-                                column_name.clone(),
-                                *origin_span,
-                            ) {
-                                Ok(val) => val,
-                                Err(err) => {
-                                    if *optional {
-                                        return Ok(Value::nothing(*origin_span));
-                                    // short-circuit
-                                    } else {
-                                        return Err(err);
-                                    }
-                                }
-                            }
-                        }
-                        Value::Nothing { .. } if *optional => {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        }
-                        Value::Error { error, .. } => return Err(*error),
-                        x => {
-                            return Err(ShellError::IncompatiblePathAccess {
-                                type_name: format!("{}", x.get_type()),
-                                span: *origin_span,
-                            });
-                        }
-                    }
+            fn deref(&self) -> &Self::Target {
+                match *self {
+                    MultiLife::Out(x) => x,
+                    MultiLife::Local(x) => x,
                 }
             }
         }
+
+        // A dummy value is required, otherwise rust doesn't allow references, which we need for
+        // the `std::ptr::eq` comparison
+        let mut store: Value = Value::test_nothing();
+        let mut current: MultiLife<'out, '_, Value> = MultiLife::Out(self);
+
+        for member in cell_path {
+            current = match current {
+                MultiLife::Out(current) => match get_value_member(current, member, insensitive)? {
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                    ControlFlow::Continue(x) => match x {
+                        Cow::Borrowed(x) => MultiLife::Out(x),
+                        Cow::Owned(x) => {
+                            store = x;
+                            MultiLife::Local(&store)
+                        }
+                    },
+                },
+                MultiLife::Local(current) => {
+                    match get_value_member(current, member, insensitive)? {
+                        ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                        ControlFlow::Continue(x) => match x {
+                            Cow::Borrowed(x) => MultiLife::Local(x),
+                            Cow::Owned(x) => {
+                                store = x;
+                                MultiLife::Local(&store)
+                            }
+                        },
+                    }
+                }
+            };
+        }
+
         // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
         // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
-        if let Value::Error { error, .. } = current {
-            Err(*error)
+        if let Value::Error { error, .. } = &*current {
+            Err(error.as_ref().clone())
         } else {
-            Ok(current)
+            Ok(match current {
+                MultiLife::Out(x) => Cow::Borrowed(x),
+                MultiLife::Local(x) => {
+                    let x = if std::ptr::eq(x, &store) {
+                        store
+                    } else {
+                        x.clone()
+                    };
+                    Cow::Owned(x)
+                }
+            })
         }
     }
 
@@ -1307,9 +1166,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
     ) -> Result<(), ShellError> {
-        let orig = self.clone();
-
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1409,9 +1266,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
-        let orig = self.clone();
-
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -2144,6 +1999,198 @@ impl Value {
             }),
             // Value::test_custom_value(Box::new(todo!())),
         ]
+    }
+}
+
+fn get_value_member<'a>(
+    current: &'a Value,
+    member: &PathMember,
+    insensitive: bool,
+) -> Result<ControlFlow<Span, Cow<'a, Value>>, ShellError> {
+    match member {
+        PathMember::Int {
+            val: count,
+            span: origin_span,
+            optional,
+        } => {
+            // Treat a numeric path member as `select <val>`
+            match current {
+                Value::List { vals, .. } => {
+                    if *count < vals.len() {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(&vals[*count])))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: *origin_span })
+                    } else {
+                        Err(ShellError::AccessBeyondEnd {
+                            max_idx: vals.len() - 1,
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Binary { val, .. } => {
+                    if let Some(item) = val.get(*count) {
+                        Ok(ControlFlow::Continue(Cow::Owned(Value::int(
+                            *item as i64,
+                            *origin_span,
+                        ))))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: *origin_span })
+                    } else {
+                        Err(ShellError::AccessBeyondEnd {
+                            max_idx: val.len() - 1,
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Range { ref val, .. } => {
+                    if let Some(item) = val
+                        .into_range_iter(current.span(), Signals::empty())
+                        .nth(*count)
+                    {
+                        Ok(ControlFlow::Continue(Cow::Owned(item)))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else {
+                        Err(ShellError::AccessBeyondEndOfStream {
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Custom { ref val, .. } => {
+                    match val.follow_path_int(current.span(), *count, *origin_span)
+                    {
+                        Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
+                        Err(err) => {
+                            if *optional {
+                                Ok(ControlFlow::Break(*origin_span))
+                                // short-circuit
+                            } else {
+                                Err(err)
+                            }
+                        }
+                    }
+                }
+                Value::Nothing { .. } if *optional => Ok(ControlFlow::Break(*origin_span)),
+                // Records (and tables) are the only built-in which support column names,
+                // so only use this message for them.
+                Value::Record { .. } => Err(ShellError::TypeMismatch {
+                    err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
+                    span: *origin_span,
+                }),
+                Value::Error { error, .. } => Err(*error.clone()),
+                x => Err(ShellError::IncompatiblePathAccess { type_name: format!("{}", x.get_type()), span: *origin_span }),
+            }
+        }
+        PathMember::String {
+            val: column_name,
+            span: origin_span,
+            optional,
+        } => {
+            let span = current.span();
+            match current {
+                Value::Record { val, .. } => {
+                    if let Some(found) = val.iter().rev().find(|x| {
+                        if insensitive {
+                            x.0.eq_ignore_case(column_name)
+                        } else {
+                            x.0 == column_name
+                        }
+                    }) {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(found.1)))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if let Some(suggestion) = did_you_mean(val.columns(), column_name) {
+                        Err(ShellError::DidYouMean {
+                            suggestion,
+                            span: *origin_span,
+                        })
+                    } else {
+                        Err(ShellError::CantFindColumn {
+                            col_name: column_name.clone(),
+                            span: Some(*origin_span),
+                            src_span: span,
+                        })
+                    }
+                }
+                // String access of Lists always means Table access.
+                // Create a List which contains each matching value for contained
+                // records in the source list.
+                Value::List { vals, .. } => {
+                    let list = vals
+                        .iter()
+                        .map(|val| {
+                            let val_span = val.span();
+                            match val {
+                                Value::Record { val, .. } => {
+                                    if let Some(found) = val.iter().rev().find(|x| {
+                                        if insensitive {
+                                            x.0.eq_ignore_case(column_name)
+                                        } else {
+                                            x.0 == column_name
+                                        }
+                                    }) {
+                                        Ok(found.1.clone())
+                                    } else if *optional {
+                                        Ok(Value::nothing(*origin_span))
+                                    } else if let Some(suggestion) =
+                                        did_you_mean(val.columns(), column_name)
+                                    {
+                                        Err(ShellError::DidYouMean {
+                                            suggestion,
+                                            span: *origin_span,
+                                        })
+                                    } else {
+                                        Err(ShellError::CantFindColumn {
+                                            col_name: column_name.clone(),
+                                            span: Some(*origin_span),
+                                            src_span: val_span,
+                                        })
+                                    }
+                                }
+                                Value::Nothing { .. } if *optional => {
+                                    Ok(Value::nothing(*origin_span))
+                                }
+                                _ => Err(ShellError::CantFindColumn {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                    src_span: val_span,
+                                }),
+                            }
+                        })
+                        .collect::<Result<_, _>>()?;
+
+                    Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
+                }
+                Value::Custom { ref val, .. } => {
+                    match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
+                    {
+                        Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
+                        Err(err) => {
+                            if *optional {
+                                Ok(ControlFlow::Break(*origin_span))
+                                // short-circuit
+                            } else {
+                                Err(err)
+                            }
+                        }
+                    }
+                }
+                Value::Nothing { .. } if *optional => Ok(ControlFlow::Break(*origin_span)),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
+                x => Err(ShellError::IncompatiblePathAccess {
+                    type_name: format!("{}", x.get_type()),
+                    span: *origin_span,
+                }),
+            }
+        }
     }
 }
 

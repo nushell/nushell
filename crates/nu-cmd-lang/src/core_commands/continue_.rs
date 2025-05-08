@@ -33,10 +33,13 @@ impl Command for Continue {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &Call,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::Continue { span: call.head })
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        eprintln!("Tried to execute 'run' for the 'continue' command: this code path should never be reached in IR mode");
+        unreachable!()
     }
 
     fn examples(&self) -> Vec<Example> {

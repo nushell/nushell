@@ -8,9 +8,9 @@ use crate::{
     },
     eval_const::create_nu_constant,
     shell_error::io::IoError,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
+    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
+    VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -22,6 +22,8 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc::channel,
+        mpsc::Sender,
         Arc, Mutex, MutexGuard, PoisonError,
     },
 };
@@ -31,7 +33,7 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
-use super::{Jobs, ThreadJob};
+use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -117,7 +119,9 @@ pub struct EngineState {
     pub jobs: Arc<Mutex<Jobs>>,
 
     // The job being executed with this engine state, or None if main thread
-    pub current_thread_job: Option<ThreadJob>,
+    pub current_job: CurrentJob,
+
+    pub root_job_sender: Sender<Mail>,
 
     // When there are background jobs running, the interactive behavior of `exit` changes depending on
     // the value of this flag:
@@ -141,6 +145,8 @@ pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
+        let (send, recv) = channel::<Mail>();
+
         Self {
             files: vec![],
             virtual_paths: vec![],
@@ -196,7 +202,12 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             jobs: Arc::new(Mutex::new(Jobs::default())),
-            current_thread_job: None,
+            current_job: CurrentJob {
+                id: JobId::new(0),
+                background_thread_job: None,
+                mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+            },
+            root_job_sender: send,
             exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -1081,7 +1092,12 @@ impl EngineState {
 
     // Determines whether the current state is being held by a background job
     pub fn is_background_job(&self) -> bool {
-        self.current_thread_job.is_some()
+        self.current_job.background_thread_job.is_some()
+    }
+
+    // Gets the thread job entry
+    pub fn current_thread_job(&self) -> Option<&ThreadJob> {
+        self.current_job.background_thread_job.as_ref()
     }
 }
 

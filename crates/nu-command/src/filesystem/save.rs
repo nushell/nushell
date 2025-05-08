@@ -263,6 +263,17 @@ impl Command for Save {
                 example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
                 result: None,
             },
+            Example {
+                description:
+                    "Show the extensions for which the `save` command will automatically serialize",
+                example: r#"scope commands
+    | where name starts-with "to "
+    | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
+                result: None,
+            },
         ]
     }
 
