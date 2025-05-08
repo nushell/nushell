@@ -147,40 +147,55 @@ fn default_record_columns(
     stack: &mut Stack,
     calculated_value: &mut Option<Value>,
 ) -> Result<PipelineData, ShellError> {
-    if let Value::Closure { val: closure, .. } = &default_value.item {
-        // Cache the value of the closure to avoid running it multiple times
+    // Only run the closure if we haven't already calculated the value
+    if matches!(default_value.item, Value::Closure { .. }) && calculated_value.is_none() {
+        let Value::Closure { val: closure, .. } = &default_value.item else {
+            unreachable!()
+        };
         let mut closure = ClosureEval::new(engine_state, stack, *closure.clone());
         for col in columns {
             if let Some(val) = record.get_mut(col) {
                 if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
-                    if let Some(ref new_value) = calculated_value {
+                    if let Some(new_value) = calculated_value {
                         *val = new_value.clone();
                     } else {
+                        // Run the closure, and store the result into calculated_value for later calls
                         let new_value = closure
                             .run_with_input(PipelineData::Empty)?
                             .into_value(default_value.span)?;
                         *calculated_value = Some(new_value.clone());
-                        *val = new_value;
+                        *val = new_value.clone();
                     }
                 }
-            } else if let Some(ref new_value) = calculated_value {
+            } else if let Some(new_value) = calculated_value {
                 record.push(col.clone(), new_value.clone());
             } else {
+                // Run the closure, and store the result into calculated_value for later calls
                 let new_value = closure
                     .run_with_input(PipelineData::Empty)?
                     .into_value(default_value.span)?;
                 *calculated_value = Some(new_value.clone());
-                record.push(col.clone(), new_value);
+                record.push(col.clone(), new_value.clone());
             }
         }
+    // If the default value is not a closure, or we have the cached value, just set the value directly
     } else {
         for col in columns {
             if let Some(val) = record.get_mut(col) {
                 if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
-                    *val = default_value.item.clone();
+                    *val = calculated_value
+                        .as_ref()
+                        .unwrap_or(&default_value.item)
+                        .clone();
                 }
             } else {
-                record.push(col.clone(), default_value.item.clone());
+                record.push(
+                    col.clone(),
+                    calculated_value
+                        .as_ref()
+                        .unwrap_or(&default_value.item)
+                        .clone(),
+                );
             }
         }
     }
