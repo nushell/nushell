@@ -5,6 +5,7 @@
 use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
 
 use lscolors::{LsColors, Style};
+use tabled::grid::config::Position;
 use url::Url;
 use web_time::Instant;
 
@@ -1092,7 +1093,7 @@ fn create_empty_placeholder(
 
     let cell = format!("empty {}", value_type_name);
     let mut table = NuTable::new(1, 1);
-    table.insert((0, 0), cell);
+    table.insert(Position::new(0, 0), cell);
     table.set_data_style(TextStyle::default().dimmed());
     let mut out = TableOutput::from_table(table, false, false);
 

@@ -1,6 +1,7 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Value};
+use tabled::grid::config::Position;
 
 use crate::{
     clean_charset, colorize_space,
@@ -50,8 +51,8 @@ fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
 
         let value = nu_value_to_string_colored(&value, opts.config, &opts.style_computer);
 
-        table.insert((i, 0), key);
-        table.insert((i, 1), value);
+        table.insert(Position::new(i, 0), key);
+        table.insert(Position::new(i, 1), value);
     }
 
     let mut out = TableOutput::from_table(table, false, true);
@@ -102,7 +103,7 @@ fn create_table_with_header(
         for (col, header) in headers.iter().enumerate() {
             let (text, style) = get_string_value_with_header(&item, header, opts);
 
-            let pos = (row + 1, col);
+            let pos = Position::new(row + 1, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -137,12 +138,12 @@ fn create_table_with_header_and_index(
         check_value(&item)?;
 
         let text = get_table_row_index(&item, opts.config, row, row_offset);
-        table.insert((row + 1, 0), text);
+        table.insert(Position::new(row + 1, 0), text);
 
         for (col, head) in head.iter().enumerate().skip(1) {
             let (text, style) = get_string_value_with_header(&item, head.as_ref(), opts);
 
-            let pos = (row + 1, col);
+            let pos = Position::new(row + 1, col);
             table.insert(pos, text);
             table.insert_style(pos, style);
         }
@@ -165,8 +166,8 @@ fn create_table_with_no_header(
 
         let (text, style) = get_string_value(&item, opts);
 
-        table.insert((row, 0), text);
-        table.insert_style((row, 0), style);
+        table.insert(Position::new(row, 0), text);
+        table.insert_style(Position::new(row, 0), style);
     }
 
     Ok(Some(table))
@@ -188,9 +189,9 @@ fn create_table_with_no_header_and_index(
         let index = get_table_row_index(&item, opts.config, row, row_offset);
         let (value, style) = get_string_value(&item, opts);
 
-        table.insert((row, 0), index);
-        table.insert((row, 1), value);
-        table.insert_style((row, 1), style);
+        table.insert(Position::new(row, 0), index);
+        table.insert(Position::new(row, 1), value);
+        table.insert_style(Position::new(row, 1), style);
     }
 
     Ok(Some(table))

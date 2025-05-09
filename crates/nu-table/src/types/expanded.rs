@@ -3,6 +3,7 @@ use std::cmp::max;
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
+use tabled::grid::config::Position;
 
 use crate::{
     common::{
@@ -158,8 +159,8 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
 
-            table.insert((row, 0), cell.text);
-            table.insert_style((row, 0), cell.style);
+            table.insert(Position::new(row, 0), cell.text);
+            table.insert_style(Position::new(row, 0), cell.style);
 
             total_rows = total_rows.saturating_add(cell.size);
         }
@@ -192,7 +193,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Ok(None);
             }
 
-            table.insert((row, 0), index_value);
+            table.insert(Position::new(row, 0), index_value);
 
             index_column_width = max(index_column_width, index_width);
         }
@@ -206,8 +207,8 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available_width);
             let cell = expand_entry(item, inner_cfg);
 
-            table.insert((row, 1), cell.text);
-            table.insert_style((row, 1), cell.style);
+            table.insert(Position::new(row, 1), cell.text);
+            table.insert_style(Position::new(row, 1), cell.style);
 
             total_rows = total_rows.saturating_add(cell.size);
         }
@@ -226,7 +227,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let mut widths = Vec::new();
 
     if with_index {
-        table.insert((0, 0), String::from("#"));
+        table.insert(Position::new(0, 0), String::from("#"));
 
         let mut index_column_width = 1;
 
@@ -243,7 +244,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .unwrap_or_else(|| index.to_string());
             let index_width = string_width(&index_value);
 
-            table.insert((row + 1, 0), index_value);
+            table.insert(Position::new(row + 1, 0), index_value);
             index_column_width = max(index_column_width, index_width);
         }
 
@@ -298,8 +299,8 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             column_width = max(column_width, value_width);
 
-            table.insert((row + 1, column), cell.text);
-            table.insert_style((row + 1, column), cell.style);
+            table.insert(Position::new(row + 1, column), cell.text);
+            table.insert_style(Position::new(row + 1, column), cell.style);
 
             total_column_rows = total_column_rows.saturating_add(cell.size);
         }
@@ -311,7 +312,7 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             head_width = available;
         }
 
-        table.insert((0, column), header);
+        table.insert(Position::new(0, column), header);
 
         column_width = max(column_width, head_width);
         assert!(column_width <= available);
@@ -413,8 +414,8 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> CellResult {
             key.insert(0, '\n');
         }
 
-        table.insert((i, 0), key);
-        table.insert((i, 1), value);
+        table.insert(Position::new(i, 0), key);
+        table.insert(Position::new(i, 1), value);
 
         total_rows = total_rows.saturating_add(cell.size);
     }

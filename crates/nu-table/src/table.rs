@@ -17,7 +17,7 @@ use tabled::{
         config::{
             AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
         },
-        dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
+        dimension::{CompleteDimension, Dimension, IterGridDimension},
         records::{
             vec_records::{Cell, Text, VecRecords},
             IntoRecords, IterRecords, Records,
@@ -93,11 +93,11 @@ impl NuTable {
 
     pub fn insert(&mut self, pos: Position, text: String) {
         let text = Text::new(text);
-        self.widths[pos.1] = max(
-            self.widths[pos.1],
+        self.widths[pos.col] = max(
+            self.widths[pos.col],
             text.width() + indent_sum(self.config.indent),
         );
-        self.data[pos.0][pos.1] = text;
+        self.data[pos.row][pos.col] = text;
     }
 
     pub fn set_row(&mut self, index: usize, row: Vec<NuRecordsValue>) {
@@ -392,7 +392,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
             let alignment = *t
                 .styles
                 .cfg
-                .get_alignment_horizontal(Entity::Cell(row, col));
+                .get_alignment_horizontal(Position::new(row, col));
             if alignment != t.styles.alignments.data {
                 t.styles
                     .cfg
@@ -400,7 +400,12 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
             }
 
             // TODO: use get_color from upstream (when released)
-            let color = t.styles.cfg.get_colors().get_color((row, col)).cloned();
+            let color = t
+                .styles
+                .cfg
+                .get_colors()
+                .get_color(Position::new(row, col))
+                .cloned();
             if let Some(color) = color {
                 t.styles.cfg.set_color(Entity::Cell(row - 1, col), color);
             }
@@ -565,12 +570,12 @@ impl WidthEstimation {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for WidthCtrl {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimension<'_>> for WidthCtrl {
     fn change(
         self,
         recs: &mut NuRecords,
         cfg: &mut ColoredConfig,
-        dims: &mut CompleteDimensionVecRecords<'_>,
+        dims: &mut CompleteDimension<'_>,
     ) {
         if self.width.truncate {
             width_ctrl_truncate(self, recs, cfg, dims);
@@ -591,7 +596,7 @@ fn width_ctrl_expand(
     ctrl: WidthCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimensionVecRecords,
+    dims: &mut CompleteDimension,
 ) {
     let opt = Width::increase(ctrl.max_width);
     TableOption::<VecRecords<_>, _, _>::change(opt, recs, cfg, dims);
@@ -601,7 +606,7 @@ fn width_ctrl_truncate(
     ctrl: WidthCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimensionVecRecords,
+    dims: &mut CompleteDimension,
 ) {
     for (col, (&width, width_original)) in ctrl
         .width
@@ -644,9 +649,11 @@ fn align_table(
     table.with(AlignmentStrategy::PerLine);
 
     if structure.with_header {
+        table.modify(Rows::first(), AlignmentStrategy::PerCell);
         table.modify(Rows::first(), Alignment::from(alignments.header));
 
         if structure.with_footer {
+            table.modify(Rows::last(), AlignmentStrategy::PerCell);
             table.modify(Rows::last(), Alignment::from(alignments.header));
         }
     }
@@ -1024,8 +1031,8 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
 // TODO: expose it get_dims_mut()
 struct SetDimensions(Vec<usize>);
 
-impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDimensions {
-    fn change(self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimensionVecRecords<'_>) {
+impl<R> TableOption<R, ColoredConfig, CompleteDimension<'_>> for SetDimensions {
+    fn change(self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimension<'_>) {
         dims.set_widths(self.0);
     }
 }
@@ -1044,8 +1051,7 @@ where
 
     cfg.set_padding(Entity::Global, padding);
 
-    // TODO: Use peekable width
-    SpannedGridDimension::width(records, &cfg)
+    IterGridDimension::width(records, &cfg)
 }
 
 // It's laverages a use of guuaranted cached widths before hand
@@ -1062,32 +1068,27 @@ impl SetLineHeaders {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetLineHeaders {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimension<'_>> for SetLineHeaders {
     fn change(
         self,
         recs: &mut NuRecords,
         cfg: &mut ColoredConfig,
-        dims: &mut CompleteDimensionVecRecords<'_>,
+        dims: &mut CompleteDimension<'_>,
     ) {
-        let widths = match dims.get_widths() {
-            Some(widths) => widths,
-            None => {
-                // we don't have widths cached; which means that NO width adjustments were done
-                // which means we are OK to leave columns as they are.
-                //
-                // but we actually always have to have widths at this point
+        if dims.is_empty() {
+            // we don't have widths cached; which means that NO width adjustments were done
+            // which means we are OK to leave columns as they are.
+            //
+            // but we actually always have to have widths at this point
+            unreachable!("must never be the case");
+        }
 
-                unreachable!("must never be the case");
-            }
-        };
-
-        let columns: Vec<_> = self
-            .head
-            .values
-            .into_iter()
-            .zip(widths.iter().cloned()) // it must be always safe to do
-            .map(|(s, width)| Truncate::truncate(&s, width - self.pad).into_owned())
-            .collect();
+        let mut columns = self.head.values;
+        for (i, name) in columns.iter_mut().enumerate() {
+            let width = dims.get_width(i);
+            let width = width - self.pad;
+            *name = Truncate::truncate(name, width).into_owned();
+        }
 
         let mut names = ColumnNames::new(columns)
             .line(self.line)
@@ -1107,20 +1108,6 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
 fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, to: usize) {
     if let Some(line) = theme.get_horizontal_line(from) {
         theme.insert_horizontal_line(to, *line);
-    }
-}
-
-// todo: create a method
-#[derive(Debug, Default)]
-struct GetDims(Vec<usize>);
-
-impl<R, C> TableOption<R, C, CompleteDimensionVecRecords<'_>> for &mut GetDims {
-    fn change(self, _: &mut R, _: &mut C, dims: &mut CompleteDimensionVecRecords<'_>) {
-        self.0 = dims.get_widths().expect("expected to get it").to_vec();
-    }
-
-    fn hint_change(&self) -> Option<Entity> {
-        None
     }
 }
 
