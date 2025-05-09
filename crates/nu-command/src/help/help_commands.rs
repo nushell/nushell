@@ -66,7 +66,7 @@ pub fn help_commands(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "description", "search_terms"],
+            &["name", "description", "search_terms", "examples"],
             &string_style,
             &highlight_style,
         )?;
@@ -201,6 +201,25 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             Value::list(vals, span)
         };
 
+        // Build table of examples
+        let examples_table = {
+            // decl.examples() returns Vec<Example>
+            let command_examples = decl.examples();
+            let mut example_records = Vec::with_capacity(command_examples.len());
+
+            for example in command_examples {
+                example_records.push(Value::record(
+                    record! {
+                        "description" => Value::string(example.description, span),
+                        "example" => Value::string(example.example, span),
+                    },
+                    span,
+                ));
+            }
+
+            Value::list(example_records, span)
+        };
+
         let record = record! {
             "name" => Value::string(key, span),
             "category" => Value::string(sig.category.to_string(), span),
@@ -210,6 +229,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "input_output" => input_output_table,
             "search_terms" => Value::string(search_terms.join(", "), span),
             "is_const" => Value::bool(decl.is_const(), span),
+            "examples" => examples_table,
         };
 
         found_cmds_vec.push(Value::record(record, span));
