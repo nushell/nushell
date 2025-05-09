@@ -19,7 +19,6 @@ pub fn extend_record_with_metadata(
                 "source",
                 Value::string(path.to_string_lossy().to_string(), head),
             ),
-            DataSource::Url(url) => record.push("source", Value::string(url.to_string(), head)),
             DataSource::None => {}
         }
         if let Some(ref content_type) = content_type {

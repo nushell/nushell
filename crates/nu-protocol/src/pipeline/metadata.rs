@@ -34,7 +34,6 @@ pub enum DataSource {
     Ls,
     HtmlThemes,
     FilePath(PathBuf),
-    Url(String),
     #[default]
     None,
 }

@@ -1,10 +1,9 @@
+use super::util;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression},
     PipelineMetadata,
 };
-
-use super::util::extend_record_with_metadata;
 
 #[derive(Clone)]
 pub struct Metadata;
@@ -80,10 +79,11 @@ impl Command for Metadata {
                 Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
                     .into_pipeline_data())
             }
-            None => {
-                let record = super::util::build_metadata_record(input.metadata().as_ref(), head);
-                Ok(Value::record(record, head).into_pipeline_data())
-            }
+            None => Ok(Value::record(
+                util::build_metadata_record(input.metadata().as_ref(), head),
+                head,
+            )
+            .into_pipeline_data()),
         }
     }
 
@@ -118,8 +118,10 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
         ),
     );
 
-    record = extend_record_with_metadata(record, metadata, head);
-    Value::record(record, head)
+    Value::record(
+        util::extend_record_with_metadata(record, metadata, head),
+        head,
+    )
 }
 
 #[cfg(test)]
