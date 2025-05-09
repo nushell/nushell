@@ -5,13 +5,15 @@
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
-    engine::{EngineState, StateWorkingSet},
+    engine::{Closure, EngineState, StateWorkingSet},
     eval_base::Eval,
+    ir::{Instruction, Literal},
     record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
     VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
+    collections::VecDeque,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -548,12 +550,70 @@ impl Eval for EvalConst {
     }
 
     fn eval_row_condition_or_closure(
-        _: &StateWorkingSet,
+        state: &StateWorkingSet,
         _: &mut (),
-        _: BlockId,
+        block_id: BlockId,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span })
+        let mut block_ids = VecDeque::new();
+        block_ids.push_back(block_id);
+
+        while let Some(block_id) = block_ids.pop_front() {
+            let block = state.get_block(block_id).as_ref();
+
+            if !span.contains_span(block.span.ok_or(ShellError::NotAConstant { span })?) {
+                continue;
+            }
+
+            let non_const = block
+                .captures
+                .iter()
+                .find(|(var_id, _)| state.get_constant(*var_id).is_err())
+                .copied();
+
+            if let Some((_, span)) = non_const {
+                return Err(ShellError::NotAConstant { span });
+            }
+
+            let ir_block = block
+                .ir_block
+                .as_ref()
+                .ok_or(ShellError::NotAConstant { span })?;
+
+            let mut seen_var_id = vec![];
+            for (ins, &ins_span) in ir_block.instructions.iter().zip(&ir_block.spans) {
+                match ins {
+                    Instruction::StoreVariable { var_id, .. } if !seen_var_id.contains(var_id) => {
+                        seen_var_id.push(*var_id)
+                    }
+                    Instruction::LoadVariable { var_id, .. } if !seen_var_id.contains(var_id) => {
+                        state
+                            .get_constant(*var_id)
+                            .map_err(|_| ShellError::NotAConstant { span: ins_span })?;
+                    }
+                    Instruction::LoadLiteral {
+                        lit:
+                            Literal::Block(block_id)
+                            | Literal::Closure(block_id)
+                            | Literal::RowCondition(block_id),
+                        ..
+                    } => block_ids.push_back(*block_id),
+                    Instruction::Call { decl_id, .. } => {
+                        if let Some(block_id) = state.get_decl(*decl_id).block_id() {
+                            block_ids.push_back(block_id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(Value::closure(
+            Closure {
+                block_id,
+                captures: vec![],
+            },
+            span,
+        ))
     }
 
     fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
