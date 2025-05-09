@@ -581,6 +581,30 @@ impl Eval for EvalConst {
                 .ok_or(ShellError::NotAConstant { span })?;
 
             let mut seen_var_id = vec![];
+
+            seen_var_id.extend(block.signature.named.iter().filter_map(|x| x.var_id));
+            seen_var_id.extend(
+                block
+                    .signature
+                    .required_positional
+                    .iter()
+                    .filter_map(|x| x.var_id),
+            );
+            seen_var_id.extend(
+                block
+                    .signature
+                    .optional_positional
+                    .iter()
+                    .filter_map(|x| x.var_id),
+            );
+            seen_var_id.extend(
+                block
+                    .signature
+                    .rest_positional
+                    .iter()
+                    .filter_map(|x| x.var_id),
+            );
+
             for (ins, &ins_span) in ir_block.instructions.iter().zip(&ir_block.spans) {
                 match ins {
                     Instruction::StoreVariable { var_id, .. } if !seen_var_id.contains(var_id) => {
