@@ -241,6 +241,13 @@ impl NuTable {
         build_table(self, termwidth)
     }
 
+    /// Converts a table to a String.
+    ///
+    /// It returns None in case where table cannot be fit to a terminal width.
+    pub fn draw_unchecked(self, termwidth: usize) -> Option<String> {
+        build_table_unchecked(self, termwidth)
+    }
+
     /// Return a total table width.
     pub fn total_width(&self) -> usize {
         let config = create_config(&self.config.theme, false, None);
@@ -325,6 +332,22 @@ impl HeadInfo {
             color,
         }
     }
+}
+
+fn build_table_unchecked(mut t: NuTable, termwidth: usize) -> Option<String> {
+    if t.count_columns() == 0 || t.count_rows() == 0 {
+        return Some(String::new());
+    }
+
+    let widths = std::mem::take(&mut t.widths);
+    let config = create_config(&t.config.theme, false, None);
+    let totalwidth = get_total_width2(&t.widths, &config);
+    let widths = WidthEstimation::new(widths.clone(), widths, totalwidth, false, false);
+
+    let head = remove_header_if(&mut t);
+    table_insert_footer_if(&mut t);
+
+    draw_table(t, widths, head, termwidth)
 }
 
 fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
@@ -583,7 +606,7 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         }
 
         // NOTE: just an optimization; to not recalculate it internally
-        SetDimensions(self.width.needed).change(recs, cfg, dims);
+        dims.set_widths(self.width.needed);
     }
 }
 
@@ -1018,15 +1041,6 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
         nu_color_config::Alignment::Center => AlignmentHorizontal::Center,
         nu_color_config::Alignment::Left => AlignmentHorizontal::Left,
         nu_color_config::Alignment::Right => AlignmentHorizontal::Right,
-    }
-}
-
-// TODO: expose it get_dims_mut()
-struct SetDimensions(Vec<usize>);
-
-impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDimensions {
-    fn change(self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimensionVecRecords<'_>) {
-        dims.set_widths(self.0);
     }
 }
 

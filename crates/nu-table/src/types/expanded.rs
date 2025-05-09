@@ -448,7 +448,7 @@ fn expand_value(value: &Value, width: usize, cfg: &Cfg<'_>) -> CellResult {
             match table {
                 Some(mut out) => {
                     table_apply_config(&mut out, cfg);
-                    let value = out.table.draw(width);
+                    let value = out.table.draw_unchecked(width);
                     match value {
                         Some(value) => Ok(Some(CellOutput::clean(value, out.count_rows, true))),
                         None => Ok(None),
@@ -556,7 +556,7 @@ fn expand_entry(item: &Value, cfg: Cfg<'_>) -> CellOutput {
 
             table_apply_config(&mut out, &cfg);
 
-            let table = out.table.draw(usize::MAX);
+            let table = out.table.draw_unchecked(cfg.opts.width);
             match table {
                 Some(table) => CellOutput::clean(table, out.count_rows, false),
                 None => {
@@ -622,7 +622,7 @@ fn maybe_expand_table(mut out: TableOutput, term_width: usize) -> StringResult {
         }
     }
 
-    let table = out.table.draw(term_width);
+    let table = out.table.draw_unchecked(term_width);
 
     Ok(table)
 }
