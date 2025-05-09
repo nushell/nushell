@@ -1,4 +1,4 @@
-use super::util;
+use super::util::{build_metadata_record, extend_record_with_metadata};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{Expr, Expression},
@@ -57,33 +57,40 @@ impl Command for Metadata {
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
 
-                            Ok(
-                                build_metadata_record(&origin, input.metadata().as_ref(), head)
-                                    .into_pipeline_data(),
+                            Ok(build_metadata_record_value(
+                                &origin,
+                                input.metadata().as_ref(),
+                                head,
                             )
+                            .into_pipeline_data())
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                                .into_pipeline_data())
+                            Ok(
+                                build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                                    .into_pipeline_data(),
+                            )
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                        .into_pipeline_data())
+                    Ok(
+                        build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                            .into_pipeline_data(),
+                    )
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                    .into_pipeline_data())
+                Ok(
+                    build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                        .into_pipeline_data(),
+                )
             }
-            None => Ok(Value::record(
-                util::build_metadata_record(input.metadata().as_ref(), head),
-                head,
-            )
-            .into_pipeline_data()),
+            None => Ok(
+                Value::record(build_metadata_record(input.metadata().as_ref(), head), head)
+                    .into_pipeline_data(),
+            ),
         }
     }
 
@@ -103,7 +110,11 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head: Span) -> Value {
+fn build_metadata_record_value(
+    arg: &Value,
+    metadata: Option<&PipelineMetadata>,
+    head: Span,
+) -> Value {
     let mut record = Record::new();
 
     let span = arg.span();
@@ -118,10 +129,7 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
         ),
     );
 
-    Value::record(
-        util::extend_record_with_metadata(record, metadata, head),
-        head,
-    )
+    Value::record(extend_record_with_metadata(record, metadata, head), head)
 }
 
 #[cfg(test)]
