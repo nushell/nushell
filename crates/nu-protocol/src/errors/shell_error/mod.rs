@@ -76,7 +76,7 @@ pub enum ShellError {
         exp_input_type: String,
         #[label("expected: {exp_input_type}")]
         dst_span: Span,
-        #[label("value originates from here")]
+        #[label("value originates here")]
         src_span: Span,
     },
 
@@ -427,6 +427,25 @@ pub enum ShellError {
         from_type: String,
         #[label("can't convert {from_type} to {to_type}")]
         span: Span,
+        #[help]
+        help: Option<String>,
+    },
+
+    /// Failed to convert a value of one type into a different type by specifying a unit.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that the provided value can be converted in the provided: only Durations can be converted to duration units, and only Filesize can be converted to filesize units.
+    #[error("Can't convert to unit '{target_unit}'.")]
+    #[diagnostic(code(nu::shell::cant_convert_value_to_unit))]
+    CantConvertToUnit {
+        target_unit: String,
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[label("conversion originates here")]
+        unit_span: Span,
         #[help]
         help: Option<String>,
     },

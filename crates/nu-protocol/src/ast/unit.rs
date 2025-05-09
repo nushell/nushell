@@ -106,6 +106,33 @@ impl Unit {
             },
         }
     }
+
+    /// Returns the symbol [`str`] for a [`Unit`].
+    ///
+    /// The returned string is the same exact string needed for a successful call to
+    /// [`parse`](str::parse) for a [`Unit`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use nu_protocol::{Unit, FilesizeUnit};
+    /// assert_eq!(Unit::Nanosecond.as_str(), "ns");
+    /// assert_eq!(Unit::FileSize(FilesizeUnit::B).as_str(), "B");
+    /// assert_eq!(Unit::Second.as_str().parse(), Ok(Unit::Second));
+    /// assert_eq!(Unit::Filesize(FilesizeUnit::KB).as_str().parse(), Ok(Unit::Filesize(FilesizeUnit::KB)));
+    /// ```
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Unit::Filesize(u) => u.as_str(),
+            Unit::Nanosecond => "ns",
+            Unit::Microsecond => "us",
+            Unit::Millisecond => "ms",
+            Unit::Second => "sec",
+            Unit::Minute => "min",
+            Unit::Hour => "hr",
+            Unit::Day => "day",
+            Unit::Week => "wk",
+        }
+    }
 }
 
 impl FromStr for Unit {

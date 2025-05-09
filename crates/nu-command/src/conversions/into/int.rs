@@ -291,16 +291,38 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let val_span = input.span();
 
     if let Some(spanned_unit) = unit_option {
-        let value_one_in_unit = match spanned_unit.item.build_value(1, head) {
-            Ok(v) => v,
-            Err(err) => {
-                return Value::error(err, head);
+        let unit_str = spanned_unit.item.as_str();
+        return match spanned_unit.item.build_value(1, head) {
+            Ok(val_one_in_unit) => {
+                match (input, &val_one_in_unit) {
+                    (Value::Duration { .. }, Value::Duration { .. }) => input
+                        .div(input.span(), &val_one_in_unit, val_one_in_unit.span())
+                        .unwrap_or_else(|err| Value::error(err, head)),
+                    (Value::Filesize { .. }, Value::Filesize { .. }) => input
+                        .div(input.span(), &val_one_in_unit, val_one_in_unit.span())
+                        .unwrap_or_else(|err| Value::error(err, head)),
+                    (other_from, _) => {
+                        let target_unit_type = match spanned_unit.item {
+                            Unit::Filesize(..) => "fileszie",
+                            _ => "duration",
+                        };
+                        Value::error(
+                        ShellError::CantConvertToUnit {
+                            target_unit: unit_str.to_string(),
+                            to_type: target_unit_type.to_string(),
+                            from_type: other_from.get_type().to_string(),
+                            span: other_from.span(),
+                            unit_span: spanned_unit.span,
+                            help: Some(format!("either the input value should be a {} or choose a different unit", target_unit_type)),
+                        },
+                        head,
+                    )
+                    }
+                }
             }
+            Err(err) => Value::error(err, head),
         };
-        return input
-            .div(val_span, &value_one_in_unit, head)
-            .unwrap_or_else(|err| Value::error(err, head));
-    }
+    };
 
     match input {
         Value::Int { val: _, .. } => {
@@ -310,38 +332,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 convert_int(input, head, radix)
             }
         }
-        Value::Filesize { val, .. } => {
-            // let val_in_unit: i64 = match unit_option {
-            //     Some(spanned_unit) => match spanned_unit.item {
-            //         Unit::Filesize(filesize_unit) => {
-            //             dbg!(val.get());
-            //             match Filesize::from_unit(val.get(), filesize_unit) {
-            //                 Some(filesize) => {
-            //                     dbg!(filesize.get());
-            //                     filesize.get()
-            //                 },
-            //                 None => {
-            //                     return Value::error(ShellError::CantConvert { to_type: "int".to_string(), from_type: "filesize".to_string(), span: head, help: Some("an overflow occurred when trying to convert the filesize to the specified unit".to_string()) }, head);
-            //                 }
-            //             }
-            //         }
-            //         _ => {
-            //             return Value::error(
-            //                 ShellError::IncorrectValue {
-            //                     msg: "must be a valid filesize unit".to_string(),
-            //                     val_span: val_span,
-            //                     call_span: spanned_unit.span,
-            //                 },
-            //                 head,
-            //             );
-            //         }
-            //     },
-            //     None => val.get(),
-            // };
-
-            let val_in_unit = val.get();
-            Value::int(val_in_unit, head)
-        }
+        Value::Filesize { val, .. } => Value::int(val.get(), head),
         Value::Float { val, .. } => Value::int(
             {
                 if radix == 10 {
