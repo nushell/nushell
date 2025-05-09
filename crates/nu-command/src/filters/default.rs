@@ -150,7 +150,6 @@ fn default(
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        // Single record arm
         if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
             let Value::Record {
                 val: ref mut record,
@@ -162,7 +161,6 @@ fn default(
             let record = record.to_mut().into_spanned(internal_span);
             fill_record(record, &mut default_value, columns, default_when_empty)
                 .map(|x| x.into_pipeline_data().set_metadata(metadata))
-        // List value & ListStream arm
         } else if matches!(
             input,
             PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, _)
@@ -260,14 +258,13 @@ impl<'a> DefaultValue<'a> {
     }
 }
 
+/// Given a record, fill missing columns with a default value
 fn fill_record(
     record: Spanned<&mut Record>,
     default_value: &mut DefaultValue,
     columns: &[String],
     empty: bool,
 ) -> Result<Value, ShellError> {
-    // Only run the closure if we haven't already calculated the value
-
     for col in columns {
         if let Some(val) = record.item.get_mut(col) {
             if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
