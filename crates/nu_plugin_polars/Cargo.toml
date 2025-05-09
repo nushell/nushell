@@ -82,6 +82,7 @@ features = [
   "parquet",
   "pivot",
   "random",
+  "replace",
   "rolling_window",
   "rows",
   "round_series",
