@@ -411,16 +411,13 @@ impl PipelineData {
         self,
         cell_path: &[PathMember],
         head: Span,
-        insensitive: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path, insensitive)
+                .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
-            PipelineData::Value(v, ..) => v
-                .follow_cell_path(cell_path, insensitive)
-                .map(Cow::into_owned),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
                 span: head,

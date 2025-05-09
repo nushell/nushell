@@ -327,6 +327,7 @@ fn into_sqlite_big_insert() {
                         val: "somedate".into(),
                         span: Span::unknown(),
                         optional: false,
+                        insensitive: false,
                     }],
                     Box::new(|dateval| {
                         Value::string(dateval.coerce_string().unwrap(), dateval.span())

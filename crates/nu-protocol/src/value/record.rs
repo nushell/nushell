@@ -3,11 +3,66 @@ use std::{iter::FusedIterator, ops::RangeBounds};
 
 use crate::{ShellError, Span, Value};
 
+use nu_utils::IgnoreCaseExt;
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
     inner: Vec<(String, Value)>,
+}
+
+pub struct CasedRecord<R> {
+    record: R,
+    insensitive: bool,
+}
+
+impl<R> CasedRecord<R> {
+    fn cmp(&self, lhs: &str, rhs: &str) -> bool {
+        if self.insensitive {
+            lhs.eq_ignore_case(rhs)
+        } else {
+            lhs == rhs
+        }
+    }
+}
+
+impl<'a> CasedRecord<&'a Record> {
+    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+        self.record.columns().any(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+        self.record
+            .columns()
+            .rposition(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn get(self, col: impl AsRef<str>) -> Option<&'a Value> {
+        let idx = self.index_of(col)?;
+        let (_, value) = self.record.get_index(idx)?;
+        Some(value)
+    }
+}
+
+impl<'a> CasedRecord<&'a mut Record> {
+    fn shared(&'a self) -> CasedRecord<&'a Record> {
+        CasedRecord {
+            record: &*self.record,
+            insensitive: self.insensitive,
+        }
+    }
+
+    pub fn get_mut(self, col: impl AsRef<str>) -> Option<&'a mut Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, value) = self.record.get_index_mut(idx)?;
+        Some(value)
+    }
+
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, val) = self.record.inner.remove(idx);
+        Some(val)
+    }
 }
 
 impl Record {
@@ -18,6 +73,20 @@ impl Record {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn cased(&self, insensitive: bool) -> CasedRecord<&Record> {
+        CasedRecord {
+            record: self,
+            insensitive,
+        }
+    }
+
+    pub fn cased_mut(&mut self, insensitive: bool) -> CasedRecord<&mut Record> {
+        CasedRecord {
+            record: self,
+            insensitive,
         }
     }
 
@@ -106,6 +175,12 @@ impl Record {
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
         self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
+    }
+
+    pub fn get_index_mut(&mut self, idx: usize) -> Option<(&mut String, &mut Value)> {
+        self.inner
+            .get_mut(idx)
+            .map(|(col, val): &mut (_, _)| (col, val))
     }
 
     /// Remove single value by key

@@ -104,7 +104,7 @@ pub(crate) fn eval_cell_path(
         eval_constant(working_set, head)
     }?;
     head_value
-        .follow_cell_path(path_members, false)
+        .follow_cell_path(path_members)
         .map(Cow::into_owned)
 }
 

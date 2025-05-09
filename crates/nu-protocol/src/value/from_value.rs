@@ -585,6 +585,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
+                    insensitive: false,
                 }],
             }),
             Value::Int { val, .. } => {

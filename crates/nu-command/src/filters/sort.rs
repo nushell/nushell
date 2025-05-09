@@ -164,7 +164,14 @@ impl Command for Sort {
                 if let Type::Table(cols) = r#type {
                     let columns: Vec<Comparator> = cols
                         .iter()
-                        .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
+                        .map(|col| {
+                            vec![PathMember::string(
+                                col.0.clone(),
+                                false,
+                                false,
+                                Span::unknown(),
+                            )]
+                        })
                         .map(|members| CellPath { members })
                         .map(Comparator::CellPath)
                         .collect();

@@ -161,7 +161,7 @@ impl LanguageServer {
                 markdown_hover(
                     var.const_val
                         .as_ref()
-                        .and_then(|val| val.follow_cell_path(&cell_path, false).ok())
+                        .and_then(|val| val.follow_cell_path(&cell_path).ok())
                         .map(|val| {
                             let ty = val.get_type();
                             if let Ok(s) = val.coerce_str() {
