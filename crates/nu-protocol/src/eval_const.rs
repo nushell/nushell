@@ -561,10 +561,6 @@ impl Eval for EvalConst {
         while let Some(block_id) = block_ids.pop_front() {
             let block = state.get_block(block_id).as_ref();
 
-            if !span.contains_span(block.span.ok_or(ShellError::NotAConstant { span })?) {
-                continue;
-            }
-
             let non_const = block
                 .captures
                 .iter()
