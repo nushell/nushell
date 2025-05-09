@@ -174,12 +174,8 @@ fn default(
                 {
                     let record = record.to_mut().into_spanned(internal_span);
                     item = fill_record(record, &mut default_value, columns, default_when_empty)?;
-                    output_list.push(item);
-                } else {
-                    // To maintain the original functionality of `default`, we skip over
-                    // non-record values in the input stream instead of returning an error
-                    output_list.push(item);
                 }
+                output_list.push(item);
             }
             let ls = ListStream::new(
                 output_list.into_iter(),
