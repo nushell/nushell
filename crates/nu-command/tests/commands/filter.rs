@@ -9,7 +9,7 @@ fn filter_with_return_in_closure() {
                 return true
             };
             return false;
-        } | to nuon --raw
+        } | to nuon
         "
     ));
 

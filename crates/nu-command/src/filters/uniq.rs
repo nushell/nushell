@@ -218,7 +218,7 @@ fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<Strin
     nuon::to_nuon(
         engine_state,
         &value,
-        nuon::ToStyle::Raw,
+        nuon::ToStyle::Default,
         Some(Span::unknown()),
         false,
     )
