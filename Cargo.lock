@@ -3708,6 +3708,7 @@ dependencies = [
  "rand 0.9.0",
  "rand_chacha 0.9.0",
  "rayon",
+ "reedline",
  "rmp",
  "roxmltree",
  "rstest",
