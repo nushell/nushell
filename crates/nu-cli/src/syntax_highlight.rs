@@ -30,9 +30,8 @@ impl Highlighter for NuHighlighter {
             // externals may slow down things too much.
             if highlight_resolved_externals {
                 for (span, shape) in shapes.iter_mut() {
-                    if *shape == FlatShape::External {
-                        let str_contents =
-                            working_set.get_span_contents(Span::new(span.start, span.end));
+                    if let FlatShape::External(aliased_command_span) = *shape {
+                        let str_contents = working_set.get_span_contents(aliased_command_span);
 
                         let str_word = String::from_utf8_lossy(str_contents).to_string();
                         let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
@@ -99,7 +98,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Float => add_colored_token(&shape.1, next_token),
                 FlatShape::Range => add_colored_token(&shape.1, next_token),
                 FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-                FlatShape::External => add_colored_token(&shape.1, next_token),
+                FlatShape::External(_) => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
                 FlatShape::Keyword => add_colored_token(&shape.1, next_token),
