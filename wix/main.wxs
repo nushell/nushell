@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  - https://learn.microsoft.com/en-us/windows/win32/msi/single-package-authoring
+  - https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msiexec
+-->
+
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
@@ -44,7 +50,7 @@
 
     <!-- Per Machine Install -->
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLDIR" Name="$(var.ApplicationFolderName)">
+      <Directory Id="APPLICATIONFOLDER" Name="$(var.ApplicationFolderName)">
         <Directory Id="BINDIR" Name="bin" />
       </Directory>
     </StandardDirectory>
@@ -105,7 +111,7 @@
     </ComponentGroup>
 
     <!-- License and Icon in main directory -->
-    <ComponentGroup Id="NushellResources" Directory="INSTALLDIR">
+    <ComponentGroup Id="NushellResources" Directory="APPLICATIONFOLDER">
       <Component Id="Nu_Icon" Guid="*">
         <File Id="nu.ico" Source="$(var.ProjectDir)\nu.ico" KeyPath="yes" />
       </Component>
@@ -155,7 +161,10 @@
     </DirectoryRef>
 
     <!-- Main feature set -->
-    <Feature Id="ProductFeature" Title="Nushell" Level="1">
+    <Feature Id="ProductFeature"
+             Level="1"
+             Title="Nushell"
+             Description="Install $(var.ProductName) and plugins.">
       <ComponentGroupRef Id="NushellBinaries" />
       <ComponentGroupRef Id="NushellResources" />
       <ComponentRef Id="EnvironmentPathUser" />
@@ -164,9 +173,9 @@
 
     <!-- Windows Terminal Profile Feature -->
     <Feature Id="WindowsTerminalProfile"
+             Level="1"
              Title="Windows Terminal Profile"
-             Description="Add $(var.ProductName) profile to Windows Terminal."
-             Level="1">
+             Description="Add $(var.ProductName) profile to Windows Terminal.">
       <ComponentRef Id="WindowsTerminalProfile" />
     </Feature>
 
