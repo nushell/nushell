@@ -310,7 +310,7 @@ impl Iterator for NthIterator {
                     return self.input.next();
                 } else {
                     self.current += 1;
-                    let _ = self.input.next();
+                    let _ = self.input.next()?;
                     continue;
                 }
             } else {
