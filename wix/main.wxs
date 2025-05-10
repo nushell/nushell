@@ -219,6 +219,16 @@
                  After="AppSearch"
                  Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
                  Sequence="both" />
+
+    <!-- Override APPLICATIONFOLDER for 64-bit installations -->
+    <?if $(sys.BUILDARCH) = x64 OR $(sys.BUILDARCH) = arm64 ?>
+    <SetProperty Id="APPLICATIONFOLDER"
+                 Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
+                 After="LaunchConditions"
+                 Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+    <?endif?>
+
     <SetProperty Id="BINDIR"
                  Action="SetBINDIR_Machine"
                  Value="[BINDIR]"
@@ -230,10 +240,11 @@
     <SetProperty Id="LOGICAL_BINDIR" Value="[BINDIR]" After="AppSearch" Sequence="both" />
 
     <!-- Property that defines the command executed by the Windows Terminal Profile custom action -->
+    <!-- for Value, see https://learn.microsoft.com/en-ca/windows/win32/msi/formatted -->
     <SetProperty Id="ReplacePathsInWindowsTerminalProfile"
                  Sequence="execute"
-                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
                  After="CostFinalize"
+                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
                  Condition="MSIINSTALLPERUSER=1" />
 
     <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
