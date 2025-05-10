@@ -183,11 +183,6 @@ fn flatten_expression_into(
     expr: &Expression,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
-    if let Some(custom_completion) = &expr.custom_completion {
-        output.push((expr.span, FlatShape::Custom(*custom_completion)));
-        return;
-    }
-
     match &expr.expr {
         Expr::AttributeBlock(ab) => {
             for attr in &ab.attributes {
