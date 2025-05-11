@@ -12,7 +12,6 @@ on:
   push:
     branches:
       - nightly   # Just for test purpose only with the nightly repo
-      - fix/arm64-and-winget
   # This schedule will run only from the default branch
   schedule:
     - cron: '15 0 * * *' # run at 00:15 AM UTC
@@ -101,15 +100,6 @@ jobs:
             rm .github/workflows/ci.yml
             rm .github/workflows/audit.yml
 
-            # Test the latest release script before merging
-            # TODO: Remove the following two lines after the test
-            git fetch origin
-            if ((git branch -r) =~ fix/arm64-and-winget) {
-              git checkout scripts/build.rs
-              git checkout origin/fix/arm64-and-winget wix
-              git checkout origin/fix/arm64-and-winget .github/workflows/release-pkg.nu
-            }
-            # ----------- REMOVE END OF TESTING ------------------
             git add .
             git commit -m $'Update version to ($version)-nightly.($build)'
             git tag -a $nightly_tag -m $'Nightly build from ($sha_short)'
