@@ -41,6 +41,20 @@
     <!-- If set to WixPerMachineFolder will install for PerMachine by default -->
     <Property Id="WixAppFolder" Value="WixLocalAppDataFolder" />
 
+    <!-- Workaround Wix Bug: https://github.com/wixtoolset/issues/issues/2165 -->
+    <!-- The suggested folder in the dest folder dialog should be C:\Program Files\nu -->
+    <CustomAction Id="Overwrite_WixSetDefaultPerMachineFolder" Property="WixPerMachineFolder"
+      Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
+    <CustomAction Id="Overwrite_ARPINSTALLLOCATION" Property="ARPINSTALLLOCATION"
+      Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
+    <InstallUISequence>
+      <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
+    </InstallUISequence>
+    <InstallExecuteSequence>
+      <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
+      <Custom Action="Overwrite_ARPINSTALLLOCATION" After="InstallValidate"/>
+    </InstallExecuteSequence>
+
     <!-- Enable UAC prompt when installing for all users -->
     <!-- <Property Id="MSIUSEREALADMINDETECTION" Value="1" /> -->
 
@@ -111,13 +125,13 @@
               <Component Id="WindowsTerminalProfile" Guid="957239F4-7B87-4399-9F91-7DF2ABE5ED8B">
                 <File Id="WindowsTerminalProfileFile"
                       Name="nu.json"
+                      KeyPath="yes"
                       Source="$(var.ProjectDir)\windows-terminal-profile.json" />
                 <RegistryValue Root="HKCU"
                                Key="Software\nu"
                                Name="WindowsTerminalProfile"
                                Value="1"
-                               Type="integer"
-                               KeyPath="yes" />
+                               Type="integer" />
                 <RemoveFolder Id="RemoveWindowsTerminalProfileFolderA" Directory="WindowsTerminalProfileAppFolder" On="uninstall" />
                 <RemoveFolder Id="RemoveWindowsTerminalProfileFolderB" Directory="WindowsTerminalProfileFolder" On="uninstall" />
                 <RemoveFolder Id="RemoveWindowsTerminalProfileFolderC" Directory="AppDataWindowsTerminalFolder" On="uninstall" />
