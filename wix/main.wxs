@@ -65,7 +65,7 @@
     <!-- INSTALLDIR is the logical target directory whose path will be set by the INSTALLDIR property. -->
     <Directory Id="INSTALLDIR" Name="$(var.ApplicationFolderName)">
       <!-- LOGICAL_BINDIR's path will be set by the LOGICAL_BINDIR property -->
-      <Directory Id="LOGICAL_BINDIR" Name="bin_placeholder" />
+      <Directory Id="LOGICAL_BINDIR" Name="bin" />
     </Directory>
 
     <!-- Per Machine Install - these are the definitions of the physical locations -->
@@ -215,13 +215,13 @@
     <!-- If installing per-user (MSIINSTALLPERUSER=1), this sets INSTALLDIR and BINDIR to point to user-specific paths -->
     <SetProperty Id="INSTALLDIR"
                  Action="SetINSTALLDIR_User"
-                 Value="[INSTALLDIR_USER]"
+                 Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)"
                  After="AppSearch"
                  Condition="MSIINSTALLPERUSER=1"
                  Sequence="both" />
     <SetProperty Id="BINDIR"
                  Action="SetBINDIR_User"
-                 Value="[BINDIR_USER]"
+                 Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)\bin"
                  After="AppSearch"
                  Condition="MSIINSTALLPERUSER=1"
                  Sequence="both" />
