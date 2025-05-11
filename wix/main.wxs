@@ -108,7 +108,7 @@
         <Directory Id="AppDataWindowsTerminalFolder" Name="Windows Terminal">
           <Directory Id="WindowsTerminalProfileFolder" Name="Fragments">
             <Directory Id="WindowsTerminalProfileAppFolder" Name="$(var.ApplicationFolderName)">
-              <Component Id="WindowsTerminalProfile" Guid="957239F4-7B87-4399-9F91-7DF2ABE5ED8B" Condition="MSIINSTALLPERUSER=1">
+              <Component Id="WindowsTerminalProfile" Guid="957239F4-7B87-4399-9F91-7DF2ABE5ED8B">
                 <File Id="WindowsTerminalProfileFile"
                       Name="nu.json"
                       Source="$(var.ProjectDir)\windows-terminal-profile.json" />
@@ -245,7 +245,7 @@
                  Sequence="execute"
                  After="CostFinalize"
                  Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
-                 Condition="MSIINSTALLPERUSER=1" />
+                 Condition="(&amp;WindowsTerminalProfileFeature=3) OR ((!WindowsTerminalProfileFeature=3) AND (REINSTALL&lt;&gt;&quot;&quot;))" />
 
     <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
     <CustomAction Id="ReplacePathsInWindowsTerminalProfile"
@@ -257,7 +257,7 @@
 
     <InstallExecuteSequence>
       <Custom Action="ReplacePathsInWindowsTerminalProfile" Before="InstallFinalize"
-              Condition="(MSIINSTALLPERUSER=1) AND ((&amp;WindowsTerminalProfileFeature=3) OR ((!WindowsTerminalProfileFeature=3) AND (REINSTALL&lt;&gt;&quot;&quot;)))" />
+              Condition="((&amp;WindowsTerminalProfileFeature=3) OR ((!WindowsTerminalProfileFeature=3) AND (REINSTALL&lt;&gt;&quot;&quot;)))" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
