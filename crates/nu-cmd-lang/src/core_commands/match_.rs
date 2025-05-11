@@ -50,6 +50,17 @@ impl Command for Match {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
+                description: "Match on a value",
+                example: "match 3 { 1 => 'one', 2 => 'two', 3 => 'three' }",
+                result: Some(Value::test_string("three")),
+            },
+            Example {
+                description: "Match against alternative values",
+                example:
+                    "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => '---' }",
+                result: Some(Value::test_string("---")),
+            },
+            Example {
                 description: "Match on a value in range",
                 example: "match 3 { 1..10 => 'yes!' }",
                 result: Some(Value::test_string("yes!")),
