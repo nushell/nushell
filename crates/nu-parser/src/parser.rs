@@ -1977,15 +1977,33 @@ pub fn parse_paren_expr(
     let starting_error_count = working_set.parse_errors.len();
 
     if let Some(expr) = parse_range(working_set, span) {
-        expr
-    } else {
-        working_set.parse_errors.truncate(starting_error_count);
+        return expr;
+    }
 
-        if matches!(shape, SyntaxShape::Signature) {
-            parse_signature(working_set, span)
+    working_set.parse_errors.truncate(starting_error_count);
+
+    if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span);
+    }
+
+    let fcp_expr = parse_full_cell_path(working_set, None, span);
+    let fcp_error_count = working_set.parse_errors.len();
+    if fcp_error_count > starting_error_count {
+        let malformed_subexpr = working_set.parse_errors[starting_error_count..]
+            .iter()
+            .any(|e| match e {
+                ParseError::Unclosed(right, _) if right == ")" => true,
+                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                _ => false,
+            });
+        if malformed_subexpr {
+            working_set.parse_errors.truncate(starting_error_count);
+            parse_string(working_set, span)
         } else {
-            parse_full_cell_path(working_set, None, span)
+            fcp_expr
         }
+    } else {
+        fcp_expr
     }
 }
 
