@@ -454,6 +454,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobKill,
             JobId,
             JobTag,
+            JobWait,
             Job,
         };
 
