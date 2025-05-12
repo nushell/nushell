@@ -384,7 +384,10 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
     ] {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
-                let expr = format!("{} | join {} {} {} {} | to nuon", left, right, join_type, left_on, right_on);
+                let expr = format!(
+                    "{} | join {} {} {} {} | to nuon",
+                    left, right, join_type, left_on, right_on
+                );
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
 

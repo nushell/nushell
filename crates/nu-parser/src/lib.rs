@@ -13,15 +13,15 @@ mod type_check;
 
 pub use deparse::escape_for_script_arg;
 pub use flatten::{
-    flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element, FlatShape,
+    FlatShape, flatten_block, flatten_expression, flatten_pipeline, flatten_pipeline_element,
 };
 pub use known_external::KnownExternal;
-pub use lex::{lex, lex_n_tokens, lex_signature, LexState, Token, TokenContents};
-pub use lite_parser::{lite_parse, LiteBlock, LiteCommand};
+pub use lex::{LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature};
+pub use lite_parser::{LiteBlock, LiteCommand, lite_parse};
 pub use nu_protocol::parser_path::*;
 pub use parse_keywords::*;
 
 pub use parser::{
-    is_math_expression_like, parse, parse_block, parse_expression, parse_external_call,
-    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string, DURATION_UNIT_GROUPS,
+    DURATION_UNIT_GROUPS, is_math_expression_like, parse, parse_block, parse_expression,
+    parse_external_call, parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string,
 };

@@ -3,12 +3,12 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
+    BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
-    VarId,
+    record,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{

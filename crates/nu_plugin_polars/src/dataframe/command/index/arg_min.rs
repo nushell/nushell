@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use crate::values::{Column, NuDataFrame};
 

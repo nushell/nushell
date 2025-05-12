@@ -1,10 +1,10 @@
 use crate::FormatCmdsPlugin;
-use eml_parser::eml::*;
 use eml_parser::EmlParser;
+use eml_parser::eml::*;
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value, record,
 };
 
 const DEFAULT_BODY_PREVIEW: usize = 50;

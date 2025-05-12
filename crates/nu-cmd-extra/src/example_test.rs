@@ -16,8 +16,8 @@ mod test_examples {
     };
 
     use nu_protocol::{
-        engine::{Command, EngineState, StateWorkingSet},
         Type,
+        engine::{Command, EngineState, StateWorkingSet},
     };
     use std::collections::HashSet;
 

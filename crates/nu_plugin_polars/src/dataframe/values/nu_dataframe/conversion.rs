@@ -5,21 +5,21 @@ use std::sync::Arc;
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
+use polars::chunked_array::ChunkedArray;
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
-use polars::chunked_array::ChunkedArray;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
     ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
-    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder,
+    Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
     ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
     NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    TemporalMethods, TimeUnit, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
-use polars_arrow::array::Utf8ViewArray;
 use polars_arrow::Either;
+use polars_arrow::array::Utf8ViewArray;
 
 use crate::dataframe::values::NuSchema;
 

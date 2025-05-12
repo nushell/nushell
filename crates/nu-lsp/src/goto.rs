@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use crate::{path_to_uri, span_to_range, Id, LanguageServer};
+use crate::{Id, LanguageServer, path_to_uri, span_to_range};
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse, Location};
-use nu_protocol::engine::{CachedFile, StateWorkingSet};
 use nu_protocol::Span;
+use nu_protocol::engine::{CachedFile, StateWorkingSet};
 
 impl LanguageServer {
     fn get_location_by_span<'a>(
@@ -105,9 +105,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{GotoDefinition, Request},
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
+        request::{GotoDefinition, Request},
     };
     use nu_test_support::fs::{fixtures, root};
 

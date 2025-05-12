@@ -5,12 +5,12 @@ use nu_protocol::{
 };
 
 use chrono::DateTime;
-use polars_ops::pivot::{pivot, PivotAgg};
+use polars_ops::pivot::{PivotAgg, pivot};
 
 use crate::{
+    PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
     values::{Column, CustomValueSupport, PolarsPluginObject},
-    PolarsPlugin,
 };
 
 use crate::values::NuDataFrame;
@@ -88,7 +88,10 @@ impl PluginCommand for PivotDF {
                         vec![
                             Column::new(
                                 "name".to_string(),
-                                vec![Value::string("Cady", Span::test_data()), Value::string("Karen", Span::test_data())],
+                                vec![
+                                    Value::string("Cady", Span::test_data()),
+                                    Value::string("Karen", Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "date".to_string(),
@@ -113,18 +116,24 @@ impl PluginCommand for PivotDF {
                             ),
                             Column::new(
                                 "maths".to_string(),
-                                vec![Value::int(98, Span::test_data()), Value::int(61, Span::test_data())],
+                                vec![
+                                    Value::int(98, Span::test_data()),
+                                    Value::int(61, Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "physics".to_string(),
-                                vec![Value::int(99, Span::test_data()), Value::int(58, Span::test_data())],
+                                vec![
+                                    Value::int(99, Span::test_data()),
+                                    Value::int(58, Span::test_data()),
+                                ],
                             ),
                         ],
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown())
-                )
+                    .into_value(Span::unknown()),
+                ),
             },
             Example {
                 description: "Perform a pivot with multiple `values` columns with a separator",
@@ -134,31 +143,46 @@ impl PluginCommand for PivotDF {
                         vec![
                             Column::new(
                                 "name".to_string(),
-                                vec![Value::string("Cady", Span::test_data()), Value::string("Karen", Span::test_data())],
+                                vec![
+                                    Value::string("Cady", Span::test_data()),
+                                    Value::string("Karen", Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "test_1/maths".to_string(),
-                                vec![Value::int(98, Span::test_data()), Value::int(61, Span::test_data())],
+                                vec![
+                                    Value::int(98, Span::test_data()),
+                                    Value::int(61, Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "test_1/physics".to_string(),
-                                vec![Value::int(99, Span::test_data()), Value::int(58, Span::test_data())],
+                                vec![
+                                    Value::int(99, Span::test_data()),
+                                    Value::int(58, Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "grade_1/maths".to_string(),
-                                vec![Value::string("A", Span::test_data()), Value::string("D", Span::test_data())],
+                                vec![
+                                    Value::string("A", Span::test_data()),
+                                    Value::string("D", Span::test_data()),
+                                ],
                             ),
                             Column::new(
                                 "grade_1/physics".to_string(),
-                                vec![Value::string("A", Span::test_data()), Value::string("D", Span::test_data())],
+                                vec![
+                                    Value::string("A", Span::test_data()),
+                                    Value::string("D", Span::test_data()),
+                                ],
                             ),
                         ],
                         None,
                     )
                     .expect("simple df for test should not fail")
-                    .into_value(Span::unknown())
-                )
-            }
+                    .into_value(Span::unknown()),
+                ),
+            },
         ]
     }
 

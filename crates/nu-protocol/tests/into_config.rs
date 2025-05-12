@@ -50,9 +50,11 @@ fn config_add_unsupported_key() {
         r#"$env.config.foo = 2"#,
         r#";"#]));
 
-    assert!(actual
-        .err
-        .contains("Unknown config option: $env.config.foo"));
+    assert!(
+        actual
+            .err
+            .contains("Unknown config option: $env.config.foo")
+    );
 }
 
 #[test]

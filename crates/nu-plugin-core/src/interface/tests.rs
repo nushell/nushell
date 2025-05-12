@@ -1,15 +1,15 @@
 use super::{
+    Interface, InterfaceManager, PluginRead, PluginWrite,
     stream::{StreamManager, StreamManagerHandle},
     test_util::TestCase,
-    Interface, InterfaceManager, PluginRead, PluginWrite,
 };
 use nu_plugin_protocol::{
     ByteStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput, StreamData,
     StreamMessage,
 };
 use nu_protocol::{
-    engine::Sequence, shell_error::io::IoError, ByteStream, ByteStreamSource, ByteStreamType,
-    DataSource, ListStream, PipelineData, PipelineMetadata, ShellError, Signals, Span, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
+    PipelineMetadata, ShellError, Signals, Span, Value, engine::Sequence, shell_error::io::IoError,
 };
 use std::{path::Path, sync::Arc};
 

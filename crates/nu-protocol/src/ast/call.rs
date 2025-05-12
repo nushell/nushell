@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    ShellError, Span, Spanned, Value,
+    DeclId, FromValue, ShellError, Span, Spanned, Value, ast::Expression, engine::StateWorkingSet,
+    eval_const::eval_constant,
 };
 
 /// Parsed command arguments

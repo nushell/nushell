@@ -1,12 +1,11 @@
 use crate::formats::value_to_json_value;
 use base64::{
-    alphabet,
-    engine::{general_purpose::PAD, GeneralPurpose},
-    Engine,
+    Engine, alphabet,
+    engine::{GeneralPurpose, general_purpose::PAD},
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
+use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -414,7 +413,7 @@ fn send_multipart_request(
                     err_message: format!("Accepted types: [record]. Check: {HTTP_DOCS}"),
                     span: body.span(),
                 },
-            ))
+            ));
         }
     };
     send_cancellable_request(request_url, Box::new(request_fn), span, signals)
@@ -671,7 +670,12 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                 span,
             };
             match t.kind() {
-                ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+                ErrorKind::ConnectionFailed => ShellError::NetworkFailure {
+                    msg: format!(
+                        "Cannot make request to {requested_url}, there was an error establishing a connection.",
+                    ),
+                    span,
+                },
                 ErrorKind::Io => 'io: {
                     let Some(source) = t.source() else {
                         break 'io generic_network_failure();
@@ -683,7 +687,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
 
                     ShellError::Io(IoError::new(io_error.kind(), span, None))
                 }
-                _ => generic_network_failure()
+                _ => generic_network_failure(),
             }
         }
     }

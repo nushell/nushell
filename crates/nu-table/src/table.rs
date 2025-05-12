@@ -10,6 +10,7 @@ use nu_color_config::TextStyle;
 use nu_protocol::{TableIndent, TrimStrategy};
 
 use tabled::{
+    Table,
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
@@ -19,18 +20,17 @@ use tabled::{
         },
         dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
-            vec_records::{Cell, Text, VecRecords},
             IntoRecords, IterRecords, Records,
+            vec_records::{Cell, Text, VecRecords},
         },
     },
     settings::{
+        Alignment, CellOption, Color, Padding, TableOption, Width,
         formatting::AlignmentStrategy,
         object::{Columns, Rows},
         themes::ColumnNames,
         width::Truncate,
-        Alignment, CellOption, Color, Padding, TableOption, Width,
     },
-    Table,
 };
 
 use crate::{convert_style, is_color_empty, table_theme::TableTheme};

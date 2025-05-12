@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, HistoryFileFormat};
+use nu_protocol::{HistoryFileFormat, shell_error::io::IoError};
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,

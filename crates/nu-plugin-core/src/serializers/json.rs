@@ -1,5 +1,5 @@
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{location, shell_error::io::IoError, ShellError};
+use nu_protocol::{ShellError, location, shell_error::io::IoError};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};

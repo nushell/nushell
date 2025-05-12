@@ -3,7 +3,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
-use crate::{dataframe::values::Column, values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
 use crate::values::NuDataFrame;
 

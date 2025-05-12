@@ -650,8 +650,16 @@ nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP serve
         ];
 
         let want = vec![
-            vec!["2022-12-21T09:50:16+0000", "WARN", "A warning that should be ignored is usually at this level and should be actionable."],
-            vec!["2022-12-21T09:50:17+0000", "INFO", "This is less important than debug log and is often used to provide context in the current task."],
+            vec![
+                "2022-12-21T09:50:16+0000",
+                "WARN",
+                "A warning that should be ignored is usually at this level and should be actionable.",
+            ],
+            vec![
+                "2022-12-21T09:50:17+0000",
+                "INFO",
+                "This is less important than debug log and is often used to provide context in the current task.",
+            ],
         ];
 
         let header = 0;

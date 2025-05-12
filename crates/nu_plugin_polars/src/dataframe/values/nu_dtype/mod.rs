@@ -1,7 +1,7 @@
 pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, record};
 use polars::prelude::{DataType, Field, PlSmallStr, TimeUnit, UnknownKind};
 use uuid::Uuid;
 

@@ -1,4 +1,4 @@
-use serde_json::{json, Map, Value as SerdeValue};
+use serde_json::{Map, Value as SerdeValue, json};
 
 /// JsonFlattener is the main driver when flattening JSON
 /// # Examples

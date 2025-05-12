@@ -1,4 +1,4 @@
-use crate::database::{values::sqlite::nu_value_to_params, SQLiteDatabase};
+use crate::database::{SQLiteDatabase, values::sqlite::nu_value_to_params};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]

@@ -4,13 +4,13 @@ build = "scripts/build.rs"
 default-run = "nu"
 description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"
-edition = "2021"
+edition = "2024"
 exclude = ["images"]
 homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.84.1"
+rust-version = "1.85.0"
 version = "0.104.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -17,14 +17,18 @@ pub enum CompileError {
     #[error("Register {reg_id} was uninitialized when used, possibly reused.")]
     #[diagnostic(
         code(nu::compile::register_uninitialized),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
+        help(
+            "this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"
+        )
     )]
     RegisterUninitialized { reg_id: RegId, caller: String },
 
     #[error("Register {reg_id} was uninitialized when used, possibly reused.")]
     #[diagnostic(
         code(nu::compile::register_uninitialized),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
+        help(
+            "this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"
+        )
     )]
     RegisterUninitializedWhilePushingInstruction {
         reg_id: RegId,
@@ -57,7 +61,9 @@ pub enum CompileError {
     #[error("Invalid redirect mode: File should not be specified by commands.")]
     #[diagnostic(
         code(nu::compile::invalid_redirect_mode),
-        help("this is a command bug. Please report it at https://github.com/nushell/nushell/issues/new")
+        help(
+            "this is a command bug. Please report it at https://github.com/nushell/nushell/issues/new"
+        )
     )]
     InvalidRedirectMode {
         #[label("while compiling this expression")]
@@ -96,7 +102,9 @@ pub enum CompileError {
     #[error("Attempted to set branch target of non-branch instruction.")]
     #[diagnostic(
         code(nu::compile::set_branch_target_of_non_branch_instruction),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+        help(
+            "this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"
+        )
     )]
     SetBranchTargetOfNonBranchInstruction {
         instruction: String,
@@ -218,7 +226,9 @@ pub enum CompileError {
     #[error("Incoherent loop state: the loop that ended was not the one we were expecting.")]
     #[diagnostic(
         code(nu::compile::incoherent_loop_state),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+        help(
+            "this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"
+        )
     )]
     IncoherentLoopState {
         #[label("while compiling this block")]
@@ -228,7 +238,9 @@ pub enum CompileError {
     #[error("Undefined label `{label_id}`.")]
     #[diagnostic(
         code(nu::compile::undefined_label),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+        help(
+            "this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"
+        )
     )]
     UndefinedLabel {
         label_id: usize,

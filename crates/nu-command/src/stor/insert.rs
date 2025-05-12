@@ -1,4 +1,4 @@
-use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
@@ -46,7 +46,8 @@ impl Command for StorInsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
+        vec![
+            Example {
                 description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
                 example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
                 result: None,
@@ -120,7 +121,7 @@ fn handle(
             return Err(ShellError::MissingParameter {
                 param_name: "requires a table or a record".into(),
                 span,
-            })
+            });
         }
         PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
         PipelineData::Value(Value::List { vals, .. }, ..) => vals,
@@ -131,7 +132,7 @@ fn handle(
                 wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
-            })
+            });
         }
     };
 

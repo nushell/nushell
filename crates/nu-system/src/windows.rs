@@ -11,7 +11,7 @@ use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::mem::{size_of, zeroed, MaybeUninit};
+use std::mem::{MaybeUninit, size_of, zeroed};
 use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::ptr;
@@ -25,27 +25,27 @@ use windows::core::{PCWSTR, PWSTR};
 
 use windows::Wdk::System::SystemServices::RtlGetVersion;
 use windows::Wdk::System::Threading::{
-    NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
-    ProcessWow64Information, PROCESSINFOCLASS,
+    NtQueryInformationProcess, PROCESSINFOCLASS, ProcessBasicInformation,
+    ProcessCommandLineInformation, ProcessWow64Information,
 };
 
 use windows::Win32::Foundation::{
-    CloseHandle, LocalFree, FALSE, FILETIME, HANDLE, HLOCAL, HMODULE, MAX_PATH, PSID,
+    CloseHandle, FALSE, FILETIME, HANDLE, HLOCAL, HMODULE, LocalFree, MAX_PATH, PSID,
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
 };
 
 use windows::Win32::Security::{
     AdjustTokenPrivileges, GetTokenInformation, LookupAccountSidW, LookupPrivilegeValueW,
-    TokenGroups, TokenUser, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID, SID_NAME_USE,
-    TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS, TOKEN_PRIVILEGES, TOKEN_QUERY, TOKEN_USER,
+    SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID, SID_NAME_USE, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS,
+    TOKEN_PRIVILEGES, TOKEN_QUERY, TOKEN_USER, TokenGroups, TokenUser,
 };
 
 use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+    CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next, TH32CS_SNAPPROCESS,
 };
 
-use windows::Win32::System::Memory::{VirtualQueryEx, MEMORY_BASIC_INFORMATION};
+use windows::Win32::System::Memory::{MEMORY_BASIC_INFORMATION, VirtualQueryEx};
 
 use windows::Win32::System::ProcessStatus::{
     GetModuleBaseNameW, GetProcessMemoryInfo, K32EnumProcesses, PROCESS_MEMORY_COUNTERS,
@@ -55,8 +55,8 @@ use windows::Win32::System::ProcessStatus::{
 use windows::Win32::System::SystemInformation::OSVERSIONINFOEXW;
 
 use windows::Win32::System::Threading::{
-    GetCurrentProcess, GetPriorityClass, GetProcessIoCounters, GetProcessTimes, OpenProcess,
-    OpenProcessToken, IO_COUNTERS, PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION,
+    GetCurrentProcess, GetPriorityClass, GetProcessIoCounters, GetProcessTimes, IO_COUNTERS,
+    OpenProcess, OpenProcessToken, PEB, PROCESS_BASIC_INFORMATION, PROCESS_QUERY_INFORMATION,
     PROCESS_VM_READ,
 };
 

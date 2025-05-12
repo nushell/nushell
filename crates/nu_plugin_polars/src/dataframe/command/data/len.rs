@@ -1,6 +1,6 @@
 use crate::{
-    values::{Column, CustomValueSupport, NuDataFrame, NuExpression},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuDataFrame, NuExpression},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -33,9 +33,7 @@ impl PluginCommand for ExprLen {
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select (polars len) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
-                        vec![
-                            Column::new("len".to_string(), vec![Value::test_int(2)]),
-                        ],
+                        vec![Column::new("len".to_string(), vec![Value::test_int(2)])],
                         None,
                     )
                     .expect("simple df for test should not fail")

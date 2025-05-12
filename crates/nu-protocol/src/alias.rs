@@ -1,7 +1,7 @@
 use crate::{
+    PipelineData, ShellError, Signature,
     ast::Expression,
     engine::{Call, Command, CommandType, EngineState, Stack},
-    PipelineData, ShellError, Signature,
 };
 
 /// Command wrapper of an alias.

@@ -6,12 +6,12 @@ use crate::prompt_update::{
     VSCODE_PRE_EXECUTION_MARKER,
 };
 use crate::{
+    NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
-    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
+    reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     util::eval_source,
-    NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -24,13 +24,13 @@ use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
+    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    report_shell_error,
 };
 use nu_utils::{
-    filesystem::{have_permission, PermissionResult},
+    filesystem::{PermissionResult, have_permission},
     perf,
 };
 use reedline::{
@@ -42,7 +42,7 @@ use std::{
     collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -1451,7 +1451,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
+    use super::{ReplOperation, do_auto_cd, escape_special_vscode_bytes, parse_operation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;

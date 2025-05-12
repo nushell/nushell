@@ -63,9 +63,11 @@ fn into_datetime_table_column() {
 fn into_datetime_from_record_fails_with_wrong_type() {
     let actual = nu!(r#"{year: '2023'} | into datetime"#);
 
-    assert!(actual
-        .err
-        .contains("nu::shell::only_supports_this_input_type"));
+    assert!(
+        actual
+            .err
+            .contains("nu::shell::only_supports_this_input_type")
+    );
 }
 
 #[test]

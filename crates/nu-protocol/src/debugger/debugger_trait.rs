@@ -14,10 +14,10 @@
 //! `Debugger::report()` to get some output from the debugger, if necessary.
 
 use crate::{
+    PipelineData, ShellError, Span, Value,
     ast::{Block, PipelineElement},
     engine::EngineState,
     ir::IrBlock,
-    PipelineData, ShellError, Span, Value,
 };
 use std::{fmt::Debug, ops::DerefMut};
 

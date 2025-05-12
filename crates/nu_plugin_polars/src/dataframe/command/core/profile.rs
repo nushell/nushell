@@ -1,14 +1,14 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value, record,
 };
 
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
-        PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+        cant_convert_err,
+    },
 };
 
 pub struct ProfileDF;

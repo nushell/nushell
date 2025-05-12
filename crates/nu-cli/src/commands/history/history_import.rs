@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    shell_error::{self, io::IoError},
     HistoryFileFormat,
+    shell_error::{self, io::IoError},
 };
 
 use reedline::{
@@ -48,8 +48,7 @@ Note that history item IDs are ignored when importing from file."#
         vec![
             Example {
                 example: "history import",
-                description:
-                    "Append all items from history in the other format to the current history",
+                description: "Append all items from history in the other format to the current history",
                 result: None,
             },
             Example {
@@ -198,7 +197,7 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
             return Err(ShellError::TypeMismatch {
                 err_message: format!("missing column: {}", fields::COMMAND_LINE),
                 span,
-            })
+            });
         }
     };
 
@@ -283,7 +282,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
                 PathBuf::from(path),
                 "history path exists but is not a file",
             )
-            .into())
+            .into());
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => {
@@ -292,7 +291,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
                 "Could not get metadata",
                 nu_protocol::location!(),
             )
-            .into())
+            .into());
         }
     }
     let bak_path = find_backup_path(path, span)?;

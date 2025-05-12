@@ -1,6 +1,6 @@
 use std::ops::Bound;
 
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::{IntRange, Range};
 
@@ -67,7 +67,7 @@ impl Command for BytesAt {
                     input: "value originates from here".into(),
                     msg_span: call.head,
                     input_span: call.head,
-                })
+                });
             }
         };
 
@@ -148,8 +148,8 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
                     return Value::error(
                         ShellError::UnsupportedInput {
                             msg: format!(
-                            "Absolute start position {start} was too large for your system arch."
-                        ),
+                                "Absolute start position {start} was too large for your system arch."
+                            ),
                             input: args.range.to_string(),
                             msg_span: span,
                             input_span: span,

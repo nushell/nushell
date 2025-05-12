@@ -233,7 +233,7 @@ macro_rules! nu_with_plugins {
 
 }
 
-use crate::{Outcome, NATIVE_PATH_ENV_VAR};
+use crate::{NATIVE_PATH_ENV_VAR, Outcome};
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
 use nu_utils::escape_quote_string;
 use std::{

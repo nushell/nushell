@@ -39,7 +39,9 @@ impl Command for Loop {
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        eprintln!("Tried to execute 'run' for the 'loop' command: this code path should never be reached in IR mode");
+        eprintln!(
+            "Tried to execute 'run' for the 'loop' command: this code path should never be reached in IR mode"
+        );
         unreachable!()
     }
 

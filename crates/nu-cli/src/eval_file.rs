@@ -4,12 +4,12 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    PipelineData, ShellError, Span, Value,
     cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_parse_warning,
     shell_error::io::*,
-    PipelineData, ShellError, Span, Value,
 };
 use std::{path::PathBuf, sync::Arc};
 

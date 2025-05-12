@@ -1,9 +1,9 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression,
-        PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject,
+        PolarsPluginType, cant_convert_err,
+    },
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -45,12 +45,7 @@ impl PluginCommand for ToInteger {
             example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars integer) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "b".to_string(),
-                        vec![
-                            Value::test_int(2),
-                        ],
-                    )],
+                    vec![Column::new("b".to_string(), vec![Value::test_int(2)])],
                     None,
                 )
                 .expect("simple df for test should not fail")

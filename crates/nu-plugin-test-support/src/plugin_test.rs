@@ -8,10 +8,11 @@ use nu_plugin::{Plugin, PluginCommand};
 use nu_plugin_engine::{PluginCustomValueWithSource, PluginSource, WithSource};
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
+    CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData, ShellError, Signals, Span,
+    Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, Signals, Span, Value,
+    report_shell_error,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};

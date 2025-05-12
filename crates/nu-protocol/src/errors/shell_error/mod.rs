@@ -1,7 +1,7 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
-    ParseError, Span, Spanned, Type, Value,
+    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
+    engine::StateWorkingSet, format_shell_error, record,
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -312,8 +312,9 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::nushell_failed),
         help(
-        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
-    ))]
+            "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+        )
+    )]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailed { msg: String },
 
@@ -326,8 +327,9 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::nushell_failed_spanned),
         help(
-        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
-    ))]
+            "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+        )
+    )]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned {
         msg: String,
@@ -823,7 +825,9 @@ pub enum ShellError {
         plugin_name: String,
         #[label("plugin `{plugin_name}` loaded here")]
         span: Option<Span>,
-        #[help("the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        #[help(
+            "the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`"
+        )]
         add_command: String,
     },
 
@@ -893,9 +897,7 @@ pub enum ShellError {
     /// creation of the custom value and its use.
     #[error("Custom value failed to decode")]
     #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
-    #[diagnostic(help(
-        "the plugin may have been updated and no longer support this custom value"
-    ))]
+    #[diagnostic(help("the plugin may have been updated and no longer support this custom value"))]
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]
@@ -1167,7 +1169,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a constant.")]
     #[diagnostic(
         code(nu::shell::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
+        help(
+            "Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally."
+        )
     )]
     NotAConstant {
         #[label("Value is not a parse-time constant")]
@@ -1183,7 +1187,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
+        help(
+            "Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time."
+        )
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
@@ -1240,7 +1246,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a list")]
     #[diagnostic(
         code(nu::shell::cannot_spread_as_list),
-        help("Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.")
+        help(
+            "Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading."
+        )
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]
@@ -1255,7 +1263,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a record")]
     #[diagnostic(
         code(nu::shell::cannot_spread_as_record),
-        help("Only records can be spread inside records. Try converting the value to a record before spreading.")
+        help(
+            "Only records can be spread inside records. Try converting the value to a record before spreading."
+        )
     )]
     CannotSpreadAsRecord {
         #[label = "cannot spread value"]
@@ -1310,7 +1320,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
-    #[error("$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}")]
+    #[error(
+        "$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}"
+    )]
     #[diagnostic(
         code(nu::shell::xdg_config_home_invalid),
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
@@ -1326,7 +1338,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     #[error("IR evaluation error: {msg}")]
     #[diagnostic(
         code(nu::shell::ir_eval_error),
-        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+        help(
+            "this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able"
+        )
     )]
     IrEvalError {
         msg: String,
@@ -1568,19 +1582,25 @@ mod test {
 
     impl From<std::io::Error> for ShellError {
         fn from(_: std::io::Error) -> ShellError {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 
     impl From<Spanned<std::io::Error>> for ShellError {
         fn from(_: Spanned<std::io::Error>) -> Self {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 
     impl From<ShellError> for std::io::Error {
         fn from(_: ShellError) -> Self {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 }

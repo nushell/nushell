@@ -3,8 +3,8 @@ use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span
 use polars::df;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame, NuExpression},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame, NuExpression},
 };
 
 #[derive(Clone)]

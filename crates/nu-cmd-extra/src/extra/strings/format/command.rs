@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, engine::StateWorkingSet, Config, ListStream};
+use nu_protocol::{Config, ListStream, ast::PathMember, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -214,7 +214,7 @@ fn format(
                             wrong_type: val.get_type().to_string(),
                             dst_span: head_span,
                             src_span: val.span(),
-                        })
+                        });
                     }
                 }
             }

@@ -1,4 +1,4 @@
-use crate::{missing_flag_error, values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, missing_flag_error, values::CustomValueSupport};
 
 use super::super::super::values::{Column, NuDataFrame};
 

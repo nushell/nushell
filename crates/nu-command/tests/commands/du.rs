@@ -10,9 +10,11 @@ fn test_du_flag_min_size() {
             du -m -1
         "#
     ));
-    assert!(actual
-        .err
-        .contains("Negative value passed when positive one is required"));
+    assert!(
+        actual
+            .err
+            .contains("Negative value passed when positive one is required")
+    );
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
@@ -31,9 +33,11 @@ fn test_du_flag_max_depth() {
             du -d -2
         "#
     ));
-    assert!(actual
-        .err
-        .contains("Negative value passed when positive one is required"));
+    assert!(
+        actual
+            .err
+            .contains("Negative value passed when positive one is required")
+    );
 
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(

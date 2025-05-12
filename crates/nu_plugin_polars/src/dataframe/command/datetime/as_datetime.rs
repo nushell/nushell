@@ -1,9 +1,9 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame,
-        NuSchema, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame, NuSchema,
+        PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 use chrono::DateTime;
 use std::sync::Arc;
@@ -14,8 +14,8 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{
-    col, DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
-    StrptimeOptions, TimeUnit,
+    DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
+    StrptimeOptions, TimeUnit, col,
 };
 
 #[derive(Clone)]
@@ -138,10 +138,7 @@ impl PluginCommand for AsDateTime {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
@@ -156,24 +153,19 @@ impl PluginCommand for AsDateTime {
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "datetime".to_string(),
-                            vec![
-                                Value::date(
-                                    DateTime::parse_from_str(
-                                        "2021-12-30 00:00:00 +0000",
-                                        "%Y-%m-%d %H:%M:%S %z",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                            ],
+                            vec![Value::date(
+                                DateTime::parse_from_str(
+                                    "2021-12-30 00:00:00 +0000",
+                                    "%Y-%m-%d %H:%M:%S %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                Span::test_data(),
+                            )],
                         )],
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
@@ -197,7 +189,6 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-
                                 Value::date(
                                     DateTime::parse_from_str(
                                         "2025-11-02 01:00:00 +0000",
@@ -227,10 +218,7 @@ impl PluginCommand for AsDateTime {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
