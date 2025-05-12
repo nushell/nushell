@@ -855,7 +855,7 @@ mod windows_helper {
             );
         }
 
-        let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
+        let file_size = ((find_data.nFileSizeHigh as u64) << 32) | find_data.nFileSizeLow as u64;
         record.push("size", Value::filesize(file_size as i64, span));
 
         if long {
