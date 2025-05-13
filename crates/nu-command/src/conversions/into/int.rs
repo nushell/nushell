@@ -163,21 +163,18 @@ impl Command for IntoInt {
         let signed = call.has_flag(engine_state, stack, "signed")?;
 
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
-            Some(spanned_unit) => {
-                let parsed_unit = match Unit::from_str(&spanned_unit.item) {
-                    Ok(u) => u,
-                    Err(_) => {
-                        return Err(ShellError::InvalidUnit {
-                            supported_units: all_supported_units(),
-                            span: spanned_unit.span,
-                        });
-                    }
-                };
-                Some(Spanned {
-                    item: parsed_unit,
+            Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
+                Ok(u) => Some(Spanned {
+                    item: u,
                     span: spanned_unit.span,
-                })
-            }
+                }),
+                Err(_) => {
+                    return Err(ShellError::InvalidUnit {
+                        supported_units: all_supported_units(),
+                        span: spanned_unit.span,
+                    });
+                }
+            },
             None => None,
         };
 
