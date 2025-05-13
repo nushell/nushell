@@ -155,7 +155,9 @@ fn table() {
         "
     ));
 
-    let expected = nu!("[[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]");
+    let expected = nu!(
+        "[[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]"
+    );
     assert_eq!(actual.out, expected.out);
 }
 

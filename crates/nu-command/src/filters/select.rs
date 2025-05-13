@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, PipelineIterator};
+use nu_protocol::{PipelineIterator, ast::PathMember};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -116,11 +116,9 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_string("a")
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_string("a")
+                })])),
             },
             Example {
                 description: "Select a field in a record",
@@ -151,7 +149,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         "name" => Value::test_string("Cargo.lock"),
                         "type" => Value::test_string("toml")
                     }),
-                ]))
+                ])),
             },
             Example {
                 description: "Select multiple columns by spreading a list",
@@ -165,7 +163,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         "name" => Value::test_string("Cargo.lock"),
                         "type" => Value::test_string("toml")
                     }),
-                ]))
+                ])),
             },
         ]
     }
@@ -310,7 +308,7 @@ impl Iterator for NthIterator {
                     return self.input.next();
                 } else {
                     self.current += 1;
-                    let _ = self.input.next();
+                    let _ = self.input.next()?;
                     continue;
                 }
             } else {

@@ -1,6 +1,6 @@
 #![allow(clippy::byte_char_slices)]
 
-use nu_parser::{lex, lex_n_tokens, lex_signature, LexState, Token, TokenContents};
+use nu_parser::{LexState, Token, TokenContents, lex, lex_n_tokens, lex_signature};
 use nu_protocol::{ParseError, Span};
 
 #[test]

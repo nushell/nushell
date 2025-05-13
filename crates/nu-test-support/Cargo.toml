@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Support for writing Nushell tests"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-test-support"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-test-support"
 version = "0.104.1"

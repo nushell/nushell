@@ -1,14 +1,14 @@
-use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
+use super::{Layout, Orientation, View, ViewConfig, record::RecordView, util::nu_style_to_tui};
 use crate::{
     explore::ExploreConfig,
     nu_common::{collect_pipeline, run_command_with_value},
-    pager::{report::Report, Frame, Transition, ViewInfo},
+    pager::{Frame, Transition, ViewInfo, report::Report},
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PipelineData, Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{
     layout::Rect,

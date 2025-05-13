@@ -1,5 +1,5 @@
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use unicode_segmentation::UnicodeSegmentation;

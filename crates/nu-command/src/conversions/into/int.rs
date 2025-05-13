@@ -1,5 +1,5 @@
 use chrono::{FixedOffset, TimeZone};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use nu_utils::get_system_locale;
@@ -141,7 +141,7 @@ impl Command for IntoInt {
                                 err_message: "Endian must be one of native, little, big"
                                     .to_string(),
                                 span,
-                            })
+                            });
                         }
                     },
                     _ => false,
@@ -270,7 +270,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                                     help: None,
                                 },
                                 span,
-                            )
+                            );
                         }
                     }
                 }
@@ -403,7 +403,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
                                 help: Some(e.to_string()),
                             },
                             head,
-                        )
+                        );
                     }
                 }
             }
@@ -456,7 +456,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                         from_type: "string".to_string(),
                         span,
                         help: Some(r#"digits following "0b" can only be 0 or 1"#.to_string()),
-                    })
+                    });
                 }
             };
             Ok(num)
@@ -486,7 +486,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
                         from_type: "string".to_string(),
                         span,
                         help: Some(r#"octal digits following "0o" should be in 0-7"#.to_string()),
-                    })
+                    });
                 }
             };
             Ok(num)

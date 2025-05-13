@@ -2,7 +2,7 @@
 authors = ["Andrei Volnin <wolandr@gmail.com>", "The Nushell Project Developers"]
 description = "Pretty hex dump of bytes slice in the common style."
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-pretty-hex"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-pretty-hex"
 version = "0.104.1"

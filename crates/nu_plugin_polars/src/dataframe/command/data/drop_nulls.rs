@@ -4,8 +4,8 @@ use nu_protocol::{
     Value,
 };
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
+use crate::values::CustomValueSupport;
 
 use crate::values::utils::convert_columns_string;
 use crate::values::{Column, NuDataFrame};

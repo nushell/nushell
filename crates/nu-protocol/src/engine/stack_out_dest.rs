@@ -1,4 +1,4 @@
-use crate::{engine::Stack, OutDest};
+use crate::{OutDest, engine::Stack};
 use std::{
     fs::File,
     mem,

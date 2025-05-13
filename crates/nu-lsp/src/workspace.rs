@@ -1,6 +1,7 @@
 use crate::{
+    Id, LanguageServer,
     ast::{self, find_id, find_reference_by_id},
-    path_to_uri, span_to_range, uri_to_path, Id, LanguageServer,
+    path_to_uri, span_to_range, uri_to_path,
 };
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
@@ -8,11 +9,11 @@ use lsp_types::{
     PrepareRenameResponse, ProgressToken, Range, ReferenceParams, RenameParams,
     TextDocumentPositionParams, TextEdit, Uri, WorkspaceEdit, WorkspaceFolder,
 };
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use nu_glob::Uninterruptible;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
     Span,
+    engine::{EngineState, StateWorkingSet},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -495,9 +496,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request, request::Request, DocumentHighlightParams, InitializeParams, PartialResultParams,
-        Position, ReferenceContext, ReferenceParams, RenameParams, TextDocumentIdentifier,
-        TextDocumentPositionParams, Uri, WorkDoneProgressParams, WorkspaceFolder,
+        DocumentHighlightParams, InitializeParams, PartialResultParams, Position, ReferenceContext,
+        ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
+        WorkDoneProgressParams, WorkspaceFolder, request, request::Request,
     };
     use nu_test_support::fs::fixtures;
 

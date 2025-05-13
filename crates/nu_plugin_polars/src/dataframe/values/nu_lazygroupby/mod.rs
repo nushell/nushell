@@ -1,7 +1,7 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, record};
 use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
 use uuid::Uuid;

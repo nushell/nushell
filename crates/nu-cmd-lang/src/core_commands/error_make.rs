@@ -76,8 +76,7 @@ impl Command for ErrorMake {
                 result: None,
             },
             Example {
-                description:
-                    "Create a custom error for a custom command that shows the span of the argument",
+                description: "Create a custom error for a custom command that shows the span of the argument",
                 example: r#"def foo [x] {
         error make {
             msg: "this is fishy"
@@ -106,7 +105,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: throw_span,
                 help: None,
                 inner: vec![],
-            }
+            };
         }
     };
 
@@ -119,7 +118,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
         None => {
             return ShellError::GenericError {
@@ -128,7 +127,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
     };
 
@@ -146,7 +145,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
         // correct return: no label
         None => {
@@ -156,7 +155,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: throw_span,
                 help,
                 inner: vec![],
-            }
+            };
         }
     };
 
@@ -180,7 +179,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(label_span),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
         None => {
             return ShellError::GenericError {
@@ -189,7 +188,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(label_span),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
     };
 
@@ -202,7 +201,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: Some(value.span()),
                 help: None,
                 inner: vec![],
-            }
+            };
         }
         // correct return: label, no span
         None => {
@@ -212,7 +211,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 span: throw_span,
                 help,
                 inner: vec![],
-            }
+            };
         }
     };
 

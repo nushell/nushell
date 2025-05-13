@@ -181,9 +181,9 @@ impl PartialEq for HashableValue {
 mod test {
     use super::*;
     use nu_protocol::{
+        BlockId,
         ast::{CellPath, PathMember},
         engine::Closure,
-        BlockId,
     };
     use std::collections::HashSet;
 

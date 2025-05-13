@@ -1,14 +1,14 @@
 use crate::{
-    dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::{Column, NuDataFrame, NuExpression},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{is_in, lit, DataType, IntoSeries};
+use polars::prelude::{DataType, IntoSeries, is_in, lit};
 
 #[derive(Clone)]
 pub struct ExprIsIn;

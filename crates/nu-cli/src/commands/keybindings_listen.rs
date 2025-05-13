@@ -1,9 +1,9 @@
 use crossterm::{
-    event::Event, event::KeyCode, event::KeyEvent, execute, terminal, QueueableCommand,
+    QueueableCommand, event::Event, event::KeyCode, event::KeyEvent, execute, terminal,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 
 #[derive(Clone)]
 pub struct KeybindingsListen;

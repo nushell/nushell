@@ -179,7 +179,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use gjson::{valid, Value as gjValue};
+    use gjson::{Value as gjValue, valid};
 
     #[test]
     fn validate_string() {

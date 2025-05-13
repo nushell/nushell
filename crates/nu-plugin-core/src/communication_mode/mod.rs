@@ -2,8 +2,8 @@ use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use nu_protocol::shell_error::io::IoError;
 use nu_protocol::ShellError;
+use nu_protocol::shell_error::io::IoError;
 
 #[cfg(feature = "local-socket")]
 mod local_socket;

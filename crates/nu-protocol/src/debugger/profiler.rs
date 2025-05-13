@@ -4,11 +4,12 @@
 //! profiling Nushell code.
 
 use crate::{
+    PipelineData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
-    record, PipelineData, ShellError, Span, Value,
+    record,
 };
 use std::{borrow::Borrow, io::BufRead};
 use web_time::Instant;

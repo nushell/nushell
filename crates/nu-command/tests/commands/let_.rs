@@ -5,9 +5,11 @@ use rstest::rstest;
 #[case("let in = 3")]
 #[case("let in: int = 3")]
 fn let_name_builtin_var(#[case] assignment: &str) {
-    assert!(nu!(assignment)
-        .err
-        .contains("'in' is the name of a builtin Nushell variable"));
+    assert!(
+        nu!(assignment)
+            .err
+            .contains("'in' is the name of a builtin Nushell variable")
+    );
 }
 
 #[test]

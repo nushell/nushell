@@ -1,11 +1,11 @@
 use nu_protocol::{
+    IntoSpanned, RegId, Type, VarId,
     ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
-    IntoSpanned, RegId, Type, VarId,
 };
 
-use super::{compile_block, compile_expression, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_block, compile_expression};
 
 /// Compile a call to `if` as a branch-if
 pub(crate) fn compile_if(

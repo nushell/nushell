@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, Value, ast::Operator};
 use nu_utils::SharedCow;
 
 use serde::{Deserialize, Serialize};
@@ -169,7 +169,7 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::Custom { ref val, .. } => {
+                Value::Custom { val, .. } => {
                     if val.as_any().downcast_ref::<PluginCustomValue>().is_some() {
                         // Already a PluginCustomValue
                         Ok(())
@@ -190,7 +190,7 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::Custom { ref val, .. } => {
+                Value::Custom { val, .. } => {
                     if let Some(val) = val.as_any().downcast_ref::<PluginCustomValue>() {
                         let deserialized = val.deserialize_to_custom_value(span)?;
                         *value = Value::custom(deserialized, span);
@@ -210,7 +210,7 @@ impl PluginCustomValue {
         value.recurse_mut(&mut |value| {
             let span = value.span();
             match value {
-                Value::Custom { ref val, .. } => {
+                Value::Custom { val, .. } => {
                     *value = val.to_base_value(span)?;
                     Ok(())
                 }

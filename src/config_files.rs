@@ -4,16 +4,17 @@ use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    Config, ParseError, PipelineData, Spanned,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
-    report_parse_error, report_shell_error, Config, ParseError, PipelineData, Spanned,
+    report_parse_error, report_shell_error,
 };
 use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env};
 use std::{
     fs,
     fs::File,
     io::{Result, Write},
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
     sync::Arc,
 };

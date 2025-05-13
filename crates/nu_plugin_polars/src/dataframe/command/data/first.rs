@@ -1,6 +1,6 @@
 use crate::{
-    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
 };
 
 use crate::values::{NuDataFrame, NuExpression};

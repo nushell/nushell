@@ -1,6 +1,6 @@
 #[cfg(not(windows))]
 use nu_path::AbsolutePath;
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::fs::{Stub::EmptyFile, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;

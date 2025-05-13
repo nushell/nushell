@@ -2,8 +2,8 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
 use crate::{
-    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame},
 };
 
 pub struct LazyReverse;

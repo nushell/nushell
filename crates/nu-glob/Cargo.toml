@@ -7,7 +7,7 @@ description = """
 Fork of glob. Support for matching file paths against Unix shell style patterns.
 """
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-glob"
-edition = "2021"
+edition = "2024"
 categories = ["filesystem"]
 
 [lib]

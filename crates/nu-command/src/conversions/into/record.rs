@@ -171,7 +171,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                                 item.get_type(),
                             ),
                             span,
-                        })
+                        });
                     }
                 }
             }

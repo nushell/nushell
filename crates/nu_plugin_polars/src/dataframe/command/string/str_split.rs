@@ -1,6 +1,6 @@
 use crate::{
-    values::{CustomValueSupport, NuDataFrame, NuExpression},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame, NuExpression},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

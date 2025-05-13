@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ListStream};
+use nu_protocol::{ListStream, shell_error::io::IoError};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,

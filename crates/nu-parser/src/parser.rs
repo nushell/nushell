@@ -1,21 +1,21 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
-    lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
+    Token, TokenContents,
+    lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
+    lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
+    parse_shape_specs::{ShapeDescriptorUse, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
-    Token, TokenContents,
 };
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
+    engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -2328,12 +2328,8 @@ pub fn parse_cell_path(
                 } else if bytes.len() == 1 && bytes[0] == b'?' {
                     if let Some(last) = tail.last_mut() {
                         match last {
-                            PathMember::String {
-                                ref mut optional, ..
-                            } => *optional = true,
-                            PathMember::Int {
-                                ref mut optional, ..
-                            } => *optional = true,
+                            PathMember::String { optional, .. } => *optional = true,
+                            PathMember::Int { optional, .. } => *optional = true,
                         }
                     }
                     expected_token = TokenType::Dot;
@@ -4209,8 +4205,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             "Default value is the wrong type"
                                                                 .into(),
                                                             format!(
-                                                            "expected default value to be `{t}`"
-                                                                ),
+                                                                "expected default value to be `{t}`"
+                                                            ),
                                                             expression_span,
                                                         ),
                                                     )

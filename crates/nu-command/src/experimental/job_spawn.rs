@@ -1,15 +1,17 @@
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU32},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     thread,
 };
 
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
+    OutDest, Signals,
     engine::{Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob},
-    report_shell_error, OutDest, Signals,
+    report_shell_error,
 };
 
 #[derive(Clone)]

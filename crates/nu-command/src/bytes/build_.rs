@@ -67,7 +67,7 @@ impl Command for BytesBuild {
                     return Err(ShellError::TypeMismatch {
                         err_message: "only binary data arguments are supported".to_string(),
                         span: other.span(),
-                    })
+                    });
                 }
             }
         }

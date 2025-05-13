@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_engine::command_prelude::*;
 use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
@@ -41,58 +41,17 @@ impl Command for While {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let head = call.head;
-        let cond = call.positional_nth(0).expect("checked through parser");
-        let block_id = call
-            .positional_nth(1)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
-
-        let eval_expression = get_eval_expression(engine_state);
-        let eval_block = get_eval_block(engine_state);
-
-        let stack = &mut stack.push_redirection(None, None);
-
-        loop {
-            engine_state.signals().check(head)?;
-
-            let result = eval_expression(engine_state, stack, cond)?;
-
-            match &result {
-                Value::Bool { val, .. } => {
-                    if *val {
-                        let block = engine_state.get_block(block_id);
-
-                        match eval_block(engine_state, stack, block, PipelineData::empty()) {
-                            Err(ShellError::Break { .. }) => break,
-                            Err(ShellError::Continue { .. }) => continue,
-                            Err(err) => return Err(err),
-                            Ok(data) => data.drain()?,
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                x => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "bool".into(),
-                        from_type: x.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    })
-                }
-            }
-        }
-        Ok(PipelineData::empty())
+        eprintln!(
+            "Tried to execute 'run' for the 'while' command: this code path should never be reached in IR mode"
+        );
+        unreachable!()
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -72,9 +72,11 @@ fn into_duration_table_column() {
 fn into_duration_from_record_fails_with_wrong_type() {
     let actual = nu!(r#"{week: '10'} | into duration"#);
 
-    assert!(actual
-        .err
-        .contains("nu::shell::only_supports_this_input_type"));
+    assert!(
+        actual
+            .err
+            .contains("nu::shell::only_supports_this_input_type")
+    );
 }
 
 #[test]

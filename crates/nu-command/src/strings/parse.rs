@@ -1,6 +1,6 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ListStream, Signals};
+use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -40,65 +40,54 @@ impl Command for Parse {
             Example {
                 description: "Parse a string into two named columns",
                 example: "\"hi there\" | parse \"{foo} {bar}\"",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "foo" => Value::test_string("hi"),
-                        "bar" => Value::test_string("there"),
-                    })])),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "foo" => Value::test_string("hi"),
+                    "bar" => Value::test_string("there"),
+                })])),
             },
             Example {
                 description: "This is how the first example is interpreted in the source code",
                 example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "foo" => Value::test_string("hi"),
-                        "bar" => Value::test_string("there"),
-                    })])),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "foo" => Value::test_string("hi"),
+                    "bar" => Value::test_string("there"),
+                })])),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
                 example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "name" => Value::test_string("bar"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "name" => Value::test_string("bar"),
+                })])),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "capture0" => Value::test_string(""),
-                            "capture1" => Value::test_string("foo"),
-                        }),
-                        Value::test_record(record! {
-                            "capture0" => Value::test_string("bar"),
-                            "capture1" => Value::test_string(""),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "capture0" => Value::test_string(""),
+                        "capture1" => Value::test_string("foo"),
+                    }),
+                    Value::test_record(record! {
+                        "capture0" => Value::test_string("bar"),
+                        "capture1" => Value::test_string(""),
+                    }),
+                ])),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example:
-                    "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "capture0" => Value::test_string("@another"),
-                        "capture1" => Value::test_string("(foo bar)"),
-                    })],
-                )),
+                example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "capture0" => Value::test_string("@another"),
+                    "capture1" => Value::test_string("(foo bar)"),
+                })])),
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
                 example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "capture0" => Value::test_string("b"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "capture0" => Value::test_string("b"),
+                })])),
             },
         ]
     }

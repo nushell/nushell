@@ -1,7 +1,7 @@
-use crate::{dataframe::values::NuExpression, values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, dataframe::values::NuExpression, values::CustomValueSupport};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value, record,
 };
 
 #[derive(Clone)]

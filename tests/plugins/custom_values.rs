@@ -141,12 +141,16 @@ fn fails_if_passing_engine_custom_values_to_plugins() {
         "open sample.db | custom-value update"
     );
 
-    assert!(actual
-        .err
-        .contains("`SQLiteDatabase` cannot be sent to plugin"));
-    assert!(actual
-        .err
-        .contains("the `custom_values` plugin does not support this kind of value"));
+    assert!(
+        actual
+            .err
+            .contains("`SQLiteDatabase` cannot be sent to plugin")
+    );
+    assert!(
+        actual
+            .err
+            .contains("the `custom_values` plugin does not support this kind of value")
+    );
 }
 
 #[test]
@@ -160,12 +164,16 @@ fn fails_if_passing_custom_values_across_plugins() {
         "custom-value generate | inc --major"
     );
 
-    assert!(actual
-        .err
-        .contains("`CoolCustomValue` cannot be sent to plugin"));
-    assert!(actual
-        .err
-        .contains("the `inc` plugin does not support this kind of value"));
+    assert!(
+        actual
+            .err
+            .contains("`CoolCustomValue` cannot be sent to plugin")
+    );
+    assert!(
+        actual
+            .err
+            .contains("the `inc` plugin does not support this kind of value")
+    );
 }
 
 #[test]
@@ -225,9 +233,11 @@ fn custom_value_in_example_is_rendered() {
         "custom-value generate --help"
     );
 
-    assert!(actual
-        .out
-        .contains("I used to be a custom value! My data was (abc)"));
+    assert!(
+        actual
+            .out
+            .contains("I used to be a custom value! My data was (abc)")
+    );
     assert!(actual.status.success());
 }
 
