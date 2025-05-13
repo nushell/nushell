@@ -1,6 +1,8 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{FilesizeFormatter, FilesizeUnit, engine::StateWorkingSet};
+use nu_protocol::{
+    engine::StateWorkingSet, FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS,
+};
 
 struct Arguments {
     unit: FilesizeUnit,
@@ -115,11 +117,8 @@ impl Command for FormatFilesize {
 }
 
 fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellError> {
-    format.item.parse().map_err(|_| ShellError::InvalidValue {
-        valid:
-            "'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'"
-                .into(),
-        actual: format.item,
+    format.item.parse().map_err(|_| ShellError::InvalidUnit {
+        supported_units: SUPPORTED_FILESIZE_UNITS.join(", "),
         span: format.span,
     })
 }

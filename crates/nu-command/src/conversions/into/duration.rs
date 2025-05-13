@@ -1,4 +1,6 @@
-use nu_cmd_base::input_handler::{CmdArgument, operate};
+use std::str::FromStr;
+
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
 use nu_protocol::{ast::Expr, Unit, SUPPORTED_DURATION_UNITS};
@@ -26,7 +28,7 @@ const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
 #[derive(Clone, Debug)]
 struct Arguments {
-    unit: Option<Spanned<String>>,
+    unit: Option<Spanned<Unit>>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -96,18 +98,18 @@ impl Command for IntoDuration {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
-            Some(spanned_unit) => {
-                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
-                    .contains(&spanned_unit.item.as_str())
-                {
-                    Some(spanned_unit)
-                } else {
+            Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
+                Ok(u) => Some(Spanned {
+                    item: u,
+                    span: spanned_unit.span,
+                }),
+                Err(_) => {
                     return Err(ShellError::InvalidUnit {
                         span: spanned_unit.span,
                         supported_units: SUPPORTED_DURATION_UNITS.join(", "),
                     });
                 }
-            }
+            },
             None => None,
         };
         let args = Arguments { unit, cell_paths };
@@ -259,9 +261,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     }
 
-    let unit: &str = match unit_option {
+    let unit = match unit_option {
         Some(unit) => &unit.item,
-        None => "ns",
+        None => &Unit::Nanosecond,
     };
 
     match input {
@@ -406,16 +408,16 @@ fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellEr
     Ok(value)
 }
 
-fn unit_to_ns_factor(unit: &str) -> i64 {
+fn unit_to_ns_factor(unit: &Unit) -> i64 {
     match unit {
-        "ns" => 1,
-        "us" | "µs" => NS_PER_US,
-        "ms" => NS_PER_MS,
-        "sec" => NS_PER_SEC,
-        "min" => NS_PER_MINUTE,
-        "hr" => NS_PER_HOUR,
-        "day" => NS_PER_DAY,
-        "wk" => NS_PER_WEEK,
+        Unit::Nanosecond => 1,
+        Unit::Microsecond => NS_PER_US,
+        Unit::Millisecond => NS_PER_MS,
+        Unit::Second => NS_PER_SEC,
+        Unit::Minute => NS_PER_MINUTE,
+        Unit::Hour => NS_PER_HOUR,
+        Unit::Day => NS_PER_DAY,
+        Unit::Week => NS_PER_WEEK,
         _ => 0,
     }
 }

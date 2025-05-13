@@ -112,3 +112,17 @@ fn format_filesize_works_with_nonempty_files() {
         },
     )
 }
+
+#[test]
+fn format_filesize_with_invalid_unit() {
+    let actual = nu!("1MB | format filesize sec");
+
+    assert!(actual.err.contains("invalid_unit"));
+}
+
+#[test]
+fn format_duration_with_invalid_unit() {
+    let actual = nu!("1sec | format duration MB");
+
+    assert!(actual.err.contains("invalid_unit"));
+}

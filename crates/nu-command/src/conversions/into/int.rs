@@ -3,7 +3,7 @@ use std::str::FromStr;
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{all_supported_units, FilesizeUnit, Unit};
+use nu_protocol::{all_supported_units, Unit};
 
 use nu_utils::get_system_locale;
 
@@ -164,26 +164,13 @@ impl Command for IntoInt {
 
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => {
-                let parsed_filesize_unit = FilesizeUnit::from_str(&spanned_unit.item);
-                let parsed_unit = {
-                    match parsed_filesize_unit {
-                        Ok(u) => Unit::Filesize(u),
-                        Err(_) => match spanned_unit.item.as_str() {
-                            "ns" => Unit::Nanosecond,
-                            "us" | "µs" => Unit::Microsecond,
-                            "ms" => Unit::Millisecond,
-                            "sec" => Unit::Second,
-                            "min" => Unit::Minute,
-                            "hr" => Unit::Hour,
-                            "day" => Unit::Day,
-                            "wk" => Unit::Week,
-                            _ => {
-                                return Err(ShellError::InvalidUnit {
-                                    supported_units: all_supported_units(),
-                                    span: spanned_unit.span,
-                                });
-                            }
-                        },
+                let parsed_unit = match Unit::from_str(&spanned_unit.item) {
+                    Ok(u) => u,
+                    Err(_) => {
+                        return Err(ShellError::InvalidUnit {
+                            supported_units: all_supported_units(),
+                            span: spanned_unit.span,
+                        });
                     }
                 };
                 Some(Spanned {
