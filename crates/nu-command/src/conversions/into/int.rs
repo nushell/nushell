@@ -303,20 +303,31 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         .unwrap_or_else(|err| Value::error(err, head)),
                     (other_from, _) => {
                         let target_unit_type = match spanned_unit.item {
-                            Unit::Filesize(..) => "fileszie",
+                            Unit::Filesize(..) => "filesize",
                             _ => "duration",
                         };
+                        let from_type = other_from.get_type();
+                        let help_msg = if ["filesize", "duration"]
+                            .contains(&from_type.to_string().as_str())
+                        {
+                            format!(
+                                "either the input value should be a {} or choose a {} unit",
+                                target_unit_type, from_type
+                            )
+                        } else {
+                            format!("the input value should be a {}. The {} type has no associated units.", target_unit_type, from_type)
+                        };
                         Value::error(
-                        ShellError::CantConvertToUnit {
-                            target_unit: unit_str.to_string(),
-                            to_type: target_unit_type.to_string(),
-                            from_type: other_from.get_type().to_string(),
-                            span: other_from.span(),
-                            unit_span: spanned_unit.span,
-                            help: Some(format!("either the input value should be a {} or choose a different unit", target_unit_type)),
-                        },
-                        head,
-                    )
+                            ShellError::CantConvertToUnit {
+                                target_unit: unit_str.to_string(),
+                                to_type: target_unit_type.to_string(),
+                                from_type: from_type.to_string(),
+                                span: other_from.span(),
+                                unit_span: spanned_unit.span,
+                                help: Some(help_msg),
+                            },
+                            head,
+                        )
                     }
                 }
             }

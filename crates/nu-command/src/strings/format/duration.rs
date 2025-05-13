@@ -198,6 +198,7 @@ fn convert_inner_to_unit(val: i64, to_unit: &str, span: Span) -> Result<f64, She
         }),
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
