@@ -29,9 +29,8 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
-    contains_emoji,
-    locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    SharedCow,
+    SharedCow, contains_emoji,
+    locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
 };
 use serde::{Deserialize, Serialize};
 use std::{

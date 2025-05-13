@@ -4,7 +4,7 @@ use std::{iter::FusedIterator, ops::RangeBounds};
 use crate::{ShellError, Span, Value};
 
 use nu_utils::IgnoreCaseExt;
-use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
