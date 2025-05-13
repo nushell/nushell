@@ -218,9 +218,11 @@ fn def_wrapped_from_module() {
         spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
         "#);
 
-    assert!(actual
-        .out
-        .contains("foo -b -as -9 --abc -- -Dxmy=AKOO - bar"));
+    assert!(
+        actual
+            .out
+            .contains("foo -b -as -9 --abc -- -Dxmy=AKOO - bar")
+    );
 }
 
 #[test]

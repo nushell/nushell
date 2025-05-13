@@ -1,5 +1,5 @@
-use super::nu_process::*;
 use super::EnvironmentVariable;
+use super::nu_process::*;
 use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Write;

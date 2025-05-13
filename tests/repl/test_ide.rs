@@ -1,4 +1,4 @@
-use crate::repl::tests::{test_ide_contains, TestResult};
+use crate::repl::tests::{TestResult, test_ide_contains};
 
 #[test]
 fn parser_recovers() -> TestResult {

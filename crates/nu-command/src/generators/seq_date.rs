@@ -75,15 +75,13 @@ impl Command for SeqDate {
                 result: None,
             },
             Example {
-                description:
-                    "Return the previous 10 days, starting today, in the MM/DD/YYYY format",
+                description: "Return the previous 10 days, starting today, in the MM/DD/YYYY format",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
                 description: "Return the first 10 days in January, 2020",
-                example:
-                    "seq date --begin-date '2020-01-01' --end-date '2020-01-10' --increment 1day",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10' --increment 1day",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01"),
@@ -102,8 +100,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "Return the first 10 days in January, 2020 using --days flag",
-                example:
-                    "seq date --begin-date '2020-01-01' --days 10 --increment 1day",
+                example: "seq date --begin-date '2020-01-01' --days 10 --increment 1day",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01"),
@@ -122,8 +119,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "Return the first five 5-minute periods starting January 1, 2020",
-                example:
-                    "seq date --begin-date '2020-01-01' --periods 5 --increment 5min --output-format '%Y-%m-%d %H:%M:%S'",
+                example: "seq date --begin-date '2020-01-01' --periods 5 --increment 5min --output-format '%Y-%m-%d %H:%M:%S'",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01 00:00:00"),
@@ -137,8 +133,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
-                example:
-                    "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5day",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5day",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01"),
@@ -154,8 +149,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "increment defaults to days if no duration is supplied",
-                example:
-                    "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01"),
@@ -171,8 +165,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "print every six hours starting January 1st, 2020 until January 3rd, 2020",
-                example:
-                    "seq date --begin-date '2020-01-01' --end-date '2020-01-03' --increment 6hr --output-format '%Y-%m-%d %H:%M:%S'",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-03' --increment 6hr --output-format '%Y-%m-%d %H:%M:%S'",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("2020-01-01 00:00:00"),
@@ -357,7 +350,7 @@ pub fn run_seq_dates(
                     span: Some(call_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         },
         _ => today,
@@ -373,7 +366,7 @@ pub fn run_seq_dates(
                     span: Some(call_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         },
         _ => today,

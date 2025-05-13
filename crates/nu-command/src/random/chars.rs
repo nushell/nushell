@@ -1,4 +1,4 @@
-use super::byte_stream::{random_byte_stream, RandomDistribution};
+use super::byte_stream::{RandomDistribution, random_byte_stream};
 use nu_engine::command_prelude::*;
 
 const DEFAULT_CHARS_LENGTH: usize = 25;

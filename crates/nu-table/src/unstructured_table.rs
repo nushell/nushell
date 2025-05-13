@@ -11,7 +11,7 @@ use tabled::{
     tables::{PoolTable, TableValue},
 };
 
-use crate::{is_color_empty, string_width, string_wrap, TableTheme};
+use crate::{TableTheme, is_color_empty, string_width, string_wrap};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///

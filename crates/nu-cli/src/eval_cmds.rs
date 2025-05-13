@@ -2,10 +2,11 @@ use log::info;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    PipelineData, ShellError, Spanned, Value,
     cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_parse_warning, PipelineData, ShellError, Spanned, Value,
+    report_parse_error, report_parse_warning,
 };
 use std::sync::Arc;
 

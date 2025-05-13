@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{record, Value};
+use nu_protocol::{Value, record};
 
 #[derive(Clone)]
 pub struct UName;

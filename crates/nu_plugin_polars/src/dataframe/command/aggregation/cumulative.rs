@@ -1,7 +1,7 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use crate::values::{
-    cant_convert_err, Column, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    Column, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

@@ -1,12 +1,12 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value, record,
 };
 
 use crate::{
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::NuDataFrame;
@@ -69,8 +69,7 @@ impl PluginCommand for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example:
-                    "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
                 result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {

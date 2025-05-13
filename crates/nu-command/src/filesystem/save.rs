@@ -4,8 +4,8 @@ use nu_engine::get_eval_block;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast, byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
+    byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
 };
 use std::{
     fs::File,
@@ -264,8 +264,7 @@ impl Command for Save {
                 result: None,
             },
             Example {
-                description:
-                    "Show the extensions for which the `save` command will automatically serialize",
+                description: "Show the extensions for which the `save` command will automatically serialize",
                 example: r#"scope commands
     | where name starts-with "to "
     | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }

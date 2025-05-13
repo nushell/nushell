@@ -1,10 +1,10 @@
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 use nu_plugin::Plugin;
 use nu_plugin_core::{InterfaceManager, PluginRead, PluginWrite};
 use nu_plugin_engine::{PluginInterfaceManager, PluginSource};
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{shell_error::io::IoError, PluginIdentity, ShellError};
+use nu_protocol::{PluginIdentity, ShellError, shell_error::io::IoError};
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
 

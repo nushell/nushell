@@ -76,7 +76,10 @@ impl Command for Find {
             Example {
                 description: "Search and highlight text for a term in a string. Note that regular search is case insensitive",
                 example: r#"'Cargo.toml' | find cargo"#,
-                result: Some(Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mCargo\u{1b}[0m\u{1b}[37m.toml\u{1b}[0m".to_owned())),
+                result: Some(Value::test_string(
+                    "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mCargo\u{1b}[0m\u{1b}[37m.toml\u{1b}[0m"
+                        .to_owned(),
+                )),
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
@@ -90,7 +93,14 @@ impl Command for Find {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::list(
-                    vec![Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m")],
+                    vec![
+                        Value::test_string(
+                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m",
+                        ),
+                        Value::test_string(
+                            "\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m",
+                        ),
+                    ],
                     Span::test_data(),
                 )),
             },
@@ -119,28 +129,24 @@ impl Command for Find {
             Example {
                 description: "Find value in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                            "version" => Value::test_string("0.1.0"),
-                            "name" => Value::test_string("nushell".to_string()),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "version" => Value::test_string("0.1.0"),
+                        "name" => Value::test_string("nushell".to_string()),
+                })])),
             },
             Example {
                 description: "Find inverted values in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record!{
-                                "version" => Value::test_string("0.1.1"),
-                                "name" => Value::test_string("fish".to_string()),
-                        }),
-                        Value::test_record(record! {
-                                "version" => Value::test_string("0.2.0"),
-                                "name" =>Value::test_string("zsh".to_string()),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                            "version" => Value::test_string("0.1.1"),
+                            "name" => Value::test_string("fish".to_string()),
+                    }),
+                    Value::test_record(record! {
+                            "version" => Value::test_string("0.2.0"),
+                            "name" =>Value::test_string("zsh".to_string()),
+                    }),
+                ])),
             },
             Example {
                 description: "Find value in list using regex",
@@ -166,20 +172,18 @@ impl Command for Find {
             },
             Example {
                 description: "Remove ANSI sequences from result",
-                example:"[[foo bar]; [abc 123] [def 456]] | find --no-highlight 123",
+                example: "[[foo bar]; [abc 123] [def 456]] | find --no-highlight 123",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                         "foo" => Value::test_string("abc"),
                         "bar" => Value::test_int(123)
-                    }
-                    )],
+                    })],
                     Span::test_data(),
-                ))
+                )),
             },
             Example {
                 description: "Find and highlight text in specific columns",
-                example:
-                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
+                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                             "col1" => Value::test_string(

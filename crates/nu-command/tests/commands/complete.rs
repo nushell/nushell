@@ -95,7 +95,9 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 
 #[test]
 fn combined_pipe_redirection() {
-    let actual = nu!("$env.FOO = 'hello'; $env.BAR = 'world'; nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout");
+    let actual = nu!(
+        "$env.FOO = 'hello'; $env.BAR = 'world'; nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout"
+    );
     assert_eq!(actual.out, "helloworld");
 }
 

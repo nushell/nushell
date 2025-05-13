@@ -1,5 +1,5 @@
 #[cfg(not(feature = "preserve_order"))]
-use std::collections::{btree_map, BTreeMap};
+use std::collections::{BTreeMap, btree_map};
 
 #[cfg(feature = "preserve_order")]
 use linked_hash_map::LinkedHashMap;
@@ -924,7 +924,7 @@ impl<'de> de::Deserializer<'de> for Value {
                 return Err(de::Error::invalid_type(
                     val.as_unexpected(),
                     &"string or map",
-                ))
+                ));
             }
         };
 

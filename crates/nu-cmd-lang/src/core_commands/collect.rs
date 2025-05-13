@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
-use nu_protocol::{engine::Closure, DataSource, PipelineMetadata};
+use nu_protocol::{DataSource, PipelineMetadata, engine::Closure};
 
 #[derive(Clone)]
 pub struct Collect;

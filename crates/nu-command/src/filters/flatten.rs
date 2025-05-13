@@ -47,26 +47,25 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_string("N"),
+                    Value::test_string("u"),
+                    Value::test_string("s"),
+                    Value::test_string("h"),
+                    Value::test_string("e"),
+                    Value::test_string("l"),
+                    Value::test_string("l"),
+                ])),
             },
             Example {
                 description: "flatten a table, get the first item",
                 example: "[[N, u, s, h, e, l, l]] | flatten | first",
-                result: None,//Some(Value::test_string("N")),
+                result: None, //Some(Value::test_string("N")),
             },
             Example {
                 description: "flatten a column having a nested table",
                 example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
-                result: None,//Some(Value::test_string("arepa")),
+                result: None, //Some(Value::test_string("arepa")),
             },
             Example {
                 description: "restrict the flattening by passing column names",
@@ -109,7 +108,7 @@ impl Command for Flatten {
                     ],
                     Span::test_data(),
                 )),
-            }
+            },
         ]
     }
 }

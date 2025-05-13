@@ -4,8 +4,8 @@ use nu_protocol::{Config, Value};
 use nu_utils::SharedCow;
 
 use crate::{
-    common::{get_index_style, load_theme, nu_value_to_string_clean},
     StringResult, TableOpts, UnstructuredTable,
+    common::{get_index_style, load_theme, nu_value_to_string_clean},
 };
 
 pub struct CollapsedTable;
@@ -36,7 +36,7 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
     // todo: Remove recursion?
 
     match value {
-        Value::Record { ref mut val, .. } => {
+        Value::Record { val, .. } => {
             let style = get_index_style(style_computer);
             // Take ownership of the record and reassign to &mut
             // We do this to have owned keys through `.into_iter`

@@ -1,13 +1,12 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
+use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    did_you_mean,
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{kill_by_pid, ForegroundChild};
+use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -605,7 +604,9 @@ pub fn command_not_found(
         } else {
             return ShellError::ExternalCommand {
                 label: format!("Command `{name}` not found"),
-                help: format!("A command with that name exists in module `{module}`. Try importing it with `use`"),
+                help: format!(
+                    "A command with that name exists in module `{module}`. Try importing it with `use`"
+                ),
                 span,
             };
         }
@@ -647,7 +648,9 @@ pub fn command_not_found(
     if cwd.join(name).is_file() {
         return ShellError::ExternalCommand {
             label: format!("Command `{name}` not found"),
-            help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
+            help: format!(
+                "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
+            ),
             span,
         };
     }

@@ -1,16 +1,16 @@
-use super::{completion_options::NuMatcher, MatchAlgorithm};
+use super::{MatchAlgorithm, completion_options::NuMatcher};
 use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
     Span,
+    engine::{EngineState, Stack, StateWorkingSet},
 };
-use nu_utils::get_ls_colors;
 use nu_utils::IgnoreCaseExt;
-use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
+use nu_utils::get_ls_colors;
+use std::path::{Component, MAIN_SEPARATOR as SEP, Path, PathBuf, is_separator};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {

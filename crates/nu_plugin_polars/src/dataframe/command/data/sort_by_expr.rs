@@ -1,8 +1,8 @@
 use crate::values::NuLazyFrame;
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -57,45 +57,50 @@ impl PluginCommand for LazySortBy {
                 description: "Sort dataframe by one column",
                 example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sort-by a",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(4), Value::test_int(6)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
-                        ),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(4), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(4), Value::test_int(1), Value::test_int(2)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
             },
             Example {
                 description: "Sort column using two columns",
-                example:
-                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | polars into-df | polars sort-by [a b] -r [false true]",
+                example: "[[a b]; [6 2] [1 1] [1 4] [2 4]] | polars into-df | polars sort-by [a b] -r [false true]",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(6),
-                            ],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_int(4),
-                                Value::test_int(1),
-                                Value::test_int(4),
-                                Value::test_int(2),
-                            ],
-                        ),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(6),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_int(4),
+                                    Value::test_int(1),
+                                    Value::test_int(4),
+                                    Value::test_int(2),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

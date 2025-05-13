@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use std::collections::HashMap;
-use syn::ext::IdentExt;
 use syn::Ident;
+use syn::ext::IdentExt;
 
 use crate::attributes::{ContainerAttributes, MemberAttributes};
 use crate::case::{Case, Casing};

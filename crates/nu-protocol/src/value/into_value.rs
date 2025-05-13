@@ -1,4 +1,4 @@
-use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
 use std::{borrow::Borrow, collections::HashMap};
 

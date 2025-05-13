@@ -1,6 +1,6 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Signals};
+use nu_protocol::{Signals, engine::StateWorkingSet};
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -684,7 +684,7 @@ Operating system commands:
                 return Err(ShellError::MissingParameter {
                     param_name: "code".into(),
                     span: call.head,
-                })
+                });
             }
         };
 
@@ -724,7 +724,7 @@ Operating system commands:
                 return Err(ShellError::MissingParameter {
                     param_name: "code".into(),
                     span: call.head,
-                })
+                });
             }
         };
 
@@ -804,7 +804,7 @@ fn heavy_lifting(
                     return Err(ShellError::TypeMismatch {
                         err_message: String::from("Unknown ansi code"),
                         span: code.span(),
-                    })
+                    });
                 }
             }
         }
@@ -827,9 +827,11 @@ fn heavy_lifting(
                 "attr" => nu_style.attr = Some(v.coerce_into_string()?),
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
-                        msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
+                        msg: format!(
+                            "unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"
+                        ),
                         span,
-                    })
+                    });
                 }
             }
         }

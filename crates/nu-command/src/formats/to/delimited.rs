@@ -1,8 +1,8 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, ShellError,
-    Signals, Span, Spanned, Value,
+    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
+    shell_error::io::IoError,
 };
 use std::{iter, sync::Arc};
 
@@ -110,10 +110,10 @@ pub fn to_delimited_data(
         PipelineData::Value(Value::List { .. } | Value::Record { .. }, _) => (),
         PipelineData::Value(Value::Error { error, .. }, _) => return Err(*error),
         PipelineData::Value(other, _) => {
-            return Err(make_unsupported_input_error(other.get_type(), head, span))
+            return Err(make_unsupported_input_error(other.get_type(), head, span));
         }
         PipelineData::ByteStream(..) => {
-            return Err(make_unsupported_input_error("byte stream", head, span))
+            return Err(make_unsupported_input_error("byte stream", head, span));
         }
         PipelineData::ListStream(..) => (),
         PipelineData::Empty => (),

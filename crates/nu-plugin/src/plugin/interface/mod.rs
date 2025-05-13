@@ -1,9 +1,9 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
+    util::{Waitable, WaitableMut},
 };
 use nu_plugin_protocol::{
     CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
@@ -11,14 +11,14 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::{Closure, Sequence},
     Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
     PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    engine::{Closure, Sequence},
 };
 use nu_utils::SharedCow;
 use std::{
-    collections::{btree_map, BTreeMap, HashMap},
-    sync::{atomic::AtomicBool, mpsc, Arc},
+    collections::{BTreeMap, HashMap, btree_map},
+    sync::{Arc, atomic::AtomicBool, mpsc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -1044,7 +1044,7 @@ impl ForegroundGuard {
             // On Unix, we need to put ourselves back in our own process group
             #[cfg(unix)]
             {
-                use nix::unistd::{setpgid, Pid};
+                use nix::unistd::{Pid, setpgid};
                 // This should always succeed, frankly, but handle the error just in case
                 setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new_internal(
@@ -1075,7 +1075,7 @@ impl Drop for ForegroundGuard {
 
 #[cfg(unix)]
 fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
-    use nix::unistd::{setpgid, Pid};
+    use nix::unistd::{Pid, setpgid};
     if let Ok(pgrp) = pgrp.try_into() {
         setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| ShellError::GenericError {
             error: "Failed to set process group for foreground".into(),

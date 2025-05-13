@@ -1,7 +1,7 @@
-use crate::values::{
-    cant_convert_err, Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
-};
 use crate::PolarsPlugin;
+use crate::values::{
+    Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+};
 use crate::{dataframe::values::NuExpression, values::NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -41,8 +41,7 @@ impl PluginCommand for ExprStd {
         vec![
             Example {
                 description: "Std value from columns in a dataframe",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

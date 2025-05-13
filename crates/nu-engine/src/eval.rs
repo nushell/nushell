@@ -1,14 +1,14 @@
 use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
+    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineMetadata,
+    ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::sync::Arc;

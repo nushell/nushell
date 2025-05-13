@@ -15,8 +15,8 @@ pub use explore::Explore;
 use explore::ExploreConfig;
 use nu_common::{collect_pipeline, has_simple_value};
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PipelineData, Value,
+    engine::{EngineState, Stack},
 };
 use pager::{Page, Pager, PagerConfig};
 use registry::CommandRegistry;
