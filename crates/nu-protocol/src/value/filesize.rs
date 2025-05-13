@@ -53,11 +53,6 @@ impl Filesize {
         }
     }
 
-    /// Convert a filesize to the specified unit TODO
-    pub const fn to_unit(&self, unit: FilesizeUnit) -> f64 {
-        self.0 as f64 / unit.as_bytes() as f64
-    }
-
     /// Returns the underlying [`i64`] number of bytes in a [`Filesize`].
     pub const fn get(&self) -> i64 {
         self.0
