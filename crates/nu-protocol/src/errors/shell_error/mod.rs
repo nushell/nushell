@@ -436,10 +436,9 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check that the provided value can be converted in the provided: only Durations can be converted to duration units, and only Filesize can be converted to filesize units.
-    #[error("Can't convert {from_type} to unit '{target_unit}'.")]
+    #[error("Can't convert {from_type} to the specified unit.")]
     #[diagnostic(code(nu::shell::cant_convert_value_to_unit))]
     CantConvertToUnit {
-        target_unit: String,
         to_type: String,
         from_type: String,
         #[label("can't convert {from_type} to {to_type}")]

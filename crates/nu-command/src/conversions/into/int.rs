@@ -275,7 +275,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let val_span = input.span();
 
     if let Some(spanned_unit) = unit_option {
-        let unit_str = spanned_unit.item.as_str();
         return match spanned_unit.item.build_value(1, head) {
             Ok(val_one_in_unit) => {
                 match (input, &val_one_in_unit) {
@@ -303,7 +302,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         };
                         Value::error(
                             ShellError::CantConvertToUnit {
-                                target_unit: unit_str.to_string(),
                                 to_type: target_unit_type.to_string(),
                                 from_type: from_type.to_string(),
                                 span: other_from.span(),
