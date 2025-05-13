@@ -216,7 +216,7 @@ fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellErro
                 from_type: other.get_type().to_string(),
                 span: val.span(),
                 help: None,
-            })
+            });
         }
     };
 

@@ -43,24 +43,19 @@ impl Command for StrExpand {
                     vec![
                         Value::test_string("3"),
                         Value::test_string("4"),
-                        Value::test_string("5")
+                        Value::test_string("5"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Ignore the next character after the backslash ('\\')",
                 example: "'A{B\\,,C}' | str expand",
                 result: Some(Value::list(
-                    vec![
-                        Value::test_string("AB,"),
-                        Value::test_string("AC"),
-                    ],
-                    Span::test_data()
+                    vec![Value::test_string("AB,"), Value::test_string("AC")],
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Commas that are not inside any braces need to be skipped.",
                 example: "'Welcome\\, {home,mon ami}!' | str expand",
@@ -69,22 +64,17 @@ impl Command for StrExpand {
                         Value::test_string("Welcome, home!"),
                         Value::test_string("Welcome, mon ami!"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Use double backslashes to add a backslash.",
                 example: "'A{B\\\\,C}' | str expand",
                 result: Some(Value::list(
-                    vec![
-                        Value::test_string("AB\\"),
-                        Value::test_string("AC"),
-                    ],
-                    Span::test_data()
+                    vec![Value::test_string("AB\\"), Value::test_string("AC")],
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Export comma separated values inside braces (`{}`) to a string list.",
                 example: "\"{apple,banana,cherry}\" | str expand",
@@ -92,12 +82,11 @@ impl Command for StrExpand {
                     vec![
                         Value::test_string("apple"),
                         Value::test_string("banana"),
-                        Value::test_string("cherry")
+                        Value::test_string("cherry"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "If the piped data is path, you may want to use --path flag, or else manually replace the backslashes with double backslashes.",
                 example: "'C:\\{Users,Windows}' | str expand --path",
@@ -106,10 +95,9 @@ impl Command for StrExpand {
                         Value::test_string("C:\\Users"),
                         Value::test_string("C:\\Windows"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Brace expressions can be used one after another.",
                 example: "\"A{b,c}D{e,f}G\" | str expand",
@@ -120,10 +108,9 @@ impl Command for StrExpand {
                         Value::test_string("AcDeG"),
                         Value::test_string("AcDfG"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Collection may include an empty item. It can be put at the start of the list.",
                 example: "\"A{,B,C}\" | str expand",
@@ -133,10 +120,9 @@ impl Command for StrExpand {
                         Value::test_string("AB"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Empty item can be at the end of the collection.",
                 example: "\"A{B,C,}\" | str expand",
@@ -146,10 +132,9 @@ impl Command for StrExpand {
                         Value::test_string("AC"),
                         Value::test_string("A"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Empty item can be in the middle of the collection.",
                 example: "\"A{B,,C}\" | str expand",
@@ -159,10 +144,9 @@ impl Command for StrExpand {
                         Value::test_string("A"),
                         Value::test_string("AC"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
                 example: "\"A{B{1,3},C{2,5}}D\" | str expand",
@@ -173,10 +157,9 @@ impl Command for StrExpand {
                         Value::test_string("AC2D"),
                         Value::test_string("AC5D"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
             },
-
             Example {
                 description: "Supports zero padding in numeric ranges.",
                 example: "\"A{08..10}B{11..013}C\" | str expand",
@@ -192,9 +175,9 @@ impl Command for StrExpand {
                         Value::test_string("A10B012C"),
                         Value::test_string("A10B013C"),
                     ],
-                    Span::test_data()
+                    Span::test_data(),
                 )),
-            }
+            },
         ]
     }
 
@@ -261,8 +244,8 @@ fn run(
 fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
     use bracoxide::{
         expand,
-        parser::{parse, ParsingError},
-        tokenizer::{tokenize, TokenizationError},
+        parser::{ParsingError, parse},
+        tokenizer::{TokenizationError, tokenize},
     };
     match tokenize(contents) {
         Ok(tokens) => {

@@ -1,6 +1,6 @@
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
+    engine::{EngineState, Stack},
 };
 use std::ops::Bound;
 

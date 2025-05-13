@@ -1,10 +1,10 @@
 use nu_engine::eval_block;
 use nu_protocol::{
+    BlockId, IntoPipelineData, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
-    BlockId, IntoPipelineData, Span, Value,
 };
-use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
+use reedline::{Completer, Suggestion, menu_functions::parse_selection_char};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';

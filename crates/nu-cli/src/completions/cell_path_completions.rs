@@ -3,10 +3,10 @@ use std::borrow::Cow;
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
+    ShellError, Span, Value,
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
-    ShellError, Span, Value,
 };
 use reedline::Suggestion;
 

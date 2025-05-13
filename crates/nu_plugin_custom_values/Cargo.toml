@@ -2,7 +2,7 @@
 name = "nu_plugin_custom_values"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_custom_values"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]

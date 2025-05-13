@@ -1,4 +1,4 @@
-use nu_protocol::{ast::CellPath, LabeledError, Span, Value};
+use nu_protocol::{LabeledError, Span, Value, ast::CellPath};
 use semver::{BuildMetadata, Prerelease, Version};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -126,8 +126,8 @@ mod tests {
     mod semver {
         use nu_protocol::{Span, Value};
 
-        use crate::inc::SemVerAction;
         use crate::Inc;
+        use crate::inc::SemVerAction;
 
         #[test]
         fn major() {

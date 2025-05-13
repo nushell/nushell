@@ -1,6 +1,6 @@
 use crate::dataframe::command::data::sql_expr::parse_sql_expr;
 use polars::error::{ErrString, PolarsError};
-use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
+use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, col};
 use sqlparser::ast::{
     Expr as SqlExpr, GroupByExpr, Select, SelectItem, SetExpr, Statement, TableFactor,
     Value as SQLValue,
@@ -198,7 +198,7 @@ impl SQLContext {
                         _ => {
                             return Err(PolarsError::ComputeError(
                                 "INSERT, UPDATE is not supported for polars".into(),
-                            ))
+                            ));
                         }
                     };
                     match &query.limit {
@@ -214,14 +214,14 @@ impl SQLContext {
                         _ => {
                             return Err(PolarsError::ComputeError(
                                 "Only support number argument to LIMIT clause".into(),
-                            ))
+                            ));
                         }
                     }
                 }
                 _ => {
                     return Err(PolarsError::ComputeError(
                         format!("Statement type {ast:?} is not supported").into(),
-                    ))
+                    ));
                 }
             })
         }

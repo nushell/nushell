@@ -3,8 +3,8 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Syntax
 use polars::prelude::PlSmallStr;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame},
 };
 
 pub struct QCutSeries;

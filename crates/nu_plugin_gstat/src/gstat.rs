@@ -1,5 +1,5 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
-use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
+use nu_protocol::{IntoSpanned, LabeledError, Span, Spanned, Value, record};
 use std::{fmt::Write, ops::BitAnd, path::Path};
 
 // git status

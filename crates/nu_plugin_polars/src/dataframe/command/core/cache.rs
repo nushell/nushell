@@ -3,8 +3,8 @@ use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span
 use polars::df;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame, NuLazyFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame, NuLazyFrame},
 };
 
 pub struct LazyCache;

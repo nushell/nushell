@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, IntoValue};
+use nu_protocol::{IntoValue, ast::PathMember};
 
 #[derive(Clone)]
 pub struct SplitCellPath;
@@ -50,7 +50,7 @@ impl Command for SplitCellPath {
         let src_span = match input {
             // Early return on correct type and empty pipeline
             PipelineData::Value(Value::CellPath { val, .. }, _) => {
-                return Ok(split_cell_path(val, head)?.into_pipeline_data())
+                return Ok(split_cell_path(val, head)?.into_pipeline_data());
             }
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
 

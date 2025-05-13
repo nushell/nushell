@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
-use nu_utils::filesystem::{have_permission, PermissionResult};
+use nu_utils::filesystem::{PermissionResult, have_permission};
 
 #[derive(Clone)]
 pub struct Cd;

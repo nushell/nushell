@@ -1,9 +1,9 @@
 use crate::{
-    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
 };
 
-use crate::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
+use crate::values::{NuDataFrame, NuExpression, utils::DEFAULT_ROWS};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,

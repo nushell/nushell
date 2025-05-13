@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use print_positions::print_positions;
@@ -79,14 +79,12 @@ impl Command for Fill {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Fill a string on the left side to a width of 15 with the character '─'",
+                description: "Fill a string on the left side to a width of 15 with the character '─'",
                 example: "'nushell' | fill --alignment l --character '─' --width 15",
                 result: Some(Value::string("nushell────────", Span::test_data())),
             },
             Example {
-                description:
-                    "Fill a string on the right side to a width of 15 with the character '─'",
+                description: "Fill a string on the right side to a width of 15 with the character '─'",
                 example: "'nushell' | fill --alignment r --character '─' --width 15",
                 result: Some(Value::string("────────nushell", Span::test_data())),
             },
@@ -96,8 +94,7 @@ impl Command for Fill {
                 result: Some(Value::string("──────────", Span::test_data())),
             },
             Example {
-                description:
-                    "Fill a number on the left side to a width of 5 with the character '0'",
+                description: "Fill a number on the left side to a width of 5 with the character '0'",
                 example: "1 | fill --alignment right --character '0' --width 5",
                 result: Some(Value::string("00001", Span::test_data())),
             },
@@ -107,8 +104,7 @@ impl Command for Fill {
                 result: Some(Value::string("01.10", Span::test_data())),
             },
             Example {
-                description:
-                    "Fill a filesize on both sides to a width of 10 with the character '0'",
+                description: "Fill a filesize on both sides to a width of 10 with the character '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
                 result: Some(Value::string("0001024000", Span::test_data())),
             },

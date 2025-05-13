@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 
 #[test]
 fn illegal_column_duplication() -> TestResult {
@@ -58,7 +58,7 @@ fn flatten_table_column_get_last() -> TestResult {
 fn flatten_should_just_flatten_one_level() -> TestResult {
     run_test(
         "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten crate | get crate.name.0",
-        "nu-cli"
+        "nu-cli",
     )
 }
 
@@ -66,7 +66,7 @@ fn flatten_should_just_flatten_one_level() -> TestResult {
 fn flatten_nest_table_when_all_provided() -> TestResult {
     run_test(
         "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten crate --all | get name.0",
-        "nu-cli"
+        "nu-cli",
     )
 }
 

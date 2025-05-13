@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::command_prelude::*;
 use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
@@ -32,37 +32,17 @@ impl Command for Loop {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let head = call.head;
-        let block_id = call
-            .positional_nth(0)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
-
-        let block = engine_state.get_block(block_id);
-        let eval_block = get_eval_block(engine_state);
-
-        let stack = &mut stack.push_redirection(None, None);
-
-        loop {
-            engine_state.signals().check(head)?;
-
-            match eval_block(engine_state, stack, block, PipelineData::empty()) {
-                Err(ShellError::Break { .. }) => break,
-                Err(ShellError::Continue { .. }) => continue,
-                Err(err) => return Err(err),
-                Ok(data) => data.drain()?,
-            }
-        }
-        Ok(PipelineData::empty())
+        eprintln!(
+            "Tried to execute 'run' for the 'loop' command: this code path should never be reached in IR mode"
+        );
+        unreachable!()
     }
 
     fn examples(&self) -> Vec<Example> {

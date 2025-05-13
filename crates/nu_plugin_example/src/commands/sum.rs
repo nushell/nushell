@@ -72,10 +72,10 @@ enum IntOrFloat {
 impl IntOrFloat {
     pub(crate) fn add_i64(&mut self, n: i64) {
         match self {
-            IntOrFloat::Int(ref mut v) => {
+            IntOrFloat::Int(v) => {
                 *v += n;
             }
-            IntOrFloat::Float(ref mut v) => {
+            IntOrFloat::Float(v) => {
                 *v += n as f64;
             }
         }
@@ -86,7 +86,7 @@ impl IntOrFloat {
             IntOrFloat::Int(v) => {
                 *self = IntOrFloat::Float(*v as f64 + n);
             }
-            IntOrFloat::Float(ref mut v) => {
+            IntOrFloat::Float(v) => {
                 *v += n;
             }
         }

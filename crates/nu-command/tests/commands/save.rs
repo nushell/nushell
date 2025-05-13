@@ -1,4 +1,4 @@
-use nu_test_support::fs::{file_contents, Stub};
+use nu_test_support::fs::{Stub, file_contents};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use std::io::Write;
@@ -96,9 +96,11 @@ fn save_stderr_and_stdout_to_same_file() {
             do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
             "#,
         );
-        assert!(actual
-            .err
-            .contains("can't save both input and stderr input to the same file"));
+        assert!(
+            actual
+                .err
+                .contains("can't save both input and stderr input to the same file")
+        );
     })
 }
 
@@ -340,9 +342,11 @@ fn save_same_file_with_extension() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -361,9 +365,11 @@ fn save_same_file_with_extension_pipeline() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -381,9 +387,11 @@ fn save_same_file_without_extension() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -402,9 +410,11 @@ fn save_same_file_without_extension_pipeline() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 

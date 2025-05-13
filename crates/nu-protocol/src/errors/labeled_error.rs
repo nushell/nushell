@@ -1,4 +1,4 @@
-use super::{shell_error::io::IoError, ShellError};
+use super::{ShellError, shell_error::io::IoError};
 use crate::Span;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};

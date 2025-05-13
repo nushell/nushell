@@ -250,7 +250,9 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a custom command with flags and arguments",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
+                result: Some(Value::test_string(
+                    "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
+                )),
             },
             Example {
                 description: "View the source of a module",

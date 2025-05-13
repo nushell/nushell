@@ -1,5 +1,5 @@
 use polars::error::PolarsError;
-use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit};
+use polars::prelude::{DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit, col, lit};
 
 use sqlparser::ast::{
     ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
@@ -40,13 +40,13 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
             _ => {
                 return Err(PolarsError::ComputeError(
                     "SQL Datatype Array(None) was not supported in polars-sql yet!".into(),
-                ))
+                ));
             }
         },
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("SQL Datatype {data_type:?} was not supported in polars-sql yet!").into(),
-            ))
+            ));
         }
     })
 }
@@ -78,7 +78,7 @@ fn binary_op_(left: Expr, right: Expr, op: &SQLBinaryOperator) -> Result<Expr> {
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("SQL Operator {op:?} was not supported in polars-sql yet!").into(),
-            ))
+            ));
         }
     })
 }
@@ -106,7 +106,7 @@ fn literal_expr(value: &SqlValue) -> Result<Expr> {
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("Parsing SQL Value {value:?} was not supported in polars-sql yet!").into(),
-            ))
+            ));
         }
     })
 }
@@ -128,7 +128,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
-            ))
+            ));
         }
     })
 }
@@ -150,7 +150,7 @@ fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Exp
             WindowType::NamedWindow(_named) => {
                 return Err(PolarsError::ComputeError(
                     format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
-                ))
+                ));
             }
         },
         None => expr,
@@ -179,31 +179,23 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
             FunctionArg::ExprNamed { arg, .. } => arg,
         })
         .collect::<Vec<_>>();
-    Ok(
-        match (
-            function_name.as_str(),
-            args.as_slice(),
-            distinct,
-        ) {
-            ("sum", [FunctionArgExpr::Expr(ref expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.sum()
-            }
-            ("count", [FunctionArgExpr::Expr(ref expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.count()
-            }
-            ("count", [FunctionArgExpr::Expr(ref expr)], true) => {
-                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.n_unique()
-            }
-            // Special case for wildcard args to count function.
-            ("count", [FunctionArgExpr::Wildcard], false) => lit(1i32).count(),
-            _ => {
-                return Err(PolarsError::ComputeError(
-                    format!(
-                        "Function {function_name:?} with args {args:?} was not supported in polars-sql yet!"
-                    )
-                    .into(),
-                ))
-            }
-        },
-    )
+    Ok(match (function_name.as_str(), args.as_slice(), distinct) {
+        ("sum", [FunctionArgExpr::Expr(expr)], false) => {
+            apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.sum()
+        }
+        ("count", [FunctionArgExpr::Expr(expr)], false) => {
+            apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.count()
+        }
+        ("count", [FunctionArgExpr::Expr(expr)], true) => {
+            apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.n_unique()
+        }
+        // Special case for wildcard args to count function.
+        ("count", [FunctionArgExpr::Wildcard], false) => lit(1i32).count(),
+        _ => return Err(PolarsError::ComputeError(
+            format!(
+                "Function {function_name:?} with args {args:?} was not supported in polars-sql yet!"
+            )
+            .into(),
+        )),
+    })
 }

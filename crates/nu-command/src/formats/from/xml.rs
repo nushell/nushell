@@ -230,34 +230,42 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
     match err {
         roxmltree::Error::InvalidXmlPrefixUri(pos) => make_xml_error_spanned(
             "The `xmlns:xml` attribute must have an <http://www.w3.org/XML/1998/namespace> URI.",
-            source, pos,
+            source,
+            pos,
         ),
         roxmltree::Error::UnexpectedXmlUri(pos) => make_xml_error_spanned(
             "Only the xmlns:xml attribute can have the http://www.w3.org/XML/1998/namespace  URI.",
-            source, pos,
+            source,
+            pos,
         ),
         roxmltree::Error::UnexpectedXmlnsUri(pos) => make_xml_error_spanned(
             "The http://www.w3.org/2000/xmlns/  URI must not be declared.",
-            source, pos,
+            source,
+            pos,
         ),
         roxmltree::Error::InvalidElementNamePrefix(pos) => {
             make_xml_error_spanned("xmlns can't be used as an element prefix.", source, pos)
         }
-        roxmltree::Error::DuplicatedNamespace(namespace, pos) => {
-            make_xml_error_spanned(format!("Namespace {namespace} was already defined on this element."), source, pos)
-        }
+        roxmltree::Error::DuplicatedNamespace(namespace, pos) => make_xml_error_spanned(
+            format!("Namespace {namespace} was already defined on this element."),
+            source,
+            pos,
+        ),
         roxmltree::Error::UnknownNamespace(prefix, pos) => {
             make_xml_error_spanned(format!("Unknown prefix {}", prefix), source, pos)
         }
-        roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => {
-            make_xml_error_spanned(format!("Unexpected close tag {actual}, expected {expected}"), source, pos)
-        }
+        roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => make_xml_error_spanned(
+            format!("Unexpected close tag {actual}, expected {expected}"),
+            source,
+            pos,
+        ),
         roxmltree::Error::UnexpectedEntityCloseTag(pos) => {
             make_xml_error_spanned("Entity value starts with a close tag.", source, pos)
         }
         roxmltree::Error::UnknownEntityReference(entity, pos) => make_xml_error_spanned(
             format!("Reference to unknown entity {entity} (was not defined in the DTD)"),
-            source, pos,
+            source,
+            pos,
         ),
         roxmltree::Error::MalformedEntityReference(pos) => {
             make_xml_error_spanned("Malformed entity reference.", source, pos)
@@ -268,9 +276,11 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
         roxmltree::Error::InvalidAttributeValue(pos) => {
             make_xml_error_spanned("Attribute value cannot have a < character.", source, pos)
         }
-        roxmltree::Error::DuplicatedAttribute(attribute, pos) => {
-            make_xml_error_spanned(format!("Element has a duplicated attribute: {attribute}"), source, pos)
-        }
+        roxmltree::Error::DuplicatedAttribute(attribute, pos) => make_xml_error_spanned(
+            format!("Element has a duplicated attribute: {attribute}"),
+            source,
+            pos,
+        ),
         roxmltree::Error::NoRootNode => {
             make_xml_error("The XML document must have at least one element.", span)
         }
@@ -279,52 +289,54 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
         }
         roxmltree::Error::DtdDetected => make_xml_error(
             "XML document with DTD detected.\nDTDs are disabled by default to prevent denial-of-service attacks (use --allow-dtd to parse anyway)",
-            span
+            span,
         ),
-        roxmltree::Error::NodesLimitReached => {
-            make_xml_error("Node limit was reached.", span)
-        }
-        roxmltree::Error::AttributesLimitReached => {
-            make_xml_error("Attribute limit reached", span)
-        }
-        roxmltree::Error::NamespacesLimitReached => {
-            make_xml_error("Namespace limit reached", span)
-        }
-        roxmltree::Error::UnexpectedDeclaration(pos) => {
-            make_xml_error_spanned("An XML document can have only one XML declaration and it must be at the start of the document.", source, pos)
-        }
-        roxmltree::Error::InvalidName(pos) => {
-            make_xml_error_spanned("Invalid name.", source, pos)
-        }
-        roxmltree::Error::NonXmlChar(_, pos) => {
-            make_xml_error_spanned("Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>", source, pos)
-        }
-        roxmltree::Error::InvalidChar(expected, actual, pos) => {
-            make_xml_error_spanned(
-                format!("Unexpected character {}, expected {}", actual as char, expected as char),
-                source,
-                pos
-            )
-        }
-        roxmltree::Error::InvalidChar2(expected, actual, pos) => {
-            make_xml_error_spanned(
-                format!("Unexpected character {}, expected {}", actual as char, expected),
-                source,
-                pos
-            )
-        }
+        roxmltree::Error::NodesLimitReached => make_xml_error("Node limit was reached.", span),
+        roxmltree::Error::AttributesLimitReached => make_xml_error("Attribute limit reached", span),
+        roxmltree::Error::NamespacesLimitReached => make_xml_error("Namespace limit reached", span),
+        roxmltree::Error::UnexpectedDeclaration(pos) => make_xml_error_spanned(
+            "An XML document can have only one XML declaration and it must be at the start of the document.",
+            source,
+            pos,
+        ),
+        roxmltree::Error::InvalidName(pos) => make_xml_error_spanned("Invalid name.", source, pos),
+        roxmltree::Error::NonXmlChar(_, pos) => make_xml_error_spanned(
+            "Non-XML character found. Valid characters are: <https://www.w3.org/TR/xml/#char32>",
+            source,
+            pos,
+        ),
+        roxmltree::Error::InvalidChar(expected, actual, pos) => make_xml_error_spanned(
+            format!(
+                "Unexpected character {}, expected {}",
+                actual as char, expected as char
+            ),
+            source,
+            pos,
+        ),
+        roxmltree::Error::InvalidChar2(expected, actual, pos) => make_xml_error_spanned(
+            format!(
+                "Unexpected character {}, expected {}",
+                actual as char, expected
+            ),
+            source,
+            pos,
+        ),
         roxmltree::Error::InvalidString(_, pos) => {
             make_xml_error_spanned("Invalid/unexpected string in XML.", source, pos)
         }
         roxmltree::Error::InvalidExternalID(pos) => {
             make_xml_error_spanned("Invalid ExternalID in the DTD.", source, pos)
         }
-        roxmltree::Error::InvalidComment(pos) => {
-            make_xml_error_spanned("A comment cannot contain `--` or end with `-`.", source, pos)
-        }
-        roxmltree::Error::InvalidCharacterData(pos) => {
-            make_xml_error_spanned("Character Data node contains an invalid data. Currently, only `]]>` is not allowed.", source, pos)
-        }
+        roxmltree::Error::InvalidComment(pos) => make_xml_error_spanned(
+            "A comment cannot contain `--` or end with `-`.",
+            source,
+            pos,
+        ),
+        roxmltree::Error::InvalidCharacterData(pos) => make_xml_error_spanned(
+            "Character Data node contains an invalid data. Currently, only `]]>` is not allowed.",
+            source,
+            pos,
+        ),
         roxmltree::Error::UnknownToken(pos) => {
             make_xml_error_spanned("Unknown token in XML.", source, pos)
         }
@@ -361,8 +373,8 @@ mod tests {
 
     use super::*;
 
-    use indexmap::indexmap;
     use indexmap::IndexMap;
+    use indexmap::indexmap;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     fn string(input: impl Into<String>) -> Value {

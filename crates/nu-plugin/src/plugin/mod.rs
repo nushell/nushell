@@ -9,15 +9,15 @@ use std::{
     thread,
 };
 
-use nu_engine::documentation::{get_flags_section, HelpStyle};
+use nu_engine::documentation::{HelpStyle, get_flags_section};
 use nu_plugin_core::{
     ClientCommunicationIo, CommunicationMode, InterfaceManager, PluginEncoder, PluginRead,
     PluginWrite,
 };
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata,
-    ShellError, Spanned, Value,
+    CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Spanned,
+    Value, ast::Operator,
 };
 use thiserror::Error;
 
@@ -26,7 +26,7 @@ use self::{command::render_examples, interface::ReceivedPluginCall};
 mod command;
 mod interface;
 
-pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
+pub use command::{PluginCommand, SimplePluginCommand, create_plugin_signature};
 pub use interface::{EngineInterface, EngineInterfaceManager};
 
 /// This should be larger than the largest commonly sent message to avoid excessive fragmentation.

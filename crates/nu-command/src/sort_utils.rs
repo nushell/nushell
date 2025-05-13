@@ -1,5 +1,5 @@
 use nu_engine::ClosureEval;
-use nu_protocol::{ast::CellPath, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{PipelineData, Record, ShellError, Span, Value, ast::CellPath};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 

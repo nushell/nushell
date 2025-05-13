@@ -10,7 +10,7 @@ pub fn record_to_query_string(
     let mut row_vec = vec![];
     for (k, v) in record {
         match v {
-            Value::List { ref vals, .. } => {
+            Value::List { vals, .. } => {
                 for v_item in vals {
                     row_vec.push((
                         k.as_str(),

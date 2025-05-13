@@ -1,6 +1,6 @@
 use crate::{
-    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame},
 };
 
 use crate::values::NuDataFrame;

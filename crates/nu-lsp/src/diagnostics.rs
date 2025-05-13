@@ -1,9 +1,9 @@
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 use lsp_types::{
-    notification::{Notification, PublishDiagnostics},
     Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
+    notification::{Notification, PublishDiagnostics},
 };
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {

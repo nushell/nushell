@@ -23,17 +23,18 @@ pub fn with_locale_override<T>(locale_string: &str, func: fn() -> T) -> T {
             .expect("Failed to get mutex lock for locale override");
 
         let saved = std::env::var(LOCALE_OVERRIDE_ENV_VAR).ok();
-        std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_string);
+        unsafe {
+            std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_string);
 
-        let result = std::panic::catch_unwind(func);
+            let result = std::panic::catch_unwind(func);
 
-        if let Some(locale_str) = saved {
-            std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_str);
-        } else {
-            std::env::remove_var(LOCALE_OVERRIDE_ENV_VAR);
+            if let Some(locale_str) = saved {
+                std::env::set_var(LOCALE_OVERRIDE_ENV_VAR, locale_str);
+            } else {
+                std::env::remove_var(LOCALE_OVERRIDE_ENV_VAR);
+            }
+            result
         }
-
-        result
     };
     result.unwrap_or_else(|err| std::panic::resume_unwind(err))
 }

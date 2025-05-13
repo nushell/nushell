@@ -8,10 +8,11 @@ use nu_plugin::{Plugin, PluginCommand};
 use nu_plugin_engine::{PluginCustomValueWithSource, PluginSource, WithSource};
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
+    CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData, ShellError, Signals, Span,
+    Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, Signals, Span, Value,
+    report_shell_error,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -242,8 +243,46 @@ impl PluginTest {
                         // Check for equality with the result
                         if !self.value_eq(expectation, &value)? {
                             // If they're not equal, print a diff of the debug format
-                            let expectation_formatted = format!("{:#?}", expectation);
-                            let value_formatted = format!("{:#?}", value);
+                            let (expectation_formatted, value_formatted) =
+                                match (expectation, &value) {
+                                    (
+                                        Value::Custom { val: ex_val, .. },
+                                        Value::Custom { val: v_val, .. },
+                                    ) => {
+                                        // We have to serialize both custom values before handing them to the plugin
+                                        let expectation_serialized =
+                                            PluginCustomValue::serialize_from_custom_value(
+                                                ex_val.as_ref(),
+                                                expectation.span(),
+                                            )?
+                                            .with_source(self.source.clone());
+
+                                        let value_serialized =
+                                            PluginCustomValue::serialize_from_custom_value(
+                                                v_val.as_ref(),
+                                                expectation.span(),
+                                            )?
+                                            .with_source(self.source.clone());
+
+                                        let persistent =
+                                            self.source.persistent(None)?.get_plugin(None)?;
+                                        let expectation_base = persistent
+                                            .custom_value_to_base_value(
+                                                expectation_serialized
+                                                    .into_spanned(expectation.span()),
+                                            )?;
+                                        let value_base = persistent.custom_value_to_base_value(
+                                            value_serialized.into_spanned(value.span()),
+                                        )?;
+
+                                        (
+                                            format!("{:#?}", expectation_base),
+                                            format!("{:#?}", value_base),
+                                        )
+                                    }
+                                    _ => (format!("{:#?}", expectation), format!("{:#?}", value)),
+                                };
+
                             let diff = diff_by_line(&expectation_formatted, &value_formatted);
                             failed_header();
                             eprintln!("{} {}", bold.paint("Result:"), diff);

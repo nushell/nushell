@@ -1,7 +1,7 @@
 use crate::{
+    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
     ast::{CellPath, PathMember},
     engine::Closure,
-    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -772,7 +772,7 @@ fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Spa
 
 #[cfg(test)]
 mod tests {
-    use crate::{engine::Closure, FromValue, IntoValue, Record, Span, Type, Value};
+    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
     use std::ops::Deref;
 
     #[test]

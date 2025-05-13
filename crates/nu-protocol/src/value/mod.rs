@@ -20,10 +20,10 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
+    BlockId, Config, ShellError, Signals, Span, Type,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    BlockId, Config, ShellError, Signals, Span, Type,
 };
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -1001,7 +1001,7 @@ impl Value {
                 Some(format) => self.format_datetime(val, format),
                 None => human_time_from_now(val).to_string(),
             },
-            Value::List { ref vals, .. } => {
+            Value::List { vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
                         "[table {} row{}]",
@@ -1702,16 +1702,16 @@ impl Value {
         f(self)?;
         // Check for contained values
         match self {
-            Value::Record { ref mut val, .. } => val
+            Value::Record { val, .. } => val
                 .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
-            Value::List { ref mut vals, .. } => vals
+            Value::List { vals, .. } => vals
                 .iter_mut()
                 .try_for_each(|list_value| list_value.recurse_mut(f)),
             // Closure captures are visited. Maybe these don't have to be if they are changed to
             // more opaque references.
-            Value::Closure { ref mut val, .. } => val
+            Value::Closure { val, .. } => val
                 .captures
                 .iter_mut()
                 .map(|(_, captured_value)| captured_value)
@@ -2072,7 +2072,7 @@ fn get_value_member<'a>(
                         })
                     }
                 }
-                Value::Range { ref val, .. } => {
+                Value::Range { val, .. } => {
                     if let Some(item) = val
                         .into_range_iter(current.span(), Signals::empty())
                         .nth(*count)
@@ -2087,7 +2087,7 @@ fn get_value_member<'a>(
                         })
                     }
                 }
-                Value::Custom { ref val, .. } => {
+                Value::Custom { val, .. } => {
                     match val.follow_path_int(current.span(), *count, *origin_span)
                     {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
@@ -2184,7 +2184,7 @@ fn get_value_member<'a>(
 
                     Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
                 }
-                Value::Custom { ref val, .. } => {
+                Value::Custom { val, .. } => {
                     match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
                     {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
@@ -3356,7 +3356,9 @@ impl Value {
                 let help = if matches!(self, Value::List { .. })
                     || matches!(rhs, Value::List { .. })
                 {
-                    Some("if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.")
+                    Some(
+                        "if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.",
+                    )
                 } else {
                     None
                 };
@@ -4516,14 +4518,18 @@ mod tests {
 
         // complex values returning None
         assert!(Value::test_record(Record::default()).coerce_bool().is_err());
-        assert!(Value::test_list(vec![Value::test_int(1)])
+        assert!(
+            Value::test_list(vec![Value::test_int(1)])
+                .coerce_bool()
+                .is_err()
+        );
+        assert!(
+            Value::test_date(
+                chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
+            )
             .coerce_bool()
-            .is_err());
-        assert!(Value::test_date(
-            chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
-        )
-        .coerce_bool()
-        .is_err());
+            .is_err()
+        );
         assert!(Value::test_glob("*.rs").coerce_bool().is_err());
         assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
         assert!(Value::test_duration(3600).coerce_bool().is_err());

@@ -1,17 +1,17 @@
 use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
-use nu_protocol::{ast::PathMember, engine::EngineState, record, Span, Value};
+use nu_protocol::{Span, Value, ast::PathMember, engine::EngineState, record};
 use nu_test_support::{
-    fs::{line_ending, Stub},
+    fs::{Stub, line_ending},
     nu, pipeline,
     playground::{Dirs, Playground},
 };
 use rand::{
+    Rng, SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
     prelude::Distribution,
     random_range,
     rngs::StdRng,
-    Rng, SeedableRng,
 };
 use std::io::Write;
 
@@ -338,7 +338,7 @@ fn into_sqlite_big_insert() {
             let nuon = nuon::to_nuon(
                 &engine_state,
                 &value,
-                nuon::ToStyle::Raw,
+                nuon::ToStyle::Default,
                 Some(Span::unknown()),
                 serialize_types,
             )

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 use crate::{
-    completions::{Completer, CompletionOptions},
     SuggestionKind,
+    completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    engine::{CommandType, Stack, StateWorkingSet},
     Span,
+    engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
-use super::{completion_options::NuMatcher, SemanticSuggestion};
+use super::{SemanticSuggestion, completion_options::NuMatcher};
 
 pub struct CommandCompletion {
     /// Whether to include internal commands

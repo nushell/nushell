@@ -1,9 +1,9 @@
 use nu_plugin::PluginCommand;
-use nu_protocol::{record, Category, Example, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{Category, Example, ShellError, Signature, Span, Type, Value, record};
 
 use crate::{
-    values::{CustomValueSupport, NuSchema},
     PolarsPlugin,
+    values::{CustomValueSupport, NuSchema},
 };
 
 pub struct ToSchema;

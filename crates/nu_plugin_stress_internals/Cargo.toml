@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "A test plugin for Nushell to stress aspects of the internals"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_stress_internals"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu_plugin_stress_internals"
 version = "0.104.1"

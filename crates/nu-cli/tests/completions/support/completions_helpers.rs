@@ -2,9 +2,9 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
+    PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Span, Value,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -273,13 +273,15 @@ pub fn merge_input(
 
     engine_state.merge_delta(delta)?;
 
-    assert!(eval_block::<WithoutDebug>(
-        engine_state,
-        stack,
-        &block,
-        PipelineData::Value(Value::nothing(Span::unknown()), None),
-    )
-    .is_ok());
+    assert!(
+        eval_block::<WithoutDebug>(
+            engine_state,
+            stack,
+            &block,
+            PipelineData::Value(Value::nothing(Span::unknown()), None),
+        )
+        .is_ok()
+    );
 
     // Merge environment into the permanent state
     engine_state.merge_env(stack)

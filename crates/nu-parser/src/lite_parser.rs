@@ -3,7 +3,7 @@
 
 use crate::{Token, TokenContents};
 use itertools::{Either, Itertools};
-use nu_protocol::{ast::RedirectionSource, engine::StateWorkingSet, ParseError, Span};
+use nu_protocol::{ParseError, Span, ast::RedirectionSource, engine::StateWorkingSet};
 use std::mem;
 
 #[derive(Debug, Clone, Copy)]

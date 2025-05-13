@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{span_to_range, uri_to_path, LanguageServer};
+use crate::{LanguageServer, span_to_range, uri_to_path};
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, CompletionParams,
     CompletionResponse, CompletionTextEdit, Documentation, InsertTextFormat, MarkupContent,
@@ -8,8 +8,8 @@ use lsp_types::{
 };
 use nu_cli::{NuCompleter, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
-    engine::{CommandType, EngineState, Stack},
     PositionalArg, Span, SyntaxShape,
+    engine::{CommandType, EngineState, Stack},
 };
 
 impl LanguageServer {
@@ -199,9 +199,9 @@ mod tests {
     use assert_json_diff::assert_json_include;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{Completion, Request},
         CompletionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
+        request::{Completion, Request},
     };
     use nu_test_support::fs::fixtures;
 

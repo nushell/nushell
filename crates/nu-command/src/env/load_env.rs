@@ -50,7 +50,7 @@ impl Command for LoadEnv {
                         input: "value originated from here".into(),
                         msg_span: span,
                         input_span: input.span().unwrap_or(span),
-                    })
+                    });
                 }
             },
         };

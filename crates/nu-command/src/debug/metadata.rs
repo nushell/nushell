@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::{Expr, Expression},
     DataSource, PipelineMetadata,
+    ast::{Expr, Expression},
 };
 
 #[derive(Clone)]

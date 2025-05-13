@@ -1,7 +1,7 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::Signals;
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct ChunkBy;

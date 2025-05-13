@@ -22,8 +22,8 @@ pub use str_::*;
 
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::{Call, EngineState, Stack, StateWorkingSet},
     ShellError,
+    engine::{Call, EngineState, Stack, StateWorkingSet},
 };
 
 // For handling the grapheme_cluster related flags on some commands.

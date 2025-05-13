@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Type,
+    Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Type,
+    spanned::Spanned,
 };
 
 use crate::{

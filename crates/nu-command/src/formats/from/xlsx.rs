@@ -100,7 +100,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
                         input: "value originates from here".into(),
                         msg_span: span,
                         input_span: x.span(),
-                    })
+                    });
                 }
                 None => break,
             }
