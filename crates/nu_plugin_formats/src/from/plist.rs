@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, FixedOffset, Offset, Utc};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, Record, Signature, Span, Value as NuValue,
+    Category, Example, LabeledError, Record, Signature, Span, Value as NuValue, record,
 };
 use plist::{Date as PlistDate, Dictionary, Value as PlistValue};
 

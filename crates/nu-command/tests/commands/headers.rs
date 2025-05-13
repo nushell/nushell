@@ -51,9 +51,11 @@ fn headers_invalid_column_type_empty_record() {
             | headers"
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }
 
 #[test]
@@ -64,9 +66,11 @@ fn headers_invalid_column_type_record() {
             | headers"
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }
 
 #[test]
@@ -77,9 +81,11 @@ fn headers_invalid_column_type_array() {
             | headers"
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }
 
 #[test]
@@ -90,9 +96,11 @@ fn headers_invalid_column_type_range() {
             | headers"
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }
 
 #[test]
@@ -103,9 +111,11 @@ fn headers_invalid_column_type_duration() {
             | headers"
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }
 
 #[test]
@@ -116,7 +126,9 @@ fn headers_invalid_column_type_binary() {
             | headers"#
     ));
 
-    assert!(actual
-        .err
-        .contains("needs compatible type: Null, String, Bool, Float, Int"));
+    assert!(
+        actual
+            .err
+            .contains("needs compatible type: Null, String, Bool, Float, Int")
+    );
 }

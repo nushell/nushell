@@ -1,15 +1,15 @@
 use crate::completions::{
-    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
     Completer, CompletionOptions,
+    completion_common::{AdjustView, adjust_if_intermediate, complete_item},
 };
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
     Span,
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{completion_common::FileSuggestion, SemanticSuggestion, SuggestionKind};
+use super::{SemanticSuggestion, SuggestionKind, completion_common::FileSuggestion};
 
 pub struct FileCompletion;
 

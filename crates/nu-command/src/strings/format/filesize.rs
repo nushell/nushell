@@ -1,6 +1,6 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, FilesizeFormatter, FilesizeUnit};
+use nu_protocol::{FilesizeFormatter, FilesizeUnit, engine::StateWorkingSet};
 
 struct Arguments {
     unit: FilesizeUnit,

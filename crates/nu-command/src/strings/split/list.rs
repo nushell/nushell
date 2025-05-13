@@ -1,5 +1,5 @@
 use fancy_regex::Regex;
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{FromValue, Signals};
 
 #[derive(Clone)]

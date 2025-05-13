@@ -1,17 +1,17 @@
 use crate::completions::{
-    base::{SemanticSuggestion, SuggestionKind},
     AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
     CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
     ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
+    PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;

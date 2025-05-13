@@ -1,13 +1,13 @@
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
     InlayHint, InlayHintKind, InlayHintLabel, InlayHintParams, InlayHintTooltip, MarkupContent,
     MarkupKind, Position, Range,
 };
 use nu_protocol::{
+    Type,
     ast::{Argument, Block, Expr, Expression, Operator, Traverse},
     engine::StateWorkingSet,
-    Type,
 };
 use std::sync::Arc;
 
@@ -161,8 +161,8 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{InlayHintRequest, Request},
         InlayHintParams, Position, Range, TextDocumentIdentifier, Uri, WorkDoneProgressParams,
+        request::{InlayHintRequest, Request},
     };
     use nu_test_support::fs::fixtures;
 

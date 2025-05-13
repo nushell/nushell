@@ -1,6 +1,6 @@
 mod common;
 
-use common::{create_row as row, TestCase};
+use common::{TestCase, create_row as row};
 use nu_table::{NuTable, TableTheme as theme};
 use tabled::grid::records::vec_records::Text;
 

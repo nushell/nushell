@@ -95,7 +95,7 @@ impl Command for MetadataSet {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_examples_with_commands, Metadata};
+    use crate::{Metadata, test_examples_with_commands};
 
     use super::*;
 

@@ -80,7 +80,7 @@ impl Command for ToNuon {
             Example {
                 description: "Outputs a NUON string representing the contents of this list, compact by default",
                 example: "[1 2 3] | to nuon",
-                result: Some(Value::test_string("[1, 2, 3]"))
+                result: Some(Value::test_string("[1, 2, 3]")),
             },
             Example {
                 description: "Outputs a NUON array of ints, with pretty indentation",
@@ -90,18 +90,22 @@ impl Command for ToNuon {
             Example {
                 description: "Overwrite any set option with --raw",
                 example: "[1 2 3] | to nuon --indent 2 --raw",
-                result: Some(Value::test_string("[1,2,3]"))
+                result: Some(Value::test_string("[1,2,3]")),
             },
             Example {
                 description: "A more complex record with multiple data types",
                 example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
-                result: Some(Value::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
+                result: Some(Value::test_string(
+                    "{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}",
+                )),
             },
             Example {
                 description: "A more complex record with --raw",
                 example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --raw",
-                result: Some(Value::test_string("{date:2000-01-01T00:00:00+00:00,data:[1,[2,3],4.56]}"))
-            }
+                result: Some(Value::test_string(
+                    "{date:2000-01-01T00:00:00+00:00,data:[1,[2,3],4.56]}",
+                )),
+            },
         ]
     }
 }

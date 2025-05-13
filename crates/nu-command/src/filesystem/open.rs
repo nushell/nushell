@@ -1,10 +1,9 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_protocol::{
-    ast,
+    DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
-    DataSource, NuGlob, PipelineMetadata,
 };
 use std::{
     collections::HashMap,
@@ -290,7 +289,7 @@ impl Command for Open {
     | rename extension command
 "#,
                 result: None,
-            }
+            },
         ]
     }
 }

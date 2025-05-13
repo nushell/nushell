@@ -1,4 +1,4 @@
-use crate::{clean_charset, colorize_space_str, string_wrap, TableOutput, TableTheme};
+use crate::{TableOutput, TableTheme, clean_charset, colorize_space_str, string_wrap};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
 use nu_utils::terminal_size;

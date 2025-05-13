@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::{Cacheable, PolarsPlugin};
 
 use super::{
-    nu_dtype::fields_to_value, str_to_dtype, CustomValueSupport, NuDataType, PolarsPluginObject,
-    PolarsPluginType,
+    CustomValueSupport, NuDataType, PolarsPluginObject, PolarsPluginType,
+    nu_dtype::fields_to_value, str_to_dtype,
 };
 
 #[derive(Debug, Clone)]

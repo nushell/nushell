@@ -1,12 +1,12 @@
 use crate::{
-    ast::Block,
-    engine::{
-        description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility,
-    },
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
     ParseError, ParseWarning, ResolvedImportPattern, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
+    ast::Block,
+    engine::{
+        CachedFile, Command, CommandType, EngineState, OverlayFrame, StateDelta, Variable,
+        VirtualPath, Visibility, description::build_desc,
+    },
 };
 use core::panic;
 use std::{

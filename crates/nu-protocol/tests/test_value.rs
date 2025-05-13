@@ -1,6 +1,6 @@
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Config, Span, Value,
+    engine::{EngineState, Stack},
 };
 use rstest::rstest;
 

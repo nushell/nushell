@@ -1,6 +1,7 @@
 use crate::{
+    NuStyle,
     nu_style::{color_from_hex, lookup_style},
-    parse_nustyle, NuStyle,
+    parse_nustyle,
 };
 use nu_ansi_term::Style;
 use nu_protocol::{Record, Value};
@@ -67,11 +68,7 @@ fn get_style_from_value(record: &Record) -> Option<NuStyle> {
         }
     }
 
-    if was_set {
-        Some(style)
-    } else {
-        None
-    }
+    if was_set { Some(style) } else { None }
 }
 
 fn color_string_to_nustyle(color_string: &str) -> Style {
@@ -92,7 +89,7 @@ fn color_string_to_nustyle(color_string: &str) -> Style {
 mod tests {
     use super::*;
     use nu_ansi_term::{Color, Style};
-    use nu_protocol::{record, Span, Value};
+    use nu_protocol::{Span, Value, record};
 
     #[test]
     fn test_color_string_to_nustyle_empty_string() {

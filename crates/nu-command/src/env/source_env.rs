@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
     redirect_env,
 };
-use nu_protocol::{engine::CommandType, shell_error::io::IoError, BlockId};
+use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 use std::path::PathBuf;
 
 /// Source a file for environment variables.

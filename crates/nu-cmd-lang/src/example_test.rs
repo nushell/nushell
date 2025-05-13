@@ -17,8 +17,8 @@ mod test_examples {
         Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
     };
     use nu_protocol::{
-        engine::{Command, EngineState, StateWorkingSet},
         Type, Value,
+        engine::{Command, EngineState, StateWorkingSet},
     };
     use std::collections::HashSet;
 

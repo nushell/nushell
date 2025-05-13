@@ -5,7 +5,7 @@ use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{shell_error::io::IoError, DataSource, NuGlob, PipelineMetadata, Signals};
+use nu_protocol::{DataSource, NuGlob, PipelineMetadata, Signals, shell_error::io::IoError};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 #[cfg(unix)]
@@ -13,7 +13,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::{
     cmp::Ordering,
     path::PathBuf,
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -189,20 +189,17 @@ impl Command for Ls {
                 result: None,
             },
             Example {
-                description:
-                    "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
+                description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
-                description:
-                    "Recursively list all files and subdirectories under the current directory using a glob pattern",
+                description: "Recursively list all files and subdirectories under the current directory using a glob pattern",
                 example: "ls -a **/*",
                 result: None,
             },
             Example {
-                description:
-                    "Recursively list *.rs and *.toml files using the glob command",
+                description: "Recursively list *.rs and *.toml files using the glob command",
                 example: "ls ...(glob **/*.{rs,toml})",
                 result: None,
             },
@@ -799,8 +796,8 @@ mod windows_helper {
     use std::os::windows::prelude::OsStrExt;
     use windows::Win32::Foundation::FILETIME;
     use windows::Win32::Storage::FileSystem::{
-        FindClose, FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
-        FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
+        FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY, FILE_ATTRIBUTE_REPARSE_POINT, FindClose,
+        FindFirstFileW, WIN32_FIND_DATAW,
     };
     use windows::Win32::System::SystemServices::{
         IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK,
@@ -858,7 +855,7 @@ mod windows_helper {
             );
         }
 
-        let file_size = (find_data.nFileSizeHigh as u64) << 32 | find_data.nFileSizeLow as u64;
+        let file_size = ((find_data.nFileSizeHigh as u64) << 32) | find_data.nFileSizeLow as u64;
         record.push("size", Value::filesize(file_size as i64, span));
 
         if long {

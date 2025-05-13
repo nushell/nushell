@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Support for the NUON format."
 repository = "https://github.com/nushell/nushell/tree/main/crates/nuon"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nuon"
 version = "0.104.1"

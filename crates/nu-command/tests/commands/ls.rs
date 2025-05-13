@@ -664,9 +664,11 @@ fn list_ignores_ansi() {
 fn list_unknown_flag() {
     let actual = nu!("ls -r");
 
-    assert!(actual
-        .err
-        .contains("Available flags: --help(-h), --all(-a),"));
+    assert!(
+        actual
+            .err
+            .contains("Available flags: --help(-h), --all(-a),")
+    );
 }
 
 #[test]

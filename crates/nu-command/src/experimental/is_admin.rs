@@ -34,13 +34,11 @@ impl Command for IsAdmin {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
-                example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,
-                result: Some(Value::test_string("iamnotroot")),
-            },
-        ]
+        vec![Example {
+            description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
+            example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,
+            result: Some(Value::test_string("iamnotroot")),
+        }]
     }
 }
 
@@ -58,7 +56,7 @@ fn is_root_impl() -> bool {
 fn is_root_impl() -> bool {
     use windows::Win32::{
         Foundation::{CloseHandle, HANDLE},
-        Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY},
+        Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation},
         System::Threading::{GetCurrentProcess, OpenProcessToken},
     };
 

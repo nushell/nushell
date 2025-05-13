@@ -1,9 +1,9 @@
 use std::ops::Bound;
 
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, IntRange};
+use nu_protocol::{IntRange, engine::StateWorkingSet};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -159,7 +159,7 @@ impl Command for StrIndexOf {
 fn action(
     input: &Value,
     Arguments {
-        ref substring,
+        substring,
         range,
         end,
         graphemes,
@@ -194,7 +194,7 @@ fn action(
                                 span: range_span,
                             },
                             head,
-                        )
+                        );
                     }
                 };
                 (s, start)
@@ -216,7 +216,7 @@ fn action(
                         // is used to get the grapheme index alongside it.
                         s.grapheme_indices(true)
                             .enumerate()
-                            .find(|e| e.1 .0 >= result)
+                            .find(|e| e.1.0 >= result)
                             .expect("No grapheme index for substring")
                             .0
                     } else {
@@ -246,7 +246,7 @@ mod tests {
     use nu_protocol::ast::RangeInclusion;
 
     use super::*;
-    use super::{action, Arguments, StrIndexOf};
+    use super::{Arguments, StrIndexOf, action};
 
     #[test]
     fn test_examples() {

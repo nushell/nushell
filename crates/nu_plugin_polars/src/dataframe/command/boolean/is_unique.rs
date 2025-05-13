@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -58,8 +58,7 @@ impl PluginCommand for IsUnique {
             },
             Example {
                 description: "Create mask indicating duplicated rows in a dataframe",
-                example:
-                    "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | polars into-df | polars is-unique",
+                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | polars into-df | polars is-unique",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

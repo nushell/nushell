@@ -1,8 +1,8 @@
 #![allow(clippy::byte_char_slices)]
 
-use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
+use crate::{TokenContents, lex::lex_signature, parser::parse_value, trim_quotes};
 use nu_protocol::{
-    engine::StateWorkingSet, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type,
+    IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, engine::StateWorkingSet,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]

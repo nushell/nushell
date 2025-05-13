@@ -1,4 +1,4 @@
-use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
+use dialoguer::{FuzzySelect, MultiSelect, Select, console::Term};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 
@@ -105,7 +105,7 @@ impl Command for InputList {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected a list, a table, or a range".to_string(),
                     span: head,
-                })
+                });
             }
         };
 

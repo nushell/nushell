@@ -22,9 +22,9 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
-    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
-    Value,
+    ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata, PluginMetadata,
+    PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator,
+    engine::Closure,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};

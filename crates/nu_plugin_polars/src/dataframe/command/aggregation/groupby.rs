@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

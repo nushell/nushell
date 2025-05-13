@@ -1,4 +1,4 @@
-use indexmap::{indexset, IndexSet};
+use indexmap::{IndexSet, indexset};
 use nu_protocol::Value;
 
 pub fn merge_descriptors(values: &[Value]) -> Vec<String> {

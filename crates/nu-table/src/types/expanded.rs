@@ -5,14 +5,14 @@ use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
 
 use crate::{
+    NuTable, TableOpts, TableOutput,
     common::{
-        check_value, configure_table, error_sign, get_header_style, get_index_style, load_theme,
-        nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
-        NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
+        INDEX_COLUMN_NAME, NuText, StringResult, TableResult, check_value, configure_table,
+        error_sign, get_header_style, get_index_style, load_theme, nu_value_to_string,
+        nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
     },
     string_width,
     types::has_index,
-    NuTable, TableOpts, TableOutput,
 };
 
 #[derive(Debug, Clone)]

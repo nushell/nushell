@@ -1,7 +1,7 @@
 use nu_protocol::{
+    CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
     ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
-    CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.

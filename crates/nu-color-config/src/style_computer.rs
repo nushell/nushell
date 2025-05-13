@@ -1,9 +1,10 @@
-use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment, TextStyle};
+use crate::{TextStyle, color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment};
 use nu_ansi_term::{Color, Style};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
+    Span, Value,
     engine::{Closure, EngineState, Stack},
-    report_shell_error, Span, Value,
+    report_shell_error,
 };
 use std::{
     collections::HashMap,
@@ -240,9 +241,11 @@ fn test_computable_style_closure_errors() {
     ];
     let actual_repl = nu!(nu_repl_code(&inp));
     // Check that the error was printed
-    assert!(actual_repl
-        .err
-        .contains("nu::shell::operator_incompatible_types"));
+    assert!(
+        actual_repl
+            .err
+            .contains("nu::shell::operator_incompatible_types")
+    );
     // Check that the value was printed
     assert!(actual_repl.out.contains("bell"));
 }

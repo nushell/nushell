@@ -1,12 +1,12 @@
-use crate::{path_to_uri, span_to_range, uri_to_path, Id, LanguageServer};
+use crate::{Id, LanguageServer, path_to_uri, span_to_range, uri_to_path};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     DocumentSymbolParams, DocumentSymbolResponse, Location, Range, SymbolInformation, SymbolKind,
     Uri, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use nu_protocol::{
-    engine::{CachedFile, EngineState, StateWorkingSet},
     DeclId, ModuleId, Span, VarId,
+    engine::{CachedFile, EngineState, StateWorkingSet},
 };
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
@@ -302,9 +302,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
         DocumentSymbolParams, PartialResultParams, TextDocumentIdentifier, Uri,
         WorkDoneProgressParams, WorkspaceSymbolParams,
+        request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
     };
     use nu_test_support::fs::fixtures;
 

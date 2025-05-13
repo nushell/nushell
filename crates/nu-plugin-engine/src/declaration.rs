@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall};
-use nu_protocol::{engine::CommandType, PluginIdentity, PluginSignature};
+use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 
 use crate::{GetPlugin, PluginExecutionCommandContext, PluginSource};

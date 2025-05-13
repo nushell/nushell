@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
+    DeclId, ShellError, Span, Spanned, Value,
     ast::Expression,
     engine::{self, Argument, Stack},
-    DeclId, ShellError, Span, Spanned, Value,
 };
 
 use super::DataSlice;
@@ -191,7 +191,7 @@ impl Call {
                     _ => {
                         return Err(ShellError::CannotSpreadAsList {
                             span: rest_val.span(),
-                        })
+                        });
                     }
                 }
             } else {

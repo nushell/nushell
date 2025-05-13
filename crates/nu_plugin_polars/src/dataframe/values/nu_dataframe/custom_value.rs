@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    values::{CustomValueSupport, PolarsPluginCustomValue},
     Cacheable, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginCustomValue},
 };
 
 use super::NuDataFrame;

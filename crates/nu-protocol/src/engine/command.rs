@@ -1,6 +1,6 @@
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value,
+    Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value, engine::Call,
 };
 use std::fmt::Display;
 

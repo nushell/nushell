@@ -1,9 +1,9 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
     values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
     },
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -68,8 +68,7 @@ impl PluginCommand for LazyMedian {
             },
             Example {
                 description: "Median value from columns in a dataframe",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median | polars collect",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

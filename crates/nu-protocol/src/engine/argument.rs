@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{ast::Expression, ir::DataSlice, Span, Value};
+use crate::{Span, Value, ast::Expression, ir::DataSlice};
 
 /// Represents a fully evaluated argument to a call.
 #[derive(Debug, Clone)]

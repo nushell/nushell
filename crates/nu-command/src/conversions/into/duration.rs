@@ -1,7 +1,7 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
-use nu_protocol::{ast::Expr, Unit};
+use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
+use nu_protocol::{Unit, ast::Expr};
 
 const NS_PER_US: i64 = 1_000;
 const NS_PER_MS: i64 = 1_000_000;
@@ -139,8 +139,7 @@ impl Command for IntoDuration {
             },
             Example {
                 description: "Convert table of duration strings to table of duration values",
-                example:
-                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_duration(NS_PER_SEC),
@@ -325,9 +324,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
             ),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: span
-            }
-        );
+            input_span: span,
+        });
     };
 
     let mut duration: i64 = 0;

@@ -1,5 +1,5 @@
 use crate::math::{
-    reducers::{reducer_for, Reduce},
+    reducers::{Reduce, reducer_for},
     utils::run_with_function,
 };
 use nu_engine::command_prelude::*;
