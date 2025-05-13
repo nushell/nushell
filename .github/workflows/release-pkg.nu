@@ -180,6 +180,8 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 } else if $os =~ 'windows' {
 
     let releaseStem = $'($bin)-($version)-($target)'
+    let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
+    fetch-less $arch
 
     print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls | print
     let archive = $'($dist)/($releaseStem).zip'
@@ -202,7 +204,6 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         cp -r ($'($dist)/*' | into glob) nu/
         cp $'($dist)/README.txt' .
         ls -f nu/* | print
-        let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
         ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)'
         glob **/*.msi | print
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
@@ -212,6 +213,18 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         print $'MSI archive: ---> ($msi)';
         echo $"msi=($msi)(char nl)" o>> $env.GITHUB_OUTPUT
     }
+}
+
+def fetch-less [
+    arch: string = 'x64'  # The architecture to fetch
+] {
+    let less_zip = $'less-($arch).zip'
+    print $'Fetching less archive: (ansi g)($less_zip)(ansi reset)'
+    let url = $'https://github.com/jftuga/less-Windows/releases/download/less-v668/($less_zip)'
+    http get https://github.com/jftuga/less-Windows/blob/master/LICENSE | save -rf LICENSE-for-less.txt
+    http get $url | save -rf $less_zip
+    unzip $less_zip
+    rm $less_zip lesskey.exe
 }
 
 def 'cargo-build-nu' [] {

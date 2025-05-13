@@ -147,6 +147,9 @@
       <Component Id="Nu_Main" Guid="*">
         <File Id="nu.exe" Source="$(var.SourceDir)\nu.exe" KeyPath="yes" />
       </Component>
+      <Component Id="Less" Guid="*">
+        <File Id="less.exe" Source="$(var.SourceDir)\less.exe" KeyPath="yes" />
+      </Component>
       <Component Id="Nu_Plugin_Inc" Guid="*">
         <File Id="nu_plugin_inc.exe" Source="$(var.SourceDir)\nu_plugin_inc.exe" KeyPath="yes" />
       </Component>
@@ -161,6 +164,9 @@
       </Component>
       <Component Id="Nu_Plugin_Formats" Guid="*">
         <File Id="nu_plugin_formats.exe" Source="$(var.SourceDir)\nu_plugin_formats.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Less_License" Guid="*">
+        <File Id="LICENSE_for_less.txt" Source="$(var.SourceDir)\LICENSE-for-less.txt" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 
