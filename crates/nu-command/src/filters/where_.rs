@@ -135,12 +135,10 @@ not supported."#
             Example {
                 description: "List all numbers above 3, using an existing closure condition",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | where $a",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_int(5),
-                        Value::test_int(6)
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(5),
+                    Value::test_int(6),
+                ])),
             },
         ]
     }
