@@ -71,10 +71,7 @@ impl PathMember {
 
     pub fn make_insensitive(&mut self) {
         match self {
-            PathMember::String {
-                ref mut insensitive,
-                ..
-            } => *insensitive = true,
+            PathMember::String { insensitive, .. } => *insensitive = true,
             PathMember::Int { .. } => {}
         }
     }
