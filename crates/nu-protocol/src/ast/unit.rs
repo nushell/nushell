@@ -116,7 +116,7 @@ impl Unit {
     /// ```
     /// # use nu_protocol::{Unit, FilesizeUnit};
     /// assert_eq!(Unit::Nanosecond.as_str(), "ns");
-    /// assert_eq!(Unit::FileSize(FilesizeUnit::B).as_str(), "B");
+    /// assert_eq!(Unit::Filesize(FilesizeUnit::B).as_str(), "B");
     /// assert_eq!(Unit::Second.as_str().parse(), Ok(Unit::Second));
     /// assert_eq!(Unit::Filesize(FilesizeUnit::KB).as_str().parse(), Ok(Unit::Filesize(FilesizeUnit::KB)));
     /// ```
