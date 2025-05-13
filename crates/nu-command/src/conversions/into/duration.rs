@@ -453,7 +453,7 @@ mod test {
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
             unit: Some(Spanned {
-                item: "ns".to_string(),
+                item: Unit::Nanosecond,
                 span: Span::test_data(),
             }),
             cell_paths: None,
