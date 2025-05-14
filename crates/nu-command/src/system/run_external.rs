@@ -110,19 +110,19 @@ impl Command for External {
         };
 
         // let's make sure it's a .ps1 script, but only on Windows
-        let potential_powershell_script = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+        let (potential_powershell_script, path_to_ps1_executable) = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_uppercase();
-                ext == "PS1"
+                (ext == "PS1", Some(executable))
             } else {
-                false
+                (false, None)
             }
         } else {
-            false
+            (false, None)
         };
 
         // Find the absolute path to the executable. On Windows, set the
@@ -174,20 +174,10 @@ impl Command for External {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else if potential_powershell_script {
-            use nu_path::canonicalize_with;
-
-            // canonicalize the path to the script so that tests pass
-            let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
-                canonicalize_with(&expanded_name, cwd).map_err(|err| {
-                    IoError::new(err.kind(), call.head, PathBuf::from(&expanded_name))
-                })?
-            } else {
-                // If we can't get the current working directory, just provide the expanded name
-                expanded_name
-            };
-            // The -Command flag followed by a script name instructs PowerShell to
-            // execute that script and quit.
-            command.args(["-Command", &canon_path.to_string_lossy()]);
+            command.args([
+                "-Command",
+                &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
+            ]);
             for arg in &args {
                 command.raw_arg(arg.item.clone());
             }
