@@ -16,7 +16,8 @@ use tabled::{
         ansi::ANSIBuf,
         colors::Colors,
         config::{
-            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
+            AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Indent, Position, Sides,
+            SpannedConfig,
         },
         dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
@@ -228,10 +229,19 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
+    pub fn clear_border_color(&mut self) {
+        self.config.border_color = None;
+    }
+
     // NOTE: BE CAREFUL TO KEEP WIDTH UNCHANGED
     // TODO: fix interface
     pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
         &mut self.data
+    }
+
+    pub fn clear_all_colors(&mut self) {
+        self.clear_border_color();
+        self.styles.cfg.set_colors(EntityMap::default());
     }
 
     /// Converts a table to a String.

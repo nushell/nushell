@@ -455,8 +455,10 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+    if contents.starts_with(b"$") {
         parse_dollar_expr(working_set, span)
+    } else if contents.starts_with(b"(") {
+        parse_paren_expr(working_set, span, &SyntaxShape::Any)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
@@ -1977,15 +1979,33 @@ pub fn parse_paren_expr(
     let starting_error_count = working_set.parse_errors.len();
 
     if let Some(expr) = parse_range(working_set, span) {
-        expr
-    } else {
-        working_set.parse_errors.truncate(starting_error_count);
+        return expr;
+    }
 
-        if matches!(shape, SyntaxShape::Signature) {
-            parse_signature(working_set, span)
+    working_set.parse_errors.truncate(starting_error_count);
+
+    if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span);
+    }
+
+    let fcp_expr = parse_full_cell_path(working_set, None, span);
+    let fcp_error_count = working_set.parse_errors.len();
+    if fcp_error_count > starting_error_count {
+        let malformed_subexpr = working_set.parse_errors[starting_error_count..]
+            .iter()
+            .any(|e| match e {
+                ParseError::Unclosed(right, _) if right == ")" => true,
+                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                _ => false,
+            });
+        if malformed_subexpr {
+            working_set.parse_errors.truncate(starting_error_count);
+            parse_string(working_set, span)
         } else {
-            parse_full_cell_path(working_set, None, span)
+            fcp_expr
         }
+    } else {
+        fcp_expr
     }
 }
 
@@ -3609,6 +3629,16 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
         Expr::Closure(block_id) => block_id,
+        Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var().is_some_and(|id| id != var_id) => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
+        Expr::Var(arg_var_id) if arg_var_id != var_id => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();

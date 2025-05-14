@@ -110,46 +110,47 @@ impl Command for External {
         };
 
         // let's make sure it's a .ps1 script, but only on Windows
-        let potential_powershell_script = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+        let (potential_powershell_script, path_to_ps1_executable) = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_uppercase();
-                ext == "PS1"
+                (ext == "PS1", Some(executable))
             } else {
-                false
+                (false, None)
             }
         } else {
-            false
+            (false, None)
         };
 
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable =
-            if cfg!(windows) && (is_cmd_internal_command(&name_str) || pathext_script_in_windows) {
-                PathBuf::from("cmd.exe")
-            } else if cfg!(windows) && potential_powershell_script {
-                // If we're on Windows and we're trying to run a PowerShell script, we'll use
-                // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
-                // it's automatically installed on all modern windows systems.
-                PathBuf::from("powershell.exe")
-            } else {
-                // Determine the PATH to be used and then use `which` to find it - though this has no
-                // effect if it's an absolute path already
-                let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                    return Err(command_not_found(
-                        &name_str,
-                        call.head,
-                        engine_state,
-                        stack,
-                        &cwd,
-                    ));
-                };
-                executable
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
+        {
+            PathBuf::from("cmd.exe")
+        } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
+            // If we're on Windows and we're trying to run a PowerShell script, we'll use
+            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+            // it's automatically installed on all modern windows systems.
+            PathBuf::from("powershell.exe")
+        } else {
+            // Determine the PATH to be used and then use `which` to find it - though this has no
+            // effect if it's an absolute path already
+            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
+            executable
+        };
 
         // Create the command.
         let mut command = std::process::Command::new(&executable);
@@ -174,20 +175,10 @@ impl Command for External {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else if potential_powershell_script {
-            use nu_path::canonicalize_with;
-
-            // canonicalize the path to the script so that tests pass
-            let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
-                canonicalize_with(&expanded_name, cwd).map_err(|err| {
-                    IoError::new(err.kind(), call.head, PathBuf::from(&expanded_name))
-                })?
-            } else {
-                // If we can't get the current working directory, just provide the expanded name
-                expanded_name
-            };
-            // The -Command flag followed by a script name instructs PowerShell to
-            // execute that script and quit.
-            command.args(["-Command", &canon_path.to_string_lossy()]);
+            command.args([
+                "-Command",
+                &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
+            ]);
             for arg in &args {
                 command.raw_arg(arg.item.clone());
             }

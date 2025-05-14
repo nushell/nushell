@@ -1577,6 +1577,78 @@ mod string {
         }
 
         #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"\"\" ++ (1 + 3)foo(7 - 5)bar",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
+                    Expr::StringInterpolation(expressions) => {
+                        expressions.iter().map(|e| &e.expr).collect()
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 4);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("foo".to_string()));
+            assert!(matches!(subexprs[2], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[3], &Expr::String("bar".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr_external_arg() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(&mut working_set, None, b"^echo ($nu.home-path)/path", true);
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::ExternalCall(_, args) => match &args[0] {
+                    ExternalArgument::Regular(expression) => match &expression.expr {
+                        Expr::StringInterpolation(expressions) => {
+                            expressions.iter().map(|e| &e.expr).collect()
+                        }
+                        _ => panic!("Expected an `ExternalArgument::Regular`"),
+                    },
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("/path".to_string()));
+        }
+
+        #[test]
         pub fn parse_nested_expressions() {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
