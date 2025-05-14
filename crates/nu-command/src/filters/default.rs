@@ -53,7 +53,7 @@ impl Command for Default {
             input,
             default_value,
             empty,
-            columns.as_slice(),
+            columns,
         )
     }
 
@@ -141,9 +141,9 @@ fn default(
     input: PipelineData,
     default_value: Value,
     default_when_empty: bool,
-    columns: &[String],
+    columns: Vec<String>,
 ) -> Result<PipelineData, ShellError> {
-    let input_span = input.span().unwrap_or_else(Span::unknown);
+    let input_span = input.span().unwrap_or(call.head);
     let mut default_value = DefaultValue::new(engine_state, stack, default_value);
     let metadata = input.metadata();
 
@@ -151,38 +151,40 @@ fn default(
     // and set the default value for the specified record columns
     if !columns.is_empty() {
         if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
-            let Value::Record {
-                val: ref mut record,
-                internal_span,
-            } = input.into_value(input_span)?
-            else {
-                unreachable!()
-            };
-            let record = record.to_mut().into_spanned(internal_span);
-            fill_record(record, &mut default_value, columns, default_when_empty)
-                .map(|x| x.into_pipeline_data().set_metadata(metadata))
+            let record = input.into_value(input_span)?.into_record()?;
+            fill_record(
+                record,
+                input_span,
+                &mut default_value,
+                columns.as_slice(),
+                default_when_empty,
+            )
+            .map(|x| x.into_pipeline_data_with_metadata(metadata))
         } else if matches!(
             input,
             PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, _)
         ) {
-            let mut output_list: Vec<Value> = vec![];
-            for mut item in input {
-                if let Value::Record {
-                    val: ref mut record,
-                    internal_span,
-                } = item
-                {
-                    let record = record.to_mut().into_spanned(internal_span);
-                    item = fill_record(record, &mut default_value, columns, default_when_empty)?;
-                }
-                output_list.push(item);
-            }
-            let ls = ListStream::new(
-                output_list.into_iter(),
-                call.head,
-                engine_state.signals().clone(),
-            );
-            Ok(PipelineData::ListStream(ls, metadata))
+            // Potential enhancement: add another branch for Value::List,
+            // and collect the iterator into a Result<Value::List, ShellError>
+            // so we can preemptively return an error for collected lists
+            Ok(input
+                .into_iter()
+                .map(move |item| {
+                    let span = item.span();
+                    if let Value::Record { val, .. } = item {
+                        fill_record(
+                            val.into_owned(),
+                            span,
+                            &mut default_value,
+                            columns.as_slice(),
+                            default_when_empty,
+                        )
+                        .unwrap_or_else(|err| Value::error(err, head))
+                    } else {
+                        item
+                    }
+                })
+                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
         // If columns are given, but input does not use columns, return an error
         } else {
             Err(ShellError::PipelineMismatch {
@@ -219,17 +221,18 @@ fn default(
 }
 
 /// A wrapper around the default value to handle closures and caching values
-enum DefaultValue<'a> {
-    Uncalculated(&'a EngineState, &'a Stack, Spanned<Closure>),
+enum DefaultValue {
+    Uncalculated(Spanned<ClosureEval>),
     Calculated(Value),
 }
 
-impl<'a> DefaultValue<'a> {
-    fn new(engine_state: &'a EngineState, stack: &'a Stack, value: Value) -> Self {
+impl DefaultValue {
+    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Self {
         let span = value.span();
         match value {
             Value::Closure { val, .. } => {
-                DefaultValue::Uncalculated(engine_state, stack, (*val).into_spanned(span))
+                let closure_eval = ClosureEval::new(engine_state, stack, *val);
+                DefaultValue::Uncalculated(closure_eval.into_spanned(span))
             }
             _ => DefaultValue::Calculated(value),
         }
@@ -237,9 +240,9 @@ impl<'a> DefaultValue<'a> {
 
     fn value(&mut self) -> Result<Value, ShellError> {
         match self {
-            DefaultValue::Uncalculated(engine_state, stack, closure) => {
-                let closure_eval = ClosureEvalOnce::new(engine_state, stack, closure.item.clone());
-                let value = closure_eval
+            DefaultValue::Uncalculated(closure) => {
+                let value = closure
+                    .item
                     .run_with_input(PipelineData::Empty)?
                     .into_value(closure.span)?;
                 *self = DefaultValue::Calculated(value.clone());
@@ -256,21 +259,22 @@ impl<'a> DefaultValue<'a> {
 
 /// Given a record, fill missing columns with a default value
 fn fill_record(
-    record: Spanned<&mut Record>,
+    mut record: Record,
+    span: Span,
     default_value: &mut DefaultValue,
     columns: &[String],
     empty: bool,
 ) -> Result<Value, ShellError> {
     for col in columns {
-        if let Some(val) = record.item.get_mut(col) {
+        if let Some(val) = record.get_mut(col) {
             if matches!(val, Value::Nothing { .. }) || (empty && val.is_empty()) {
                 *val = default_value.value()?;
             }
         } else {
-            record.item.push(col.clone(), default_value.value()?);
+            record.push(col.clone(), default_value.value()?);
         }
     }
-    Ok(Value::record(record.item.clone(), record.span))
+    Ok(Value::record(record, span))
 }
 
 #[cfg(test)]
