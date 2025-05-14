@@ -41,6 +41,17 @@
     <!-- If set to WixPerMachineFolder will install for PerMachine by default -->
     <Property Id="WixAppFolder" Value="WixLocalAppDataFolder" />
 
+    <!--
+      Support for winget install `——scope machine`:
+        Winget doesn't directly pass ALLUSERS=1 to the MSI installer when using
+        ——scope machine. Instead, it passes a property called INSTALLSCOPEMACHINE=1
+        This converts the winget parameter to the standard MSI parameter.
+        FIXME: However, this doesn't seem to work...
+    -->
+    <SetProperty Id="ALLUSERS" Value="1" After="LaunchConditions" Condition="INSTALLSCOPEMACHINE=1" />
+    <!-- This ensures the per-user flag is turned off when installing for all users. -->
+    <SetProperty Id="MSIINSTALLPERUSER" Value="0" After="LaunchConditions" Condition="INSTALLSCOPEMACHINE=1" />
+
     <!-- Workaround Wix Bug: https://github.com/wixtoolset/issues/issues/2165 -->
     <!-- The suggested folder in the dest folder dialog should be C:\Program Files\nu -->
     <CustomAction Id="Overwrite_WixSetDefaultPerMachineFolder" Property="WixPerMachineFolder"
@@ -74,9 +85,10 @@
         <Directory Id="BINDIR" Name="bin">
           <!-- Per-machine PATH component -->
           <Component Id="EnvironmentPathMachine" Guid="{47781325-8A2B-4F8D-A058-9A2C4136E25F}" Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1">
+            <!-- The value MUST BE [LOGICAL_BINDIR] to make sure the env been removed for a custom dir installation -->
             <Environment Id="PATHMachine"
                          Name="PATH"
-                         Value="[BINDIR]"
+                         Value="[LOGICAL_BINDIR]"
                          Permanent="no"
                          Part="last"
                          Action="set"
@@ -101,7 +113,7 @@
             <Component Id="EnvironmentPathUser" Guid="{D6A3A7B2-1F3A-4B6A-8A3B-3A7B2D6A3A7B}" Condition="MSIINSTALLPERUSER=1">
               <Environment Id="PATHUser"
                            Name="PATH"
-                           Value="[BINDIR]"
+                           Value="[BINDIR_USER]"
                            Permanent="no"
                            Part="last"
                            Action="set"
@@ -222,13 +234,13 @@
     <SetProperty Id="INSTALLDIR"
                  Action="SetINSTALLDIR_User"
                  Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)"
-                 After="AppSearch"
+                 After="LaunchConditions"
                  Condition="MSIINSTALLPERUSER=1"
                  Sequence="both" />
     <SetProperty Id="BINDIR"
                  Action="SetBINDIR_User"
                  Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)\bin"
-                 After="AppSearch"
+                 After="LaunchConditions"
                  Condition="MSIINSTALLPERUSER=1"
                  Sequence="both" />
 
@@ -236,7 +248,7 @@
     <SetProperty Id="INSTALLDIR"
                  Action="SetINSTALLDIR_Machine"
                  Value="[APPLICATIONFOLDER]"
-                 After="AppSearch"
+                 After="LaunchConditions"
                  Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
                  Sequence="both" />
 
@@ -252,12 +264,13 @@
     <SetProperty Id="BINDIR"
                  Action="SetBINDIR_Machine"
                  Value="[BINDIR]"
-                 After="AppSearch"
+                 After="LaunchConditions"
                  Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
                  Sequence="both" />
 
     <!-- Set the LOGICAL_BINDIR property to the resolved BINDIR path -->
-    <SetProperty Id="LOGICAL_BINDIR" Value="[BINDIR]" After="AppSearch" Sequence="both" />
+    <!-- This line MUST NOT be removed in order to set a custom folder for PerMachine installation -->
+    <SetProperty Id="LOGICAL_BINDIR" Value="[BINDIR]" After="LaunchConditions" Sequence="both" />
 
     <!-- Property that defines the command executed by the Windows Terminal Profile custom action -->
     <!-- for Value, see https://learn.microsoft.com/en-ca/windows/win32/msi/formatted -->
@@ -265,7 +278,7 @@
                  Sequence="execute"
                  After="CostFinalize"
                  Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
-                 Condition="(&amp;WindowsTerminalProfileFeature=3) OR ((!WindowsTerminalProfileFeature=3) AND (REINSTALL&lt;&gt;&quot;&quot;))" />
+                 Condition="&amp;WindowsTerminalProfileFeature=3" />
 
     <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
     <CustomAction Id="ReplacePathsInWindowsTerminalProfile"
@@ -277,7 +290,7 @@
 
     <InstallExecuteSequence>
       <Custom Action="ReplacePathsInWindowsTerminalProfile" Before="InstallFinalize"
-              Condition="((&amp;WindowsTerminalProfileFeature=3) OR ((!WindowsTerminalProfileFeature=3) AND (REINSTALL&lt;&gt;&quot;&quot;)))" />
+              Condition="&amp;WindowsTerminalProfileFeature=3" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
