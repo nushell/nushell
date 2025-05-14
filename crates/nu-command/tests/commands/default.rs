@@ -150,3 +150,91 @@ fn do_not_replace_non_empty_list_stream() {
         assert_eq!(actual.out, "2");
     })
 }
+
+#[test]
+fn closure_eval_simple() {
+    let actual = nu!(r#"null | default { 1 }"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn closure_eval_complex() {
+    let actual = nu!(r#"null | default { seq 1 5 | math sum }"#);
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn closure_eval_is_lazy() {
+    let actual = nu!(r#"1 | default { error make -u {msg: foo} }"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn column_closure_eval_is_lazy() {
+    let actual = nu!(r#"{a: 1} | default { error make -u {msg: foo} } a | get a"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn closure_eval_replace_empty_string() {
+    let actual = nu!(r#"'' | default --empty { 1 }"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn closure_eval_do_not_replace_empty_string() {
+    let actual = nu!(r#"'' | default { 1 }"#);
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn closure_eval_replace_empty_list() {
+    let actual = nu!(r#"[] | default --empty { 1 }"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn closure_eval_do_not_replace_empty_list() {
+    let actual = nu!(r#"[] | default { 1 } | length"#);
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn closure_eval_replace_empty_record() {
+    let actual = nu!(r#"{} | default --empty { 1 }"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn closure_eval_do_not_replace_empty_record() {
+    let actual = nu!(r#"{} | default { 1 } | columns | length"#);
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn closure_eval_add_missing_column_record() {
+    let actual = nu!(r#"
+        {a: 1} | default { 2 } b | get b
+    "#);
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn closure_eval_add_missing_column_table() {
+    let actual = nu!(r#"
+        [{a: 1, b: 2}, {b: 4}] | default { 3 } a | get a | to json -r
+    "#);
+    assert_eq!(actual.out, "[1,3]");
+}
+
+#[test]
+fn closure_eval_replace_empty_column() {
+    let actual = nu!(r#"{a: ''} | default -e { 1 } a | get a"#);
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn replace_multiple_columns() {
+    let actual = nu!(r#"{a: ''} | default -e 1 a b | values | to json -r"#);
+    assert_eq!(actual.out, "[1,1]");
+}
