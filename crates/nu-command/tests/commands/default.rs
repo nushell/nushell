@@ -238,3 +238,9 @@ fn replace_multiple_columns() {
     let actual = nu!(r#"{a: ''} | default -e 1 a b | values | to json -r"#);
     assert_eq!(actual.out, "[1,1]");
 }
+
+#[test]
+fn return_closure_value() {
+    let actual = nu!(r#"null | default { {||} }"#);
+    assert!(actual.out.starts_with("closure"));
+}
