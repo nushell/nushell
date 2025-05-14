@@ -1,5 +1,5 @@
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{engine::Closure, ListStream, Signals};
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::{ListStream, Signals};
 
 #[derive(Clone)]
 pub struct Default;
@@ -167,6 +167,7 @@ fn default(
             // Potential enhancement: add another branch for Value::List,
             // and collect the iterator into a Result<Value::List, ShellError>
             // so we can preemptively return an error for collected lists
+            let head = call.head;
             Ok(input
                 .into_iter()
                 .map(move |item| {
