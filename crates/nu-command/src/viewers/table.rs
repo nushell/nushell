@@ -544,8 +544,13 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     let span = input.data.span().unwrap_or(input.call.head);
 
     if record.is_empty() {
-        let value =
-            create_empty_placeholder("record", input.cfg.width, input.engine_state, input.stack);
+        let value = create_empty_placeholder(
+            "record",
+            input.cfg.width,
+            input.engine_state,
+            input.stack,
+            input.cfg.use_ansi_coloring,
+        );
         let value = Value::string(value, span);
         return Ok(value.into_pipeline_data());
     };
@@ -897,6 +902,7 @@ impl Iterator for PagingTableCreator {
                     self.table_config.width,
                     &self.engine_state,
                     &self.stack,
+                    self.table_config.use_ansi_coloring,
                 );
                 let mut bytes = result.into_bytes();
                 // Add extra newline if show_empty is enabled
@@ -1083,6 +1089,7 @@ fn create_empty_placeholder(
     termwidth: usize,
     engine_state: &EngineState,
     stack: &Stack,
+    use_ansi_coloring: bool,
 ) -> String {
     let config = stack.get_config(engine_state);
     if !config.table.show_empty {
@@ -1097,6 +1104,10 @@ fn create_empty_placeholder(
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     configure_table(&mut out, &config, style_computer, TableMode::default());
+
+    if !use_ansi_coloring {
+        out.table.clear_all_colors();
+    }
 
     out.table
         .draw(termwidth)
