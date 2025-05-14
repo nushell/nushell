@@ -128,28 +128,29 @@ impl Command for External {
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable =
-            if cfg!(windows) && (is_cmd_internal_command(&name_str) || pathext_script_in_windows) {
-                PathBuf::from("cmd.exe")
-            } else if cfg!(windows) && potential_powershell_script {
-                // If we're on Windows and we're trying to run a PowerShell script, we'll use
-                // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
-                // it's automatically installed on all modern windows systems.
-                PathBuf::from("powershell.exe")
-            } else {
-                // Determine the PATH to be used and then use `which` to find it - though this has no
-                // effect if it's an absolute path already
-                let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                    return Err(command_not_found(
-                        &name_str,
-                        call.head,
-                        engine_state,
-                        stack,
-                        &cwd,
-                    ));
-                };
-                executable
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
+        {
+            PathBuf::from("cmd.exe")
+        } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
+            // If we're on Windows and we're trying to run a PowerShell script, we'll use
+            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+            // it's automatically installed on all modern windows systems.
+            PathBuf::from("powershell.exe")
+        } else {
+            // Determine the PATH to be used and then use `which` to find it - though this has no
+            // effect if it's an absolute path already
+            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
+            executable
+        };
 
         // Create the command.
         let mut command = std::process::Command::new(&executable);
