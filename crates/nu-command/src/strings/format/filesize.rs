@@ -1,7 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::StateWorkingSet, FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS,
+    FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS, engine::StateWorkingSet,
 };
 
 struct Arguments {
