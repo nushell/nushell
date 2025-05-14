@@ -1,9 +1,6 @@
-use std::str::FromStr;
-
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{all_supported_units, Unit};
 
 use nu_utils::get_system_locale;
 
@@ -12,7 +9,6 @@ struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     signed: bool,
     little_endian: bool,
-    unit: Option<Spanned<Unit>>,
 }
 
 impl CmdArgument for Arguments {
@@ -79,12 +75,6 @@ impl Command for IntoInt {
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
-            )
-            .named(
-                "unit",
-                SyntaxShape::String,
-                "the unit of the duration or filesize output",
-                Some('u'),
             )
             .switch(
                 "signed",
@@ -162,28 +152,11 @@ impl Command for IntoInt {
 
         let signed = call.has_flag(engine_state, stack, "signed")?;
 
-        let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
-            Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
-                Ok(u) => Some(Spanned {
-                    item: u,
-                    span: spanned_unit.span,
-                }),
-                Err(_) => {
-                    return Err(ShellError::InvalidUnit {
-                        supported_units: all_supported_units(),
-                        span: spanned_unit.span,
-                    });
-                }
-            },
-            None => None,
-        };
-
         let args = Arguments {
             radix,
             little_endian,
             signed,
             cell_paths,
-            unit,
         };
         operate(action, args, input, call.head, engine_state.signals())
     }
@@ -271,51 +244,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let radix = args.radix;
     let signed = args.signed;
     let little_endian = args.little_endian;
-    let unit_option = &args.unit;
     let val_span = input.span();
-
-    if let Some(spanned_unit) = unit_option {
-        return match spanned_unit.item.build_value(1, head) {
-            Ok(val_one_in_unit) => {
-                match (input, &val_one_in_unit) {
-                    (Value::Duration { .. }, Value::Duration { .. }) => input
-                        .div(input.span(), &val_one_in_unit, val_one_in_unit.span())
-                        .unwrap_or_else(|err| Value::error(err, head)),
-                    (Value::Filesize { .. }, Value::Filesize { .. }) => input
-                        .div(input.span(), &val_one_in_unit, val_one_in_unit.span())
-                        .unwrap_or_else(|err| Value::error(err, head)),
-                    (other_from, _) => {
-                        let target_unit_type = match spanned_unit.item {
-                            Unit::Filesize(..) => "filesize",
-                            _ => "duration",
-                        };
-                        let from_type = other_from.get_type();
-                        let help_msg = if ["filesize", "duration"]
-                            .contains(&from_type.to_string().as_str())
-                        {
-                            format!(
-                                "either the input value should be a {} or choose a {} unit",
-                                target_unit_type, from_type
-                            )
-                        } else {
-                            format!("the input value should be a {}. The {} type has no associated units.", target_unit_type, from_type)
-                        };
-                        Value::error(
-                            ShellError::CantConvertToUnit {
-                                to_type: target_unit_type.to_string(),
-                                from_type: from_type.to_string(),
-                                span: other_from.span(),
-                                unit_span: spanned_unit.span,
-                                help: Some(help_msg),
-                            },
-                            head,
-                        )
-                    }
-                }
-            }
-            Err(err) => Value::error(err, head),
-        };
-    };
 
     match input {
         Value::Int { val: _, .. } => {
@@ -608,7 +537,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );
@@ -625,7 +553,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );
@@ -642,7 +569,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );
@@ -660,7 +586,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );
@@ -684,7 +609,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );
@@ -708,7 +632,6 @@ mod test {
                 cell_paths: None,
                 signed: false,
                 little_endian: false,
-                unit: None,
             },
             Span::test_data(),
         );

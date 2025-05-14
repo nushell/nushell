@@ -99,10 +99,18 @@ impl Command for IntoDuration {
 
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
             Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
-                Ok(u) => Some(Spanned {
-                    item: u,
-                    span: spanned_unit.span,
-                }),
+                Ok(u) => match u {
+                    Unit::Filesize(_) => {
+                        return Err(ShellError::InvalidUnit {
+                            span: spanned_unit.span,
+                            supported_units: SUPPORTED_DURATION_UNITS.join(", "),
+                        });
+                    }
+                    _ => Some(Spanned {
+                        item: u,
+                        span: spanned_unit.span,
+                    }),
+                },
                 Err(_) => {
                     return Err(ShellError::InvalidUnit {
                         span: spanned_unit.span,

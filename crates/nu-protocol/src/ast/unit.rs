@@ -1,4 +1,4 @@
-use crate::{Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value, SUPPORTED_FILESIZE_UNITS};
+use crate::{Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -6,15 +6,6 @@ use thiserror::Error;
 
 pub const SUPPORTED_DURATION_UNITS: [&str; 9] =
     ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"];
-
-pub fn all_supported_units() -> String {
-    SUPPORTED_DURATION_UNITS
-        .iter()
-        .copied()
-        .chain(SUPPORTED_FILESIZE_UNITS.iter().copied())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
 
 /// The error returned when failing to parse a [`Unit`].
 ///
