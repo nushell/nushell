@@ -84,7 +84,7 @@
       <Directory Id="APPLICATIONFOLDER" Name="$(var.ApplicationFolderName)">
         <Directory Id="BINDIR" Name="bin">
           <!-- Per-machine PATH component -->
-          <Component Id="EnvironmentPathMachine" Guid="{47781325-8A2B-4F8D-A058-9A2C4136E25F}" Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1">
+          <Component Id="EnvironmentPathMachine" Guid="*" Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1">
             <!-- The value MUST BE [LOGICAL_BINDIR] to make sure the env been removed for a custom dir installation -->
             <Environment Id="PATHMachine"
                          Name="PATH"
@@ -110,7 +110,7 @@
         <Directory Id="INSTALLDIR_USER" Name="$(var.ApplicationFolderName)">
           <Directory Id="BINDIR_USER" Name="bin">
             <!-- Per-user PATH component -->
-            <Component Id="EnvironmentPathUser" Guid="{D6A3A7B2-1F3A-4B6A-8A3B-3A7B2D6A3A7B}" Condition="MSIINSTALLPERUSER=1">
+            <Component Id="EnvironmentPathUser" Guid="*" Condition="MSIINSTALLPERUSER=1">
               <Environment Id="PATHUser"
                            Name="PATH"
                            Value="[BINDIR_USER]"
@@ -134,7 +134,7 @@
         <Directory Id="AppDataWindowsTerminalFolder" Name="Windows Terminal">
           <Directory Id="WindowsTerminalProfileFolder" Name="Fragments">
             <Directory Id="WindowsTerminalProfileAppFolder" Name="$(var.ApplicationFolderName)">
-              <Component Id="WindowsTerminalProfile" Guid="957239F4-7B87-4399-9F91-7DF2ABE5ED8B">
+              <Component Id="WindowsTerminalProfile" Guid="*">
                 <File Id="WindowsTerminalProfileFile"
                       Name="nu.json"
                       KeyPath="yes"
@@ -253,6 +253,8 @@
                  Sequence="both" />
 
     <!-- Override APPLICATIONFOLDER for 64-bit installations -->
+    <!-- The following lines are REQUIRED for PerMachine install without customizing the dest folder.  -->
+    <!-- Make sure Nu was installed to `C:\Program Files\nu` not `C:\Program Files(x86)\nu` by default -->
     <?if $(sys.BUILDARCH) = x64 OR $(sys.BUILDARCH) = arm64 ?>
     <SetProperty Id="APPLICATIONFOLDER"
                  Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
