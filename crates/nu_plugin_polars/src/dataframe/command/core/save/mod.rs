@@ -15,8 +15,8 @@ use crate::{
 use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, DataSource, Example, LabeledError, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, shell_error::io::IoError,
 };
 use polars::error::PolarsError;
 
@@ -342,9 +342,10 @@ pub(crate) mod test {
             "polars open {tmp_file_str} | polars save {tmp_file_str}"
         ));
 
-        assert!(output.is_err_and(|e| e
-            .to_string()
-            .contains("Error saving file: attempted to save into source")));
+        assert!(output.is_err_and(|e| {
+            e.to_string()
+                .contains("Error saving file: attempted to save into source")
+        }));
 
         Ok(())
     }

@@ -9,8 +9,8 @@ use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, DataSource, Example, LabeledError, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value, shell_error::io::IoError,
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
