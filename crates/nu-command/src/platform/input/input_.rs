@@ -56,7 +56,7 @@ impl Command for Input {
             .named(
                 "max-history",
                 SyntaxShape::Int,
-                "The maximum number of entries to keep in the history, defaults to reedline {HISTORY_SIZE}",
+                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size",
                 None,
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
