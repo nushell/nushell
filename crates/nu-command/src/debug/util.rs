@@ -21,7 +21,7 @@ pub fn extend_record_with_metadata(
             ),
             DataSource::None => {}
         }
-        if let Some(ref content_type) = content_type {
+        if let Some(content_type) = content_type {
             record.push("content_type", Value::string(content_type, head));
         }
     };
