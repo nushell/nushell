@@ -50,7 +50,7 @@ impl Command for Input {
             .named(
                 "history-file",
                 SyntaxShape::Filepath,
-                "path to a file to read/write history",
+                "path to a file to read and write command history. This is a text file, and will be created if it doesn't exist. Can specific to your input prompt.",
                 None,
             )
             .named(
