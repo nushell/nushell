@@ -96,6 +96,20 @@ fn into_duration_from_record_fails_with_invalid_sign() {
 // Tests invalid usage
 
 #[test]
+fn into_duration_invalid_unit() {
+    let actual = nu!(r#"1 | into duration --unit xx"#);
+
+    assert!(actual.err.contains("nu::shell::invalid_unit"));
+}
+
+#[test]
+fn into_duration_filesize_unit() {
+    let actual = nu!(r#"1 | into duration --unit MB"#);
+
+    assert!(actual.err.contains("nu::shell::invalid_unit"));
+}
+
+#[test]
 fn into_duration_from_record_fails_with_unknown_key() {
     let actual = nu!(r#"{week: 10, unknown: 1} | into duration"#);
 

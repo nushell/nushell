@@ -240,58 +240,59 @@ impl Command for IntoInt {
     }
 }
 
-fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let radix = args.radix;
     let signed = args.signed;
     let little_endian = args.little_endian;
     let val_span = input.span();
+
     match input {
         Value::Int { val: _, .. } => {
             if radix == 10 {
                 input.clone()
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, head, radix)
             }
         }
-        Value::Filesize { val, .. } => Value::int(val.get(), span),
+        Value::Filesize { val, .. } => Value::int(val.get(), head),
         Value::Float { val, .. } => Value::int(
             {
                 if radix == 10 {
                     *val as i64
                 } else {
-                    match convert_int(&Value::int(*val as i64, span), span, radix).as_int() {
+                    match convert_int(&Value::int(*val as i64, head), head, radix).as_int() {
                         Ok(v) => v,
                         _ => {
                             return Value::error(
                                 ShellError::CantConvert {
                                     to_type: "float".to_string(),
                                     from_type: "int".to_string(),
-                                    span,
+                                    span: head,
                                     help: None,
                                 },
-                                span,
+                                head,
                             );
                         }
                     }
                 }
             },
-            span,
+            head,
         ),
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, span) {
-                    Ok(val) => Value::int(val, span),
-                    Err(error) => Value::error(error, span),
+                match int_from_string(val, head) {
+                    Ok(val) => Value::int(val, head),
+                    Err(error) => Value::error(error, head),
                 }
             } else {
-                convert_int(input, span, radix)
+                convert_int(input, head, radix)
             }
         }
         Value::Bool { val, .. } => {
             if *val {
-                Value::int(1, span)
+                Value::int(1, head)
             } else {
-                Value::int(0, span)
+                Value::int(0, head)
             }
         }
         Value::Date { val, .. } => {
@@ -310,15 +311,15 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     ShellError::IncorrectValue {
                         msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         val_span,
-                        call_span: span,
+                        call_span: head,
                     },
-                    span,
+                    head,
                 )
             } else {
-                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), span)
+                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), head)
             }
         }
-        Value::Duration { val, .. } => Value::int(*val, span),
+        Value::Duration { val, .. } => Value::int(*val, head),
         Value::Binary { val, .. } => {
             use byteorder::{BigEndian, ByteOrder, LittleEndian};
 
@@ -326,7 +327,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let size = val.len();
 
             if size == 0 {
-                return Value::int(0, span);
+                return Value::int(0, head);
             }
 
             if size > 8 {
@@ -334,22 +335,22 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     ShellError::IncorrectValue {
                         msg: format!("binary input is too large to convert to int ({size} bytes)"),
                         val_span,
-                        call_span: span,
+                        call_span: head,
                     },
-                    span,
+                    head,
                 );
             }
 
             match (little_endian, signed) {
-                (true, true) => Value::int(LittleEndian::read_int(&val, size), span),
-                (false, true) => Value::int(BigEndian::read_int(&val, size), span),
+                (true, true) => Value::int(LittleEndian::read_int(&val, size), head),
+                (false, true) => Value::int(BigEndian::read_int(&val, size), head),
                 (true, false) => {
                     while val.len() < 8 {
                         val.push(0);
                     }
                     val.resize(8, 0);
 
-                    Value::int(LittleEndian::read_i64(&val), span)
+                    Value::int(LittleEndian::read_i64(&val), head)
                 }
                 (false, false) => {
                     while val.len() < 8 {
@@ -357,7 +358,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     }
                     val.resize(8, 0);
 
-                    Value::int(BigEndian::read_i64(&val), span)
+                    Value::int(BigEndian::read_i64(&val), head)
                 }
             }
         }
@@ -368,10 +369,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 exp_input_type: "int, float, filesize, date, string, binary, duration, or bool"
                     .into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: span,
+                dst_span: head,
                 src_span: other.span(),
             },
-            span,
+            head,
         ),
     }
 }
