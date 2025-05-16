@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    engine::{Call, Closure, Command, EngineState, Stack},
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    engine::{Call, Closure, Command, EngineState, Stack},
 };
 
 use super::util::build_metadata_record;
