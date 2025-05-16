@@ -47,13 +47,13 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("lrr"), long_name: "light_red_reverse", code: Color::LightRed.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lr"), long_name: "bg_light_red", code: Style::new().on(Color::LightRed).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("u"), long_name: "blue", code: Color::Blue.prefix().to_string()},
-    AnsiCode{ short_name: Some("ub"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("uu"), long_name: "blue_underline", code: Color::Blue.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ui"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("ud"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("ur"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_u"), long_name: "bg_blue", code: Style::new().on(Color::Blue).prefix().to_string()},
+    AnsiCode{ short_name: Some("b"), long_name: "blue", code: Color::Blue.prefix().to_string()},
+    AnsiCode{ short_name: Some("bb"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("bu"), long_name: "blue_underline", code: Color::Blue.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("bi"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("bd"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("br"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_b"), long_name: "bg_blue", code: Style::new().on(Color::Blue).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lu"), long_name: "light_blue", code: Color::LightBlue.prefix().to_string()},
     AnsiCode{ short_name: Some("lub"), long_name: "light_blue_bold", code: Color::LightBlue.bold().prefix().to_string()},
@@ -63,13 +63,13 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("lur"), long_name: "light_blue_reverse", code: Color::LightBlue.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lu"), long_name: "bg_light_blue", code: Style::new().on(Color::LightBlue).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("b"), long_name: "black", code: Color::Black.prefix().to_string()},
-    AnsiCode{ short_name: Some("bb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("bu"), long_name: "black_underline", code: Color::Black.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("bi"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("bd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("br"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_b"), long_name: "bg_black", code: Style::new().on(Color::Black).prefix().to_string()},
+    AnsiCode{ short_name: Some("k"), long_name: "black", code: Color::Black.prefix().to_string()},
+    AnsiCode{ short_name: Some("kb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("ku"), long_name: "black_underline", code: Color::Black.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ki"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("kd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("kr"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_k"), long_name: "bg_black", code: Style::new().on(Color::Black).prefix().to_string()},
 
     AnsiCode{ short_name: Some("ligr"), long_name: "light_gray", code: Color::LightGray.prefix().to_string()},
     AnsiCode{ short_name: Some("ligrb"), long_name: "light_gray_bold", code: Color::LightGray.bold().prefix().to_string()},
@@ -911,5 +911,50 @@ mod tests {
         use crate::test_examples;
 
         test_examples(Ansi {})
+    }
+
+    #[test]
+    fn no_duplicate_short_names() {
+        use crate::platform::ansi::ansi_::CODE_LIST;
+        use std::collections::HashSet;
+
+        let mut seen = HashSet::new();
+        let mut duplicates = Vec::new();
+
+        for ansi in CODE_LIST.iter() {
+            if let Some(name) = ansi.short_name {
+                if !seen.insert(name) {
+                    duplicates.push(name);
+                }
+            }
+        }
+
+        assert!(
+            duplicates.is_empty(),
+            "Duplicate short_names found: {:?}",
+            duplicates
+        );
+    }
+
+    #[test]
+    fn no_duplicate_long_names() {
+        use crate::platform::ansi::ansi_::CODE_LIST;
+        use std::collections::HashSet;
+
+        let mut seen = HashSet::new();
+        let mut duplicates = Vec::new();
+
+        for ansi in CODE_LIST.iter() {
+            let name = ansi.long_name;
+            if !seen.insert(name) {
+                duplicates.push(name);
+            }
+        }
+
+        assert!(
+            duplicates.is_empty(),
+            "Duplicate long_names found: {:?}",
+            duplicates
+        );
     }
 }
