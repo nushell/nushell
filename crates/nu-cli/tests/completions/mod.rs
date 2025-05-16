@@ -1,8 +1,8 @@
 pub mod support;
 
 use std::{
-    fs::{FileType, ReadDir, read_dir},
-    path::{MAIN_SEPARATOR, PathBuf},
+    fs::{read_dir, FileType, ReadDir},
+    path::{PathBuf, MAIN_SEPARATOR},
     sync::Arc,
 };
 
@@ -10,7 +10,7 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
-use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
 use nu_std::load_standard_library;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
@@ -1589,7 +1589,7 @@ fn attribute_completions() {
         .collect();
 
     // Make sure we actually found some attributes so the test is valid
-    assert!(attribute_names.contains(&String::from("examples")));
+    assert!(attribute_names.contains(&String::from("example")));
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
