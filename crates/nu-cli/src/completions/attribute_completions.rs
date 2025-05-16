@@ -33,8 +33,6 @@ impl Completer for AttributeCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).into_owned(),
                     description: desc,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
@@ -71,8 +69,6 @@ impl Completer for AttributableCompletion {
                 suggestion: Suggestion {
                     value: cmd.name().into(),
                     description: Some(cmd.description().into()),
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
