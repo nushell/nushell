@@ -254,8 +254,6 @@
                  Sequence="both" />
 
     <!-- Override APPLICATIONFOLDER for 64-bit installations -->
-    <!-- The following lines are REQUIRED for PerMachine install without customizing the dest folder.  -->
-    <!-- Make sure Nu was installed to `C:\Program Files\nu` not `C:\Program Files(x86)\nu` by default -->
     <?if $(sys.BUILDARCH) = x64 OR $(sys.BUILDARCH) = arm64 ?>
     <SetProperty Id="APPLICATIONFOLDER"
                  Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
