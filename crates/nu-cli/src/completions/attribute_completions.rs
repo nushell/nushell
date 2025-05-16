@@ -40,6 +40,7 @@ impl Completer for AttributeCompletion {
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
                 kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
             });
@@ -77,6 +78,7 @@ impl Completer for AttributableCompletion {
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
                 kind: Some(SuggestionKind::Command(cmd.command_type(), None)),
             });
