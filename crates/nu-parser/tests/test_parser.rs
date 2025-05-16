@@ -1,8 +1,8 @@
 use nu_parser::*;
 use nu_protocol::{
+    DeclId, ParseError, ParseWarning, Signature, Span, SyntaxShape, Type,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    DeclId, ParseError, ParseWarning, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -2114,7 +2114,7 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        engine::Call, Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
     };
 
     #[derive(Clone)]

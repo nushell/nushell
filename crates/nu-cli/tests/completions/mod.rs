@@ -1,8 +1,8 @@
 pub mod support;
 
 use std::{
-    fs::{read_dir, FileType, ReadDir},
-    path::{PathBuf, MAIN_SEPARATOR},
+    fs::{FileType, ReadDir, read_dir},
+    path::{MAIN_SEPARATOR, PathBuf},
     sync::Arc,
 };
 
@@ -10,7 +10,7 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
+use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
 use nu_std::load_standard_library;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};

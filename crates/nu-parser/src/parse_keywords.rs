@@ -8,17 +8,17 @@ use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, ParseWarning,
+    PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, ParseWarning,
-    PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -31,16 +31,16 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    is_math_expression_like,
+    Token, TokenContents, is_math_expression_like,
     known_external::KnownExternal,
     lex,
-    lite_parser::{lite_parse, LiteCommand},
+    lite_parser::{LiteCommand, lite_parse},
     parser::{
-        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        ParsedInternalCall, check_call, garbage, garbage_pipeline, parse, parse_call,
+        parse_expression, parse_full_signature, parse_import_pattern, parse_internal_call,
+        parse_string, parse_value, parse_var_with_opt_type, trim_quotes,
     },
-    unescape_unquote_string, Token, TokenContents,
+    unescape_unquote_string,
 };
 
 /// These parser keywords can be aliased
