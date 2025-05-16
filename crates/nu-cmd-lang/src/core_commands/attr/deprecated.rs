@@ -5,11 +5,11 @@ pub struct AttrDeprecated;
 
 impl Command for AttrDeprecated {
     fn name(&self) -> &str {
-        "attr category"
+        "attr deprecated"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("attr category")
+        Signature::build("attr deprecated")
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::Nothing, Type::String),
@@ -27,7 +27,7 @@ impl Command for AttrDeprecated {
     }
 
     fn extra_description(&self) -> &str {
-        "Also consider setting the category to deprecated."
+        "Also consider setting the category to deprecated with @category deprecated"
     }
 
     fn run(
@@ -72,6 +72,7 @@ impl Command for AttrDeprecated {
             Example {
                 description: "Add a deprecation warning with a custom message",
                 example: r###"@deprecated "Use my-new-command instead."
+    @category deprecated
     def my-old-command [] {}"###,
                 result: Some(Value::string(
                     "Use my-new-command instead.",

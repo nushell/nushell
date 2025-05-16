@@ -8,16 +8,17 @@ use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Span, Spanned, SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
+    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     parser_path::ParserPath,
+    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, ParseWarning,
+    PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -30,16 +31,16 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    Token, TokenContents, is_math_expression_like,
+    is_math_expression_like,
     known_external::KnownExternal,
     lex,
-    lite_parser::{LiteCommand, lite_parse},
+    lite_parser::{lite_parse, LiteCommand},
     parser::{
-        ParsedInternalCall, check_call, garbage, garbage_pipeline, parse, parse_call,
-        parse_expression, parse_full_signature, parse_import_pattern, parse_internal_call,
-        parse_string, parse_value, parse_var_with_opt_type, trim_quotes,
+        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
+        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string, parse_value,
+        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
-    unescape_unquote_string,
+    unescape_unquote_string, Token, TokenContents,
 };
 
 /// These parser keywords can be aliased
@@ -521,9 +522,6 @@ fn parse_def_inner(
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
-
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     // Note: "export def" is treated the same as "def"
@@ -724,8 +722,6 @@ fn parse_def_inner(
         }
 
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-            let declaration = working_set.get_decl_mut(decl_id);
-
             signature.name.clone_from(&name);
             if !has_wrapped {
                 *signature = signature.add_help();
@@ -733,8 +729,11 @@ fn parse_def_inner(
             signature.description = desc;
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
-            signature.search_terms = search_terms;
-            signature.category = category_from_string(&category);
+
+            let (attribute_vals, examples) =
+                handle_special_attributes(attributes, working_set, &mut signature, call_span);
+
+            let declaration = working_set.get_decl_mut(decl_id);
 
             *declaration = signature
                 .clone()
@@ -787,9 +786,6 @@ fn parse_extern_inner(
     let concat_span = Span::concat(spans);
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
-
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -876,8 +872,6 @@ fn parse_extern_inner(
             }
 
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-                let declaration = working_set.get_decl_mut(decl_id);
-
                 let external_name = if let Some(mod_name) = module_name {
                     if name.as_bytes() == b"main" {
                         String::from_utf8_lossy(mod_name).to_string()
@@ -891,9 +885,12 @@ fn parse_extern_inner(
                 signature.name = external_name;
                 signature.description = description;
                 signature.extra_description = extra_description;
-                signature.search_terms = search_terms;
                 signature.allows_unknown_args = true;
-                signature.category = category_from_string(&category);
+
+                let (attribute_vals, examples) =
+                    handle_special_attributes(attributes, working_set, &mut signature, call_span);
+
+                let declaration = working_set.get_decl_mut(decl_id);
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
@@ -950,16 +947,12 @@ fn parse_extern_inner(
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
-#[allow(clippy::type_complexity)]
 fn handle_special_attributes(
     attributes: Vec<(String, Value)>,
     working_set: &mut StateWorkingSet<'_>,
-) -> (
-    Vec<(String, Value)>,
-    Vec<CustomExample>,
-    Vec<String>,
-    String,
-) {
+    signature: &mut Signature,
+    call_span: Span,
+) -> (Vec<(String, Value)>, Vec<CustomExample>) {
     let mut attribute_vals = vec![];
     let mut examples = vec![];
     let mut search_terms = vec![];
@@ -1011,12 +1004,42 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
+            "deprecated" => match value {
+                Value::String { val, .. } => {
+                    let e = ParseWarning::DeprecatedWarningWithMessage {
+                        old_command: signature.name.clone(),
+                        span: call_span,
+                        help: val,
+                    };
+                    working_set.warning(e);
+                }
+                Value::Nothing { .. } => {
+                    let e = ParseWarning::DeprecatedWarning {
+                        old_command: signature.name.clone(),
+                        span: call_span,
+                    };
+                    working_set.warning(e);
+                }
+                _ => {
+                    let e = ShellError::CantConvert {
+                        to_type: Type::String.to_string(),
+                        from_type: value.get_type().to_string(),
+                        span: value.span(),
+                        help: Some("Deprecation message must be a string".to_string()),
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
             _ => {
                 attribute_vals.push((name, value));
             }
         }
     }
-    (attribute_vals, examples, search_terms, category)
+
+    signature.search_terms = search_terms;
+    signature.category = category_from_string(&category);
+
+    (attribute_vals, examples)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
