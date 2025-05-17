@@ -2346,6 +2346,32 @@ fn exact_match() {
     assert!(suggestions.len() > 1);
 }
 
+#[cfg(all(not(windows), not(target_os = "macos")))]
+#[test]
+fn exact_match_case_insensitive() {
+    use nu_test_support::playground::Playground;
+    use support::completions_helpers::new_engine_helper;
+
+    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
+        playground.mkdir("AA/foo");
+        playground.mkdir("aa/foo");
+        playground.mkdir("aaa/foo");
+
+        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
+        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+        let target = format!("open {}", folder(dir.join("aa")));
+        match_suggestions(
+            &vec![
+                folder(dir.join("AA").join("foo")).as_str(),
+                folder(dir.join("aa").join("foo")).as_str(),
+                folder(dir.join("aaa").join("foo")).as_str(),
+            ],
+            &completer.complete(&target, target.len()),
+        );
+    });
+}
+
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7648() {
