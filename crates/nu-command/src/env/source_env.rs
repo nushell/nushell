@@ -2,7 +2,11 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
     redirect_env,
 };
-use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
+use nu_protocol::{
+    BlockId,
+    engine::CommandType,
+    shell_error::{self, io::IoError},
+};
 use std::path::PathBuf;
 
 /// Source a file for environment variables.
@@ -66,7 +70,7 @@ impl Command for SourceEnv {
             PathBuf::from(&path)
         } else {
             return Err(ShellError::Io(IoError::new(
-                std::io::ErrorKind::NotFound,
+                shell_error::io::ErrorKind::FileNotFound,
                 source_filename.span,
                 PathBuf::from(source_filename.item),
             )));

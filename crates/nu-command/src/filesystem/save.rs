@@ -130,7 +130,7 @@ impl Command for Save {
                                         io::copy(&mut tee, &mut io::stderr())
                                     }
                                 }
-                                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                .map_err(|err| IoError::new(err, span, None))?;
                             }
                             Ok(())
                         }
@@ -428,7 +428,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
         (true, true) => std::fs::OpenOptions::new()
             .append(true)
             .open(path)
-            .map_err(|err| err.kind().into()),
+            .map_err(|err| err.into()),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
@@ -442,10 +442,10 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
                     std::io::ErrorKind::IsADirectory,
                 ))
             } else {
-                std::fs::File::create(path).map_err(|err| err.kind().into())
+                std::fs::File::create(path).map_err(|err| err.into())
             }
             #[cfg(not(target_os = "windows"))]
-            std::fs::File::create(path).map_err(|err| err.kind().into())
+            std::fs::File::create(path).map_err(|err| err.into())
         }
     };
 

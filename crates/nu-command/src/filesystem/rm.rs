@@ -420,7 +420,7 @@ fn rm(
                 };
 
                 if let Err(e) = result {
-                    Err(ShellError::Io(IoError::new(e.kind(), span, f)))
+                    Err(ShellError::Io(IoError::new(e, span, f)))
                 } else if verbose {
                     let msg = if interactive && !confirmed {
                         "not deleted"

@@ -59,7 +59,7 @@ impl Command for ConfigReset {
                 ));
                 if let Err(err) = std::fs::rename(nu_config.clone(), &backup_path) {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.kind().not_found_as(NotFound::Directory),
+                        err.not_found_as(NotFound::Directory),
                         span,
                         PathBuf::from(backup_path),
                         "config.nu could not be backed up",
@@ -69,7 +69,7 @@ impl Command for ConfigReset {
             if let Ok(mut file) = std::fs::File::create(&nu_config) {
                 if let Err(err) = writeln!(&mut file, "{config_file}") {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.kind().not_found_as(NotFound::File),
+                        err.not_found_as(NotFound::File),
                         span,
                         PathBuf::from(nu_config),
                         "config.nu could not be written to",
@@ -86,7 +86,7 @@ impl Command for ConfigReset {
                 backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));
                 if let Err(err) = std::fs::rename(env_config.clone(), &backup_path) {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.kind().not_found_as(NotFound::Directory),
+                        err.not_found_as(NotFound::Directory),
                         span,
                         PathBuf::from(backup_path),
                         "env.nu could not be backed up",
@@ -96,7 +96,7 @@ impl Command for ConfigReset {
             if let Ok(mut file) = std::fs::File::create(&env_config) {
                 if let Err(err) = writeln!(&mut file, "{config_file}") {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.kind().not_found_as(NotFound::File),
+                        err.not_found_as(NotFound::File),
                         span,
                         PathBuf::from(env_config),
                         "env.nu could not be written to",

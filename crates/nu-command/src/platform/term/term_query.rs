@@ -99,19 +99,17 @@ The `prefix` is not included in the output."
         let prefix = prefix.unwrap_or_default();
         let terminator: Option<Vec<u8>> = call.get_flag(engine_state, stack, "terminator")?;
 
-        crossterm::terminal::enable_raw_mode()
-            .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+        crossterm::terminal::enable_raw_mode().map_err(|err| IoError::new(err, call.head, None))?;
         scopeguard::defer! {
             let _ = crossterm::terminal::disable_raw_mode();
         }
 
         // clear terminal events
         while crossterm::event::poll(Duration::from_secs(0))
-            .map_err(|err| IoError::new(err.kind(), call.head, None))?
+            .map_err(|err| IoError::new(err, call.head, None))?
         {
             // If there's an event, read it to remove it from the queue
-            let _ = crossterm::event::read()
-                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+            let _ = crossterm::event::read().map_err(|err| IoError::new(err, call.head, None))?;
         }
 
         let mut b = [0u8; 1];
@@ -122,17 +120,17 @@ The `prefix` is not included in the output."
             let mut stdout = std::io::stdout().lock();
             stdout
                 .write_all(&query)
-                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                .map_err(|err| IoError::new(err, call.head, None))?;
             stdout
                 .flush()
-                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                .map_err(|err| IoError::new(err, call.head, None))?;
         }
 
         // Validate and skip prefix
         for bc in prefix {
             stdin
                 .read_exact(&mut b)
-                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                .map_err(|err| IoError::new(err, call.head, None))?;
             if b[0] != bc {
                 return Err(ShellError::GenericError {
                     error: "Input did not begin with expected sequence".into(),
@@ -151,7 +149,7 @@ The `prefix` is not included in the output."
             loop {
                 stdin
                     .read_exact(&mut b)
-                    .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                    .map_err(|err| IoError::new(err, call.head, None))?;
 
                 if b[0] == CTRL_C {
                     return Err(ShellError::InterruptedByUser {
@@ -173,7 +171,7 @@ The `prefix` is not included in the output."
             loop {
                 stdin
                     .read_exact(&mut b)
-                    .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                    .map_err(|err| IoError::new(err, call.head, None))?;
 
                 if b[0] == CTRL_C {
                     break;

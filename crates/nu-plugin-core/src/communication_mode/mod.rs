@@ -87,7 +87,7 @@ impl CommunicationMode {
                     .and_then(|name| ListenerOptions::new().name(name).create_sync())
                     .map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             format!(
                                 "Could not interpret local socket name {:?}",
                                 name.to_string_lossy()
@@ -117,7 +117,7 @@ impl CommunicationMode {
                         .and_then(|name| ls::Stream::connect(name))
                         .map_err(|err| {
                             ShellError::Io(IoError::new_internal(
-                                err.kind(),
+                                err,
                                 format!(
                                     "Could not interpret local socket name {:?}",
                                     name.to_string_lossy()
@@ -190,7 +190,7 @@ impl PreparedServerCommunication {
                     .set_nonblocking(ListenerNonblockingMode::Accept)
                     .map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not set non-blocking mode accept for listener",
                             nu_protocol::location!(),
                         )
@@ -204,7 +204,7 @@ impl PreparedServerCommunication {
                                 // good measure. Had an issue without this on macOS.
                                 stream.set_nonblocking(false).map_err(|err| {
                                     IoError::new_internal(
-                                        err.kind(),
+                                        err,
                                         "Could not disable non-blocking mode for listener",
                                         nu_protocol::location!(),
                                     )
@@ -217,7 +217,7 @@ impl PreparedServerCommunication {
                                     // `WouldBlock` is ok, just means it's not ready yet, but some other
                                     // kind of error should be reported
                                     return Err(ShellError::Io(IoError::new_internal(
-                                        err.kind(),
+                                        err,
                                         "Accepting new data from listener failed",
                                         nu_protocol::location!(),
                                     )));

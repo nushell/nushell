@@ -246,7 +246,7 @@ impl ByteStream {
         if let Some(mut reader) = self.reader() {
             // Copy the number of skipped bytes into the sink before proceeding
             io::copy(&mut (&mut reader).take(n), &mut io::sink())
-                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                .map_err(|err| IoError::new(err, span, None))?;
             Ok(
                 ByteStream::read(reader, span, Signals::empty(), ByteStreamType::Binary)
                     .with_known_size(known_size),
@@ -367,7 +367,7 @@ impl ByteStream {
     /// binary.
     #[cfg(feature = "os")]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
-        let stdin = os_pipe::dup_stdin().map_err(|err| IoError::new(err.kind(), span, None))?;
+        let stdin = os_pipe::dup_stdin().map_err(|err| IoError::new(err, span, None))?;
         let source = ByteStreamSource::File(convert_file(stdin));
         Ok(Self::new(
             source,
@@ -853,7 +853,7 @@ impl Iterator for Lines {
                     trim_end_newline(&mut string);
                     Some(Ok(string))
                 }
-                Err(e) => Some(Err(IoError::new(e.kind(), self.span, None).into())),
+                Err(err) => Some(Err(IoError::new(err, self.span, None).into())),
             }
         }
     }
@@ -1052,7 +1052,7 @@ impl Iterator for SplitRead {
         self.internal.next().map(|r| {
             r.map_err(|err| {
                 ShellError::Io(IoError::new_internal(
-                    err.kind(),
+                    err,
                     "Could not get next value for SplitRead",
                     crate::location!(),
                 ))
@@ -1094,7 +1094,7 @@ impl Chunks {
     fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
         let from_io_error = |err: std::io::Error| match ShellErrorBridge::try_from(err) {
             Ok(err) => err.0,
-            Err(err) => IoError::new(err.kind(), self.span, None).into(),
+            Err(err) => IoError::new(err, self.span, None).into(),
         };
 
         // Get some data from the reader
@@ -1177,11 +1177,7 @@ impl Iterator for Chunks {
                         Ok(buf) => buf,
                         Err(err) => {
                             self.error = true;
-                            return Some(Err(ShellError::Io(IoError::new(
-                                err.kind(),
-                                self.span,
-                                None,
-                            ))));
+                            return Some(Err(ShellError::Io(IoError::new(err, self.span, None))));
                         }
                     };
                     if !buf.is_empty() {

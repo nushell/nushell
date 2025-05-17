@@ -152,7 +152,7 @@ impl From<WriteError> for ShellError {
                 help: None,
                 inner: vec![],
             },
-            WriteError::Io(err, span) => ShellError::Io(IoError::new(err.kind(), span, None)),
+            WriteError::Io(err, span) => ShellError::Io(IoError::new(err, span, None)),
             WriteError::Shell(err) => *err,
         }
     }

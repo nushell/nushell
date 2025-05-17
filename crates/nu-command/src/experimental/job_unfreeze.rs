@@ -123,7 +123,7 @@ fn unfreeze_job(
                 if !thread_job.try_add_pid(pid) {
                     kill_by_pid(pid.into()).map_err(|err| {
                         ShellError::Io(IoError::new_internal(
-                            err.kind(),
+                            err,
                             "job was interrupted; could not kill foreground process",
                             nu_protocol::location!(),
                         ))

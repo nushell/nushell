@@ -147,7 +147,7 @@ impl LabeledError {
     /// #
     /// let error = LabeledError::from_diagnostic(
     ///     &ShellError::Io(IoError::new_with_additional_context(
-    ///         std::io::ErrorKind::Other,
+    ///         std::io::ErrorKind::other(),
     ///         Span::test_data(),
     ///         None,
     ///         "some error"

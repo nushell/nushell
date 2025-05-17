@@ -227,7 +227,7 @@ impl Command for UTouch {
                 TouchError::ReferenceFileInaccessible(reference_path, io_err) => {
                     let span = reference_span.expect("touch should've been given a reference file");
                     ShellError::Io(IoError::new_with_additional_context(
-                        io_err.kind(),
+                        io_err,
                         span,
                         reference_path,
                         "failed to read metadata",

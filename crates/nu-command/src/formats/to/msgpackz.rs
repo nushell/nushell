@@ -95,7 +95,7 @@ impl Command for ToMsgpackz {
             serialize_types,
         )?;
         out.flush()
-            .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+            .map_err(|err| IoError::new(err, call.head, None))?;
         drop(out);
 
         Ok(Value::binary(out_buf, call.head).into_pipeline_data())
