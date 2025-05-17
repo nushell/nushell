@@ -38,7 +38,7 @@ use super::{ShellError, location::Location};
 ///
 /// # let span = Span::test_data();
 /// let path = PathBuf::from("/some/missing/file");
-/// let error = IoError::new(std::io::ErrorKind::NotFound, span, path);
+/// let error = IoError::new(ErrorKind::FileNotFound, span, path);
 /// println!("Error: {:?}", error);
 /// ```
 ///
@@ -47,7 +47,7 @@ use super::{ShellError, location::Location};
 /// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
 //  #
 /// let error = IoError::new_internal(
-///     std::io::ErrorKind::UnexpectedEof,
+///     ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
 ///     "Failed to read data from buffer",
 ///     nu_protocol::location!()
 /// );
@@ -278,10 +278,10 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::shell_error::io::IoError;
+    /// use nu_protocol::shell_error::{self, io::IoError};
     ///
     /// let error = IoError::new_internal(
-    ///     std::io::ErrorKind::UnexpectedEof,
+    ///     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
     ///     "Failed to read from buffer",
     ///     nu_protocol::location!(),
     /// );
@@ -309,11 +309,11 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::shell_error::io::IoError;
+    /// use nu_protocol::shell_error::{self, io::IoError};
     /// use std::path::PathBuf;
     ///
     /// let error = IoError::new_internal_with_path(
-    ///     std::io::ErrorKind::NotFound,
+    ///     shell_error::io::ErrorKind::FileNotFound,
     ///     "Could not find special file",
     ///     nu_protocol::location!(),
     ///     PathBuf::from("/some/file"),
