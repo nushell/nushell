@@ -160,6 +160,13 @@ pub enum ErrorKind {
 
     NotAFile,
 
+    /// The file or directory is in use by another program.
+    ///
+    /// On Windows, this maps to
+    /// [`ERROR_SHARING_VIOLATION`](windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
+    /// prevents access like deletion or modification.
+    AlreadyInUse,
+
     // use these variants in cases where we know precisely whether a file or directory was expected
     FileNotFound,
     DirectoryNotFound,
@@ -357,7 +364,16 @@ impl From<std::io::Error> for ErrorKind {
 
 impl From<&std::io::Error> for ErrorKind {
     fn from(err: &std::io::Error) -> Self {
-        // TODO: do the full match here
+        #[cfg(windows)]
+        if let Some(raw_os_error) = err.raw_os_error() {
+            use windows::Win32::Foundation;
+
+            match Foundation::WIN32_ERROR(raw_os_error as u32) {
+                Foundation::ERROR_SHARING_VIOLATION => return ErrorKind::AlreadyInUse,
+                _ => {}
+            }
+        }
+
         ErrorKind::Std(err.kind(), Sealed)
     }
 }
@@ -384,6 +400,7 @@ impl Display for ErrorKind {
                 write!(f, "{}{}", first.to_uppercase(), rest)
             }
             ErrorKind::NotAFile => write!(f, "Not a file"),
+            ErrorKind::AlreadyInUse => write!(f, "Already in use"),
             ErrorKind::FileNotFound => write!(f, "File not found"),
             ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
         }
@@ -420,6 +437,7 @@ impl Diagnostic for IoError {
                 kind => code.push_str(&kind.to_string().to_lowercase().replace(" ", "_")),
             },
             ErrorKind::NotAFile => code.push_str("not_a_file"),
+            ErrorKind::AlreadyInUse => code.push_str("already_in_use"),
             ErrorKind::FileNotFound => code.push_str("file_not_found"),
             ErrorKind::DirectoryNotFound => code.push_str("directory_not_found"),
         }
@@ -432,6 +450,9 @@ impl Diagnostic for IoError {
             let path = format!("'{}'", path.display());
             match self.kind {
                 ErrorKind::NotAFile => format!("{path} is not a file"),
+                ErrorKind::AlreadyInUse => {
+                    format!("{path} is already being used by another program")
+                }
                 ErrorKind::Std(std::io::ErrorKind::NotFound, _)
                 | ErrorKind::FileNotFound
                 | ErrorKind::DirectoryNotFound => format!("{path} does not exist"),
