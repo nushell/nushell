@@ -1048,7 +1048,7 @@ impl ForegroundGuard {
                 // This should always succeed, frankly, but handle the error just in case
                 setpgid(Pid::from_raw(0), Pid::from_raw(0)).map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new_internal(
-                        std::io::Error::from(err).kind(),
+                        std::io::Error::from(err),
                         "Could not set pgid",
                         nu_protocol::location!(),
                     )
