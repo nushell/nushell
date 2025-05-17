@@ -47,7 +47,7 @@ pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, Engi
         "Path".to_string(),
         Value::string(
             "c:\\some\\path;c:\\some\\other\\path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::Span::new(0, pwd_str.len()),
         ),
     );
     #[cfg(not(windows))]
