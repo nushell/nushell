@@ -8,7 +8,7 @@ use std::{iter, sync::Arc};
 
 fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellError {
     if let csv::ErrorKind::Io(error) = error.kind() {
-        IoError::new(error.kind(), head, None).into()
+        IoError::new(error, head, None).into()
     } else {
         ShellError::GenericError {
             error: format!("Failed to generate {format_name} data"),

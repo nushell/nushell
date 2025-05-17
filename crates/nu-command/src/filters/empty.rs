@@ -37,7 +37,7 @@ pub fn empty(
                             .bytes()
                             .next()
                             .transpose()
-                            .map_err(|err| IoError::new(err.kind(), span, None))?
+                            .map_err(|err| IoError::new(err, span, None))?
                             .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())

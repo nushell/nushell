@@ -1,5 +1,8 @@
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{ShellError, location, shell_error::io::IoError};
+use nu_protocol::{
+    ShellError, location,
+    shell_error::{self, io::IoError},
+};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};
@@ -28,7 +31,7 @@ impl Encoder<PluginInput> for JsonSerializer {
         serde_json::to_writer(&mut *writer, plugin_input).map_err(json_encode_err)?;
         writer.write_all(b"\n").map_err(|err| {
             ShellError::Io(IoError::new_internal(
-                err.kind(),
+                err,
                 "Failed to write final line break",
                 location!(),
             ))
@@ -55,7 +58,7 @@ impl Encoder<PluginOutput> for JsonSerializer {
         serde_json::to_writer(&mut *writer, plugin_output).map_err(json_encode_err)?;
         writer.write_all(b"\n").map_err(|err| {
             ShellError::Io(IoError::new_internal(
-                err.kind(),
+                err,
                 "JsonSerializer could not encode linebreak",
                 nu_protocol::location!(),
             ))
@@ -77,7 +80,7 @@ impl Encoder<PluginOutput> for JsonSerializer {
 fn json_encode_err(err: serde_json::Error) -> ShellError {
     if err.is_io() {
         ShellError::Io(IoError::new_internal(
-            err.io_error_kind().expect("is io"),
+            shell_error::io::ErrorKind::from_std(err.io_error_kind().expect("is io")),
             "Could not encode with json",
             nu_protocol::location!(),
         ))
@@ -94,7 +97,7 @@ fn json_decode_err<T>(err: serde_json::Error) -> Result<Option<T>, ShellError> {
         Ok(None)
     } else if err.is_io() {
         Err(ShellError::Io(IoError::new_internal(
-            err.io_error_kind().expect("is io"),
+            shell_error::io::ErrorKind::from_std(err.io_error_kind().expect("is io")),
             "Could not decode with json",
             nu_protocol::location!(),
         )))

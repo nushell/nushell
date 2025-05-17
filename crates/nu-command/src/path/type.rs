@@ -108,7 +108,7 @@ fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     match path.symlink_metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
-        Err(err) => Value::error(IoError::new(err.kind(), span, None).into(), span),
+        Err(err) => Value::error(IoError::new(err, span, None).into(), span),
     }
 }
 

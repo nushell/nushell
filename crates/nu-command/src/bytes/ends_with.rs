@@ -77,7 +77,7 @@ impl Command for BytesEndsWith {
                     Ok(&[]) => break,
                     Ok(buf) => buf,
                     Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(e) => return Err(IoError::new(e.kind(), span, None).into()),
+                    Err(e) => return Err(IoError::new(e, span, None).into()),
                 };
                 let len = buf.len();
                 if len >= cap {

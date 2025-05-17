@@ -53,7 +53,7 @@ impl Command for JobKill {
 
         jobs.kill_and_remove(id).map_err(|err| {
             ShellError::Io(IoError::new_internal(
-                err.kind(),
+                err,
                 "Failed to kill the requested job",
                 nu_protocol::location!(),
             ))

@@ -417,7 +417,7 @@ fn main() -> Result<()> {
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new(
-                        err.kind(),
+                        err,
                         plugin_filename.span,
                         PathBuf::from(&plugin_filename.item),
                     )

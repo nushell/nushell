@@ -28,7 +28,7 @@ pub fn evaluate_file(
 
     let file_path = canonicalize_with(&path, cwd).map_err(|err| {
         IoError::new_internal_with_path(
-            err.kind().not_found_as(NotFound::File),
+            err.not_found_as(NotFound::File),
             "Could not access file",
             nu_protocol::location!(),
             PathBuf::from(&path),
@@ -47,7 +47,7 @@ pub fn evaluate_file(
 
     let file = std::fs::read(&file_path).map_err(|err| {
         IoError::new_internal_with_path(
-            err.kind().not_found_as(NotFound::File),
+            err.not_found_as(NotFound::File),
             "Could not read file",
             nu_protocol::location!(),
             file_path.clone(),

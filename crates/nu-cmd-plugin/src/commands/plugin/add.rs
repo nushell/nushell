@@ -88,13 +88,19 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let filename_expanded = nu_path::locate_in_dirs(&filename.item, &cwd, || {
             get_plugin_dirs(engine_state, stack)
         })
-        .map_err(|err| IoError::new(err.kind(), filename.span, PathBuf::from(filename.item)))?;
+        .map_err(|err| {
+            IoError::new(
+                err.not_found_as(NotFound::File),
+                filename.span,
+                PathBuf::from(filename.item),
+            )
+        })?;
 
         let shell_expanded = shell
             .as_ref()
             .map(|s| {
                 nu_path::canonicalize_with(&s.item, &cwd)
-                    .map_err(|err| IoError::new(err.kind(), s.span, None))
+                    .map_err(|err| IoError::new(err, s.span, None))
             })
             .transpose()?;
 

@@ -3,7 +3,6 @@ use nu_protocol::{
     JobId,
     engine::{FrozenJob, Job, ThreadJob},
     process::check_ok,
-    shell_error,
 };
 use nu_system::{ForegroundWaitStatus, kill_by_pid};
 
@@ -123,7 +122,7 @@ fn unfreeze_job(
                 if !thread_job.try_add_pid(pid) {
                     kill_by_pid(pid.into()).map_err(|err| {
                         ShellError::Io(IoError::new_internal(
-                            err.kind(),
+                            err,
                             "job was interrupted; could not kill foreground process",
                             nu_protocol::location!(),
                         ))
@@ -163,7 +162,7 @@ fn unfreeze_job(
                 Ok(ForegroundWaitStatus::Finished(status)) => check_ok(status, false, span),
 
                 Err(err) => Err(ShellError::Io(IoError::new_internal(
-                    shell_error::io::ErrorKind::Std(err.kind()),
+                    err,
                     "Failed to unfreeze foreground process",
                     nu_protocol::location!(),
                 ))),

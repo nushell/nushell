@@ -42,7 +42,7 @@ impl Command for KeybindingsListen {
             Err(e) => {
                 terminal::disable_raw_mode().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not disable raw mode",
                         nu_protocol::location!(),
                     )
@@ -71,18 +71,10 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     let config = engine_state.get_config();
 
     stdout().flush().map_err(|err| {
-        IoError::new_internal(
-            err.kind(),
-            "Could not flush stdout",
-            nu_protocol::location!(),
-        )
+        IoError::new_internal(err, "Could not flush stdout", nu_protocol::location!())
     })?;
     terminal::enable_raw_mode().map_err(|err| {
-        IoError::new_internal(
-            err.kind(),
-            "Could not enable raw mode",
-            nu_protocol::location!(),
-        )
+        IoError::new_internal(err, "Could not enable raw mode", nu_protocol::location!())
     })?;
 
     if config.use_kitty_protocol {
@@ -114,7 +106,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
     loop {
         let event = crossterm::event::read().map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not read event", nu_protocol::location!())
+            IoError::new_internal(err, "Could not read event", nu_protocol::location!())
         })?;
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
@@ -136,7 +128,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         };
         stdout.queue(crossterm::style::Print(o)).map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not print output record",
                 nu_protocol::location!(),
             )
@@ -144,14 +136,10 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         stdout
             .queue(crossterm::style::Print("\r\n"))
             .map_err(|err| {
-                IoError::new_internal(
-                    err.kind(),
-                    "Could not print linebreak",
-                    nu_protocol::location!(),
-                )
+                IoError::new_internal(err, "Could not print linebreak", nu_protocol::location!())
             })?;
         stdout.flush().map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not flush", nu_protocol::location!())
+            IoError::new_internal(err, "Could not flush", nu_protocol::location!())
         })?;
     }
 
@@ -163,11 +151,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     }
 
     terminal::disable_raw_mode().map_err(|err| {
-        IoError::new_internal(
-            err.kind(),
-            "Could not disable raw mode",
-            nu_protocol::location!(),
-        )
+        IoError::new_internal(err, "Could not disable raw mode", nu_protocol::location!())
     })?;
 
     Ok(Value::nothing(Span::unknown()))

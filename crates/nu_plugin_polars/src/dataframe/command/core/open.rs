@@ -10,7 +10,8 @@ use nu_utils::perf;
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, shell_error::io::IoError,
+    SyntaxShape, Type, Value,
+    shell_error::{self, io::IoError},
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -193,7 +194,7 @@ fn command(
             )),
         },
         None => Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::NotFound,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             spanned_file.span,
             PathBuf::from(spanned_file.item),
             "File without extension",

@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{HistoryFileFormat, shell_error::io::IoError};
+use nu_protocol::{
+    HistoryFileFormat,
+    shell_error::{self, io::IoError},
+};
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,
@@ -94,7 +97,7 @@ impl Command for History {
                     })
                 })
                 .ok_or(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::FileNotFound,
                     head,
                     history_path,
                 ))?
@@ -110,7 +113,7 @@ impl Command for History {
                     })
                 })
                 .ok_or(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::FileNotFound,
                     head,
                     history_path,
                 ))?

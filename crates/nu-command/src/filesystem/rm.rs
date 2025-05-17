@@ -304,7 +304,7 @@ fn rm(
                     && matches!(
                         e,
                         ShellError::Io(IoError {
-                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound),
+                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound, ..),
                             ..
                         })
                     ))
@@ -420,7 +420,7 @@ fn rm(
                 };
 
                 if let Err(e) = result {
-                    Err(ShellError::Io(IoError::new(e.kind(), span, f)))
+                    Err(ShellError::Io(IoError::new(e, span, f)))
                 } else if verbose {
                     let msg = if interactive && !confirmed {
                         "not deleted"

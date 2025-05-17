@@ -84,7 +84,7 @@ There are 4 `key_type` variants:
         let add_raw = call.has_flag(engine_state, stack, "raw")?;
         let config = engine_state.get_config();
 
-        terminal::enable_raw_mode().map_err(|err| IoError::new(err.kind(), head, None))?;
+        terminal::enable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
 
         if config.use_kitty_protocol {
             if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
@@ -123,7 +123,7 @@ There are 4 `key_type` variants:
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
-                terminal::disable_raw_mode().map_err(|err| IoError::new(err.kind(), head, None))?;
+                terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
                 if config.use_kitty_protocol {
                     let _ = execute!(
                         std::io::stdout(),
@@ -230,17 +230,17 @@ impl EventTypeFilter {
     fn enable_events(&self, span: Span) -> Result<DeferredConsoleRestore, ShellError> {
         if self.listen_mouse {
             crossterm::execute!(stdout(), EnableMouseCapture)
-                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                .map_err(|err| IoError::new(err, span, None))?;
         }
 
         if self.listen_paste {
             crossterm::execute!(stdout(), EnableBracketedPaste)
-                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                .map_err(|err| IoError::new(err, span, None))?;
         }
 
         if self.listen_focus {
             crossterm::execute!(stdout(), crossterm::event::EnableFocusChange)
-                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                .map_err(|err| IoError::new(err, span, None))?;
         }
 
         Ok(DeferredConsoleRestore {

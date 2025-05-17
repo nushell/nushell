@@ -1529,7 +1529,7 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     let file = options
         .create(true)
         .open(&path_expanded)
-        .map_err(|err| IoError::new(err.kind(), path.span(), path_expanded))?;
+        .map_err(|err| IoError::new(err, path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 

@@ -1,6 +1,8 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
+#[cfg(test)]
+use nu_protocol::shell_error;
 use nu_protocol::{
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
     byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
@@ -440,7 +442,7 @@ fn spawn_tee(
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(err.kind(), info.span, None, "Could not spawn tee")
+            IoError::new_with_additional_context(err, info.span, None, "Could not spawn tee")
         })?;
 
     Ok(TeeThread { sender, thread })
@@ -481,13 +483,8 @@ fn copy_on_thread(
             Ok(())
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn stderr copier",
-            )
-            .into()
+            IoError::new_with_additional_context(err, span, None, "Could not spawn stderr copier")
+                .into()
         })
 }
 
@@ -532,7 +529,7 @@ fn tee_forwards_errors_back_immediately() {
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             Span::test_data(),
             None,
             "test",
@@ -564,7 +561,7 @@ fn tee_waits_for_the_other_thread() {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             Span::test_data(),
             None,
             "test",

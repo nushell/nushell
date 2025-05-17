@@ -137,7 +137,7 @@ interleave
                             }
                         })
                         .map(|_| ())
-                        .map_err(|err| IoError::new(err.kind(), head, None).into())
+                        .map_err(|err| IoError::new(err, head, None).into())
                 })
             })?;
 

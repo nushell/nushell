@@ -132,7 +132,7 @@ fn get_free_port(
             }
 
             Err(IoError::new_with_additional_context(
-                last_err.expect("range not empty, validated before").kind(),
+                last_err.expect("range not empty, validated before"),
                 range_span,
                 None,
                 "Every port has been tried, but no valid one was found",

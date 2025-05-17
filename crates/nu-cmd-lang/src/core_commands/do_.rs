@@ -107,14 +107,14 @@ impl Command for Do {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
                                             IoError::new_internal(
-                                                err.kind(),
+                                                err,
                                                 "Could not read stdout to end",
                                                 nu_protocol::location!(),
                                             )
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })
-                                    .map_err(|err| IoError::new(err.kind(), head, None))
+                                    .map_err(|err| IoError::new(err, head, None))
                             })
                             .transpose()?;
 
@@ -126,7 +126,7 @@ impl Command for Do {
                                 let mut buf = String::new();
                                 stderr
                                     .read_to_string(&mut buf)
-                                    .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                    .map_err(|err| IoError::new(err, span, None))?;
                                 buf
                             }
                         };

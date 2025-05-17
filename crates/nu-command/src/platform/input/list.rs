@@ -142,12 +142,7 @@ impl Command for InputList {
                 .report(false)
                 .interact_on_opt(&Term::stderr())
                 .map_err(|dialoguer::Error::IO(err)| {
-                    IoError::new_with_additional_context(
-                        err.kind(),
-                        call.head,
-                        None,
-                        INTERACT_ERROR,
-                    )
+                    IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
                 })?,
             )
         } else if fuzzy {
@@ -164,12 +159,7 @@ impl Command for InputList {
                 .report(false)
                 .interact_on_opt(&Term::stderr())
                 .map_err(|dialoguer::Error::IO(err)| {
-                    IoError::new_with_additional_context(
-                        err.kind(),
-                        call.head,
-                        None,
-                        INTERACT_ERROR,
-                    )
+                    IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
                 })?,
             )
         } else {
@@ -185,12 +175,7 @@ impl Command for InputList {
                 .report(false)
                 .interact_on_opt(&Term::stderr())
                 .map_err(|dialoguer::Error::IO(err)| {
-                    IoError::new_with_additional_context(
-                        err.kind(),
-                        call.head,
-                        None,
-                        INTERACT_ERROR,
-                    )
+                    IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
                 })?,
             )
         };

@@ -22,6 +22,7 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
+use nu_protocol::shell_error;
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
     HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
@@ -854,7 +855,7 @@ fn do_auto_cd(
             report_shell_error(
                 engine_state,
                 &ShellError::Io(IoError::new_with_additional_context(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::DirectoryNotFound,
                     span,
                     PathBuf::from(&path),
                     "Cannot change directory",
@@ -868,7 +869,7 @@ fn do_auto_cd(
         report_shell_error(
             engine_state,
             &ShellError::Io(IoError::new_with_additional_context(
-                std::io::ErrorKind::PermissionDenied,
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
                 span,
                 PathBuf::from(path),
                 "Cannot change directory",
