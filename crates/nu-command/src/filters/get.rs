@@ -46,9 +46,9 @@ If multiple cell paths are given, this will produce a list of values."#
                 Some('i'),
             )
             .switch(
-                "ignore-case",
-                "get path in a case insensitive manner (make all cell path members case insensitive)",
-                Some('I'),
+                "sensitive",
+                "get path in a case sensitive manner",
+                Some('s'),
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -86,12 +86,12 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description: "Getting Path/PATH in a case insensitive way",
-                example: "$env | get --ignore-case paTH",
+                example: "$env | get paTH",
                 result: None,
             },
             Example {
                 description: "Getting Path in a case sensitive way, won't work for 'PATH'",
-                example: "$env | get Path",
+                example: "$env | get --sensitive Path",
                 result: None,
             },
         ]
@@ -110,14 +110,14 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req_const(working_set, 0)?;
         let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let ignore_errors = call.has_flag_const(working_set, "ignore-errors")?;
-        let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
+        let sensitive = call.has_flag_const(working_set, "sensitive")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
             ignore_errors,
-            ignore_case,
+            sensitive,
             working_set.permanent().signals().clone(),
             call.head,
         )
@@ -134,14 +134,14 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+        let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
             ignore_errors,
-            ignore_case,
+            sensitive,
             engine_state.signals().clone(),
             call.head,
         )
@@ -154,7 +154,7 @@ fn action(
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
     ignore_errors: bool,
-    ignore_case: bool,
+    sensitive: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -162,13 +162,6 @@ fn action(
         cell_path.make_optional();
         for path in &mut rest {
             path.make_optional();
-        }
-    }
-
-    if ignore_case {
-        cell_path.make_insensitive();
-        for path in &mut rest {
-            path.make_insensitive();
         }
     }
 
