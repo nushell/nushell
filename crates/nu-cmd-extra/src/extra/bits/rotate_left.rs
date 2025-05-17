@@ -1,5 +1,5 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
@@ -222,7 +222,8 @@ fn rotate_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) 
     debug_assert!(byte_shift < data.len());
     debug_assert!(
         (1..8).contains(&bit_shift),
-        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift");
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+    );
     let mut bytes = Vec::with_capacity(data.len());
     let mut next_index = byte_shift;
     for _ in 0..data.len() {

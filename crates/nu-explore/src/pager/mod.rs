@@ -13,23 +13,23 @@ use crate::{
     explore::ExploreConfig,
     nu_common::{NuColor, NuConfig, NuStyle},
     registry::{Command, CommandRegistry},
-    views::{util::nu_style_to_tui, ViewConfig},
+    views::{ViewConfig, util::nu_style_to_tui},
 };
 use anyhow::Result;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+        enable_raw_mode,
     },
 };
 use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 use std::{

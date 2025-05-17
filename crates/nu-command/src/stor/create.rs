@@ -1,4 +1,4 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -191,10 +191,12 @@ mod test {
         let result = process(table_name, span, &db, Some(columns));
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("requires at table name"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("requires at table name")
+        );
     }
 
     #[test]
@@ -209,10 +211,12 @@ mod test {
         let result = process(table_name, span, &db, None);
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("requires at least one column"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("requires at least one column")
+        );
     }
 
     #[test]

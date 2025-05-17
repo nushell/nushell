@@ -1,19 +1,19 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame,
-        NuSchema, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame, NuSchema,
+        PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 use chrono::DateTime;
 use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value, record,
 };
-use polars::prelude::{col, DataType, Field, IntoSeries, Schema, StringMethods, StrptimeOptions};
+use polars::prelude::{DataType, Field, IntoSeries, Schema, StringMethods, StrptimeOptions, col};
 
 #[derive(Clone)]
 pub struct AsDate;

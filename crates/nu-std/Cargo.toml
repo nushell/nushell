@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "The standard library of Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-std"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-std"
 version = "0.104.1"

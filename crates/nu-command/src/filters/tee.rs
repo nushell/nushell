@@ -2,14 +2,14 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
 };
 use std::{
     io::{self, Read, Write},
     sync::{
-        mpsc::{self, Sender},
         Arc,
+        mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
 };
@@ -55,8 +55,7 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example:
-                    "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
+                example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
                 description: "Save error messages from an external command to a file without \
                     redirecting them",
                 result: None,
@@ -70,7 +69,7 @@ use it in your pipeline."#
                 example: "10000 | tee { 1..$in | print } | $in * 5",
                 description: "Do something with a value on another thread, while also passing through the value",
                 result: Some(Value::test_int(50000)),
-            }
+            },
         ]
     }
 
@@ -555,8 +554,8 @@ fn tee_forwards_errors_back_immediately() {
 #[test]
 fn tee_waits_for_the_other_thread() {
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
     use std::time::Duration;
     let waited = Arc::new(AtomicBool::new(false));

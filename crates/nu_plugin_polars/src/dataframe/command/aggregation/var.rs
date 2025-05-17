@@ -1,9 +1,9 @@
+use crate::PolarsPlugin;
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
-    PolarsPluginType,
+    Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
 };
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
@@ -41,10 +41,8 @@ impl PluginCommand for ExprVar {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Var value from columns in a dataframe or aggregates columns to their var value",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars collect",
+                description: "Var value from columns in a dataframe or aggregates columns to their var value",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

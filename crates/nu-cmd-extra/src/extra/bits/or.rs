@@ -66,7 +66,7 @@ impl Command for BitsOr {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Endian must be one of native, little, big".to_string(),
                         span: endian.span,
-                    })
+                    });
                 }
             }
         } else {
@@ -106,8 +106,7 @@ impl Command for BitsOr {
                 result: Some(Value::test_binary(vec![0xca, 0xfe])),
             },
             Example {
-                description:
-                    "Apply bitwise or to binary data of varying lengths with specified endianness",
+                description: "Apply bitwise or to binary data of varying lengths with specified endianness",
                 example: "0x[c0 ff ee] | bits or 0x[ff] --endian big",
                 result: Some(Value::test_binary(vec![0xc0, 0xff, 0xff])),
             },

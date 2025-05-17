@@ -182,7 +182,7 @@ impl Command for Sort {
             Value::Nothing { .. } => {
                 return Err(ShellError::PipelineEmpty {
                     dst_span: value.span(),
-                })
+                });
             }
             ref other => {
                 return Err(ShellError::OnlySupportsThisInputType {
@@ -190,7 +190,7 @@ impl Command for Sort {
                     wrong_type: other.get_type().to_string(),
                     dst_span: call.head,
                     src_span: value.span(),
-                })
+                });
             }
         };
         Ok(sorted.into_pipeline_data_with_metadata(metadata))

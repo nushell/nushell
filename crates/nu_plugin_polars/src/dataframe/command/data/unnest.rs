@@ -5,8 +5,8 @@ use nu_protocol::{
 use polars::df;
 
 use crate::{
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
 };
 
 use crate::values::NuDataFrame;

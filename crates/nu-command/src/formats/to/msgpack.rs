@@ -5,7 +5,7 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, shell_error::io::IoError, Signals, Spanned};
+use nu_protocol::{Signals, Spanned, ast::PathMember, shell_error::io::IoError};
 use rmp::encode as mp;
 
 /// Max recursion depth

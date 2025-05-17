@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::canonicalize_with;
-use nu_protocol::{engine::CommandType, shell_error::io::IoError, BlockId};
+use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -121,7 +121,7 @@ impl Command for Source {
                 description: "Source can be used with const variables.",
                 example: r#"const file = if $nu.is-interactive { "interactive.nu" } else { null }; source $file"#,
                 result: None,
-            }
+            },
         ]
     }
 }

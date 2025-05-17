@@ -29,6 +29,12 @@ fn where_inside_block_works() {
 }
 
 #[test]
+fn it_inside_complex_subexpression() {
+    let actual = nu!(r#"1..10 | where [($it * $it)].0 > 40  | to nuon"#);
+    assert_eq!(actual.out, r#"[7, 8, 9, 10]"#)
+}
+
+#[test]
 fn filters_with_0_arity_block() {
     let actual = nu!("[1 2 3 4] | where {|| $in < 3 } | to nuon");
 
@@ -208,4 +214,17 @@ fn has_operator() {
 
     let actual = nu!(r#"{foo: 1} has bar "#);
     assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn stored_condition() {
+    let actual = nu!(r#"let cond = { $in mod 2 == 0 }; 1..10 | where $cond | to nuon"#);
+    assert_eq!(actual.out, r#"[2, 4, 6, 8, 10]"#)
+}
+
+#[test]
+fn nested_stored_condition() {
+    let actual =
+        nu!(r#"let nested = {cond: { $in mod 2 == 0 }}; 1..10 | where $nested.cond | to nuon"#);
+    assert_eq!(actual.out, r#"[2, 4, 6, 8, 10]"#)
 }

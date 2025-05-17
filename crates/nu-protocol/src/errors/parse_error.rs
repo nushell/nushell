@@ -1,9 +1,9 @@
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
-    str::{from_utf8, Utf8Error},
+    str::{Utf8Error, from_utf8},
 };
 use thiserror::Error;
 
@@ -245,14 +245,18 @@ pub enum ParseError {
     #[error("Module not found.")]
     #[diagnostic(
         code(nu::parser::module_not_found),
-        help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
+        help(
+            "module files and their paths must be available before your script is run as parsing occurs before anything is evaluated"
+        )
     )]
     ModuleNotFound(#[label = "module {1} not found"] Span, String),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+        help(
+            "Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually."
+        )
     )]
     ModuleMissingModNuFile(
         String,
@@ -266,7 +270,9 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
+        help(
+            "Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}."
+        )
     )]
     NamedAsModule(
         String,
@@ -288,7 +294,9 @@ pub enum ParseError {
     #[error("Can't export alias defined as 'main'.")]
     #[diagnostic(
         code(nu::parser::export_main_alias_not_allowed),
-        help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
+        help(
+            "Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command."
+        )
     )]
     ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
 
@@ -299,7 +307,9 @@ pub enum ParseError {
     #[error("Overlay prefix mismatch.")]
     #[diagnostic(
         code(nu::parser::overlay_prefix_mismatch),
-        help("Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag.")
+        help(
+            "Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag."
+        )
     )]
     OverlayPrefixMismatch(
         String,
@@ -310,7 +320,9 @@ pub enum ParseError {
     #[error("Module or overlay not found.")]
     #[diagnostic(
         code(nu::parser::module_or_overlay_not_found),
-        help("Requires either an existing overlay, a module, or an import pattern defining a module.")
+        help(
+            "Requires either an existing overlay, a module, or an import pattern defining a module."
+        )
     )]
     ModuleOrOverlayNotFound(#[label = "not a module or an overlay"] Span),
 
@@ -474,7 +486,9 @@ pub enum ParseError {
     #[error("Plugin not found")]
     #[diagnostic(
         code(nu::parser::plugin_not_found),
-        help("plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"),
+        help(
+            "plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"
+        )
     )]
     PluginNotFound {
         name: String,
@@ -513,7 +527,9 @@ pub enum ParseError {
     #[error("This command does not have a ...rest parameter")]
     #[diagnostic(
         code(nu::parser::unexpected_spread_arg),
-        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
+        help(
+            "To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest"
+        )
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 

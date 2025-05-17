@@ -10,7 +10,9 @@ pub enum ParseWarning {
     DeprecatedWarning {
         old_command: String,
         new_suggestion: String,
-        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
+        #[label(
+            "`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead."
+        )]
         span: Span,
         url: String,
     },

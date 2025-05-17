@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen, NuWhenType},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -41,8 +41,7 @@ impl PluginCommand for ExprOtherwise {
             },
             Example {
                 description: "Create a when conditions",
-                example:
-                    "polars when ((polars col a) > 2) 4 | polars when ((polars col a) < 0) 6 | polars otherwise 0",
+                example: "polars when ((polars col a) > 2) 4 | polars when ((polars col a) < 0) 6 | polars otherwise 0",
                 result: None,
             },
             Example {

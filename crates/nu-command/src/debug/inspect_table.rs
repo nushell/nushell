@@ -2,13 +2,13 @@
 //       IMHO: it shall not take 300+ lines :)
 
 use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
-use nu_protocol::engine::EngineState;
 use nu_protocol::Value;
+use nu_protocol::engine::EngineState;
 use nu_table::{string_width, string_wrap};
 use tabled::{
-    grid::config::ColoredConfig,
-    settings::{peaker::Priority, width::Wrap, Settings, Style},
     Table,
+    grid::config::ColoredConfig,
+    settings::{Settings, Style, peaker::Priority, width::Wrap},
 };
 
 pub fn build_table(
@@ -199,8 +199,8 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
-    use nu_protocol::engine::EngineState;
     use nu_protocol::Value;
+    use nu_protocol::engine::EngineState;
 
     /// Try to build column names and a table grid.
     pub fn collect_input(
@@ -263,10 +263,12 @@ mod util {
         } else if cols.is_empty() && records.is_empty() {
             vec![]
         } else if cols.len() == records.len() {
-            vec![records
-                .into_iter()
-                .map(|s| debug_string_without_formatting(engine_state, &s))
-                .collect()]
+            vec![
+                records
+                    .into_iter()
+                    .map(|s| debug_string_without_formatting(engine_state, &s))
+                    .collect(),
+            ]
         } else {
             records
                 .into_iter()

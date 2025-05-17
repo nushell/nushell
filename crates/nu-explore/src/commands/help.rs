@@ -3,8 +3,8 @@ use crate::views::{Preview, ViewConfig};
 use anyhow::Result;
 use nu_ansi_term::Color;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 
 use std::sync::LazyLock;

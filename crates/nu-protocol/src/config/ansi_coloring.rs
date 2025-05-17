@@ -1,5 +1,5 @@
 use super::{ConfigErrors, ConfigPath, IntoValue, ShellError, UpdateFromValue, Value};
-use crate::{self as nu_protocol, engine::EngineState, FromValue};
+use crate::{self as nu_protocol, FromValue, engine::EngineState};
 use serde::{Deserialize, Serialize};
 use std::io::IsTerminal;
 
@@ -136,31 +136,41 @@ mod tests {
         .into();
 
         // explicit `True` ignores environment variables
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "clicolor", true);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "no_color", true);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "force_color", true);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
     }
 
     #[test]
@@ -173,31 +183,41 @@ mod tests {
         .into();
 
         // explicit `False` ignores environment variables
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "clicolor", true);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "no_color", true);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
         set_env(&mut engine_state, "force_color", true);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
     }
 
     #[test]
@@ -221,29 +241,37 @@ mod tests {
 
         // `clicolor` determines ANSI behavior if no higher-priority variables are set
         set_env(&mut engine_state, "clicolor", true);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
 
         set_env(&mut engine_state, "clicolor", false);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
 
         // `no_color` overrides `clicolor` and terminal state
         set_env(&mut engine_state, "no_color", true);
-        assert!(!engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            !engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
 
         // `force_color` overrides everything
         set_env(&mut engine_state, "force_color", true);
-        assert!(engine_state
-            .get_config()
-            .use_ansi_coloring
-            .get(&engine_state));
+        assert!(
+            engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
     }
 }

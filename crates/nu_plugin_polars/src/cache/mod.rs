@@ -13,7 +13,7 @@ use nu_plugin::{EngineInterface, PluginCommand};
 use nu_protocol::{LabeledError, ShellError, Span};
 use uuid::Uuid;
 
-use crate::{values::PolarsPluginObject, EngineWrapper, PolarsPlugin};
+use crate::{EngineWrapper, PolarsPlugin, values::PolarsPluginObject};
 
 use log::debug;
 

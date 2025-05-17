@@ -1,7 +1,7 @@
 use super::NuSpan;
 use anyhow::Result;
 use nu_engine::get_columns;
-use nu_protocol::{record, ByteStream, ListStream, PipelineData, PipelineMetadata, Value};
+use nu_protocol::{ByteStream, ListStream, PipelineData, PipelineMetadata, Value, record};
 use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {

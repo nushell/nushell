@@ -1,5 +1,5 @@
 use nu_protocol::HistoryFileFormat;
-use nu_test_support::{nu, Outcome};
+use nu_test_support::{Outcome, nu};
 use reedline::{
     FileBackedHistory, History, HistoryItem, HistoryItemId, ReedlineError, SearchQuery,
     SqliteBackedHistory,

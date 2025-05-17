@@ -1,6 +1,6 @@
+use crate::PolarsPlugin;
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use crate::values::{CustomValueSupport, PolarsPluginObject};
-use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -46,58 +46,67 @@ impl PluginCommand for LazyExplode {
         vec![
             Example {
                 description: "Explode the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] 
+                example:
+                    "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] 
                     | polars into-df 
                     | polars explode hobbies 
                     | polars collect
                     | polars sort-by [id, name]",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "id".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(2),
-                            ]),
-                        Column::new(
-                            "name".to_string(),
-                            vec![
-                                Value::test_string("Mercy"),
-                                Value::test_string("Mercy"),
-                                Value::test_string("Bob"),
-                                Value::test_string("Bob"),
-                            ]),
-                        Column::new(
-                            "hobbies".to_string(),
-                            vec![
-                                Value::test_string("Cycling"),
-                                Value::test_string("Knitting"),
-                                Value::test_string("Skiing"),
-                                Value::test_string("Football"),
-                            ]),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "id".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(2),
+                                ],
+                            ),
+                            Column::new(
+                                "name".to_string(),
+                                vec![
+                                    Value::test_string("Mercy"),
+                                    Value::test_string("Mercy"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                ],
+                            ),
+                            Column::new(
+                                "hobbies".to_string(),
+                                vec![
+                                    Value::test_string("Cycling"),
+                                    Value::test_string("Knitting"),
+                                    Value::test_string("Skiing"),
+                                    Value::test_string("Football"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
-                )
+                ),
             },
             Example {
                 description: "Select a column and explode the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars select (polars col hobbies | polars explode)",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
                             "hobbies".to_string(),
                             vec![
                                 Value::test_string("Cycling"),
                                 Value::test_string("Knitting"),
                                 Value::test_string("Skiing"),
                                 Value::test_string("Football"),
-                            ]),
-                    ], None)
-                   .expect("simple df for test should not fail")
-                   .into_value(Span::test_data()),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
                 ),
             },
         ]

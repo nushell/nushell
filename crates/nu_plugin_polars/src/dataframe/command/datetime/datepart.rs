@@ -2,9 +2,9 @@ use crate::values::NuExpression;
 use std::sync::Arc;
 
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuSchema},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 use chrono::{DateTime, FixedOffset};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

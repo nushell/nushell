@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
@@ -86,28 +86,32 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA]",
-                result: Some(Value::binary(vec![0xAA, 0x1F, 0xFF, 0xAA, 0xAA],
+                result: Some(Value::binary(
+                    vec![0xAA, 0x1F, 0xFF, 0xAA, 0xAA],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA BB] --index 1",
-                result: Some(Value::binary(vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
+                result: Some(Value::binary(
+                    vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end",
                 example: "0x[FF AA AA] | bytes add 0x[11] --end",
-                result: Some(Value::binary(vec![0xFF, 0xAA, 0xAA, 0x11],
+                result: Some(Value::binary(
+                    vec![0xFF, 0xAA, 0xAA, 0x11],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
                 example: "0x[FF AA BB] | bytes add 0x[11 22 33] --end --index 1",
-                result: Some(Value::binary(vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],
+                result: Some(Value::binary(
+                    vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],
                     Span::test_data(),
                 )),
             },

@@ -1,4 +1,4 @@
-use nix::sys::resource::{rlim_t, Resource, RLIM_INFINITY};
+use nix::sys::resource::{RLIM_INFINITY, Resource, rlim_t};
 use nu_engine::command_prelude::*;
 
 use std::sync::LazyLock;
@@ -470,11 +470,7 @@ fn parse_limit(
             if val == "unlimited" {
                 Ok(RLIM_INFINITY)
             } else if val == "soft" {
-                if soft {
-                    Ok(hard_limit)
-                } else {
-                    Ok(soft_limit)
-                }
+                if soft { Ok(hard_limit) } else { Ok(soft_limit) }
             } else if val == "hard" {
                 Ok(hard_limit)
             } else {

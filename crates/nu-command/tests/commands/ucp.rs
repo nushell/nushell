@@ -1,7 +1,7 @@
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
-    files_exist_at,
     Stub::{EmptyFile, FileWithContent, FileWithPermission},
+    files_exist_at,
 };
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -928,14 +928,16 @@ fn test_cp_verbose_default() {
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
-        assert!(actual.out.contains(
-            format!(
-                "'{}' -> '{}'",
-                src.display(),
-                dirs.root().join(TEST_HELLO_WORLD_DEST).display()
+        assert!(
+            actual.out.contains(
+                format!(
+                    "'{}' -> '{}'",
+                    src.display(),
+                    dirs.root().join(TEST_HELLO_WORLD_DEST).display()
+                )
+                .as_str(),
             )
-            .as_str(),
-        ));
+        );
     });
 }
 
@@ -948,9 +950,11 @@ fn test_cp_only_source_no_dest() {
         "cp {}",
         src.display(),
         );
-        assert!(actual
-            .err
-            .contains("Missing destination path operand after"));
+        assert!(
+            actual
+                .err
+                .contains("Missing destination path operand after")
+        );
         assert!(actual.err.contains(TEST_HELLO_WORLD_SOURCE));
     });
 }
@@ -1159,7 +1163,9 @@ fn test_cp_inside_glob_metachars_dir() {
 #[test]
 fn test_cp_to_customized_home_directory() {
     Playground::setup("cp_to_home", |dirs, sandbox| {
-        std::env::set_var("HOME", dirs.test());
+        unsafe {
+            std::env::set_var("HOME", dirs.test());
+        }
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
         let actual = nu!(cwd: dirs.test(), "mkdir test; cp test_file.txt ~/test/");
 

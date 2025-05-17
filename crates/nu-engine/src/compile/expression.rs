@@ -1,13 +1,13 @@
 use super::{
-    compile_binary_op, compile_block, compile_call, compile_external_call, compile_load_env,
-    BlockBuilder, CompileError, RedirectModes,
+    BlockBuilder, CompileError, RedirectModes, compile_binary_op, compile_block, compile_call,
+    compile_external_call, compile_load_env,
 };
 
 use nu_protocol::{
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
-    IntoSpanned, RegId, Span, Value, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(

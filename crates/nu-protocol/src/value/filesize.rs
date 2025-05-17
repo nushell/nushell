@@ -10,6 +10,10 @@ use std::{
 };
 use thiserror::Error;
 
+pub const SUPPORTED_FILESIZE_UNITS: [&str; 13] = [
+    "B", "kB", "MB", "GB", "TB", "PB", "EB", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB",
+];
+
 /// A signed number of bytes.
 ///
 /// [`Filesize`] is a wrapper around [`i64`]. Whereas [`i64`] is a dimensionless value, [`Filesize`] represents a

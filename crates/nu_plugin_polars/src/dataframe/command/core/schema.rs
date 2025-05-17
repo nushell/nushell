@@ -1,11 +1,11 @@
 use crate::{
-    values::{datatype_list, CustomValueSupport, PolarsPluginObject},
     PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject, datatype_list},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value, record,
 };
 
 #[derive(Clone)]

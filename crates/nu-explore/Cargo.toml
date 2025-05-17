@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Nushell table pager"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-explore"
 version = "0.104.1"

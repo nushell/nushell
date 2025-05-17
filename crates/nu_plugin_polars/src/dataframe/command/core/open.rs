@@ -1,16 +1,16 @@
 use crate::{
+    EngineWrapper, PolarsPlugin,
     command::core::resource::Resource,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
-    EngineWrapper, PolarsPlugin,
 };
 use log::debug;
 use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, shell_error::io::IoError,
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -23,7 +23,7 @@ use polars::{
     },
 };
 
-use polars_io::{avro::AvroReader, csv::read::CsvReadOptions, HiveOptions};
+use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 

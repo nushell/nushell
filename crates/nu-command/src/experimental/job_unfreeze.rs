@@ -1,10 +1,11 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
+    JobId,
     engine::{FrozenJob, Job, ThreadJob},
     process::check_ok,
-    shell_error, JobId,
+    shell_error,
 };
-use nu_system::{kill_by_pid, ForegroundWaitStatus};
+use nu_system::{ForegroundWaitStatus, kill_by_pid};
 
 #[derive(Clone)]
 pub struct JobUnfreeze;
@@ -59,13 +60,13 @@ impl Command for JobUnfreeze {
                 return Err(ShellError::JobNotFound {
                     id: id.get(),
                     span: head,
-                })
+                });
             }
             Some(Job::Thread(ThreadJob { .. })) => {
                 return Err(ShellError::JobNotFrozen {
                     id: id.get(),
                     span: head,
-                })
+                });
             }
             Some(Job::Frozen(FrozenJob { .. })) => jobs
                 .remove_job(id)

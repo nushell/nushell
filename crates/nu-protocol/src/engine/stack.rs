@@ -1,9 +1,9 @@
 use crate::{
+    Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
     engine::{
-        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
-        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
+        ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, ErrorHandlerStack, Redirection,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
-    Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{
@@ -774,7 +774,7 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value, VarId};
+    use crate::{Span, Value, VarId, engine::EngineState};
 
     use super::Stack;
 

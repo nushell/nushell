@@ -1,6 +1,6 @@
 use crate::{
-    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, FileId, ModuleId,
-    ParseError, Span, Value, VarId,
+    BlockId, DeclId, FileId, ModuleId, ParseError, Span, Value, VarId, ast::ImportPatternMember,
+    engine::StateWorkingSet,
 };
 
 use crate::parser_path::ParserPath;
@@ -200,7 +200,10 @@ impl Module {
                 // `use a b c`: but b is not a sub-module of a.
                 let errors = if !rest.is_empty() && self.submodules.get(name).is_none() {
                     vec![ParseError::WrongImportPattern(
-                        format!("Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`", String::from_utf8_lossy(name)),
+                        format!(
+                            "Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`",
+                            String::from_utf8_lossy(name)
+                        ),
                         rest[0].span(),
                     )]
                 } else {

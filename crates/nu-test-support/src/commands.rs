@@ -2,8 +2,8 @@ use std::{
     io::Read,
     process::{Command, Stdio},
     sync::{
-        atomic::{AtomicBool, Ordering::Relaxed},
         Mutex,
+        atomic::{AtomicBool, Ordering::Relaxed},
     },
 };
 

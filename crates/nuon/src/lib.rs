@@ -3,19 +3,20 @@ mod from;
 mod to;
 
 pub use from::from_nuon;
-pub use to::to_nuon;
 pub use to::ToStyle;
+pub use to::to_nuon;
 
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
     use nu_protocol::{
+        BlockId, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
         engine::{Closure, EngineState},
-        record, BlockId, IntRange, Range, Span, Value,
+        record,
     };
 
-    use crate::{from_nuon, to_nuon, ToStyle};
+    use crate::{ToStyle, from_nuon, to_nuon};
 
     /// test something of the form
     /// ```nushell
@@ -31,7 +32,7 @@ mod tests {
             assert_eq!(val, m);
         }
         assert_eq!(
-            to_nuon(&engine_state, &val, ToStyle::Raw, None, false).unwrap(),
+            to_nuon(&engine_state, &val, ToStyle::Default, None, false).unwrap(),
             input
         );
     }
@@ -180,19 +181,21 @@ mod tests {
     fn to_nuon_errs_on_closure() {
         let engine_state = EngineState::new();
 
-        assert!(to_nuon(
-            &engine_state,
-            &Value::test_closure(Closure {
-                block_id: BlockId::new(0),
-                captures: vec![]
-            }),
-            ToStyle::Raw,
-            None,
-            false,
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("Unsupported input"));
+        assert!(
+            to_nuon(
+                &engine_state,
+                &Value::test_closure(Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![]
+                }),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported input")
+        );
     }
 
     #[test]
@@ -211,7 +214,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &from_nuon("0x[1f ff]", None).unwrap(),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -261,7 +264,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(1.0),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false
             )
@@ -278,7 +281,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::INFINITY),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -295,7 +298,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::NEG_INFINITY),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -312,7 +315,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(-f64::NAN),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -325,29 +328,31 @@ mod tests {
     fn to_nuon_converts_columns_with_spaces() {
         let engine_state = EngineState::new();
 
-        assert!(from_nuon(
-            &to_nuon(
-                &engine_state,
-                &Value::test_list(vec![
-                    Value::test_record(record!(
-                        "a" => Value::test_int(1),
-                        "b" => Value::test_int(2),
-                        "c d" => Value::test_int(3)
-                    )),
-                    Value::test_record(record!(
-                        "a" => Value::test_int(4),
-                        "b" => Value::test_int(5),
-                        "c d" => Value::test_int(6)
-                    ))
-                ]),
-                ToStyle::Raw,
+        assert!(
+            from_nuon(
+                &to_nuon(
+                    &engine_state,
+                    &Value::test_list(vec![
+                        Value::test_record(record!(
+                            "a" => Value::test_int(1),
+                            "b" => Value::test_int(2),
+                            "c d" => Value::test_int(3)
+                        )),
+                        Value::test_record(record!(
+                            "a" => Value::test_int(4),
+                            "b" => Value::test_int(5),
+                            "c d" => Value::test_int(6)
+                        ))
+                    ]),
+                    ToStyle::Default,
+                    None,
+                    false,
+                )
+                .unwrap(),
                 None,
-                false,
             )
-            .unwrap(),
-            None,
-        )
-        .is_ok());
+            .is_ok()
+        );
     }
 
     #[test]
@@ -357,7 +362,7 @@ mod tests {
         let res = to_nuon(
             &engine_state,
             &Value::test_string(""),
-            ToStyle::Raw,
+            ToStyle::Default,
             None,
             false,
         );
@@ -423,7 +428,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -438,7 +443,7 @@ mod tests {
                     "ro name" => Value::test_string("sam"),
                     "rank" => Value::test_int(10)
                 )),
-                ToStyle::Raw,
+                ToStyle::Default,
                 None,
                 false,
             )
@@ -485,10 +490,12 @@ mod tests {
     // }
     // ```
     fn read_code_should_fail_rather_than_panic() {
-        assert!(from_nuon(
-            include_str!("../../../tests/fixtures/formats/code.nu"),
-            None,
-        )
-        .is_err());
+        assert!(
+            from_nuon(
+                include_str!("../../../tests/fixtures/formats/code.nu"),
+                None,
+            )
+            .is_err()
+        );
     }
 }

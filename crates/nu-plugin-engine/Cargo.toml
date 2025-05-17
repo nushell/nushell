@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Functionality for running Nushell plugins from a Nushell engine"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-engine"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-plugin-engine"
 version = "0.104.1"

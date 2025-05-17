@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 
 use crate::Comparator;
 
@@ -88,15 +88,15 @@ impl Command for SortBy {
                 example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by info.founded",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "name" => Value::test_string("Kyoto"),
-                        "info" => Value::test_record(
-                            record! { "founded" => Value::test_int(794) },
-                        )}),
+                    "name" => Value::test_string("Kyoto"),
+                    "info" => Value::test_record(
+                        record! { "founded" => Value::test_int(794) },
+                    )}),
                     Value::test_record(record! {
-                        "name" => Value::test_string("Cairo"),
-                        "info" => Value::test_record(
-                            record! { "founded" => Value::test_int(969) },
-                        )})
+                    "name" => Value::test_string("Cairo"),
+                    "info" => Value::test_record(
+                        record! { "founded" => Value::test_int(969) },
+                    )}),
                 ])),
             },
             Example {
@@ -104,8 +104,8 @@ impl Command for SortBy {
                 example: "[[2 50] [10 1]] | sort-by { last }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(10), Value::test_int(1)]),
-                    Value::test_list(vec![Value::test_int(2), Value::test_int(50)])
-                ]))
+                    Value::test_list(vec![Value::test_int(2), Value::test_int(50)]),
+                ])),
             },
             Example {
                 description: "Sort in a custom order",
@@ -116,8 +116,8 @@ impl Command for SortBy {
                     Value::test_int(4),
                     Value::test_int(7),
                     Value::test_int(8),
-                ]))
-            }
+                ])),
+            },
         ]
     }
 
@@ -177,7 +177,7 @@ impl Command for SortBy {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_examples_with_commands, Last};
+    use crate::{Last, test_examples_with_commands};
 
     use super::*;
 

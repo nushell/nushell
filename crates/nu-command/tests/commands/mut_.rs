@@ -12,18 +12,22 @@ fn mut_variable() {
 #[case("mut in = 3")]
 #[case("mut in: int = 3")]
 fn mut_name_builtin_var(#[case] assignment: &str) {
-    assert!(nu!(assignment)
-        .err
-        .contains("'in' is the name of a builtin Nushell variable"));
+    assert!(
+        nu!(assignment)
+            .err
+            .contains("'in' is the name of a builtin Nushell variable")
+    );
 }
 
 #[test]
 fn mut_name_builtin_var_with_dollar() {
     let actual = nu!("mut $env = 3");
 
-    assert!(actual
-        .err
-        .contains("'env' is the name of a builtin Nushell variable"))
+    assert!(
+        actual
+            .err
+            .contains("'env' is the name of a builtin Nushell variable")
+    )
 }
 
 #[test]
@@ -152,9 +156,11 @@ fn def_should_not_mutate_mut() {
 #[test]
 fn assign_to_non_mut_variable_raises_parse_error() {
     let actual = nu!("let x = 3; $x = 4");
-    assert!(actual
-        .err
-        .contains("parser::assignment_requires_mutable_variable"));
+    assert!(
+        actual
+            .err
+            .contains("parser::assignment_requires_mutable_variable")
+    );
 
     let actual = nu!("mut x = 3; x = 5");
     assert!(actual.err.contains("parser::assignment_requires_variable"));

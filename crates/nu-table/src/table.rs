@@ -10,27 +10,28 @@ use nu_color_config::TextStyle;
 use nu_protocol::{TableIndent, TrimStrategy};
 
 use tabled::{
+    Table,
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
         colors::Colors,
         config::{
-            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
+            AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Indent, Position, Sides,
+            SpannedConfig,
         },
         dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
         records::{
-            vec_records::{Cell, Text, VecRecords},
             IntoRecords, IterRecords, Records,
+            vec_records::{Cell, Text, VecRecords},
         },
     },
     settings::{
+        Alignment, CellOption, Color, Padding, TableOption, Width,
         formatting::AlignmentStrategy,
         object::{Columns, Rows},
         themes::ColumnNames,
         width::Truncate,
-        Alignment, CellOption, Color, Padding, TableOption, Width,
     },
-    Table,
 };
 
 use crate::{convert_style, is_color_empty, table_theme::TableTheme};
@@ -228,10 +229,19 @@ impl NuTable {
         self.config.border_color = (!color.is_plain()).then_some(color);
     }
 
+    pub fn clear_border_color(&mut self) {
+        self.config.border_color = None;
+    }
+
     // NOTE: BE CAREFUL TO KEEP WIDTH UNCHANGED
     // TODO: fix interface
     pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
         &mut self.data
+    }
+
+    pub fn clear_all_colors(&mut self) {
+        self.clear_border_color();
+        self.styles.cfg.set_colors(EntityMap::default());
     }
 
     /// Converts a table to a String.
@@ -239,6 +249,13 @@ impl NuTable {
     /// It returns None in case where table cannot be fit to a terminal width.
     pub fn draw(self, termwidth: usize) -> Option<String> {
         build_table(self, termwidth)
+    }
+
+    /// Converts a table to a String.
+    ///
+    /// It returns None in case where table cannot be fit to a terminal width.
+    pub fn draw_unchecked(self, termwidth: usize) -> Option<String> {
+        build_table_unchecked(self, termwidth)
     }
 
     /// Return a total table width.
@@ -325,6 +342,22 @@ impl HeadInfo {
             color,
         }
     }
+}
+
+fn build_table_unchecked(mut t: NuTable, termwidth: usize) -> Option<String> {
+    if t.count_columns() == 0 || t.count_rows() == 0 {
+        return Some(String::new());
+    }
+
+    let widths = std::mem::take(&mut t.widths);
+    let config = create_config(&t.config.theme, false, None);
+    let totalwidth = get_total_width2(&t.widths, &config);
+    let widths = WidthEstimation::new(widths.clone(), widths, totalwidth, false, false);
+
+    let head = remove_header_if(&mut t);
+    table_insert_footer_if(&mut t);
+
+    draw_table(t, widths, head, termwidth)
 }
 
 fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
@@ -583,7 +616,7 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         }
 
         // NOTE: just an optimization; to not recalculate it internally
-        SetDimensions(self.width.needed).change(recs, cfg, dims);
+        dims.set_widths(self.width.needed);
     }
 }
 
@@ -1018,15 +1051,6 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
         nu_color_config::Alignment::Center => AlignmentHorizontal::Center,
         nu_color_config::Alignment::Left => AlignmentHorizontal::Left,
         nu_color_config::Alignment::Right => AlignmentHorizontal::Right,
-    }
-}
-
-// TODO: expose it get_dims_mut()
-struct SetDimensions(Vec<usize>);
-
-impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetDimensions {
-    fn change(self, _: &mut R, _: &mut ColoredConfig, dims: &mut CompleteDimensionVecRecords<'_>) {
-        dims.set_widths(self.0);
     }
 }
 

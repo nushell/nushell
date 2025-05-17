@@ -8,17 +8,17 @@ use lscolors::{LsColors, Style};
 use url::Url;
 use web_time::Instant;
 
-use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
+use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
-    Signals, TableMode, ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
+    ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
-    common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult,
-    TableOpts, TableOutput,
+    CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
+    common::configure_table,
 };
 use nu_utils::{get_ls_colors, terminal_size};
 
@@ -195,8 +195,7 @@ impl Command for Table {
                 result: None,
             },
             Example {
-                description:
-                    "Set the starting number of the #/index column to 100 for a single run",
+                description: "Set the starting number of the #/index column to 100 for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
                 result: None,
             },
@@ -545,8 +544,13 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     let span = input.data.span().unwrap_or(input.call.head);
 
     if record.is_empty() {
-        let value =
-            create_empty_placeholder("record", input.cfg.width, input.engine_state, input.stack);
+        let value = create_empty_placeholder(
+            "record",
+            input.cfg.width,
+            input.engine_state,
+            input.stack,
+            input.cfg.use_ansi_coloring,
+        );
         let value = Value::string(value, span);
         return Ok(value.into_pipeline_data());
     };
@@ -898,6 +902,7 @@ impl Iterator for PagingTableCreator {
                     self.table_config.width,
                     &self.engine_state,
                     &self.stack,
+                    self.table_config.use_ansi_coloring,
                 );
                 let mut bytes = result.into_bytes();
                 // Add extra newline if show_empty is enabled
@@ -1084,6 +1089,7 @@ fn create_empty_placeholder(
     termwidth: usize,
     engine_state: &EngineState,
     stack: &Stack,
+    use_ansi_coloring: bool,
 ) -> String {
     let config = stack.get_config(engine_state);
     if !config.table.show_empty {
@@ -1098,6 +1104,10 @@ fn create_empty_placeholder(
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     configure_table(&mut out, &config, style_computer, TableMode::default());
+
+    if !use_ansi_coloring {
+        out.table.clear_all_colors();
+    }
 
     out.table
         .draw(termwidth)

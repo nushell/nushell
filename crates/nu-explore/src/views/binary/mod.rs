@@ -4,8 +4,8 @@ mod binary_widget;
 
 use crossterm::event::KeyEvent;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
 
@@ -13,15 +13,15 @@ use crate::{
     explore::ExploreConfig,
     nu_common::NuText,
     pager::{
-        report::{Report, Severity},
         Frame, Transition, ViewInfo,
+        report::{Report, Severity},
     },
     views::cursor::Position,
 };
 
 use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
 
-use super::{cursor::CursorMoveHandler, cursor::WindowCursor2D, Layout, View, ViewConfig};
+use super::{Layout, View, ViewConfig, cursor::CursorMoveHandler, cursor::WindowCursor2D};
 
 /// An interactive view that displays binary data in a hex dump format.
 /// Not finished; many aspects are still WIP.

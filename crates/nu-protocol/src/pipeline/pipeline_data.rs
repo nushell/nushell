@@ -1,10 +1,10 @@
 use crate::{
+    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
+    Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
     shell_error::{io::IoError, location::Location},
-    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Signals, Span, Type, Value,
 };
 use std::{borrow::Cow, io::Write};
 
@@ -347,7 +347,7 @@ impl PipelineData {
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
                             src_span: val_span,
-                        })
+                        });
                     }
                 }
             }
@@ -360,7 +360,7 @@ impl PipelineData {
                     wrong_type: "null".into(),
                     dst_span: span,
                     src_span: span,
-                })
+                });
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {

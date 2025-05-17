@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicU32, Arc};
+use std::sync::{Arc, atomic::AtomicU32};
 
 use std::io;
 
@@ -274,11 +274,7 @@ impl ForegroundGuard {
             } else if pcnt
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
                     // Avoid a race condition: only increment if count is > 0
-                    if count > 0 {
-                        Some(count + 1)
-                    } else {
-                        None
-                    }
+                    if count > 0 { Some(count + 1) } else { None }
                 })
                 .is_ok()
             {
@@ -349,7 +345,7 @@ impl Drop for ForegroundGuard {
 #[cfg(unix)]
 mod child_pgroup {
     use nix::{
-        sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
+        sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction},
         unistd::{self, Pid},
     };
     use std::{

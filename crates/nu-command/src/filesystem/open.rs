@@ -1,10 +1,9 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_protocol::{
-    ast,
+    DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
-    DataSource, NuGlob, PipelineMetadata,
 };
 use std::{
     collections::HashMap,
@@ -279,6 +278,16 @@ impl Command for Open {
             Example {
                 description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
+                result: None,
+            },
+            Example {
+                description: "Show the extensions for which the `open` command will automatically parse",
+                example: r#"scope commands
+    | where name starts-with "from "
+    | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
                 result: None,
             },
         ]

@@ -101,7 +101,7 @@ impl Command for NuCheck {
                                 ErrorKind::FileNotFound,
                                 path_span,
                                 PathBuf::from(path_str.item),
-                            )))
+                            )));
                         }
                         Err(err) => return Err(err),
                     };

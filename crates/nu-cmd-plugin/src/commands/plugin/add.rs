@@ -2,7 +2,7 @@ use crate::util::{get_plugin_dirs, modify_plugin_file};
 use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
 use nu_protocol::{
-    shell_error::io::IoError, PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin,
+    PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin, shell_error::io::IoError,
 };
 use std::{path::PathBuf, sync::Arc};
 

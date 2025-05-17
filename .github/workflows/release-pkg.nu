@@ -8,7 +8,7 @@
 
 # Instructions for manually creating an MSI for Winget Releases when they fail
 # Added 2022-11-29 when Windows packaging wouldn't work
-# Updated again on 2023-02-23 because msis are still failing validation
+# Updated again on 2023-02-23 because MSIs are still failing validation
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
 # 1. git checkout 0.86.0

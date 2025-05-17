@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{engine::Closure, FromValue, IntoValue};
+use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::{FromValue, IntoValue, engine::Closure};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -167,7 +167,7 @@ impl Command for GroupBy {
                                 })],
                             ),
                     }),
-                }))
+                })),
             },
             Example {
                 description: "Group items by multiple columns' values",
@@ -212,7 +212,7 @@ impl Command for GroupBy {
                             })
                         ]),
                     }),
-                ]))
+                ])),
             },
         ]
     }

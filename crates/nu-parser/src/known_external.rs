@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
+    CustomExample,
     ast::{self, Expr, Expression},
     engine::{self, CallImpl, CommandType, UNKNOWN_SPAN_ID},
     ir::{self, DataSlice},
-    CustomExample,
 };
 
 #[derive(Clone)]

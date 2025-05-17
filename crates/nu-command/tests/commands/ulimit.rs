@@ -119,9 +119,11 @@ fn limit_set_invalid3() {
             "
         );
 
-        assert!(actual
-            .err
-            .contains("Only unlimited, soft and hard are supported for strings"));
+        assert!(
+            actual
+                .err
+                .contains("Only unlimited, soft and hard are supported for strings")
+        );
     });
 }
 
@@ -211,8 +213,10 @@ fn limit_set_filesize2() {
             "
         );
 
-        assert!(actual
-            .err
-            .contains("filesize is not compatible with resource RLIMIT_NOFILE"));
+        assert!(
+            actual
+                .err
+                .contains("filesize is not compatible with resource RLIMIT_NOFILE")
+        );
     });
 }

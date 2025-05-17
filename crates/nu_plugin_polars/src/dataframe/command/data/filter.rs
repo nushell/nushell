@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -42,8 +42,7 @@ impl PluginCommand for LazyFilter {
         vec![
             Example {
                 description: "Filter dataframe using an expression",
-                example:
-                    "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4)",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4)",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -64,44 +63,43 @@ impl PluginCommand for LazyFilter {
             },
             Example {
                 description: "Filter dataframe for rows where dt is within the last 2 days of the maximum dt value",
-                example:
-                    "[[dt val]; [2025-04-01 1] [2025-04-02 2] [2025-04-03 3] [2025-04-04 4]] | polars into-df | polars filter ((polars col dt) > ((polars col dt | polars max | $in - 2day)))",
+                example: "[[dt val]; [2025-04-01 1] [2025-04-02 2] [2025-04-03 3] [2025-04-04 4]] | polars into-df | polars filter ((polars col dt) > ((polars col dt | polars max | $in - 2day)))",
                 result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new(
-                            "dt".to_string(),
-                            vec![
-                                Value::date(
-                                    chrono::DateTime::parse_from_str(
-                                        "2025-04-03 00:00:00 +0000",
-                                        "%Y-%m-%d %H:%M:%S %z",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                                Value::date(
-                                    chrono::DateTime::parse_from_str(
-                                        "2025-04-04 00:00:00 +0000",
-                                        "%Y-%m-%d %H:%M:%S %z",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                            ]
-                        ),
-                        Column::new(
-                            "val".to_string(),
-                            vec![Value::test_int(3), Value::test_int(4)],
-                        ),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-    ]
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "dt".to_string(),
+                                vec![
+                                    Value::date(
+                                        chrono::DateTime::parse_from_str(
+                                            "2025-04-03 00:00:00 +0000",
+                                            "%Y-%m-%d %H:%M:%S %z",
+                                        )
+                                        .expect("date calculation should not fail in test"),
+                                        Span::test_data(),
+                                    ),
+                                    Value::date(
+                                        chrono::DateTime::parse_from_str(
+                                            "2025-04-04 00:00:00 +0000",
+                                            "%Y-%m-%d %H:%M:%S %z",
+                                        )
+                                        .expect("date calculation should not fail in test"),
+                                        Span::test_data(),
+                                    ),
+                                ],
+                            ),
+                            Column::new(
+                                "val".to_string(),
+                                vec![Value::test_int(3), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(

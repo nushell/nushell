@@ -1,4 +1,4 @@
-use crate::{update::Update, CustomValuePlugin};
+use crate::{CustomValuePlugin, update::Update};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{Category, LabeledError, Signature, SyntaxShape, Value};
 

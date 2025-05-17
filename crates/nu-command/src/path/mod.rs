@@ -17,10 +17,10 @@ pub use expand::PathExpand;
 pub use join::PathJoin;
 pub use parse::PathParse;
 pub use path_::Path;
-pub use r#type::PathType;
 pub use relative_to::PathRelativeTo;
 pub use self_::PathSelf;
 pub use split::PathSplit;
+pub use r#type::PathType;
 
 use nu_protocol::{ShellError, Span, Value};
 use std::path::Path as StdPath;

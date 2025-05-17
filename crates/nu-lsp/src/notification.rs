@@ -1,12 +1,12 @@
 use crate::LanguageServer;
 use lsp_types::{
+    DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
+    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
     notification::{
         DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
         DidOpenTextDocument, Notification, Progress,
     },
-    DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
-    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
 };
 use miette::{IntoDiagnostic, Result};
 

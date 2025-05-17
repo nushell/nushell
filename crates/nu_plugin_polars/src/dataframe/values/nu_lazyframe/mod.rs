@@ -3,11 +3,11 @@ mod custom_value;
 use crate::{Cacheable, PolarsPlugin};
 
 use super::{
-    cant_convert_err, CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject,
-    PolarsPluginType,
+    CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
 };
 use core::fmt;
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Span, Value, record};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 use uuid::Uuid;

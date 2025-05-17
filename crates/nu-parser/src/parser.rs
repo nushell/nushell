@@ -1,21 +1,21 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
-    lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
+    Token, TokenContents,
+    lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
+    lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
+    parse_shape_specs::{ShapeDescriptorUse, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
-    Token, TokenContents,
 };
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
+    engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -455,8 +455,10 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+    if contents.starts_with(b"$") {
         parse_dollar_expr(working_set, span)
+    } else if contents.starts_with(b"(") {
+        parse_paren_expr(working_set, span, &SyntaxShape::Any)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
@@ -1977,15 +1979,33 @@ pub fn parse_paren_expr(
     let starting_error_count = working_set.parse_errors.len();
 
     if let Some(expr) = parse_range(working_set, span) {
-        expr
-    } else {
-        working_set.parse_errors.truncate(starting_error_count);
+        return expr;
+    }
 
-        if matches!(shape, SyntaxShape::Signature) {
-            parse_signature(working_set, span)
+    working_set.parse_errors.truncate(starting_error_count);
+
+    if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span);
+    }
+
+    let fcp_expr = parse_full_cell_path(working_set, None, span);
+    let fcp_error_count = working_set.parse_errors.len();
+    if fcp_error_count > starting_error_count {
+        let malformed_subexpr = working_set.parse_errors[starting_error_count..]
+            .iter()
+            .any(|e| match e {
+                ParseError::Unclosed(right, _) if right == ")" => true,
+                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                _ => false,
+            });
+        if malformed_subexpr {
+            working_set.parse_errors.truncate(starting_error_count);
+            parse_string(working_set, span)
         } else {
-            parse_full_cell_path(working_set, None, span)
+            fcp_expr
         }
+    } else {
+        fcp_expr
     }
 }
 
@@ -2328,12 +2348,8 @@ pub fn parse_cell_path(
                 } else if bytes.len() == 1 && bytes[0] == b'?' {
                     if let Some(last) = tail.last_mut() {
                         match last {
-                            PathMember::String {
-                                ref mut optional, ..
-                            } => *optional = true,
-                            PathMember::Int {
-                                ref mut optional, ..
-                            } => *optional = true,
+                            PathMember::String { optional, .. } => *optional = true,
+                            PathMember::Int { optional, .. } => *optional = true,
                         }
                     }
                     expected_token = TokenType::Dot;
@@ -3613,6 +3629,16 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
         Expr::Closure(block_id) => block_id,
+        Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var().is_some_and(|id| id != var_id) => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
+        Expr::Var(arg_var_id) if arg_var_id != var_id => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
@@ -4199,8 +4225,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             "Default value is the wrong type"
                                                                 .into(),
                                                             format!(
-                                                            "expected default value to be `{t}`"
-                                                                ),
+                                                                "expected default value to be `{t}`"
+                                                            ),
                                                             expression_span,
                                                         ),
                                                     )

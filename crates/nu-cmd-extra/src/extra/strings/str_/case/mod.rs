@@ -14,7 +14,7 @@ pub use snake_case::StrSnakeCase;
 pub use str_::Str;
 pub use title_case::StrTitleCase;
 
-use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate as general_operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {

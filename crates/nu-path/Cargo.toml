@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Path handling library for Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-path"
 version = "0.104.1"

@@ -355,7 +355,7 @@ mod tests {
 
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
-    use nu_protocol::{record, Config, IntoPipelineData, Value};
+    use nu_protocol::{Config, IntoPipelineData, Value, record};
 
     fn one(string: &str) -> String {
         string

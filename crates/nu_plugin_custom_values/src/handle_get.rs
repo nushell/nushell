@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{LabeledError, ShellError, Signature, Type, Value};
 
-use crate::{handle_custom_value::HandleCustomValue, CustomValuePlugin};
+use crate::{CustomValuePlugin, handle_custom_value::HandleCustomValue};
 
 pub struct HandleGet;
 

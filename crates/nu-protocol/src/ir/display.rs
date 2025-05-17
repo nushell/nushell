@@ -1,5 +1,5 @@
 use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
-use crate::{ast::Pattern, engine::EngineState, DeclId, VarId};
+use crate::{DeclId, VarId, ast::Pattern, engine::EngineState};
 use std::fmt::{self};
 
 pub struct FmtIrBlock<'a> {

@@ -1,11 +1,11 @@
-use super::{completion_options::NuMatcher, SemanticSuggestion};
+use super::{SemanticSuggestion, completion_options::NuMatcher};
 use crate::{
-    completions::{Completer, CompletionOptions},
     SuggestionKind,
+    completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     Span,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
@@ -33,13 +33,12 @@ impl Completer for AttributeCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).into_owned(),
                     description: desc,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
                 kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
             });
@@ -70,13 +69,12 @@ impl Completer for AttributableCompletion {
                 suggestion: Suggestion {
                     value: cmd.name().into(),
                     description: Some(cmd.description().into()),
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
                 kind: Some(SuggestionKind::Command(cmd.command_type(), None)),
             });

@@ -5,7 +5,7 @@ authors = [
 ]
 description = "Fork of serde-hjson"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-json"
 version = "0.104.1"

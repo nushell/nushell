@@ -63,8 +63,7 @@ little reason to use this over just writing the values as-is."#
                 )),
             },
             Example {
-                description:
-                    "Returns the piped-in value, by using the special $in variable to obtain it.",
+                description: "Returns the piped-in value, by using the special $in variable to obtain it.",
                 example: "echo $in",
                 result: None,
             },

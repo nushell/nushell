@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use nu_plugin_core::interface_test_util::TestCase;
-use nu_plugin_protocol::{test_util::test_plugin_custom_value, PluginInput, PluginOutput};
+use nu_plugin_protocol::{PluginInput, PluginOutput, test_util::test_plugin_custom_value};
 
 use crate::{PluginCustomValueWithSource, PluginInterfaceManager, PluginSource};
 

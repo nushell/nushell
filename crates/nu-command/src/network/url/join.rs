@@ -202,7 +202,7 @@ impl UrlComponents {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: String::from("Key params has to be a record or a table"),
                         span: other.span(),
-                    })
+                    });
                 }
             };
 

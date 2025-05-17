@@ -2,7 +2,7 @@ use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
 use nu_utils::IgnoreCaseExt;
-use std::collections::{hash_map::IntoIter, HashMap};
+use std::collections::{HashMap, hash_map::IntoIter};
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -84,41 +84,34 @@ impl Command for Uniq {
             Example {
                 description: "Return the input values that occur more than once",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::list(
-                    vec![Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(vec![Value::test_int(2)], Span::test_data())),
             },
             Example {
                 description: "Return the input values that occur once only",
                 example: "[1 2 2] | uniq --unique",
-                result: Some(Value::list(
-                    vec![Value::test_int(1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(vec![Value::test_int(1)], Span::test_data())),
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
                 example: "['hello' 'goodbye' 'Hello'] | uniq --ignore-case",
-                result: Some(Value::test_list(
-                    vec![Value::test_string("hello"), Value::test_string("goodbye")],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("hello"),
+                    Value::test_string("goodbye"),
+                ])),
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq --count",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "value" => Value::test_int(1),
-                            "count" => Value::test_int(1),
-                        }),
-                        Value::test_record(record! {
-                            "value" => Value::test_int(2),
-                            "count" => Value::test_int(2),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_int(1),
+                        "count" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_int(2),
+                        "count" => Value::test_int(2),
+                    }),
+                ])),
             },
         ]
     }
@@ -218,7 +211,7 @@ fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<Strin
     nuon::to_nuon(
         engine_state,
         &value,
-        nuon::ToStyle::Raw,
+        nuon::ToStyle::Default,
         Some(Span::unknown()),
         false,
     )

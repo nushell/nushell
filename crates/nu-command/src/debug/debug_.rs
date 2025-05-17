@@ -78,8 +78,7 @@ impl Command for Debug {
             },
             Example {
                 description: "Debug print a table",
-                example:
-                    "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
+                example: "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("{version: 0.1.0, patch: false}"),

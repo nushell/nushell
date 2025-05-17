@@ -94,11 +94,7 @@ pub fn lev_distance_with_substrings(a: &str, b: &str, limit: usize) -> Option<us
         score + len_diff
     };
 
-    if score <= limit {
-        Some(score)
-    } else {
-        None
-    }
+    if score <= limit { Some(score) } else { None }
 }
 
 /// Finds the best match for given word in the given iterator where substrings are meaningful.

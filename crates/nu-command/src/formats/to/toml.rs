@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, PipelineMetadata};
+use nu_protocol::{PipelineMetadata, ast::PathMember};
 
 #[derive(Clone)]
 pub struct ToToml;

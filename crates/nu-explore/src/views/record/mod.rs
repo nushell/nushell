@@ -2,16 +2,16 @@ mod table_widget;
 
 use self::table_widget::{TableWidget, TableWidgetState};
 use super::{
+    Layout, View, ViewConfig,
     cursor::{CursorMoveHandler, Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
-    Layout, View, ViewConfig,
 };
 use crate::{
     explore::ExploreConfig,
-    nu_common::{collect_input, lscolorize, NuSpan, NuText},
+    nu_common::{NuSpan, NuText, collect_input, lscolorize},
     pager::{
-        report::{Report, Severity},
         Frame, Transition, ViewInfo,
+        report::{Report, Severity},
     },
     views::ElementInfo,
 };
@@ -19,8 +19,8 @@ use anyhow::Result;
 use crossterm::event::KeyEvent;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Config, Record, Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::collections::HashMap;
@@ -690,7 +690,7 @@ fn strip_string(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{span::Span, Value};
+    use nu_protocol::{Value, span::Span};
 
     // Helper to create a simple test Value::Record
     fn create_test_record() -> Value {

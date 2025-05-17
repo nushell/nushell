@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
@@ -67,36 +67,36 @@ When updating a specific index, the closure will instead be run once. The first 
             Example {
                 description: "Use a closure to alter each value in the 'authors' column to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ',' }",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
             },
             Example {
                 description: "Implicitly use the `$in` value in a closure to update 'authors'",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
             },
             Example {
                 description: "Update a value at an index in a list",
                 example: "[1 2 3] | update 1 4",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(4),
+                    Value::test_int(3),
+                ])),
             },
             Example {
                 description: "Use a closure to compute a new value at an index",
                 example: "[1 2 3] | update 1 {|i| $i + 2 }",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(4),
+                    Value::test_int(3),
+                ])),
             },
         ]
     }

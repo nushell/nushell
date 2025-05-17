@@ -267,7 +267,7 @@ fn to_html(
                 span: Some(theme_span),
                 help: None,
                 inner: vec![],
-            })
+            });
         }
     };
 

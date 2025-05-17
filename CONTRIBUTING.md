@@ -31,7 +31,7 @@ The review process can be summarized as follows:
 1. You want to make some change to Nushell that is more involved than simple bug-fixing.
 2. Go to [Discord](https://discordapp.com/invite/NtAbbGn) or a [GitHub issue](https://github.com/nushell/nushell/issues/new/choose) and chat with some core team members and/or other contributors about it.
 3. After getting a green light from the core team, implement the feature, open a pull request (PR) and write a concise but comprehensive description of the change.
-4. If your PR includes any use-facing features (such as adding a flag to a command), clearly list them in the PR description.
+4. If your PR includes any user-facing features (such as adding a flag to a command), clearly list them in the PR description.
 5. Then, core team members and other regular contributors will review the PR and suggest changes.
 6. When we all agree, the PR will be merged.
 7. If your PR includes any user-facing features, make sure the changes are also reflected in [the documentation](https://github.com/nushell/nushell.github.io) after the PR is merged.

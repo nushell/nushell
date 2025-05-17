@@ -1,9 +1,9 @@
+use crate::PolarsPlugin;
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
-    PolarsPluginType,
+    Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
 };
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
@@ -41,8 +41,7 @@ impl PluginCommand for ExprSum {
         vec![
             Example {
                 description: "Sums all columns in a dataframe",
-                example:
-                    "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars collect",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

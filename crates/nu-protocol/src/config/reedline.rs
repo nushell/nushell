@@ -1,6 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
-use crate::{engine::Closure, FromValue};
+use crate::{FromValue, engine::Closure};
 
 /// Definition of a parsed keybinding from the config object
 #[derive(Clone, Debug, FromValue, IntoValue, Serialize, Deserialize)]
@@ -41,14 +41,16 @@ impl FromStr for NuCursorShape {
 
     fn from_str(s: &str) -> Result<NuCursorShape, &'static str> {
         match s.to_ascii_lowercase().as_str() {
-        "line" => Ok(NuCursorShape::Line),
-        "block" => Ok(NuCursorShape::Block),
-        "underscore" => Ok(NuCursorShape::Underscore),
-        "blink_line" => Ok(NuCursorShape::BlinkLine),
-        "blink_block" => Ok(NuCursorShape::BlinkBlock),
-        "blink_underscore" => Ok(NuCursorShape::BlinkUnderscore),
-        "inherit" => Ok(NuCursorShape::Inherit),
-        _ => Err("'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
+            "line" => Ok(NuCursorShape::Line),
+            "block" => Ok(NuCursorShape::Block),
+            "underscore" => Ok(NuCursorShape::Underscore),
+            "blink_line" => Ok(NuCursorShape::BlinkLine),
+            "blink_block" => Ok(NuCursorShape::BlinkBlock),
+            "blink_underscore" => Ok(NuCursorShape::BlinkUnderscore),
+            "inherit" => Ok(NuCursorShape::Inherit),
+            _ => Err(
+                "'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'",
+            ),
         }
     }
 }

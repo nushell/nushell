@@ -1,4 +1,4 @@
-use super::{horizontal_rotate_value, HorizontalDirection};
+use super::{HorizontalDirection, horizontal_rotate_value};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]

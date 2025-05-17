@@ -6,7 +6,7 @@ use nu_protocol::{
 use polars::prelude::NamedFrom;
 use polars::series::Series;
 
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use crate::values::{Column, NuDataFrame};
 
@@ -62,14 +62,12 @@ impl PluginCommand for SampleDF {
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --fraction 0.5 --replace",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --fraction 0.5 --replace",
                 result: None, // No expected value because sampling is random
             },
             Example {
                 description: "Shows sample row using using predefined seed 1",
-                example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --seed 1 --n-rows 1",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --seed 1 --n-rows 1",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -80,9 +78,8 @@ impl PluginCommand for SampleDF {
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
-                )
+                ),
             },
-
         ]
     }
 

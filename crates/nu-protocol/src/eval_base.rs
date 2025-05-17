@@ -1,11 +1,11 @@
 //! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
 use crate::{
+    BlockId, Config, ENV_VARIABLE_ID, GetSpan, Range, Record, ShellError, Span, Value, VarId,
     ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, ListItem, Math, Operator, RecordItem,
+        Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, ExternalArgument, ListItem,
+        Math, Operator, RecordItem, eval_operator,
     },
     debugger::DebugContext,
-    BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 

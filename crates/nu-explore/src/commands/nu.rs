@@ -6,8 +6,8 @@ use crate::{
 };
 use anyhow::Result;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PipelineData, Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
 

@@ -1,10 +1,10 @@
 use nu_plugin_protocol::{StreamData, StreamId, StreamMessage};
 use nu_protocol::{ShellError, Span, Value};
 use std::{
-    collections::{btree_map, BTreeMap},
+    collections::{BTreeMap, btree_map},
     iter::FusedIterator,
     marker::PhantomData,
-    sync::{mpsc, Arc, Condvar, Mutex, MutexGuard, Weak},
+    sync::{Arc, Condvar, Mutex, MutexGuard, Weak, mpsc},
 };
 
 #[cfg(test)]

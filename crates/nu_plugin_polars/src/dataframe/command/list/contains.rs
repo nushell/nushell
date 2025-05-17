@@ -1,8 +1,8 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -142,7 +142,7 @@ fn command_expr(
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
-            })
+            });
         }
     };
     let res: NuExpression = expr.into_polars().list().contains(single_expression).into();

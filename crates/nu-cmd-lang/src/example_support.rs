@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, Range,
+    Range, ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error,
 };
 use std::{
     sync::Arc,
@@ -163,13 +163,9 @@ pub fn check_example_evaluates_to_expected_output(
         let expected = DebuggableValue(expected);
         let result = DebuggableValue(&result);
         assert_eq!(
-            result,
-            expected,
+            result, expected,
             "Error: The result of example '{}' for the command '{}' differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
-            example.description,
-            cmd_name,
-            expected,
-            result,
+            example.description, cmd_name, expected, result,
         );
     }
 }

@@ -13,7 +13,7 @@ mod pipeline;
 mod range;
 mod table;
 mod traverse;
-mod unit;
+pub mod unit;
 mod value_with_unit;
 
 pub use attribute::*;

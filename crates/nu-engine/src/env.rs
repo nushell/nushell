@@ -1,10 +1,10 @@
 use crate::ClosureEvalOnce;
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    ShellError, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Call, EngineState, Stack, StateWorkingSet},
     shell_error::io::{ErrorKindExt, IoError, NotFound},
-    ShellError, Span, Type, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -307,11 +307,13 @@ pub fn find_in_dirs_env(
                     cwd
                 } else {
                     return Err(ShellError::GenericError {
-                            error: "Invalid current directory".into(),
-                            msg: format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            span: Some(pwd.span()),
-                            help: None,
-                            inner: vec![]
+                        error: "Invalid current directory".into(),
+                        msg: format!(
+                            "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
+                        ),
+                        span: Some(pwd.span()),
+                        help: None,
+                        inner: vec![],
                     });
                 }
             }

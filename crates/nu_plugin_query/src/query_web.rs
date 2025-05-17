@@ -1,4 +1,4 @@
-use crate::{web_tables::WebTable, Query};
+use crate::{Query, web_tables::WebTable};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
@@ -452,15 +452,17 @@ mod tests {
 
     #[test]
     fn test_first_child_is_not_empty() {
-        assert!(!execute_selector_query(
-            SIMPLE_LIST,
-            null_spanned("li:first-child"),
-            false,
-            null_spanned(&false),
-            Span::test_data()
+        assert!(
+            !execute_selector_query(
+                SIMPLE_LIST,
+                null_spanned("li:first-child"),
+                false,
+                null_spanned(&false),
+                Span::test_data()
+            )
+            .unwrap()
+            .is_empty()
         )
-        .unwrap()
-        .is_empty())
     }
 
     #[test]

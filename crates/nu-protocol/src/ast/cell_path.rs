@@ -60,12 +60,8 @@ impl PathMember {
 
     pub fn make_optional(&mut self) {
         match self {
-            PathMember::String {
-                ref mut optional, ..
-            } => *optional = true,
-            PathMember::Int {
-                ref mut optional, ..
-            } => *optional = true,
+            PathMember::String { optional, .. } => *optional = true,
+            PathMember::Int { optional, .. } => *optional = true,
         }
     }
 

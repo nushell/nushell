@@ -1,9 +1,9 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
-use nu_protocol::{engine::Command, PositionalArg};
+use nu_protocol::{PositionalArg, engine::Command};
 
 use crate::{
-    signature::{display_flag, doc_for_arg, get_signature_label},
     Id, LanguageServer,
+    signature::{display_flag, doc_for_arg, get_signature_label},
 };
 
 impl LanguageServer {
@@ -456,11 +456,13 @@ mod hover_tests {
         let resp = send_hover_request(&client_connection, script_uri, 0, 22);
         let result = result_from_message(resp);
 
-        assert!(result
-            .pointer("/contents/value")
-            .unwrap()
-            .to_string()
-            .replace("\\r", "")
-            .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags"));
+        assert!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", "")
+                .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags")
+        );
     }
 }

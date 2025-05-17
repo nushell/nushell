@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame, PolarsPluginCustomValue},
     Cacheable, PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame, PolarsPluginCustomValue},
 };
 
 use super::NuLazyFrame;

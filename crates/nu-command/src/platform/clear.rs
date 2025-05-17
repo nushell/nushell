@@ -1,7 +1,7 @@
 use crossterm::{
+    QueueableCommand,
     cursor::MoveTo,
     terminal::{Clear as ClearCommand, ClearType},
-    QueueableCommand,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;

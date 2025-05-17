@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use nu_engine::command_prelude::*;
 
-use super::msgpack::{read_msgpack, Opts};
+use super::msgpack::{Opts, read_msgpack};
 
 const BUFFER_SIZE: usize = 65536;
 

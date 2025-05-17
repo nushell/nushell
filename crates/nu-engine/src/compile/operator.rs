@@ -1,12 +1,12 @@
 use nu_protocol::{
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Spanned, Value,
     ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember, Pattern},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
-    IntoSpanned, RegId, Span, Spanned, Value, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
-use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression};
 
 pub(crate) fn compile_binary_op(
     working_set: &StateWorkingSet,
@@ -342,11 +342,14 @@ pub(crate) fn compile_load_env(
             .into_spanned(span),
         )?,
         [PathMember::Int { span, .. }, ..] => {
-            return Err(CompileError::AccessEnvByInt { span: *span })
+            return Err(CompileError::AccessEnvByInt { span: *span });
         }
-        [PathMember::String {
-            val: key, optional, ..
-        }, tail @ ..] => {
+        [
+            PathMember::String {
+                val: key, optional, ..
+            },
+            tail @ ..,
+        ] => {
             let key = builder.data(key)?;
 
             builder.push(if *optional {

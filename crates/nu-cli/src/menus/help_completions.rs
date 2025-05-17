@@ -1,5 +1,5 @@
-use nu_engine::documentation::{get_flags_section, HelpStyle};
-use nu_protocol::{engine::EngineState, levenshtein_distance, Config};
+use nu_engine::documentation::{HelpStyle, get_flags_section};
+use nu_protocol::{Config, engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
 use std::{fmt::Write, sync::Arc};

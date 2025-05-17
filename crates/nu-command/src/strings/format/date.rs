@@ -2,7 +2,7 @@ use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
 
-use nu_utils::locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR};
+use nu_utils::locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string};
 use std::fmt::{Display, Write};
 
 #[derive(Clone)]
@@ -53,8 +53,7 @@ impl Command for FormatDate {
                 )),
             },
             Example {
-                description:
-                    "Format a given date-time as a string using the default format (RFC 2822).",
+                description: "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),

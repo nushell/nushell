@@ -1,13 +1,13 @@
 pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
-use nu_protocol::{record, ShellError, Span, Value};
-use polars::prelude::{DataType, PlSmallStr, TimeUnit, UnknownKind};
+use nu_protocol::{ShellError, Span, Value, record};
+use polars::prelude::{DataType, Field, PlSmallStr, TimeUnit, UnknownKind};
 use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin};
 
-use super::{nu_schema::dtype_to_value, CustomValueSupport, PolarsPluginObject, PolarsPluginType};
+use super::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 #[derive(Debug, Clone)]
 pub struct NuDataType {
@@ -300,6 +300,18 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
     }
 }
 
+pub(crate) fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
+    let record = fields
+        .map(|field| {
+            let col = field.name().to_string();
+            let val = dtype_to_value(field.dtype(), span);
+            (col, val)
+        })
+        .collect();
+
+    Value::record(record, Span::unknown())
+}
+
 fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {
     match ts_string {
         "ms" => Ok(TimeUnit::Milliseconds),
@@ -312,5 +324,34 @@ fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError>
             help: None,
             inner: vec![],
         }),
+    }
+}
+
+pub(crate) fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
+    match dtype {
+        DataType::Struct(fields) => fields_to_value(fields.iter().cloned(), span),
+        DataType::Enum(_, _) => Value::list(
+            get_categories(dtype)
+                .unwrap_or_default()
+                .iter()
+                .map(|s| Value::string(s, span))
+                .collect(),
+            span,
+        ),
+        _ => Value::string(dtype.to_string().replace('[', "<").replace(']', ">"), span),
+    }
+}
+
+pub(super) fn get_categories(dtype: &DataType) -> Option<Vec<String>> {
+    if let DataType::Enum(Some(rev_mapping), _) = dtype {
+        Some(
+            rev_mapping
+                .get_categories()
+                .iter()
+                .filter_map(|v| v.map(ToString::to_string))
+                .collect::<Vec<String>>(),
+        )
+    } else {
+        None
     }
 }

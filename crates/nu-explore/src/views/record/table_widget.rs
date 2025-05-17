@@ -1,7 +1,7 @@
 use super::Layout;
 use crate::{
     explore::TableConfig,
-    nu_common::{truncate_str, NuStyle, NuText},
+    nu_common::{NuStyle, NuText, truncate_str},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -13,7 +13,7 @@ use ratatui::{
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
-use std::cmp::{max, Ordering};
+use std::cmp::{Ordering, max};
 
 #[derive(Debug, Clone)]
 pub struct TableWidget<'a> {

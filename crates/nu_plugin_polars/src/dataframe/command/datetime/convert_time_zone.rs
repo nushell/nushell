@@ -1,8 +1,8 @@
 use crate::values::{Column, NuDataFrame, NuSchema};
 use crate::{
-    dataframe::values::NuExpression,
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::NuExpression,
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};

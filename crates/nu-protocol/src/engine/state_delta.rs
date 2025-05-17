@@ -1,10 +1,10 @@
 use crate::{
+    Module, Span,
     ast::Block,
     engine::{
-        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame,
-        Variable, VirtualPath,
+        CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable, VirtualPath,
+        description::Doccomments,
     },
-    Module, Span,
 };
 use std::sync::Arc;
 

@@ -7,8 +7,8 @@ use polars::{prelude::NamedFrom, series::Series};
 use uuid::Uuid;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame},
 };
 
 #[derive(Clone)]

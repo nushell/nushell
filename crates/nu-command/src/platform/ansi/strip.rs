@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
@@ -83,8 +83,8 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, AnsiStrip, Arguments};
-    use nu_protocol::{engine::EngineState, Span, Value};
+    use super::{AnsiStrip, Arguments, action};
+    use nu_protocol::{Span, Value, engine::EngineState};
 
     #[test]
     fn examples_work_as_expected() {

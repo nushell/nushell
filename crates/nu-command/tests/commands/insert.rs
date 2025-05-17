@@ -31,9 +31,11 @@ fn insert_the_column_conflict() {
         "#
     ));
 
-    assert!(actual
-        .err
-        .contains("column 'pretty_assertions' already exists"));
+    assert!(
+        actual
+            .err
+            .contains("column 'pretty_assertions' already exists")
+    );
 }
 
 #[test]
@@ -61,9 +63,11 @@ fn insert_at_end_of_list() {
 fn insert_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | insert 5 abc");
 
-    assert!(actual
-        .err
-        .contains("can't insert at index (the next available index is 3)"));
+    assert!(
+        actual
+            .err
+            .contains("can't insert at index (the next available index is 3)")
+    );
 }
 
 #[test]
@@ -84,9 +88,11 @@ fn insert_at_end_of_list_stream() {
 fn insert_past_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | insert 5 abc");
 
-    assert!(actual
-        .err
-        .contains("can't insert at index (the next available index is 3)"));
+    assert!(
+        actual
+            .err
+            .contains("can't insert at index (the next available index is 3)")
+    );
 }
 
 #[test]

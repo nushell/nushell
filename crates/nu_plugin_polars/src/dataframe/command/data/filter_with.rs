@@ -6,9 +6,9 @@ use nu_protocol::{
 use polars::prelude::LazyFrame;
 
 use crate::{
-    dataframe::values::{NuExpression, NuLazyFrame},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::{NuExpression, NuLazyFrame},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::{Column, NuDataFrame};

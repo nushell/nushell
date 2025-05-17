@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::FilterTag, JobId};
+use nu_protocol::{JobId, engine::FilterTag};
 
 #[derive(Clone)]
 pub struct JobSend;

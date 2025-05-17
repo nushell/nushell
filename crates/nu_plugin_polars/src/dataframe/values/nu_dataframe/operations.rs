@@ -1,8 +1,8 @@
-use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
+use nu_protocol::{ShellError, Span, Spanned, Value, ast::Operator};
 use polars::prelude::{Column as PolarsColumn, DataFrame};
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
+use crate::values::CustomValueSupport;
 
 use super::between_values::{
     between_dataframes, compute_between_series, compute_series_single_value,

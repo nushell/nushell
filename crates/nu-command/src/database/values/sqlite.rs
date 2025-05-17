@@ -3,12 +3,12 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    shell_error::io::IoError, CustomValue, PipelineData, Record, ShellError, Signals, Span,
-    Spanned, Value,
+    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
+    shell_error::io::IoError,
 };
 use rusqlite::{
-    types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
-    ToSql,
+    Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql,
+    types::ValueRef,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -435,7 +435,7 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
                 wrong_type: val.get_type().to_string(),
                 dst_span: Span::unknown(),
                 src_span: val.span(),
-            })
+            });
         }
     })
 }

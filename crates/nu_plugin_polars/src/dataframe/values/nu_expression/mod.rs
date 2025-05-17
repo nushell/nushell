@@ -1,9 +1,9 @@
 mod custom_value;
 
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
-    prelude::{col, AggExpr, Expr, Literal},
+    prelude::{AggExpr, Expr, Literal, col},
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;

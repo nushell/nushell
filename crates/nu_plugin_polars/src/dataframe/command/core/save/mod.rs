@@ -7,16 +7,16 @@ mod parquet;
 use std::path::PathBuf;
 
 use crate::{
-    command::core::resource::Resource,
-    values::{cant_convert_err, PolarsFileType, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    command::core::resource::Resource,
+    values::{PolarsFileType, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, shell_error::io::IoError,
 };
 use polars::error::PolarsError;
 
@@ -67,8 +67,7 @@ impl PluginCommand for SaveDF {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Performs a streaming collect and save the output to the specified file",
+                description: "Performs a streaming collect and save the output to the specified file",
                 example: "[[a b];[1 2] [3 4]] | polars into-lazy | polars save test.parquet",
                 result: None,
             },

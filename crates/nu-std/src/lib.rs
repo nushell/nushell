@@ -2,8 +2,9 @@
 use log::trace;
 use nu_parser::parse;
 use nu_protocol::{
+    VirtualPathId,
     engine::{FileStack, StateWorkingSet, VirtualPath},
-    report_parse_error, VirtualPathId,
+    report_parse_error,
 };
 use std::path::PathBuf;
 

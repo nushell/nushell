@@ -1,9 +1,9 @@
 use super::sql_context::SQLContext;
+use crate::PolarsPlugin;
 use crate::dataframe::values::Column;
 use crate::dataframe::values::NuLazyFrame;
 use crate::values::CustomValueSupport;
 use crate::values::NuDataFrame;
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,

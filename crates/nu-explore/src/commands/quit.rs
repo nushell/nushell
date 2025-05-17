@@ -2,8 +2,8 @@ use super::SimpleCommand;
 use crate::pager::{Pager, Transition};
 use anyhow::Result;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 
 #[derive(Default, Clone)]

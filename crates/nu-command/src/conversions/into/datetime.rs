@@ -3,7 +3,7 @@ use chrono::{
     DateTime, Datelike, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone,
     Timelike, Utc,
 };
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 const HOUR: i32 = 60 * 60;
@@ -197,8 +197,7 @@ impl Command for IntoDatetime {
                 result: example_result_1(1614434140_224600000),
             },
             Example {
-                description:
-                    "Convert non-standard timestamp string, with timezone offset, to datetime using a custom format",
+                description: "Convert non-standard timestamp string, with timezone offset, to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
@@ -210,8 +209,11 @@ impl Command for IntoDatetime {
                 result: Some(Value::date(
                     Local
                         .from_local_datetime(
-                            &NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
-                                .expect("date calculation should not fail in test"),
+                            &NaiveDateTime::parse_from_str(
+                                "16.11.1984 8:00 am",
+                                "%d.%m.%Y %H:%M %P",
+                            )
+                            .expect("date calculation should not fail in test"),
                         )
                         .unwrap()
                         .with_timezone(Local::now().offset()),
@@ -219,8 +221,7 @@ impl Command for IntoDatetime {
                 )),
             },
             Example {
-                description:
-                    "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
+                description: "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
                 example: "1614434140123456789 | into datetime --offset -5",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_123456789),
@@ -509,9 +510,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
             ),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: span
-            }
-        );
+            input_span: span,
+        });
     };
 
     // Empty fields are filled in a specific way: the time units bigger than the biggest provided fields are assumed to be current and smaller ones are zeroed.
@@ -640,7 +640,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 msg: "one of more values are incorrect and do not represent valid date".to_string(),
                 val_span: head,
                 call_span: span,
-            })
+            });
         }
     };
     let time = match NaiveTime::from_hms_nano_opt(hour, minute, second, total_nanoseconds) {
@@ -650,7 +650,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 msg: "one of more values are incorrect and do not represent valid time".to_string(),
                 val_span: head,
                 call_span: span,
-            })
+            });
         }
     };
     let date_time = NaiveDateTime::new(date, time);
@@ -662,7 +662,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 msg: "Ambiguous or invalid timezone conversion".to_string(),
                 val_span: head,
                 call_span: span,
-            })
+            });
         }
     };
     Ok(Value::date(date_time_fixed, span))
@@ -711,7 +711,7 @@ fn parse_timezone_from_record(
                         msg: "invalid timezone".to_string(),
                         val_span: *span,
                         call_span: *head,
-                    })
+                    });
                 }
             };
             Ok(offset)
@@ -756,7 +756,7 @@ fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, DatetimeFormat, IntoDatetime, Zone};
+    use super::{DatetimeFormat, IntoDatetime, Zone, action};
     use nu_protocol::Type::Error;
 
     #[test]

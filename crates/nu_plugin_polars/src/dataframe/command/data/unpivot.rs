@@ -7,9 +7,9 @@ use polars::{frame::explode::UnpivotArgsIR, prelude::UnpivotArgsDSL};
 use polars_ops::pivot::UnpivotDF;
 
 use crate::{
-    dataframe::values::utils::convert_columns_string,
-    values::{utils::convert_columns_sm_str, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
+    dataframe::values::utils::convert_columns_string,
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, utils::convert_columns_sm_str},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -65,114 +65,118 @@ impl PluginCommand for Unpivot {
         vec![
             Example {
                 description: "unpivot on an eager dataframe",
-                example:
-                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -i [b c] -o [a d]",
+                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -i [b c] -o [a d]",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![
-                                Value::test_int(4),
-                                Value::test_int(5),
-                                Value::test_int(6),
-                                Value::test_int(4),
-                                Value::test_int(5),
-                                Value::test_int(6),
-                            ],
-                        ),
-                        Column::new(
-                            "variable".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                                Value::test_string("d"),
-                                Value::test_string("d"),
-                                Value::test_string("d"),
-                            ],
-                        ),
-                        Column::new(
-                            "value".to_string(),
-                            vec![
-                                Value::test_string("x"),
-                                Value::test_string("y"),
-                                Value::test_string("z"),
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                            ],
-                        ),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(4),
+                                    Value::test_int(5),
+                                    Value::test_int(6),
+                                    Value::test_int(4),
+                                    Value::test_int(5),
+                                    Value::test_int(6),
+                                ],
+                            ),
+                            Column::new(
+                                "variable".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                    Value::test_string("d"),
+                                    Value::test_string("d"),
+                                    Value::test_string("d"),
+                                ],
+                            ),
+                            Column::new(
+                                "value".to_string(),
+                                vec![
+                                    Value::test_string("x"),
+                                    Value::test_string("y"),
+                                    Value::test_string("z"),
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
             },
             Example {
                 description: "unpivot on a lazy dataframe",
-                example:
-                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars unpivot -i [b c] -o [a d] | polars collect",
+                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars unpivot -i [b c] -o [a d] | polars collect",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "c".to_string(),
-                            vec![
-                                Value::test_int(4),
-                                Value::test_int(5),
-                                Value::test_int(6),
-                                Value::test_int(4),
-                                Value::test_int(5),
-                                Value::test_int(6),
-                            ],
-                        ),
-                        Column::new(
-                            "variable".to_string(),
-                            vec![
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                                Value::test_string("a"),
-                                Value::test_string("d"),
-                                Value::test_string("d"),
-                                Value::test_string("d"),
-                            ],
-                        ),
-                        Column::new(
-                            "value".to_string(),
-                            vec![
-                                Value::test_string("x"),
-                                Value::test_string("y"),
-                                Value::test_string("z"),
-                                Value::test_string("a"),
-                                Value::test_string("b"),
-                                Value::test_string("c"),
-                            ],
-                        ),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(4),
+                                    Value::test_int(5),
+                                    Value::test_int(6),
+                                    Value::test_int(4),
+                                    Value::test_int(5),
+                                    Value::test_int(6),
+                                ],
+                            ),
+                            Column::new(
+                                "variable".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                    Value::test_string("d"),
+                                    Value::test_string("d"),
+                                    Value::test_string("d"),
+                                ],
+                            ),
+                            Column::new(
+                                "value".to_string(),
+                                vec![
+                                    Value::test_string("x"),
+                                    Value::test_string("y"),
+                                    Value::test_string("z"),
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
-            }
+            },
         ]
     }
 

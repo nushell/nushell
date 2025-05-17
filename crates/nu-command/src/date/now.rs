@@ -43,8 +43,7 @@ impl Command for DateNow {
                 result: None,
             },
             Example {
-                description:
-                    "Get the current date and format it according to the RFC 3339 standard.",
+                description: "Get the current date and format it according to the RFC 3339 standard.",
                 example: r#"date now | format date "%+""#,
                 result: None,
             },
@@ -59,8 +58,7 @@ impl Command for DateNow {
                 result: None,
             },
             Example {
-                description:
-                    "Get current time and format it in the debug format (RFC 2822 with timezone)",
+                description: "Get current time and format it in the debug format (RFC 2822 with timezone)",
                 example: r#"date now | debug"#,
                 result: None,
             },

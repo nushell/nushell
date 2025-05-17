@@ -4,9 +4,9 @@ use nu_protocol::{
 };
 
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 
 use super::explode::explode;
@@ -47,54 +47,62 @@ impl PluginCommand for LazyFlatten {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-Example {
+            Example {
                 description: "Flatten the specified dataframe",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars flatten hobbies | polars collect",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "id".to_string(), 
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(2),
-                            ]),
-                        Column::new(
-                            "name".to_string(), 
-                            vec![
-                                Value::test_string("Mercy"),
-                                Value::test_string("Mercy"),
-                                Value::test_string("Bob"),
-                                Value::test_string("Bob"),
-                            ]),
-                        Column::new(
-                            "hobbies".to_string(), 
-                            vec![
-                                Value::test_string("Cycling"),
-                                Value::test_string("Knitting"),
-                                Value::test_string("Skiing"),
-                                Value::test_string("Football"),
-                            ]),
-                    ], None)
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "id".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(2),
+                                ],
+                            ),
+                            Column::new(
+                                "name".to_string(),
+                                vec![
+                                    Value::test_string("Mercy"),
+                                    Value::test_string("Mercy"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                ],
+                            ),
+                            Column::new(
+                                "hobbies".to_string(),
+                                vec![
+                                    Value::test_string("Cycling"),
+                                    Value::test_string("Knitting"),
+                                    Value::test_string("Skiing"),
+                                    Value::test_string("Football"),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
-                )
+                ),
             },
-        Example {
+            Example {
                 description: "Select a column and flatten the values",
                 example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars select (polars col hobbies | polars flatten)",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "hobbies".to_string(), 
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "hobbies".to_string(),
                             vec![
                                 Value::test_string("Cycling"),
                                 Value::test_string("Knitting"),
                                 Value::test_string("Skiing"),
                                 Value::test_string("Football"),
-                            ]),
-                    ], None)
+                            ],
+                        )],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

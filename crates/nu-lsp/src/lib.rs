@@ -2,18 +2,18 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request::{self, Request},
     InlayHint, OneOf, Position, Range, ReferencesOptions, RenameOptions, SemanticToken,
     SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelpOptions,
     TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    request::{self, Request},
 };
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use nu_protocol::{
+    DeclId, ModuleId, Span, Type, Value, VarId,
     ast::{Block, PathMember},
     engine::{EngineState, StateDelta, StateWorkingSet},
-    DeclId, ModuleId, Span, Type, Value, VarId,
 };
 use std::{
     collections::BTreeMap,
@@ -444,15 +444,15 @@ impl LanguageServer {
 mod tests {
     use super::*;
     use lsp_types::{
+        DidChangeTextDocumentParams, DidOpenTextDocumentParams, HoverParams, InitializedParams,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, WorkDoneProgressParams,
         notification::{
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
         },
         request::{HoverRequest, Initialize, Request, Shutdown},
-        DidChangeTextDocumentParams, DidOpenTextDocumentParams, HoverParams, InitializedParams,
-        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
-        TextDocumentPositionParams, WorkDoneProgressParams,
     };
-    use nu_protocol::{debugger::WithoutDebug, engine::Stack, PipelineData, ShellError, Value};
+    use nu_protocol::{PipelineData, ShellError, Value, debugger::WithoutDebug, engine::Stack};
     use nu_std::load_standard_library;
     use std::sync::mpsc::{self, Receiver};
     use std::time::Duration;
@@ -526,13 +526,15 @@ mod tests {
 
         engine_state.merge_delta(delta)?;
 
-        assert!(nu_engine::eval_block::<WithoutDebug>(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::Value(Value::nothing(Span::unknown()), None),
-        )
-        .is_ok());
+        assert!(
+            nu_engine::eval_block::<WithoutDebug>(
+                engine_state,
+                stack,
+                &block,
+                PipelineData::Value(Value::nothing(Span::unknown()), None),
+            )
+            .is_ok()
+        );
 
         // Merge environment into the permanent state
         engine_state.merge_env(stack)

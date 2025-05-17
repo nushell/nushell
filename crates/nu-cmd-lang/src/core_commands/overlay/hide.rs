@@ -76,7 +76,7 @@ impl Command for OverlayHide {
                         return Err(ShellError::EnvVarNotFoundAtRuntime {
                             envvar_name: name.item,
                             span: name.span,
-                        })
+                        });
                     }
                 }
             }

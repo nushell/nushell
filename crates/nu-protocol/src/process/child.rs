@@ -1,8 +1,8 @@
 use crate::{
+    ShellError, Span,
     byte_stream::convert_file,
     engine::{EngineState, FrozenJob, Job},
     shell_error::io::IoError,
-    ShellError, Span,
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 

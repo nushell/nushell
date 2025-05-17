@@ -1,8 +1,9 @@
 use nu_engine::command_prelude::*;
 use serde::Deserialize;
 use update_informer::{
+    Check, Package, Registry, Result as UpdateResult,
     http_client::{GenericHttpClient, HttpClient},
-    registry, Check, Package, Registry, Result as UpdateResult,
+    registry,
 };
 
 #[derive(Clone)]

@@ -1,14 +1,14 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
-use nu_parser::{flatten_block, parse, FlatShape};
+use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
+    DeclId, ShellError, Span, Value, VarId,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
     shell_error::io::{ErrorKindExt, IoError, NotFound},
-    DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug)]
@@ -667,15 +667,15 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
 fn json_merge(a: &mut JsonValue, b: &JsonValue) {
     match (a, b) {
-        (JsonValue::Object(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Object(a), JsonValue::Object(b)) => {
             for (k, v) in b {
                 json_merge(a.entry(k).or_insert(JsonValue::Null), v);
             }
         }
-        (JsonValue::Array(ref mut a), JsonValue::Array(b)) => {
+        (JsonValue::Array(a), JsonValue::Array(b)) => {
             a.extend(b.clone());
         }
-        (JsonValue::Array(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Array(a), JsonValue::Object(b)) => {
             a.extend([JsonValue::Object(b.clone())]);
         }
         (a, b) => {

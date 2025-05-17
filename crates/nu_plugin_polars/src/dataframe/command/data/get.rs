@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
+    PolarsPlugin, dataframe::values::utils::convert_columns_string, values::CustomValueSupport,
 };
 
 use crate::values::{Column, NuDataFrame};

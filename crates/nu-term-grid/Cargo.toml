@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Nushell grid printing"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-term-grid"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-term-grid"
 version = "0.104.1"

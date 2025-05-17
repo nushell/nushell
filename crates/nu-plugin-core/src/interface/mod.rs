@@ -2,8 +2,8 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    engine::Sequence, shell_error::io::IoError, ByteStream, ListStream, PipelineData, Reader,
-    ShellError, Signals,
+    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals, engine::Sequence,
+    shell_error::io::IoError,
 };
 use std::{
     io::{Read, Write},

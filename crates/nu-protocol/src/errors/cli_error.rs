@@ -2,8 +2,8 @@
 //!
 //! Relies on the `miette` crate for pretty layout
 use crate::{
-    engine::{EngineState, StateWorkingSet},
     CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
+    engine::{EngineState, StateWorkingSet},
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,

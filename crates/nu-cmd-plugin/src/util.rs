@@ -1,6 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError, PluginRegistryFile};
+use nu_protocol::{PluginRegistryFile, engine::StateWorkingSet, shell_error::io::IoError};
 use std::{
     fs::{self, File},
     path::PathBuf,
@@ -15,7 +15,7 @@ fn get_plugin_registry_file_path(
     #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
-    if let Some(ref custom_path) = custom_path {
+    if let Some(custom_path) = custom_path {
         Ok(nu_path::expand_path_with(&custom_path.item, cwd, true))
     } else {
         engine_state

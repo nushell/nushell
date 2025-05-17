@@ -4,9 +4,11 @@ use nu_test_support::nu;
 fn error_label_works() {
     let actual = nu!("error make {msg:foo label:{text:unseen}}");
 
-    assert!(actual
-        .err
-        .contains("label at line 1, columns 1 to 10: unseen"));
+    assert!(
+        actual
+            .err
+            .contains("label at line 1, columns 1 to 10: unseen")
+    );
 }
 
 #[test]
@@ -29,9 +31,11 @@ fn error_start_bigger_than_end_should_fail() {
     ");
 
     assert!(!actual.err.contains("invalid error format"));
-    assert!(!actual
-        .err
-        .contains("`$.label.start` should be smaller than `$.label.end`"));
+    assert!(
+        !actual
+            .err
+            .contains("`$.label.start` should be smaller than `$.label.end`")
+    );
 }
 
 #[test]

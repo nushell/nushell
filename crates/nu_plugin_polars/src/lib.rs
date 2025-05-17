@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
 };
 
 use cache::cache_commands;
@@ -17,7 +17,7 @@ mod cache;
 mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator};
 use tokio::runtime::Runtime;
 use values::CustomValueType;
 
@@ -276,7 +276,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, Span};
+    use nu_protocol::{ShellError, Span, engine::Command};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode

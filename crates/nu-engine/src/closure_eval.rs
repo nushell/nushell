@@ -1,11 +1,11 @@
 use crate::{
-    eval_block_with_early_return, get_eval_block_with_early_return, EvalBlockWithEarlyReturnFn,
+    EvalBlockWithEarlyReturnFn, eval_block_with_early_return, get_eval_block_with_early_return,
 };
 use nu_protocol::{
+    IntoPipelineData, PipelineData, ShellError, Value,
     ast::Block,
     debugger::{WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvVars, Stack},
-    IntoPipelineData, PipelineData, ShellError, Value,
 };
 use std::{
     borrow::Cow,

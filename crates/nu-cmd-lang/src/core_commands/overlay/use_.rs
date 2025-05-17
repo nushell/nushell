@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
+use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
 
 use std::path::Path;
 

@@ -14,7 +14,9 @@ impl NuProgressBar {
         let template = match total_bytes {
             Some(_) => {
                 // We will use a progress bar if we know the total bytes of the stream
-                ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{bytes}/{total_bytes}] {binary_bytes_per_sec} ({eta}) {wide_msg}")
+                ProgressStyle::with_template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:30.cyan/blue}] [{bytes}/{total_bytes}] {binary_bytes_per_sec} ({eta}) {wide_msg}",
+                )
             }
             _ => {
                 // But if we don't know the total then we just show the stats progress

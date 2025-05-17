@@ -2,29 +2,28 @@ use super::{
     Context, PluginCallState, PluginInterface, PluginInterfaceManager, ReceivedPluginCallMessage,
 };
 use crate::{
-    context::PluginExecutionBogusContext, interface::CurrentCallState,
-    plugin_custom_value_with_source::WithSource, test_util::*, PluginCustomValueWithSource,
-    PluginSource,
+    PluginCustomValueWithSource, PluginSource, context::PluginExecutionBogusContext,
+    interface::CurrentCallState, plugin_custom_value_with_source::WithSource, test_util::*,
 };
 use nu_engine::command_prelude::IoError;
-use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
+use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
-    test_util::{expected_test_custom_value, test_plugin_custom_value},
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallResponse, EvaluatedCall,
     ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId, PluginCallResponse,
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
     StreamMessage,
+    test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    ast::{Math, Operator},
-    engine::Closure,
     BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
     PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
     Spanned, Value,
+    ast::{Math, Operator},
+    engine::Closure,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{mpsc, Arc},
+    sync::{Arc, mpsc},
     time::Duration,
 };
 
@@ -321,8 +320,8 @@ fn set_default_protocol_info(manager: &mut PluginInterfaceManager) -> Result<(),
 }
 
 #[test]
-fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
-) -> Result<(), ShellError> {
+fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data()
+-> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
     set_default_protocol_info(&mut manager)?;
 
@@ -545,8 +544,8 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
 }
 
 #[test]
-fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
-) -> Result<(), ShellError> {
+fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read()
+-> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
 
     for n in [0, 1] {
@@ -1244,27 +1243,31 @@ fn prepare_custom_value_verifies_source() {
     let source = Arc::new(PluginSource::new_fake("test"));
 
     let mut val: Box<dyn CustomValue> = Box::new(test_plugin_custom_value());
-    assert!(CurrentCallState::default()
-        .prepare_custom_value(
-            Spanned {
-                item: &mut val,
-                span,
-            },
-            &source
-        )
-        .is_err());
+    assert!(
+        CurrentCallState::default()
+            .prepare_custom_value(
+                Spanned {
+                    item: &mut val,
+                    span,
+                },
+                &source
+            )
+            .is_err()
+    );
 
     let mut val: Box<dyn CustomValue> =
         Box::new(test_plugin_custom_value().with_source(source.clone()));
-    assert!(CurrentCallState::default()
-        .prepare_custom_value(
-            Spanned {
-                item: &mut val,
-                span,
-            },
-            &source
-        )
-        .is_ok());
+    assert!(
+        CurrentCallState::default()
+            .prepare_custom_value(
+                Spanned {
+                    item: &mut val,
+                    span,
+                },
+                &source
+            )
+            .is_ok()
+    );
 }
 
 #[derive(Debug, Serialize, Deserialize)]

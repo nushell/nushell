@@ -70,14 +70,12 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders that begin with uppercase C or lowercase c",
+                description: "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -201,7 +199,7 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         };
 
@@ -220,7 +218,7 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         };
 

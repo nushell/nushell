@@ -93,7 +93,9 @@ fn clockwise() {
 #[test]
 fn different_cols_vals_err() {
     let actual = nu!("[[[one], [two, three]]] | first | rotate");
-    assert!(actual
-        .err
-        .contains("Attempted to create a record from different number of columns and values"))
+    assert!(
+        actual
+            .err
+            .contains("Attempted to create a record from different number of columns and values")
+    )
 }

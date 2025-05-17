@@ -1,8 +1,8 @@
 use nu_protocol::{
+    CompileError, IntoSpanned, RegId, Span,
     ast::{Block, Expr, Pipeline, PipelineRedirection, RedirectionSource, RedirectionTarget},
     engine::StateWorkingSet,
     ir::{Instruction, IrBlock, RedirectMode},
-    CompileError, IntoSpanned, RegId, Span,
 };
 
 mod builder;

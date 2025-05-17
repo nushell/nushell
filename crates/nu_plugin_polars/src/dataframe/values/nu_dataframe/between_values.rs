@@ -1,7 +1,7 @@
-use super::{operations::Axis, NuDataFrame};
+use super::{NuDataFrame, operations::Axis};
 use nu_protocol::{
-    ast::{Boolean, Comparison, Math, Operator},
     ShellError, Span, Spanned, Value,
+    ast::{Boolean, Comparison, Math, Operator},
 };
 use num::Zero;
 use polars::prelude::{

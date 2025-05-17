@@ -85,8 +85,7 @@ impl Command for Complete {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description:
-                "Run the external command to completion, capturing stdout, stderr, and exit_code",
+            description: "Run the external command to completion, capturing stdout, stderr, and exit_code",
             example: "^external arg1 | complete",
             result: None,
         }]

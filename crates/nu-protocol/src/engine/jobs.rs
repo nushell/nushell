@@ -1,15 +1,15 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::{
-        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
         Arc, Mutex,
+        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
     },
 };
 
 #[cfg(not(target_family = "wasm"))]
 use std::time::{Duration, Instant};
 
-use nu_system::{kill_by_pid, UnfreezeHandle};
+use nu_system::{UnfreezeHandle, kill_by_pid};
 
 use crate::{PipelineData, Signals};
 
@@ -112,12 +112,12 @@ impl Jobs {
     pub fn kill_all(&mut self) -> std::io::Result<()> {
         self.last_frozen_job_id = None;
 
-        self.jobs.clear();
-
         let first_err = self
             .iter()
             .map(|(_, job)| job.kill().err())
             .fold(None, |acc, x| acc.or(x));
+
+        self.jobs.clear();
 
         if let Some(err) = first_err {
             Err(err)

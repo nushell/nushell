@@ -1,10 +1,10 @@
 use crate::{
+    PolarsPlugin,
     dataframe::{
         utils::{extract_sm_strs, extract_strings},
         values::NuLazyFrame,
     },
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
-    PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -77,16 +77,16 @@ impl PluginCommand for Unique {
                         vec![
                             Column::new(
                                 "a".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)]
+                                vec![Value::test_int(1), Value::test_int(2)],
                             ),
                             Column::new(
                                 "b".to_string(),
-                                vec![Value::test_int(2), Value::test_int(2)]
+                                vec![Value::test_int(2), Value::test_int(2)],
                             ),
                             Column::new(
                                 "c".to_string(),
-                                vec![Value::test_int(1), Value::test_int(2)]
-                            )
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
                         ],
                         None,
                     )
@@ -105,16 +105,16 @@ impl PluginCommand for Unique {
                         vec![
                             Column::new(
                                 "a".to_string(),
-                                vec![Value::test_int(2), Value::test_int(3)]
+                                vec![Value::test_int(2), Value::test_int(3)],
                             ),
                             Column::new(
                                 "b".to_string(),
-                                vec![Value::test_int(2), Value::test_int(2)]
+                                vec![Value::test_int(2), Value::test_int(2)],
                             ),
                             Column::new(
                                 "c".to_string(),
-                                vec![Value::test_int(2), Value::test_int(1)]
-                            )
+                                vec![Value::test_int(2), Value::test_int(1)],
+                            ),
                         ],
                         None,
                     )

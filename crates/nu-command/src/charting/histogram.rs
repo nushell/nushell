@@ -38,37 +38,35 @@ impl Command for Histogram {
                 result: None,
             },
             Example {
-                description:
-                    "Compute a histogram for the types of files, with frequency column named freq",
+                description: "Compute a histogram for the types of files, with frequency column named freq",
                 example: "ls | histogram type freq",
                 result: None,
             },
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(Value::test_list (
-                        vec![Value::test_record(record! {
-                            "value" =>      Value::test_int(1),
-                            "count" =>      Value::test_int(2),
-                            "quantile" =>   Value::test_float(0.6666666666666666),
-                            "percentage" => Value::test_string("66.67%"),
-                            "frequency" =>  Value::test_string("******************************************************************"),
-                        }),
-                        Value::test_record(record! {
-                            "value" =>      Value::test_int(2),
-                            "count" =>      Value::test_int(1),
-                            "quantile" =>   Value::test_float(0.3333333333333333),
-                            "percentage" => Value::test_string("33.33%"),
-                            "frequency" =>  Value::test_string("*********************************"),
-                        })],
-                    )
-                 ),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" =>      Value::test_int(1),
+                        "count" =>      Value::test_int(2),
+                        "quantile" =>   Value::test_float(0.6666666666666666),
+                        "percentage" => Value::test_string("66.67%"),
+                        "frequency" =>  Value::test_string("******************************************************************"),
+                    }),
+                    Value::test_record(record! {
+                        "value" =>      Value::test_int(2),
+                        "count" =>      Value::test_int(1),
+                        "quantile" =>   Value::test_float(0.3333333333333333),
+                        "percentage" => Value::test_string("33.33%"),
+                        "frequency" =>  Value::test_string("*********************************"),
+                    }),
+                ])),
             },
             Example {
                 description: "Compute a histogram for a list of numbers, and percentage is based on the maximum value",
                 example: "[1 2 3 1 1 1 2 2 1 1] | histogram --percentage-type relative",
                 result: None,
-            }
+            },
         ]
     }
 
@@ -115,7 +113,7 @@ impl Command for Histogram {
                         err_message: "calc method can only be 'normalize' or 'relative'"
                             .to_string(),
                         span: inner.span,
-                    })
+                    });
                 }
             },
         };

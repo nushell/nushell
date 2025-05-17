@@ -1,7 +1,7 @@
 use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, shell_error::io::IoError, ByteStream, PipelineMetadata};
+use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {

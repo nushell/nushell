@@ -291,7 +291,7 @@ fn add_month_to_table(
                 return Err(ShellError::UnknownOperator {
                     op_token: "Issue parsing command, invalid command".to_string(),
                     span: tag,
-                })
+                });
             }
         },
     };

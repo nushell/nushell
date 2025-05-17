@@ -1,4 +1,4 @@
-use nu_protocol::{engine::StateWorkingSet, Span};
+use nu_protocol::{Span, engine::StateWorkingSet};
 use quickcheck_macros::quickcheck;
 
 #[quickcheck]

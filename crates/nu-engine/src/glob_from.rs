@@ -1,6 +1,6 @@
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{shell_error::io::IoError, NuGlob, ShellError, Signals, Span, Spanned};
+use nu_protocol::{NuGlob, ShellError, Signals, Span, Spanned, shell_error::io::IoError};
 use std::{
     fs,
     path::{Component, Path, PathBuf},

@@ -1,8 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rand::{
+    Rng,
     distr::{Alphanumeric, StandardUniform},
-    rng, Rng,
+    rng,
 };
 
 pub(super) enum RandomDistribution {

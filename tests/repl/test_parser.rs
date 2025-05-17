@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, run_test_contains, run_test_with_env, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_test_support::{nu, nu_repl_code};
 use std::collections::HashMap;
 

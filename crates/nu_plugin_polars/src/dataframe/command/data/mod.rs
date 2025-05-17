@@ -34,6 +34,7 @@ mod slice;
 mod sort_by_expr;
 pub mod sql_context;
 pub mod sql_expr;
+mod struct_json_encode;
 mod take;
 mod unnest;
 mod unpivot;
@@ -114,6 +115,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazySortBy),
         Box::new(LazyFilter),
         Box::new(Shift),
+        Box::new(struct_json_encode::StructJsonEncode),
         Box::new(qcut::QCutSeries),
         Box::new(Unique),
         Box::new(unnest::UnnestDF),

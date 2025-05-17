@@ -1,7 +1,7 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{NuGlob, shell_error::io::IoError};
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 

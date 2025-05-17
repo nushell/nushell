@@ -1,7 +1,7 @@
 use std::cmp::min;
 
 use super::Cursor;
-use anyhow::{bail, Ok, Result};
+use anyhow::{Ok, Result, bail};
 
 /// WindowCursor provides a mechanism to navigate through a 1-dimensional range
 /// using a smaller movable window within the view.

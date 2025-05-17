@@ -121,7 +121,7 @@ pub fn get_values<'a>(
                     wrong_type: item.get_type().to_string(),
                     dst_span: head,
                     src_span: input_span,
-                })
+                });
             }
         }
     }

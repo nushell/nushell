@@ -1,5 +1,5 @@
-use crate::values::{CustomValueSupport, NuDataFrame};
 use crate::PolarsPlugin;
+use crate::values::{CustomValueSupport, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{

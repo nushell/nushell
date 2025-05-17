@@ -9,7 +9,10 @@ use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin};
 
-use super::{str_to_dtype, CustomValueSupport, NuDataType, PolarsPluginObject, PolarsPluginType};
+use super::{
+    CustomValueSupport, NuDataType, PolarsPluginObject, PolarsPluginType,
+    nu_dtype::fields_to_value, str_to_dtype,
+};
 
 #[derive(Debug, Clone)]
 pub struct NuSchema {
@@ -95,25 +98,6 @@ impl CustomValueSupport for NuSchema {
             let schema = value_to_schema(plugin, value, Span::unknown())?;
             Ok(Self::new(Arc::new(schema)))
         }
-    }
-}
-
-fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
-    let record = fields
-        .map(|field| {
-            let col = field.name().to_string();
-            let val = dtype_to_value(field.dtype(), span);
-            (col, val)
-        })
-        .collect();
-
-    Value::record(record, Span::unknown())
-}
-
-pub fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
-    match dtype {
-        DataType::Struct(fields) => fields_to_value(fields.iter().cloned(), span),
-        _ => Value::string(dtype.to_string().replace('[', "<").replace(']', ">"), span),
     }
 }
 

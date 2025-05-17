@@ -1,14 +1,14 @@
 use crate::{
-    dataframe::values::{str_to_dtype, NuExpression, NuLazyFrame},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::{NuExpression, NuLazyFrame, str_to_dtype},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value, record,
 };
 use polars::prelude::*;
 
@@ -66,8 +66,7 @@ impl PluginCommand for CastDF {
             },
             Example {
                 description: "Cast a column in a lazy dataframe to a different dtype",
-                example:
-                    "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
                         "a" => Value::string("u8", Span::test_data()),

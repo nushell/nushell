@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{engine::EngineState, BlockId, ShellError, Span, Value, VarId};
+use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
 
 use serde::{Deserialize, Serialize};
 

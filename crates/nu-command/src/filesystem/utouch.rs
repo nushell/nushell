@@ -3,9 +3,9 @@ use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{NuGlob, shell_error::io::IoError};
 use std::path::PathBuf;
-use uu_touch::{error::TouchError, ChangeTimes, InputFile, Options, Source};
+use uu_touch::{ChangeTimes, InputFile, Options, Source, error::TouchError};
 
 #[derive(Clone)]
 pub struct UTouch;

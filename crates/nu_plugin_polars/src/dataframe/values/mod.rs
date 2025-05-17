@@ -12,7 +12,7 @@ use crate::{Cacheable, PolarsPlugin};
 use nu_dtype::custom_value::NuDataTypeCustomValue;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
-    ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value, ast::Operator,
 };
 use nu_schema::custom_value::NuSchemaCustomValue;
 use std::{cmp::Ordering, fmt};

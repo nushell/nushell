@@ -35,17 +35,17 @@ impl Command for Return {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let return_value: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let value = return_value.unwrap_or(Value::nothing(call.head));
-        Err(ShellError::Return {
-            span: call.head,
-            value: Box::new(value),
-        })
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        eprintln!(
+            "Tried to execute 'run' for the 'return' command: this code path should never be reached in IR mode"
+        );
+        unreachable!()
     }
 
     fn examples(&self) -> Vec<Example> {

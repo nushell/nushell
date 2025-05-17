@@ -1,11 +1,12 @@
 use crate::eval_call;
 use nu_protocol::{
+    Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
+    SpanId, Spanned, SyntaxShape, Type, Value,
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::CommandType,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
-    Span, SpanId, Spanned, SyntaxShape, Type, Value,
+    record,
 };
 use nu_utils::terminal_size;
 use std::{collections::HashMap, fmt::Write};

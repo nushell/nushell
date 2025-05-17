@@ -2,7 +2,7 @@ use std::{cmp::Ordering, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
-use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator};
 use serde::Serialize;
 
 use crate::{PluginInterface, PluginSource};

@@ -1,7 +1,7 @@
 use crate::CustomValuePlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, CustomValue, LabeledError, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, CustomValue, LabeledError, ShellError, Signature, Span, SyntaxShape, Value, record,
 };
 use serde::{Deserialize, Serialize};
 

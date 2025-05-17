@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use nu_protocol::TrimStrategy;
-use nu_table::{string_width, NuTable, TableTheme};
+use nu_table::{NuTable, TableTheme, string_width};
 use tabled::grid::records::vec_records::Text;
 
 #[derive(Debug, Clone)]

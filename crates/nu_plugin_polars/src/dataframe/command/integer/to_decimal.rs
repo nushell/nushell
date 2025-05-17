@@ -1,9 +1,9 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression,
-        PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject,
+        PolarsPluginType, cant_convert_err,
+    },
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -51,12 +51,7 @@ impl PluginCommand for ToDecimal {
             example: "[[a b]; [1, '2.4']] | polars into-df | polars select (polars col b | polars decimal 2) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "b".to_string(),
-                        vec![
-                            Value::test_float(2.40),
-                        ],
-                    )],
+                    vec![Column::new("b".to_string(), vec![Value::test_float(2.40)])],
                     None,
                 )
                 .expect("simple df for test should not fail")

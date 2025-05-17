@@ -6,8 +6,8 @@ use std::{
 use nu_engine::command_prelude::*;
 
 use nu_protocol::{
-    engine::{FilterTag, Mailbox},
     Signals,
+    engine::{FilterTag, Mailbox},
 };
 
 #[derive(Clone)]

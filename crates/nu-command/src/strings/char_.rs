@@ -1,4 +1,4 @@
-use indexmap::{indexmap, IndexMap};
+use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::Signals;

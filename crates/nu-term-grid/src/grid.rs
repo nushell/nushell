@@ -492,7 +492,7 @@ impl fmt::Display for Display<'_> {
                                 s
                             )?;
                         }
-                        (Filling::Text(ref t), _) => {
+                        (Filling::Text(t), _) => {
                             let extra_spaces = self.dimensions.widths[x] - cell.width;
                             write!(
                                 f,

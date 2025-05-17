@@ -1,19 +1,20 @@
-use crate::{menus::NuMenuCompleter, NuHelpCompleter};
+use crate::{NuHelpCompleter, menus::NuMenuCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData, Record,
+    ShellError, Span, Type, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData,
-    Record, ShellError, Span, Type, Value,
+    extract_value,
 };
 use reedline::{
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
-    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 use std::sync::Arc;
 

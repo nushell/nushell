@@ -1,5 +1,5 @@
 use super::Pipeline;
-use crate::{engine::StateWorkingSet, ir::IrBlock, OutDest, Signature, Span, Type, VarId};
+use crate::{OutDest, Signature, Span, Type, VarId, engine::StateWorkingSet, ir::IrBlock};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ fn parses_ini() {
     let actual = nu_with_plugins!(
         cwd: TEST_CWD,
         plugin: ("nu_plugin_formats"),
-        "open sample.ini | to nuon -r"
+        "open sample.ini | to nuon"
     );
 
     assert_eq!(

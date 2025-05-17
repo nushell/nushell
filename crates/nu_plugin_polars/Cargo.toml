@@ -1,7 +1,7 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell dataframe plugin commands based on polars."
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
@@ -49,7 +49,7 @@ hashbrown = { version = "0.15", features = ["rayon", "serde"] }
 # Cloud support
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
-tokio = { version = "1.44", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
 object_store = { version = "0.11", default-features = false }
 url.workspace = true
 

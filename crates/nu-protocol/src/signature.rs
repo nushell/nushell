@@ -1,6 +1,6 @@
 use crate::{
-    engine::{Call, Command, CommandType, EngineState, Stack},
     BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+    engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue;
 use serde::{Deserialize, Serialize};

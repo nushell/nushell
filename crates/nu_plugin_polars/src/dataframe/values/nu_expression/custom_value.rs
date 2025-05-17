@@ -1,14 +1,14 @@
 use crate::{
-    values::{CustomValueSupport, PolarsPluginCustomValue},
     Cacheable, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginCustomValue},
 };
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
 use super::NuExpression;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
-    ast::{Boolean, Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
+    ast::{Boolean, Comparison, Math, Operator},
 };
 use polars::prelude::Expr;
 use serde::{Deserialize, Serialize};

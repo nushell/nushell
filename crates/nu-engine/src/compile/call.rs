@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use nu_protocol::{
+    IntoSpanned, RegId, Span, Spanned,
     ast::{Argument, Call, Expression, ExternalArgument},
     engine::StateWorkingSet,
     ir::{Instruction, IrAstRef, Literal},
-    IntoSpanned, RegId, Span, Spanned,
 };
 
-use super::{compile_expression, keyword::*, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,

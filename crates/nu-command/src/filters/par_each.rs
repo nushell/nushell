@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{engine::Closure, Signals};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_protocol::{Signals, engine::Closure};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -49,8 +49,7 @@ impl Command for ParEach {
         vec![
             Example {
                 example: "[1 2 3] | par-each {|e| $e * 2 }",
-                description:
-                    "Multiplies each number. Note that the list will become arbitrarily disordered.",
+                description: "Multiplies each number. Note that the list will become arbitrarily disordered.",
                 result: None,
             },
             Example {
@@ -82,8 +81,7 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
-                description:
-                    "Iterate over each element, producing a list showing indexes of any 2s",
+                description: "Iterate over each element, producing a list showing indexes of any 2s",
                 result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
         ]

@@ -97,7 +97,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_proc = if let Ok(p) = Process::new(curr_proc_pid) {
             p
         } else {
-            info!("failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots");
+            info!(
+                "failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots"
+            );
             continue;
         };
         let cwd = curr_proc.cwd().unwrap_or_default();

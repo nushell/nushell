@@ -1,5 +1,5 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -95,8 +95,7 @@ impl Command for Items {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example:
-                "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
+            example: "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
             result: Some(Value::list(
                 vec![

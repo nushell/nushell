@@ -1,6 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{NuGlob, shell_error::io::IoError};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -274,7 +274,7 @@ impl Command for UCp {
                         span: None,
                         help: None,
                         inner: vec![],
-                    })
+                    });
                 }
             };
             // TODO: What should we do in place of set_exit_code?

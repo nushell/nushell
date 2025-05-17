@@ -2,7 +2,7 @@
 authors = ["The Nushell Project Developers"]
 description = "Protocol type definitions for Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-protocol"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-plugin-protocol"
 version = "0.104.1"

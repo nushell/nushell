@@ -6,11 +6,11 @@ use nu_protocol::{
 use polars::df;
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
+use crate::values::CustomValueSupport;
 
-use crate::values::utils::convert_columns_string;
 use crate::values::NuDataFrame;
+use crate::values::utils::convert_columns_string;
 
 #[derive(Clone)]
 pub struct DropDuplicates;

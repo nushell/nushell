@@ -1,7 +1,8 @@
-use nu_command::{sort, sort_by, sort_record, Comparator};
+use nu_command::{Comparator, sort, sort_by, sort_record};
 use nu_protocol::{
+    Record, Span, Value,
     ast::{CellPath, PathMember},
-    record, Record, Span, Value,
+    record,
 };
 
 #[test]
@@ -530,14 +531,16 @@ fn test_sort_equivalent() {
     });
 
     assert!(sort(&mut list, false, false).is_ok());
-    assert!(sort_by(
-        &mut table,
-        vec![comparator],
-        Span::test_data(),
-        false,
-        false
-    )
-    .is_ok());
+    assert!(
+        sort_by(
+            &mut table,
+            vec![comparator],
+            Span::test_data(),
+            false,
+            false
+        )
+        .is_ok()
+    );
 
     let record_sorted = sort_record(record.clone(), true, false, false, false).unwrap();
     let record_vals: Vec<Value> = record_sorted.into_iter().map(|pair| pair.1).collect();
