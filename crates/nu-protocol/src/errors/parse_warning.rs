@@ -5,16 +5,21 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
-    #[error("Deprecated: {old_command}")]
-    #[diagnostic(help("for more info see {url}"))]
+    #[error("Command deprecated.")]
+    #[diagnostic(code(nu::parser::deprecated))]
     DeprecatedWarning {
         old_command: String,
-        new_suggestion: String,
-        #[label(
-            "`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead."
-        )]
+        #[label("{old_command} is deprecated and will be removed in a future release.")]
         span: Span,
-        url: String,
+    },
+    #[error("Command deprecated.")]
+    #[diagnostic(code(nu::parser::deprecated))]
+    #[diagnostic(help("{help}"))]
+    DeprecatedWarningWithMessage {
+        old_command: String,
+        #[label("{old_command} is deprecated and will be removed in a future release.")]
+        span: Span,
+        help: String,
     },
 }
 
@@ -22,6 +27,7 @@ impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
             ParseWarning::DeprecatedWarning { span, .. } => *span,
+            ParseWarning::DeprecatedWarningWithMessage { span, .. } => *span,
         }
     }
 }

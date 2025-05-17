@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
+    DeclId, ParseError, ParseWarning, Signature, Span, SyntaxShape, Type,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -782,6 +782,50 @@ pub fn parse_attributes_external_alias() {
 
     assert!(shell_error.contains("nu::shell::not_a_const_command"));
     assert!(parse_error.contains("Encountered error during parse-time evaluation"));
+}
+
+#[test]
+pub fn test_deprecated_attribute() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr deprecated" = attr echo
+
+    @deprecated null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert!(!working_set.parse_warnings.is_empty());
+    assert!(matches!(
+        &working_set.parse_warnings[0],
+        ParseWarning::DeprecatedWarning { .. }
+    ));
+
+    working_set.parse_warnings.clear();
+
+    let source = br#"
+    alias "attr deprecated" = attr echo
+
+    @deprecated "Use new-command instead"
+    def old-command [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert!(!working_set.parse_warnings.is_empty());
+
+    let ParseWarning::DeprecatedWarningWithMessage { help, .. } = &working_set.parse_warnings[0]
+    else {
+        panic!("Expected DeprecatedWarningWithMessage");
+    };
+    assert!(help == "Use new-command instead");
 }
 
 #[test]
