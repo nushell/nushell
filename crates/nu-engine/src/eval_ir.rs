@@ -678,7 +678,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span, true)?;
+                let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
@@ -694,7 +694,7 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = value.follow_cell_path(&path.members, true)?;
+                let value = value.follow_cell_path(&path.members)?;
                 ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {

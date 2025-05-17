@@ -63,6 +63,7 @@ impl Command for Reject {
                             val: val.clone(),
                             span: *col_span,
                             optional: false,
+                            insensitive: false,
                         }],
                     };
                     new_columns.push(cv.clone());

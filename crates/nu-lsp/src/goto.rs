@@ -64,7 +64,7 @@ impl LanguageServer {
                 Some(
                     var.const_val
                         .as_ref()
-                        .and_then(|val| val.follow_cell_path(cell_path, false).ok())
+                        .and_then(|val| val.follow_cell_path(cell_path).ok())
                         .map(|val| val.span())
                         .unwrap_or(var.declaration_span),
                 )

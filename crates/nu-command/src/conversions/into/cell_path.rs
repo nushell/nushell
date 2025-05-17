@@ -17,7 +17,12 @@ impl Command for IntoCellPath {
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
                     Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                        [
+                            ("value".into(), Type::Any),
+                            ("optional".into(), Type::Bool),
+                            ("insensitive".into(), Type::Bool),
+                        ]
+                        .into(),
                     ))),
                     Type::CellPath,
                 ),
@@ -69,8 +74,8 @@ impl Command for IntoCellPath {
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
-                        PathMember::test_string("some".into(), false),
-                        PathMember::test_string("path".into(), false),
+                        PathMember::test_string("some".into(), false, false),
+                        PathMember::test_string("path".into(), false, false),
                     ],
                 })),
             },
@@ -80,19 +85,20 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, false),
-                        PathMember::test_string("c".into(), false),
+                        PathMember::test_string("c".into(), false, false),
                         PathMember::test_int(7, false),
-                        PathMember::test_string("h".into(), false),
+                        PathMember::test_string("h".into(), false, false),
                     ],
                 })),
             },
             Example {
                 description: "Convert table into cell path",
-                example: "[[value, optional]; [5 true] [c false]] | into cell-path",
+                example: "[[value, optional, insensitive]; [5 true false] [c false false] [d false true]] | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),
-                        PathMember::test_string("c".into(), false),
+                        PathMember::test_string("c".into(), false, false),
+                        PathMember::test_string("d".into(), false, true),
                     ],
                 })),
             },
@@ -175,6 +181,12 @@ fn record_to_path_member(
         }
     };
 
+    if let Some(insensitive) = record.get("insensitive") {
+        if insensitive.as_bool()? {
+            member.make_insensitive();
+        }
+    };
+
     Ok(member)
 }
 
@@ -196,7 +208,7 @@ fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellErro
     let val_span = val.span();
     let member = match val {
         Value::Int { val, .. } => int_to_path_member(*val, val_span)?,
-        Value::String { val, .. } => PathMember::string(val.into(), false, val_span),
+        Value::String { val, .. } => PathMember::string(val.into(), false, false, val_span),
         Value::Record { val, .. } => record_to_path_member(val, val_span, span)?,
         other => {
             return Err(ShellError::CantConvert {
