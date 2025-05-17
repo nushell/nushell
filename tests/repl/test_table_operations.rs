@@ -307,7 +307,7 @@ fn nullify_holes() -> TestResult {
 #[test]
 fn get_insensitive() -> TestResult {
     run_test(
-        r#"[[name, age]; [a, 1] [b, 2]] | get -I NAmE | select 0 | get 0"#,
+        r#"[[name, age]; [a, 1] [b, 2]] | get NAmE! | select 0 | get 0"#,
         "a",
     )
 }
