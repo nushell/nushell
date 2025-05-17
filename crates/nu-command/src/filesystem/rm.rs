@@ -304,7 +304,7 @@ fn rm(
                     && matches!(
                         e,
                         ShellError::Io(IoError {
-                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound),
+                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound, ..),
                             ..
                         })
                     ))

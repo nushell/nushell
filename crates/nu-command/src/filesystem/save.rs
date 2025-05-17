@@ -434,7 +434,11 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
             #[cfg(target_os = "windows")]
             if path.is_dir() {
-                Err(nu_protocol::shell_error::io::ErrorKind::Std(
+                #[allow(
+                    deprecated,
+                    reason = "we don't get a IsADirectory error, so we need to provide it"
+                )]
+                Err(nu_protocol::shell_error::io::ErrorKind::from_std(
                     std::io::ErrorKind::IsADirectory,
                 ))
             } else {

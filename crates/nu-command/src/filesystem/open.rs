@@ -162,7 +162,11 @@ impl Command for Open {
                         // At least under windows this check ensures that we don't get a
                         // permission denied error on directories
                         return Err(ShellError::Io(IoError::new(
-                            shell_error::io::ErrorKind::Std(std::io::ErrorKind::IsADirectory),
+                            #[allow(
+                                deprecated,
+                                reason = "we don't have a IsADirectory variant here, so we provide one"
+                            )]
+                            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::IsADirectory),
                             arg_span,
                             PathBuf::from(path),
                         )));
