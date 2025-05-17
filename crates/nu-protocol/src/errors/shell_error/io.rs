@@ -368,6 +368,7 @@ impl From<&std::io::Error> for ErrorKind {
         if let Some(raw_os_error) = err.raw_os_error() {
             use windows::Win32::Foundation;
 
+            #[allow(clippy::single_match, reason = "in the future we can expand here")]
             match Foundation::WIN32_ERROR(raw_os_error as u32) {
                 Foundation::ERROR_SHARING_VIOLATION => return ErrorKind::AlreadyInUse,
                 _ => {}
