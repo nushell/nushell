@@ -360,6 +360,19 @@ impl IoError {
     }
 }
 
+impl From<std::io::Error> for ErrorKind {
+    fn from(ref err: std::io::Error) -> Self {
+        err.into()
+    }
+}
+
+impl<'e> From<&'e std::io::Error> for ErrorKind {
+    fn from(err: &'e std::io::Error) -> Self {
+        // TODO: do the full match here
+        ErrorKind::Std(err.kind(), Sealed)
+    }
+}
+
 impl StdError for IoError {}
 impl Display for IoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -482,6 +495,7 @@ impl From<IoError> for std::io::Error {
     }
 }
 
+// TODO: remove this
 impl From<std::io::ErrorKind> for ErrorKind {
     fn from(value: std::io::ErrorKind) -> Self {
         ErrorKind::Std(value, Sealed)
