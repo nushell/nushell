@@ -97,6 +97,20 @@ impl PluginCommand for FirstDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
+        self.run_inner(plugin, engine, call, input)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+impl FirstDF {
+    fn run_inner(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {
