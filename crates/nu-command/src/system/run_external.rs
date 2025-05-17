@@ -53,9 +53,9 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
         let rest = call.rest::<Value>(engine_state, stack, 0)?;
-        let name_args = rest.split_first();
+        let name_args = rest.split_first().map(|(x, y)| (x, y.to_vec()));
 
-        let Some((name, call_args)) = name_args else {
+        let Some((name, mut call_args)) = name_args else {
             return Err(ShellError::MissingParameter {
                 param_name: "no command given".into(),
                 span: call.head,
@@ -65,6 +65,16 @@ impl Command for External {
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
             Value::String { val, .. } => Cow::Borrowed(val),
+            Value::List { vals, .. } => {
+                let Some((first, args)) = vals.split_first() else {
+                    return Err(ShellError::MissingParameter {
+                        param_name: "external command given as list empty".into(),
+                        span: call.head,
+                    });
+                };
+                call_args = [args.to_vec(), call_args].concat();
+                first.coerce_str()?
+            }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
@@ -164,7 +174,7 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
