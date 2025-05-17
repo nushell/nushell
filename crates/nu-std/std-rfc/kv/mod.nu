@@ -21,8 +21,13 @@
 @example "Store a number" {
   kv set foo 5
 }
-@example "Update a number" {
-  kv set foo { $in + 1 }
+@example "Update a number and return it" {
+  let $new_foo = (kv get foo | kv set foo { $in + 1 } --return value)
+}
+@example "Use a single pipeline with closures" {
+  ls
+  | kv set names { get name }
+  | kv set sizes { get size }
 }
 export def "kv set" [
   key: string
