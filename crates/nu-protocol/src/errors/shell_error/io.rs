@@ -495,13 +495,6 @@ impl From<IoError> for std::io::Error {
     }
 }
 
-// TODO: remove this
-impl From<std::io::ErrorKind> for ErrorKind {
-    fn from(value: std::io::ErrorKind) -> Self {
-        ErrorKind::Std(value, Sealed)
-    }
-}
-
 impl From<ErrorKind> for std::io::ErrorKind {
     fn from(value: ErrorKind) -> Self {
         match value {
@@ -579,6 +572,26 @@ impl ErrorKindExt for ErrorKind {
         match self {
             Self::Std(std_kind, Sealed) => std_kind.not_found_as(kind),
             _ => self,
+        }
+    }
+}
+
+#[cfg(test)]
+mod assert_not_impl {
+    use super::*;
+
+    /// Assertion that `ErrorKind` does not implement `From<std::io::ErrorKind>`.
+    ///
+    /// This implementation exists only in tests to make sure that no crate,
+    /// including ours, accidentally adds a `From<std::io::ErrorKind>` impl for `ErrorKind`.
+    /// If someone tries, it will fail due to conflicting implementations.
+    ///
+    /// We want to force usage of [`IoError::new`] with a full [`std::io::Error`] instead of
+    /// allowing conversion from just an [`std::io::ErrorKind`].
+    /// That way, we can properly inspect and classify uncategorized I/O errors.
+    impl From<std::io::ErrorKind> for ErrorKind {
+        fn from(_: std::io::ErrorKind) -> Self {
+            unimplemented!("ErrorKind should not implement From<std::io::ErrorKind>")
         }
     }
 }
