@@ -350,13 +350,13 @@ impl IoError {
 }
 
 impl From<std::io::Error> for ErrorKind {
-    fn from(ref err: std::io::Error) -> Self {
-        err.into()
+    fn from(err: std::io::Error) -> Self {
+        (&err).into()
     }
 }
 
-impl<'e> From<&'e std::io::Error> for ErrorKind {
-    fn from(err: &'e std::io::Error) -> Self {
+impl From<&std::io::Error> for ErrorKind {
+    fn from(err: &std::io::Error) -> Self {
         // TODO: do the full match here
         ErrorKind::Std(err.kind(), Sealed)
     }
@@ -559,6 +559,12 @@ impl IoErrorExt for ErrorKind {
 }
 
 impl IoErrorExt for std::io::Error {
+    fn not_found_as(self, kind: NotFound) -> ErrorKind {
+        ErrorKind::from(self).not_found_as(kind)
+    }
+}
+
+impl IoErrorExt for &std::io::Error {
     fn not_found_as(self, kind: NotFound) -> ErrorKind {
         ErrorKind::from(self).not_found_as(kind)
     }
