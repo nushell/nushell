@@ -125,13 +125,65 @@ pub struct IoError {
     pub location: Option<String>,
 }
 
+/// Prevents other crates from constructing certain enum variants directly.
+///
+/// This type is only used to block construction while still allowing pattern matching.
+/// It's not meant to be used for anything else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Sealed;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Diagnostic)]
 pub enum ErrorKind {
-    Std(std::io::ErrorKind),
+    /// [`std::io::ErrorKind`] from the standard library.
+    ///
+    /// This variant wraps a standard library error kind and extends our own error enum with it.
+    /// The hidden field prevents other crates, even our own, from constructing this directly.
+    /// Most of the time, you already have a full [`std::io::Error`], so just pass that directly to
+    /// [`IoError::new`] or [`IoError::new_with_additional_context`].
+    ///
+    /// Matching is still easy:
+    ///
+    /// ```rust
+    /// # use nu_protocol::shell_error::io::ErrorKind;
+    /// #
+    /// # let err_kind = ErrorKind::from_std(std::io::ErrorKind::NotFound);
+    /// match err_kind {
+    ///     ErrorKind::Std(std::io::ErrorKind::NotFound, ..) => { /* ... */ }
+    ///     _ => {}
+    /// }
+    /// ```
+    ///
+    /// If you truly only have an [`std::io::ErrorKind`] and no actual [`std::io::Error`], use
+    /// [`ErrorKind::from_std`].
+    /// This function is marked as deprecated to ensure that only people who really know what
+    /// they're doing reach for it, it exists for rare cases and should not be part of the usual
+    /// code path.
+    /// If you know what you're doing, you can explicitly opt into its usage with
+    /// `#[allow(deprecated)]`.
+    #[allow(private_interfaces)]
+    Std(std::io::ErrorKind, Sealed),
+
     NotAFile,
+
     // use these variants in cases where we know precisely whether a file or directory was expected
     FileNotFound,
     DirectoryNotFound,
+}
+
+impl ErrorKind {
+    /// Construct an [`ErrorKind`] from a [`std::io::ErrorKind`] without a full [`std::io::Error`].
+    ///
+    /// In most cases, you should use [`IoError::new`] and pass the full [`std::io::Error`] instead.
+    /// This method is only meant for rare cases where you truly do not have an error value.
+    /// It is marked as deprecated to make sure it's only used with high intent.
+    /// If you really need to call it and add `#[allow(deprecated)]` to the relevant code.
+    #[deprecated = "\
+        Use `IoError::new` with a full `std::io::Error` instead. \
+        This method is only for rare cases where no error value is available.\
+    "]
+    pub fn from_std(kind: std::io::ErrorKind) -> Self {
+        Self::Std(kind, Sealed)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]
@@ -312,7 +364,7 @@ impl StdError for IoError {}
 impl Display for IoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.kind {
-            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
+            ErrorKind::Std(std::io::ErrorKind::NotFound, _) => write!(f, "Not found"),
             ErrorKind::FileNotFound => write!(f, "File not found"),
             ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
             _ => write!(f, "I/O error"),
@@ -323,8 +375,8 @@ impl Display for IoError {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
-            ErrorKind::Std(error_kind) => {
+            ErrorKind::Std(std::io::ErrorKind::NotFound, _) => write!(f, "Not found"),
+            ErrorKind::Std(error_kind, _) => {
                 let msg = error_kind.to_string();
                 let (first, rest) = msg.split_at(1);
                 write!(f, "{}{}", first.to_uppercase(), rest)
@@ -342,7 +394,7 @@ impl Diagnostic for IoError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let mut code = String::from("nu::shell::io::");
         match self.kind {
-            ErrorKind::Std(error_kind) => match error_kind {
+            ErrorKind::Std(error_kind, _) => match error_kind {
                 std::io::ErrorKind::NotFound => code.push_str("not_found"),
                 std::io::ErrorKind::PermissionDenied => code.push_str("permission_denied"),
                 std::io::ErrorKind::ConnectionRefused => code.push_str("connection_refused"),
@@ -378,7 +430,7 @@ impl Diagnostic for IoError {
             let path = format!("'{}'", path.display());
             match self.kind {
                 ErrorKind::NotAFile => format!("{path} is not a file"),
-                ErrorKind::Std(std::io::ErrorKind::NotFound)
+                ErrorKind::Std(std::io::ErrorKind::NotFound, _)
                 | ErrorKind::FileNotFound
                 | ErrorKind::DirectoryNotFound => format!("{path} does not exist"),
                 _ => format!("The error occurred at {path}"),
@@ -432,14 +484,14 @@ impl From<IoError> for std::io::Error {
 
 impl From<std::io::ErrorKind> for ErrorKind {
     fn from(value: std::io::ErrorKind) -> Self {
-        ErrorKind::Std(value)
+        ErrorKind::Std(value, Sealed)
     }
 }
 
 impl From<ErrorKind> for std::io::ErrorKind {
     fn from(value: ErrorKind) -> Self {
         match value {
-            ErrorKind::Std(error_kind) => error_kind,
+            ErrorKind::Std(error_kind, _) => error_kind,
             _ => std::io::ErrorKind::Other,
         }
     }
@@ -503,7 +555,7 @@ impl ErrorKindExt for std::io::ErrorKind {
         match (kind, self) {
             (NotFound::File, Self::NotFound) => ErrorKind::FileNotFound,
             (NotFound::Directory, Self::NotFound) => ErrorKind::DirectoryNotFound,
-            _ => ErrorKind::Std(self),
+            _ => ErrorKind::Std(self, Sealed),
         }
     }
 }
@@ -511,7 +563,7 @@ impl ErrorKindExt for std::io::ErrorKind {
 impl ErrorKindExt for ErrorKind {
     fn not_found_as(self, kind: NotFound) -> ErrorKind {
         match self {
-            Self::Std(std_kind) => std_kind.not_found_as(kind),
+            Self::Std(std_kind, Sealed) => std_kind.not_found_as(kind),
             _ => self,
         }
     }
