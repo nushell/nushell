@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{IntoValue, ast::PathMember};
-use nu_utils::Casing;
+use nu_protocol::{IntoValue, ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct SplitCellPath;

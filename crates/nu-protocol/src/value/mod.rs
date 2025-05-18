@@ -4094,7 +4094,7 @@ mod tests {
     use crate::record;
 
     mod at_cell_path {
-        use nu_utils::Casing;
+        use crate::casing::Casing;
 
         use crate::{IntoValue, Span};
 

@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineIterator, ast::PathMember};
-use nu_utils::Casing;
+use nu_protocol::{PipelineIterator, ast::PathMember, casing::Casing};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]

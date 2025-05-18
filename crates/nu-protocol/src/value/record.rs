@@ -1,9 +1,9 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{iter::FusedIterator, ops::RangeBounds};
 
-use crate::{ShellError, Span, Value};
+use crate::{ShellError, Span, Value, casing::Casing};
 
-use nu_utils::{Casing, IgnoreCaseExt};
+use nu_utils::IgnoreCaseExt;
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]

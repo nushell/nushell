@@ -1,10 +1,10 @@
 use crate::{
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
     ast::{CellPath, PathMember},
+    casing::Casing,
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
-use nu_utils::Casing;
 use std::{
     any,
     cmp::Ordering,

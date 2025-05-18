@@ -15,9 +15,8 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    engine::StateWorkingSet, eval_const::eval_constant,
+    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
 };
-use nu_utils::Casing;
 use std::{
     collections::{HashMap, HashSet},
     num::ParseIntError,

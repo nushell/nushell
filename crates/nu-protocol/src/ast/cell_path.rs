@@ -1,6 +1,6 @@
 use super::Expression;
-use crate::Span;
-use nu_utils::{Casing, escape_quote_string, needs_quoting};
+use crate::{Span, casing::Casing};
+use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 

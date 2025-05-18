@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream, ast::PathMember, engine::StateWorkingSet};
-use nu_utils::Casing;
+use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct FormatPattern;

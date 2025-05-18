@@ -12,10 +12,10 @@ mod tests {
     use nu_protocol::{
         BlockId, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
+        casing::Casing,
         engine::{Closure, EngineState},
         record,
     };
-    use nu_utils::Casing;
 
     use crate::{ToStyle, from_nuon, to_nuon};
 
