@@ -535,3 +535,32 @@ fn can_run_ps1_files(prefix: &str) {
         assert!(actual.out.contains("Hello World"));
     });
 }
+
+#[rstest]
+#[case("^")]
+#[case("run-external ")]
+fn expand_command_if_list(#[case] prefix: &str) {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("expand command if list", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("foo.txt", "Hello World")]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                let cmd = [nu `--testbin`]; {}$cmd meow foo.txt
+            "#,
+            prefix
+        );
+
+        assert!(actual.out.contains("Hello World"));
+    })
+}
+
+#[rstest]
+#[case("^")]
+#[case("run-external ")]
+fn error_when_command_list_empty(#[case] prefix: &str) {
+    Playground::setup("error when command is list with no items", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "let cmd = []; {}$cmd", prefix);
+        assert!(actual.err.contains("missing parameter"));
+    })
+}
