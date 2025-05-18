@@ -1,6 +1,6 @@
 use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
-use nu_protocol::{Span, Value, ast::PathMember, engine::EngineState, record};
+use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
     fs::{Stub, line_ending},
     nu, pipeline,
@@ -327,6 +327,7 @@ fn into_sqlite_big_insert() {
                         val: "somedate".into(),
                         span: Span::unknown(),
                         optional: false,
+                        casing: Casing::Sensitive,
                     }],
                     Box::new(|dateval| {
                         Value::string(dateval.coerce_string().unwrap(), dateval.span())

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{IntoValue, ast::PathMember};
+use nu_protocol::{IntoValue, ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct SplitCellPath;
@@ -16,7 +16,12 @@ impl Command for SplitCellPath {
                 (
                     Type::CellPath,
                     Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                        [
+                            ("value".into(), Type::Any),
+                            ("optional".into(), Type::Bool),
+                            ("insensitive".into(), Type::Bool),
+                        ]
+                        .into(),
                     ))),
                 ),
             ])
@@ -72,36 +77,43 @@ impl Command for SplitCellPath {
                     Value::test_record(record! {
                         "value" => Value::test_int(5),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
             Example {
                 description: "Split a complex cell-path",
-                example: r#"$.a.b?.1."2"."c.d" | split cell-path"#,
+                example: r#"$.a!.b?.1."2"."c.d" | split cell-path"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_string("a"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(true),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("b"),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_int(1),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("2"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c.d"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
@@ -114,19 +126,29 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
     struct PathMemberRecord {
         value: Value,
         optional: bool,
+        insensitive: bool,
     }
 
     impl PathMemberRecord {
         fn from_path_member(pm: PathMember) -> Self {
-            let (optional, internal_span) = match pm {
-                PathMember::String { optional, span, .. }
-                | PathMember::Int { optional, span, .. } => (optional, span),
+            let (optional, insensitive, internal_span) = match pm {
+                PathMember::String {
+                    optional,
+                    casing,
+                    span,
+                    ..
+                } => (optional, casing == Casing::Insensitive, span),
+                PathMember::Int { optional, span, .. } => (optional, false, span),
             };
             let value = match pm {
                 PathMember::String { val, .. } => Value::string(val, internal_span),
                 PathMember::Int { val, .. } => Value::int(val as i64, internal_span),
             };
-            Self { value, optional }
+            Self {
+                value,
+                optional,
+                insensitive,
+            }
         }
     }
 

@@ -29,7 +29,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
-    IgnoreCaseExt, SharedCow, contains_emoji,
+    SharedCow, contains_emoji,
     locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
 };
 use serde::{Deserialize, Serialize};
@@ -1082,7 +1082,6 @@ impl Value {
     pub fn follow_cell_path<'out>(
         &'out self,
         cell_path: &[PathMember],
-        insensitive: bool,
     ) -> Result<Cow<'out, Value>, ShellError> {
         enum MultiLife<'out, 'local, T>
         where
@@ -1115,7 +1114,7 @@ impl Value {
 
         for member in cell_path {
             current = match current {
-                MultiLife::Out(current) => match get_value_member(current, member, insensitive)? {
+                MultiLife::Out(current) => match get_value_member(current, member)? {
                     ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
                     ControlFlow::Continue(x) => match x {
                         Cow::Borrowed(x) => MultiLife::Out(x),
@@ -1125,18 +1124,16 @@ impl Value {
                         }
                     },
                 },
-                MultiLife::Local(current) => {
-                    match get_value_member(current, member, insensitive)? {
-                        ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
-                        ControlFlow::Continue(x) => match x {
-                            Cow::Borrowed(x) => MultiLife::Local(x),
-                            Cow::Owned(x) => {
-                                store = x;
-                                MultiLife::Local(&store)
-                            }
-                        },
-                    }
-                }
+                MultiLife::Local(current) => match get_value_member(current, member)? {
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                    ControlFlow::Continue(x) => match x {
+                        Cow::Borrowed(x) => MultiLife::Local(x),
+                        Cow::Owned(x) => {
+                            store = x;
+                            MultiLife::Local(&store)
+                        }
+                    },
+                },
             };
         }
 
@@ -1165,7 +1162,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1184,6 +1181,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1191,7 +1189,7 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col =
@@ -1212,7 +1210,7 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
@@ -1265,7 +1263,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
-        let new_val = callback(self.follow_cell_path(cell_path, false)?.as_ref());
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1284,6 +1282,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1291,7 +1290,9 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    if let Some(val) =
+                                        record.to_mut().cased_mut(*casing).get_mut(col_name)
+                                    {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         return Err(ShellError::CantFindColumn {
@@ -1313,7 +1314,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name) {
                             val.update_data_at_cell_path(path, new_val)?;
                         } else {
                             return Err(ShellError::CantFindColumn {
@@ -1372,13 +1373,16 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        casing,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if record.to_mut().remove(col_name).is_none() && !optional {
+                                        let value =
+                                            record.to_mut().cased_mut(*casing).remove(col_name);
+                                        if value.is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
                                                 span: Some(*span),
@@ -1398,7 +1402,13 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if record.to_mut().remove(col_name).is_none() && !optional {
+                            if record
+                                .to_mut()
+                                .cased_mut(*casing)
+                                .remove(col_name)
+                                .is_none()
+                                && !optional
+                            {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
                                     span: Some(*span),
@@ -1447,13 +1457,16 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        casing,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                                        let val =
+                                            record.to_mut().cased_mut(*casing).get_mut(col_name);
+                                        if let Some(val) = val {
                                             val.remove_data_at_cell_path(path)?;
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
@@ -1475,7 +1488,8 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if let Some(val) = record.to_mut().get_mut(col_name) {
+                            if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name)
+                            {
                                 val.remove_data_at_cell_path(path)?;
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
@@ -1532,6 +1546,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1540,7 +1555,7 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1574,7 +1589,7 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -2004,7 +2019,6 @@ impl Value {
 fn get_value_member<'a>(
     current: &'a Value,
     member: &PathMember,
-    insensitive: bool,
 ) -> Result<ControlFlow<Span, Cow<'a, Value>>, ShellError> {
     match member {
         PathMember::Int {
@@ -2091,18 +2105,14 @@ fn get_value_member<'a>(
             val: column_name,
             span: origin_span,
             optional,
+            casing,
         } => {
             let span = current.span();
             match current {
                 Value::Record { val, .. } => {
-                    if let Some(found) = val.iter().rev().find(|x| {
-                        if insensitive {
-                            x.0.eq_ignore_case(column_name)
-                        } else {
-                            x.0 == column_name
-                        }
-                    }) {
-                        Ok(ControlFlow::Continue(Cow::Borrowed(found.1)))
+                    let found = val.cased(*casing).get(column_name);
+                    if let Some(found) = found {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(found)))
                     } else if *optional {
                         Ok(ControlFlow::Break(*origin_span))
                         // short-circuit
@@ -2129,14 +2139,9 @@ fn get_value_member<'a>(
                             let val_span = val.span();
                             match val {
                                 Value::Record { val, .. } => {
-                                    if let Some(found) = val.iter().rev().find(|x| {
-                                        if insensitive {
-                                            x.0.eq_ignore_case(column_name)
-                                        } else {
-                                            x.0 == column_name
-                                        }
-                                    }) {
-                                        Ok(found.1.clone())
+                                    let found = val.cased(*casing).get(column_name);
+                                    if let Some(found) = found {
+                                        Ok(found.clone())
                                     } else if *optional {
                                         Ok(Value::nothing(*origin_span))
                                     } else if let Some(suggestion) =
@@ -4089,6 +4094,8 @@ mod tests {
     use crate::record;
 
     mod at_cell_path {
+        use crate::casing::Casing;
+
         use crate::{IntoValue, Span};
 
         use super::super::PathMember;
@@ -4101,10 +4108,10 @@ mod tests {
             assert_eq!(
                 Value::with_data_at_cell_path(
                     &[
-                        PathMember::test_string("a".to_string(), false),
-                        PathMember::test_string("b".to_string(), false),
-                        PathMember::test_string("c".to_string(), false),
-                        PathMember::test_string("d".to_string(), false),
+                        PathMember::test_string("a".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("b".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("c".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("d".to_string(), false, Casing::Sensitive),
                     ],
                     value_to_insert,
                 ),
@@ -4148,13 +4155,13 @@ mod tests {
             assert_eq!(
                 Value::with_data_at_cell_path(
                     &[
-                        PathMember::test_string("a".to_string(), false),
+                        PathMember::test_string("a".to_string(), false, Casing::Sensitive),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("b".to_string(), false),
+                        PathMember::test_string("b".to_string(), false, Casing::Sensitive),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("c".to_string(), false),
+                        PathMember::test_string("c".to_string(), false, Casing::Sensitive),
                         PathMember::test_int(0, false),
-                        PathMember::test_string("d".to_string(), false),
+                        PathMember::test_string("d".to_string(), false, Casing::Sensitive),
                         PathMember::test_int(0, false),
                     ],
                     value_to_insert.clone(),
@@ -4184,9 +4191,9 @@ mod tests {
             let value_to_insert = Value::test_string("value");
             let res = base_value.upsert_data_at_cell_path(
                 &[
-                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_string("a".to_string(), false, Casing::Sensitive),
                     PathMember::test_int(0, false),
-                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_string("b".to_string(), false, Casing::Sensitive),
                     PathMember::test_int(0, false),
                 ],
                 value_to_insert.clone(),
@@ -4218,9 +4225,9 @@ mod tests {
             let value_to_insert = Value::test_string("value");
             let res = base_value.insert_data_at_cell_path(
                 &[
-                    PathMember::test_string("a".to_string(), false),
+                    PathMember::test_string("a".to_string(), false, Casing::Sensitive),
                     PathMember::test_int(0, false),
-                    PathMember::test_string("b".to_string(), false),
+                    PathMember::test_string("b".to_string(), false, Casing::Sensitive),
                     PathMember::test_int(0, false),
                 ],
                 value_to_insert.clone(),

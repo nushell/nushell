@@ -12,6 +12,7 @@ mod tests {
     use nu_protocol::{
         BlockId, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
+        casing::Casing,
         engine::{Closure, EngineState},
         record,
     };
@@ -401,8 +402,18 @@ mod tests {
             r#"$.foo.bar.0"#,
             Some(Value::test_cell_path(CellPath {
                 members: vec![
-                    PathMember::string("foo".to_string(), false, Span::new(2, 5)),
-                    PathMember::string("bar".to_string(), false, Span::new(6, 9)),
+                    PathMember::string(
+                        "foo".to_string(),
+                        false,
+                        Casing::Sensitive,
+                        Span::new(2, 5),
+                    ),
+                    PathMember::string(
+                        "bar".to_string(),
+                        false,
+                        Casing::Sensitive,
+                        Span::new(6, 9),
+                    ),
                     PathMember::int(0, false, Span::new(10, 11)),
                 ],
             })),

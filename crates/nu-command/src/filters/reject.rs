@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -63,6 +63,7 @@ impl Command for Reject {
                             val: val.clone(),
                             span: *col_span,
                             optional: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv.clone());

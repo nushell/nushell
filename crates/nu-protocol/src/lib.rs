@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 mod alias;
 pub mod ast;
+pub mod casing;
 pub mod config;
 pub mod debugger;
 mod did_you_mean;

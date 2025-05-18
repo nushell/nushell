@@ -43,8 +43,16 @@ pub trait Eval {
 
                 // Cell paths are usually case-sensitive, but we give $env
                 // special treatment.
-                let insensitive = cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID);
-                value.follow_cell_path(&cell_path.tail, insensitive).map(Cow::into_owned)
+                let tail = if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                    let mut tail = cell_path.tail.clone();
+                    if let Some(pm) = tail.first_mut() {
+                        pm.make_insensitive();
+                    }
+                    Cow::Owned(tail)
+                } else {
+                    Cow::Borrowed(&cell_path.tail)
+                };
+                value.follow_cell_path(&tail).map(Cow::into_owned)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr_span)),
             Expr::List(list) => {

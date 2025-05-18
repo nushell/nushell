@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream, ast::PathMember, engine::StateWorkingSet};
+use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -251,11 +251,12 @@ fn format_record(
                         val: path.to_string(),
                         span: *span,
                         optional: false,
+                        casing: Casing::Sensitive,
                     })
                     .collect();
 
                 let expanded_string = data_as_value
-                    .follow_cell_path(&path_members, false)?
+                    .follow_cell_path(&path_members)?
                     .to_expanded_string(", ", config);
                 output.push_str(expanded_string.as_str())
             }

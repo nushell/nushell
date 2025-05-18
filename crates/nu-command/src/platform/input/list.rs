@@ -89,7 +89,7 @@ impl Command for InputList {
                 .into_iter()
                 .map(move |val| {
                     let display_value = if let Some(ref cellpath) = display_path {
-                        val.follow_cell_path(&cellpath.members, false)?
+                        val.follow_cell_path(&cellpath.members)?
                             .to_expanded_string(", ", &config)
                     } else {
                         val.to_expanded_string(", ", &config)

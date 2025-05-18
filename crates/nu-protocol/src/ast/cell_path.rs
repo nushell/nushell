@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::Span;
+use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
@@ -14,6 +14,8 @@ pub enum PathMember {
         /// If marked as optional don't throw an error if not found but perform default handling
         /// (e.g. return `Value::Nothing`)
         optional: bool,
+        /// Affects column lookup
+        casing: Casing,
     },
     /// Accessing a member by index (i.e. row of a table or item in a list)
     Int {
@@ -34,11 +36,12 @@ impl PathMember {
         }
     }
 
-    pub fn string(val: String, optional: bool, span: Span) -> Self {
+    pub fn string(val: String, optional: bool, casing: Casing, span: Span) -> Self {
         PathMember::String {
             val,
             span,
             optional,
+            casing,
         }
     }
 
@@ -50,10 +53,11 @@ impl PathMember {
         }
     }
 
-    pub fn test_string(val: String, optional: bool) -> Self {
+    pub fn test_string(val: String, optional: bool, casing: Casing) -> Self {
         PathMember::String {
             val,
             optional,
+            casing,
             span: Span::test_data(),
         }
     }
@@ -62,6 +66,13 @@ impl PathMember {
         match self {
             PathMember::String { optional, .. } => *optional = true,
             PathMember::Int { optional, .. } => *optional = true,
+        }
+    }
+
+    pub fn make_insensitive(&mut self) {
+        match self {
+            PathMember::String { casing, .. } => *casing = Casing::Insensitive,
+            PathMember::Int { .. } => {}
         }
     }
 
@@ -178,6 +189,12 @@ impl CellPath {
         }
     }
 
+    pub fn make_insensitive(&mut self) {
+        for member in &mut self.members {
+            member.make_insensitive();
+        }
+    }
+
     // Formats the cell-path as a column name, i.e. without quoting and optional markers ('?').
     pub fn to_column_name(&self) -> String {
         let mut s = String::new();
@@ -209,16 +226,30 @@ impl Display for CellPath {
                     let question_mark = if *optional { "?" } else { "" };
                     write!(f, ".{val}{question_mark}")?
                 }
-                PathMember::String { val, optional, .. } => {
+                PathMember::String {
+                    val,
+                    optional,
+                    casing,
+                    ..
+                } => {
                     let question_mark = if *optional { "?" } else { "" };
+                    let exclamation_mark = if *casing == Casing::Insensitive {
+                        "!"
+                    } else {
+                        ""
+                    };
                     let val = if needs_quoting(val) {
                         &escape_quote_string(val)
                     } else {
                         val
                     };
-                    write!(f, ".{val}{question_mark}")?
+                    write!(f, ".{val}{exclamation_mark}{question_mark}")?
                 }
             }
+        }
+        // Empty cell-paths are `$.` not `$`
+        if self.members.is_empty() {
+            write!(f, ".")?;
         }
         Ok(())
     }
@@ -239,7 +270,11 @@ mod test {
     fn path_member_partial_ord() {
         assert_eq!(
             Some(Greater),
-            PathMember::test_int(5, true).partial_cmp(&PathMember::test_string("e".into(), true))
+            PathMember::test_int(5, true).partial_cmp(&PathMember::test_string(
+                "e".into(),
+                true,
+                Casing::Sensitive
+            ))
         );
 
         assert_eq!(
@@ -254,14 +289,16 @@ mod test {
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("e".into(), true)
-                .partial_cmp(&PathMember::test_string("e".into(), false))
+            PathMember::test_string("e".into(), true, Casing::Sensitive).partial_cmp(
+                &PathMember::test_string("e".into(), false, Casing::Sensitive)
+            )
         );
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("f".into(), true)
-                .partial_cmp(&PathMember::test_string("e".into(), true))
+            PathMember::test_string("f".into(), true, Casing::Sensitive).partial_cmp(
+                &PathMember::test_string("e".into(), true, Casing::Sensitive)
+            )
         );
     }
 }

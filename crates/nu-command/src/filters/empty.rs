@@ -15,7 +15,7 @@ pub fn empty(
     if !columns.is_empty() {
         for val in input {
             for column in &columns {
-                if !val.follow_cell_path(&column.members, false)?.is_nothing() {
+                if !val.follow_cell_path(&column.members)?.is_nothing() {
                     return Ok(Value::bool(negate, head).into_pipeline_data());
                 }
             }
