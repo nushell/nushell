@@ -2,20 +2,18 @@ use nu_protocol::Value;
 use std::collections::HashSet;
 
 pub fn get_columns(input: &[Value]) -> Vec<String> {
-    let mut columns = vec![];
+    let mut columns = HashSet::new();
     for item in input {
         let Value::Record { val, .. } = item else {
             return vec![];
         };
 
         for col in val.columns() {
-            if !columns.contains(col) {
-                columns.push(col.to_string());
-            }
+            columns.insert(col.to_string());
         }
     }
 
-    columns
+    columns.into_iter().collect()
 }
 
 // If a column doesn't exist in the input, return it.
