@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, ListStream, ast::PathMember, engine::StateWorkingSet};
+use nu_utils::Casing;
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -251,7 +252,7 @@ fn format_record(
                         val: path.to_string(),
                         span: *span,
                         optional: false,
-                        insensitive: false,
+                        casing: Casing::Sensitive,
                     })
                     .collect();
 

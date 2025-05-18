@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{IntoValue, ast::PathMember};
+use nu_utils::Casing;
 
 #[derive(Clone)]
 pub struct SplitCellPath;
@@ -134,10 +135,10 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
             let (optional, insensitive, internal_span) = match pm {
                 PathMember::String {
                     optional,
-                    insensitive,
+                    casing,
                     span,
                     ..
-                } => (optional, insensitive, span),
+                } => (optional, casing == Casing::Insensitive, span),
                 PathMember::Int { optional, span, .. } => (optional, false, span),
             };
             let value = match pm {

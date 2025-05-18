@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use unicase::UniCase;
 
@@ -45,4 +46,11 @@ impl IgnoreCaseExt for str {
     fn cmp_ignore_case(&self, other: &str) -> Ordering {
         UniCase::new(self).cmp(&UniCase::new(other))
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub enum Casing {
+    #[default]
+    Sensitive,
+    Insensitive,
 }

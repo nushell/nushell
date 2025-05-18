@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use nu_utils::Casing;
 
 use crate::Comparator;
 
@@ -168,7 +169,7 @@ impl Command for Sort {
                             vec![PathMember::string(
                                 col.0.clone(),
                                 false,
-                                false,
+                                Casing::Sensitive,
                                 Span::unknown(),
                             )]
                         })

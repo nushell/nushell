@@ -1,6 +1,6 @@
 use super::Expression;
 use crate::Span;
-use nu_utils::{escape_quote_string, needs_quoting};
+use nu_utils::{Casing, escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
@@ -14,8 +14,8 @@ pub enum PathMember {
         /// If marked as optional don't throw an error if not found but perform default handling
         /// (e.g. return `Value::Nothing`)
         optional: bool,
-        /// If marked as insensitive, column lookup happens case insensitively
-        insensitive: bool,
+        /// Affects column lookup
+        casing: Casing,
     },
     /// Accessing a member by index (i.e. row of a table or item in a list)
     Int {
@@ -36,12 +36,12 @@ impl PathMember {
         }
     }
 
-    pub fn string(val: String, optional: bool, insensitive: bool, span: Span) -> Self {
+    pub fn string(val: String, optional: bool, casing: Casing, span: Span) -> Self {
         PathMember::String {
             val,
             span,
             optional,
-            insensitive,
+            casing,
         }
     }
 
@@ -53,11 +53,11 @@ impl PathMember {
         }
     }
 
-    pub fn test_string(val: String, optional: bool, insensitive: bool) -> Self {
+    pub fn test_string(val: String, optional: bool, casing: Casing) -> Self {
         PathMember::String {
             val,
             optional,
-            insensitive,
+            casing,
             span: Span::test_data(),
         }
     }
@@ -71,7 +71,7 @@ impl PathMember {
 
     pub fn make_insensitive(&mut self) {
         match self {
-            PathMember::String { insensitive, .. } => *insensitive = true,
+            PathMember::String { casing, .. } => *casing = Casing::Insensitive,
             PathMember::Int { .. } => {}
         }
     }
@@ -229,11 +229,15 @@ impl Display for CellPath {
                 PathMember::String {
                     val,
                     optional,
-                    insensitive,
+                    casing,
                     ..
                 } => {
                     let question_mark = if *optional { "?" } else { "" };
-                    let exclamation_mark = if *insensitive { "!" } else { "" };
+                    let exclamation_mark = if *casing == Casing::Insensitive {
+                        "!"
+                    } else {
+                        ""
+                    };
                     let val = if needs_quoting(val) {
                         &escape_quote_string(val)
                     } else {
@@ -269,7 +273,7 @@ mod test {
             PathMember::test_int(5, true).partial_cmp(&PathMember::test_string(
                 "e".into(),
                 true,
-                false
+                Casing::Sensitive
             ))
         );
 
@@ -285,20 +289,16 @@ mod test {
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("e".into(), true, false).partial_cmp(&PathMember::test_string(
-                "e".into(),
-                false,
-                false
-            ))
+            PathMember::test_string("e".into(), true, Casing::Sensitive).partial_cmp(
+                &PathMember::test_string("e".into(), false, Casing::Sensitive)
+            )
         );
 
         assert_eq!(
             Some(Greater),
-            PathMember::test_string("f".into(), true, false).partial_cmp(&PathMember::test_string(
-                "e".into(),
-                true,
-                false
-            ))
+            PathMember::test_string("f".into(), true, Casing::Sensitive).partial_cmp(
+                &PathMember::test_string("e".into(), true, Casing::Sensitive)
+            )
         );
     }
 }

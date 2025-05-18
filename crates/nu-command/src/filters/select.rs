@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{PipelineIterator, ast::PathMember};
+use nu_utils::Casing;
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -67,7 +68,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             val,
                             span: col_span,
                             optional: false,
-                            insensitive: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv);

@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use nu_utils::Casing;
 
 #[derive(Clone)]
 pub struct IntoCellPath;
@@ -74,8 +75,8 @@ impl Command for IntoCellPath {
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
-                        PathMember::test_string("some".into(), false, false),
-                        PathMember::test_string("path".into(), false, false),
+                        PathMember::test_string("some".into(), false, Casing::Sensitive),
+                        PathMember::test_string("path".into(), false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -85,9 +86,9 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, false),
-                        PathMember::test_string("c".into(), false, false),
+                        PathMember::test_string("c".into(), false, Casing::Sensitive),
                         PathMember::test_int(7, false),
-                        PathMember::test_string("h".into(), false, false),
+                        PathMember::test_string("h".into(), false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -97,8 +98,8 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),
-                        PathMember::test_string("c".into(), false, false),
-                        PathMember::test_string("d".into(), false, true),
+                        PathMember::test_string("c".into(), false, Casing::Sensitive),
+                        PathMember::test_string("d".into(), false, Casing::Insensitive),
                     ],
                 })),
             },
@@ -208,7 +209,9 @@ fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellErro
     let val_span = val.span();
     let member = match val {
         Value::Int { val, .. } => int_to_path_member(*val, val_span)?,
-        Value::String { val, .. } => PathMember::string(val.into(), false, false, val_span),
+        Value::String { val, .. } => {
+            PathMember::string(val.into(), false, Casing::Sensitive, val_span)
+        }
         Value::Record { val, .. } => record_to_path_member(val, val_span, span)?,
         other => {
             return Err(ShellError::CantConvert {

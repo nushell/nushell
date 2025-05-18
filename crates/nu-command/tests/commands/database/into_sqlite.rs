@@ -6,6 +6,7 @@ use nu_test_support::{
     nu, pipeline,
     playground::{Dirs, Playground},
 };
+use nu_utils::Casing;
 use rand::{
     Rng, SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
@@ -327,7 +328,7 @@ fn into_sqlite_big_insert() {
                         val: "somedate".into(),
                         span: Span::unknown(),
                         optional: false,
-                        insensitive: false,
+                        casing: Casing::Sensitive,
                     }],
                     Box::new(|dateval| {
                         Value::string(dateval.coerce_string().unwrap(), dateval.span())

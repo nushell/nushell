@@ -3,7 +3,7 @@ use std::{iter::FusedIterator, ops::RangeBounds};
 
 use crate::{ShellError, Span, Value};
 
-use nu_utils::IgnoreCaseExt;
+use nu_utils::{Casing, IgnoreCaseExt};
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]
@@ -16,15 +16,14 @@ pub struct Record {
 /// Implements commonly used methods of [`Record`].
 pub struct CasedRecord<R> {
     record: R,
-    insensitive: bool,
+    casing: Casing,
 }
 
 impl<R> CasedRecord<R> {
     fn cmp(&self, lhs: &str, rhs: &str) -> bool {
-        if self.insensitive {
-            lhs.eq_ignore_case(rhs)
-        } else {
-            lhs == rhs
+        match self.casing {
+            Casing::Sensitive => lhs == rhs,
+            Casing::Insensitive => lhs.eq_ignore_case(rhs),
         }
     }
 }
@@ -51,7 +50,7 @@ impl<'a> CasedRecord<&'a mut Record> {
     fn shared(&'a self) -> CasedRecord<&'a Record> {
         CasedRecord {
             record: &*self.record,
-            insensitive: self.insensitive,
+            casing: self.casing,
         }
     }
 
@@ -79,17 +78,17 @@ impl Record {
         }
     }
 
-    pub fn cased(&self, insensitive: bool) -> CasedRecord<&Record> {
+    pub fn cased(&self, casing: Casing) -> CasedRecord<&Record> {
         CasedRecord {
             record: self,
-            insensitive,
+            casing,
         }
     }
 
-    pub fn cased_mut(&mut self, insensitive: bool) -> CasedRecord<&mut Record> {
+    pub fn cased_mut(&mut self, casing: Casing) -> CasedRecord<&mut Record> {
         CasedRecord {
             record: self,
-            insensitive,
+            casing,
         }
     }
 

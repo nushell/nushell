@@ -4,6 +4,7 @@ use crate::{
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
+use nu_utils::Casing;
 use std::{
     any,
     cmp::Ordering,
@@ -585,7 +586,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
-                    insensitive: false,
+                    casing: Casing::Sensitive,
                 }],
             }),
             Value::Int { val, .. } => {

@@ -17,6 +17,7 @@ use nu_protocol::{
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
     engine::StateWorkingSet, eval_const::eval_constant,
 };
+use nu_utils::Casing;
 use std::{
     collections::{HashMap, HashSet},
     num::ParseIntError,
@@ -2396,7 +2397,7 @@ pub fn parse_cell_path(
                                 val: string,
                                 span,
                                 optional: false,
-                                insensitive: false,
+                                casing: Casing::Sensitive,
                             });
                         }
                         _ => {
