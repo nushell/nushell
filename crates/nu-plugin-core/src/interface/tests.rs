@@ -246,7 +246,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
                 ByteStreamSource::Read(mut read) => {
                     let mut buf = Vec::new();
                     read.read_to_end(&mut buf)
-                        .map_err(|err| IoError::new(err.kind(), test_span, None))?;
+                        .map_err(|err| IoError::new(err, test_span, None))?;
                     let iter = buf.chunks_exact(out_pattern.len());
                     assert_eq!(iter.len(), iterations);
                     for chunk in iter {

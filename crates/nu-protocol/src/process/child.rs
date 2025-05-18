@@ -81,7 +81,7 @@ impl ExitStatusFuture {
                     }
                     Ok(Ok(status)) => Ok(status),
                     Ok(Err(err)) => Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.kind(),
+                        err,
                         span,
                         None,
                         "failed to get exit code",
@@ -276,7 +276,7 @@ impl ChildProcess {
             })
             .map_err(|err| {
                 IoError::new_with_additional_context(
-                    err.kind(),
+                    err,
                     span,
                     None,
                     "Could now spawn exit status waiter",
@@ -325,7 +325,7 @@ impl ChildProcess {
         }
 
         let bytes = if let Some(stdout) = self.stdout {
-            collect_bytes(stdout).map_err(|err| IoError::new(err.kind(), self.span, None))?
+            collect_bytes(stdout).map_err(|err| IoError::new(err, self.span, None))?
         } else {
             Vec::new()
         };

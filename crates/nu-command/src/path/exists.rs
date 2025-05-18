@@ -153,7 +153,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     Value::bool(
         match exists {
             Ok(exists) => exists,
-            Err(err) => return Value::error(IoError::new(err.kind(), span, path).into(), span),
+            Err(err) => return Value::error(IoError::new(err, span, path).into(), span),
         },
         span,
     )

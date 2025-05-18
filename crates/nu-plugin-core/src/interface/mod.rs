@@ -82,7 +82,7 @@ where
     fn flush(&self) -> Result<(), ShellError> {
         self.0.lock().flush().map_err(|err| {
             ShellError::Io(IoError::new_internal(
-                err.kind(),
+                err,
                 "PluginWrite could not flush",
                 nu_protocol::location!(),
             ))
@@ -112,7 +112,7 @@ where
         })?;
         lock.flush().map_err(|err| {
             ShellError::Io(IoError::new_internal(
-                err.kind(),
+                err,
                 "PluginWrite could not flush",
                 nu_protocol::location!(),
             ))
@@ -340,7 +340,7 @@ where
                 writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
                     Ok(0) => None,
                     Ok(len) => Some(Ok(buf[..len].to_vec())),
-                    Err(err) => Some(Err(ShellError::from(IoError::new(err.kind(), span, None)))),
+                    Err(err) => Some(Err(ShellError::from(IoError::new(err, span, None)))),
                 }))?;
                 Ok(())
             }
@@ -368,7 +368,7 @@ where
                     })
                     .map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not spawn plugin stream background writer",
                             nu_protocol::location!(),
                         )

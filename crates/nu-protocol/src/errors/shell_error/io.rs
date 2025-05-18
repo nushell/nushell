@@ -38,7 +38,7 @@ use super::{ShellError, location::Location};
 ///
 /// # let span = Span::test_data();
 /// let path = PathBuf::from("/some/missing/file");
-/// let error = IoError::new(std::io::ErrorKind::NotFound, span, path);
+/// let error = IoError::new(ErrorKind::FileNotFound, span, path);
 /// println!("Error: {:?}", error);
 /// ```
 ///
@@ -47,7 +47,7 @@ use super::{ShellError, location::Location};
 /// # use nu_protocol::shell_error::io::{IoError, ErrorKind};
 //  #
 /// let error = IoError::new_internal(
-///     std::io::ErrorKind::UnexpectedEof,
+///     ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
 ///     "Failed to read data from buffer",
 ///     nu_protocol::location!()
 /// );
@@ -93,7 +93,7 @@ pub struct IoError {
     /// and is part of [`std::io::Error`].
     /// If a kind cannot be represented by it, consider adding a new variant to [`ErrorKind`].
     ///
-    /// Only in very rare cases should [`std::io::ErrorKind::Other`] be used, make sure you provide
+    /// Only in very rare cases should [`std::io::ErrorKind::other()`] be used, make sure you provide
     /// `additional_context` to get useful errors in these cases.
     pub kind: ErrorKind,
 
@@ -125,13 +125,61 @@ pub struct IoError {
     pub location: Option<String>,
 }
 
+/// Prevents other crates from constructing certain enum variants directly.
+///
+/// This type is only used to block construction while still allowing pattern matching.
+/// It's not meant to be used for anything else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Sealed;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Diagnostic)]
 pub enum ErrorKind {
-    Std(std::io::ErrorKind),
+    /// [`std::io::ErrorKind`] from the standard library.
+    ///
+    /// This variant wraps a standard library error kind and extends our own error enum with it.
+    /// The hidden field prevents other crates, even our own, from constructing this directly.
+    /// Most of the time, you already have a full [`std::io::Error`], so just pass that directly to
+    /// [`IoError::new`] or [`IoError::new_with_additional_context`].
+    /// This allows us to inspect the raw os error of `std::io::Error`s.
+    ///
+    /// Matching is still easy:
+    ///
+    /// ```rust
+    /// # use nu_protocol::shell_error::io::ErrorKind;
+    /// #
+    /// # let err_kind = ErrorKind::from_std(std::io::ErrorKind::NotFound);
+    /// match err_kind {
+    ///     ErrorKind::Std(std::io::ErrorKind::NotFound, ..) => { /* ... */ }
+    ///     _ => {}
+    /// }
+    /// ```
+    ///
+    /// If you want to provide an [`std::io::ErrorKind`] manually, use [`ErrorKind::from_std`].
+    #[allow(private_interfaces)]
+    Std(std::io::ErrorKind, Sealed),
+
     NotAFile,
+
+    /// The file or directory is in use by another program.
+    ///
+    /// On Windows, this maps to
+    /// [`ERROR_SHARING_VIOLATION`](windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
+    /// prevents access like deletion or modification.
+    AlreadyInUse,
+
     // use these variants in cases where we know precisely whether a file or directory was expected
     FileNotFound,
     DirectoryNotFound,
+}
+
+impl ErrorKind {
+    /// Construct an [`ErrorKind`] from a [`std::io::ErrorKind`] without a full [`std::io::Error`].
+    ///
+    /// In most cases, you should use [`IoError::new`] and pass the full [`std::io::Error`] instead.
+    /// This method is only meant for cases where we provide our own io error kinds.
+    pub fn from_std(kind: std::io::ErrorKind) -> Self {
+        Self::Std(kind, Sealed)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error, Diagnostic)]
@@ -237,10 +285,10 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::shell_error::io::IoError;
+    /// use nu_protocol::shell_error::{self, io::IoError};
     ///
     /// let error = IoError::new_internal(
-    ///     std::io::ErrorKind::UnexpectedEof,
+    ///     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
     ///     "Failed to read from buffer",
     ///     nu_protocol::location!(),
     /// );
@@ -268,11 +316,11 @@ impl IoError {
     ///
     /// # Examples
     /// ```rust
-    /// use nu_protocol::shell_error::io::IoError;
+    /// use nu_protocol::shell_error::{self, io::IoError};
     /// use std::path::PathBuf;
     ///
     /// let error = IoError::new_internal_with_path(
-    ///     std::io::ErrorKind::NotFound,
+    ///     shell_error::io::ErrorKind::FileNotFound,
     ///     "Could not find special file",
     ///     nu_protocol::location!(),
     ///     PathBuf::from("/some/file"),
@@ -297,14 +345,37 @@ impl IoError {
     ///
     /// This method is particularly useful when you need to handle multiple I/O errors which all
     /// take the same span and path.
-    /// Instead of calling `.map_err(|err| IoError::new(err.kind(), span, path))` every time, you
+    /// Instead of calling `.map_err(|err| IoError::new(err, span, path))` every time, you
     /// can create the factory closure once and pass that into `.map_err`.
     pub fn factory<'p, P>(span: Span, path: P) -> impl Fn(std::io::Error) -> Self + use<'p, P>
     where
         P: Into<Option<&'p Path>>,
     {
         let path = path.into();
-        move |err: std::io::Error| IoError::new(err.kind(), span, path.map(PathBuf::from))
+        move |err: std::io::Error| IoError::new(err, span, path.map(PathBuf::from))
+    }
+}
+
+impl From<std::io::Error> for ErrorKind {
+    fn from(err: std::io::Error) -> Self {
+        (&err).into()
+    }
+}
+
+impl From<&std::io::Error> for ErrorKind {
+    fn from(err: &std::io::Error) -> Self {
+        #[cfg(windows)]
+        if let Some(raw_os_error) = err.raw_os_error() {
+            use windows::Win32::Foundation;
+
+            #[allow(clippy::single_match, reason = "in the future we can expand here")]
+            match Foundation::WIN32_ERROR(raw_os_error as u32) {
+                Foundation::ERROR_SHARING_VIOLATION => return ErrorKind::AlreadyInUse,
+                _ => {}
+            }
+        }
+
+        ErrorKind::Std(err.kind(), Sealed)
     }
 }
 
@@ -312,7 +383,7 @@ impl StdError for IoError {}
 impl Display for IoError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.kind {
-            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
+            ErrorKind::Std(std::io::ErrorKind::NotFound, _) => write!(f, "Not found"),
             ErrorKind::FileNotFound => write!(f, "File not found"),
             ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
             _ => write!(f, "I/O error"),
@@ -323,13 +394,14 @@ impl Display for IoError {
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ErrorKind::Std(std::io::ErrorKind::NotFound) => write!(f, "Not found"),
-            ErrorKind::Std(error_kind) => {
+            ErrorKind::Std(std::io::ErrorKind::NotFound, _) => write!(f, "Not found"),
+            ErrorKind::Std(error_kind, _) => {
                 let msg = error_kind.to_string();
                 let (first, rest) = msg.split_at(1);
                 write!(f, "{}{}", first.to_uppercase(), rest)
             }
             ErrorKind::NotAFile => write!(f, "Not a file"),
+            ErrorKind::AlreadyInUse => write!(f, "Already in use"),
             ErrorKind::FileNotFound => write!(f, "File not found"),
             ErrorKind::DirectoryNotFound => write!(f, "Directory not found"),
         }
@@ -342,7 +414,7 @@ impl Diagnostic for IoError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let mut code = String::from("nu::shell::io::");
         match self.kind {
-            ErrorKind::Std(error_kind) => match error_kind {
+            ErrorKind::Std(error_kind, _) => match error_kind {
                 std::io::ErrorKind::NotFound => code.push_str("not_found"),
                 std::io::ErrorKind::PermissionDenied => code.push_str("permission_denied"),
                 std::io::ErrorKind::ConnectionRefused => code.push_str("connection_refused"),
@@ -366,6 +438,7 @@ impl Diagnostic for IoError {
                 kind => code.push_str(&kind.to_string().to_lowercase().replace(" ", "_")),
             },
             ErrorKind::NotAFile => code.push_str("not_a_file"),
+            ErrorKind::AlreadyInUse => code.push_str("already_in_use"),
             ErrorKind::FileNotFound => code.push_str("file_not_found"),
             ErrorKind::DirectoryNotFound => code.push_str("directory_not_found"),
         }
@@ -378,7 +451,10 @@ impl Diagnostic for IoError {
             let path = format!("'{}'", path.display());
             match self.kind {
                 ErrorKind::NotAFile => format!("{path} is not a file"),
-                ErrorKind::Std(std::io::ErrorKind::NotFound)
+                ErrorKind::AlreadyInUse => {
+                    format!("{path} is already being used by another program")
+                }
+                ErrorKind::Std(std::io::ErrorKind::NotFound, _)
                 | ErrorKind::FileNotFound
                 | ErrorKind::DirectoryNotFound => format!("{path} does not exist"),
                 _ => format!("The error occurred at {path}"),
@@ -430,16 +506,10 @@ impl From<IoError> for std::io::Error {
     }
 }
 
-impl From<std::io::ErrorKind> for ErrorKind {
-    fn from(value: std::io::ErrorKind) -> Self {
-        ErrorKind::Std(value)
-    }
-}
-
 impl From<ErrorKind> for std::io::ErrorKind {
     fn from(value: ErrorKind) -> Self {
         match value {
-            ErrorKind::Std(error_kind) => error_kind,
+            ErrorKind::Std(error_kind, _) => error_kind,
             _ => std::io::ErrorKind::Other,
         }
     }
@@ -455,8 +525,8 @@ pub enum NotFound {
     Directory,
 }
 
-/// Extension trait for working with [`std::io::ErrorKind`].
-pub trait ErrorKindExt {
+/// Extension trait for working with [`std::io::Error`].
+pub trait IoErrorExt {
     /// Map [`NotFound`](std::io::ErrorKind) variants into more precise variants.
     ///
     /// The OS doesn't know when an entity was not found whether it was meant to be a file or a
@@ -469,7 +539,7 @@ pub trait ErrorKindExt {
     /// If the file isn't found, return [`FileNotFound`](ErrorKind::FileNotFound).
     /// ```rust
     /// # use nu_protocol::{
-    /// #     shell_error::io::{ErrorKind, ErrorKindExt, IoError, NotFound},
+    /// #     shell_error::io::{ErrorKind, IoErrorExt, IoError, NotFound},
     /// #     ShellError, Span,
     /// # };
     /// # use std::{fs, path::PathBuf};
@@ -479,7 +549,7 @@ pub trait ErrorKindExt {
     /// let a_file = PathBuf::from("scripts/ellie.nu");
     /// let ellie = fs::read_to_string(&a_file).map_err(|err| {
     ///     ShellError::Io(IoError::new(
-    ///         err.kind().not_found_as(NotFound::File),
+    ///         err.not_found_as(NotFound::File),
     ///         span,
     ///         a_file,
     ///     ))
@@ -498,21 +568,46 @@ pub trait ErrorKindExt {
     fn not_found_as(self, kind: NotFound) -> ErrorKind;
 }
 
-impl ErrorKindExt for std::io::ErrorKind {
+impl IoErrorExt for ErrorKind {
     fn not_found_as(self, kind: NotFound) -> ErrorKind {
         match (kind, self) {
-            (NotFound::File, Self::NotFound) => ErrorKind::FileNotFound,
-            (NotFound::Directory, Self::NotFound) => ErrorKind::DirectoryNotFound,
-            _ => ErrorKind::Std(self),
+            (NotFound::File, Self::Std(std::io::ErrorKind::NotFound, _)) => ErrorKind::FileNotFound,
+            (NotFound::Directory, Self::Std(std::io::ErrorKind::NotFound, _)) => {
+                ErrorKind::DirectoryNotFound
+            }
+            _ => self,
         }
     }
 }
 
-impl ErrorKindExt for ErrorKind {
+impl IoErrorExt for std::io::Error {
     fn not_found_as(self, kind: NotFound) -> ErrorKind {
-        match self {
-            Self::Std(std_kind) => std_kind.not_found_as(kind),
-            _ => self,
+        ErrorKind::from(self).not_found_as(kind)
+    }
+}
+
+impl IoErrorExt for &std::io::Error {
+    fn not_found_as(self, kind: NotFound) -> ErrorKind {
+        ErrorKind::from(self).not_found_as(kind)
+    }
+}
+
+#[cfg(test)]
+mod assert_not_impl {
+    use super::*;
+
+    /// Assertion that `ErrorKind` does not implement `From<std::io::ErrorKind>`.
+    ///
+    /// This implementation exists only in tests to make sure that no crate,
+    /// including ours, accidentally adds a `From<std::io::ErrorKind>` impl for `ErrorKind`.
+    /// If someone tries, it will fail due to conflicting implementations.
+    ///
+    /// We want to force usage of [`IoError::new`] with a full [`std::io::Error`] instead of
+    /// allowing conversion from just an [`std::io::ErrorKind`].
+    /// That way, we can properly inspect and classify uncategorized I/O errors.
+    impl From<std::io::ErrorKind> for ErrorKind {
+        fn from(_: std::io::ErrorKind) -> Self {
+            unimplemented!("ErrorKind should not implement From<std::io::ErrorKind>")
         }
     }
 }

@@ -5,7 +5,10 @@ use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata, Signals, shell_error::io::IoError};
+use nu_protocol::{
+    DataSource, NuGlob, PipelineMetadata, Signals,
+    shell_error::{self, io::IoError},
+};
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 #[cfg(unix)]
@@ -252,7 +255,7 @@ fn ls_for_one_pattern(
             // it makes no sense to list an empty string.
             if path.item.as_ref().is_empty() {
                 return Err(ShellError::Io(IoError::new_with_additional_context(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::from_std(std::io::ErrorKind::NotFound),
                     path.span,
                     PathBuf::from(path.item.to_string()),
                     "empty string('') directory or file does not exist",
@@ -357,7 +360,7 @@ fn ls_for_one_pattern(
         let count = std::thread::available_parallelism()
             .map_err(|err| {
                 IoError::new_with_additional_context(
-                    err.kind(),
+                    err,
                     call_span,
                     None,
                     "Could not get available parallelism",
@@ -793,6 +796,7 @@ fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
 mod windows_helper {
     use super::*;
 
+    use nu_protocol::shell_error;
     use std::os::windows::prelude::OsStrExt;
     use windows::Win32::Foundation::FILETIME;
     use windows::Win32::Storage::FileSystem::{
@@ -928,7 +932,7 @@ mod windows_helper {
                     Ok(find_data)
                 }
                 Err(e) => Err(ShellError::Io(IoError::new_with_additional_context(
-                    std::io::ErrorKind::Other,
+                    shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
                     span,
                     PathBuf::from(filename),
                     format!("Could not read metadata: {e}"),
@@ -973,11 +977,11 @@ fn read_dir(
     let signals_clone = signals.clone();
     let items = f
         .read_dir()
-        .map_err(|err| IoError::new(err.kind(), span, f.clone()))?
+        .map_err(|err| IoError::new(err, span, f.clone()))?
         .map(move |d| {
             signals_clone.check(span)?;
             d.map(|r| r.path())
-                .map_err(|err| IoError::new(err.kind(), span, f.clone()))
+                .map_err(|err| IoError::new(err, span, f.clone()))
                 .map_err(ShellError::from)
         });
     if !use_threads {

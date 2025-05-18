@@ -121,7 +121,7 @@ impl Command for Open {
 
                 if permission_denied(path) {
                     let err = IoError::new(
-                        std::io::ErrorKind::PermissionDenied,
+                        shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
                         arg_span,
                         PathBuf::from(path),
                     );
@@ -162,14 +162,18 @@ impl Command for Open {
                         // At least under windows this check ensures that we don't get a
                         // permission denied error on directories
                         return Err(ShellError::Io(IoError::new(
-                            shell_error::io::ErrorKind::Std(std::io::ErrorKind::IsADirectory),
+                            #[allow(
+                                deprecated,
+                                reason = "we don't have a IsADirectory variant here, so we provide one"
+                            )]
+                            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::IsADirectory),
                             arg_span,
                             PathBuf::from(path),
                         )));
                     }
 
                     let file = std::fs::File::open(path)
-                        .map_err(|err| IoError::new(err.kind(), arg_span, PathBuf::from(path)))?;
+                        .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
 
                     // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(

@@ -1,6 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
-use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
+use nu_protocol::{
+    engine::StateWorkingSet,
+    shell_error::{self, io::IoError},
+};
 
 #[derive(Clone)]
 pub struct PathSelf;
@@ -56,7 +59,7 @@ impl Command for PathSelf {
         let cwd = working_set.permanent_state.cwd(None)?;
         let current_file = working_set.files.top().ok_or_else(|| {
             IoError::new_with_additional_context(
-                std::io::ErrorKind::NotFound,
+                shell_error::io::ErrorKind::FileNotFound,
                 call.head,
                 None,
                 "Couldn't find current file",
@@ -67,7 +70,7 @@ impl Command for PathSelf {
             let dir = expand_path_with(
                 current_file.parent().ok_or_else(|| {
                     IoError::new_with_additional_context(
-                        std::io::ErrorKind::NotFound,
+                        shell_error::io::ErrorKind::FileNotFound,
                         call.head,
                         current_file.to_owned(),
                         "Couldn't find current file's parent.",

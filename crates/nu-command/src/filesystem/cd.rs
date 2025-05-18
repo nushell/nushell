@@ -77,7 +77,7 @@ impl Command for Cd {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
                                 return Err(shell_error::io::IoError::new(
-                                    shell_error::io::ErrorKind::Std(
+                                    shell_error::io::ErrorKind::from_std(
                                         std::io::ErrorKind::NotADirectory,
                                     ),
                                     v.span,
@@ -106,7 +106,9 @@ impl Command for Cd {
                         };
                         if !path.is_dir() {
                             return Err(shell_error::io::IoError::new(
-                                shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotADirectory),
+                                shell_error::io::ErrorKind::from_std(
+                                    std::io::ErrorKind::NotADirectory,
+                                ),
                                 v.span,
                                 path,
                             )
@@ -132,9 +134,12 @@ impl Command for Cd {
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied => {
-                Err(IoError::new(std::io::ErrorKind::PermissionDenied, call.head, path).into())
-            }
+            PermissionResult::PermissionDenied => Err(IoError::new(
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
+                call.head,
+                path,
+            )
+            .into()),
         }
     }
 

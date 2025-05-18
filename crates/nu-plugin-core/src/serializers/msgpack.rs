@@ -1,7 +1,10 @@
 use std::io::ErrorKind;
 
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{ShellError, shell_error::io::IoError};
+use nu_protocol::{
+    ShellError,
+    shell_error::{self, io::IoError},
+};
 use serde::Deserialize;
 
 use crate::{Encoder, PluginEncoder};
@@ -66,7 +69,7 @@ fn rmp_encode_err(err: rmp_serde::encode::Error) -> ShellError {
             // I/O error
             ShellError::Io(IoError::new_internal(
                 // TODO: get a better kind here
-                std::io::ErrorKind::Other,
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
                 "Could not encode with rmp",
                 nu_protocol::location!(),
             ))
@@ -92,7 +95,7 @@ fn rmp_decode_err<T>(err: rmp_serde::decode::Error) -> Result<Option<T>, ShellEr
                 // I/O error
                 Err(ShellError::Io(IoError::new_internal(
                     // TODO: get a better kind here
-                    std::io::ErrorKind::Other,
+                    shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
                     "Could not decode with rmp",
                     nu_protocol::location!(),
                 )))

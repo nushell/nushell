@@ -166,7 +166,7 @@ impl Command for Last {
                         let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
                         loop {
                             let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
-                                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                .map_err(|err| IoError::new(err, span, None))?;
                             if buf.len() > rows {
                                 buf.drain(..(buf.len() - rows));
                             }

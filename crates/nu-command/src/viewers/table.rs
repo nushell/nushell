@@ -518,7 +518,7 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
                 (&mut reader)
                     .take(cfg.width as u64)
                     .read_to_end(&mut read_buf)
-                    .map_err(|err| IoError::new(err.kind(), span, None))?;
+                    .map_err(|err| IoError::new(err, span, None))?;
 
                 if !read_buf.is_empty() {
                     nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))

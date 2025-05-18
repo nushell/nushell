@@ -353,7 +353,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
+            IoError::new_internal(err, "Could not set current dir", crate::location!())
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -546,7 +546,7 @@ impl EngineState {
                     Ok(PluginRegistryFile::default())
                 } else {
                     Err(ShellError::Io(IoError::new_internal_with_path(
-                        err.kind(),
+                        err,
                         "Failed to open plugin file",
                         crate::location!(),
                         PathBuf::from(plugin_path),
@@ -563,7 +563,7 @@ impl EngineState {
         // Write it to the same path
         let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
             IoError::new_internal_with_path(
-                err.kind(),
+                err,
                 "Failed to write plugin file",
                 crate::location!(),
                 PathBuf::from(plugin_path),

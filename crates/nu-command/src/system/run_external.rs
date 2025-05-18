@@ -205,11 +205,11 @@ impl Command for External {
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
             let (reader, writer) =
-                os_pipe::pipe().map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
             command.stdout(
                 writer
                     .try_clone()
-                    .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    .map_err(|err| IoError::new(err, call.head, None))?,
             );
             command.stderr(writer);
             Some(reader)
@@ -220,8 +220,7 @@ impl Command for External {
                 command.stdout(Stdio::null());
             } else {
                 command.stdout(
-                    Stdio::try_from(stdout)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stdout).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -231,8 +230,7 @@ impl Command for External {
                 command.stderr(Stdio::null());
             } else {
                 command.stderr(
-                    Stdio::try_from(stderr)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stderr).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -280,7 +278,7 @@ impl Command for External {
 
         let mut child = child.map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not spawn foreground child",
                 nu_protocol::location!(),
             )
@@ -290,7 +288,7 @@ impl Command for External {
             if !thread_job.try_add_pid(child.pid()) {
                 kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not spawn external stdin worker",
                         nu_protocol::location!(),
                     ))
@@ -310,7 +308,7 @@ impl Command for External {
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
-                        err.kind(),
+                        err,
                         call.head,
                         None,
                         "Could not spawn external stdin worker",
@@ -498,7 +496,7 @@ fn write_pipeline_data(
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val).map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not write pipeline data",
                 nu_protocol::location!(),
             )
@@ -518,7 +516,7 @@ fn write_pipeline_data(
             let bytes = value.coerce_into_binary()?;
             writer.write_all(&bytes).map_err(|err| {
                 IoError::new_internal(
-                    err.kind(),
+                    err,
                     "Could not write pipeline data",
                     nu_protocol::location!(),
                 )

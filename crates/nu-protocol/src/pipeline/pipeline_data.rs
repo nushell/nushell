@@ -222,14 +222,14 @@ impl PipelineData {
                 let bytes = value_to_bytes(value)?;
                 dest.write_all(&bytes).map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not write PipelineData to dest",
                         crate::location!(),
                     )
                 })?;
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -241,14 +241,14 @@ impl PipelineData {
                     let bytes = value_to_bytes(value)?;
                     dest.write_all(&bytes).map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write PipelineData to dest",
                             crate::location!(),
                         )
                     })?;
                     dest.write_all(b"\n").map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write linebreak after PipelineData to dest",
                             crate::location!(),
                         )
@@ -256,7 +256,7 @@ impl PipelineData {
                 }
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -775,11 +775,9 @@ where
     let io_error_map = |err: std::io::Error, location: Location| {
         let context = format!("Writing to {} failed", destination_name);
         match span {
-            None => IoError::new_internal(err.kind(), context, location),
-            Some(span) if span == Span::unknown() => {
-                IoError::new_internal(err.kind(), context, location)
-            }
-            Some(span) => IoError::new_with_additional_context(err.kind(), span, None, context),
+            None => IoError::new_internal(err, context, location),
+            Some(span) if span == Span::unknown() => IoError::new_internal(err, context, location),
+            Some(span) => IoError::new_with_additional_context(err, span, None, context),
         }
     };
 
