@@ -536,6 +536,25 @@ fn can_run_ps1_files(prefix: &str) {
     });
 }
 
+#[cfg(windows)]
+#[apply(run_external_prefixes)]
+fn can_run_ps1_files_with_space_in_path(prefix: &str) {
+    use nu_test_support::fs::Stub::FileWithContent;
+    Playground::setup("run_a_windows_ps_file", |dirs, sandbox| {
+        sandbox
+            .within("path with space")
+            .with_files(&[FileWithContent(
+                "foo.ps1",
+                r#"
+                    Write-Host Hello World
+                "#,
+            )]);
+
+        let actual = nu!(cwd: dirs.test().join("path with space"), "{}foo.ps1", prefix);
+        assert!(actual.out.contains("Hello World"));
+    });
+}
+
 #[rstest]
 #[case("^")]
 #[case("run-external ")]
