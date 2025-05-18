@@ -11,6 +11,9 @@ pub struct Record {
     inner: Vec<(String, Value)>,
 }
 
+/// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
+///
+/// Implements commonly used methods of [`Record`].
 pub struct CasedRecord<R> {
     record: R,
     insensitive: bool,
