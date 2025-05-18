@@ -60,8 +60,11 @@ impl Command for IntoBool {
         vec![
             Example {
                 description: "Convert value to boolean in table",
-                example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
+                example: "[[value]; ['false'] ['f'] ['1'] [0] [1.0] [true]] | into bool value",
                 result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(false),
+                    }),
                     Value::test_record(record! {
                         "value" => Value::test_bool(false),
                     }),
@@ -102,6 +105,11 @@ impl Command for IntoBool {
             Example {
                 description: "convert string to boolean",
                 example: "'true' | into bool",
+                result: Some(Value::test_bool(true)),
+            },
+            Example {
+                description: "convert string to boolean",
+                example: "'t' | into bool",
                 result: Some(Value::test_bool(true)),
             },
             Example {
@@ -147,7 +155,9 @@ fn into_bool(
 fn strict_string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
     match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
+        "t" => Ok(true),
         "false" => Ok(false),
+        "f" => Ok(false),
         o => {
             let val = o.parse::<f64>();
             match val {
@@ -216,6 +226,7 @@ mod test {
         assert!(action(&Value::test_nothing(), &args, span).is_error());
         assert!(action(&Value::test_string("abc"), &args, span).is_error());
         assert!(action(&Value::test_string("true"), &args, span).is_true());
+        assert!(action(&Value::test_string("t"), &args, span).is_true());
         assert!(action(&Value::test_string("FALSE"), &args, span).is_false());
     }
 
@@ -230,6 +241,7 @@ mod test {
         assert!(action(&Value::test_nothing(), &args, span).is_false());
         assert!(action(&Value::test_string("abc"), &args, span).is_true());
         assert!(action(&Value::test_string("true"), &args, span).is_true());
+        assert!(action(&Value::test_string("t"), &args, span).is_true());
         assert!(action(&Value::test_string("FALSE"), &args, span).is_false());
     }
 }
