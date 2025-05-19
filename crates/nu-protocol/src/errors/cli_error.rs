@@ -7,8 +7,8 @@ use std::{
 };
 
 use crate::{
-    engine::{EngineState, StateWorkingSet},
     CompileError, DeclId, ErrorStyle, ParseError, ParseWarning, ShellError,
+    engine::{EngineState, StateWorkingSet},
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,

@@ -793,16 +793,23 @@ pub fn test_deprecated_attribute() {
     working_set.add_decl(Box::new(Alias));
     working_set.add_decl(Box::new(AttrEcho));
 
+    // test deprecation with no message
     let source = br#"
     alias "attr deprecated" = attr echo
 
     @deprecated null
     def foo [] {}
-
-    foo
     "#;
     let _ = parse(&mut working_set, None, source, false);
 
+    // there should be no warning until the command is called
+    assert!(working_set.parse_errors.is_empty());
+    assert!(working_set.parse_warnings.is_empty());
+
+    let source = b"foo";
+    let _ = parse(&mut working_set, None, source, false);
+
+    // command called, there should be a deprecation warning
     assert!(working_set.parse_errors.is_empty());
     assert!(!working_set.parse_warnings.is_empty());
     assert!(matches!(
@@ -812,6 +819,7 @@ pub fn test_deprecated_attribute() {
 
     working_set.parse_warnings.clear();
 
+    // test deprecation with message
     let source = br#"
     alias "attr deprecated" = attr echo
 
