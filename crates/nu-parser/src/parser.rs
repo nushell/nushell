@@ -14,8 +14,11 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    engine::StateWorkingSet, eval_const::eval_constant,
+    ParseWarning, PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    VarId,
+    ast::*,
+    engine::{DeprecationStatus, StateWorkingSet},
+    eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1007,6 +1010,25 @@ pub fn parse_internal_call(
                 call: Box::new(call),
                 output: Type::Any,
             };
+        }
+    }
+
+    match decl.deprecation_status() {
+        DeprecationStatus::Undeprecated => (),
+        DeprecationStatus::Deprecated(None) => {
+            let e = ParseWarning::DeprecatedWarning {
+                old_command: signature.name.clone(),
+                span: call.head,
+            };
+            working_set.warning(e);
+        }
+        DeprecationStatus::Deprecated(Some(message)) => {
+            let e = ParseWarning::DeprecatedWarningWithMessage {
+                old_command: signature.name.clone(),
+                span: call.head,
+                help: message.to_string(),
+            };
+            working_set.warning(e);
         }
     }
 

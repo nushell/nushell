@@ -1,6 +1,6 @@
 use crate::{
     BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
-    engine::{Call, Command, CommandType, EngineState, Stack},
+    engine::{Call, Command, CommandType, DeprecationStatus, EngineState, Stack},
 };
 use nu_derive_value::FromValue;
 use serde::{Deserialize, Serialize};
@@ -784,5 +784,14 @@ impl Command for BlockCommand {
             .iter()
             .map(String::as_str)
             .collect()
+    }
+
+    fn deprecation_status(&self) -> DeprecationStatus {
+        let deprecated_attr = self.attributes.iter().find(|(key, _)| key == "deprecated");
+        match deprecated_attr {
+            Some((_, Value::String { val, .. })) => DeprecationStatus::Deprecated(Some(val)),
+            Some((_, _)) => DeprecationStatus::Deprecated(None),
+            None => DeprecationStatus::Undeprecated,
+        }
     }
 }

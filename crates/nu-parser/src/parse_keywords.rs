@@ -8,9 +8,8 @@ use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, ParseWarning,
-    PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value, VarId,
+    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
@@ -731,7 +730,7 @@ fn parse_def_inner(
             signature.allows_unknown_args = has_wrapped;
 
             let (attribute_vals, examples) =
-                handle_special_attributes(attributes, working_set, &mut signature, call_span);
+                handle_special_attributes(attributes, working_set, &mut signature);
 
             let declaration = working_set.get_decl_mut(decl_id);
 
@@ -888,7 +887,7 @@ fn parse_extern_inner(
                 signature.allows_unknown_args = true;
 
                 let (attribute_vals, examples) =
-                    handle_special_attributes(attributes, working_set, &mut signature, call_span);
+                    handle_special_attributes(attributes, working_set, &mut signature);
 
                 let declaration = working_set.get_decl_mut(decl_id);
 
@@ -951,7 +950,6 @@ fn handle_special_attributes(
     attributes: Vec<(String, Value)>,
     working_set: &mut StateWorkingSet<'_>,
     signature: &mut Signature,
-    call_span: Span,
 ) -> (Vec<(String, Value)>, Vec<CustomExample>) {
     let mut attribute_vals = vec![];
     let mut examples = vec![];
@@ -1000,32 +998,6 @@ fn handle_special_attributes(
                         span: Some(val_span),
                         help: Some("Is `attr category` shadowed?".into()),
                         inner: vec![],
-                    };
-                    working_set.error(e.wrap(working_set, val_span));
-                }
-            },
-            "deprecated" => match value {
-                Value::String { val, .. } => {
-                    let e = ParseWarning::DeprecatedWarningWithMessage {
-                        old_command: signature.name.clone(),
-                        span: call_span,
-                        help: val,
-                    };
-                    working_set.warning(e);
-                }
-                Value::Nothing { .. } => {
-                    let e = ParseWarning::DeprecatedWarning {
-                        old_command: signature.name.clone(),
-                        span: call_span,
-                    };
-                    working_set.warning(e);
-                }
-                _ => {
-                    let e = ShellError::CantConvert {
-                        to_type: Type::String.to_string(),
-                        from_type: value.get_type().to_string(),
-                        span: value.span(),
-                        help: Some("Deprecation message must be a string".to_string()),
                     };
                     working_set.error(e.wrap(working_set, val_span));
                 }

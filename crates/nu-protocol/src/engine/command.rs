@@ -14,6 +14,12 @@ pub enum CommandType {
     Plugin,
 }
 
+#[derive(Clone, Copy)]
+pub enum DeprecationStatus<'a> {
+    Undeprecated,
+    Deprecated(Option<&'a str>),
+}
+
 impl Display for CommandType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
@@ -131,6 +137,10 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn is_plugin(&self) -> bool {
         self.command_type() == CommandType::Plugin
+    }
+
+    fn deprecation_status(&self) -> DeprecationStatus {
+        DeprecationStatus::Undeprecated
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
