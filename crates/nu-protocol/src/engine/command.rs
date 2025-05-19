@@ -1,6 +1,7 @@
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value, engine::Call,
+    Alias, BlockId, DeprecationStatus, Example, OutDest, PipelineData, ShellError, Signature,
+    Value, engine::Call,
 };
 use std::fmt::Display;
 
@@ -12,12 +13,6 @@ pub enum CommandType {
     External,
     Alias,
     Plugin,
-}
-
-#[derive(Clone, Copy)]
-pub enum DeprecationStatus<'a> {
-    Undeprecated,
-    Deprecated(Option<&'a str>),
 }
 
 impl Display for CommandType {

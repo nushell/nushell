@@ -798,6 +798,8 @@ pub fn test_deprecated_attribute() {
 
     @deprecated null
     def foo [] {}
+
+    foo
     "#;
     let _ = parse(&mut working_set, None, source, false);
 
@@ -815,6 +817,8 @@ pub fn test_deprecated_attribute() {
 
     @deprecated "Use new-command instead"
     def old-command [] {}
+
+    old-command
     "#;
     let _ = parse(&mut working_set, None, source, false);
 

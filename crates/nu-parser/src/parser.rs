@@ -14,11 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    ParseWarning, PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-    VarId,
-    ast::*,
-    engine::{DeprecationStatus, StateWorkingSet},
-    eval_const::eval_constant,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
+    engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -974,6 +971,8 @@ pub fn parse_internal_call(
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
+    let deprecation_status = decl.deprecation_status();
+
     // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = match decl.name() {
         "use" | "overlay use" | "source-env" if decl.is_keyword() => {
@@ -1010,25 +1009,6 @@ pub fn parse_internal_call(
                 call: Box::new(call),
                 output: Type::Any,
             };
-        }
-    }
-
-    match decl.deprecation_status() {
-        DeprecationStatus::Undeprecated => (),
-        DeprecationStatus::Deprecated(None) => {
-            let e = ParseWarning::DeprecatedWarning {
-                old_command: signature.name.clone(),
-                span: call.head,
-            };
-            working_set.warning(e);
-        }
-        DeprecationStatus::Deprecated(Some(message)) => {
-            let e = ParseWarning::DeprecatedWarningWithMessage {
-                old_command: signature.name.clone(),
-                span: call.head,
-                help: message.to_string(),
-            };
-            working_set.warning(e);
         }
     }
 
@@ -1285,6 +1265,10 @@ pub fn parse_internal_call(
     }
 
     check_call(working_set, command_span, &signature, &call);
+
+    if let Some(warning) = deprecation_status.into_warning(&signature.name, &call) {
+        working_set.warning(warning);
+    }
 
     if signature.creates_scope {
         working_set.exit_scope();
