@@ -3,7 +3,6 @@ use crate::dataframe::values::NuExpression;
 use crate::values::{
     CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
-use aws_config::meta;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,

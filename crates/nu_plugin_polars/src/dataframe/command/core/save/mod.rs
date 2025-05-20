@@ -15,8 +15,8 @@ use crate::{
 use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type,
     shell_error::{self, io::IoError},
 };
 use polars::error::PolarsError;

@@ -9,8 +9,8 @@ use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
     shell_error::{self, io::IoError},
 };
 
