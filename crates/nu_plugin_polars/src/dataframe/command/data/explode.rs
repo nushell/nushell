@@ -120,8 +120,9 @@ impl PluginCommand for LazyExplode {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        explode(plugin, engine, call, input).map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+        explode(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

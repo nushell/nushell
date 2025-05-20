@@ -334,7 +334,7 @@ impl PluginCommand for LazyJoin {
         let lazy = NuLazyFrame::new(from_eager, lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

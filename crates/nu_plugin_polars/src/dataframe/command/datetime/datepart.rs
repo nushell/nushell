@@ -159,7 +159,7 @@ impl PluginCommand for ExprDatePart {
         }.into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

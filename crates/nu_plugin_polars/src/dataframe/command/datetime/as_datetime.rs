@@ -237,8 +237,9 @@ impl PluginCommand for AsDateTime {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        command(plugin, engine, call, input).map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

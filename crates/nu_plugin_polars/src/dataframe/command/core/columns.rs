@@ -40,7 +40,7 @@ impl PluginCommand for ColumnsDF {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        engine: &EngineInterface,
+        _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {

@@ -113,7 +113,7 @@ impl PluginCommand for LazySelect {
         let lazy: NuLazyFrame = lazy.to_polars().select(&expressions).into();
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

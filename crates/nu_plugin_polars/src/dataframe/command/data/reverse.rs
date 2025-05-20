@@ -65,7 +65,7 @@ impl PluginCommand for LazyReverse {
         let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().reverse());
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
