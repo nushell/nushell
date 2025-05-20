@@ -755,15 +755,11 @@ mod tests {
 
     #[test]
     fn returns_a_valid_theme() {
-
         let theme_name = "Dracula".to_string().into_spanned(Span::new(0, 7));
-
         let result = super::get_theme_from_asset_file(false, Some(&theme_name));
 
         assert!(result.is_ok(), "Expected Ok result for valid theme");
-
         let theme_map = result.unwrap();
-
         let required_keys = [
             "background",
             "foreground",
