@@ -163,7 +163,12 @@ fn get_theme_from_asset_file(
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
-        None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
+        None => {
+            return Ok(convert_html_theme_to_hash_map(
+                is_dark,
+                &HtmlTheme::default(),
+            ));
+        }
     };
 
     let theme_span = theme.map(|s| s.span).unwrap_or(Span::unknown());
@@ -271,7 +276,10 @@ fn to_html(
     let color_hm = match get_theme_from_asset_file(dark, theme.as_ref()) {
         Ok(c) => c,
         Err(e) => match e {
-            ShellError::TypeMismatch { err_message, span } => {
+            ShellError::TypeMismatch {
+                err_message,
+                span: _,
+            } => {
                 return Err(ShellError::TypeMismatch {
                     err_message,
                     span: theme_span,
