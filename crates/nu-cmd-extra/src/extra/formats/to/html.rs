@@ -101,7 +101,7 @@ impl Command for ToHtml {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "the name of the theme to use (github, blulocolight, ...)",
+                "the name of the theme to use (github, blulocolight, ...); case-insensitive",
                 Some('t'),
             )
             .switch(
