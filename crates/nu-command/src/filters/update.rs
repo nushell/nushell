@@ -153,14 +153,18 @@ fn update(
                         }
                         if !prev_members.is_empty() {
                             value.update_data_at_cell_path(prev_members, last_value)?;
+                        } else {
+                            // no prev_members, so last_value is actually
+                            // the value itself.
+                            value = last_value;
                         }
                     }
                     (first, _) => {
                         update_single_value_by_closure(
-                            &mut last_value,
+                            &mut value,
                             ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
-                            &[last_member.clone()],
+                            &cell_path.members,
                             matches!(first, PathMember::Int { .. }),
                         )?;
                     }
