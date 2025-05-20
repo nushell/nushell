@@ -144,3 +144,10 @@ fn list_stream_replacement_closure() {
     let actual = nu!("[[a]; [text]] | every 1 | update a { str upcase } | to nuon");
     assert_eq!(actual.out, "[[a]; [TEXT]]");
 }
+
+#[test]
+fn nested_list_replacement_closure() {
+    let actual =
+        nu!("{ w: { x: [ { y: '1' } { y: '2' } ] } } | update w.x.y {into float} | to nuon");
+    assert_eq!(actual.out, "[1.0, 2.0]")
+}
