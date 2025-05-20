@@ -721,4 +721,94 @@ mod tests {
 
         test_examples(ToHtml {})
     }
+
+    #[test]
+    fn get_theme_from_asset_file_returns_default() {
+        let result = super::get_theme_from_asset_file(false, None);
+
+        assert!(result.is_ok(), "Expected Ok result for None theme");
+
+        let theme_map = result.unwrap();
+
+        assert_eq!(
+            theme_map.get("background").map(String::as_str),
+            Some("white"),
+            "Expected default background color to be white"
+        );
+
+        assert_eq!(
+            theme_map.get("foreground").map(String::as_str),
+            Some("black"),
+            "Expected default foreground color to be black"
+        );
+
+        assert!(
+            theme_map.contains_key("red"),
+            "Expected default theme to have a 'red' color"
+        );
+
+        assert!(
+            theme_map.contains_key("bold_green"),
+            "Expected default theme to have a 'bold_green' color"
+        );
+    }
+
+    #[test]
+    fn returns_a_valid_theme() {
+
+        let theme_name = "Dracula".to_string().into_spanned(Span::new(0, 7));
+
+        let result = super::get_theme_from_asset_file(false, Some(&theme_name));
+
+        assert!(result.is_ok(), "Expected Ok result for valid theme");
+
+        let theme_map = result.unwrap();
+
+        let required_keys = [
+            "background",
+            "foreground",
+            "red",
+            "green",
+            "blue",
+            "bold_red",
+            "bold_green",
+            "bold_blue",
+        ];
+
+        for key in required_keys {
+            assert!(
+                theme_map.contains_key(key),
+                "Expected theme to contain key '{}'",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn fails_with_unknown_theme_name() {
+        let result = super::get_theme_from_asset_file(
+            false,
+            Some(&"doesnt-exist".to_string().into_spanned(Span::new(0, 13))),
+        );
+
+        assert!(result.is_err(), "Expected error for invalid theme name");
+
+        if let Err(err) = result {
+            assert!(
+                matches!(err, ShellError::TypeMismatch { .. }),
+                "Expected TypeMismatch error, got: {:?}",
+                err
+            );
+
+            if let ShellError::TypeMismatch { err_message, span } = err {
+                assert!(
+                    err_message.contains("doesnt-exist"),
+                    "Error message should mention theme name, got: {}",
+                    err_message
+                );
+                assert_eq!(span.start, 0);
+                assert_eq!(span.end, 13);
+            }
+        }
+    }
 }
