@@ -111,16 +111,12 @@ export def "kv get" [
 ] {
   let db_open = (db_setup --universal=$universal)
   do $db_open
-    # Hack to turn a SQLiteDatabase into a table
-    | $in.std_kv_store | wrap temp | get temp
-    | where key == $key
-    # Should only be one occurrence of each key in the stor
-    | get -i value.0
+    | query db "SELECT value FROM std_kv_store WHERE key = :key" --params { key: $key }
     | match $in {
-      # Key not found
-      null => null
-      # Key found
-      _ => { from nuon }
+      # Match should be exactly one row
+      [$el] => { $el.value | from nuon }
+      # Otherwise no match
+      _ => null
     }
 }
 
