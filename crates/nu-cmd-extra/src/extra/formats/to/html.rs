@@ -166,6 +166,8 @@ fn get_theme_from_asset_file(
         None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
+    let theme_span = theme.map(|s| s.span).unwrap_or(Span::unknown());
+
     // 228 themes come from
     // https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/windowsterminal
     // we should find a hit on any name in there
@@ -175,8 +177,17 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .into_iter()
-        .find(|n| n.name.eq_ignore_case(theme_name)) // case insensitive search
-        .unwrap_or_default();
+        .find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
+
+    let th = match th {
+        Some(t) => t,
+        None => {
+            return Err(ShellError::TypeMismatch {
+                err_message: format!("Unknown HTML theme '{}'", theme_name),
+                span: theme_span,
+            });
+        }
+    };
 
     Ok(convert_html_theme_to_hash_map(is_dark, &th))
 }
@@ -257,18 +268,17 @@ fn to_html(
         None => head,
     };
 
-    let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
-    let color_hm = match color_hm {
+    let color_hm = match get_theme_from_asset_file(dark, theme.as_ref()) {
         Ok(c) => c,
-        _ => {
-            return Err(ShellError::GenericError {
-                error: "Error finding theme name".into(),
-                msg: "Error finding theme name".into(),
-                span: Some(theme_span),
-                help: None,
-                inner: vec![],
-            });
-        }
+        Err(e) => match e {
+            ShellError::TypeMismatch { err_message, span } => {
+                return Err(ShellError::TypeMismatch {
+                    err_message,
+                    span: theme_span,
+                });
+            }
+            _ => return Err(e),
+        },
     };
 
     // change the color of the page
