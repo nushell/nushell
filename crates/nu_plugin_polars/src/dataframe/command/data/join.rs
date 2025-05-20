@@ -242,19 +242,6 @@ impl PluginCommand for LazyJoin {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
-            .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl LazyJoin {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
         let left = call.has_flag("left")?;
         let full = call.has_flag("full")?;
         let cross = call.has_flag("cross")?;
@@ -347,6 +334,7 @@ impl LazyJoin {
         let lazy = NuLazyFrame::new(from_eager, lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

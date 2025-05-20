@@ -112,19 +112,6 @@ impl PluginCommand for ExprWhen {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
-            .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl ExprWhen {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
         let when_predicate: Value = call.req(0)?;
         let when_predicate = NuExpression::try_from_value(plugin, &when_predicate)?;
 
@@ -151,6 +138,7 @@ impl ExprWhen {
         when_then
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

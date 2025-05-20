@@ -87,19 +87,6 @@ impl PluginCommand for ExprConcatStr {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
-            .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl ExprConcatStr {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        _input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
         let separator: String = call.req(0)?;
         let value: Value = call.req(1)?;
 
@@ -108,6 +95,7 @@ impl ExprConcatStr {
 
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

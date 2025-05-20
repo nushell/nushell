@@ -85,20 +85,9 @@ impl PluginCommand for GetMonth {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl GetMonth {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 

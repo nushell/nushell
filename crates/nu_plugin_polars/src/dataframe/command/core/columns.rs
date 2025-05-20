@@ -45,20 +45,9 @@ impl PluginCommand for ColumnsDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
+        command(plugin, call, input)
+            .map_err(|e| e.into())
             .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl ColumnsDF {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
-        command(plugin, call, input).map_err(|e| e.into())
     }
 }
 

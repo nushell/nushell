@@ -132,19 +132,6 @@ impl PluginCommand for ExprDatePart {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        self.run_inner(plugin, engine, call, input)
-            .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-impl ExprDatePart {
-    fn run_inner(
-        &self,
-        plugin: &PolarsPlugin,
-        engine: &EngineInterface,
-        call: &EvaluatedCall,
-        input: PipelineData,
-    ) -> Result<PipelineData, LabeledError> {
         let part: Spanned<String> = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
@@ -172,6 +159,7 @@ impl ExprDatePart {
         }.into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
