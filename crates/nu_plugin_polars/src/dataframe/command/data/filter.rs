@@ -114,8 +114,9 @@ impl PluginCommand for LazyFilter {
         let filter_expr = NuExpression::try_from_value(plugin, &expr_value)?;
         let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
-        command(plugin, engine, call, lazy, filter_expr).map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+        command(plugin, engine, call, lazy, filter_expr)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
