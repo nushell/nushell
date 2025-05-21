@@ -1,21 +1,21 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    Token, TokenContents,
-    lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
-    lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
+    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
+    lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{ShapeDescriptorUse, parse_shape_name, parse_type},
+    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, check_range_types, math_result_type, type_compatible},
+    Token, TokenContents,
 };
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    engine::StateWorkingSet, eval_const::eval_constant,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
+    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1270,6 +1270,9 @@ pub fn parse_internal_call(
         .into_iter()
         .filter_map(|entry| entry.parse_warning(&signature.name, &call))
         .for_each(|warning| {
+            // FIXME: if two flags are deprecated and both are used in one command,
+            // the second flag's deprecation won't show until the first flag is removed
+            // (but it won't be flagged as reported until it is actually reported)
             working_set.warning(warning);
         });
 
