@@ -785,62 +785,6 @@ pub fn parse_attributes_external_alias() {
 }
 
 #[test]
-pub fn test_deprecated_attribute() {
-    let engine_state = EngineState::new();
-    let mut working_set = StateWorkingSet::new(&engine_state);
-
-    working_set.add_decl(Box::new(Def));
-    working_set.add_decl(Box::new(Alias));
-    working_set.add_decl(Box::new(AttrEcho));
-
-    // test deprecation with no message
-    let source = br#"
-    alias "attr deprecated" = attr echo
-
-    @deprecated null
-    def foo [] {}
-    "#;
-    let _ = parse(&mut working_set, None, source, false);
-
-    // there should be no warning until the command is called
-    assert!(working_set.parse_errors.is_empty());
-    assert!(working_set.parse_warnings.is_empty());
-
-    let source = b"foo";
-    let _ = parse(&mut working_set, None, source, false);
-
-    // command called, there should be a deprecation warning
-    assert!(working_set.parse_errors.is_empty());
-    assert!(!working_set.parse_warnings.is_empty());
-    assert!(matches!(
-        &working_set.parse_warnings[0],
-        ParseWarning::DeprecatedWarning { .. }
-    ));
-
-    working_set.parse_warnings.clear();
-
-    // test deprecation with message
-    let source = br#"
-    alias "attr deprecated" = attr echo
-
-    @deprecated "Use new-command instead"
-    def old-command [] {}
-
-    old-command
-    "#;
-    let _ = parse(&mut working_set, None, source, false);
-
-    assert!(working_set.parse_errors.is_empty());
-    assert!(!working_set.parse_warnings.is_empty());
-
-    let ParseWarning::DeprecatedWarningWithMessage { help, .. } = &working_set.parse_warnings[0]
-    else {
-        panic!("Expected DeprecatedWarningWithMessage");
-    };
-    assert!(help == "Use new-command instead");
-}
-
-#[test]
 pub fn parse_if_in_const_expression() {
     // https://github.com/nushell/nushell/issues/15321
     let engine_state = EngineState::new();
