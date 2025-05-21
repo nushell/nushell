@@ -1,4 +1,4 @@
-use crate::{FromValue, ParseWarning, ShellError, Type, Value, ast::Call};
+use crate::{ast::Call, FromValue, ParseWarning, ShellError, Type, Value};
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.
@@ -81,7 +81,7 @@ impl DeprecationEntry {
     fn check(&self, call: &Call) -> bool {
         match &self.ty {
             DeprecationType::Command => true,
-            DeprecationType::Flag(flag) => call.get_flag_expr(flag).is_some(),
+            DeprecationType::Flag(flag) => call.get_named_arg(flag).is_some(),
         }
     }
 

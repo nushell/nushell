@@ -124,7 +124,7 @@ fn deprecated_record(call: WrapCall) -> Result<Value, ShellError> {
         record.push("since", Value::string(since.item, since.span))
     }
     if let Some(remove) = remove {
-        record.push("remove", Value::string(remove.item, remove.span))
+        record.push("expected_removal", Value::string(remove.item, remove.span))
     }
 
     let report = if let Some(Spanned { item, span }) = report {
@@ -140,7 +140,7 @@ fn deprecated_record(call: WrapCall) -> Result<Value, ShellError> {
             }
         }
     } else {
-        Value::string("every", call.head())
+        Value::string("first", call.head())
     };
     record.push("report", report);
 
