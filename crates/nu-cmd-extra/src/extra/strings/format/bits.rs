@@ -134,7 +134,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
                 let mut byte = [0];
                 if reader
                     .read(&mut byte[..])
-                    .map_err(|err| IoError::new(err.kind(), head, None))?
+                    .map_err(|err| IoError::new(err, head, None))?
                     > 0
                 {
                     // Format the byte as bits

@@ -76,7 +76,7 @@ pub enum ShellError {
         exp_input_type: String,
         #[label("expected: {exp_input_type}")]
         dst_span: Span,
-        #[label("value originates from here")]
+        #[label("value originates here")]
         src_span: Span,
     },
 
@@ -431,14 +431,20 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    #[error("Can't convert string `{details}` to duration.")]
-    #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertToDuration {
-        details: String,
-        #[label("can't be converted to duration")]
-        dst_span: Span,
-        #[label("this string value...")]
-        src_span: Span,
+    /// Failed to convert a value of one type into a different type by specifying a unit.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that the provided value can be converted in the provided: only Durations can be converted to duration units, and only Filesize can be converted to filesize units.
+    #[error("Can't convert {from_type} to the specified unit.")]
+    #[diagnostic(code(nu::shell::cant_convert_value_to_unit))]
+    CantConvertToUnit {
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[label("conversion originates here")]
+        unit_span: Span,
         #[help]
         help: Option<String>,
     },
@@ -1235,6 +1241,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     InvalidGlobPattern {
         msg: String,
         #[label("{msg}")]
+        span: Span,
+    },
+
+    /// Invalid unit
+    ///
+    /// ## Resolution
+    ///
+    /// Correct unit
+    #[error("Invalid unit")]
+    #[diagnostic(
+        code(nu::shell::invalid_unit),
+        help("Supported units are: {supported_units}")
+    )]
+    InvalidUnit {
+        supported_units: String,
+        #[label("encountered here")]
         span: Span,
     },
 

@@ -374,9 +374,7 @@ fn send_multipart_request(
             let mut builder = MultipartWriter::new();
 
             let err = |e: std::io::Error| {
-                ShellErrorOrRequestError::ShellError(
-                    IoError::new_with_additional_context(e.kind(), span, None, e).into(),
-                )
+                ShellErrorOrRequestError::ShellError(IoError::new(e, span, None).into())
             };
 
             for (col, val) in val.into_owned() {
@@ -466,12 +464,7 @@ fn send_cancellable_request(
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn HTTP requester",
-            )
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
         })
         .map_err(ShellError::from)?;
 
@@ -529,12 +522,7 @@ fn send_cancellable_request_bytes(
             let _ = tx.send(ret);
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn HTTP requester",
-            )
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
         })
         .map_err(ShellError::from)?;
 
@@ -685,7 +673,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                         break 'io generic_network_failure();
                     };
 
-                    ShellError::Io(IoError::new(io_error.kind(), span, None))
+                    ShellError::Io(IoError::new(io_error, span, None))
                 }
                 _ => generic_network_failure(),
             }

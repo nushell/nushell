@@ -379,7 +379,7 @@ macro_rules! generate_tests {
                 .with_help("some help")
                 .with_label("msg", Span::new(2, 30))
                 .with_inner(ShellError::Io(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::from_std(std::io::ErrorKind::NotFound),
                     Span::test_data(),
                     None,
                 )));

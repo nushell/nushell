@@ -2,6 +2,7 @@ use nu_command::{Comparator, sort, sort_by, sort_record};
 use nu_protocol::{
     Record, Span, Value,
     ast::{CellPath, PathMember},
+    casing::Casing,
     record,
 };
 
@@ -527,6 +528,7 @@ fn test_sort_equivalent() {
             val: "value".to_string(),
             span: Span::test_data(),
             optional: false,
+            casing: Casing::Sensitive,
         }],
     });
 

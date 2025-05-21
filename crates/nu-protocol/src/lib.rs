@@ -2,6 +2,7 @@
 #![doc = include_str!("../README.md")]
 mod alias;
 pub mod ast;
+pub mod casing;
 pub mod config;
 pub mod debugger;
 mod deprecation;
@@ -28,7 +29,7 @@ mod ty;
 mod value;
 
 pub use alias::*;
-pub use ast::Unit;
+pub use ast::unit::*;
 pub use config::*;
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;

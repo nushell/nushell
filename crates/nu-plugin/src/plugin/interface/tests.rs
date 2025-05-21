@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
     PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
-    engine::Closure,
+    engine::Closure, shell_error,
 };
 use std::{
     collections::HashMap,
@@ -91,7 +91,7 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
 fn test_io_error() -> ShellError {
     ShellError::Io(IoError::new_with_additional_context(
-        std::io::ErrorKind::Other,
+        shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
         Span::test_data(),
         None,
         "test io error",

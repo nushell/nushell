@@ -1,4 +1,4 @@
-use crate::{ast::Call, FromValue, ParseWarning, ShellError, Type, Value};
+use crate::{FromValue, ParseWarning, ShellError, Type, Value, ast::Call};
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.

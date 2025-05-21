@@ -51,6 +51,7 @@ nix = { workspace = true, default-features = false, features = ["signal"] }
 [target.'cfg(windows)'.dependencies]
 dirs-sys = { workspace = true }
 windows-sys = { workspace = true }
+windows = { workspace = true }
 
 [features]
 default = ["os"]

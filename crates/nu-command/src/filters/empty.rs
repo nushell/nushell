@@ -15,7 +15,7 @@ pub fn empty(
     if !columns.is_empty() {
         for val in input {
             for column in &columns {
-                if !val.follow_cell_path(&column.members, false)?.is_nothing() {
+                if !val.follow_cell_path(&column.members)?.is_nothing() {
                     return Ok(Value::bool(negate, head).into_pipeline_data());
                 }
             }
@@ -37,7 +37,7 @@ pub fn empty(
                             .bytes()
                             .next()
                             .transpose()
-                            .map_err(|err| IoError::new(err.kind(), span, None))?
+                            .map_err(|err| IoError::new(err, span, None))?
                             .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())

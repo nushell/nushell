@@ -3998,6 +3998,7 @@ dependencies = [
  "thiserror 2.0.12",
  "typetag",
  "web-time",
+ "windows 0.56.0",
  "windows-sys 0.48.0",
 ]
 

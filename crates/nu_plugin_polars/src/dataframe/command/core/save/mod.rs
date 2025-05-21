@@ -16,7 +16,8 @@ use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, shell_error::io::IoError,
+    SyntaxShape, Type,
+    shell_error::{self, io::IoError},
 };
 use polars::error::PolarsError;
 
@@ -212,7 +213,7 @@ fn command(
             )),
         },
         None => Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::NotFound,
+            shell_error::io::ErrorKind::FileNotFound,
             resource.span,
             Some(PathBuf::from(resource.path)),
             "File without extension",

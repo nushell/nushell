@@ -1,6 +1,7 @@
 use crate::{
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
     ast::{CellPath, PathMember},
+    casing::Casing,
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
@@ -587,6 +588,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
+                    casing: Casing::Sensitive,
                 }],
             }),
             Value::Int { val, .. } => {
