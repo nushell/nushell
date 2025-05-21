@@ -8,7 +8,7 @@ use crate::{self as nu_protocol, ReportMode, Span};
 #[derive(FromValue)]
 pub struct DeprecationEntry {
     // might need to revisit this if we added additional DeprecationTypes
-    #[nu_value(rename = "flag")]
+    #[nu_value(rename = "flag", default)]
     ty: DeprecationType,
     #[nu_value(rename = "report")]
     pub report_mode: ReportMode,

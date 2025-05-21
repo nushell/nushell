@@ -26,6 +26,8 @@ use std::{
 /// - If `#[nu_value(rename_all = "...")]` is applied on the container (struct) the key of the
 ///   field will be case-converted accordingly.
 /// - If neither attribute is applied, the field name is used as is.
+/// - If `#[nu_value(default)]` is applied to a field, the field type's [`Default`] implementation
+///   will be used if the corresponding record field is missing
 ///
 /// Supported case conversions include those provided by [`heck`], such as
 /// "snake_case", "kebab-case", "PascalCase", and others.
