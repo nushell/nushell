@@ -1,0 +1,52 @@
+#!/usr/bin/env nu
+
+# Created: 2025/05/21 19:05:20
+# Description:
+#   A script to build a Windows MSI package for NuShell. Need wix 6.0 or later.
+#   The script will download the specified NuShell release, extract it, and create an MSI package.
+
+def build-msi [] {
+    let target = $env.TARGET
+    let version = (open Cargo.toml | get package.version)
+    let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
+
+    print $'Building msi package for (ansi g)($target)(ansi reset) with version (ansi g)($env.REF)(ansi reset)'
+    fetch-nu-pkg
+    # Create extra Windows msi release package if dotnet and wix are available
+    let installed = [dotnet wix] | all { (which $in | length) > 0 }
+    if $installed and (wix --version | split row . | first | into int) >= 6 {
+
+        print $'(char nl)Start creating Windows msi package with the following contents...'
+        cd wix; hr-line
+        cp nu/README.txt .
+        ls -f nu/* | print
+        ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)'
+        glob **/*.msi | print
+        # Workaround for https://github.com/softprops/action-gh-release/issues/280
+        let wixRelease = (glob **/*.msi | where $it =~ bin | get 0 | str replace --all '\' '/')
+        let msi = $'($wixRelease | path dirname)/nu-($version)-($target).msi'
+        mv $wixRelease $msi
+        print $'MSI archive: ---> ($msi)';
+        echo $"msi=($msi)(char nl)" o>> $env.GITHUB_OUTPUT
+    }
+}
+
+def fetch-nu-pkg [] {
+    mkdir wix/nu
+    gh release download $env.REF --repo nushell/nightly --pattern $'*-($env.TARGET).zip' --dir wix/nu
+    cd wix/nu
+    let pkg = ls *.zip | get name.0
+    unzip $pkg
+    rm $pkg
+    ls | print
+}
+
+# Print a horizontal line marker
+def 'hr-line' [
+    --blank-line(-b)
+] {
+    print $'(ansi g)---------------------------------------------------------------------------->(ansi reset)'
+    if $blank_line { char nl }
+}
+
+alias main = build-msi
