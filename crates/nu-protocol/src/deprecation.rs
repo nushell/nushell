@@ -18,17 +18,13 @@ pub struct DeprecationEntry {
 }
 
 /// What this deprecation affects
+#[derive(Default)]
 enum DeprecationType {
     /// Deprecation of whole command
+    #[default]
     Command,
     /// Deprecation of a flag/switch
     Flag(String),
-}
-
-impl Default for DeprecationType {
-    fn default() -> Self {
-        DeprecationType::Command
-    }
 }
 
 impl FromValue for DeprecationType {
@@ -67,7 +63,7 @@ impl FromValue for ReportMode {
             _ => Err(ShellError::InvalidValue {
                 valid: "first or every".into(),
                 actual: val,
-                span: span,
+                span,
             }),
         }
     }
@@ -99,11 +95,11 @@ impl DeprecationEntry {
         };
         let since = match &self.since {
             Some(since) => format!("was deprecated in {since}"),
-            None => format!("is deprecated"),
+            None => "is deprecated".to_string(),
         };
         let removal = match &self.expected_removal {
             Some(expected) => format!("and will be removed in {expected}"),
-            None => format!("and will be removed in a future release"),
+            None => "and will be removed in a future release".to_string(),
         };
         format!("{name} {since} {removal}.")
     }

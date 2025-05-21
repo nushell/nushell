@@ -8,7 +8,7 @@ use nu_protocol::{
 ///
 /// Only supports functions in [`Call`] and [`CallExt`] which have a `const` suffix.
 ///
-/// To use, the acutal command logic should be moved to a function. Then, `eval` and `eval_const` can be implemented like this:
+/// To use, the actual command logic should be moved to a function. Then, `eval` and `eval_const` can be implemented like this:
 /// ```rust
 /// fn run(&self, engine_state: &EngineState, stack: &mut Stack, call: &Call) -> ... {
 ///     let call = WrapCall::Eval(engine_state, stack, call);

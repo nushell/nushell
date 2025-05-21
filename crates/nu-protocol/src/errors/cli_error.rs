@@ -46,7 +46,7 @@ pub enum ReportMode {
 /// Returns true if this warning should be reported
 fn should_show_warning(warning: &ParseWarning) -> bool {
     match warning.report_mode() {
-        ReportMode::EveryUse => return true,
+        ReportMode::EveryUse => true,
         ReportMode::FirstUse => {
             let mut hasher = DefaultHasher::new();
             warning.hash(&mut hasher);
