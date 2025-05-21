@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
 use nu_test_support::playground::Playground;
@@ -333,4 +333,15 @@ fn source_respects_early_return() {
     ));
 
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn source_after_use_should_not_error() {
+    Playground::setup("source_after_use", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("spam.nu")]);
+
+        let inp = &[r#"use spam.nu"#, r#"source spam.nu"#];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert!(actual.err.is_empty());
+    })
 }

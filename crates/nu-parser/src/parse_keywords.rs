@@ -2128,6 +2128,9 @@ pub fn parse_module_block(
 
     working_set.exit_scope();
 
+    if working_set.parse_errors.is_empty() {
+        super::parser::compile_block(working_set, &mut block)
+    }
     (block, module, module_comments)
 }
 
