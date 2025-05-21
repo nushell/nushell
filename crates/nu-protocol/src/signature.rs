@@ -1,8 +1,9 @@
 use crate::{
-    BlockId, DeprecationStatus, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+    BlockId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape, Type,
+    Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
-use nu_derive_value::FromValue;
+use nu_derive_value::FromValue as DeriveFromValue;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -701,7 +702,7 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
     }
 }
 
-#[derive(Clone, FromValue)]
+#[derive(Clone, DeriveFromValue)]
 pub struct CustomExample {
     pub example: String,
     pub description: String,
@@ -786,14 +787,15 @@ impl Command for BlockCommand {
             .collect()
     }
 
-    fn deprecation_status(&self) -> DeprecationStatus {
-        let deprecated_attr = self.attributes.iter().find(|(key, _)| key == "deprecated");
-        match deprecated_attr {
-            Some((_, Value::String { val, .. })) => {
-                DeprecationStatus::Deprecated(Some(val.clone()))
-            }
-            Some((_, _)) => DeprecationStatus::Deprecated(None),
-            None => DeprecationStatus::Undeprecated,
-        }
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        self.attributes
+            .iter()
+            .filter_map(|(key, value)| {
+                (key == "deprecated")
+                    .then_some(value.clone())
+                    .map(DeprecationEntry::from_value)
+                    .and_then(Result::ok)
+            })
+            .collect()
     }
 }

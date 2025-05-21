@@ -17,7 +17,7 @@ impl Command for AttrDeprecated {
             .optional(
                 "message",
                 SyntaxShape::String,
-                "Message to include with deprecation warning.",
+                "Help message to include with deprecation warning.",
             )
             .category(Category::Core)
     }
@@ -37,11 +37,8 @@ impl Command for AttrDeprecated {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let message: Option<Value> = call.opt(engine_state, stack, 0)?;
-        match message {
-            Some(message) => Ok(message.into_pipeline_data()),
-            None => Ok(PipelineData::Empty),
-        }
+        let message: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        Ok(deprecated_record(message, call.head).into_pipeline_data())
     }
 
     fn run_const(
@@ -50,11 +47,8 @@ impl Command for AttrDeprecated {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let message: Option<Value> = call.opt_const(working_set, 0)?;
-        match message {
-            Some(message) => Ok(message.into_pipeline_data()),
-            None => Ok(PipelineData::Empty),
-        }
+        let message: Option<Spanned<String>> = call.opt_const(working_set, 0)?;
+        Ok(deprecated_record(message, call.head).into_pipeline_data())
     }
 
     fn is_const(&self) -> bool {
@@ -81,4 +75,14 @@ impl Command for AttrDeprecated {
             },
         ]
     }
+}
+
+fn deprecated_record(message: Option<Spanned<String>>, head: Span) -> Value {
+    let mut record = record! {
+        "report" => Value::string("first", head),
+    };
+    if let Some(message) = message {
+        record.push("help", Value::string(message.item, message.span));
+    }
+    Value::record(record, head)
 }

@@ -3,17 +3,19 @@
 //! Relies on the `miette` crate for pretty layout
 use std::{
     collections::HashSet,
+    hash::{DefaultHasher, Hash, Hasher},
     sync::{LazyLock, Mutex},
 };
 
 use crate::{
-    CompileError, DeclId, ErrorStyle, ParseError, ParseWarning, ShellError,
+    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
     engine::{EngineState, StateWorkingSet},
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
 };
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// The thread-global log of reported errors and warnings, so specific reports are only shown once
@@ -30,26 +32,30 @@ struct CliError<'src>(
 
 #[derive(Default)]
 struct ReportLog {
-    deprecation_warnings: HashSet<DeclId>,
+    // stores the hashes of `ParseWarning`s so we don't have to keep the whole thing in memory
+    parse_warnings: HashSet<u64>,
+}
+
+/// How a warning/error should be reported
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ReportMode {
+    FirstUse,
+    EveryUse,
 }
 
 /// Returns true if this warning should be reported
 fn should_show_warning(warning: &ParseWarning) -> bool {
-    if let Some(decl_id) = match warning {
-        ParseWarning::DeprecatedWarning { decl_id, .. } => Some(decl_id),
-        ParseWarning::DeprecatedWarningWithMessage { decl_id, .. } => Some(decl_id),
-        // this is unreachable right now, but future additions to ParseWarning shouldn't be matched here
-        #[allow(unreachable_patterns)]
-        _ => None,
-    } {
-        let is_first_report = REPORT_LOG
-            .lock()
-            .expect("report log is poisioned")
-            .deprecation_warnings
-            .insert(*decl_id);
-        is_first_report
-    } else {
-        true
+    match warning.report_mode() {
+        ReportMode::EveryUse => return true,
+        ReportMode::FirstUse => {
+            let mut hasher = DefaultHasher::new();
+            warning.hash(&mut hasher);
+            REPORT_LOG
+                .lock()
+                .expect("report log is poisioned")
+                .parse_warnings
+                .insert(hasher.finish())
+        }
     }
 }
 

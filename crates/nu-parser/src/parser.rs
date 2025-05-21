@@ -971,7 +971,7 @@ pub fn parse_internal_call(
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
-    let deprecation_status = decl.deprecation_status();
+    let deprecation = decl.deprecation_info();
 
     // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = match decl.name() {
@@ -1266,9 +1266,12 @@ pub fn parse_internal_call(
 
     check_call(working_set, command_span, &signature, &call);
 
-    if let Some(warning) = deprecation_status.into_warning(&signature.name, &call) {
-        working_set.warning(warning);
-    }
+    deprecation
+        .into_iter()
+        .filter_map(|entry| entry.parse_warning(&signature.name, &call))
+        .for_each(|warning| {
+            working_set.warning(warning);
+        });
 
     if signature.creates_scope {
         working_set.exit_scope();

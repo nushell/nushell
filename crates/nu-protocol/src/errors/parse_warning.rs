@@ -1,35 +1,64 @@
-use crate::{DeclId, Span};
+use crate::Span;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 use thiserror::Error;
+
+use super::ReportMode;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
-    #[error("Command deprecated.")]
+    #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
-    DeprecatedWarning {
-        old_command: String,
-        #[label("{old_command} is deprecated and will be removed in a future release.")]
+    DeprecationWarning {
+        dep_type: String,
+        #[label("{label}")]
         span: Span,
-        decl_id: DeclId,
+        label: String,
+        report_mode: ReportMode,
     },
-    #[error("Command deprecated.")]
+    #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
     #[diagnostic(help("{help}"))]
-    DeprecatedWarningWithMessage {
-        old_command: String,
-        #[label("{old_command} is deprecated and will be removed in a future release.")]
+    DeprecationWarningWithHelp {
+        dep_type: String,
+        #[label("{label}")]
         span: Span,
+        label: String,
+        report_mode: ReportMode,
         help: String,
-        decl_id: DeclId,
     },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
-            ParseWarning::DeprecatedWarning { span, .. } => *span,
-            ParseWarning::DeprecatedWarningWithMessage { span, .. } => *span,
+            ParseWarning::DeprecationWarning { span, .. } => *span,
+            ParseWarning::DeprecationWarningWithHelp { span, .. } => *span,
+        }
+    }
+
+    pub fn report_mode(&self) -> ReportMode {
+        match self {
+            ParseWarning::DeprecationWarning { report_mode, .. } => *report_mode,
+            ParseWarning::DeprecationWarningWithHelp { report_mode, .. } => *report_mode,
+        }
+    }
+}
+
+// To keep track of reported warnings
+impl Hash for ParseWarning {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            ParseWarning::DeprecationWarningWithHelp {
+                dep_type, label, ..
+            }
+            | ParseWarning::DeprecationWarning {
+                dep_type, label, ..
+            } => {
+                dep_type.hash(state);
+                label.hash(state);
+            }
         }
     }
 }
