@@ -3609,6 +3609,7 @@ name = "nu-cmd-lang"
 version = "0.104.1"
 dependencies = [
  "itertools 0.13.0",
+ "nu-cmd-base",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
