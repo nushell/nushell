@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, ParseError, ParseWarning, Signature, Span, SyntaxShape, Type,
+    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
