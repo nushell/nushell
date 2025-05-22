@@ -89,12 +89,22 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.coerce_into_string()?;
+    let mut requested_url = raw_url.coerce_into_string()?;
+    if requested_url.starts_with(':') {
+        requested_url = format!("http://localhost{}", requested_url);
+    } else if !requested_url.starts_with("http://") && !requested_url.starts_with("https://") {
+        requested_url = format!("http://{}", requested_url);
+    }
+
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
+            return Err(ShellError::UnsupportedInput {
+                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
+                input: format!("value: '{requested_url:?}'"),
+                msg_span: call.head,
+                input_span: span
+            });
         }
     };
 
