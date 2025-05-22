@@ -2,7 +2,7 @@
 
 # Created: 2025/05/21 19:05:20
 # Description:
-#   A script to build a Windows MSI package for NuShell. Need wix 6.0 or later.
+#   A script to build Windows MSI packages for NuShell. Need wix 6.0 to be installed.
 #   The script will download the specified NuShell release, extract it, and create an MSI package.
 
 def build-msi [] {
@@ -33,7 +33,7 @@ def build-msi [] {
 
 def fetch-nu-pkg [] {
     mkdir wix/nu
-    gh release download $env.REF --repo nushell/nightly --pattern $'*-($env.TARGET).zip' --dir wix/nu
+    gh release download $env.REF --pattern $'*-($env.TARGET).zip' --dir wix/nu
     cd wix/nu
     let pkg = ls *.zip | get name.0
     unzip $pkg

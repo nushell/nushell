@@ -7,12 +7,11 @@ name: Create Windows MSI
 on:
   push:
     branches:
-      - feature/winget-publish
+      - feature/winget-release
   workflow_dispatch:
     inputs:
       tag:
         required: true
-        default: 'v0.103.0'
         description: 'Tag to Rebuild MSI'
 
 defaults:
@@ -63,16 +62,15 @@ jobs:
       run: nu .github/workflows/release-msi.nu
       env:
         OS: ${{ matrix.os }}
-        REF: ${{ inputs.tag || 'v0.103.0' }}
+        REF: ${{ inputs.tag }}
         TARGET: ${{ matrix.target }}
-        _EXTRA_: ${{ matrix.extra }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
       uses: softprops/action-gh-release@v2.0.5
       with:
-        tag_name: ${{ inputs.tag || 'v0.103.0' }}
+        tag_name: ${{ inputs.tag }}
         files: ${{ steps.nu.outputs.msi }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,7 +84,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: >-
-        gh release download ${{ inputs.tag || 'v0.103.0' }}
+        gh release download ${{ inputs.tag }}
         --repo ${{ github.repository }}
         --pattern '*'
         --dir release
@@ -96,6 +94,6 @@ jobs:
       uses: softprops/action-gh-release@v2.0.5
       with:
         files: SHA256SUMS
-        tag_name: ${{ inputs.tag || 'v0.103.0' }}
+        tag_name: ${{ inputs.tag }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
