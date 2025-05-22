@@ -2,12 +2,9 @@
 # REF:
 #   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
 #
-name: Create Windows MSI
+name: Build Windows MSI
 
 on:
-  push:
-    branches:
-      - feature/winget-release
   workflow_dispatch:
     inputs:
       tag:
