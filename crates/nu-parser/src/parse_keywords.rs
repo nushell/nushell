@@ -1,7 +1,7 @@
 use crate::{
     exportable::Exportable,
     parse_block,
-    parser::{parse_attribute, parse_redirection, redirecting_builtin_error},
+    parser::{compile_block, parse_attribute, parse_redirection, redirecting_builtin_error},
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -2128,9 +2128,6 @@ pub fn parse_module_block(
 
     working_set.exit_scope();
 
-    if working_set.parse_errors.is_empty() {
-        super::parser::compile_block(working_set, &mut block)
-    }
     (block, module, module_comments)
 }
 
@@ -3808,12 +3805,16 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
-                        let block = parse(
+                        let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
+                        if block.ir_block.is_none() {
+                            let block_mut = Arc::make_mut(&mut block);
+                            compile_block(working_set, block_mut);
+                        }
 
                         // Remove the file from the stack of files being processed.
                         working_set.files.pop();
