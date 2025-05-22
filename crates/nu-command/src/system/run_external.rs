@@ -187,12 +187,10 @@ impl Command for External {
             }
         } else if potential_powershell_script {
             command.args([
-                "-Command",
+                "-File",
                 &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
             ]);
-            for arg in &args {
-                command.raw_arg(arg.item.clone());
-            }
+            command.args(args.into_iter().map(|s| s.item));
         } else {
             command.args(args.into_iter().map(|s| s.item));
         }
