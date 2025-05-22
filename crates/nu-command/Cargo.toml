@@ -91,6 +91,8 @@ rusqlite = { workspace = true, features = [
 	"backup",
 	"chrono",
 ], optional = true }
+rustls = { workspace = true, optional = true }
+rustls-native-certs = { workspace = true, optional = true }
 rmp = { workspace = true }
 scopeguard = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -108,7 +110,6 @@ ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
 	"json",
-	"native-tls",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -165,7 +166,7 @@ features = [
 workspace = true
 
 [features]
-default = ["os"]
+default = ["os", "native-tls"]
 os = [
 	# include other features
 	"js",
@@ -197,11 +198,23 @@ js = ["getrandom", "getrandom/js", "rand", "uuid"]
 # interface requires openssl which is not easy to embed into wasm,
 # using rustls could solve this issue.
 network = [
+	# these two don't require openssl
 	"multipart-rs",
-	"native-tls",
-	"update-informer/native-tls",
-	"ureq",
 	"uuid",
+	"ureq",
+	"update-informer"
+]
+
+native-tls = [
+	"dep:native-tls",
+	"update-informer/native-tls",
+	"ureq/native-tls",
+]
+rustls-tls = [
+	"dep:rustls",
+	"dep:rustls-native-certs",
+	"update-informer/rustls-tls",
+	"ureq/tls", # ureq 3 will has the feature rustls instead
 ]
 
 plugin = ["nu-parser/plugin", "os"]
