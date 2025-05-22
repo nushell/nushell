@@ -4,6 +4,10 @@
 # Description:
 #   A script to build Windows MSI packages for NuShell. Need wix 6.0 to be installed.
 #   The script will download the specified NuShell release, extract it, and create an MSI package.
+#   Can be run locally or in GitHub Actions.
+# To run this script locally:
+#   load-env { TARGET: 'x86_64-pc-windows-msvc' REF: '0.103.0' GITHUB_REPOSITORY: 'nushell/nushell' }
+#   nu .github/workflows/release-msi.nu
 
 def build-msi [] {
     let target = $env.TARGET
@@ -27,13 +31,17 @@ def build-msi [] {
         let msi = $'($wixRelease | path dirname)/nu-($version)-($target).msi'
         mv $wixRelease $msi
         print $'MSI archive: ---> ($msi)';
-        echo $"msi=($msi)(char nl)" o>> $env.GITHUB_OUTPUT
+        # Run only in GitHub Actions
+        if ($env.GITHUB_ACTIONS? | default false | into bool) {
+            echo $"msi=($msi)(char nl)" o>> $env.GITHUB_OUTPUT
+        }
     }
 }
 
 def fetch-nu-pkg [] {
     mkdir wix/nu
-    gh release download $env.REF --pattern $'*-($env.TARGET).zip' --dir wix/nu
+    # See: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
+    gh release download $env.REF --repo $env.GITHUB_REPOSITORY --pattern $'*-($env.TARGET).zip' --dir wix/nu
     cd wix/nu
     let pkg = ls *.zip | get name.0
     unzip $pkg
