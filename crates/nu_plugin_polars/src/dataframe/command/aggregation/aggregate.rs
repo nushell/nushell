@@ -184,7 +184,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Exclude(expr, _)
         | Expr::Alias(expr, _)
         | Expr::KeepName(expr)
-        | Expr::Explode(expr) => get_col_name(expr.as_ref()),
+        | Expr::Explode { input: expr, .. } => get_col_name(expr.as_ref()),
         Expr::Ternary { .. }
         | Expr::AnonymousFunction { .. }
         | Expr::Function { .. }

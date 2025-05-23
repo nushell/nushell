@@ -166,7 +166,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
         "time" => Ok(DataType::Time),
         "null" => Ok(DataType::Null),
         "unknown" => Ok(DataType::Unknown(UnknownKind::Any)),
-        "object" => Ok(DataType::Object("unknown", None)),
+        "object" => Ok(DataType::Object("unknown")),
         _ if dtype.starts_with("list") => {
             let dtype = dtype
                 .trim_start_matches("list")

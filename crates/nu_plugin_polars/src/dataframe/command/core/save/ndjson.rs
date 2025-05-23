@@ -2,7 +2,7 @@ use std::{fs::File, io::BufWriter};
 
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{JsonWriter, SerWriter};
+use polars::prelude::{JsonWriter, SerWriter, SinkOptions};
 use polars_io::json::JsonWriterOptions;
 
 use crate::{
@@ -24,8 +24,10 @@ pub(crate) fn command_lazy(
             file_path,
             JsonWriterOptions::default(),
             resource.cloud_options,
+            SinkOptions::default(),
         )
         .map_err(|e| polars_file_save_error(e, file_span))
+        .map(|_| ())
 }
 
 pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), ShellError> {
