@@ -1,3 +1,10 @@
+//! TLS support for networking commands.
+//!
+//! This module is available when the `network` feature is enabled. It requires
+//! either the `native-tls` or `rustls-tls` feature to be selected.
+//!
+//! See [`tls`] for how to get a TLS connector.
+
 #[cfg(feature = "native-tls")]
 #[path = "impl_native_tls.rs"]
 mod impl_tls;
