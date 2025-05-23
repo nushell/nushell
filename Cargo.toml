@@ -278,7 +278,7 @@ default = [
   "plugin",
   "trash-support",
   "sqlite",
-  "native-tls"
+  "rustls-tls"
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command

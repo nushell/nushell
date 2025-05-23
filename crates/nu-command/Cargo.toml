@@ -166,7 +166,7 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "native-tls"]
+default = ["os", "rustls-tls"]
 os = [
 	# include other features
 	"js",
