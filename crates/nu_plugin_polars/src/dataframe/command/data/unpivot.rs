@@ -187,6 +187,7 @@ impl PluginCommand for Unpivot {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
             PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
@@ -199,6 +200,7 @@ impl PluginCommand for Unpivot {
             }),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

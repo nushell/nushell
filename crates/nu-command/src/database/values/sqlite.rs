@@ -41,12 +41,11 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_path(path: &Path, span: Span, signals: Signals) -> Result<Self, ShellError> {
-        let mut file =
-            File::open(path).map_err(|e| IoError::new(e.kind(), span, PathBuf::from(path)))?;
+        let mut file = File::open(path).map_err(|e| IoError::new(e, span, PathBuf::from(path)))?;
 
         let mut buf: [u8; 16] = [0; 16];
         file.read_exact(&mut buf)
-            .map_err(|e| ShellError::Io(IoError::new(e.kind(), span, PathBuf::from(path))))
+            .map_err(|e| ShellError::Io(IoError::new(e, span, PathBuf::from(path))))
             .and_then(|_| {
                 if buf == SQLITE_MAGIC_BYTES {
                     Ok(SQLiteDatabase::new(path, signals))

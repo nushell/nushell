@@ -5,7 +5,7 @@ use nu_protocol::{
     DeclId, ShellError, Span, Value, VarId,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
-    shell_error::io::{ErrorKindExt, IoError, NotFound},
+    shell_error::io::{IoError, IoErrorExt, NotFound},
 };
 use reedline::Completer;
 use serde_json::{Value as JsonValue, json};
@@ -58,7 +58,7 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .map_err(|err| {
             ShellError::Io(IoError::new_with_additional_context(
-                err.kind().not_found_as(NotFound::File),
+                err.not_found_as(NotFound::File),
                 Span::unknown(),
                 PathBuf::from(file_path),
                 "Could not read file",

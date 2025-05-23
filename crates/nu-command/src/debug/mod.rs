@@ -9,6 +9,7 @@ mod metadata_access;
 mod metadata_set;
 mod profile;
 mod timeit;
+mod util;
 mod view;
 mod view_blocks;
 mod view_files;

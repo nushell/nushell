@@ -222,14 +222,14 @@ impl PipelineData {
                 let bytes = value_to_bytes(value)?;
                 dest.write_all(&bytes).map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not write PipelineData to dest",
                         crate::location!(),
                     )
                 })?;
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -241,14 +241,14 @@ impl PipelineData {
                     let bytes = value_to_bytes(value)?;
                     dest.write_all(&bytes).map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write PipelineData to dest",
                             crate::location!(),
                         )
                     })?;
                     dest.write_all(b"\n").map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write linebreak after PipelineData to dest",
                             crate::location!(),
                         )
@@ -256,7 +256,7 @@ impl PipelineData {
                 }
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -411,16 +411,13 @@ impl PipelineData {
         self,
         cell_path: &[PathMember],
         head: Span,
-        insensitive: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path, insensitive)
+                .follow_cell_path(cell_path)
                 .map(Cow::into_owned),
-            PipelineData::Value(v, ..) => v
-                .follow_cell_path(cell_path, insensitive)
-                .map(Cow::into_owned),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
                 span: head,
@@ -778,11 +775,9 @@ where
     let io_error_map = |err: std::io::Error, location: Location| {
         let context = format!("Writing to {} failed", destination_name);
         match span {
-            None => IoError::new_internal(err.kind(), context, location),
-            Some(span) if span == Span::unknown() => {
-                IoError::new_internal(err.kind(), context, location)
-            }
-            Some(span) => IoError::new_with_additional_context(err.kind(), span, None, context),
+            None => IoError::new_internal(err, context, location),
+            Some(span) if span == Span::unknown() => IoError::new_internal(err, context, location),
+            Some(span) => IoError::new_with_additional_context(err, span, None, context),
         }
     };
 

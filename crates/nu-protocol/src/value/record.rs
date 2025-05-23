@@ -1,13 +1,70 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{iter::FusedIterator, ops::RangeBounds};
 
-use crate::{ShellError, Span, Value};
+use crate::{ShellError, Span, Value, casing::Casing};
 
+use nu_utils::IgnoreCaseExt;
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
     inner: Vec<(String, Value)>,
+}
+
+/// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
+///
+/// Implements commonly used methods of [`Record`].
+pub struct CasedRecord<R> {
+    record: R,
+    casing: Casing,
+}
+
+impl<R> CasedRecord<R> {
+    fn cmp(&self, lhs: &str, rhs: &str) -> bool {
+        match self.casing {
+            Casing::Sensitive => lhs == rhs,
+            Casing::Insensitive => lhs.eq_ignore_case(rhs),
+        }
+    }
+}
+
+impl<'a> CasedRecord<&'a Record> {
+    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+        self.record.columns().any(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+        self.record
+            .columns()
+            .rposition(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn get(self, col: impl AsRef<str>) -> Option<&'a Value> {
+        let idx = self.index_of(col)?;
+        let (_, value) = self.record.get_index(idx)?;
+        Some(value)
+    }
+}
+
+impl<'a> CasedRecord<&'a mut Record> {
+    fn shared(&'a self) -> CasedRecord<&'a Record> {
+        CasedRecord {
+            record: &*self.record,
+            casing: self.casing,
+        }
+    }
+
+    pub fn get_mut(self, col: impl AsRef<str>) -> Option<&'a mut Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, value) = self.record.get_index_mut(idx)?;
+        Some(value)
+    }
+
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, val) = self.record.inner.remove(idx);
+        Some(val)
+    }
 }
 
 impl Record {
@@ -18,6 +75,20 @@ impl Record {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn cased(&self, casing: Casing) -> CasedRecord<&Record> {
+        CasedRecord {
+            record: self,
+            casing,
+        }
+    }
+
+    pub fn cased_mut(&mut self, casing: Casing) -> CasedRecord<&mut Record> {
+        CasedRecord {
+            record: self,
+            casing,
         }
     }
 
@@ -106,6 +177,12 @@ impl Record {
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
         self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
+    }
+
+    pub fn get_index_mut(&mut self, idx: usize) -> Option<(&mut String, &mut Value)> {
+        self.inner
+            .get_mut(idx)
+            .map(|(col, val): &mut (_, _)| (col, val))
     }
 
     /// Remove single value by key

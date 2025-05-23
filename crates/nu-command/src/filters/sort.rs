@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 
 use crate::Comparator;
 
@@ -164,7 +164,14 @@ impl Command for Sort {
                 if let Type::Table(cols) = r#type {
                     let columns: Vec<Comparator> = cols
                         .iter()
-                        .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
+                        .map(|col| {
+                            vec![PathMember::string(
+                                col.0.clone(),
+                                false,
+                                Casing::Sensitive,
+                                Span::unknown(),
+                            )]
+                        })
                         .map(|members| CellPath { members })
                         .map(Comparator::CellPath)
                         .collect();

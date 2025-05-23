@@ -53,9 +53,9 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
         let rest = call.rest::<Value>(engine_state, stack, 0)?;
-        let name_args = rest.split_first();
+        let name_args = rest.split_first().map(|(x, y)| (x, y.to_vec()));
 
-        let Some((name, call_args)) = name_args else {
+        let Some((name, mut call_args)) = name_args else {
             return Err(ShellError::MissingParameter {
                 param_name: "no command given".into(),
                 span: call.head,
@@ -65,6 +65,17 @@ impl Command for External {
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
             Value::String { val, .. } => Cow::Borrowed(val),
+            Value::List { vals, .. } => {
+                let Some((first, args)) = vals.split_first() else {
+                    return Err(ShellError::MissingParameter {
+                        param_name: "external command given as list empty".into(),
+                        span: call.head,
+                    });
+                };
+                // Prepend elements in command list to the list of arguments except the first
+                call_args.splice(0..0, args.to_vec());
+                first.coerce_str()?
+            }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
@@ -164,7 +175,7 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -176,12 +187,10 @@ impl Command for External {
             }
         } else if potential_powershell_script {
             command.args([
-                "-Command",
+                "-File",
                 &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
             ]);
-            for arg in &args {
-                command.raw_arg(arg.item.clone());
-            }
+            command.args(args.into_iter().map(|s| s.item));
         } else {
             command.args(args.into_iter().map(|s| s.item));
         }
@@ -194,11 +203,11 @@ impl Command for External {
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
             let (reader, writer) =
-                os_pipe::pipe().map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
             command.stdout(
                 writer
                     .try_clone()
-                    .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    .map_err(|err| IoError::new(err, call.head, None))?,
             );
             command.stderr(writer);
             Some(reader)
@@ -209,8 +218,7 @@ impl Command for External {
                 command.stdout(Stdio::null());
             } else {
                 command.stdout(
-                    Stdio::try_from(stdout)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stdout).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -220,8 +228,7 @@ impl Command for External {
                 command.stderr(Stdio::null());
             } else {
                 command.stderr(
-                    Stdio::try_from(stderr)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stderr).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -269,7 +276,7 @@ impl Command for External {
 
         let mut child = child.map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not spawn foreground child",
                 nu_protocol::location!(),
             )
@@ -279,7 +286,7 @@ impl Command for External {
             if !thread_job.try_add_pid(child.pid()) {
                 kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not spawn external stdin worker",
                         nu_protocol::location!(),
                     ))
@@ -299,7 +306,7 @@ impl Command for External {
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
-                        err.kind(),
+                        err,
                         call.head,
                         None,
                         "Could not spawn external stdin worker",
@@ -487,7 +494,7 @@ fn write_pipeline_data(
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val).map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not write pipeline data",
                 nu_protocol::location!(),
             )
@@ -507,7 +514,7 @@ fn write_pipeline_data(
             let bytes = value.coerce_into_binary()?;
             writer.write_all(&bytes).map_err(|err| {
                 IoError::new_internal(
-                    err.kind(),
+                    err,
                     "Could not write pipeline data",
                     nu_protocol::location!(),
                 )

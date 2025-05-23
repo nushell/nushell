@@ -93,7 +93,7 @@ fn registry_query(
     let reg_hive = get_reg_hive(engine_state, stack, call)?;
     let reg_key = reg_hive
         .open_subkey(registry_key.item)
-        .map_err(|err| IoError::new(err.kind(), *registry_key_span, None))?;
+        .map_err(|err| IoError::new(err, *registry_key_span, None))?;
 
     if registry_value.is_none() {
         let mut reg_values = vec![];

@@ -77,7 +77,7 @@ impl FileInfo {
                     long,
                 })
             }
-            Err(e) => Err(IoError::new(e.kind(), tag, path).into()),
+            Err(e) => Err(IoError::new(e, tag, path).into()),
         }
     }
 }

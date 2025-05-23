@@ -86,7 +86,7 @@ impl Command for Watch {
             Ok(p) => p,
             Err(err) => {
                 return Err(ShellError::Io(IoError::new(
-                    err.kind(),
+                    err,
                     path_arg.span,
                     PathBuf::from(path_no_whitespace),
                 )));
