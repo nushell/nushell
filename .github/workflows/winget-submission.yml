@@ -26,4 +26,4 @@ jobs:
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
           token: ${{ secrets.NUSHELL_PAT }}
-          fork-user: fdncred
+          fork-user: nushell
