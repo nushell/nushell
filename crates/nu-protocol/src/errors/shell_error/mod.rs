@@ -1226,7 +1226,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     Deprecated {
         deprecated: &'static str,
         suggestion: String,
-        #[label("{deprecated} is deprecated. {suggestion}")]
+        #[label("{suggestion}")]
         span: Span,
         #[help]
         help: Option<&'static str>,
