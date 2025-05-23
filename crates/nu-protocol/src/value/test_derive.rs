@@ -669,3 +669,30 @@ fn renamed_variant_enum_roundtrip() {
         .into_test_value();
     assert_eq!(expected, actual);
 }
+
+#[derive(IntoValue, FromValue, Default, Debug, PartialEq)]
+struct DefaultFieldStruct {
+    #[nu_value(default)]
+    field: String,
+    #[nu_value(rename = "renamed", default)]
+    field_two: String,
+}
+
+#[test]
+fn default_field_struct_from_value() {
+    let populated = DefaultFieldStruct {
+        field: "hello".into(),
+        field_two: "world".into(),
+    };
+    let populated_record = Value::test_record(record! {
+        "field" => Value::test_string("hello"),
+        "renamed" => Value::test_string("world"),
+    });
+    let actual = DefaultFieldStruct::from_value(populated_record).unwrap();
+    assert_eq!(populated, actual);
+
+    let default = DefaultFieldStruct::default();
+    let default_record = Value::test_record(Record::new());
+    let actual = DefaultFieldStruct::from_value(default_record).unwrap();
+    assert_eq!(default, actual);
+}

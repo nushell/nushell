@@ -1,6 +1,7 @@
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature, Value, engine::Call,
+    Alias, BlockId, DeprecationEntry, Example, OutDest, PipelineData, ShellError, Signature, Value,
+    engine::Call,
 };
 use std::fmt::Display;
 
@@ -131,6 +132,10 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn is_plugin(&self) -> bool {
         self.command_type() == CommandType::Plugin
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![]
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
