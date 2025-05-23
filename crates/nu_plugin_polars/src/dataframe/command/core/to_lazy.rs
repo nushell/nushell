@@ -75,6 +75,7 @@ impl PluginCommand for ToLazyFrame {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let maybe_schema = call
             .get_flag("schema")?
             .map(|schema| NuSchema::try_from_value(plugin, &schema))
@@ -88,6 +89,7 @@ impl PluginCommand for ToLazyFrame {
             lazy.cache(plugin, engine, call.head)?.into_value(call.head),
             None,
         ))
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

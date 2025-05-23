@@ -61,8 +61,11 @@ impl PluginCommand for NotSeries {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
-        command(plugin, engine, call, df).map_err(LabeledError::from)
+        command(plugin, engine, call, df)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

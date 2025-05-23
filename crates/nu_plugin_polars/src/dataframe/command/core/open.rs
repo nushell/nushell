@@ -9,8 +9,8 @@ use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
     shell_error::{self, io::IoError},
 };
 
@@ -131,8 +131,8 @@ impl PluginCommand for OpenDataFrame {
         plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
-        _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, LabeledError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call).map_err(|e| e.into())
     }
 }
@@ -165,6 +165,11 @@ fn command(
     }
 
     let hive_options = build_hive_options(plugin, call)?;
+
+    let uri = spanned_file.item.clone();
+    let data_source = DataSource::FilePath(uri.into());
+
+    let metadata = PipelineMetadata::default().with_data_source(data_source);
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
@@ -200,7 +205,7 @@ fn command(
             "File without extension",
         ))),
     }
-    .map(|value| PipelineData::Value(value, None))
+    .map(|value| PipelineData::Value(value, Some(metadata)))
 }
 
 fn from_parquet(

@@ -66,6 +66,7 @@ impl PluginCommand for LazyFetch {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let rows: i64 = call.req(0)?;
         let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
@@ -87,6 +88,7 @@ impl PluginCommand for LazyFetch {
         eager
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

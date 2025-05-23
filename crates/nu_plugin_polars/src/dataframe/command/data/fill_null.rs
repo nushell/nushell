@@ -68,6 +68,7 @@ impl PluginCommand for LazyFillNull {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let fill: Value = call.req(0)?;
         let value = input.into_value(call.head)?;
 
@@ -85,6 +86,7 @@ impl PluginCommand for LazyFillNull {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
