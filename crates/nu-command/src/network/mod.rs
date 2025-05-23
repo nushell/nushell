@@ -3,7 +3,7 @@ mod http;
 #[cfg(feature = "network")]
 mod port;
 #[cfg(feature = "network")]
-mod tls;
+pub mod tls;
 mod url;
 #[cfg(feature = "network")]
 mod version_check;
