@@ -36,11 +36,8 @@ impl NuCryptoProvider {
     }
 
     pub fn set(&self, f: impl FnOnce() -> Result<CryptoProvider, ShellError>) -> bool {
-        let value = f().map(|v| Arc::new(v));
-        match self.0.set(value) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        let value = f().map(Arc::new);
+        self.0.set(value).is_ok()
     }
 
     pub fn default(&self) -> bool {
@@ -111,7 +108,7 @@ static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = LazyL
 static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = todo!();
 
 pub fn tls(allow_insecure: bool) -> Result<impl TlsConnector, ShellError> {
-    let crypto_provider = dbg!(CRYPTO_PROVIDER.get()?);
+    let crypto_provider = CRYPTO_PROVIDER.get()?;
 
     let make_protocol_versions_error = |err: rustls::Error| ShellError::GenericError {
         error: err.to_string(),
