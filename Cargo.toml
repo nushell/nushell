@@ -148,6 +148,8 @@ rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.31"
 rust-embed = "8.7.0"
+rustls = "0.23"
+rustls-native-certs = "0.8"
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0" }
 serde_json = "1.0.97"
@@ -164,7 +166,7 @@ tempfile = "3.20"
 titlecase = "3.5"
 toml = "0.8"
 trash = "5.2"
-update-informer = { version = "1.2.0", default-features = false, features = ["github", "native-tls", "ureq"] }
+update-informer = { version = "1.2.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
@@ -187,6 +189,7 @@ windows = "0.56"
 windows-sys = "0.48"
 winreg = "0.52"
 memchr = "2.7.4"
+webpki-roots = "1.0"
 
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
@@ -202,7 +205,7 @@ nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.104.2" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.104.2" }
 nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.104.2", optional = true }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.104.2" }
-nu-command = { path = "./crates/nu-command", version = "0.104.2" }
+nu-command = { path = "./crates/nu-command", version = "0.104.2", default-features = false, features = ["os"] }
 nu-engine = { path = "./crates/nu-engine", version = "0.104.2" }
 nu-explore = { path = "./crates/nu-explore", version = "0.104.2" }
 nu-lsp = { path = "./crates/nu-lsp/", version = "0.104.2" }
@@ -269,10 +272,14 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+native-tls = ["nu-command/native-tls"]
+rustls-tls = ["nu-command/rustls-tls"]
+
 default = [
   "plugin",
   "trash-support",
   "sqlite",
+  "rustls-tls"
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command

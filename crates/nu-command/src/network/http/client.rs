@@ -1,4 +1,4 @@
-use crate::formats::value_to_json_value;
+use crate::{formats::value_to_json_value, network::tls::tls};
 use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
@@ -56,20 +56,9 @@ pub fn http_client(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
-    let tls = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Failed to build network tls: {}", e),
-            msg: String::new(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
-        .tls_connector(std::sync::Arc::new(tls));
+        .tls_connector(std::sync::Arc::new(tls(allow_insecure)?));
 
     if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
         agent_builder = agent_builder.redirects(0);
