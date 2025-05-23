@@ -1,3 +1,5 @@
+use std::{borrow::Cow, ops::Deref};
+
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     ast::{Expr, Expression},
@@ -320,7 +322,14 @@ fn closure_variable_warning(
         // this is a closure from inside a variable
         (Value::Closure { .. }, true) => {
             let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
-            let suggestion = format!("change this to {{ {} }}", span_contents).to_string();
+            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor change to `{ $carapace_completer }`";
+            let suggestion = match span_contents {
+                Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
+                Cow::Owned(s) if s.deref() == "$carapace_completer" => {
+                    carapace_suggestion.to_string()
+                }
+                _ => format!("change this to {{ {} }}", span_contents).to_string(),
+            };
 
             report_shell_warning(
             engine_state,
