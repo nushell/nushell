@@ -163,7 +163,11 @@ static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = LazyL
 });
 
 #[cfg(not(feature = "os"))]
-static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = todo!();
+static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = LazyLock::new(|| {
+    Ok(Arc::new(rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    }))
+});
 
 #[doc = include_str!("./tls.rustdoc.md")]
 pub fn tls(allow_insecure: bool) -> Result<impl TlsConnector, ShellError> {

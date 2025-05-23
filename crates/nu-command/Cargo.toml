@@ -132,6 +132,7 @@ which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
 data-encoding = { version = "2.9.0", features = ["alloc"] }
 web-time = { workspace = true }
+webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
@@ -213,6 +214,7 @@ native-tls = [
 rustls-tls = [
 	"dep:rustls",
 	"dep:rustls-native-certs",
+	"dep:webpki-roots",
 	"update-informer/rustls-tls",
 	"ureq/tls", # ureq 3 will has the feature rustls instead
 ]
