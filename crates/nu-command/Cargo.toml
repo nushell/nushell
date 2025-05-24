@@ -91,7 +91,7 @@ rusqlite = { workspace = true, features = [
 	"backup",
 	"chrono",
 ], optional = true }
-rustls = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }
 rmp = { workspace = true }
 scopeguard = { workspace = true }
