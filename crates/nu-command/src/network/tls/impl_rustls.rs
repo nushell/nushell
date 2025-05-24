@@ -42,7 +42,7 @@ use ureq::TlsConnector;
 ///   use nu_command::tls::CRYPTO_PROVIDER;
 ///
 ///   // Call once at startup
-///   CRYPTO_PROVIDER.set(|| Ok(rustls::crypto::aws_lc_rs::default_provider()));
+///   CRYPTO_PROVIDER.set(|| Ok(rustls::crypto::ring::default_provider()));
 ///   ```
 ///
 /// Only the first successful call takes effect. Later calls do nothing and return `false`.
