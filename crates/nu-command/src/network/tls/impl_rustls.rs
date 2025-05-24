@@ -99,7 +99,7 @@ impl NuCryptoProvider {
     /// If it fails, use [`set`](Self::set) to install a custom one.  
     /// Returns whether the provider was stored successfully.
     pub fn default(&self) -> bool {
-        self.set(|| Ok(rustls::crypto::aws_lc_rs::default_provider()))
+        self.set(|| Ok(rustls::crypto::ring::default_provider()))
     }
 }
 
