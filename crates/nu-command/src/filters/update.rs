@@ -115,17 +115,48 @@ fn update(
     match input {
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
-                match (cell_path.members.first(), &mut value) {
-                    (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                // follow cell_path until last_cell(exclusive).
+                let (mut last_value, last_member, prev_members) =
+                    match cell_path.members.split_last() {
+                        None => {
+                            return Err(ShellError::GenericError {
+                                error: "cell path can't be empty".to_string(),
+                                msg: "found an empty cell path".to_string(),
+                                span: None,
+                                help: Some(
+                                    "This should not happened, please file an issue".to_string(),
+                                ),
+                                inner: vec![],
+                            });
+                        }
+                        Some((last, members)) => {
+                            if members.is_empty() {
+                                (value.clone(), last, members)
+                            } else {
+                                (value.follow_cell_path(members)?.into_owned(), last, members)
+                            }
+                        }
+                    };
+
+                // update `last_value` first, then set last value back to `value`.
+                match (last_member, &mut last_value) {
+                    (PathMember::String { .. }, Value::List { vals, .. }) => {
                         let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             update_value_by_closure(
                                 val,
                                 &mut closure,
                                 head,
-                                &cell_path.members,
+                                &[last_member.clone()],
                                 false,
                             )?;
+                        }
+                        if !prev_members.is_empty() {
+                            value.update_data_at_cell_path(prev_members, last_value)?;
+                        } else {
+                            // no prev_members, so last_value is actually
+                            // the value itself.
+                            value = last_value;
                         }
                     }
                     (first, _) => {
@@ -134,7 +165,7 @@ fn update(
                             ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
-                            matches!(first, Some(PathMember::Int { .. })),
+                            matches!(first, PathMember::Int { .. }),
                         )?;
                     }
                 }
