@@ -3,6 +3,7 @@ use crate::{
     ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
     engine::StateWorkingSet, format_shell_error, record,
 };
+use job::JobError;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
@@ -11,6 +12,7 @@ use thiserror::Error;
 pub mod bridge;
 pub mod io;
 pub mod location;
+pub mod job;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1381,6 +1383,11 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Job(#[from] JobError),
+
+    #[deprecated]
     #[error("Job {id} not found")]
     #[diagnostic(
         code(nu::shell::job_not_found),
@@ -1394,6 +1401,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[deprecated]
     #[error("No frozen job to unfreeze")]
     #[diagnostic(
         code(nu::shell::no_frozen_job),
@@ -1404,6 +1412,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[deprecated]
     #[error("Job {id} is not frozen")]
     #[diagnostic(
         code(nu::shell::job_not_frozen),
@@ -1415,6 +1424,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[deprecated]
     #[error("The job {id} is frozen")]
     #[diagnostic(
         code(nu::shell::job_is_frozen),
@@ -1426,6 +1436,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Span,
     },
 
+    #[deprecated]
     #[error("No message was received in the requested time interval")]
     #[diagnostic(
         code(nu::shell::recv_timeout),
