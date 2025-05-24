@@ -115,6 +115,12 @@ pub type JobId = Id<marker::Job>;
 /// Note: `%0` is allocated with the block input at the beginning of a compiled block.
 pub type RegId = Id<marker::Reg, u32>;
 
+impl Display for JobId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
 impl Display for RegId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "%{}", self.get())
