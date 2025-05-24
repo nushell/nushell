@@ -11,8 +11,8 @@ use thiserror::Error;
 
 pub mod bridge;
 pub mod io;
-pub mod location;
 pub mod job;
+pub mod location;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -1386,66 +1386,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     #[error(transparent)]
     #[diagnostic(transparent)]
     Job(#[from] JobError),
-
-    #[deprecated]
-    #[error("Job {id} not found")]
-    #[diagnostic(
-        code(nu::shell::job_not_found),
-        help(
-            "The operation could not be completed, there is no job currently running with this id"
-        )
-    )]
-    JobNotFound {
-        id: usize,
-        #[label = "job not found"]
-        span: Span,
-    },
-
-    #[deprecated]
-    #[error("No frozen job to unfreeze")]
-    #[diagnostic(
-        code(nu::shell::no_frozen_job),
-        help("There is currently no frozen job to unfreeze")
-    )]
-    NoFrozenJob {
-        #[label = "no frozen job"]
-        span: Span,
-    },
-
-    #[deprecated]
-    #[error("Job {id} is not frozen")]
-    #[diagnostic(
-        code(nu::shell::job_not_frozen),
-        help("You tried to unfreeze a job which is not frozen")
-    )]
-    JobNotFrozen {
-        id: usize,
-        #[label = "job not frozen"]
-        span: Span,
-    },
-
-    #[deprecated]
-    #[error("The job {id} is frozen")]
-    #[diagnostic(
-        code(nu::shell::job_is_frozen),
-        help("This operation cannot be performed because the job is frozen")
-    )]
-    JobIsFrozen {
-        id: usize,
-        #[label = "This job is frozen"]
-        span: Span,
-    },
-
-    #[deprecated]
-    #[error("No message was received in the requested time interval")]
-    #[diagnostic(
-        code(nu::shell::recv_timeout),
-        help("No message arrived within the specified time limit")
-    )]
-    RecvTimeout {
-        #[label = "timeout"]
-        span: Span,
-    },
 
     #[error(transparent)]
     #[diagnostic(transparent)]

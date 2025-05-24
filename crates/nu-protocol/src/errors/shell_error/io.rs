@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use crate::Span;
 
-use super::{ShellError, location::Location};
+use super::location::Location;
 
 /// Represents an I/O error in the [`ShellError::Io`] variant.
 ///
