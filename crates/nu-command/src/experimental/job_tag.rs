@@ -38,26 +38,15 @@ impl Command for JobTag {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let id_arg: Spanned<i64> = call.req(engine_state, stack, 0)?;
-
-        if id_arg.item < 0 {
-            return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
-        }
-
-        let id: JobId = JobId::new(id_arg.item as usize);
+        let id_arg: Spanned<usize> = call.req(engine_state, stack, 0)?;
+        let id = JobId::new(id_arg.item);
 
         let tag: Option<String> = call.req(engine_state, stack, 1)?;
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup_mut(id) {
-            None => {
-                return Err(ShellError::JobNotFound {
-                    id: id.get(),
-                    span: head,
-                });
-            }
-
+            None => return Err(JobError::NotFound { span: head, id }.into()),
             Some(job) => job.assign_tag(tag),
         }
 

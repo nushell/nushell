@@ -34,21 +34,13 @@ impl Command for JobKill {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let id_arg: Spanned<i64> = call.req(engine_state, stack, 0)?;
-
-        if id_arg.item < 0 {
-            return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
-        }
-
-        let id: JobId = JobId::new(id_arg.item as usize);
+        let id_arg: Spanned<usize> = call.req(engine_state, stack, 0)?;
+        let id = JobId::new(id_arg.item);
 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         if jobs.lookup(id).is_none() {
-            return Err(ShellError::JobNotFound {
-                id: id.get(),
-                span: head,
-            });
+            return Err(JobError::NotFound { span: head, id }.into());
         }
 
         jobs.kill_and_remove(id).map_err(|err| {

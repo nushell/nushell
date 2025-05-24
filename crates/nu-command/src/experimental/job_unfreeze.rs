@@ -39,33 +39,18 @@ impl Command for JobUnfreeze {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let option_id: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
-
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
-        if let Some(id_arg) = option_id {
-            if id_arg.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
-            }
-        }
-
-        let id = option_id
-            .map(|it| JobId::new(it.item as usize))
+        let id: Option<usize> = call.opt(engine_state, stack, 0)?;
+        let id = id
+            .map(JobId::new)
             .or_else(|| jobs.most_recent_frozen_job_id())
-            .ok_or_else(|| ShellError::NoFrozenJob { span: head })?;
+            .ok_or(JobError::NoneToUnfreeze { span: head })?;
 
         let job = match jobs.lookup(id) {
-            None => {
-                return Err(ShellError::JobNotFound {
-                    id: id.get(),
-                    span: head,
-                });
-            }
+            None => return Err(JobError::NotFound { span: head, id }.into()),
             Some(Job::Thread(ThreadJob { .. })) => {
-                return Err(ShellError::JobNotFrozen {
-                    id: id.get(),
-                    span: head,
-                });
+                return Err(JobError::CannotUnfreeze { span: head, id }.into());
             }
             Some(Job::Frozen(FrozenJob { .. })) => jobs
                 .remove_job(id)
@@ -107,11 +92,7 @@ fn unfreeze_job(
     span: Span,
 ) -> Result<(), ShellError> {
     match job {
-        Job::Thread(ThreadJob { .. }) => Err(ShellError::JobNotFrozen {
-            id: old_id.get(),
-            span,
-        }),
-
+        Job::Thread(ThreadJob { .. }) => Err(JobError::CannotUnfreeze { span, id: old_id }.into()),
         Job::Frozen(FrozenJob {
             unfreeze: handle,
             tag,
