@@ -1158,7 +1158,13 @@ fn series_to_values(
                     }
                     .map(|ca| {
                         let sublist: Vec<Value> = if let Some(ref s) = ca {
-                            series_to_values(s, None, None, Span::unknown())?
+                            if s.dtype() == &DataType::Null {
+                                // handle list[null] case
+                                let len = s.len();
+                                vec![Value::nothing(span); len]
+                            } else {
+                                series_to_values(s, None, None, Span::unknown())?
+                            }
                         } else {
                             // empty item
                             vec![]
