@@ -494,12 +494,6 @@ impl Diagnostic for IoError {
     }
 }
 
-impl From<IoError> for ShellError {
-    fn from(value: IoError) -> Self {
-        ShellError::Io(value)
-    }
-}
-
 impl From<IoError> for std::io::Error {
     fn from(value: IoError) -> Self {
         Self::new(value.kind.into(), value)

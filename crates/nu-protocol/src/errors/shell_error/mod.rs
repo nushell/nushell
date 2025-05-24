@@ -917,7 +917,7 @@ pub enum ShellError {
     /// This is the main I/O error, for further details check the error kind and additional context.
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Io(io::IoError),
+    Io(#[from] io::IoError),
 
     /// A name was not found. Did you mean a different name?
     ///
