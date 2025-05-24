@@ -45,7 +45,7 @@ impl Command for JobUnfreeze {
         let id = id
             .map(JobId::new)
             .or_else(|| jobs.most_recent_frozen_job_id())
-            .ok_or_else(|| JobError::NoneToUnfreeze { span: head })?;
+            .ok_or(JobError::NoneToUnfreeze { span: head })?;
 
         let job = match jobs.lookup(id) {
             None => return Err(JobError::NotFound { span: head, id }.into()),
