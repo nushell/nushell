@@ -92,4 +92,30 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
         assert_eq!(aligned_columns.out, separator_based.out);
         assert_eq!(separator_based.out, "docker-registry");
     })
+
+fn from_ssv_text_aligned_columns_can_include_spaces() {
+    Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "netstat_puntl.txt",
+            r#"
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -
+tcp6       0      0 :::22                   :::*                    LISTEN      -
+            "#,
+        )]);
+
+        let aligned_columns = nu!(
+        cwd: dirs.test(), pipeline(
+            r#"
+                open netstat_puntl.txt
+                | lines | reject 0 | str join "\n"
+                | from ssv -m 1 -a
+                | first
+                | get 'Local Address'
+            "#
+        ));
+
+        assert_eq!(aligned_columns.out, "0.0.0.0:22");
+    })
 }
