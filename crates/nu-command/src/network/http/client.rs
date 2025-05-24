@@ -92,7 +92,7 @@ pub fn http_parse_url(
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
         requested_url = format!("http://localhost{}", requested_url);
-    } else if !requested_url.starts_with("http://") && !requested_url.starts_with("https://") {
+    } else if !requested_url.contains("://") {
         requested_url = format!("http://{}", requested_url);
     }
 
