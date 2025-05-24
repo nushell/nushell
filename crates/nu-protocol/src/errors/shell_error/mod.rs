@@ -1,7 +1,7 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
-    engine::StateWorkingSet, format_shell_error, record,
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
+    ParseError, Span, Spanned, Type, Value,
 };
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -903,7 +903,9 @@ pub enum ShellError {
     /// creation of the custom value and its use.
     #[error("Custom value failed to decode")]
     #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
-    #[diagnostic(help("the plugin may have been updated and no longer support this custom value"))]
+    #[diagnostic(help(
+        "the plugin may have been updated and no longer support this custom value"
+    ))]
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]
@@ -1221,8 +1223,8 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[diagnostic()]
     Deprecated {
         deprecated: &'static str,
-        suggestion: &'static str,
-        #[label("{deprecated} is deprecated. {suggestion}")]
+        suggestion: String,
+        #[label("{suggestion}")]
         span: Span,
         #[help]
         help: Option<&'static str>,
