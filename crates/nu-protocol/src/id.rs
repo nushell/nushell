@@ -37,6 +37,10 @@ where
     }
 }
 
+impl<M> Id<M, usize> {
+    pub const ZERO: Self = Self::new(0);
+}
+
 impl<M, V> Debug for Id<M, V>
 where
     V: Display,
