@@ -156,10 +156,18 @@ fn nested_list_replacement_closure() {
     assert_eq!(actual.out, "[{w: {x: [[y]; [1.0], [2.0]]}}]");
 
     // Two elements in outermost nested list
-    let actual =
-        nu!("[{ w: { x: [ { y: '1' } { y: '2' } ] } }, { w: { x: [ { y: '3' } { y: '4' } ] } }] | update w.x.y {into float} | to nuon");
-    assert_eq!(actual.out, "[{w: {x: [[y]; [1.0], [2.0]]}}, {w: {x: [[y]; [3.0], [4.0]]}}]")
-    let actual =
-        nu!("[{ w: { x: [ { y: '1' } { y: '2' } ] } }, { w: { x: [ { y: '3' } { y: '4' } ] } }] | update 0.w.x.y {into float} | to nuon");
-    assert_eq!(actual.out, "[{w: {x: [[y]; [1.0], [2.0]]}}, {w: {x: [[y]; ['3'], ['4']}}]")
+    let actual = nu!(
+        "[{ w: { x: [ { y: '1' } { y: '2' } ] } }, { w: { x: [ { y: '3' } { y: '4' } ] } }] | update w.x.y {into float} | to nuon"
+    );
+    assert_eq!(
+        actual.out,
+        "[{w: {x: [[y]; [1.0], [2.0]]}}, {w: {x: [[y]; [3.0], [4.0]]}}]"
+    );
+    let actual = nu!(
+        "[{ w: { x: [ { y: '1' } { y: '2' } ] } }, { w: { x: [ { y: '3' } { y: '4' } ] } }] | update 0.w.x.y {into float} | to nuon"
+    );
+    assert_eq!(
+        actual.out,
+        "[{w: {x: [[y]; [1.0], [2.0]]}}, {w: {x: [[y]; ['3'], ['4']}}]"
+    );
 }
