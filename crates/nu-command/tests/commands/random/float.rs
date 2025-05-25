@@ -24,3 +24,9 @@ fn generates_0() {
 
     assert!(actual.out.contains('0'));
 }
+
+#[test]
+fn generate_inf() {
+    let actual = nu!("random float 1.. | describe");
+    assert_eq!(actual.out, "float");
+}
