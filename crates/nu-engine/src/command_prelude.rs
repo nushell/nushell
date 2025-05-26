@@ -6,5 +6,5 @@ pub use nu_protocol::{
     ast::CellPath,
     engine::{Call, Command, EngineState, Stack, StateWorkingSet},
     record,
-    shell_error::io::*,
+    shell_error::{io::*, job::*},
 };

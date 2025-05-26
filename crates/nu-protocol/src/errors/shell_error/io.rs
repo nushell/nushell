@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use crate::Span;
 
-use super::{ShellError, location::Location};
+use super::location::Location;
 
 /// Represents an I/O error in the [`ShellError::Io`] variant.
 ///
@@ -491,12 +491,6 @@ impl Diagnostic for IoError {
             (true, None) | (false, _) => None,
             (true, Some(location)) => Some(location as &dyn miette::SourceCode),
         }
-    }
-}
-
-impl From<IoError> for ShellError {
-    fn from(value: IoError) -> Self {
-        ShellError::Io(value)
     }
 }
 

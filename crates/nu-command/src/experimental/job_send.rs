@@ -52,14 +52,10 @@ This command never blocks.
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let id_arg: Spanned<i64> = call.req(engine_state, stack, 0)?;
+        let id_arg: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let tag_arg: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "tag")?;
 
-        let id = id_arg.item;
-
-        if id < 0 {
-            return Err(ShellError::NeedsPositiveValue { span: id_arg.span });
-        }
+        let id = JobId::new(id_arg.item);
 
         if let Some(tag) = tag_arg {
             if tag.item < 0 {
@@ -69,7 +65,7 @@ This command never blocks.
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
 
-        if id == 0 {
+        if id == JobId::ZERO {
             engine_state
                 .root_job_sender
                 .send((tag, input))
@@ -77,7 +73,7 @@ This command never blocks.
         } else {
             let jobs = engine_state.jobs.lock().expect("failed to acquire lock");
 
-            if let Some(job) = jobs.lookup(JobId::new(id as usize)) {
+            if let Some(job) = jobs.lookup(id) {
                 match job {
                     nu_protocol::engine::Job::Thread(thread_job) => {
                         // it is ok to send this value while holding the lock, because
@@ -85,17 +81,19 @@ This command never blocks.
                         let _ = thread_job.sender.send((tag, input));
                     }
                     nu_protocol::engine::Job::Frozen(_) => {
-                        return Err(ShellError::JobIsFrozen {
-                            id: id as usize,
+                        return Err(JobError::AlreadyFrozen {
                             span: id_arg.span,
-                        });
+                            id,
+                        }
+                        .into());
                     }
                 }
             } else {
-                return Err(ShellError::JobNotFound {
-                    id: id as usize,
+                return Err(JobError::NotFound {
                     span: id_arg.span,
-                });
+                    id,
+                }
+                .into());
             }
         }
 
