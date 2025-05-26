@@ -168,6 +168,10 @@ impl Command for Glob {
                 }),
             };
 
+        // paths starting with drive letters must be escaped on Windows
+        #[cfg(windows)]
+        let glob_pattern = patch_windows_glob_pattern(glob_pattern, glob_span)?;
+
         if glob_pattern.is_empty() {
             return Err(ShellError::GenericError {
                 error: "glob pattern must not be empty".into(),
@@ -280,6 +284,28 @@ impl Command for Glob {
     }
 }
 
+#[cfg(windows)]
+fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<String, ShellError> {
+    let glob_pattern = glob_pattern.replace('\\', "/");
+    let mut chars = glob_pattern.chars();
+    match (chars.next(), chars.next(), chars.next()) {
+        (Some(drive), Some(':'), Some(sep)) if drive.is_ascii_alphabetic() => {
+            if matches!(sep, '/' | '\\') {
+                Ok(format!("{drive}\\:/{}", chars.as_str()))
+            } else {
+                Err(ShellError::GenericError {
+                    error: "invalid Windows path format".into(),
+                    msg: "Windows paths with drive letters must include a path separator (/ or \\) after the colon".into(),
+                    span: Some(glob_span),
+                    help: Some("use format like 'C:/' or 'C:\\' instead of 'C:'".into()),
+                    inner: vec![],
+                })
+            }
+        }
+        _ => Ok(glob_pattern),
+    }
+}
+
 fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
     let res = columns
         .iter()
@@ -324,4 +350,56 @@ fn glob_to_value(
     });
 
     ListStream::new(result, span, signals.clone())
+}
+
+#[cfg(windows)]
+#[cfg(test)]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn windows_glob_pattern_with_drive_letter() {
+        let pattern = "C:\\**\\*.txt".to_string();
+        assert!(WaxGlob::new(&pattern).is_err());
+
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "D:/*.mp4".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "Z:/**/*.md".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&result).is_ok());
+    }
+
+    #[test]
+    fn windows_glob_pattern_without_drive_letter() {
+        let pattern = "/usr/bin/*.sh".to_string();
+        let result = patch_windows_glob_pattern(pattern.clone(), Span::test_data()).unwrap();
+        assert_eq!(result, pattern);
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "a".to_string();
+        let result = patch_windows_glob_pattern(pattern.clone(), Span::test_data()).unwrap();
+        assert_eq!(result, pattern);
+        assert!(WaxGlob::new(&result).is_ok());
+    }
+
+    #[test]
+    fn invalid_windows_path_format() {
+        let invalid = "C:lol".to_string();
+        let result = patch_windows_glob_pattern(invalid, Span::test_data());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unpatched_windows_patterns() {
+        let unpatched = "C:/Users/*.txt".to_string();
+        assert!(WaxGlob::new(&unpatched).is_err());
+
+        let patched = patch_windows_glob_pattern(unpatched, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&patched).is_ok());
+    }
 }
