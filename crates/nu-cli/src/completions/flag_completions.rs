@@ -1,11 +1,11 @@
-use crate::completions::{completion_options::NuMatcher, Completer, CompletionOptions};
+use crate::completions::{
+    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind, completion_options::NuMatcher,
+};
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     DeclId, Span,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
-
-use super::{SemanticSuggestion, SuggestionKind};
 
 #[derive(Clone)]
 pub struct FlagCompletion {

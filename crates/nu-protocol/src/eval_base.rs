@@ -1,13 +1,13 @@
 //! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
 use crate::{
+    BlockId, Config, ENV_VARIABLE_ID, GetSpan, Range, Record, ShellError, Span, Value, VarId,
     ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, ListItem, Math, Operator, RecordItem,
+        Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, ExternalArgument, ListItem,
+        Math, Operator, RecordItem, eval_operator,
     },
     debugger::DebugContext,
-    BlockId, Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -43,11 +43,16 @@ pub trait Eval {
 
                 // Cell paths are usually case-sensitive, but we give $env
                 // special treatment.
-                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
-                    value.follow_cell_path(&cell_path.tail, true)
+                let tail = if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                    let mut tail = cell_path.tail.clone();
+                    if let Some(pm) = tail.first_mut() {
+                        pm.make_insensitive();
+                    }
+                    Cow::Owned(tail)
                 } else {
-                    value.follow_cell_path(&cell_path.tail, false)
-                }
+                    Cow::Borrowed(&cell_path.tail)
+                };
+                value.follow_cell_path(&tail).map(Cow::into_owned)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr_span)),
             Expr::List(list) => {

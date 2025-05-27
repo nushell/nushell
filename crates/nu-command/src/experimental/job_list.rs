@@ -37,7 +37,7 @@ impl Command for JobList {
         let values = jobs
             .iter()
             .map(|(id, job)| {
-                let record = record! {
+                let mut record = record! {
                     "id" => Value::int(id.get() as i64, head),
                     "type" => match job {
                         Job::Thread(_) => Value::string("thread", head),
@@ -52,11 +52,15 @@ impl Command for JobList {
                             head,
                         ),
 
-                        Job::Frozen(FrozenJob { unfreeze }) => {
+                        Job::Frozen(FrozenJob { unfreeze, .. }) => {
                             Value::list(vec![ Value::int(unfreeze.pid() as i64, head) ], head)
                         }
-                    }
+                    },
                 };
+
+                if let Some(tag) = job.tag() {
+                    record.push("tag", Value::string(tag, head));
+                }
 
                 Value::record(record, head)
             })

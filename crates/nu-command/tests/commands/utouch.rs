@@ -1,6 +1,6 @@
 use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
-use nu_test_support::fs::{files_exist_at, Stub};
+use nu_test_support::fs::{Stub, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::{Dirs, Playground};
 use std::path::Path;

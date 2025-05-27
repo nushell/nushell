@@ -1,5 +1,7 @@
+use std::borrow::Cow;
+
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, Signals};
+use nu_protocol::{Signals, ast::PathMember, report_shell_warning};
 
 #[derive(Clone)]
 pub struct Get;
@@ -45,7 +47,7 @@ If multiple cell paths are given, this will produce a list of values."#
             )
             .switch(
                 "sensitive",
-                "get path in a case sensitive manner",
+                "get path in a case sensitive manner (deprecated)",
                 Some('s'),
             )
             .allow_variants_without_examples(true)
@@ -73,8 +75,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description:
-                    "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
+                description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
                 example: "ls | get name.2",
                 result: None,
             },
@@ -85,12 +86,12 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description: "Getting Path/PATH in a case insensitive way",
-                example: "$env | get paTH",
+                example: "$env | get paTH!",
                 result: None,
             },
             Example {
                 description: "Getting Path in a case sensitive way, won't work for 'PATH'",
-                example: "$env | get --sensitive Path",
+                example: "$env | get Path",
                 result: None,
             },
         ]
@@ -109,14 +110,12 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req_const(working_set, 0)?;
         let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let ignore_errors = call.has_flag_const(working_set, "ignore-errors")?;
-        let sensitive = call.has_flag_const(working_set, "sensitive")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
             ignore_errors,
-            sensitive,
             working_set.permanent().signals().clone(),
             call.head,
         )
@@ -133,14 +132,24 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
+        let sensitive_span = call.get_flag_span(stack, "sensitive");
         let metadata = input.metadata();
+        if let Some(span) = sensitive_span {
+            report_shell_warning(
+                engine_state,
+                &ShellError::Deprecated {
+                    deprecated: "sensitive flag",
+                    suggestion: "",
+                    span,
+                    help: Some("cell-paths are case-sensitive by default"),
+                },
+            );
+        }
         action(
             input,
             cell_path,
             rest,
             ignore_errors,
-            sensitive,
             engine_state.signals().clone(),
             call.head,
         )
@@ -153,7 +162,6 @@ fn action(
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
     ignore_errors: bool,
-    sensitive: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -173,13 +181,13 @@ fn action(
                 wrong_type: "nothing".into(),
                 dst_span: span,
                 src_span: val.span(),
-            })
+            });
         }
         _ => (),
     }
 
     if rest.is_empty() {
-        follow_cell_path_into_stream(input, signals, cell_path.members, span, !sensitive)
+        follow_cell_path_into_stream(input, signals, cell_path.members, span)
     } else {
         let mut output = vec![];
 
@@ -188,9 +196,7 @@ fn action(
         let input = input.into_value(span)?;
 
         for path in paths {
-            let val = input.clone().follow_cell_path(&path.members, !sensitive);
-
-            output.push(val?);
+            output.push(input.follow_cell_path(&path.members)?.into_owned());
         }
 
         Ok(output.into_iter().into_pipeline_data(span, signals))
@@ -209,7 +215,6 @@ pub fn follow_cell_path_into_stream(
     signals: Signals,
     cell_path: Vec<PathMember>,
     head: Span,
-    insensitive: bool,
 ) -> Result<PipelineData, ShellError> {
     // when given an integer/indexing, we fallback to
     // the default nushell indexing behaviour
@@ -223,10 +228,10 @@ pub fn follow_cell_path_into_stream(
                 .map(move |value| {
                     let span = value.span();
 
-                    match value.follow_cell_path(&cell_path, insensitive) {
-                        Ok(v) => v,
-                        Err(error) => Value::error(error, span),
-                    }
+                    value
+                        .follow_cell_path(&cell_path)
+                        .map(Cow::into_owned)
+                        .unwrap_or_else(|error| Value::error(error, span))
                 })
                 .into_pipeline_data(head, signals);
 
@@ -234,7 +239,7 @@ pub fn follow_cell_path_into_stream(
         }
 
         _ => data
-            .follow_cell_path(&cell_path, head, insensitive)
+            .follow_cell_path(&cell_path, head)
             .map(|x| x.into_pipeline_data()),
     }
 }

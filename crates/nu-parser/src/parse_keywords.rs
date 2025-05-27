@@ -1,23 +1,23 @@
 use crate::{
     exportable::Exportable,
     parse_block,
-    parser::{parse_attribute, parse_redirection, redirecting_builtin_error},
+    parser::{compile_block, parse_attribute, parse_redirection, redirecting_builtin_error},
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, ShellError, Span, Spanned, SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -30,16 +30,16 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    is_math_expression_like,
+    Token, TokenContents, is_math_expression_like,
     known_external::KnownExternal,
     lex,
-    lite_parser::{lite_parse, LiteCommand},
+    lite_parser::{LiteCommand, lite_parse},
     parser::{
-        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        ParsedInternalCall, check_call, garbage, garbage_pipeline, parse, parse_call,
+        parse_expression, parse_full_signature, parse_import_pattern, parse_internal_call,
+        parse_string, parse_value, parse_var_with_opt_type, trim_quotes,
     },
-    unescape_unquote_string, Token, TokenContents,
+    unescape_unquote_string,
 };
 
 /// These parser keywords can be aliased
@@ -3331,7 +3331,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         spans[span.0 + 1].start,
                         &[],
                         &[],
-                        true,
+                        false,
                     );
 
                     if let Some(parse_error) = parse_error {
@@ -3613,7 +3613,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         spans[span.0 + 1].start,
                         &[],
                         &[],
-                        true,
+                        false,
                     );
 
                     if let Some(parse_error) = parse_error {
@@ -3805,12 +3805,16 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
-                        let block = parse(
+                        let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
+                        if block.ir_block.is_none() {
+                            let block_mut = Arc::make_mut(&mut block);
+                            compile_block(working_set, block_mut);
+                        }
 
                         // Remove the file from the stack of files being processed.
                         working_set.files.pop();
@@ -4206,12 +4210,14 @@ fn detect_params_in_name(
             .find_position(|c| **c == delim)
             .unwrap_or((name.len(), &b' '));
         let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
-        let error = ParseError::LabeledErrorWithHelp{
+        let error = ParseError::LabeledErrorWithHelp {
             error: "no space between name and parameters".into(),
             label: "expected space".into(),
-            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            help: format!(
+                "consider adding a space between the `{decl_name}` command's name and its parameters"
+            ),
             span: param_span,
-            };
+        };
         Some(error)
     };
 

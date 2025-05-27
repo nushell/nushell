@@ -1,15 +1,17 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 #[cfg(feature = "os")]
 use nu_protocol::process::ChildPipe;
+#[cfg(test)]
+use nu_protocol::shell_error;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
 };
 use std::{
     io::{self, Read, Write},
     sync::{
-        mpsc::{self, Sender},
         Arc,
+        mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
 };
@@ -55,8 +57,7 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example:
-                    "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
+                example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
                 description: "Save error messages from an external command to a file without \
                     redirecting them",
                 result: None,
@@ -70,7 +71,7 @@ use it in your pipeline."#
                 example: "10000 | tee { 1..$in | print } | $in * 5",
                 description: "Do something with a value on another thread, while also passing through the value",
                 result: Some(Value::test_int(50000)),
-            }
+            },
         ]
     }
 
@@ -394,7 +395,7 @@ impl<R: Read> Read for IoTee<R> {
         if let Some(thread) = self.thread.take() {
             if thread.is_finished() {
                 if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::new(io::ErrorKind::Other, err));
+                    return Err(io::Error::other(err));
                 }
             } else {
                 self.thread = Some(thread)
@@ -405,7 +406,7 @@ impl<R: Read> Read for IoTee<R> {
             self.sender = None;
             if let Some(thread) = self.thread.take() {
                 if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::new(io::ErrorKind::Other, err));
+                    return Err(io::Error::other(err));
                 }
             }
         } else if let Some(sender) = self.sender.as_mut() {
@@ -441,7 +442,7 @@ fn spawn_tee(
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(err.kind(), info.span, None, "Could not spawn tee")
+            IoError::new_with_additional_context(err, info.span, None, "Could not spawn tee")
         })?;
 
     Ok(TeeThread { sender, thread })
@@ -482,13 +483,8 @@ fn copy_on_thread(
             Ok(())
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn stderr copier",
-            )
-            .into()
+            IoError::new_with_additional_context(err, span, None, "Could not spawn stderr copier")
+                .into()
         })
 }
 
@@ -533,7 +529,7 @@ fn tee_forwards_errors_back_immediately() {
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             Span::test_data(),
             None,
             "test",
@@ -555,8 +551,8 @@ fn tee_forwards_errors_back_immediately() {
 #[test]
 fn tee_waits_for_the_other_thread() {
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
     use std::time::Duration;
     let waited = Arc::new(AtomicBool::new(false));
@@ -565,7 +561,7 @@ fn tee_waits_for_the_other_thread() {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
         Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::Other,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             Span::test_data(),
             None,
             "test",

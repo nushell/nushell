@@ -11,6 +11,9 @@ export def copy [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
   let input = $in | collect
+  if not $ansi {
+    $env.config.use_ansi_coloring = false
+  }
   let text = match ($input | describe -d | get type) {
     $type if $type in [ table, record, list ] => {
       $input | table -e
@@ -18,18 +21,7 @@ export def copy [
     _ => {$input}
   }
 
-  let do_strip_ansi = match $ansi {
-    true  => {{||}}
-    false => {{|| ansi strip }}
-  }
-
-  let output = (
-    $text
-    | do $do_strip_ansi
-    | encode base64
-  )
-
-	print -n $'(ansi osc)52;c;($output)(ansi st)'
+  print -n $'(ansi osc)52;c;($text | encode base64)(ansi st)'
 }
 
 # Paste contents of system clipboard

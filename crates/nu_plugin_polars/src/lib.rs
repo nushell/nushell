@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
 };
 
 use cache::cache_commands;
@@ -17,7 +17,7 @@ mod cache;
 mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator};
 use tokio::runtime::Runtime;
 use values::CustomValueType;
 
@@ -123,6 +123,8 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuExpression(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuLazyGroupBy(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuWhen(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuDataType(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuSchema(cv) => cv.custom_value_to_base_value(self, engine),
         };
         Ok(result?)
     }
@@ -148,6 +150,12 @@ impl Plugin for PolarsPlugin {
                 cv.custom_value_operation(self, engine, left.span, operator, right)
             }
             CustomValueType::NuWhen(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuDataType(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuSchema(cv) => {
                 cv.custom_value_operation(self, engine, left.span, operator, right)
             }
         };
@@ -176,6 +184,12 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => {
                 cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
             }
+            CustomValueType::NuDataType(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuSchema(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
         };
         Ok(result?)
     }
@@ -202,6 +216,12 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => {
                 cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
             }
+            CustomValueType::NuDataType(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
+            CustomValueType::NuSchema(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
         };
         Ok(result?)
     }
@@ -226,6 +246,10 @@ impl Plugin for PolarsPlugin {
                 cv.custom_value_partial_cmp(self, engine, other_value)
             }
             CustomValueType::NuWhen(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
+            CustomValueType::NuDataType(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
+            CustomValueType::NuSchema(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
         };
         Ok(result?)
     }
@@ -252,7 +276,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, Span};
+    use nu_protocol::{ShellError, Span, engine::Command};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode

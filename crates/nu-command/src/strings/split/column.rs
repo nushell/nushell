@@ -1,4 +1,4 @@
-use fancy_regex::{escape, Regex};
+use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -255,8 +255,9 @@ fn split_column_helper(
             v => {
                 let span = v.span();
                 vec![Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: head,
                         src_span: span,
                     },

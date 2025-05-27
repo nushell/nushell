@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Range;
-use rand::prelude::{thread_rng, Rng};
+use rand::random_range;
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -75,8 +75,6 @@ fn integer(
     let span = call.head;
     let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let mut thread_rng = thread_rng();
-
     match range {
         Some(range) => {
             let range_span = range.span;
@@ -94,9 +92,9 @@ fn integer(
                     }
 
                     let value = match range.end() {
-                        Bound::Included(end) => thread_rng.gen_range(range.start()..=end),
-                        Bound::Excluded(end) => thread_rng.gen_range(range.start()..end),
-                        Bound::Unbounded => thread_rng.gen_range(range.start()..=i64::MAX),
+                        Bound::Included(end) => random_range(range.start()..=end),
+                        Bound::Excluded(end) => random_range(range.start()..end),
+                        Bound::Unbounded => random_range(range.start()..=i64::MAX),
                     };
 
                     Ok(PipelineData::Value(Value::int(value, span), None))
@@ -110,7 +108,7 @@ fn integer(
             }
         }
         None => Ok(PipelineData::Value(
-            Value::int(thread_rng.gen_range(0..=i64::MAX), span),
+            Value::int(random_range(0..=i64::MAX), span),
             None,
         )),
     }

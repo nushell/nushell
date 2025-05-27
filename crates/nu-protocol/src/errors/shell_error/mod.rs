@@ -1,8 +1,9 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_shell_error, record, ConfigError, LabeledError,
-    ParseError, Span, Spanned, Type, Value,
+    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
+    engine::StateWorkingSet, format_shell_error, record,
 };
+use job::JobError;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
@@ -10,6 +11,7 @@ use thiserror::Error;
 
 pub mod bridge;
 pub mod io;
+pub mod job;
 pub mod location;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -76,7 +78,7 @@ pub enum ShellError {
         exp_input_type: String,
         #[label("expected: {exp_input_type}")]
         dst_span: Span,
-        #[label("value originates from here")]
+        #[label("value originates here")]
         src_span: Span,
     },
 
@@ -312,8 +314,9 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::nushell_failed),
         help(
-        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
-    ))]
+            "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+        )
+    )]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailed { msg: String },
 
@@ -326,8 +329,9 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::nushell_failed_spanned),
         help(
-        "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
-    ))]
+            "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+        )
+    )]
     // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned {
         msg: String,
@@ -429,14 +433,20 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    #[error("Can't convert string `{details}` to duration.")]
-    #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertToDuration {
-        details: String,
-        #[label("can't be converted to duration")]
-        dst_span: Span,
-        #[label("this string value...")]
-        src_span: Span,
+    /// Failed to convert a value of one type into a different type by specifying a unit.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that the provided value can be converted in the provided: only Durations can be converted to duration units, and only Filesize can be converted to filesize units.
+    #[error("Can't convert {from_type} to the specified unit.")]
+    #[diagnostic(code(nu::shell::cant_convert_value_to_unit))]
+    CantConvertToUnit {
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[label("conversion originates here")]
+        unit_span: Span,
         #[help]
         help: Option<String>,
     },
@@ -823,7 +833,9 @@ pub enum ShellError {
         plugin_name: String,
         #[label("plugin `{plugin_name}` loaded here")]
         span: Option<Span>,
-        #[help("the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        #[help(
+            "the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`"
+        )]
         add_command: String,
     },
 
@@ -893,9 +905,7 @@ pub enum ShellError {
     /// creation of the custom value and its use.
     #[error("Custom value failed to decode")]
     #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
-    #[diagnostic(help(
-        "the plugin may have been updated and no longer support this custom value"
-    ))]
+    #[diagnostic(help("the plugin may have been updated and no longer support this custom value"))]
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]
@@ -909,7 +919,7 @@ pub enum ShellError {
     /// This is the main I/O error, for further details check the error kind and additional context.
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Io(io::IoError),
+    Io(#[from] io::IoError),
 
     /// A name was not found. Did you mean a different name?
     ///
@@ -1140,6 +1150,25 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// TODO: Get rid of this error by moving the check before evaluation
+    ///
+    /// Tried evaluating of a subexpression with parsing error
+    ///
+    /// ## Resolution
+    ///
+    /// Fix the parsing error first.
+    #[error("Found parsing error in expression.")]
+    #[diagnostic(
+        code(nu::shell::parse_error_in_constant),
+        help(
+            "This expression is supposed to be evaluated into a constant, which means error-free."
+        )
+    )]
+    ParseErrorInConstant {
+        #[label("Parsing error detected in expression")]
+        span: Span,
+    },
+
     /// Tried assigning non-constant value to a constant
     ///
     /// ## Resolution
@@ -1148,7 +1177,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a constant.")]
     #[diagnostic(
         code(nu::shell::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
+        help(
+            "Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally."
+        )
     )]
     NotAConstant {
         #[label("Value is not a parse-time constant")]
@@ -1164,7 +1195,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
+        help(
+            "Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time."
+        )
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
@@ -1213,6 +1246,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// Invalid unit
+    ///
+    /// ## Resolution
+    ///
+    /// Correct unit
+    #[error("Invalid unit")]
+    #[diagnostic(
+        code(nu::shell::invalid_unit),
+        help("Supported units are: {supported_units}")
+    )]
+    InvalidUnit {
+        supported_units: String,
+        #[label("encountered here")]
+        span: Span,
+    },
+
     /// Tried spreading a non-list inside a list or command call.
     ///
     /// ## Resolution
@@ -1221,7 +1270,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a list")]
     #[diagnostic(
         code(nu::shell::cannot_spread_as_list),
-        help("Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.")
+        help(
+            "Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading."
+        )
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]
@@ -1236,7 +1287,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a record")]
     #[diagnostic(
         code(nu::shell::cannot_spread_as_record),
-        help("Only records can be spread inside records. Try converting the value to a record before spreading.")
+        help(
+            "Only records can be spread inside records. Try converting the value to a record before spreading."
+        )
     )]
     CannotSpreadAsRecord {
         #[label = "cannot spread value"]
@@ -1291,7 +1344,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
-    #[error("$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}")]
+    #[error(
+        "$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}"
+    )]
     #[diagnostic(
         code(nu::shell::xdg_config_home_invalid),
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
@@ -1307,7 +1362,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     #[error("IR evaluation error: {msg}")]
     #[diagnostic(
         code(nu::shell::ir_eval_error),
-        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+        help(
+            "this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able"
+        )
     )]
     IrEvalError {
         msg: String,
@@ -1326,39 +1383,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
-    #[error("Job {id} not found")]
-    #[diagnostic(
-        code(nu::shell::job_not_found),
-        help(
-            "The operation could not be completed, there is no job currently running with this id"
-        )
-    )]
-    JobNotFound {
-        id: usize,
-        #[label = "job not found"]
-        span: Span,
-    },
-
-    #[error("No frozen job to unfreeze")]
-    #[diagnostic(
-        code(nu::shell::no_frozen_job),
-        help("There is currently no frozen job to unfreeze")
-    )]
-    NoFrozenJob {
-        #[label = "no frozen job"]
-        span: Span,
-    },
-
-    #[error("Job {id} is not frozen")]
-    #[diagnostic(
-        code(nu::shell::os_disabled),
-        help("You tried to unfreeze a job which is not frozen")
-    )]
-    JobNotFrozen {
-        id: usize,
-        #[label = "job not frozen"]
-        span: Span,
-    },
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Job(#[from] JobError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -1528,19 +1555,25 @@ mod test {
 
     impl From<std::io::Error> for ShellError {
         fn from(_: std::io::Error) -> ShellError {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 
     impl From<Spanned<std::io::Error>> for ShellError {
         fn from(_: Spanned<std::io::Error>) -> Self {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 
     impl From<ShellError> for std::io::Error {
         fn from(_: ShellError) -> Self {
-            unimplemented!("This implementation is defined in the test module to ensure no other implementation exists.")
+            unimplemented!(
+                "This implementation is defined in the test module to ensure no other implementation exists."
+            )
         }
     }
 }

@@ -1,14 +1,14 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value, record,
 };
 
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject,
-        PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginObject, PolarsPluginType,
+        cant_convert_err,
+    },
 };
 
 pub struct ProfileDF;
@@ -63,6 +63,7 @@ The units of the timings are microseconds."#
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_lazy(plugin, engine, call, df.lazy()),
@@ -73,6 +74,7 @@ The units of the timings are microseconds."#
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

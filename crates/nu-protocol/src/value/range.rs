@@ -1,11 +1,12 @@
 //! A Range is an iterator over integers or floats.
 
-use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
+use crate::{ShellError, Signals, Span, Value, ast::RangeInclusion};
+use core::ops::Bound;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use crate::{ast::RangeInclusion, FromValue, ShellError, Signals, Span, Value};
+    use crate::{FromValue, ShellError, Signals, Span, Value, ast::RangeInclusion};
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
@@ -208,11 +209,7 @@ mod int_range {
                     (Bound::Included(l), Bound::Included(r))
                     | (Bound::Excluded(l), Bound::Excluded(r)) => {
                         let ord = l.cmp(&r);
-                        if self.step < 0 {
-                            ord.reverse()
-                        } else {
-                            ord
-                        }
+                        if self.step < 0 { ord.reverse() } else { ord }
                     }
                     (Bound::Included(l), Bound::Excluded(r)) => match l.cmp(&r) {
                         Ordering::Equal => Ordering::Greater,
@@ -311,8 +308,8 @@ mod int_range {
 
 mod float_range {
     use crate::{
-        ast::RangeInclusion, format::ObviousFloat, IntRange, Range, ShellError, Signals, Span,
-        Value,
+        IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion,
+        format::ObviousFloat,
     };
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
@@ -478,11 +475,7 @@ mod float_range {
                     (Bound::Included(l), Bound::Included(r))
                     | (Bound::Excluded(l), Bound::Excluded(r)) => {
                         let ord = float_cmp(l, r);
-                        if self.step < 0.0 {
-                            ord.reverse()
-                        } else {
-                            ord
-                        }
+                        if self.step < 0.0 { ord.reverse() } else { ord }
                     }
                     (Bound::Included(l), Bound::Excluded(r)) => match float_cmp(l, r) {
                         Ordering::Equal => Ordering::Greater,
@@ -628,6 +621,13 @@ impl Range {
             (Self::FloatRange(range), Value::Int { val, .. }) => range.contains(*val as f64),
             (Self::FloatRange(range), Value::Float { val, .. }) => range.contains(*val),
             _ => false,
+        }
+    }
+
+    pub fn is_bounded(&self) -> bool {
+        match self {
+            Range::IntRange(range) => range.end() != Bound::<i64>::Unbounded,
+            Range::FloatRange(range) => range.end() != Bound::<f64>::Unbounded,
         }
     }
 

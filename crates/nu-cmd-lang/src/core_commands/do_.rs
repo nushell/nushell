@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_e
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    engine::Closure, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest,
+    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
 };
 
 use std::{
@@ -30,16 +30,6 @@ impl Command for Do {
                 "ignore-errors",
                 "ignore errors as the closure runs",
                 Some('i'),
-            )
-            .switch(
-                "ignore-shell-errors",
-                "ignore shell errors as the closure runs",
-                Some('s'),
-            )
-            .switch(
-                "ignore-program-errors",
-                "ignore external program errors as the closure runs",
-                Some('p'),
             )
             .switch(
                 "capture-errors",
@@ -71,36 +61,6 @@ impl Command for Do {
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
 
-        if call.has_flag(engine_state, caller_stack, "ignore-shell-errors")? {
-            nu_protocol::report_shell_warning(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated option".into(),
-                    msg: "`--ignore-shell-errors` is deprecated and will be removed in 0.102.0."
-                        .into(),
-                    span: Some(call.head),
-                    help: Some("Please use the `--ignore-errors(-i)`".into()),
-                    inner: vec![],
-                },
-            );
-        }
-        if call.has_flag(engine_state, caller_stack, "ignore-program-errors")? {
-            nu_protocol::report_shell_warning(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated option".into(),
-                    msg: "`--ignore-program-errors` is deprecated and will be removed in 0.102.0."
-                        .into(),
-                    span: Some(call.head),
-                    help: Some("Please use the `--ignore-errors(-i)`".into()),
-                    inner: vec![],
-                },
-            );
-        }
-        let ignore_shell_errors = ignore_all_errors
-            || call.has_flag(engine_state, caller_stack, "ignore-shell-errors")?;
-        let ignore_program_errors = ignore_all_errors
-            || call.has_flag(engine_state, caller_stack, "ignore-program-errors")?;
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
@@ -147,14 +107,14 @@ impl Command for Do {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
                                             IoError::new_internal(
-                                                err.kind(),
+                                                err,
                                                 "Could not read stdout to end",
                                                 nu_protocol::location!(),
                                             )
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })
-                                    .map_err(|err| IoError::new(err.kind(), head, None))
+                                    .map_err(|err| IoError::new(err, head, None))
                             })
                             .transpose()?;
 
@@ -166,7 +126,7 @@ impl Command for Do {
                                 let mut buf = String::new();
                                 stderr
                                     .read_to_string(&mut buf)
-                                    .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                    .map_err(|err| IoError::new(err, span, None))?;
                                 buf
                             }
                         };
@@ -206,7 +166,7 @@ impl Command for Do {
                 }
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
-                if ignore_program_errors
+                if ignore_all_errors
                     && !matches!(
                         caller_stack.stdout(),
                         OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
@@ -218,10 +178,10 @@ impl Command for Do {
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }
-            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
+            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
             }
-            Ok(PipelineData::ListStream(stream, metadata)) if ignore_shell_errors => {
+            Ok(PipelineData::ListStream(stream, metadata)) if ignore_all_errors => {
                 let stream = stream.map(move |value| {
                     if let Value::Error { .. } = value {
                         Value::nothing(head)

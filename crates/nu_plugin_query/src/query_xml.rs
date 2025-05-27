@@ -1,7 +1,7 @@
 use crate::Query;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value, record,
 };
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
@@ -48,7 +48,7 @@ pub fn execute_xpath_query(
         None => {
             return Err(
                 LabeledError::new("problem with input data").with_label("query missing", call.head)
-            )
+            );
         }
     };
 
@@ -132,7 +132,7 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{record, Span, Spanned, Value};
+    use nu_protocol::{Span, Spanned, Value, record};
 
     #[test]
     fn position_function_in_predicate() {

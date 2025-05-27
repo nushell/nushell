@@ -196,9 +196,11 @@ fn use_module_creates_accurate_did_you_mean_2() {
     let actual = nu!(r#"
             module spam { export def foo [] { "foo" } }; foo
         "#);
-    assert!(actual
-        .err
-        .contains("A command with that name exists in module `spam`"));
+    assert!(
+        actual
+            .err
+            .contains("A command with that name exists in module `spam`")
+    );
 }
 
 #[test]

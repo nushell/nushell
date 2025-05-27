@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, PipelineIterator};
+use nu_protocol::{PipelineIterator, ast::PathMember, casing::Casing};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -67,6 +67,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             val,
                             span: col_span,
                             optional: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv);
@@ -116,11 +117,9 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_string("a")
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_string("a")
+                })])),
             },
             Example {
                 description: "Select a field in a record",
@@ -151,7 +150,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         "name" => Value::test_string("Cargo.lock"),
                         "type" => Value::test_string("toml")
                     }),
-                ]))
+                ])),
             },
             Example {
                 description: "Select multiple columns by spreading a list",
@@ -165,7 +164,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                         "name" => Value::test_string("Cargo.lock"),
                         "type" => Value::test_string("toml")
                     }),
-                ]))
+                ])),
             },
         ]
     }
@@ -229,45 +228,37 @@ fn select(
             match v {
                 Value::List {
                     vals: input_vals, ..
-                } => {
-                    Ok(input_vals
-                        .into_iter()
-                        .map(move |input_val| {
-                            if !columns.is_empty() {
-                                let mut record = Record::new();
-                                for path in &columns {
-                                    //FIXME: improve implementation to not clone
-                                    match input_val.clone().follow_cell_path(&path.members, false) {
-                                        Ok(fetcher) => {
-                                            record.push(path.to_column_name(), fetcher);
-                                        }
-                                        Err(e) => return Value::error(e, call_span),
+                } => Ok(input_vals
+                    .into_iter()
+                    .map(move |input_val| {
+                        if !columns.is_empty() {
+                            let mut record = Record::new();
+                            for path in &columns {
+                                match input_val.follow_cell_path(&path.members) {
+                                    Ok(fetcher) => {
+                                        record.push(path.to_column_name(), fetcher.into_owned());
                                     }
+                                    Err(e) => return Value::error(e, call_span),
                                 }
-
-                                Value::record(record, span)
-                            } else {
-                                input_val.clone()
                             }
-                        })
-                        .into_pipeline_data_with_metadata(
-                            call_span,
-                            engine_state.signals().clone(),
-                            metadata,
-                        ))
-                }
+
+                            Value::record(record, span)
+                        } else {
+                            input_val.clone()
+                        }
+                    })
+                    .into_pipeline_data_with_metadata(
+                        call_span,
+                        engine_state.signals().clone(),
+                        metadata,
+                    )),
                 _ => {
                     if !columns.is_empty() {
                         let mut record = Record::new();
 
                         for cell_path in columns {
-                            // FIXME: remove clone
-                            match v.clone().follow_cell_path(&cell_path.members, false) {
-                                Ok(result) => {
-                                    record.push(cell_path.to_column_name(), result);
-                                }
-                                Err(e) => return Err(e),
-                            }
+                            let result = v.follow_cell_path(&cell_path.members)?;
+                            record.push(cell_path.to_column_name(), result.into_owned());
                         }
 
                         Ok(Value::record(record, call_span)
@@ -278,31 +269,24 @@ fn select(
                 }
             }
         }
-        PipelineData::ListStream(stream, metadata, ..) => {
-            Ok(stream
-                .map(move |x| {
-                    if !columns.is_empty() {
-                        let mut record = Record::new();
-                        for path in &columns {
-                            //FIXME: improve implementation to not clone
-                            match x.clone().follow_cell_path(&path.members, false) {
-                                Ok(value) => {
-                                    record.push(path.to_column_name(), value);
-                                }
-                                Err(e) => return Value::error(e, call_span),
+        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
+            .map(move |x| {
+                if !columns.is_empty() {
+                    let mut record = Record::new();
+                    for path in &columns {
+                        match x.follow_cell_path(&path.members) {
+                            Ok(value) => {
+                                record.push(path.to_column_name(), value.into_owned());
                             }
+                            Err(e) => return Value::error(e, call_span),
                         }
-                        Value::record(record, call_span)
-                    } else {
-                        x
                     }
-                })
-                .into_pipeline_data_with_metadata(
-                    call_span,
-                    engine_state.signals().clone(),
-                    metadata,
-                ))
-        }
+                    Value::record(record, call_span)
+                } else {
+                    x
+                }
+            })
+            .into_pipeline_data_with_metadata(call_span, engine_state.signals().clone(), metadata)),
         _ => Ok(PipelineData::empty()),
     }
 }
@@ -325,7 +309,7 @@ impl Iterator for NthIterator {
                     return self.input.next();
                 } else {
                     self.current += 1;
-                    let _ = self.input.next();
+                    let _ = self.input.next()?;
                     continue;
                 }
             } else {

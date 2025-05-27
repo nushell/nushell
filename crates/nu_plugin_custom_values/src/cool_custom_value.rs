@@ -1,6 +1,6 @@
 use nu_protocol::{
-    ast::{self, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
+    ast::{self, Math, Operator},
 };
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;

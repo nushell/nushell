@@ -1,8 +1,8 @@
 use crate::values::{Column, NuDataFrame};
 use crate::{
+    PolarsPlugin,
     dataframe::values::{NuExpression, NuLazyFrame},
     values::{CustomValueSupport, PolarsPluginObject},
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -103,6 +103,41 @@ impl PluginCommand for WithColumn {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Add series to the dataframe using a record",
+                example: r#"[[a b]; [1 2] [3 4]]
+    | polars into-lazy
+    | polars with-column {
+        c: ((polars col a) * 2)
+        d: ((polars col a) * 3)
+      }
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "d".to_string(),
+                                vec![Value::test_int(3), Value::test_int(9)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -113,6 +148,7 @@ impl PluginCommand for WithColumn {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
@@ -125,6 +161,7 @@ impl PluginCommand for WithColumn {
             }),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

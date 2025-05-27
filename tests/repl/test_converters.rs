@@ -1,4 +1,4 @@
-use crate::repl::tests::{run_test, TestResult};
+use crate::repl::tests::{TestResult, run_test};
 
 #[test]
 fn from_json_1() -> TestResult {

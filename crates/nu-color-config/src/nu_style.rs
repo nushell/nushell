@@ -47,11 +47,7 @@ fn style_get_attr(s: Style) -> Option<String> {
         attrs.push('u');
     };
 
-    if attrs.is_empty() {
-        None
-    } else {
-        Some(attrs)
-    }
+    if attrs.is_empty() { None } else { Some(attrs) }
 }
 
 fn color_to_string(color: Color) -> Option<String> {

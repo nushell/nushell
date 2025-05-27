@@ -1,6 +1,6 @@
-use syn::{meta::ParseNestedMeta, spanned::Spanned, Attribute, Fields, LitStr};
+use syn::{Attribute, Fields, LitStr, meta::ParseNestedMeta, spanned::Spanned};
 
-use crate::{case::Case, error::DeriveError, HELPER_ATTRIBUTE};
+use crate::{HELPER_ATTRIBUTE, case::Case, error::DeriveError};
 
 pub trait ParseAttrs: Default {
     fn parse_attrs<'a, M>(

@@ -2,8 +2,8 @@ use nu_cli::{eval_source, evaluate_commands};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PipelineData, Signals, Span, Spanned, Value,
+    engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
@@ -11,9 +11,9 @@ use std::{
     fmt::Write,
     hint::black_box,
     rc::Rc,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
 };
-use tango_bench::{benchmark_fn, tango_benchmarks, tango_main, IntoBenchmarks};
+use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -68,14 +68,14 @@ fn encoding_test_data(row_cnt: usize, col_cnt: usize) -> Value {
 }
 
 fn bench_command(
-    name: &str,
-    command: &str,
+    name: impl Into<String>,
+    command: impl Into<String> + Clone,
     stack: Stack,
     engine: EngineState,
 ) -> impl IntoBenchmarks {
     let commands = Spanned {
         span: Span::unknown(),
-        item: command.to_string(),
+        item: command.into(),
     };
     [benchmark_fn(name, move |b| {
         let commands = commands.clone();
@@ -175,8 +175,8 @@ fn create_example_table_nrows(n: usize) -> String {
 
 fn bench_record_create(n: usize) -> impl IntoBenchmarks {
     bench_command(
-        &format!("record_create_{n}"),
-        &create_flat_record_string(n),
+        format!("record_create_{n}"),
+        create_flat_record_string(n),
         Stack::new(),
         setup_engine(),
     )
@@ -186,7 +186,7 @@ fn bench_record_flat_access(n: usize) -> impl IntoBenchmarks {
     let setup_command = create_flat_record_string(n);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
-        &format!("record_flat_access_{n}"),
+        format!("record_flat_access_{n}"),
         "$record.col_0 | ignore",
         stack,
         engine,
@@ -198,8 +198,8 @@ fn bench_record_nested_access(n: usize) -> impl IntoBenchmarks {
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     let nested_access = ".col".repeat(n);
     bench_command(
-        &format!("record_nested_access_{n}"),
-        &format!("$record{} | ignore", nested_access),
+        format!("record_nested_access_{n}"),
+        format!("$record{} | ignore", nested_access),
         stack,
         engine,
     )
@@ -213,13 +213,13 @@ fn bench_record_insert(n: usize, m: usize) -> impl IntoBenchmarks {
         write!(insert, " | insert col_{i} {i}").unwrap();
     }
     insert.push_str(" | ignore");
-    bench_command(&format!("record_insert_{n}_{m}"), &insert, stack, engine)
+    bench_command(format!("record_insert_{n}_{m}"), insert, stack, engine)
 }
 
 fn bench_table_create(n: usize) -> impl IntoBenchmarks {
     bench_command(
-        &format!("table_create_{n}"),
-        &create_example_table_nrows(n),
+        format!("table_create_{n}"),
+        create_example_table_nrows(n),
         Stack::new(),
         setup_engine(),
     )
@@ -229,7 +229,7 @@ fn bench_table_get(n: usize) -> impl IntoBenchmarks {
     let setup_command = create_example_table_nrows(n);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
-        &format!("table_get_{n}"),
+        format!("table_get_{n}"),
         "$table | get bar | math sum | ignore",
         stack,
         engine,
@@ -240,7 +240,7 @@ fn bench_table_select(n: usize) -> impl IntoBenchmarks {
     let setup_command = create_example_table_nrows(n);
     let (stack, engine) = setup_stack_and_engine_from_command(&setup_command);
     bench_command(
-        &format!("table_select_{n}"),
+        format!("table_select_{n}"),
         "$table | select foo baz | ignore",
         stack,
         engine,
@@ -255,7 +255,7 @@ fn bench_table_insert_row(n: usize, m: usize) -> impl IntoBenchmarks {
         write!(insert, " | insert {i} {{ foo: 0, bar: 1, baz: {i} }}").unwrap();
     }
     insert.push_str(" | ignore");
-    bench_command(&format!("table_insert_row_{n}_{m}"), &insert, stack, engine)
+    bench_command(format!("table_insert_row_{n}_{m}"), insert, stack, engine)
 }
 
 fn bench_table_insert_col(n: usize, m: usize) -> impl IntoBenchmarks {
@@ -266,15 +266,15 @@ fn bench_table_insert_col(n: usize, m: usize) -> impl IntoBenchmarks {
         write!(insert, " | insert col_{i} {i}").unwrap();
     }
     insert.push_str(" | ignore");
-    bench_command(&format!("table_insert_col_{n}_{m}"), &insert, stack, engine)
+    bench_command(format!("table_insert_col_{n}_{m}"), insert, stack, engine)
 }
 
 fn bench_eval_interleave(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     bench_command(
-        &format!("eval_interleave_{n}"),
-        &format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        format!("eval_interleave_{n}"),
+        format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
         stack,
         engine,
     )
@@ -285,8 +285,8 @@ fn bench_eval_interleave_with_interrupt(n: usize) -> impl IntoBenchmarks {
     engine.set_signals(Signals::new(Arc::new(AtomicBool::new(false))));
     let stack = Stack::new();
     bench_command(
-        &format!("eval_interleave_with_interrupt_{n}"),
-        &format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
+        format!("eval_interleave_with_interrupt_{n}"),
+        format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
         stack,
         engine,
     )
@@ -296,8 +296,8 @@ fn bench_eval_for(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     bench_command(
-        &format!("eval_for_{n}"),
-        &format!("(for $x in (1..{n}) {{ 1 }}) | ignore"),
+        format!("eval_for_{n}"),
+        format!("(for $x in (1..{n}) {{ 1 }}) | ignore"),
         stack,
         engine,
     )
@@ -307,8 +307,8 @@ fn bench_eval_each(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     bench_command(
-        &format!("eval_each_{n}"),
-        &format!("(1..{n}) | each {{|_| 1 }} | ignore"),
+        format!("eval_each_{n}"),
+        format!("(1..{n}) | each {{|_| 1 }} | ignore"),
         stack,
         engine,
     )
@@ -318,8 +318,8 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
     let engine = setup_engine();
     let stack = Stack::new();
     bench_command(
-        &format!("eval_par_each_{n}"),
-        &format!("(1..{}) | par-each -t 2 {{|_| 1 }} | ignore", n),
+        format!("eval_par_each_{n}"),
+        format!("(1..{}) | par-each -t 2 {{|_| 1 }} | ignore", n),
         stack,
         engine,
     )

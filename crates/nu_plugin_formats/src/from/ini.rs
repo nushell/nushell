@@ -2,7 +2,7 @@ use crate::FormatCmdsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, Record, ShellError, Signature, Type, Value,
+    Category, Example, LabeledError, Record, ShellError, Signature, Type, Value, record,
 };
 
 pub struct FromIni;

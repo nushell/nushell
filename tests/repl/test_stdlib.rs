@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test_std, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test_std};
 
 #[test]
 fn not_loaded() -> TestResult {

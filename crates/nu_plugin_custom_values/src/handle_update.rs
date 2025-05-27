@@ -2,10 +2,10 @@ use std::sync::atomic;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    engine::Closure, LabeledError, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    LabeledError, ShellError, Signature, Spanned, SyntaxShape, Type, Value, engine::Closure,
 };
 
-use crate::{handle_custom_value::HandleCustomValue, CustomValuePlugin};
+use crate::{CustomValuePlugin, handle_custom_value::HandleCustomValue};
 
 pub struct HandleUpdate;
 

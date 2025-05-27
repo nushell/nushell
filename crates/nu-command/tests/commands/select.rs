@@ -135,6 +135,12 @@ fn selects_a_row() {
 }
 
 #[test]
+fn selects_large_row_number() {
+    let actual = nu!("seq 1 5 | select 9999999999 | to nuon");
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
 fn selects_many_rows() {
     Playground::setup("select_test_2", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);

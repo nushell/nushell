@@ -1,4 +1,4 @@
-use nu_protocol::{ast::CellPath, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{PipelineData, ShellError, Signals, Span, Value, ast::CellPath};
 use std::sync::Arc;
 
 pub trait CmdArgument {

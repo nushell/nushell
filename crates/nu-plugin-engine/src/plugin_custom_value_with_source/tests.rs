@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use nu_plugin_protocol::test_util::{test_plugin_custom_value, TestCustomValue};
+use nu_plugin_protocol::test_util::{TestCustomValue, test_plugin_custom_value};
 use nu_protocol::{
-    engine::Closure, record, BlockId, CustomValue, IntoSpanned, ShellError, Span, Value, VarId,
+    BlockId, CustomValue, IntoSpanned, ShellError, Span, Value, VarId, engine::Closure, record,
 };
 
 use crate::{
-    test_util::test_plugin_custom_value_with_source, PluginCustomValueWithSource, PluginSource,
+    PluginCustomValueWithSource, PluginSource, test_util::test_plugin_custom_value_with_source,
 };
 
 use super::WithSource;

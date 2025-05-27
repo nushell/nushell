@@ -1,6 +1,6 @@
 use crate::{
-    ast::{Expr, MatchPattern, Pattern, RangeInclusion},
     Span, Value, VarId,
+    ast::{Expr, MatchPattern, Pattern, RangeInclusion},
 };
 
 pub trait Matcher {

@@ -164,7 +164,7 @@ fn du_for_one_pattern(
     current_dir: &Path,
     span: Span,
     signals: Signals,
-) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
+) -> Result<impl Iterator<Item = Value> + Send + use<>, ShellError> {
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
             .map(Some)

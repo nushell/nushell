@@ -1,8 +1,8 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
 
-use nu_utils::locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR};
+use nu_utils::locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string};
 use std::fmt::{Display, Write};
 
 #[derive(Clone)]
@@ -53,11 +53,18 @@ impl Command for FormatDate {
                 )),
             },
             Example {
-                description:
-                    "Format a given date-time as a string using the default format (RFC 2822).",
+                description: "Format a given date-time as a string using the default format (RFC 2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Format a given date-time according to the RFC 3339 standard.",
+                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date "%+""#,
+                result: Some(Value::string(
+                    "2021-10-22T20:00:12+01:00".to_string(),
                     Span::test_data(),
                 )),
             },
@@ -228,11 +235,29 @@ fn format_helper(
 fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     let val_span = value.span();
     match value {
-        Value::Date { val, .. } => Value::string(val.to_rfc2822(), span),
+        Value::Date { val, .. } => Value::string(
+            {
+                if val.year() >= 0 {
+                    val.to_rfc2822()
+                } else {
+                    val.to_rfc3339()
+                }
+            },
+            span,
+        ),
         Value::String { val, .. } => {
             let dt = parse_date_from_string(&val, val_span);
             match dt {
-                Ok(x) => Value::string(x.to_rfc2822(), span),
+                Ok(x) => Value::string(
+                    {
+                        if x.year() >= 0 {
+                            x.to_rfc2822()
+                        } else {
+                            x.to_rfc3339()
+                        }
+                    },
+                    span,
+                ),
                 Err(e) => e,
             }
         }

@@ -1,6 +1,5 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
 
 #[derive(Clone)]
 pub struct MathFloor;
@@ -56,10 +55,7 @@ impl Command for MathFloor {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
@@ -83,10 +79,7 @@ impl Command for MathFloor {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head),

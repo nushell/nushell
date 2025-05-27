@@ -1,14 +1,14 @@
 use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
+    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineMetadata,
+    ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    BlockId, Config, DataSource, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
-    Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::sync::Arc;
@@ -268,7 +268,8 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
                         .into_value(*span)?
-                        .follow_cell_path(&full_cell_path.tail, false)?
+                        .follow_cell_path(&full_cell_path.tail)?
+                        .into_owned()
                         .into_pipeline_data()
                 } else {
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?;
@@ -591,8 +592,11 @@ impl Eval for EvalRuntime {
 
                                 // Retrieve the updated environment value.
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                let value =
-                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], true)?;
+                                let value = lhs.follow_cell_path(&[{
+                                    let mut pm = cell_path.tail[0].clone();
+                                    pm.make_insensitive();
+                                    pm
+                                }])?;
 
                                 // Reject attempts to set automatic environment variables.
                                 if is_automatic_env_var(&original_key) {
@@ -604,7 +608,7 @@ impl Eval for EvalRuntime {
 
                                 let is_config = original_key == "config";
 
-                                stack.add_env_var(original_key, value);
+                                stack.add_env_var(original_key, value.into_owned());
 
                                 // Trigger the update to config, if we modified that.
                                 if is_config {

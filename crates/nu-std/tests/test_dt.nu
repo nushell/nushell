@@ -35,6 +35,13 @@ def earlier_arg_must_be_less_or_equal_later [] {
 }
 
 @test
+def banner_math_with_ms_us_ns [] {
+    let t1 = 2023-05-07T04:08:45.582926123+12:00
+    let t2 = 2019-05-10T09:59:12.967486456-07:00
+    assert equal (datetime-diff $t1 $t2) ({year:3, month:11, day:26, hour:23, minute:9, second:32, millisecond:615, microsecond:439 nanosecond:667})
+}
+
+@test
 def pp_skips_zeros [] {
     assert equal (pretty-print-duration {year:1, month:0, day:0, hour:0, minute:0, second:0, millisecond:0, microsecond:0 nanosecond:0}) "1yr "
 }

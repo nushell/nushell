@@ -54,6 +54,7 @@ mod insert;
 mod inspect;
 mod interleave;
 mod into_datetime;
+mod into_duration;
 mod into_filesize;
 mod into_int;
 mod join;

@@ -1,10 +1,10 @@
 use crate::completions::{
-    completion_options::NuMatcher, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind, completion_options::NuMatcher,
 };
 use nu_protocol::{
+    ENV_VARIABLE_ID, Span, Type, Value,
     ast::{self, Comparison, Expr, Expression},
     engine::{Stack, StateWorkingSet},
-    Span, Type, Value, ENV_VARIABLE_ID,
 };
 use reedline::Suggestion;
 use strum::{EnumMessage, IntoEnumIterator};

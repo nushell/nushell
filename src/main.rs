@@ -15,15 +15,15 @@ use crate::{
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::{trace, Level};
+use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::Stack, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Type, Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    engine::Stack, record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -81,6 +81,9 @@ fn main() -> Result<()> {
 
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state);
+
+    #[cfg(feature = "rustls-tls")]
+    nu_command::tls::CRYPTO_PROVIDER.default();
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -167,9 +170,10 @@ fn main() -> Result<()> {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![Value::test_string(
-            default_nu_plugin_dirs_path.to_string_lossy(),
-        )]),
+        Value::test_list(vec![
+            Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+            Value::test_string(current_exe_directory().to_string_lossy()),
+        ]),
     );
     engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
@@ -405,7 +409,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
+        use nu_protocol::{ErrSpan, PluginIdentity, RegisteredPlugin, engine::StateWorkingSet};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -416,7 +420,7 @@ fn main() -> Result<()> {
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new(
-                        err.kind(),
+                        err,
                         plugin_filename.span,
                         PathBuf::from(&plugin_filename.item),
                     )

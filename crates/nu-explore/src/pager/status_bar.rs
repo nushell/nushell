@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use crate::{
-    nu_common::{string_width, NuStyle},
+    nu_common::{NuStyle, string_width},
     views::util::{nu_style_to_tui, set_span},
 };
 

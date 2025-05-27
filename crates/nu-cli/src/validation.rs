@@ -1,7 +1,7 @@
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
     ParseError,
+    engine::{EngineState, StateWorkingSet},
 };
 use reedline::{ValidationResult, Validator};
 use std::sync::Arc;

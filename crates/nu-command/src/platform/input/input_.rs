@@ -1,8 +1,8 @@
 use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
 use reedline::{FileBackedHistory, History, HistoryItem, Reedline, Signal, HISTORY_SIZE};
+use nu_protocol::shell_error::{self, io::IoError};
 
 #[derive(Clone)]
 pub struct Input;
@@ -173,7 +173,14 @@ impl Command for Input {
                 buf.push_str(&buffer);
             }
             Ok(Signal::CtrlC) => {
-                return Err(IoError::new(std::io::ErrorKind::Interrupted, call.head, None).into());
+                return Err(IoError::new(
+                    shell_error::io::ErrorKind::from_std(
+                        std::io::ErrorKind::Interrupted,
+                    ),
+                    call.head,
+                    None,
+                )
+                .into());
             }
             Ok(Signal::CtrlD) => {
                 // Do nothing on ctrl-d

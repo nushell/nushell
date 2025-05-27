@@ -1,12 +1,13 @@
 use crate::completions::{
-    completer::map_value_completions, Completer, CompletionOptions, SemanticSuggestion,
+    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
+    completer::map_value_completions,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
+    DeclId, PipelineData, Span, Type, Value,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, PipelineData, Span, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -102,10 +103,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         {
                             completion_options.case_sensitive = case_sensitive;
                         }
-                        if let Some(positional) =
-                            options.get("positional").and_then(|val| val.as_bool().ok())
-                        {
-                            completion_options.positional = positional;
+                        let positional =
+                            options.get("positional").and_then(|val| val.as_bool().ok());
+                        if positional.is_some() {
+                            log::warn!(
+                                "Use of the positional option is deprecated. Use the substring match algorithm instead."
+                            );
                         }
                         if let Some(algorithm) = options
                             .get("completion_algorithm")
@@ -113,6 +116,11 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             .and_then(|option| option.try_into().ok())
                         {
                             completion_options.match_algorithm = algorithm;
+                            if let Some(false) = positional {
+                                if completion_options.match_algorithm == MatchAlgorithm::Prefix {
+                                    completion_options.match_algorithm = MatchAlgorithm::Substring
+                                }
+                            }
                         }
                     }
 

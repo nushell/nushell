@@ -1,7 +1,7 @@
 use nu_protocol::{
+    Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
-    Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
 };
 use std::sync::Arc;
 
@@ -282,7 +282,7 @@ fn convert_to_value(
                                     error: "Error when loading".into(),
                                     msg: "only strings can be keys".into(),
                                     span: key.span,
-                                })
+                                });
                             }
                         };
 
@@ -361,7 +361,7 @@ fn convert_to_value(
                             error: "Error when loading".into(),
                             msg: "only strings can be keys".into(),
                             span: expr.span,
-                        })
+                        });
                     }
                 };
 
@@ -408,7 +408,7 @@ fn convert_to_value(
                         error: "Error when loading".into(),
                         msg: "non-integer unit value".into(),
                         span: expr.span,
-                    })
+                    });
                 }
             };
 

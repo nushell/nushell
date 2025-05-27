@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use ansi_str::{get_blocks, AnsiStr};
+use ansi_str::{AnsiStr, get_blocks};
 use nu_table::{string_truncate, string_width};
 use ratatui::{
     layout::Rect,

@@ -74,7 +74,9 @@ pub trait LegacyInput {
                                         crossterm::terminal::disable_raw_mode()
                                             .map_err(&from_io_error)?;
                                         return Err(IoError::new(
-                                            std::io::ErrorKind::Interrupted,
+                                            shell_error::io::ErrorKind::from_std(
+                                                std::io::ErrorKind::Interrupted,
+                                            ),
                                             call.head,
                                             None,
                                         )
@@ -114,7 +116,7 @@ pub trait LegacyInput {
                     terminal::Clear(ClearType::CurrentLine),
                     cursor::MoveToColumn(0),
                 )
-                .map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                .map_err(|err| IoError::new(err, call.head, None))?;
                 if let Some(prompt) = &prompt {
                     execute!(std::io::stdout(), Print(prompt.to_string()))
                         .map_err(&from_io_error)?;

@@ -1,9 +1,9 @@
 //! Interface used by the engine to communicate with the plugin.
 
 use nu_plugin_core::{
-    util::{with_custom_values_in, Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
+    util::{Waitable, WaitableMut, with_custom_values_in},
 };
 use nu_plugin_protocol::{
     CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
@@ -11,18 +11,18 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, engine::Sequence, CustomValue, IntoSpanned, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
+    SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
-    collections::{btree_map, BTreeMap},
-    sync::{mpsc, Arc, OnceLock},
+    collections::{BTreeMap, btree_map},
+    sync::{Arc, OnceLock, mpsc},
 };
 
 use crate::{
-    process::PluginProcess, PluginCustomValueWithSource, PluginExecutionContext, PluginGc,
-    PluginSource,
+    PluginCustomValueWithSource, PluginExecutionContext, PluginGc, PluginSource,
+    process::PluginProcess,
 };
 
 #[cfg(test)]

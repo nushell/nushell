@@ -1,4 +1,4 @@
-use nu_protocol::{ast::RangeInclusion, ByteStream, IntRange, Signals, Span, Value};
+use nu_protocol::{ByteStream, IntRange, Signals, Span, Value, ast::RangeInclusion};
 
 #[test]
 pub fn test_simple_positive_slice_exclusive() {

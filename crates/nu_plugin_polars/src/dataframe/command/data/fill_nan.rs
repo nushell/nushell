@@ -1,7 +1,7 @@
 use crate::{
-    dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::{Column, NuDataFrame, NuExpression},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -91,6 +91,7 @@ impl PluginCommand for LazyFillNA {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let fill: Value = call.req(0)?;
         let value = input.into_value(call.head)?;
 
@@ -119,6 +120,7 @@ impl PluginCommand for LazyFillNA {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

@@ -1,6 +1,5 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
 
 #[derive(Clone)]
 pub struct MathRound;
@@ -63,10 +62,7 @@ impl Command for MathRound {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),
@@ -94,10 +90,7 @@ impl Command for MathRound {
             ..,
         ) = input
         {
-            match &**val {
-                Range::IntRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-                Range::FloatRange(range) => ensure_bounded(range.end(), internal_span, head)?,
-            }
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),

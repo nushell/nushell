@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
+use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
 
 use std::path::Path;
 
@@ -116,6 +116,8 @@ impl Command for OverlayUse {
             // b) refreshing an active overlay (the origin module changed)
 
             let module = engine_state.get_module(module_id);
+            // in such case, should also make sure that PWD is not restored in old overlays.
+            let cwd = caller_stack.get_env_var(engine_state, "PWD").cloned();
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
@@ -160,11 +162,19 @@ impl Command for OverlayUse {
 
                 // The export-env block should see the env vars *before* activating this overlay
                 caller_stack.add_overlay(overlay_name);
+                // make sure that PWD is not restored in old overlays.
+                if let Some(cwd) = cwd {
+                    caller_stack.add_env_var("PWD".to_string(), cwd);
+                }
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
             } else {
                 caller_stack.add_overlay(overlay_name);
+                // make sure that PWD is not restored in old overlays.
+                if let Some(cwd) = cwd {
+                    caller_stack.add_env_var("PWD".to_string(), cwd);
+                }
             }
         } else {
             caller_stack.add_overlay(overlay_name);

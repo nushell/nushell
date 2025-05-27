@@ -2,8 +2,8 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
 use crate::{
-    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame},
 };
 
 pub struct LazyReverse;
@@ -59,11 +59,13 @@ impl PluginCommand for LazyReverse {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
             .map_err(LabeledError::from)?;
         let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().reverse());
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

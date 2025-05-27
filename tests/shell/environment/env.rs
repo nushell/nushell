@@ -246,6 +246,11 @@ fn env_shlvl_commandstring_does_not_increment() {
 // test run will likely hang, at least for some users.
 // Instead, use -e / --execute with an `exit` to test REPL
 // functionality as demonstrated below.
+//
+// We've also learned that `-e 'exit'` is not enough to
+// prevent failures entirely. For now we're going to ignore
+// these tests until we can find a better solution.
+#[ignore = "Causing hangs when both tests overlap"]
 #[test]
 fn env_shlvl_in_repl() {
     let actual = nu!("
@@ -256,6 +261,7 @@ fn env_shlvl_in_repl() {
     assert_eq!(actual.out, "6");
 }
 
+#[ignore = "Causing hangs when both tests overlap"]
 #[test]
 fn env_shlvl_in_exec_repl() {
     let actual = nu!(r#"

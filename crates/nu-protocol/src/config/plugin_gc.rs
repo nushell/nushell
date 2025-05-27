@@ -106,7 +106,7 @@ impl UpdateFromValue for PluginGcConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{record, Config, Span};
+    use crate::{Config, Span, record};
 
     fn test_pair() -> (PluginGcConfigs, Value) {
         (

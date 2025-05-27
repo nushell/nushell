@@ -1,10 +1,10 @@
 use crate::eval_expression;
 use nu_protocol::{
-    ast,
+    FromValue, ShellError, Span, Value, ast,
     debugger::WithoutDebug,
     engine::{self, EngineState, Stack, StateWorkingSet},
     eval_const::eval_constant,
-    ir, FromValue, ShellError, Span, Value,
+    ir,
 };
 
 pub trait CallExt {

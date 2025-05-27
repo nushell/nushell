@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
@@ -35,7 +35,10 @@ not supported."#
             ])
             .required(
                 "row_condition",
-                SyntaxShape::RowCondition,
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::RowCondition,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                ]),
                 "Filter condition.",
             )
             .allow_variants_without_examples(true)
@@ -78,18 +81,14 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(2)],
-                )),
+                result: Some(Value::test_list(vec![Value::test_int(2)])),
             },
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
@@ -125,9 +124,22 @@ not supported."#
                 description: "same as above but with regex only",
                 example: "ls | where name =~ '(?i)readme'",
                 result: None,
-            }
-
-
+            },
+            Example {
+                description: "Filter rows of a table according to a stored condition",
+                example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | where $cond",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
+            },
+            Example {
+                description: "List all numbers above 3, using an existing closure condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | where $a",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(5),
+                    Value::test_int(6),
+                ])),
+            },
         ]
     }
 }

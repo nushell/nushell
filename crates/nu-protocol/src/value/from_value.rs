@@ -1,7 +1,8 @@
 use crate::{
-    ast::{CellPath, PathMember},
-    engine::Closure,
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
+    ast::{CellPath, PathMember},
+    casing::Casing,
+    engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -133,7 +134,7 @@ pub trait FromValue: Sized {
         Type::Custom(
             any::type_name::<Self>()
                 .split(':')
-                .last()
+                .next_back()
                 .expect("str::split returns an iterator with at least one element")
                 .to_string()
                 .into_boxed_str(),
@@ -585,6 +586,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
+                    casing: Casing::Sensitive,
                 }],
             }),
             Value::Int { val, .. } => {
@@ -771,7 +773,7 @@ fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Spa
 
 #[cfg(test)]
 mod tests {
-    use crate::{engine::Closure, FromValue, IntoValue, Record, Span, Type, Value};
+    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
     use std::ops::Deref;
 
     #[test]

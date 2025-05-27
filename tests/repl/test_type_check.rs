@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
 #[test]
@@ -129,7 +129,7 @@ fn record_subtyping_allows_record_after_general_command() -> TestResult {
 fn record_subtyping_allows_general_inner() -> TestResult {
     run_test(
         "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
-       "",
+        "",
     )
 }
 

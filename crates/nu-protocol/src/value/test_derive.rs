@@ -1,4 +1,4 @@
-use crate::{record, FromValue, IntoValue, Record, Span, Value};
+use crate::{FromValue, IntoValue, Record, Span, Value, record};
 use bytes::Bytes;
 use std::collections::HashMap;
 

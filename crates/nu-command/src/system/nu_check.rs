@@ -101,7 +101,7 @@ impl Command for NuCheck {
                                 ErrorKind::FileNotFound,
                                 path_span,
                                 PathBuf::from(path_str.item),
-                            )))
+                            )));
                         }
                         Err(err) => return Err(err),
                     };
@@ -255,7 +255,7 @@ fn parse_file_script(
     match std::fs::read(path) {
         Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
         Err(err) => Err(ShellError::Io(IoError::new(
-            err.kind().not_found_as(NotFound::File),
+            err.not_found_as(NotFound::File),
             path_span,
             PathBuf::from(path),
         ))),
