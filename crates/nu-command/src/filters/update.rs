@@ -111,7 +111,7 @@ fn update_value_with_closure(
     head: Span,
 ) -> Result<Value, ShellError> {
     // Make sure the whole path accessable.
-    let _ = value.follow_cell_path(&members)?;
+    // let _ = value.follow_cell_path(&members)?;
     // follow cell_path until last_cell(exclusive).
     let (mut last_value, last_member, prev_members) = match members.split_last() {
         None => {
