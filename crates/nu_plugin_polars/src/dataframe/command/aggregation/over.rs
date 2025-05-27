@@ -83,6 +83,7 @@ impl PluginCommand for Over {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
@@ -103,6 +104,7 @@ impl PluginCommand for Over {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

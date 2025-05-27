@@ -2524,6 +2524,7 @@ dependencies = [
  "tokio",
  "tokio-rustls 0.26.1",
  "tower-service",
+ "webpki-roots 0.26.8",
 ]
 
 [[package]]
@@ -3528,7 +3529,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -3582,7 +3583,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "chrono",
  "crossterm",
@@ -3619,7 +3620,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "indexmap",
  "miette",
@@ -3631,7 +3632,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -3657,7 +3658,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3671,7 +3672,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "itertools 0.13.0",
  "nu-engine",
@@ -3682,7 +3683,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3694,7 +3695,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3770,6 +3771,8 @@ dependencies = [
  "rstest",
  "rstest_reuse",
  "rusqlite",
+ "rustls 0.23.20",
+ "rustls-native-certs 0.8.1",
  "scopeguard",
  "serde",
  "serde_json",
@@ -3800,6 +3803,7 @@ dependencies = [
  "v_htmlescape",
  "wax",
  "web-time",
+ "webpki-roots 1.0.0",
  "which",
  "windows 0.56.0",
  "winreg",
@@ -3807,7 +3811,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -3818,7 +3822,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "log",
  "nu-glob",
@@ -3829,7 +3833,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -3853,14 +3857,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3873,7 +3877,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -3900,7 +3904,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "bytesize",
  "chrono",
@@ -3917,7 +3921,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "dirs",
  "omnipath",
@@ -3927,7 +3931,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -3943,7 +3947,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "interprocess",
  "log",
@@ -3957,7 +3961,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "log",
  "nu-engine",
@@ -3973,7 +3977,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -3985,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -4003,7 +4007,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -4012,7 +4016,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "brotli",
  "bytes",
@@ -4047,12 +4051,13 @@ dependencies = [
  "thiserror 2.0.12",
  "typetag",
  "web-time",
+ "windows 0.56.0",
  "windows-sys 0.48.0",
 ]
 
 [[package]]
 name = "nu-std"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "log",
  "miette",
@@ -4063,7 +4068,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "chrono",
  "itertools 0.13.0",
@@ -4081,7 +4086,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -4094,7 +4099,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.0",
@@ -4102,7 +4107,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -4114,7 +4119,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "crossterm",
  "crossterm_winapi",
@@ -4143,7 +4148,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -4153,7 +4158,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -4168,7 +4173,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -4177,7 +4182,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -4186,7 +4191,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -4225,7 +4230,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -4240,7 +4245,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "interprocess",
  "serde",
@@ -4364,7 +4369,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.104.1"
+version = "0.104.2"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -6093,6 +6098,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+ "webpki-roots 0.26.8",
  "windows-registry",
 ]
 
@@ -6337,6 +6343,7 @@ version = "0.23.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5065c3f250cbd332cd894be57c40fa52387247659b14a2d6041d121547903b1b"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -7701,10 +7708,13 @@ dependencies = [
  "log",
  "native-tls",
  "once_cell",
+ "rustls 0.23.20",
+ "rustls-pki-types",
  "serde",
  "serde_json",
  "socks",
  "url",
+ "webpki-roots 0.26.8",
 ]
 
 [[package]]
@@ -8204,6 +8214,24 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2210b291f7ea53617fbafcc4939f10914214ec15aace5ba62293a668f322c5c9"
+dependencies = [
+ "rustls-pki-types",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2853738d1cc4f2da3a225c18ec6c3721abb31961096e9dbf5ab35fa88b19cfdb"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]

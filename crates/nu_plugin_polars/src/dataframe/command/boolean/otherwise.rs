@@ -95,6 +95,7 @@ impl PluginCommand for ExprOtherwise {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let otherwise_predicate: Value = call.req(0)?;
         let otherwise_predicate = NuExpression::try_from_value(plugin, &otherwise_predicate)?;
 
@@ -108,6 +109,7 @@ impl PluginCommand for ExprOtherwise {
         complete
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

@@ -301,7 +301,7 @@ fn insert_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = if first_path_member_int {
         value
-            .follow_cell_path(cell_path, false)
+            .follow_cell_path(cell_path)
             .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {
@@ -321,7 +321,7 @@ fn insert_single_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = if first_path_member_int {
         value
-            .follow_cell_path(cell_path, false)
+            .follow_cell_path(cell_path)
             .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {

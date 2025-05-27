@@ -115,7 +115,7 @@ pub(super) fn start_editor(
 
     let child = child.map_err(|err| {
         IoError::new_with_additional_context(
-            err.kind(),
+            err,
             call.head,
             None,
             "Could not spawn foreground child",

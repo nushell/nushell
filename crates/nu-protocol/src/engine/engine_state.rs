@@ -353,7 +353,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
+            IoError::new_internal(err, "Could not set current dir", crate::location!())
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -366,13 +366,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    pub fn has_overlay(&self, name: &[u8]) -> bool {
-        self.scope
-            .overlays
-            .iter()
-            .any(|(overlay_name, _)| name == overlay_name)
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -412,7 +405,7 @@ impl EngineState {
     }
 
     /// Translate overlay IDs from other to IDs in self
-    pub fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
+    fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
@@ -520,10 +513,7 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(
-        &self,
-        updated_items: Vec<PluginRegistryItem>,
-    ) -> Result<(), ShellError> {
+    fn update_plugin_file(&self, updated_items: Vec<PluginRegistryItem>) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
         use std::fs::File;
 
@@ -546,7 +536,7 @@ impl EngineState {
                     Ok(PluginRegistryFile::default())
                 } else {
                     Err(ShellError::Io(IoError::new_internal_with_path(
-                        err.kind(),
+                        err,
                         "Failed to open plugin file",
                         crate::location!(),
                         PathBuf::from(plugin_path),
@@ -563,7 +553,7 @@ impl EngineState {
         // Write it to the same path
         let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
             IoError::new_internal_with_path(
-                err.kind(),
+                err,
                 "Failed to write plugin file",
                 crate::location!(),
                 PathBuf::from(plugin_path),

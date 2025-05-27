@@ -3,6 +3,7 @@ use crate::{
     ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
     engine::StateWorkingSet, format_shell_error, record,
 };
+use job::JobError;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
@@ -10,6 +11,7 @@ use thiserror::Error;
 
 pub mod bridge;
 pub mod io;
+pub mod job;
 pub mod location;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -76,7 +78,7 @@ pub enum ShellError {
         exp_input_type: String,
         #[label("expected: {exp_input_type}")]
         dst_span: Span,
-        #[label("value originates from here")]
+        #[label("value originates here")]
         src_span: Span,
     },
 
@@ -431,14 +433,20 @@ pub enum ShellError {
         help: Option<String>,
     },
 
-    #[error("Can't convert string `{details}` to duration.")]
-    #[diagnostic(code(nu::shell::cant_convert_with_value))]
-    CantConvertToDuration {
-        details: String,
-        #[label("can't be converted to duration")]
-        dst_span: Span,
-        #[label("this string value...")]
-        src_span: Span,
+    /// Failed to convert a value of one type into a different type by specifying a unit.
+    ///
+    /// ## Resolution
+    ///
+    /// Check that the provided value can be converted in the provided: only Durations can be converted to duration units, and only Filesize can be converted to filesize units.
+    #[error("Can't convert {from_type} to the specified unit.")]
+    #[diagnostic(code(nu::shell::cant_convert_value_to_unit))]
+    CantConvertToUnit {
+        to_type: String,
+        from_type: String,
+        #[label("can't convert {from_type} to {to_type}")]
+        span: Span,
+        #[label("conversion originates here")]
+        unit_span: Span,
         #[help]
         help: Option<String>,
     },
@@ -911,7 +919,7 @@ pub enum ShellError {
     /// This is the main I/O error, for further details check the error kind and additional context.
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Io(io::IoError),
+    Io(#[from] io::IoError),
 
     /// A name was not found. Did you mean a different name?
     ///
@@ -1238,6 +1246,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    /// Invalid unit
+    ///
+    /// ## Resolution
+    ///
+    /// Correct unit
+    #[error("Invalid unit")]
+    #[diagnostic(
+        code(nu::shell::invalid_unit),
+        help("Supported units are: {supported_units}")
+    )]
+    InvalidUnit {
+        supported_units: String,
+        #[label("encountered here")]
+        span: Span,
+    },
+
     /// Tried spreading a non-list inside a list or command call.
     ///
     /// ## Resolution
@@ -1359,60 +1383,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         span: Option<Span>,
     },
 
-    #[error("Job {id} not found")]
-    #[diagnostic(
-        code(nu::shell::job_not_found),
-        help(
-            "The operation could not be completed, there is no job currently running with this id"
-        )
-    )]
-    JobNotFound {
-        id: usize,
-        #[label = "job not found"]
-        span: Span,
-    },
-
-    #[error("No frozen job to unfreeze")]
-    #[diagnostic(
-        code(nu::shell::no_frozen_job),
-        help("There is currently no frozen job to unfreeze")
-    )]
-    NoFrozenJob {
-        #[label = "no frozen job"]
-        span: Span,
-    },
-
-    #[error("Job {id} is not frozen")]
-    #[diagnostic(
-        code(nu::shell::job_not_frozen),
-        help("You tried to unfreeze a job which is not frozen")
-    )]
-    JobNotFrozen {
-        id: usize,
-        #[label = "job not frozen"]
-        span: Span,
-    },
-
-    #[error("The job {id} is frozen")]
-    #[diagnostic(
-        code(nu::shell::job_is_frozen),
-        help("This operation cannot be performed because the job is frozen")
-    )]
-    JobIsFrozen {
-        id: usize,
-        #[label = "This job is frozen"]
-        span: Span,
-    },
-
-    #[error("No message was received in the requested time interval")]
-    #[diagnostic(
-        code(nu::shell::recv_timeout),
-        help("No message arrived within the specified time limit")
-    )]
-    RecvTimeout {
-        #[label = "timeout"]
-        span: Span,
-    },
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Job(#[from] JobError),
 
     #[error(transparent)]
     #[diagnostic(transparent)]

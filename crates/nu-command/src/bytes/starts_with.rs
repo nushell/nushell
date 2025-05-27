@@ -72,7 +72,7 @@ impl Command for BytesStartsWith {
             reader
                 .take(pattern.len() as u64)
                 .read_to_end(&mut start)
-                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                .map_err(|err| IoError::new(err, span, None))?;
 
             Ok(Value::bool(start == pattern, head).into_pipeline_data())
         } else {

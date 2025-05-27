@@ -58,13 +58,15 @@ impl PluginCommand for ExprArgWhere {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value: Value = call.req(0)?;
         let expr = NuExpression::try_from_value(plugin, &value)?;
         let expr: NuExpression = arg_where(expr.into_polars()).into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

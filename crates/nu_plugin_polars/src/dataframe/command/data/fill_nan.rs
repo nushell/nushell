@@ -91,6 +91,7 @@ impl PluginCommand for LazyFillNA {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let fill: Value = call.req(0)?;
         let value = input.into_value(call.head)?;
 
@@ -119,6 +120,7 @@ impl PluginCommand for LazyFillNA {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

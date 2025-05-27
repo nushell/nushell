@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineIterator, ast::PathMember};
+use nu_protocol::{PipelineIterator, ast::PathMember, casing::Casing};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -67,6 +67,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                             val,
                             span: col_span,
                             optional: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv);
@@ -233,7 +234,7 @@ fn select(
                         if !columns.is_empty() {
                             let mut record = Record::new();
                             for path in &columns {
-                                match input_val.follow_cell_path(&path.members, false) {
+                                match input_val.follow_cell_path(&path.members) {
                                     Ok(fetcher) => {
                                         record.push(path.to_column_name(), fetcher.into_owned());
                                     }
@@ -256,7 +257,7 @@ fn select(
                         let mut record = Record::new();
 
                         for cell_path in columns {
-                            let result = v.follow_cell_path(&cell_path.members, false)?;
+                            let result = v.follow_cell_path(&cell_path.members)?;
                             record.push(cell_path.to_column_name(), result.into_owned());
                         }
 
@@ -273,7 +274,7 @@ fn select(
                 if !columns.is_empty() {
                     let mut record = Record::new();
                     for path in &columns {
-                        match x.follow_cell_path(&path.members, false) {
+                        match x.follow_cell_path(&path.members) {
                             Ok(value) => {
                                 record.push(path.to_column_name(), value.into_owned());
                             }

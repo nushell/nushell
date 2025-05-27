@@ -121,7 +121,7 @@ impl Command for JobSpawn {
             Err(err) => {
                 jobs.remove_job(id);
                 Err(ShellError::Io(IoError::new_with_additional_context(
-                    err.kind(),
+                    err,
                     call.head,
                     None,
                     "Failed to spawn thread for job",

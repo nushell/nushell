@@ -287,7 +287,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => {
             return Err(IoError::new_internal(
-                e.kind(),
+                e,
                 "Could not get metadata",
                 nu_protocol::location!(),
             )
@@ -297,7 +297,7 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
     let bak_path = find_backup_path(path, span)?;
     std::fs::copy(path, &bak_path).map_err(|err| {
         IoError::new_internal(
-            err.kind(),
+            err.not_found_as(NotFound::File),
             "Could not copy backup",
             nu_protocol::location!(),
         )

@@ -11,7 +11,7 @@
 # Updated again on 2023-02-23 because MSIs are still failing validation
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
-# 1. git checkout 0.86.0
+# 1. git checkout 0.103.0
 # unset CARGO_TARGET_DIR if set (I have to do this in the parent shell to get it to work)
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
@@ -23,19 +23,13 @@
 # 7. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
 # 8. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
-# make sure you have the wixtools installed https://wixtoolset.org/
-# 9. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
-# You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
-# folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 10. $env._EXTRA_ = 'bin'
-# 11. source .github\workflows\release-pkg.nu
-# 12. cd ..
-# 13. $env._EXTRA_ = 'msi'
-# 14. source .github\workflows\release-pkg.nu
+# make sure you have the wix 6.0 installed: dotnet tool install --global wix --version 6.0.0
+# then build nu*.exe and the MSI installer by running:
+# 9. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
 # on the winget-pkgs PR. To generate the hash, run this command
-# 15. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
+# 10. open wix\bin\x64\Release\nu-0.103.0-x86_64-pc-windows-msvc.msi | hash sha256
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
@@ -175,49 +169,56 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     tar -czf $archive $dest
     print $'archive: ---> ($archive)'; ls $archive
     # REF: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
-    echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
+    echo $"archive=($archive)(char nl)" o>> $env.GITHUB_OUTPUT
 
 } else if $os =~ 'windows' {
 
     let releaseStem = $'($bin)-($version)-($target)'
+    let arch = if $nu.os-info.arch =~ 'x86_64' { 'x64' } else { 'arm64' }
+    fetch-less $arch
 
-    print $'(char nl)Download less related stuffs...'; hr-line
-    # todo: less-v661 is out but is released as a zip file. maybe we should switch to that and extract it?
-    aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
-    # the below was renamed because it was failing to download for darren. it should work but it wasn't
-    # todo: maybe we should get rid of this aria2c dependency and just use http get?
-    #aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
-    aria2c https://github.com/jftuga/less-Windows/blob/master/LICENSE -o LICENSE-for-less.txt
-
-    # Create Windows msi release package
-    if (get-env _EXTRA_) == 'msi' {
-
-        let wixRelease = $'($src)/target/wix/($releaseStem).msi'
-        print $'(char nl)Start creating Windows msi package with the following contents...'
-        cd $src; hr-line
-        # Wix need the binaries be stored in target/release/
-        cp -r ($'($dist)/*' | into glob) target/release/
-        ls target/release/* | print
-        cargo install cargo-wix --version 0.3.8
-        cargo wix --no-build --nocapture --package nu --output $wixRelease
+    print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls | print
+    let archive = $'($dist)/($releaseStem).zip'
+    7z a $archive ...(glob *)
+    let pkg = (ls -f $archive | get name)
+    if not ($pkg | is-empty) {
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
-        let archive = ($wixRelease | str replace --all '\' '/')
-        print $'archive: ---> ($archive)';
-        echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
-
-    } else {
-
-        print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls | print
-        let archive = $'($dist)/($releaseStem).zip'
-        7z a $archive ...(glob *)
-        let pkg = (ls -f $archive | get name)
-        if not ($pkg | is-empty) {
-            # Workaround for https://github.com/softprops/action-gh-release/issues/280
-            let archive = ($pkg | get 0 | str replace --all '\' '/')
-            print $'archive: ---> ($archive)'
-            echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
-        }
+        let archive = ($pkg | get 0 | str replace --all '\' '/')
+        print $'archive: ---> ($archive)'
+        echo $"archive=($archive)(char nl)" o>> $env.GITHUB_OUTPUT
     }
+
+    # Create extra Windows msi release package if dotnet and wix are available
+    let installed = [dotnet wix] | all { (which $in | length) > 0 }
+    if $installed and (wix --version | split row . | first | into int) >= 6 {
+
+        print $'(char nl)Start creating Windows msi package with the following contents...'
+        cd $src; cd wix; hr-line; mkdir nu
+        # Wix need the binaries be stored in nu folder
+        cp -r ($'($dist)/*' | into glob) nu/
+        cp $'($dist)/README.txt' .
+        ls -f nu/* | print
+        ./nu/nu.exe -c $'NU_RELEASE_VERSION=($version) dotnet build -c Release -p:Platform=($arch)'
+        glob **/*.msi | print
+        # Workaround for https://github.com/softprops/action-gh-release/issues/280
+        let wixRelease = (glob **/*.msi | where $it =~ bin | get 0 | str replace --all '\' '/')
+        let msi = $'($wixRelease | path dirname)/nu-($version)-($target).msi'
+        mv $wixRelease $msi
+        print $'MSI archive: ---> ($msi)';
+        echo $"msi=($msi)(char nl)" o>> $env.GITHUB_OUTPUT
+    }
+}
+
+def fetch-less [
+    arch: string = 'x64'  # The architecture to fetch
+] {
+    let less_zip = $'less-($arch).zip'
+    print $'Fetching less archive: (ansi g)($less_zip)(ansi reset)'
+    let url = $'https://github.com/jftuga/less-Windows/releases/download/less-v668/($less_zip)'
+    http get https://github.com/jftuga/less-Windows/blob/master/LICENSE | save -rf LICENSE-for-less.txt
+    http get $url | save -rf $less_zip
+    unzip $less_zip
+    rm $less_zip lesskey.exe
 }
 
 def 'cargo-build-nu' [] {
