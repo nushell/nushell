@@ -184,13 +184,17 @@ fn update_value_with_closure(
                 if is_value_list && !is_first_member_int {
                     let rows = match value {
                         Value::List { ref mut vals, .. } => vals,
-                        _ => panic!("the i"),
+                        _ => panic!(
+                            "Alreay checked the value is a list, please fire an issue if you get this message"
+                        ),
                     };
                     let last_value_rows = match last_value {
                         Value::List { vals, .. } => vals,
-                        _ => todo!("fill"),
+                        _ => panic!(
+                            "The input value is a list, so last_value must be a list, please fire an issue if you get this message"
+                        ),
                     };
-                    for (value_row, last_value_row) in rows.into_iter().zip(last_value_rows) {
+                    for (value_row, last_value_row) in rows.iter_mut().zip(last_value_rows) {
                         value_row.update_data_at_cell_path(prev_members, last_value_row)?;
                     }
                 } else {
