@@ -7,7 +7,7 @@ use crossterm::{
 };
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::shell_error::{self, io::IoError};
 
 use std::{io::Write, time::Duration};
 
