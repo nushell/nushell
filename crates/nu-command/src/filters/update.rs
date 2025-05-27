@@ -106,7 +106,7 @@ fn update_value_with_closure(
     engine_state: &EngineState,
     stack: &mut Stack,
     mut value: Value,
-    closure: Box<Closure>,
+    closure: Closure,
     members: Vec<PathMember>,
     head: Span,
 ) -> Result<Value, ShellError> {
@@ -115,7 +115,7 @@ fn update_value_with_closure(
         None => {
             update_single_value_by_closure(
                 &mut value,
-                ClosureEvalOnce::new(engine_state, stack, *closure),
+                ClosureEvalOnce::new(engine_state, stack, closure),
                 head,
                 &members,
                 false,
@@ -143,7 +143,7 @@ fn update_value_with_closure(
     // update `last_value` first, then set last value back to `value`.
     match (last_member, &mut last_value) {
         (PathMember::String { .. }, Value::List { vals, .. }) => {
-            let mut closure = ClosureEval::new(engine_state, stack, *closure);
+            let mut closure = ClosureEval::new(engine_state, stack, closure);
             if is_value_list && !is_first_member_int {
                 // `vals` is always a list, it's required to check elements
                 // to get **real last value**.
@@ -209,7 +209,7 @@ fn update_value_with_closure(
         (first, _) => {
             update_single_value_by_closure(
                 &mut value,
-                ClosureEvalOnce::new(engine_state, stack, *closure),
+                ClosureEvalOnce::new(engine_state, stack, closure),
                 head,
                 &members,
                 matches!(first, PathMember::Int { .. }),
@@ -236,7 +236,7 @@ fn update(
                     engine_state,
                     stack,
                     value,
-                    closure,
+                    *closure,
                     cell_path.members,
                     head,
                 )?;
