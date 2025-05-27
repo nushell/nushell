@@ -148,7 +148,7 @@ rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.31"
 rust-embed = "8.7.0"
-rustls = "0.23"
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0" }

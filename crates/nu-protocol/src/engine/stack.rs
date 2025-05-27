@@ -9,6 +9,7 @@ use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    path::{Component, MAIN_SEPARATOR},
     sync::Arc,
 };
 
@@ -755,6 +756,19 @@ impl Stack {
         let path = path.as_ref();
 
         if !path.is_absolute() {
+            if matches!(path.components().next(), Some(Component::Prefix(_))) {
+                return Err(ShellError::GenericError {
+                    error: "Cannot set $env.PWD to a prefix-only path".to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!(
+                        "Try to use {}{MAIN_SEPARATOR} instead",
+                        path.display()
+                    )),
+                    inner: vec![],
+                });
+            }
+
             error("Cannot set $env.PWD to a non-absolute path")
         } else if !path.exists() {
             error("Cannot set $env.PWD to a non-existent directory")

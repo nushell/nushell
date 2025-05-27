@@ -145,7 +145,7 @@ fn recv_instantly(
 ) -> Result<PipelineData, ShellError> {
     match mailbox.try_recv(tag) {
         Ok(value) => Ok(value),
-        Err(TryRecvError::Empty) => Err(ShellError::RecvTimeout { span }),
+        Err(TryRecvError::Empty) => Err(JobError::RecvTimeout { span }.into()),
         Err(TryRecvError::Disconnected) => Err(ShellError::Interrupted { span }),
     }
 }
@@ -175,7 +175,7 @@ fn recv_with_time_limit(
         }
 
         if time_until_deadline.is_zero() {
-            return Err(ShellError::RecvTimeout { span });
+            return Err(JobError::RecvTimeout { span }.into());
         }
     }
 }
