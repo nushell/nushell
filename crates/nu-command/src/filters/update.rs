@@ -185,7 +185,7 @@ fn update_value_with_closure(
                     let rows = match value {
                         Value::List { ref mut vals, .. } => vals,
                         _ => panic!(
-                            "Alreay checked the value is a list, please fire an issue if you get this message"
+                            "Already checked the value is a list, please fire an issue if you get this message"
                         ),
                     };
                     let last_value_rows = match last_value {
