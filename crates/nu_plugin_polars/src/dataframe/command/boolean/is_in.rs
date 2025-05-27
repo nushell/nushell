@@ -154,7 +154,7 @@ fn command_expr(
         });
     }
 
-    let expr: NuExpression = expr.into_polars().is_in(lit(list)).into();
+    let expr: NuExpression = expr.into_polars().is_in(lit(list), true).into();
     expr.to_pipeline_data(plugin, engine, call.head)
 }
 
@@ -170,7 +170,7 @@ fn command_df(
     let other = other_df.as_series(other_span)?;
     let series = df.as_series(call.head)?;
 
-    let mut res = is_in(&series, &other)
+    let mut res = is_in(&series, &other, true)
         .map_err(|e| ShellError::GenericError {
             error: "Error finding in other".into(),
             msg: e.to_string(),
