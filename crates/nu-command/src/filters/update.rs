@@ -110,6 +110,8 @@ fn update_value_with_closure(
     members: Vec<PathMember>,
     head: Span,
 ) -> Result<Value, ShellError> {
+    // Make sure the whole path accessable.
+    let _ = value.follow_cell_path(&members)?;
     // follow cell_path until last_cell(exclusive).
     let (mut last_value, last_member, prev_members) = match members.split_last() {
         None => {
@@ -130,15 +132,71 @@ fn update_value_with_closure(
         }
     };
 
+    // NOTE: it's really tricky..
+    // If the input value is list, then `last_value` will always be a list, and
+    // it doesn't refer to the real last value, here are the difference:
+    // e.g:
+    // {a: [{b: 1}, {b: 2}]} --> [{b: 1}, {b: 2}]
+    // [{a: [{b: 1}, {b: 2}]}] --> [[{b: 1}, {b: 2}]]
+    // for the later one, nushell needs to check nested elements.
+    let is_value_list = matches!(value, Value::List { .. });
+    let is_first_member_int = matches!(members[0], PathMember::Int { .. });
     // update `last_value` first, then set last value back to `value`.
     match (last_member, &mut last_value) {
         (PathMember::String { .. }, Value::List { vals, .. }) => {
             let mut closure = ClosureEval::new(engine_state, stack, *closure);
-            for val in vals {
-                update_value_by_closure(val, &mut closure, head, &[last_member.clone()], false)?;
+            if is_value_list && !is_first_member_int {
+                // `vals` is always a list, it's required to check elements
+                // to get **real last value**.
+                for row in vals {
+                    match row {
+                        Value::List { vals: v, .. } => {
+                            for inner_row in v {
+                                update_value_by_closure(
+                                    inner_row,
+                                    &mut closure,
+                                    head,
+                                    &[last_member.clone()],
+                                    false,
+                                )?
+                            }
+                        }
+                        _ => update_value_by_closure(
+                            row,
+                            &mut closure,
+                            head,
+                            &[last_member.clone()],
+                            false,
+                        )?,
+                    }
+                }
+            } else {
+                for val in vals {
+                    update_value_by_closure(
+                        val,
+                        &mut closure,
+                        head,
+                        &[last_member.clone()],
+                        false,
+                    )?;
+                }
             }
             if !prev_members.is_empty() {
-                value.update_data_at_cell_path(prev_members, last_value)?;
+                if is_value_list && !is_first_member_int {
+                    let rows = match value {
+                        Value::List { ref mut vals, .. } => vals,
+                        _ => panic!("the i"),
+                    };
+                    let last_value_rows = match last_value {
+                        Value::List { vals, .. } => vals,
+                        _ => todo!("fill"),
+                    };
+                    for (value_row, last_value_row) in rows.into_iter().zip(last_value_rows) {
+                        value_row.update_data_at_cell_path(prev_members, last_value_row)?;
+                    }
+                } else {
+                    value.update_data_at_cell_path(prev_members, last_value)?;
+                }
             } else {
                 // no prev_members, so last_value is actually
                 // the value itself.
