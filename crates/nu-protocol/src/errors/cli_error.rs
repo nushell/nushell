@@ -1,11 +1,7 @@
 //! This module manages the step of turning error types into printed error messages
 //!
 //! Relies on the `miette` crate for pretty layout
-use std::{
-    collections::HashSet,
-    hash::{DefaultHasher, Hash, Hasher},
-    sync::{LazyLock, Mutex},
-};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
     CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
@@ -18,9 +14,6 @@ use miette::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// The thread-global log of reported errors and warnings, so specific reports are only shown once
-static REPORT_LOG: LazyLock<Mutex<ReportLog>> = LazyLock::new(Mutex::default);
-
 /// This error exists so that we can defer SourceCode handling. It simply
 /// forwards most methods, except for `.source_code()`, which we provide.
 #[derive(Error)]
@@ -31,9 +24,11 @@ struct CliError<'src>(
 );
 
 #[derive(Default)]
-struct ReportLog {
-    // stores the hashes of `ParseWarning`s so we don't have to keep the whole thing in memory
-    parse_warnings: HashSet<u64>,
+pub struct ReportLog {
+    // A bloom-filter like structure to store the hashes of `ParseWarning`s,
+    // without actually permanently storing the entire warning in memory.
+    // May rarely result in warnings incorrectly being unreported upon hash collision.
+    parse_warnings: Vec<u64>,
 }
 
 /// How a warning/error should be reported
@@ -44,17 +39,26 @@ pub enum ReportMode {
 }
 
 /// Returns true if this warning should be reported
-fn should_show_warning(warning: &ParseWarning) -> bool {
+fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bool {
     match warning.report_mode() {
         ReportMode::EveryUse => true,
         ReportMode::FirstUse => {
             let mut hasher = DefaultHasher::new();
             warning.hash(&mut hasher);
-            REPORT_LOG
+            let hash = hasher.finish();
+
+            let mut report_log = engine_state
+                .report_log
                 .lock()
-                .expect("report log is poisioned")
-                .parse_warnings
-                .insert(hasher.finish())
+                .expect("report log lock is poisioned");
+
+            match report_log.parse_warnings.contains(&hash) {
+                true => false,
+                false => {
+                    report_log.parse_warnings.push(hash);
+                    true
+                }
+            }
         }
     }
 }
@@ -80,7 +84,7 @@ pub fn report_parse_error(working_set: &StateWorkingSet, error: &ParseError) {
 }
 
 pub fn report_parse_warning(working_set: &StateWorkingSet, warning: &ParseWarning) {
-    if should_show_warning(warning) {
+    if should_show_warning(working_set.permanent(), warning) {
         report_warning(working_set, warning);
     }
 }
