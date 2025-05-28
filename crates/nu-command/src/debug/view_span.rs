@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{DataSource, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct ViewSpan;
@@ -34,7 +35,7 @@ impl Command for ViewSpan {
         let start_span: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let end_span: Spanned<usize> = call.req(engine_state, stack, 1)?;
 
-        if start_span.item < end_span.item {
+        let source = if start_span.item < end_span.item {
             let bin_contents =
                 engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
             Ok(
@@ -49,7 +50,14 @@ impl Command for ViewSpan {
                 help: None,
                 inner: vec![],
             })
-        }
+        };
+
+        source.map(|x| {
+            x.set_metadata(Some(PipelineMetadata {
+                data_source: DataSource::None,
+                content_type: Some("application/x-nuscript".into()),
+            }))
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
