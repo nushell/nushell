@@ -47,6 +47,11 @@ impl Command for Input {
                 "default value if no input is provided",
                 Some('d'),
             )
+            .switch(
+                "reedline",
+                "use the reedline library, defaults to false",
+                None
+            )
             .named(
                 "history-file",
                 SyntaxShape::Filepath,
@@ -56,7 +61,7 @@ impl Command for Input {
             .named(
                 "max-history",
                 SyntaxShape::Int,
-                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size",
+                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size.",
                 None,
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
@@ -70,19 +75,20 @@ impl Command for Input {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Those options are not supported by reedline, default to the legacy
-        // implementation
-        let use_legacy = [
-            call.get_flag::<String>(engine_state, stack, "bytes-until-any")?
+        // Check if we should use the legacy implementation or the reedline implementation
+        let use_reedline = [
+            // reedline is not set - use legacy implementation
+            call.has_flag(engine_state, stack, "reedline")?,
+            // We have the history-file or max-history flags set to None
+            call.get_flag::<String>(engine_state, stack, "history-file")?
                 .is_some(),
-            call.has_flag(engine_state, stack, "suppress-output")?,
-            call.get_flag::<Spanned<i64>>(engine_state, stack, "numchar")?
+            call.get_flag::<i64>(engine_state, stack, "max-history")?
                 .is_some(),
         ]
         .iter()
         .any(|x| *x);
 
-        if use_legacy {
+        if !use_reedline {
             return self.legacy_input(engine_state, stack, call, input);
         }
 
