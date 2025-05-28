@@ -4,52 +4,135 @@
 #
 # > **Note**
 # > `std bench --pretty` will return a `string`.
-@example "measure the performance of simple addition" { bench { 1 + 2 } -n 10 } --result {
-    mean: (4µs + 956ns)
-    std: (4µs + 831ns)
+@example "measure the performance of simple addition" { bench { 1 + 2 } } --result {
+    mean: 2308ns,
+    min: 2000ns,
+    max: 8500ns,
+    std: 895ns
+}
+@example "do 10 runs and show the time of each" { bench { 1 + 2 } -n 10 --verbose } --result {
+    mean: 3170ns,
+    min: 2200ns,
+    max: 9800ns,
+    std: 2228ns,
     times: [
-        (19µs + 402ns)
-        ( 4µs + 322ns)
-        ( 3µs + 352ns)
-        ( 2µs + 966ns)
-        ( 3µs        )
-        ( 3µs +  86ns)
-        ( 3µs +  84ns)
-        ( 3µs + 604ns)
-        ( 3µs +  98ns)
-        ( 3µs + 653ns)
+        9800ns,
+        3100ns,
+        2800ns,
+        2300ns,
+        2500ns,
+        2200ns,
+        2300ns,
+        2300ns,
+        2200ns,
+        2200ns
     ]
 }
 @example "get a pretty benchmark report" { bench { 1 + 2 } --pretty } --result "3µs 125ns +/- 2µs 408ns"
+@example "compare multiple commands" { bench { 2 + 4 } { 2 ** 4 } } --result [
+    [
+        code,
+        mean,
+        min,
+        max,
+        std,
+        ratio
+    ];
+    [
+        "{ 2 + 4 }",
+        2406ns,
+        2100ns,
+        9400ns,
+        1012ns,
+        1.02732707087959
+    ],
+    [
+        "{ 2 ** 4 }",
+        2342ns,
+        2100ns,
+        5300ns,
+        610ns,
+        1.0
+    ]
+]
+@example "compare multiple commands with pretty report" { bench { 2 + 4 } { 2 ** 4 } --pretty } --result "
+Benchmark 1: { 2 + 4 }
+    2µs 494ns +/- 1µs 105ns
+Benchmark 2: { 2 ** 4 }
+    2µs 348ns +/- 565ns
+
+{ 2 + 4 } ran
+    1 times faster than { 2 ** 4 }"
 export def main [
-    code: closure  # the piece of `nushell` code to measure the performance of
+    ...codes: closure        # the piece(s) of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
-    --verbose (-v) # be more verbose (namely prints the progress)
-    --pretty # shows the results in human-readable format: "<mean> +/- <stddev>"
+    --verbose (-v)           # show individual times (has no effect if used with `--pretty`)
+    --progress (-P)          # prints the progress
+    --pretty (-p)            # shows the results in human-readable format: "<mean> +/- <stddev>"
 ]: [
     nothing -> record<mean: duration, std: duration, times: list<duration>>
+    nothing -> record<mean: duration, std: duration>
+    nothing -> table<code: string, mean: duration, std: duration, ratio: float, times: list<duration>>
+    nothing -> table<code: string, mean: duration, std: duration, ratio: float>
     nothing -> string
 ] {
-    let times: list<duration> = (
-        seq 1 $rounds | each {|i|
-            if $verbose { print -n $"($i) / ($rounds)\r" }
-            timeit { do $code }
+    let results = (
+        $codes | each {|code|
+            let times: list<duration> = (
+                seq 1 $rounds | each {|i|
+                    if $progress { print -n $"($i) / ($rounds)\r" }
+                    timeit { do $code }
+                }
+            )
+
+            if $progress { print $"($rounds) / ($rounds)" }
+
+            {
+                mean: ($times | math avg)
+                min: ($times | math min)
+                max: ($times | math max)
+                std: ($times | into int | into float | math stddev | into int | into duration)
+            }
+            | if $verbose { merge { times: ($times) }} else {}
         }
     )
 
-    if $verbose { print $"($rounds) / ($rounds)" }
-
-    let report = {
-        mean: ($times | math avg)
-        min: ($times | math min)
-        max: ($times | math max)
-        std: ($times | into int | into float | math stddev | into int | into duration)
-        times: ($times)
+    # One benchmark
+    if ($results | length) == 1 {
+        let report = $results | first
+        if $pretty {
+            return $"($report.mean) +/- ($report.std)"
+        } else {
+            return $report
+        }
     }
 
+    # Multiple benchmarks
+    let min_mean = $results | get mean | math min
+    let results = (
+        $codes
+        | each { view source $in }
+        | wrap code
+        | merge $results
+        | insert ratio { $in.mean / $min_mean }
+    )
+
     if $pretty {
-        $"($report.mean) +/- ($report.std)"
+        $results
+        | enumerate
+        | each {|x|
+            print $"Benchmark ($x.index + 1): (ansi blue)($x.item.code)(ansi reset)\n\t($x.item.mean) +/- ($x.item.std)"
+        }
+
+        let results = $results | sort-by ratio
+
+        print $"\n(ansi blue)($results.0.code)(ansi reset) ran"
+        $results | skip | each {|report|
+            print $"\t(ansi green)($report.ratio | math round -p 2)(ansi reset) times faster than (ansi blue)($report.code)(ansi reset)"
+        }
+
+        ignore
     } else {
-        $report
+        $results
     }
 }
