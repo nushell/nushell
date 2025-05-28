@@ -10,22 +10,35 @@ use nu_protocol::{
 ///
 /// To use, the actual command logic should be moved to a function. Then, `eval` and `eval_const` can be implemented like this:
 /// ```rust
-/// fn run(&self, engine_state: &EngineState, stack: &mut Stack, call: &Call) -> ... {
+/// # use nu_engine::command_prelude::*;
+/// # use nu_cmd_base::WrapCall;
+/// # fn do_command_logic(call: WrapCall) -> Result<PipelineData, ShellError> { Ok(PipelineData::Empty) }
+///
+/// # struct Command {}
+/// # impl Command {
+/// fn run(&self, engine_state: &EngineState, stack: &mut Stack, call: &Call) -> Result<PipelineData, ShellError> {
 ///     let call = WrapCall::Eval(engine_state, stack, call);
-///     run_command(call)
+///     do_command_logic(call)
 /// }
 ///
-/// fn run_const(&self, working_set: &StateWorkingSet, call: &Call) -> ... {
+/// fn run_const(&self, working_set: &StateWorkingSet, call: &Call) -> Result<PipelineData, ShellError> {
 ///     let call = WrapCall::ConstEval(working_set, call);
-///     run_command(call)
+///     do_command_logic(call)
 /// }
+/// # }
 /// ```
 ///
 /// Then, the typical [`Call`] and [`CallExt`] operations can be called using destructuring:
 ///
 /// ```rust
+/// # use nu_engine::command_prelude::*;
+/// # use nu_cmd_base::WrapCall;
+/// # let call = WrapCall::Eval(&EngineState::new(), &mut Stack::new(), &Call::new(Span::unknown()));
+/// # fn do_command_logic(call: WrapCall) -> Result<(), ShellError> {
 /// let (call, required): (_, String) = call.req(0)?;
 /// let (call, flag): (_, Option<i64>) = call.get_flag("number")?;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// A new `WrapCall` instance has to be returned after each function to ensure
