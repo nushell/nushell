@@ -106,15 +106,12 @@ impl Command for StorDelete {
                     }
                 };
 
-                while conn.is_busy() {
-                    // Wait for the connection to become available
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-
                 // dbg!(&sql_stmt);
                 conn.execute(&sql_stmt, [])
                     .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from delete".into(),
+                        error:
+                            "Failed to delete using the SQLite connection in memory from delete.rs."
+                                .into(),
                         msg: err.to_string(),
                         span: Some(Span::test_data()),
                         help: None,
