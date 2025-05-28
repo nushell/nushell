@@ -189,6 +189,11 @@ fn process(
         // Get the params from the passed values
         let params = values_to_sql(record.values().cloned())?;
 
+        while conn.is_busy() {
+            // Wait for the connection to become available
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
         conn.execute(&create_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open SQLite connection in memory from insert".into(),

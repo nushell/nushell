@@ -106,6 +106,11 @@ impl Command for StorDelete {
                     }
                 };
 
+                while conn.is_busy() {
+                    // Wait for the connection to become available
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+
                 // dbg!(&sql_stmt);
                 conn.execute(&sql_stmt, [])
                     .map_err(|err| ShellError::GenericError {
