@@ -119,6 +119,7 @@ impl PluginCommand for RenameDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value).map_err(LabeledError::from)? {
             PolarsPluginObject::NuDataFrame(df) => {
@@ -130,6 +131,7 @@ impl PluginCommand for RenameDF {
             _ => Err(LabeledError::new(format!("Unsupported type: {value:?}"))
                 .with_label("Unsupported Type", call.head)),
         }
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

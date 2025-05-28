@@ -59,6 +59,7 @@ impl PluginCommand for StrSplit {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let separator = call.req::<Spanned<Value>>(0).and_then(|sep| {
             let sep_expr = NuExpression::try_from_value(plugin, &sep.item)?;
             Ok(Spanned {
@@ -75,6 +76,7 @@ impl PluginCommand for StrSplit {
             .into();
         res.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

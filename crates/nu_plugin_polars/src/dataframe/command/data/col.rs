@@ -119,8 +119,9 @@ impl PluginCommand for ExprCol {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let mut names: Vec<String> = vec![call.req(0)?];
         names.extend(call.rest(1)?);
 
@@ -144,6 +145,7 @@ impl PluginCommand for ExprCol {
 
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

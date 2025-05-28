@@ -99,6 +99,7 @@ impl PluginCommand for LazyQuantile {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         let quantile: f64 = call.req(0)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
@@ -123,6 +124,7 @@ impl PluginCommand for LazyQuantile {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

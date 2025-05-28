@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.104.1"
+version = "0.104.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,10 +17,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.104.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.104.1" }
-nu-path = { path = "../nu-path", version = "0.104.1" }
-nu-utils = { path = "../nu-utils", version = "0.104.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.104.2" }
+nu-plugin = { path = "../nu-plugin", version = "0.104.2" }
+nu-path = { path = "../nu-path", version = "0.104.2" }
+nu-utils = { path = "../nu-utils", version = "0.104.2" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = [
@@ -55,6 +55,7 @@ url.workspace = true
 
 [dependencies.polars]
 features = [
+  "abs",
   "arg_where",
   "bigidx",
   "checked_arithmetic",
@@ -78,6 +79,7 @@ features = [
   "is_in",
   "json",
   "lazy",
+  "log",
   "object",
   "parquet",
   "pivot",
@@ -87,20 +89,22 @@ features = [
   "round_series",
   "serde",
   "serde-lazy",
+  "sign",
   "strings",
   "string_to_integer",
   "streaming",
   "timezones",
   "temporal",
   "to_dummies",
+  "trigonometry",
 ]
 optional = false
 version = "0.46"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.1" }
-nu-engine = { path = "../nu-engine", version = "0.104.1" }
-nu-parser = { path = "../nu-parser", version = "0.104.1" }
-nu-command = { path = "../nu-command", version = "0.104.1" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.104.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.2" }
+nu-engine = { path = "../nu-engine", version = "0.104.2" }
+nu-parser = { path = "../nu-parser", version = "0.104.2" }
+nu-command = { path = "../nu-command", version = "0.104.2" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.104.2" }
 tempfile.workspace = true

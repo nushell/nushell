@@ -131,6 +131,7 @@ impl PluginCommand for ExprDatePart {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let part: Spanned<String> = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
@@ -158,6 +159,7 @@ impl PluginCommand for ExprDatePart {
         }.into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

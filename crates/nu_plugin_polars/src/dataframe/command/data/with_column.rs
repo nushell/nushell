@@ -104,9 +104,44 @@ impl PluginCommand for WithColumn {
                 ),
             },
             Example {
-                description: "Add series to the dataframe using a record",
+                description: "Add series to a lazyframe using a record",
                 example: r#"[[a b]; [1 2] [3 4]]
     | polars into-lazy
+    | polars with-column {
+        c: ((polars col a) * 2)
+        d: ((polars col a) * 3)
+      }
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "d".to_string(),
+                                vec![Value::test_int(3), Value::test_int(9)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Add series to a dataframe using a record",
+                example: r#"[[a b]; [1 2] [3 4]]
+    | polars into-df
     | polars with-column {
         c: ((polars col a) * 2)
         d: ((polars col a) * 3)
@@ -148,6 +183,7 @@ impl PluginCommand for WithColumn {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
@@ -160,6 +196,7 @@ impl PluginCommand for WithColumn {
             }),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -175,7 +212,7 @@ fn command_eager(
     if NuExpression::can_downcast(&new_column) {
         if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
             return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsuppored when used with expressions. Please use the `polars as` expression to name a column".into(),
+            error: "Flag 'name' is unsupported when used with expressions. Please use the `polars as` expression to name a column".into(),
             msg: "".into(),
             span: Some(name.span),
             help: Some("Use a `polars as` expression to name a column".into()),
@@ -223,7 +260,7 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
         return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsuppored for lazy dataframes. Please use the `polars as` expression to name a column".into(),
+            error: "Flag 'name' is unsupported for lazy dataframes. Please use the `polars as` expression to name a column".into(),
             msg: "".into(),
             span: Some(name.span),
             help: Some("Use a `polars as` expression to name a column".into()),

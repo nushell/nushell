@@ -84,8 +84,9 @@ impl PluginCommand for ExprConcatStr {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let separator: String = call.req(0)?;
         let value: Value = call.req(1)?;
 
@@ -94,6 +95,7 @@ impl PluginCommand for ExprConcatStr {
 
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

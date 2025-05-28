@@ -52,7 +52,10 @@ impl PluginCommand for CutSeries {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
-        command(plugin, engine, call, input).map_err(|e| e.into())
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(|e| e.into())
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

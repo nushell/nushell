@@ -77,6 +77,14 @@ impl PluginCommand for GetDay {
         ]
     }
 
+    fn extra_description(&self) -> &str {
+        ""
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
+    }
+
     fn run(
         &self,
         plugin: &Self::Plugin,
@@ -84,15 +92,10 @@ impl PluginCommand for GetDay {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
-    }
-
-    fn extra_description(&self) -> &str {
-        ""
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec![]
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

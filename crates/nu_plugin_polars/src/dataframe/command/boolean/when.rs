@@ -111,6 +111,7 @@ impl PluginCommand for ExprWhen {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let when_predicate: Value = call.req(0)?;
         let when_predicate = NuExpression::try_from_value(plugin, &when_predicate)?;
 
@@ -137,6 +138,7 @@ impl PluginCommand for ExprWhen {
         when_then
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
