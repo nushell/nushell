@@ -1,0 +1,64 @@
+use std/assert
+use std/testing *
+use std-rfc/traverse *
+
+@test
+def recurse-example-1 [] {
+    let out = {
+        "foo": {
+            "egg": "X"
+            "spam": "Y"
+        }
+        "bar": {
+            "quox": ["A" "B"]
+        }
+    }
+    | recurse
+
+    let expected = [
+        [path, item];
+        [ ($.),           {foo: {egg: X, spam: Y}, bar: {quox: [A, B]}} ],
+        [ ($.foo),        {egg: X, spam: Y} ],
+        [ ($.bar),        {quox: [A, B]} ],
+        [ ($.foo.egg),    X ],
+        [ ($.foo.spam),   Y ],
+        [ ($.bar.quox),   [A, B] ],
+        [ ($.bar.quox.0), A ],
+        [ ($.bar.quox.1), B ]
+    ]
+
+    assert equal $out $expected
+}
+
+@test
+def recurse-example-2 [] {
+    let out = {"name": "/", "children": [
+        {"name": "/bin", "children": [
+            {"name": "/bin/ls", "children": []},
+            {"name": "/bin/sh", "children": []}]},
+        {"name": "/home", "children": [
+            {"name": "/home/stephen", "children": [
+                {"name": "/home/stephen/jq", "children": []}]}]}]}
+    | recurse children
+    | get item.name
+
+    let expected = [/, /bin, /home, /bin/ls, /bin/sh, /home/stephen, /home/stephen/jq]
+
+    assert equal $out $expected
+}
+
+@test
+def recurse-example-3 [] {
+    let out = 2
+    | recurse { ({path: square item: ($in * $in)}) }
+    | take while { $in.item < 100 }
+
+    let expected = [
+        [path, item];
+        [$., 2],
+        [$.square, 4],
+        [$.square.square, 16]
+    ]
+
+    assert equal $out $expected
+}
