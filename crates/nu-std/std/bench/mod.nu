@@ -93,7 +93,7 @@ export def main [
                 max: ($times | math max)
                 std: ($times | into int | into float | math stddev | into int | into duration)
             }
-            | if $verbose { merge { times: ($times) }} else {}
+            | if $verbose { merge { times: $times }} else {}
         }
     )
 
@@ -121,13 +121,17 @@ export def main [
         $results
         | enumerate
         | each {|x|
-            print $"Benchmark ($x.index + 1): (ansi blue)($x.item.code)(ansi reset)\n\t($x.item.mean) +/- ($x.item.std)"
+            let report = $x.item
+            print $"Benchmark ($x.index + 1): (ansi blue)($report.code)(ansi reset)\n\t($report.mean) +/- ($report.std)"
         }
 
         let results = $results | sort-by ratio
 
         print $"\n(ansi blue)($results.0.code)(ansi reset) ran"
-        $results | skip | each {|report|
+
+        $results
+        | skip
+        | each {|report|
             print $"\t(ansi green)($report.ratio | math round -p 2)(ansi reset) times faster than (ansi blue)($report.code)(ansi reset)"
         }
 
