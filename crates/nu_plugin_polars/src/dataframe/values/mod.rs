@@ -498,7 +498,7 @@ mod test {
 
         let dtype = "object";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Object("unknown", None);
+        let expected = DataType::Object("unknown");
         assert_eq!(schema, expected);
     }
 
