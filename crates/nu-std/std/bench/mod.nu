@@ -111,7 +111,7 @@ export def main [
     let min_mean = $results | get mean | math min
     let results = (
         $codes
-        | each { view source $in }
+        | each { view source $in | nu-highlight }
         | wrap code
         | merge $results
         | insert ratio { $in.mean / $min_mean }
@@ -122,17 +122,17 @@ export def main [
         | enumerate
         | each {|x|
             let report = $x.item
-            print $"Benchmark ($x.index + 1): (ansi blue)($report.code)(ansi reset)\n\t($report.mean) +/- ($report.std)"
+            print $"Benchmark ($x.index + 1): ($report.code)\n\t($report.mean) +/- ($report.std)"
         }
 
         let results = $results | sort-by ratio
 
-        print $"\n(ansi blue)($results.0.code)(ansi reset) ran"
+        print $"\n($results.0.code) ran"
 
         $results
         | skip
         | each {|report|
-            print $"\t(ansi green)($report.ratio | math round -p 2)(ansi reset) times faster than (ansi blue)($report.code)(ansi reset)"
+            print $"\t(ansi green)($report.ratio | math round -p 2)(ansi reset) times faster than ($report.code)"
         }
 
         ignore
