@@ -1,6 +1,6 @@
 use std/assert
 use std/testing *
-use std-rfc/traverse *
+use std-rfc/iter *
 
 @test
 def recurse-example-1 [] {

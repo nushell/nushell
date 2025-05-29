@@ -128,8 +128,8 @@ pub fn load_standard_library(
         ),
         (
             "mod.nu",
-            "std-rfc/traverse",
-            include_str!("../std-rfc/traverse/mod.nu"),
+            "std-rfc/iter",
+            include_str!("../std-rfc/iter/mod.nu"),
         ),
     ];
 

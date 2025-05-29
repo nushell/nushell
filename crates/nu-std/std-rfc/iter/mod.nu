@@ -1,5 +1,3 @@
-# Utilities to traverse data easier.
-
 def cell-path-join []: list<cell-path> -> cell-path {
     each {|e| try { split cell-path } catch { $e } }
     | flatten
