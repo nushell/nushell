@@ -272,7 +272,7 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
     }
 }
 
-pub(crate) fn  sink_target_from_string(path: String) -> SinkTarget {
+pub(crate) fn sink_target_from_string(path: String) -> SinkTarget {
     let path = PathBuf::from(path);
     SinkTarget::Path(Arc::new(path))
 }
