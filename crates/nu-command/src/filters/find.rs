@@ -518,8 +518,7 @@ fn value_should_be_printed(
         | Value::Range { .. }
         | Value::Float { .. }
         | Value::Closure { .. }
-        | Value::Nothing { .. }
-        | Value::Error { .. } => {
+        | Value::Nothing { .. } => {
             if !pattern.lower_terms.is_empty() {
                 // look for exact match when searching with terms
                 pattern
@@ -547,6 +546,7 @@ fn value_should_be_printed(
             })
         }
         Value::Binary { .. } => false,
+        Value::Error { .. } => true,
     }
 }
 
