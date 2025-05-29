@@ -7,8 +7,8 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 use chrono::DateTime;
