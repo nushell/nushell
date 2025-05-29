@@ -6,6 +6,7 @@ use crate::{
     },
 };
 use chrono::DateTime;
+use polars_plan::plans::DynLiteralValue;
 use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -294,7 +295,9 @@ fn command(
                     None,
                     None,
                     options,
-                    Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+                    Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                        PlSmallStr::from_string(ambiguous),
+                    ))),
                 )
                 .into();
             res.to_pipeline_data(plugin, engine, call.head)
@@ -324,7 +327,9 @@ fn command_lazy(
             None,
             None,
             options,
-            Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+            Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                PlSmallStr::from_string(ambiguous),
+            ))),
         )]),
     )
     .to_pipeline_data(plugin, engine, call.head)

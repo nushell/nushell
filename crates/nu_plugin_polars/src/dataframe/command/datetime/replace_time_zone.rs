@@ -13,6 +13,7 @@ use nu_protocol::{
 
 use chrono::DateTime;
 use polars::prelude::*;
+use polars_plan::plans::DynLiteralValue;
 
 #[derive(Clone)]
 pub struct ReplaceTimeZone;
@@ -261,7 +262,9 @@ impl PluginCommand for ReplaceTimeZone {
                     .dt()
                     .replace_time_zone(
                         Some(PlSmallStr::from_str(&time_zone)),
-                        Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+                        Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                            PlSmallStr::from_string(ambiguous),
+                        ))),
                         nonexistent,
                     )
                     .into();

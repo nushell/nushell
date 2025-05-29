@@ -4,7 +4,7 @@ mod csv;
 mod ndjson;
 mod parquet;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     PolarsPlugin,
@@ -19,7 +19,7 @@ use nu_protocol::{
     Signature, Span, Spanned, SyntaxShape, Type,
     shell_error::{self, io::IoError},
 };
-use polars::error::PolarsError;
+use polars::{error::PolarsError, prelude::SinkTarget};
 
 #[derive(Clone)]
 pub struct SaveDF;
@@ -270,6 +270,11 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
         help: None,
         inner: vec![],
     }
+}
+
+pub(crate) fn  sink_target_from_string(path: String) -> SinkTarget {
+    let path = PathBuf::from(path);
+    SinkTarget::Path(Arc::new(path))
 }
 
 #[cfg(test)]
