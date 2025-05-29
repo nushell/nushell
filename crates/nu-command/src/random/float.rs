@@ -90,7 +90,7 @@ fn float(
             let value = match range.end() {
                 Bound::Included(end) => random_range(range.start()..=end),
                 Bound::Excluded(end) => random_range(range.start()..end),
-                Bound::Unbounded => random_range(range.start()..f64::INFINITY),
+                Bound::Unbounded => random_range(range.start()..f64::MAX),
             };
 
             Ok(PipelineData::Value(Value::float(value, span), None))

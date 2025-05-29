@@ -10,6 +10,12 @@ on:
       tag:
         required: true
         description: 'Tag to Rebuild MSI'
+      version:
+        description: 'Version of Rebuild MSI'
+
+permissions:
+  contents: write
+  packages: write
 
 defaults:
   run:
@@ -61,6 +67,7 @@ jobs:
         OS: ${{ matrix.os }}
         REF: ${{ inputs.tag }}
         TARGET: ${{ matrix.target }}
+        MSI_VERSION: ${{ inputs.version }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     # REF: https://github.com/marketplace/actions/gh-release
