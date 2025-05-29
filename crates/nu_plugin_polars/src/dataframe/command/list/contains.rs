@@ -147,7 +147,11 @@ fn command_expr(
             });
         }
     };
-    let res: NuExpression = expr.into_polars().list().contains(single_expression).into();
+    let res: NuExpression = expr
+        .into_polars()
+        .list()
+        .contains(single_expression, true)
+        .into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 
