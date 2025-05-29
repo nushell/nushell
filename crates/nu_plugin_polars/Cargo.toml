@@ -55,6 +55,7 @@ url.workspace = true
 
 [dependencies.polars]
 features = [
+  "abs",
   "arg_where",
   "bigidx",
   "checked_arithmetic",
@@ -78,6 +79,7 @@ features = [
   "is_in",
   "json",
   "lazy",
+  "log",
   "object",
   "parquet",
   "pivot",
@@ -87,12 +89,14 @@ features = [
   "round_series",
   "serde",
   "serde-lazy",
+  "sign",
   "strings",
   "string_to_integer",
   "streaming",
   "timezones",
   "temporal",
   "to_dummies",
+  "trigonometry",
 ]
 optional = false
 version = "0.47"

@@ -14,11 +14,8 @@ fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
-/// creates a new engine with the current path into the completions fixtures folder
-pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    // Target folder inside assets
-    let dir = fs::fixtures().join("completions");
-    let dir_str = dir
+pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, EngineState, Stack) {
+    let pwd_str = pwd
         .clone()
         .into_os_string()
         .into_string()
@@ -36,13 +33,13 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Add pwd as env var
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+        Value::string(pwd_str.clone(), nu_protocol::Span::new(0, pwd_str.len())),
     );
     stack.add_env_var(
         "TEST".to_string(),
         Value::string(
             "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::Span::new(0, pwd_str.len()),
         ),
     );
     #[cfg(windows)]
@@ -50,7 +47,7 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         "Path".to_string(),
         Value::string(
             "c:\\some\\path;c:\\some\\other\\path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::Span::new(0, pwd_str.len()),
         ),
     );
     #[cfg(not(windows))]
@@ -58,7 +55,7 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
         "PATH".to_string(),
         Value::string(
             "/some/path:/some/other/path".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
+            nu_protocol::Span::new(0, pwd_str.len()),
         ),
     );
 
@@ -66,7 +63,12 @@ pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     let merge_result = engine_state.merge_env(&mut stack);
     assert!(merge_result.is_ok());
 
-    (dir, dir_str, engine_state, stack)
+    (pwd, pwd_str, engine_state, stack)
+}
+
+/// creates a new engine with the current path in the completions fixtures folder
+pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
+    new_engine_helper(fs::fixtures().join("completions"))
 }
 
 /// Adds pseudo PATH env for external completion tests
@@ -88,22 +90,12 @@ pub fn new_external_engine() -> EngineState {
     engine
 }
 
-/// creates a new engine with the current path into the completions fixtures folder
+/// creates a new engine with the current path in the dotnu_completions fixtures folder
 pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("dotnu_completions");
-    let dir_str = dir
-        .clone()
-        .into_os_string()
-        .into_string()
-        .unwrap_or_default();
+    let (dir, dir_str, mut engine_state, mut stack) = new_engine_helper(dir);
     let dir_span = nu_protocol::Span::new(0, dir_str.len());
-
-    // Create a new engine with default context
-    let mut engine_state = create_default_context();
-
-    // Add $nu
-    engine_state.generate_nu_constant();
 
     // const $NU_LIB_DIRS
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -122,15 +114,6 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     );
     let _ = engine_state.merge_delta(working_set.render());
 
-    // New stack
-    let mut stack = Stack::new();
-
-    // Add pwd as env var
-    stack.add_env_var("PWD".to_string(), Value::string(dir_str.clone(), dir_span));
-    stack.add_env_var(
-        "TEST".to_string(),
-        Value::string("NUSHELL".to_string(), dir_span),
-    );
     stack.add_env_var(
         "NU_LIB_DIRS".into(),
         Value::test_list(vec![
@@ -147,73 +130,11 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 }
 
 pub fn new_quote_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    // Target folder inside assets
-    let dir = fs::fixtures().join("quoted_completions");
-    let dir_str = dir
-        .clone()
-        .into_os_string()
-        .into_string()
-        .unwrap_or_default();
-
-    // Create a new engine with default context
-    let mut engine_state = create_default_context();
-
-    // New stack
-    let mut stack = Stack::new();
-
-    // Add pwd as env var
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
-    );
-    stack.add_env_var(
-        "TEST".to_string(),
-        Value::string(
-            "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
-        ),
-    );
-
-    // Merge environment into the permanent state
-    let merge_result = engine_state.merge_env(&mut stack);
-    assert!(merge_result.is_ok());
-
-    (dir, dir_str, engine_state, stack)
+    new_engine_helper(fs::fixtures().join("quoted_completions"))
 }
 
 pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
-    // Target folder inside assets
-    let dir = fs::fixtures().join("partial_completions");
-    let dir_str = dir
-        .clone()
-        .into_os_string()
-        .into_string()
-        .unwrap_or_default();
-
-    // Create a new engine with default context
-    let mut engine_state = create_default_context();
-
-    // New stack
-    let mut stack = Stack::new();
-
-    // Add pwd as env var
-    stack.add_env_var(
-        "PWD".to_string(),
-        Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
-    );
-    stack.add_env_var(
-        "TEST".to_string(),
-        Value::string(
-            "NUSHELL".to_string(),
-            nu_protocol::Span::new(0, dir_str.len()),
-        ),
-    );
-
-    // Merge environment into the permanent state
-    let merge_result = engine_state.merge_env(&mut stack);
-    assert!(merge_result.is_ok());
-
-    (dir, dir_str, engine_state, stack)
+    new_engine_helper(fs::fixtures().join("partial_completions"))
 }
 
 /// match a list of suggestions with the expected values

@@ -572,6 +572,7 @@ impl CustomValueSupport for NuExpression {
         match value {
             Value::Custom { val, .. } => val.as_any().downcast_ref::<Self::CV>().is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
+            Value::Record { val, .. } => val.iter().all(|(_, value)| Self::can_downcast(value)),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true
             }
