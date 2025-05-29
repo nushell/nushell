@@ -10,17 +10,14 @@ use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
-    ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
-    Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
-    NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+    ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType, NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked, TemporalMethods, TimeUnit, TimeZone as PolarsTimeZone, UInt16Type, UInt32Type, UInt64Type, UInt8Type
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
 use polars_arrow::Either;
 use polars_arrow::array::Utf8ViewArray;
 
+use crate::command::datetime::timezone_utc;
 use crate::dataframe::values::NuSchema;
 
 use super::{DataFrameValue, NuDataFrame};
@@ -248,7 +245,7 @@ fn value_to_data_type(value: &Value) -> Option<DataType> {
         Value::Bool { .. } => Some(DataType::Boolean),
         Value::Date { .. } => Some(DataType::Datetime(
             TimeUnit::Nanoseconds,
-            Some(PlSmallStr::from_static("UTC")),
+            Some(timezone_utc()),
         )),
         Value::Duration { .. } => Some(DataType::Duration(TimeUnit::Nanoseconds)),
         Value::Filesize { .. } => Some(DataType::Int64),
@@ -1447,7 +1444,7 @@ fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
 
 fn datetime_from_epoch_nanos(
     nanos: i64,
-    timezone: &Option<PlSmallStr>,
+    timezone: &Option<PolarsTimeZone>,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
