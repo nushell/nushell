@@ -154,7 +154,8 @@ fn command_expr(
         });
     }
 
-    let expr: NuExpression = expr.into_polars().is_in(lit(list), true).into();
+    // todo - at some point we should probably make this consistent with python api
+    let expr: NuExpression = expr.into_polars().is_in(lit(list).implode(), true).into();
     expr.to_pipeline_data(plugin, engine, call.head)
 }
 
