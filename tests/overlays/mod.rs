@@ -1378,6 +1378,23 @@ fn alias_overlay_new() {
 }
 
 #[test]
+fn overlay_new_with_reload() {
+    let inp = &[
+        "overlay new spam",
+        "$env.foo = 'bar'",
+        "overlay hide spam",
+        "overlay new spam -r",
+        "'foo' in $env",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual.out, "false");
+    assert_eq!(actual_repl.out, "false");
+}
+
+#[test]
 fn overlay_use_module_dir() {
     let import = "overlay use samples/spam";
 
