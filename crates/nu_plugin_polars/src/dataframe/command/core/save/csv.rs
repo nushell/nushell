@@ -44,6 +44,7 @@ pub(crate) fn command_lazy(
             resource.cloud_options,
             SinkOptions::default(),
         )
+        .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
         .map(|_| {
             debug!("Wrote parquet file {}", resource.path);

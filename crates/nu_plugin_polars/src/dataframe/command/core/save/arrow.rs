@@ -28,6 +28,7 @@ pub(crate) fn command_lazy(
             resource.cloud_options,
             SinkOptions::default(),
         )
+        .and_then(|l| l.collect())
         .map(|_| {
             debug!("Wrote ipc file {}", resource.path);
         })

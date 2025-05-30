@@ -28,6 +28,7 @@ pub(crate) fn command_lazy(
             resource.cloud_options,
             SinkOptions::default(),
         )
+        .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
         .map(|_| {
             debug!("Wrote ndjson file {}", resource.path);
@@ -64,12 +65,12 @@ pub mod test {
     use crate::command::core::save::test::{test_eager_save, test_lazy_save};
 
     #[test]
-    pub fn test_arrow_eager_save() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn test_ndjson_eager_save() -> Result<(), Box<dyn std::error::Error>> {
         test_eager_save("ndjson")
     }
 
     #[test]
-    pub fn test_arrow_lazy_save() -> Result<(), Box<dyn std::error::Error>> {
+    pub fn test_ndjson_lazy_save() -> Result<(), Box<dyn std::error::Error>> {
         test_lazy_save("ndjson")
     }
 }
