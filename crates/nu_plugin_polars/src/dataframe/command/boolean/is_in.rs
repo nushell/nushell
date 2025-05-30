@@ -27,16 +27,10 @@ impl PluginCommand for ExprIsIn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("list", SyntaxShape::Any, "List to check if values are in")
-            .input_output_types(vec![
-                (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
-                ),
-                (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
-                ),
-            ])
+            .input_output_types(vec![(
+                Type::Custom("expression".into()),
+                Type::Custom("expression".into()),
+            )])
             .category(Category::Custom("expression".into()))
     }
 
