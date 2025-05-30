@@ -6,7 +6,7 @@ fn main() {
 
     // Set config options via environment variable
     unsafe {
-        // Extensions are required for certain things like polars group-by | polars first to work
+        // Extensions are required for certain things like aggregates with object dtypes to work
         // correctly. It is disabled by default because of unsafe code.
         // See https://docs.rs/polars/latest/polars/#user-guide for details
         std::env::set_var("POLARS_ALLOW_EXTENSION", "true");
