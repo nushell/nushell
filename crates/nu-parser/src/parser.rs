@@ -2034,18 +2034,22 @@ pub fn parse_brace_expr(
         } else {
             parse_record(working_set, span)
         }
-    } else if matches!(shape, SyntaxShape::Block) {
-        parse_block_expression(working_set, span)
-    } else if matches!(shape, SyntaxShape::MatchBlock) {
-        parse_match_block_expression(working_set, span)
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
+        if matches!(shape, SyntaxShape::Block) {
+            working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
+            return Expression::garbage(working_set, span);
+        }
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
     } else if matches!(shape, SyntaxShape::Closure(_)) {
         parse_closure_expression(working_set, shape, span)
+    } else if matches!(shape, SyntaxShape::Block) {
+        parse_block_expression(working_set, span)
+    } else if matches!(shape, SyntaxShape::MatchBlock) {
+        parse_match_block_expression(working_set, span)
     } else if second_token.is_some_and(|c| {
         c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
     }) {
