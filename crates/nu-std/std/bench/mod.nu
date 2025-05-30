@@ -69,7 +69,7 @@ export def main [
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
     --warmup (-w): int = 0   # the number of warmup rounds (not timed) to do before the benchmark, useful for filling the disk cache in I/O-heavy programs
     --setup (-s): closure    # command to run before all benchmarks
-    --prepare: closure       # command to run before each benchmark (same as `--setup` if only doing one benchmark)
+    --prepare (-S): closure  # command to run before each benchmark (same as `--setup` if only doing one benchmark)
     --cleanup (-c): closure  # command to run after all benchmarks
     --conclude (-C): closure # command to run after each benchmark (same as `--cleanup` if only doing one benchmark)
     --ignore-errors (-i)     # ignore errors in the command
