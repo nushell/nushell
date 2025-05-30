@@ -90,7 +90,7 @@ impl PluginCommand for FirstDF {
             },
             Example {
                 description: "Aggregate the first values in the group.",
-                example: "[[a b c d]; [1 0.5 true Apple] [2 0.5 true Orange] [2 4 true Apple] [3 10 false Apple] [4 13 false Banana] [5 14 true Banana]] | polars into-df -s {a: u8, b: f32, c: bool, d: str} | polars group-by d | polars first | polars sort-by [b] | polars collect",
+                example: "[[a b c d]; [1 0.5 true Apple] [2 0.5 true Orange] [2 4 true Apple] [3 10 false Apple] [4 13 false Banana] [5 14 true Banana]] | polars into-df -s {a: u8, b: f32, c: bool, d: str} | polars group-by d | polars first | polars sort-by [a] | polars collect",
                 result: Some(
                     NuDataFrame::new(
                         false,
