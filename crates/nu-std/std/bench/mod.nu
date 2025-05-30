@@ -1,9 +1,8 @@
 # run a piece of `nushell` code multiple times and measure the time of execution.
 #
-# this command returns a benchmark report of the following form:
+# this command returns a benchmark report in the form of a table/record, or a string if using `--pretty`
 #
-# > **Note**
-# > `std bench --pretty` will return a `string`.
+# if multiple commands are passed, it will show a comparison of their runtimes.
 @example "measure the performance of simple addition" { bench { 1 + 2 } } --result {
     mean: 2308ns,
     min: 2000ns,
@@ -63,9 +62,17 @@ Benchmark 2: { 2 ** 4 }
 
 { 2 + 4 } ran
     1 times faster than { 2 ** 4 }"
+@example "use --setup to compile before benchmarking" { bench { ./target/release/foo } --setup { cargo build --release } }
+@example "use --warmup to fill the disk cache before benchmarking" { bench { fd } { jwalk . -k } -w 1 -n 10 }
 export def main [
-    ...codes: closure        # the piece(s) of `nushell` code to measure the performance of
+    ...commands: closure     # the piece(s) of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
+    --warmup (-w): int = 0   # the number of warmup rounds (not timed) to do before the benchmark, useful for filling the disk cache in I/O-heavy programs
+    --setup (-s): closure    # command to run before all benchmarks
+    --prepare: closure       # command to run before each benchmark (same as `--setup` if only doing one benchmark)
+    --cleanup (-c): closure  # command to run after all benchmarks
+    --conclude (-C): closure # command to run after each benchmark (same as `--cleanup` if only doing one benchmark)
+    --ignore-errors (-i)     # ignore errors in the command
     --verbose (-v)           # show individual times (has no effect if used with `--pretty`)
     --progress (-P)          # prints the progress
     --pretty (-p)            # shows the results in human-readable format: "<mean> +/- <stddev>"
@@ -76,16 +83,27 @@ export def main [
     nothing -> table<code: string, mean: duration, std: duration, ratio: float>
     nothing -> string
 ] {
+    if $setup != null { do $setup | ignore }
+
     let results = (
-        $codes | each {|code|
+        $commands | each {|code|
+
+            if $prepare != null { do $prepare | ignore }
+
+            seq 1 $warmup | each {|i|
+                do --ignore-errors=$ignore_errors $code | ignore
+            }
+
             let times: list<duration> = (
                 seq 1 $rounds | each {|i|
                     if $progress { print -n $"($i) / ($rounds)\r" }
-                    timeit { do $code }
+                    timeit { do --ignore-errors=$ignore_errors $code | ignore }
                 }
             )
 
             if $progress { print $"($rounds) / ($rounds)" }
+
+            if $cleanup != null { do $cleanup | ignore }
 
             {
                 mean: ($times | math avg)
@@ -96,6 +114,8 @@ export def main [
             | if $verbose { merge { times: $times }} else {}
         }
     )
+
+    if $conclude != null { do $conclude | ignore }
 
     # One benchmark
     if ($results | length) == 1 {
@@ -110,7 +130,7 @@ export def main [
     # Multiple benchmarks
     let min_mean = $results | get mean | math min
     let results = (
-        $codes
+        $commands
         | each { view source $in | nu-highlight }
         | wrap code
         | merge $results
