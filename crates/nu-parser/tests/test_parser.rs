@@ -2730,13 +2730,18 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"if true { || print hi }"#;
+        let inputs = [r#"if true { || print hi }"#, r#"if true { |x| $x }"#];
 
-        parse(&mut working_set, None, input.as_bytes(), true);
-        assert!(matches!(
-            working_set.parse_errors.first(),
-            Some(ParseError::Mismatch(_, _, _))
-        ));
+        for input in inputs {
+            parse(&mut working_set, None, input.as_bytes(), true);
+            assert!(
+                matches!(
+                    working_set.parse_errors.first(),
+                    Some(ParseError::Mismatch(_, _, _))
+                ),
+                "testing: {input}"
+            );
+        }
     }
 
     #[test]
