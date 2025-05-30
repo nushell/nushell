@@ -417,6 +417,8 @@ pub trait CustomValueSupport: Cacheable {
 mod test {
     use polars::prelude::{DataType, TimeUnit, UnknownKind};
 
+    use crate::command::datetime::timezone_utc;
+
     use super::*;
 
     #[test]
@@ -498,7 +500,7 @@ mod test {
 
         let dtype = "object";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Object("unknown", None);
+        let expected = DataType::Object("unknown");
         assert_eq!(schema, expected);
     }
 
@@ -526,7 +528,7 @@ mod test {
 
         let dtype = "datetime<ms, UTC>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Datetime(TimeUnit::Milliseconds, Some("UTC".into()));
+        let expected = DataType::Datetime(TimeUnit::Milliseconds, Some(timezone_utc()));
         assert_eq!(schema, expected);
 
         let dtype = "invalid";

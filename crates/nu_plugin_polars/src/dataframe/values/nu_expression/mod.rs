@@ -252,7 +252,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             record! { "expr" => Value::string("wildcard", span) },
             span,
         )),
-        Expr::Explode(expr) => Ok(Value::record(
+        Expr::Explode { input: expr, .. } => Ok(Value::record(
             record! { "expr" => expr_to_value(expr.as_ref(), span)? },
             span,
         )),

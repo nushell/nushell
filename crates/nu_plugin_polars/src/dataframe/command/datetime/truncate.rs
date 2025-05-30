@@ -15,6 +15,7 @@ use nu_protocol::{
 
 use chrono::DateTime;
 use polars::prelude::{DataType, Expr, Field, LiteralValue, PlSmallStr, Schema, TimeUnit};
+use polars_plan::plans::DynLiteralValue;
 
 #[derive(Clone)]
 pub struct Truncate;
@@ -191,9 +192,9 @@ fn command(
             let res: NuExpression = expr
                 .into_polars()
                 .dt()
-                .truncate(Expr::Literal(LiteralValue::String(
+                .truncate(Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
                     PlSmallStr::from_string(every),
-                )))
+                ))))
                 .into();
             res.to_pipeline_data(plugin, engine, call.head)
         }

@@ -14,13 +14,15 @@ use polars::prelude::{
     Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
     ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
     NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
+    TemporalMethods, TimeUnit, TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type,
+    UInt64Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
 use polars_arrow::Either;
 use polars_arrow::array::Utf8ViewArray;
 
+use crate::command::datetime::timezone_utc;
 use crate::dataframe::values::NuSchema;
 
 use super::{DataFrameValue, NuDataFrame};
@@ -232,7 +234,7 @@ pub fn insert_value(
         col_val.column_type = value_to_data_type(&value);
     } else if let Some(current_data_type) = current_data_type {
         if col_val.column_type.as_ref() != Some(&current_data_type) {
-            col_val.column_type = Some(DataType::Object("Value", None));
+            col_val.column_type = Some(DataType::Object("Value"));
         }
     }
     col_val.values.push(value);
@@ -248,7 +250,7 @@ fn value_to_data_type(value: &Value) -> Option<DataType> {
         Value::Bool { .. } => Some(DataType::Boolean),
         Value::Date { .. } => Some(DataType::Datetime(
             TimeUnit::Nanoseconds,
-            Some(PlSmallStr::from_static("UTC")),
+            Some(timezone_utc()),
         )),
         Value::Duration { .. } => Some(DataType::Duration(TimeUnit::Nanoseconds)),
         Value::Filesize { .. } => Some(DataType::Int64),
@@ -266,7 +268,7 @@ fn value_to_data_type(value: &Value) -> Option<DataType> {
                 .map(value_to_data_type)
                 .nth(1)
                 .flatten()
-                .unwrap_or(DataType::Object("Value", None));
+                .unwrap_or(DataType::Object("Value"));
 
             Some(DataType::List(Box::new(list_type)))
         }
@@ -278,7 +280,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
     let column_type = &column
         .column_type
         .clone()
-        .unwrap_or(DataType::Object("Value", None));
+        .unwrap_or(DataType::Object("Value"));
     match column_type {
         DataType::Float32 => {
             let series_values: Result<Vec<_>, _> = column
@@ -433,7 +435,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 column.values.iter().map(|v| v.coerce_binary()).collect();
             Ok(Series::new(name, series_values?))
         }
-        DataType::Object(_, _) => value_to_series(name, &column.values),
+        DataType::Object(_) => value_to_series(name, &column.values),
         DataType::Duration(time_unit) => {
             let series_values: Result<Vec<_>, _> = column
                 .values
@@ -452,11 +454,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 Err(_) => {
                     // An error case will occur when there are lists of mixed types.
                     // If this happens, fallback to object list
-                    input_type_list_to_series(
-                        &name,
-                        &DataType::Object("unknown", None),
-                        &column.values,
-                    )
+                    input_type_list_to_series(&name, &DataType::Object("unknown"), &column.values)
                 }
             }
         }
@@ -1108,7 +1106,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Object(x, _) => {
+        DataType::Object(x) => {
             let casted = series
                 .as_any()
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
@@ -1451,7 +1449,7 @@ fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
 
 fn datetime_from_epoch_nanos(
     nanos: i64,
-    timezone: &Option<PlSmallStr>,
+    timezone: &Option<PolarsTimeZone>,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
