@@ -792,15 +792,11 @@ fn series_to_values(
 ) -> Result<Vec<Value>, ShellError> {
     match series.dtype() {
         DataType::Null => {
-            let it = std::iter::repeat(Value::nothing(span));
-            let values = if let Some(size) = maybe_size {
-                Either::Left(it.take(size))
+            if let Some(size) = maybe_size {
+                Ok(vec![Value::nothing(span); size])
             } else {
-                Either::Right(it)
+                Ok(vec![Value::nothing(span); series.len()])
             }
-            .collect::<Vec<Value>>();
-
-            Ok(values)
         }
         DataType::UInt8 => {
             let casted = series.u8().map_err(|e| ShellError::GenericError {
