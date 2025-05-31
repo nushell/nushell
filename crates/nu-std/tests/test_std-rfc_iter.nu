@@ -3,7 +3,7 @@ use std/testing *
 use std-rfc/iter *
 
 @test
-def recurse-example-1 [] {
+def recurse-example-basic [] {
     let out = {
         "foo": {
             "egg": "X"
@@ -31,7 +31,7 @@ def recurse-example-1 [] {
 }
 
 @test
-def recurse-example-2 [] {
+def recurse-example-jq [] {
     let out = {"name": "/", "children": [
         {"name": "/bin", "children": [
             {"name": "/bin/ls", "children": []},
@@ -48,7 +48,7 @@ def recurse-example-2 [] {
 }
 
 @test
-def recurse-example-3 [] {
+def recurse-example-closure [] {
     let out = 2
     | recurse { ({path: square item: ($in * $in)}) }
     | take while { $in.item < 100 }
