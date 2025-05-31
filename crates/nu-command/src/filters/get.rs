@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, ast::PathMember, report_shell_warning};
+use nu_protocol::{ast::PathMember, report_shell_warning, Signals};
 
 #[derive(Clone)]
 pub struct Get;
@@ -75,7 +75,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
+                description:
+                    "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
                 example: "ls | get name.2",
                 result: None,
             },
@@ -139,7 +140,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 engine_state,
                 &ShellError::Deprecated {
                     deprecated: "sensitive flag",
-                    suggestion: "",
+                    suggestion: "".into(),
                     span,
                     help: Some("cell-paths are case-sensitive by default"),
                 },
