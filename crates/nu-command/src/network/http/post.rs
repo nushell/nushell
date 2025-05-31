@@ -161,7 +161,7 @@ struct Arguments {
     redirect: Option<Spanned<String>>,
 }
 
-fn run_post(
+pub fn run_post(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,

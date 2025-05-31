@@ -141,7 +141,7 @@ struct Arguments {
     redirect: Option<Spanned<String>>,
 }
 
-fn run_get(
+pub fn run_get(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
