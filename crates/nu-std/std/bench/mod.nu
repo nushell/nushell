@@ -103,7 +103,7 @@ export def main [
 
             if $progress { print $"($rounds) / ($rounds)" }
 
-            if $cleanup != null { do $cleanup | ignore }
+            if $conclude != null { do $conclude | ignore }
 
             {
                 mean: ($times | math avg)
@@ -115,7 +115,7 @@ export def main [
         }
     )
 
-    if $conclude != null { do $conclude | ignore }
+    if $cleanup != null { do $cleanup | ignore }
 
     # One benchmark
     if ($results | length) == 1 {
