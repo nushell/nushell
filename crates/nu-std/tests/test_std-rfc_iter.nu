@@ -48,6 +48,23 @@ def recurse-example-jq [] {
 }
 
 @test
+def recurse-example-jq-depth-first [] {
+    let out = {"name": "/", "children": [
+        {"name": "/bin", "children": [
+            {"name": "/bin/ls", "children": []},
+            {"name": "/bin/sh", "children": []}]},
+        {"name": "/home", "children": [
+            {"name": "/home/stephen", "children": [
+                {"name": "/home/stephen/jq", "children": []}]}]}]}
+    | recurse children --depth-first
+    | get item.name
+
+    let expected = [/, /bin, /bin/ls, /bin/sh, /home, /home/stephen, /home/stephen/jq]
+
+    assert equal $out $expected
+}
+
+@test
 def recurse-example-closure [] {
     let out = 2
     | recurse { ({path: square item: ($in * $in)}) }

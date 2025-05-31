@@ -81,6 +81,17 @@ def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>
     | recurse children
     | get item.name
 } --result [/, /bin, /home, /bin/ls, /bin/sh, /home/stephen, /home/stephen/jq]
+@example "Recurse example from `jq`'s manpage, using depth-first traversal like `jq`" {
+    {"name": "/", "children": [
+        {"name": "/bin", "children": [
+            {"name": "/bin/ls", "children": []},
+            {"name": "/bin/sh", "children": []}]},
+        {"name": "/home", "children": [
+            {"name": "/home/stephen", "children": [
+                {"name": "/home/stephen/jq", "children": []}]}]}]}
+    | recurse children --depth-first
+    | get item.name
+} --result [/, /bin, /bin/ls, /bin/sh, /home, /home/stephen, /home/stephen/jq]
 @example '"Recurse" using a closure' {
     2
     | recurse { ({path: square item: ($in * $in)}) }
@@ -94,8 +105,9 @@ def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>
 @search-terms jq ".." nested
 export def recurse [
     get_children?: oneof<cell-path, closure> # Specify how to get children from parent value.
+    --depth-first # Descend depth-first rather than breadth first
 ]: [any -> list<any>] {
-    let fn = match ($get_children | describe) {
+    let descend = match ($get_children | describe) {
         "nothing" => {
             {|| get-children }
         }
@@ -119,17 +131,33 @@ export def recurse [
         }
     }
 
-    generate {|out|
-        let children = $out
-        | each {|e| $e.item | do $fn $e.item | add-parent $e.path }
-        | flatten
-        | compact -e
-
-        if ($children | is-not-empty) {
-            {out: $out, next: $children}
-        } else {
-            {out: $out}
+    let fn = if $depth_first {
+        {|stack|
+            match $stack {
+                [] => { {} }
+                [$head, ..$tail] => {
+                    let children = $head.item | do $descend $head.item | add-parent $head.path
+                    {
+                        out: $head,
+                        next: ($tail | prepend $children),
+                    }
+                }
+            }
         }
-    } [{path: ($.), item: ($in) }]
-    | flatten
+    } else {
+        {|out|
+            let children = $out
+            | each {|e| $e.item | do $descend $e.item | add-parent $e.path }
+            | flatten
+
+            if ($children | is-not-empty) {
+                {out: $out, next: $children}
+            } else {
+                {out: $out}
+            }
+        }
+    }
+
+    generate $fn [{path: ($.), item: ($in) }]
+    | if not $depth_first { flatten } else { }
 }
