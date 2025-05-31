@@ -164,6 +164,9 @@ static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     [
         // If the character is in the this set, we don't output it to prevent
         // the broken of `char --list` command table format and alignment.
+        "nul",
+        "null_byte",
+        "zero_byte",
         "newline",
         "enter",
         "nl",
