@@ -22,10 +22,23 @@ impl Command for SysHost {
         "View information about the system host."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(host(call.head).into_pipeline_data())
+    }
+
+    fn run_const(
+        &self,
+        _working_set: &StateWorkingSet,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
