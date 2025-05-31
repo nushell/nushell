@@ -15,17 +15,17 @@ use nu_protocol::{
 use polars::prelude::{IntoSeries, StringNameSpaceImpl, lit};
 
 #[derive(Clone)]
-pub struct ReplaceAll;
+pub struct StrReplace;
 
-impl PluginCommand for ReplaceAll {
+impl PluginCommand for StrReplace {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars replace-all"
+        "polars str-replace"
     }
 
     fn description(&self) -> &str {
-        "Replace all (sub)strings by a regex pattern."
+        "Replace the leftmost (sub)string by a regex pattern."
     }
 
     fn signature(&self) -> Signature {
@@ -58,17 +58,13 @@ impl PluginCommand for ReplaceAll {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Replaces string in a column",
-                example: "[[a]; [abac] [abac] [abac]] | polars into-df | polars select (polars col a | polars replace-all --pattern a --replace A) | polars collect",
+                description: "Replaces string in column",
+                example: "[[a]; [abc] [abcabc]] | polars into-df | polars select (polars col a | polars str-replace --pattern ab --replace AB) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "a".to_string(),
-                            vec![
-                                Value::test_string("AbAc"),
-                                Value::test_string("AbAc"),
-                                Value::test_string("AbAc"),
-                            ],
+                            vec![Value::test_string("ABc"), Value::test_string("ABcabc")],
                         )],
                         None,
                     )
@@ -78,15 +74,15 @@ impl PluginCommand for ReplaceAll {
             },
             Example {
                 description: "Replaces string",
-                example: "[abac abac abac] | polars into-df | polars replace-all --pattern a --replace A",
+                example: "[abc abc abc] | polars into-df | polars str-replace --pattern ab --replace AB",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "0".to_string(),
                             vec![
-                                Value::test_string("AbAc"),
-                                Value::test_string("AbAc"),
-                                Value::test_string("AbAc"),
+                                Value::test_string("ABc"),
+                                Value::test_string("ABc"),
+                                Value::test_string("ABc"),
                             ],
                         )],
                         None,
@@ -105,7 +101,6 @@ impl PluginCommand for ReplaceAll {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -123,13 +118,12 @@ impl PluginCommand for ReplaceAll {
             )),
         }
         .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
 fn command_expr(
     plugin: &PolarsPlugin,
-    engine_state: &EngineInterface,
+    engine: &EngineInterface,
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
@@ -137,6 +131,7 @@ fn command_expr(
         .get_flag("pattern")?
         .ok_or_else(|| missing_flag_error("pattern", call.head))?;
     let pattern = lit(pattern);
+
     let replace: String = call
         .get_flag("replace")?
         .ok_or_else(|| missing_flag_error("replace", call.head))?;
@@ -145,15 +140,15 @@ fn command_expr(
     let res: NuExpression = expr
         .into_polars()
         .str()
-        .replace_all(pattern, replace, false)
+        .replace(pattern, replace, false)
         .into();
 
-    res.to_pipeline_data(plugin, engine_state, call.head)
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_df(
     plugin: &PolarsPlugin,
-    engine_state: &EngineInterface,
+    engine: &EngineInterface,
     call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
@@ -173,21 +168,20 @@ fn command_df(
         inner: vec![],
     })?;
 
-    let mut res =
-        chunked
-            .replace_all(&pattern, &replace)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error finding pattern other".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+    let mut res = chunked
+        .replace(&pattern, &replace)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error finding pattern other".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
 
     res.rename(series.name().to_owned());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    df.to_pipeline_data(plugin, engine_state, call.head)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
@@ -197,6 +191,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ReplaceAll)
+        test_polars_plugin_command(&StrReplace)
     }
 }
