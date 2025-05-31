@@ -1579,16 +1579,25 @@ fn attribute_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
+    // Compile a list of built-in attribute names (without the "attr " prefix)
+    let attribute_names: Vec<String> = engine
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .map(|(sig, _)| sig.name)
+        .filter(|name| name.starts_with("attr "))
+        .map(|name| name[5..].to_string())
+        .collect();
+
+    // Make sure we actually found some attributes so the test is valid
+    assert!(attribute_names.contains(&String::from("example")));
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("@", 1);
 
-    // Only checking for the builtins and not the std attributes
-    let expected: Vec<_> = vec!["category", "example", "search-terms"];
-
     // Match results
-    match_suggestions(&expected, &suggestions);
+    match_suggestions_by_string(&attribute_names, &suggestions);
 }
 
 #[test]

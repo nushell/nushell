@@ -9,7 +9,7 @@ use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
@@ -521,9 +521,6 @@ fn parse_def_inner(
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
-
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     // Note: "export def" is treated the same as "def"
@@ -724,8 +721,6 @@ fn parse_def_inner(
         }
 
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-            let declaration = working_set.get_decl_mut(decl_id);
-
             signature.name.clone_from(&name);
             if !has_wrapped {
                 *signature = signature.add_help();
@@ -733,8 +728,11 @@ fn parse_def_inner(
             signature.description = desc;
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
-            signature.search_terms = search_terms;
-            signature.category = category_from_string(&category);
+
+            let (attribute_vals, examples) =
+                handle_special_attributes(attributes, working_set, &mut signature);
+
+            let declaration = working_set.get_decl_mut(decl_id);
 
             *declaration = signature
                 .clone()
@@ -787,9 +785,6 @@ fn parse_extern_inner(
     let concat_span = Span::concat(spans);
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
-
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -876,8 +871,6 @@ fn parse_extern_inner(
             }
 
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-                let declaration = working_set.get_decl_mut(decl_id);
-
                 let external_name = if let Some(mod_name) = module_name {
                     if name.as_bytes() == b"main" {
                         String::from_utf8_lossy(mod_name).to_string()
@@ -891,9 +884,12 @@ fn parse_extern_inner(
                 signature.name = external_name;
                 signature.description = description;
                 signature.extra_description = extra_description;
-                signature.search_terms = search_terms;
                 signature.allows_unknown_args = true;
-                signature.category = category_from_string(&category);
+
+                let (attribute_vals, examples) =
+                    handle_special_attributes(attributes, working_set, &mut signature);
+
+                let declaration = working_set.get_decl_mut(decl_id);
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
@@ -950,16 +946,11 @@ fn parse_extern_inner(
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
-#[allow(clippy::type_complexity)]
 fn handle_special_attributes(
     attributes: Vec<(String, Value)>,
     working_set: &mut StateWorkingSet<'_>,
-) -> (
-    Vec<(String, Value)>,
-    Vec<CustomExample>,
-    Vec<String>,
-    String,
-) {
+    signature: &mut Signature,
+) -> (Vec<(String, Value)>, Vec<CustomExample>) {
     let mut attribute_vals = vec![];
     let mut examples = vec![];
     let mut search_terms = vec![];
@@ -1016,7 +1007,11 @@ fn handle_special_attributes(
             }
         }
     }
-    (attribute_vals, examples, search_terms, category)
+
+    signature.search_terms = search_terms;
+    signature.category = category_from_string(&category);
+
+    (attribute_vals, examples)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {

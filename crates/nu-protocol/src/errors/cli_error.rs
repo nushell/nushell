@@ -1,6 +1,8 @@
 //! This module manages the step of turning error types into printed error messages
 //!
 //! Relies on the `miette` crate for pretty layout
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use crate::{
     CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
     engine::{EngineState, StateWorkingSet},
@@ -9,6 +11,7 @@ use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
 };
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// This error exists so that we can defer SourceCode handling. It simply
@@ -20,6 +23,46 @@ struct CliError<'src>(
     pub &'src StateWorkingSet<'src>,
 );
 
+#[derive(Default)]
+pub struct ReportLog {
+    // A bloom-filter like structure to store the hashes of `ParseWarning`s,
+    // without actually permanently storing the entire warning in memory.
+    // May rarely result in warnings incorrectly being unreported upon hash collision.
+    parse_warnings: Vec<u64>,
+}
+
+/// How a warning/error should be reported
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ReportMode {
+    FirstUse,
+    EveryUse,
+}
+
+/// Returns true if this warning should be reported
+fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bool {
+    match warning.report_mode() {
+        ReportMode::EveryUse => true,
+        ReportMode::FirstUse => {
+            let mut hasher = DefaultHasher::new();
+            warning.hash(&mut hasher);
+            let hash = hasher.finish();
+
+            let mut report_log = engine_state
+                .report_log
+                .lock()
+                .expect("report log lock is poisioned");
+
+            match report_log.parse_warnings.contains(&hash) {
+                true => false,
+                false => {
+                    report_log.parse_warnings.push(hash);
+                    true
+                }
+            }
+        }
+    }
+}
+
 pub fn format_shell_error(working_set: &StateWorkingSet, error: &ShellError) -> String {
     format!("Error: {:?}", CliError(error, working_set))
 }
@@ -30,9 +73,9 @@ pub fn report_shell_error(engine_state: &EngineState, error: &ShellError) {
     }
 }
 
-pub fn report_shell_warning(engine_state: &EngineState, error: &ShellError) {
-    if engine_state.config.display_errors.should_show(error) {
-        report_warning(&StateWorkingSet::new(engine_state), error)
+pub fn report_shell_warning(engine_state: &EngineState, warning: &ShellError) {
+    if engine_state.config.display_errors.should_show(warning) {
+        report_warning(&StateWorkingSet::new(engine_state), warning)
     }
 }
 
@@ -40,8 +83,10 @@ pub fn report_parse_error(working_set: &StateWorkingSet, error: &ParseError) {
     report_error(working_set, error);
 }
 
-pub fn report_parse_warning(working_set: &StateWorkingSet, error: &ParseWarning) {
-    report_warning(working_set, error);
+pub fn report_parse_warning(working_set: &StateWorkingSet, warning: &ParseWarning) {
+    if should_show_warning(working_set.permanent(), warning) {
+        report_warning(working_set, warning);
+    }
 }
 
 pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError) {
@@ -57,8 +102,8 @@ fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     }
 }
 
-fn report_warning(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
-    eprintln!("Warning: {:?}", CliError(error, working_set));
+fn report_warning(working_set: &StateWorkingSet, warning: &dyn miette::Diagnostic) {
+    eprintln!("Warning: {:?}", CliError(warning, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
