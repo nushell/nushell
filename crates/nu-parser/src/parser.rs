@@ -2057,6 +2057,10 @@ pub fn parse_brace_expr(
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
+        if matches!(shape, SyntaxShape::Block) {
+            working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
+            return Expression::garbage(working_set, span);
+        }
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
