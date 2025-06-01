@@ -24,7 +24,10 @@ impl Command for Table {
     }
 
     fn signature(&self) -> Signature {
-        Render.signature().category(Category::Deprecated)
+        let mut signature = Render.signature();
+        signature.name = "table".to_string();
+        signature.category = Category::Deprecated;
+        signature
     }
 
     fn run(
