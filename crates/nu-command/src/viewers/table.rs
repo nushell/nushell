@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 use super::Render;
 
@@ -38,5 +39,16 @@ impl Command for Table {
 
     fn examples(&self) -> Vec<Example> {
         Render.examples()
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            renamed: Some("render".to_string()),
+            since: Some("0.106.0".to_string()),
+            expected_removal: None,
+            message: Some("change this to render".to_string()),
+        }]
     }
 }
