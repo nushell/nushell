@@ -1,9 +1,10 @@
 use std::{borrow::Cow, ops::Deref};
 
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
+    ListStream, Signals,
     ast::{Expr, Expression},
-    report_shell_warning, ListStream, Signals,
+    report_shell_warning,
 };
 
 #[derive(Clone)]
@@ -80,8 +81,7 @@ impl Command for Default {
                 result: None,
             },
             Example {
-                description:
-                    "Get the env value of `MY_ENV` with a default value 'abc' if not present",
+                description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
                 example: "$env | get --ignore-errors MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
@@ -322,7 +322,7 @@ fn closure_variable_warning(
         // this is a closure from inside a variable
         (Value::Closure { .. }, true) => {
             let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
-            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor change to `{ $carapace_completer }`";
+            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
             let suggestion = match span_contents {
                 Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
                 Cow::Owned(s) if s.deref() == "$carapace_completer" => {
@@ -332,13 +332,17 @@ fn closure_variable_warning(
             };
 
             report_shell_warning(
-            engine_state,
-            &ShellError::Deprecated {
-                deprecated: "passing closure values to default",
-                suggestion,
-                 span,
-                help: Some("default now has lazy evaluation, so closure values should be wrapped in a closure"),
-            });
+                engine_state,
+                &ShellError::DeprecationWarning {
+                    deprecation_type: "Behavior",
+                    suggestion,
+                    span,
+                    help: Some(
+                        r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
+In a future release, closures passed by variable will also be lazily evaluated.",
+                    ),
+                },
+            );
 
             // bypass the normal DefaultValue::new logic
             Err(DefaultValue::Calculated(value))
