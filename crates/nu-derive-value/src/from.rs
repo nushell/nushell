@@ -592,7 +592,8 @@ fn parse_value_via_fields(
                     (false, true) => quote! {
                         #ident: record
                             .remove(#ident_s)
-                            .and_then(|v| <#ty as nu_protocol::FromValue>::from_value(v).ok())
+                            .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
+                            .transpose()?
                             .unwrap_or_default()
                     },
                 });
