@@ -59,7 +59,7 @@ impl Command for Render {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "set a table mode/theme",
+                "set a table theme",
                 Some('t'),
             )
             .named(
@@ -94,16 +94,16 @@ impl Command for Render {
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "expand the table structure in collapse mode (currently does not support width control)",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                "truncate the middle part of lists and tables, only showing the specified number of rows on the top and bottom",
                 Some('a'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
+            .switch("list", "list available table themes", Some('l'))
             .category(Category::Viewers)
     }
 
