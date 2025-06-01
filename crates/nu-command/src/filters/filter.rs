@@ -14,8 +14,8 @@ impl Command for Filter {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command works similar to 'where' but allows reading the predicate closure from
-a variable. On the other hand, the "row condition" syntax is not supported."#
+        r#"This command works similar to 'where' but can only use a closure as a predicate.
+The "row condition" syntax is not supported."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -48,6 +48,18 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
     ) -> Result<PipelineData, ShellError> {
         use super::where_::Where;
         <Where as Command>::run(&Where, engine_state, stack, call, input)
+    }
+
+    fn deprecation_info(&self) -> Vec<nu_protocol::DeprecationEntry> {
+        vec![
+            DeprecationEntry {
+                ty: DeprecationType::Command,
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.105.0".into()),
+                expected_removal: None,
+                help: Some("`where` command can be used instead, as it can now read the predicate closure from a variable".into()),
+            }
+        ]
     }
 
     fn examples(&self) -> Vec<Example> {
