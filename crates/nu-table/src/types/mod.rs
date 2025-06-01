@@ -5,11 +5,9 @@ use crate::{NuTable, common::INDEX_COLUMN_NAME};
 
 mod collapse;
 mod expanded;
-mod general;
 
 pub use collapse::CollapsedTable;
 pub use expanded::ExpandedTable;
-pub use general::JustTable;
 
 pub struct TableOutput {
     /// A table structure.

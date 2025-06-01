@@ -13,11 +13,11 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
-    ValueIterator, shell_error::io::IoError,
+    ByteStream, Config, DataSource, DeprecationEntry, DeprecationType, ListStream,
+    PipelineMetadata, ReportMode, Signals, TableMode, ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
-    CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
+    CollapsedTable, ExpandedTable, NuTable, StringResult, TableOpts, TableOutput,
     common::configure_table,
 };
 use nu_utils::{get_ls_colors, terminal_size};
@@ -49,7 +49,7 @@ impl Command for Render {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("table")
+        Signature::build("render")
             // TODO: make this more precise: what turns into string and what into raw stream
             .input_output_types(vec![(Type::Any, Type::Any)])
             .named(
@@ -72,13 +72,13 @@ impl Command for Render {
             )
             .switch(
                 "expand",
-                "expand the table structure in a light mode",
+                "deprecated flag, this is now the default.",
                 Some('e'),
             )
             .named(
-                "expand-deep",
+                "depth",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place, must be used with --expand",
+                "the number of levels to expand inner values",
                 Some('d'),
             )
             .switch("flatten", "Flatten simple arrays", None)
@@ -205,6 +205,19 @@ impl Command for Render {
             },
         ]
     }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("expand".to_string()),
+            renamed: None,
+            report_mode: ReportMode::EveryUse,
+            since: Some("0.106.0".to_string()),
+            expected_removal: None,
+            message: Some(
+                "Expanded mode is now the default, the flag can be safely removed".to_string(),
+            ),
+        }]
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -239,7 +252,6 @@ impl TableConfig {
 
 #[derive(Debug, Clone)]
 enum TableView {
-    General,
     Collapsed,
     Expanded {
         limit: Option<usize>,
@@ -252,8 +264,7 @@ struct CLIArgs {
     width: Option<i64>,
     abbrivation: Option<usize>,
     theme: TableMode,
-    expand: bool,
-    expand_limit: Option<usize>,
+    expand_depth: Option<usize>,
     expand_flatten: bool,
     expand_flatten_separator: Option<String>,
     collapse: bool,
@@ -283,21 +294,20 @@ fn parse_table_config(
 }
 
 fn get_table_view(args: &CLIArgs) -> TableView {
-    match (args.expand, args.collapse) {
-        (false, false) => TableView::General,
-        (_, true) => TableView::Collapsed,
-        (true, _) => TableView::Expanded {
-            limit: args.expand_limit,
+    if args.collapse {
+        TableView::Collapsed
+    } else {
+        TableView::Expanded {
+            limit: args.expand_depth,
             flatten: args.expand_flatten,
             flatten_separator: args.expand_flatten_separator.clone(),
-        },
+        }
     }
 }
 
 fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> ShellResult<CLIArgs> {
     let width: Option<i64> = call.get_flag(state, stack, "width")?;
-    let expand: bool = call.has_flag(state, stack, "expand")?;
-    let expand_limit: Option<usize> = call.get_flag(state, stack, "expand-deep")?;
+    let expand_depth: Option<usize> = call.get_flag(state, stack, "depth")?;
     let expand_flatten: bool = call.has_flag(state, stack, "flatten")?;
     let expand_flatten_separator: Option<String> =
         call.get_flag(state, stack, "flatten-separator")?;
@@ -315,8 +325,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         theme,
         abbrivation,
         collapse,
-        expand,
-        expand_limit,
+        expand_depth,
         expand_flatten,
         expand_flatten_separator,
         width,
@@ -612,7 +621,6 @@ fn build_table_kv(
     span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(record, opts),
         TableView::Expanded {
             limit,
             flatten,
@@ -648,7 +656,6 @@ fn build_table_batch(
     }
 
     match view {
-        TableView::General => JustTable::table(vals, opts),
         TableView::Expanded {
             limit,
             flatten,
