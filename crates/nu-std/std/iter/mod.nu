@@ -18,7 +18,7 @@
 export def find [
     fn: closure # the closure used to perform the search 
 ] {
-    filter {|e| try {do $fn $e} } | try { first }
+    where {|e| try {do $fn $e} } | try { first }
 }
 
 # Returns the index of the first element that matches the predicate or -1 if none
@@ -87,7 +87,7 @@ export def scan [ # -> list<any>
 #
 # This is equivalent to 
 #
-#     $in | each $fn | filter $fn
+#     $in | each $fn | where $fn
 @example "Get the squares of elements that can be squared" {
     [2 5 "4" 7] | iter filter-map {|e| $e ** 2}
 } --result [4, 25, 49]
@@ -101,7 +101,7 @@ export def filter-map [
             null 
         }
     } 
-    | filter {|e|
+    | where {|e|
         $e != null
     }
 }
