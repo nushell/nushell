@@ -9,12 +9,12 @@ use crate::{self as nu_protocol, ReportMode, Span};
 pub struct DeprecationEntry {
     // might need to revisit this if we added additional DeprecationTypes
     #[nu_value(rename = "flag", default)]
-    ty: DeprecationType,
+    pub ty: DeprecationType,
     #[nu_value(rename = "report")]
     pub report_mode: ReportMode,
-    since: Option<String>,
-    expected_removal: Option<String>,
-    help: Option<String>,
+    pub since: Option<String>,
+    pub expected_removal: Option<String>,
+    pub help: Option<String>,
 }
 
 /// What this deprecation affects
