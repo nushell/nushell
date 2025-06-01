@@ -18,7 +18,7 @@ use nu_protocol::{
 };
 use nu_table::{
     CollapsedTable, ExpandedTable, NuTable, StringResult, TableOpts, TableOutput,
-    common::configure_table,
+    common::{configure_table, nu_value_to_string_colored},
 };
 use nu_utils::{get_ls_colors, terminal_size};
 
@@ -50,8 +50,12 @@ impl Command for Render {
 
     fn signature(&self) -> Signature {
         Signature::build("render")
-            // TODO: make this more precise: what turns into string and what into raw stream
-            .input_output_types(vec![(Type::Any, Type::Any)])
+            .input_output_type(
+                // TODO: make this more precise, everything is converted to a string except:
+                // - non-binary ByteStreams (kept as ByteStream since it may not be valid UTF-8)
+                // - null values and empty pipelines (returns PipelineData::Empty, since empty strings print a newline)
+                Type::Any, Type::Any
+            )
             .named(
                 "theme",
                 SyntaxShape::String,
@@ -475,7 +479,16 @@ fn handle_render_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             input.data = PipelineData::Empty;
             handle_row_stream(input, stream, metadata)
         }
-        x => Ok(x),
+        // output empty values, since empty strings get newlines
+        PipelineData::Value(Value::Nothing { .. }, ..) | PipelineData::Empty => {
+            Ok(PipelineData::Empty)
+        }
+        PipelineData::Value(ref val, ..) => {
+            let cfg = &input.get_config();
+            let comp = StyleComputer::from_config(input.engine_state, input.stack);
+            let string = nu_value_to_string_colored(val, cfg, &comp);
+            Ok(Value::string(string, input.call.head).into_pipeline_data())
+        }
     }
 }
 
