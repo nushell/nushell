@@ -133,20 +133,12 @@ impl DeprecationEntry {
         let label = self.label(command_name);
         let span = self.span(call);
         let report_mode = self.report_mode;
-        match self.help {
-            Some(help) => Some(ParseWarning::DeprecationWarningWithHelp {
-                dep_type,
-                label,
-                span,
-                report_mode,
-                help,
-            }),
-            None => Some(ParseWarning::DeprecationWarning {
-                dep_type,
-                label,
-                span,
-                report_mode,
-            }),
-        }
+        Some(ParseWarning::DeprecationWarning {
+            dep_type,
+            label,
+            span,
+            report_mode,
+            help: self.help,
+        })
     }
 }
