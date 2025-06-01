@@ -2,7 +2,7 @@ use crate::form::{
     Absolute, Any, Canonical, IsAbsolute, MaybeRelative, PathCast, PathForm, PathJoin, PathPush,
     PathSet, Relative,
 };
-use ref_cast::{ref_cast_custom, RefCastCustom};
+use ref_cast::{RefCastCustom, ref_cast_custom};
 use std::{
     borrow::{Borrow, Cow},
     cmp::Ordering,

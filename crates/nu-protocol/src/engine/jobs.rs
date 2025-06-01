@@ -1,11 +1,17 @@
 use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    sync::{
+        Arc, Mutex,
+        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
+    },
 };
 
-use nu_system::{kill_by_pid, UnfreezeHandle};
+#[cfg(not(target_family = "wasm"))]
+use std::time::{Duration, Instant};
 
-use crate::Signals;
+use nu_system::{UnfreezeHandle, kill_by_pid};
+
+use crate::{PipelineData, Signals};
 
 use crate::JobId;
 
@@ -36,6 +42,10 @@ impl Jobs {
 
     pub fn lookup(&self, id: JobId) -> Option<&Job> {
         self.jobs.get(&id)
+    }
+
+    pub fn lookup_mut(&mut self, id: JobId) -> Option<&mut Job> {
+        self.jobs.get_mut(&id)
     }
 
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
@@ -102,12 +112,12 @@ impl Jobs {
     pub fn kill_all(&mut self) -> std::io::Result<()> {
         self.last_frozen_job_id = None;
 
-        self.jobs.clear();
-
         let first_err = self
             .iter()
             .map(|(_, job)| job.kill().err())
             .fold(None, |acc, x| acc.or(x));
+
+        self.jobs.clear();
 
         if let Some(err) = first_err {
             Err(err)
@@ -134,13 +144,17 @@ pub enum Job {
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
+    tag: Option<String>,
+    pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals) -> Self {
+    pub fn new(signals: Signals, tag: Option<String>, sender: Sender<Mail>) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
+            sender,
+            tag,
         }
     }
 
@@ -197,10 +211,25 @@ impl Job {
             Job::Frozen(frozen_job) => frozen_job.kill(),
         }
     }
+
+    pub fn tag(&self) -> Option<&String> {
+        match self {
+            Job::Thread(thread_job) => thread_job.tag.as_ref(),
+            Job::Frozen(frozen_job) => frozen_job.tag.as_ref(),
+        }
+    }
+
+    pub fn assign_tag(&mut self, tag: Option<String>) {
+        match self {
+            Job::Thread(thread_job) => thread_job.tag = tag,
+            Job::Frozen(frozen_job) => frozen_job.tag = tag,
+        }
+    }
 }
 
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
+    pub tag: Option<String>,
 }
 
 impl FrozenJob {
@@ -215,5 +244,162 @@ impl FrozenJob {
         {
             Ok(())
         }
+    }
+}
+
+/// Stores the information about the background job currently being executed by this thread, if any
+#[derive(Clone)]
+pub struct CurrentJob {
+    pub id: JobId,
+
+    // The background thread job associated with this thread.
+    // If None, it indicates this thread is currently the main job
+    pub background_thread_job: Option<ThreadJob>,
+
+    // note: although the mailbox is Mutex'd, it is only ever accessed
+    // by the current job's threads
+    pub mailbox: Arc<Mutex<Mailbox>>,
+}
+
+// The storage for unread messages
+//
+// Messages are initially sent over a mpsc channel,
+// and may then be stored in a IgnoredMail struct when
+// filtered out by a tag.
+pub struct Mailbox {
+    receiver: Receiver<Mail>,
+    ignored_mail: IgnoredMail,
+}
+
+impl Mailbox {
+    pub fn new(receiver: Receiver<Mail>) -> Self {
+        Mailbox {
+            receiver,
+            ignored_mail: IgnoredMail::default(),
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn recv_timeout(
+        &mut self,
+        filter_tag: Option<FilterTag>,
+        timeout: Duration,
+    ) -> Result<PipelineData, RecvTimeoutError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            let mut waited_so_far = Duration::ZERO;
+            let mut before = Instant::now();
+
+            while waited_so_far < timeout {
+                let (tag, value) = self.receiver.recv_timeout(timeout - waited_so_far)?;
+
+                if filter_tag.is_none() || filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                    let now = Instant::now();
+                    waited_so_far += now - before;
+                    before = now;
+                }
+            }
+
+            Err(RecvTimeoutError::Timeout)
+        }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn try_recv(
+        &mut self,
+        filter_tag: Option<FilterTag>,
+    ) -> Result<PipelineData, TryRecvError> {
+        if let Some(value) = self.ignored_mail.pop(filter_tag) {
+            Ok(value)
+        } else {
+            loop {
+                let (tag, value) = self.receiver.try_recv()?;
+
+                if filter_tag.is_none() || filter_tag == tag {
+                    return Ok(value);
+                } else {
+                    self.ignored_mail.add((tag, value));
+                }
+            }
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.ignored_mail.clear();
+
+        while self.receiver.try_recv().is_ok() {}
+    }
+}
+
+// A data structure used to store messages which were received, but currently ignored by a tag filter
+// messages are added and popped in a first-in-first-out matter.
+#[derive(Default)]
+struct IgnoredMail {
+    next_id: usize,
+    messages: BTreeMap<usize, Mail>,
+    by_tag: HashMap<FilterTag, BTreeSet<usize>>,
+}
+
+pub type FilterTag = u64;
+pub type Mail = (Option<FilterTag>, PipelineData);
+
+impl IgnoredMail {
+    pub fn add(&mut self, (tag, value): Mail) {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        self.messages.insert(id, (tag, value));
+
+        if let Some(tag) = tag {
+            self.by_tag.entry(tag).or_default().insert(id);
+        }
+    }
+
+    pub fn pop(&mut self, tag: Option<FilterTag>) -> Option<PipelineData> {
+        if let Some(tag) = tag {
+            self.pop_oldest_with_tag(tag)
+        } else {
+            self.pop_oldest()
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.by_tag.clear();
+    }
+
+    fn pop_oldest(&mut self) -> Option<PipelineData> {
+        let (id, (tag, value)) = self.messages.pop_first()?;
+
+        if let Some(tag) = tag {
+            let needs_cleanup = if let Some(ids) = self.by_tag.get_mut(&tag) {
+                ids.remove(&id);
+                ids.is_empty()
+            } else {
+                false
+            };
+
+            if needs_cleanup {
+                self.by_tag.remove(&tag);
+            }
+        }
+
+        Some(value)
+    }
+
+    fn pop_oldest_with_tag(&mut self, tag: FilterTag) -> Option<PipelineData> {
+        let ids = self.by_tag.get_mut(&tag)?;
+
+        let id = ids.pop_first()?;
+
+        if ids.is_empty() {
+            self.by_tag.remove(&tag);
+        }
+
+        Some(self.messages.remove(&id)?.1)
     }
 }

@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use polars::prelude::DataType;
 
-use crate::{dataframe::values::Column, values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
 use crate::values::NuDataFrame;
 
@@ -89,7 +89,10 @@ impl PluginCommand for TakeDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

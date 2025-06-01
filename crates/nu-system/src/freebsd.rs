@@ -1,7 +1,7 @@
 use itertools::{EitherOrBoth, Itertools};
 use libc::{
-    c_char, kinfo_proc, sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS,
-    TDF_IDLETD,
+    CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS, TDF_IDLETD, c_char, kinfo_proc,
+    sysctl,
 };
 use std::{
     ffi::CStr,

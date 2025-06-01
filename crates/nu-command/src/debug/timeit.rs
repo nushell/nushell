@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
 use web_time::Instant;
 

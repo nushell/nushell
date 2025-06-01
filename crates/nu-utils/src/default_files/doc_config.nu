@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.103.1"
+# version = "0.104.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -115,12 +115,13 @@ $env.config.cursor_shape.vi_normal = "underscore"  # Cursor shape in normal vi m
 # $env.config.completions.*
 # Apply to the Nushell completion system
 
-# algorithm (string): Either "prefix" or "fuzzy"
+# algorithm (string): "prefix", "substring" or "fuzzy"
 $env.config.completions.algorithm = "prefix"
 
 # sort (string): One of "smart" or "alphabetical"
 # In "smart" mode sort order is based on the "algorithm" setting.
 # When using the "prefix" algorithm, results are alphabetically sorted.
+# When using the "substring" algorithm, results are alphabetically sorted.
 # When using the "fuzzy" algorithm, results are sorted based on their fuzzy score.
 $env.config.completions.sort = "smart"
 
@@ -299,7 +300,7 @@ $env.config.footer_mode = 25
 # Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# or "basic_compact"
+# "basic_compact" or "single"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 
@@ -353,6 +354,9 @@ $env.config.table.abbreviated_row_count = null
 #       then also display the footer for the parent table
 # false: Always apply `footer_mode` rules to the parent table
 $env.config.table.footer_inheritance = false
+
+# missing_value_symbol (string): The symbol shown for missing values
+$env.config.table.missing_value_symbol = "❎"
 
 # ----------------
 # Datetime Display

@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 use nu_test_support::nu;
 
 #[test]
@@ -164,9 +164,11 @@ fn bad_spread_internal_args() -> TestResult {
 #[test]
 fn spread_non_list_args() {
     fail_test(r#"echo ...(1)"#, "cannot spread value").unwrap();
-    assert!(nu!(r#"nu --testbin cococo ...(1)"#)
-        .err
-        .contains("cannot spread value"));
+    assert!(
+        nu!(r#"nu --testbin cococo ...(1)"#)
+            .err
+            .contains("cannot spread value")
+    );
 }
 
 #[test]

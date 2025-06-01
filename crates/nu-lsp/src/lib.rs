@@ -2,18 +2,18 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    request::{self, Request},
     InlayHint, OneOf, Position, Range, ReferencesOptions, RenameOptions, SemanticToken,
     SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelpOptions,
     TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
+    request::{self, Request},
 };
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use nu_protocol::{
+    DeclId, ModuleId, Span, Type, Value, VarId,
     ast::{Block, PathMember},
     engine::{EngineState, StateDelta, StateWorkingSet},
-    DeclId, ModuleId, Span, Type, VarId,
 };
 use std::{
     collections::BTreeMap,
@@ -40,10 +40,10 @@ mod workspace;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Id {
-    Variable(VarId),
+    Variable(VarId, Box<[u8]>),
     Declaration(DeclId),
     Value(Type),
-    Module(ModuleId),
+    Module(ModuleId, Box<[u8]>),
     CellPath(VarId, Vec<PathMember>),
     External(String),
 }
@@ -315,13 +315,26 @@ impl LanguageServer {
         Ok(reset)
     }
 
-    pub(crate) fn new_engine_state(&self) -> EngineState {
+    /// Create a clone of the initial_engine_state with:
+    ///
+    /// * PWD set to the parent directory of given uri. Fallback to `$env.PWD` if None.
+    /// * `StateDelta` cache merged
+    pub(crate) fn new_engine_state(&self, uri: Option<&Uri>) -> EngineState {
         let mut engine_state = self.initial_engine_state.clone();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var(
-            "PWD".into(),
-            nu_protocol::Value::test_string(cwd.to_string_lossy()),
-        );
+        match uri {
+            Some(uri) => {
+                let path = uri_to_path(uri);
+                if let Some(path) = path.parent() {
+                    engine_state
+                        .add_env_var("PWD".into(), Value::test_string(path.to_string_lossy()))
+                };
+            }
+            None => {
+                let cwd =
+                    std::env::current_dir().expect("Could not get current working directory.");
+                engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+            }
+        }
         // merge the cached `StateDelta` if text not changed
         if !self.need_parse {
             engine_state
@@ -339,7 +352,7 @@ impl LanguageServer {
         if self.need_parse {
             // TODO: incremental parsing
             // add block to working_set for later references
-            working_set.add_block(block.clone());
+            working_set.add_block(block);
             self.cached_state_delta = Some(working_set.delta.clone());
             self.need_parse = false;
         }
@@ -350,7 +363,7 @@ impl LanguageServer {
         engine_state: &'a mut EngineState,
         uri: &Uri,
         pos: Position,
-    ) -> Result<(StateWorkingSet<'a>, Id, Span, usize)> {
+    ) -> Result<(StateWorkingSet<'a>, Id, Span, Span)> {
         let (block, file_span, working_set) = self
             .parse_file(engine_state, uri, false)
             .ok_or_else(|| miette!("\nFailed to parse current file"))?;
@@ -365,7 +378,7 @@ impl LanguageServer {
         let location = file.offset_at(pos) as usize + file_span.start;
         let (id, span) = ast::find_id(&block, &working_set, &location)
             .ok_or_else(|| miette!("\nFailed to find current name"))?;
-        Ok((working_set, id, span, file_span.start))
+        Ok((working_set, id, span, file_span))
     }
 
     pub(crate) fn parse_file<'a>(
@@ -431,15 +444,15 @@ impl LanguageServer {
 mod tests {
     use super::*;
     use lsp_types::{
+        DidChangeTextDocumentParams, DidOpenTextDocumentParams, HoverParams, InitializedParams,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, WorkDoneProgressParams,
         notification::{
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
         },
         request::{HoverRequest, Initialize, Request, Shutdown},
-        DidChangeTextDocumentParams, DidOpenTextDocumentParams, HoverParams, InitializedParams,
-        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
-        TextDocumentPositionParams, WorkDoneProgressParams,
     };
-    use nu_protocol::{debugger::WithoutDebug, engine::Stack, PipelineData, ShellError, Value};
+    use nu_protocol::{PipelineData, ShellError, Value, debugger::WithoutDebug, engine::Stack};
     use nu_std::load_standard_library;
     use std::sync::mpsc::{self, Receiver};
     use std::time::Duration;
@@ -458,10 +471,7 @@ mod tests {
         engine_state.generate_nu_constant();
         assert!(load_standard_library(&mut engine_state).is_ok());
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        engine_state.add_env_var(
-            "PWD".into(),
-            nu_protocol::Value::test_string(cwd.to_string_lossy()),
-        );
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         if let Some(code) = nu_config_code {
             assert!(merge_input(code.as_bytes(), &mut engine_state, &mut Stack::new()).is_ok());
         }
@@ -516,13 +526,15 @@ mod tests {
 
         engine_state.merge_delta(delta)?;
 
-        assert!(nu_engine::eval_block::<WithoutDebug>(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::Value(Value::nothing(Span::unknown()), None),
-        )
-        .is_ok());
+        assert!(
+            nu_engine::eval_block::<WithoutDebug>(
+                engine_state,
+                stack,
+                &block,
+                PipelineData::Value(Value::nothing(Span::unknown()), None),
+            )
+            .is_ok()
+        );
 
         // Merge environment into the permanent state
         engine_state.merge_env(stack)
@@ -605,7 +617,7 @@ mod tests {
                     method: DidChangeTextDocument::METHOD.to_string(),
                     params: serde_json::to_value(DidChangeTextDocumentParams {
                         text_document: lsp_types::VersionedTextDocumentIdentifier {
-                            uri: uri.clone(),
+                            uri,
                             version: 2,
                         },
                         content_changes: vec![TextDocumentContentChangeEvent {

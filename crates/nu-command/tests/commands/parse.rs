@@ -94,9 +94,11 @@ mod simple {
                 "#
             ));
 
-            assert!(actual
-                .err
-                .contains("Found opening `{` without an associated closing `}`"));
+            assert!(
+                actual
+                    .err
+                    .contains("Found opening `{` without an associated closing `}`")
+            );
         })
     }
 }
@@ -184,9 +186,11 @@ mod regex {
                 "#
             ));
 
-            assert!(actual
-                .err
-                .contains("Opening parenthesis without closing parenthesis"));
+            assert!(
+                actual
+                    .err
+                    .contains("Opening parenthesis without closing parenthesis")
+            );
         })
     }
 

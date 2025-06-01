@@ -1,8 +1,8 @@
 pub mod support;
 
 use std::{
-    fs::{read_dir, FileType, ReadDir},
-    path::{PathBuf, MAIN_SEPARATOR},
+    fs::{FileType, ReadDir, read_dir},
+    path::{MAIN_SEPARATOR, PathBuf},
     sync::Arc,
 };
 
@@ -10,7 +10,7 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::expand_tilde;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
+use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
 use nu_std::load_standard_library;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
@@ -228,14 +228,12 @@ fn customcompletions_override_options() {
     let mut completer = custom_completer_with_options(
         r#"$env.config.completions.algorithm = "fuzzy"
            $env.config.completions.case_sensitive = false"#,
-        r#"completion_algorithm: "prefix",
-           positional: false,
+        r#"completion_algorithm: "substring",
            case_sensitive: true,
            sort: true"#,
         &["Foo Abcdef", "Abcdef", "Acd Bar"],
     );
 
-    // positional: false should make it do substring matching
     // sort: true should force sorting
     let expected: Vec<_> = vec!["Abcdef", "Foo Abcdef"];
     let suggestions = completer.complete("my-command Abcd", 15);
@@ -586,7 +584,8 @@ fn dotnu_stdlib_completions() {
     assert!(load_standard_library(&mut engine).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = "export use std/ass";
+    // `export  use` should be recognized as command `export use`
+    let completion_str = "export  use std/ass";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["assert"], &suggestions);
 
@@ -1580,16 +1579,25 @@ fn attribute_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
+    // Compile a list of built-in attribute names (without the "attr " prefix)
+    let attribute_names: Vec<String> = engine
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .map(|(sig, _)| sig.name)
+        .filter(|name| name.starts_with("attr "))
+        .map(|name| name[5..].to_string())
+        .collect();
+
+    // Make sure we actually found some attributes so the test is valid
+    assert!(attribute_names.contains(&String::from("example")));
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("@", 1);
 
-    // Only checking for the builtins and not the std attributes
-    let expected: Vec<_> = vec!["category", "example", "search-terms"];
-
     // Match results
-    match_suggestions(&expected, &suggestions);
+    match_suggestions_by_string(&attribute_names, &suggestions);
 }
 
 #[test]
@@ -2007,6 +2015,35 @@ fn table_cell_path_completions() {
 }
 
 #[test]
+fn quoted_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1 1: 1 "": 1}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<_> = vec![
+        "\"\"",
+        "\".\"",
+        "\"1\"",
+        "\"foo bar\"",
+        "\"foo\\\\\\\\\\\"bar\\\"\"",
+        "\"|\"",
+    ];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<_> = vec!["\"foo bar\"", "\"foo\\\\\\\\\\\"bar\\\"\""];
+    let completion_str = "$foo.`foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$foo.foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 
@@ -2316,6 +2353,32 @@ fn exact_match() {
     let target_dir = format!("open {}", file(dir.join("partial")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
     assert!(suggestions.len() > 1);
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+#[test]
+fn exact_match_case_insensitive() {
+    use nu_test_support::playground::Playground;
+    use support::completions_helpers::new_engine_helper;
+
+    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
+        playground.mkdir("AA/foo");
+        playground.mkdir("aa/foo");
+        playground.mkdir("aaa/foo");
+
+        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
+        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+        let target = format!("open {}", folder(dir.join("aa")));
+        match_suggestions(
+            &vec![
+                folder(dir.join("AA").join("foo")).as_str(),
+                folder(dir.join("aa").join("foo")).as_str(),
+                folder(dir.join("aaa").join("foo")).as_str(),
+            ],
+            &completer.complete(&target, target.len()),
+        );
+    });
 }
 
 #[ignore = "was reverted, still needs fixing"]

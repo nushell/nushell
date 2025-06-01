@@ -7,8 +7,8 @@ use tabled::{
         util::string::get_text_width,
     },
     settings::{
-        width::{Truncate, Wrap},
         Color,
+        width::{Truncate, Wrap},
     },
 };
 
@@ -29,6 +29,27 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
     }
 
     Wrap::wrap(text, width, keep_words)
+}
+
+pub fn string_expand(text: &str, width: usize) -> String {
+    use std::{borrow::Cow, iter::repeat_n};
+    use tabled::grid::util::string::{get_line_width, get_lines};
+
+    get_lines(text)
+        .map(|line| {
+            let length = get_line_width(&line);
+
+            if length < width {
+                let mut line = line.into_owned();
+                let remain = width - length;
+                line.extend(repeat_n(' ', remain));
+                Cow::Owned(line)
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn string_truncate(text: &str, width: usize) -> String {

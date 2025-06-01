@@ -1,4 +1,4 @@
-use nu_test_support::fs::{file_contents, Stub::FileWithContent};
+use nu_test_support::fs::{Stub::FileWithContent, file_contents};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
@@ -468,8 +468,23 @@ fn pipe_redirection_in_let_and_mut(
     #[case] redir: &str,
     #[case] output: &str,
 ) {
-    let actual = nu!(
-        format!("$env.BAZ = 'foo'; {keyword} v = nu --testbin echo_env_mixed out-err BAZ BAZ {redir} str length; $v")
-    );
+    let actual = nu!(format!(
+        "$env.BAZ = 'foo'; {keyword} v = nu --testbin echo_env_mixed out-err BAZ BAZ {redir} str length; $v"
+    ));
     assert_eq!(actual.out, output);
+}
+
+#[rstest::rstest]
+#[case("o>", "bar")]
+#[case("e>", "")]
+#[case("o+e>", "bar\nbaz")] // in subexpression, the stderr is go to the terminal
+fn subexpression_redirection(#[case] redir: &str, #[case] stdout_file_body: &str) {
+    Playground::setup("file redirection with subexpression", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; (nu --testbin echo_env_mixed out-err BAR BAZ) {redir} result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
+    })
 }

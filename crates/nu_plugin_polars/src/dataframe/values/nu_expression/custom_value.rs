@@ -1,14 +1,14 @@
 use crate::{
-    values::{CustomValueSupport, PolarsPluginCustomValue},
     Cacheable, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginCustomValue},
 };
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
 use super::NuExpression;
 use nu_plugin::EngineInterface;
 use nu_protocol::{
-    ast::{Boolean, Comparison, Math, Operator},
     CustomValue, ShellError, Span, Type, Value,
+    ast::{Boolean, Comparison, Math, Operator},
 };
 use polars::prelude::Expr;
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,10 @@ fn with_operator(
             apply_arithmetic(plugin, engine, left, right, lhs_span, Rem::rem)
         }
         Operator::Math(Math::FloorDivide) => {
-            apply_arithmetic(plugin, engine, left, right, lhs_span, Div::div)
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Expr::floor_div)
+        }
+        Operator::Math(Math::Pow) => {
+            apply_arithmetic(plugin, engine, left, right, lhs_span, Expr::pow)
         }
         Operator::Comparison(Comparison::Equal) => Ok(left
             .clone()

@@ -39,7 +39,7 @@ impl Command for Whoami {
                     span: Some(call.head),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         };
 

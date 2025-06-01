@@ -1,14 +1,15 @@
 use crate::{
+    Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
     engine::{
-        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
-        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
+        ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, ErrorHandlerStack, Redirection,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
-    Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    path::{Component, MAIN_SEPARATOR},
     sync::Arc,
 };
 
@@ -755,6 +756,19 @@ impl Stack {
         let path = path.as_ref();
 
         if !path.is_absolute() {
+            if matches!(path.components().next(), Some(Component::Prefix(_))) {
+                return Err(ShellError::GenericError {
+                    error: "Cannot set $env.PWD to a prefix-only path".to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!(
+                        "Try to use {}{MAIN_SEPARATOR} instead",
+                        path.display()
+                    )),
+                    inner: vec![],
+                });
+            }
+
             error("Cannot set $env.PWD to a non-absolute path")
         } else if !path.exists() {
             error("Cannot set $env.PWD to a non-existent directory")
@@ -774,7 +788,7 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value, VarId};
+    use crate::{Span, Value, VarId, engine::EngineState};
 
     use super::Stack;
 

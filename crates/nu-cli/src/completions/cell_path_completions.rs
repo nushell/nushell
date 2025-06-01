@@ -1,10 +1,12 @@
+use std::borrow::Cow;
+
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
+    ShellError, Span, Value,
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
-    ShellError, Span, Value,
 };
 use reedline::Suggestion;
 
@@ -17,14 +19,14 @@ pub struct CellPathCompletion<'a> {
 
 fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
     let (prefix_str, start) = match member {
-        PathMember::String { val, span, .. } => (val.clone(), span.start),
-        PathMember::Int { val, span, .. } => (val.to_string(), span.start),
+        PathMember::String { val, span, .. } => (val, span.start),
+        PathMember::Int { val, span, .. } => (&val.to_string(), span.start),
     };
-    let prefix_str = prefix_str
-        .get(..pos + 1 - start)
-        .map(str::to_string)
-        .unwrap_or(prefix_str);
-    (prefix_str, Span::new(start, pos + 1))
+    let prefix_str = prefix_str.get(..pos + 1 - start).unwrap_or(prefix_str);
+    // strip wrapping quotes
+    let quotations = ['"', '\'', '`'];
+    let prefix_str = prefix_str.strip_prefix(quotations).unwrap_or(prefix_str);
+    (prefix_str.to_string(), Span::new(start, pos + 1))
 }
 
 impl Completer for CellPathCompletion<'_> {
@@ -101,21 +103,35 @@ pub(crate) fn eval_cell_path(
     } else {
         eval_constant(working_set, head)
     }?;
-    head_value.follow_cell_path(path_members, false)
+    head_value
+        .follow_cell_path(path_members)
+        .map(Cow::into_owned)
 }
 
 fn get_suggestions_by_value(
     value: &Value,
     current_span: reedline::Span,
 ) -> Vec<SemanticSuggestion> {
-    let to_suggestion = |s: String, v: Option<&Value>| SemanticSuggestion {
-        suggestion: Suggestion {
-            value: s,
-            span: current_span,
-            description: v.map(|v| v.get_type().to_string()),
-            ..Suggestion::default()
-        },
-        kind: Some(SuggestionKind::CellPath),
+    let to_suggestion = |s: String, v: Option<&Value>| {
+        // Check if the string needs quoting
+        let value = if s.is_empty()
+            || s.chars()
+                .any(|c: char| !(c.is_ascii_alphabetic() || ['_', '-'].contains(&c)))
+        {
+            format!("{:?}", s)
+        } else {
+            s
+        };
+
+        SemanticSuggestion {
+            suggestion: Suggestion {
+                value,
+                span: current_span,
+                description: v.map(|v| v.get_type().to_string()),
+                ..Suggestion::default()
+            },
+            kind: Some(SuggestionKind::CellPath),
+        }
     };
     match value {
         Value::Record { val, .. } => val

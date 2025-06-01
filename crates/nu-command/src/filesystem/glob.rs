@@ -35,6 +35,11 @@ impl Command for Glob {
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
             )
+            .switch(
+                "follow-symlinks",
+                "Whether to follow symbolic links to their targets",
+                Some('l'),
+            )
             .named(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -65,14 +70,12 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders that begin with uppercase C or lowercase c",
+                description: "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -111,6 +114,11 @@ impl Command for Glob {
                 example: r#"glob **/* --exclude [**/target/** **/.git/** */]"#,
                 result: None,
             },
+            Example {
+                description: "Search for files following symbolic links to their targets",
+                example: r#"glob "**/*.txt" --follow-symlinks"#,
+                result: None,
+            },
         ]
     }
 
@@ -132,6 +140,7 @@ impl Command for Glob {
         let no_dirs = call.has_flag(engine_state, stack, "no-dir")?;
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
+        let follow_symlinks = call.has_flag(engine_state, stack, "follow-symlinks")?;
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -190,7 +199,7 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         };
 
@@ -209,8 +218,13 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
+        };
+
+        let link_behavior = match follow_symlinks {
+            true => wax::LinkBehavior::ReadTarget,
+            false => wax::LinkBehavior::ReadFile,
         };
 
         let result = if !not_patterns.is_empty() {
@@ -220,7 +234,7 @@ impl Command for Glob {
                     path,
                     WalkBehavior {
                         depth: folder_depth,
-                        ..Default::default()
+                        link: link_behavior,
                     },
                 )
                 .into_owned()
@@ -247,7 +261,7 @@ impl Command for Glob {
                     path,
                     WalkBehavior {
                         depth: folder_depth,
-                        ..Default::default()
+                        link: link_behavior,
                     },
                 )
                 .into_owned()

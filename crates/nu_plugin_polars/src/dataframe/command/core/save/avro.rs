@@ -2,8 +2,8 @@ use std::fs::File;
 
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars_io::avro::{AvroCompression, AvroWriter};
 use polars_io::SerWriter;
+use polars_io::avro::{AvroCompression, AvroWriter};
 
 use crate::command::core::resource::Resource;
 use crate::values::NuDataFrame;

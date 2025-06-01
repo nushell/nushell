@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
@@ -16,7 +16,7 @@ impl Command for Where {
     fn extra_description(&self) -> &str {
         r#"A condition is evaluated for each element of the input, and only elements which meet the condition are included in the output.
 
-A condition can be either a "row condition" or a closure. A row condition is a special short-hand syntax to simplify field access.
+A condition can be either a "row condition" or a closure. A row condition is a special short-hand syntax to makes accessing fields easier.
 Each element of the input can be accessed through the $it variable.
 
 On the left hand side of a row condition, any field name is automatically expanded to use $it.
@@ -24,7 +24,7 @@ For example, where type == dir is equivalent to where $it.type == dir. This expa
 
 When using a closure, the element is passed as an argument and as pipeline input to the closure.
 
-`where` supports closure literals, but not closures stored in a variable. To filter using a closure stored in a variable, use the `filter` command."#
+Row conditions cannot be stored in a variable. To pass a condition with a variable, use a closure instead."#
     }
 
     fn command_type(&self) -> CommandType {
@@ -89,11 +89,9 @@ When using a closure, the element is passed as an argument and as pipeline input
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "List only the files in the current directory",
@@ -118,16 +116,20 @@ When using a closure, the element is passed as an argument and as pipeline input
             Example {
                 description: "Filter items of a list with a row condition",
                 example: "[1 2 3 4 5] | where $it > 2",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(5),
+                ])),
             },
             Example {
                 description: "Filter items of a list with a closure",
                 example: "[1 2 3 4 5] | where {|x| $x > 2 }",
-                result: Some(Value::test_list(
-                    vec![Value::test_int(3), Value::test_int(4), Value::test_int(5)],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(5),
+                ])),
             },
             Example {
                 description: "Find files whose filenames don't begin with the correct sequential number",
@@ -143,9 +145,22 @@ When using a closure, the element is passed as an argument and as pipeline input
                 description: r#"Find case-insensitively files called "readme", with regex only"#,
                 example: "ls | where name =~ '(?i)readme'",
                 result: None,
-            }
-
-
+            },
+            Example {
+                description: "Filter rows of a table according to a stored condition",
+                example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | where $cond",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
+            },
+            Example {
+                description: "List all numbers above 3, using an existing closure condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | where $a",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(5),
+                    Value::test_int(6),
+                ])),
+            },
         ]
     }
 }

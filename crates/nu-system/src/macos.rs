@@ -1,12 +1,12 @@
 use libc::{c_int, c_void, size_t};
 use libproc::libproc::bsd_info::BSDInfo;
-use libproc::libproc::file_info::{pidfdinfo, ListFDs, ProcFDType};
+use libproc::libproc::file_info::{ListFDs, ProcFDType, pidfdinfo};
 use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
-use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
-use libproc::libproc::proc_pid::{listpidinfo, pidinfo, ListThreads};
+use libproc::libproc::pid_rusage::{RUsageInfoV2, pidrusage};
+use libproc::libproc::proc_pid::{ListThreads, listpidinfo, pidinfo};
 use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
-use libproc::processes::{pids_by_type, ProcFilter};
+use libproc::processes::{ProcFilter, pids_by_type};
 use mach2::mach_time;
 use std::cmp;
 use std::path::{Path, PathBuf};
@@ -155,9 +155,11 @@ pub struct PathInfo {
 }
 
 unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    let len = (cp as usize).saturating_sub(start as usize);
-    let part = std::slice::from_raw_parts(start, len);
-    String::from_utf8_unchecked(part.to_vec())
+    unsafe {
+        let len = (cp as usize).saturating_sub(start as usize);
+        let part = std::slice::from_raw_parts(start, len);
+        String::from_utf8_unchecked(part.to_vec())
+    }
 }
 
 fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {

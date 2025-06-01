@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, engine::StateWorkingSet, Config, ListStream};
+use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -214,7 +214,7 @@ fn format(
                             wrong_type: val.get_type().to_string(),
                             dst_span: head_span,
                             src_span: val.span(),
-                        })
+                        });
                     }
                 }
             }
@@ -251,14 +251,14 @@ fn format_record(
                         val: path.to_string(),
                         span: *span,
                         optional: false,
+                        casing: Casing::Sensitive,
                     })
                     .collect();
-                match data_as_value.clone().follow_cell_path(&path_members, false) {
-                    Ok(value_at_column) => {
-                        output.push_str(value_at_column.to_expanded_string(", ", config).as_str())
-                    }
-                    Err(se) => return Err(se),
-                }
+
+                let expanded_string = data_as_value
+                    .follow_cell_path(&path_members)?
+                    .to_expanded_string(", ", config);
+                output.push_str(expanded_string.as_str())
             }
         }
     }

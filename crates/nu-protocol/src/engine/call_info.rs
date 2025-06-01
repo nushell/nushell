@@ -1,4 +1,4 @@
-use crate::{ast::Call, Span};
+use crate::{Span, ast::Call};
 
 #[derive(Debug, Clone)]
 pub struct UnevaluatedCallInfo {

@@ -1,6 +1,6 @@
-use syn::{meta::ParseNestedMeta, spanned::Spanned, Attribute, Fields, LitStr};
+use syn::{Attribute, Fields, LitStr, meta::ParseNestedMeta, spanned::Spanned};
 
-use crate::{case::Case, error::DeriveError, HELPER_ATTRIBUTE};
+use crate::{HELPER_ATTRIBUTE, case::Case, error::DeriveError};
 
 pub trait ParseAttrs: Default {
     fn parse_attrs<'a, M>(
@@ -68,6 +68,7 @@ impl ParseAttrs for ContainerAttributes {
 #[derive(Debug, Default)]
 pub struct MemberAttributes {
     pub rename: Option<String>,
+    pub default: bool,
 }
 
 impl ParseAttrs for MemberAttributes {
@@ -78,6 +79,9 @@ impl ParseAttrs for MemberAttributes {
                 let rename: LitStr = attr_meta.value()?.parse()?;
                 let rename = rename.value();
                 self.rename = Some(rename);
+            }
+            "default" => {
+                self.default = true;
             }
             ident => {
                 return Err(DeriveError::UnexpectedAttribute {

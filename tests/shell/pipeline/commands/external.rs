@@ -76,9 +76,11 @@ fn correctly_escape_external_arguments() {
 fn escape_also_escapes_equals() {
     let actual = nu!("^MYFOONAME=MYBARVALUE");
 
-    assert!(actual
-        .err
-        .contains("Command `MYFOONAME=MYBARVALUE` not found"));
+    assert!(
+        actual
+            .err
+            .contains("Command `MYFOONAME=MYBARVALUE` not found")
+    );
 }
 
 #[test]
@@ -716,4 +718,14 @@ fn external_error_with_backtrace() {
         // run error make directly, show no backtrace is available
         assert_eq!(chained_error_cnt.len(), 0);
     });
+}
+
+#[test]
+fn sub_external_expression_with_and_op_should_raise_proper_error() {
+    let actual = nu!("(nu --testbin cococo false) and true");
+    assert!(
+        actual
+            .err
+            .contains("The 'and' operator does not work on values of type 'string'")
+    )
 }

@@ -15,15 +15,15 @@ use crossterm::event::KeyEvent;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
 
 pub use binary::BinaryView;
 pub use preview::Preview;
-pub use r#try::TryView;
 pub use record::{Orientation, RecordView};
+pub use r#try::TryView;
 
 #[derive(Debug, Default)]
 pub struct Layout {

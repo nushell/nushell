@@ -1,10 +1,9 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_protocol::{
-    ast,
+    DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
-    DataSource, NuGlob, PipelineMetadata,
 };
 use std::{
     collections::HashMap,
@@ -34,7 +33,14 @@ impl Command for Open {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["load", "read", "load_file", "read_file"]
+        vec![
+            "load",
+            "read",
+            "load_file",
+            "read_file",
+            "cat",
+            "get-content",
+        ]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -115,7 +121,7 @@ impl Command for Open {
 
                 if permission_denied(path) {
                     let err = IoError::new(
-                        std::io::ErrorKind::PermissionDenied,
+                        shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
                         arg_span,
                         PathBuf::from(path),
                     );
@@ -156,14 +162,18 @@ impl Command for Open {
                         // At least under windows this check ensures that we don't get a
                         // permission denied error on directories
                         return Err(ShellError::Io(IoError::new(
-                            shell_error::io::ErrorKind::Std(std::io::ErrorKind::IsADirectory),
+                            #[allow(
+                                deprecated,
+                                reason = "we don't have a IsADirectory variant here, so we provide one"
+                            )]
+                            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::IsADirectory),
                             arg_span,
                             PathBuf::from(path),
                         )));
                     }
 
                     let file = std::fs::File::open(path)
-                        .map_err(|err| IoError::new(err.kind(), arg_span, PathBuf::from(path)))?;
+                        .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
 
                     // No content_type by default - Is added later if no converter is found
                     let stream = PipelineData::ByteStream(
@@ -272,6 +282,16 @@ impl Command for Open {
             Example {
                 description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
+                result: None,
+            },
+            Example {
+                description: "Show the extensions for which the `open` command will automatically parse",
+                example: r#"scope commands
+    | where name starts-with "from "
+    | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
                 result: None,
             },
         ]

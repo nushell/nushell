@@ -108,6 +108,7 @@ fn stats(
     input.map(
         move |v| {
             let value_span = v.span();
+            let type_ = v.get_type();
             // First, obtain the span. If this fails, propagate the error that results.
             if let Value::Error { error, .. } = v {
                 return Value::error(*error, span);
@@ -116,8 +117,9 @@ fn stats(
             match v.coerce_into_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: type_.to_string(),
                         dst_span: span,
                         src_span: value_span,
                     },

@@ -1,4 +1,4 @@
-use crate::{second_custom_value::SecondCustomValue, CustomValuePlugin};
+use crate::{CustomValuePlugin, second_custom_value::SecondCustomValue};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{Category, Example, LabeledError, Signature, Span, SyntaxShape, Value};
 

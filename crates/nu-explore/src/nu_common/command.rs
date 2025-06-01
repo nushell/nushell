@@ -1,9 +1,9 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    OutDest, PipelineData, ShellError, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
-    OutDest, PipelineData, ShellError, Value,
 };
 use std::sync::Arc;
 

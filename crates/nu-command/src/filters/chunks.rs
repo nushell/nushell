@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ListStream};
+use nu_protocol::{ListStream, shell_error::io::IoError};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,
@@ -243,7 +243,7 @@ mod test {
         let chunks = chunk_read.map(|e| e.unwrap()).collect::<Vec<_>>();
         assert_eq!(
             chunks,
-            [s[..4].as_bytes(), s[4..8].as_bytes(), s[8..].as_bytes()]
+            [&s.as_bytes()[..4], &s.as_bytes()[4..8], &s.as_bytes()[8..]]
         );
     }
 
@@ -260,7 +260,7 @@ mod test {
         let chunks = chunk_read.map(|e| e.unwrap()).collect::<Vec<_>>();
         assert_eq!(
             chunks,
-            [s[..4].as_bytes(), s[4..8].as_bytes(), s[8..].as_bytes()]
+            [&s.as_bytes()[..4], &s.as_bytes()[4..8], &s.as_bytes()[8..]]
         );
     }
 

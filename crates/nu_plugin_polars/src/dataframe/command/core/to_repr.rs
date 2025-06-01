@@ -4,8 +4,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    values::{cant_convert_err, CustomValueSupport, NuLazyFrame, PolarsPluginType},
     PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::NuDataFrame;
@@ -34,38 +34,36 @@ impl PluginCommand for ToRepr {
         vec![
             Example {
                 description: "Shows dataframe in repr format",
-                example:
-                    "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)
-┌─────────────────────┬─────┐
-│ a                   ┆ b   │
-│ ---                 ┆ --- │
-│ datetime[ns]        ┆ i64 │
-╞═════════════════════╪═════╡
-│ 2025-01-01 00:00:00 ┆ 2   │
-│ 2025-01-02 00:00:00 ┆ 4   │
-└─────────────────────┴─────┘"#
+┌─────────────────────────┬─────┐
+│ a                       ┆ b   │
+│ ---                     ┆ --- │
+│ datetime[ns, UTC]       ┆ i64 │
+╞═════════════════════════╪═════╡
+│ 2025-01-01 00:00:00 UTC ┆ 2   │
+│ 2025-01-02 00:00:00 UTC ┆ 4   │
+└─────────────────────────┴─────┘"#
                         .trim(),
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Shows lazy dataframe in repr format",
-                example:
-                    "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-lazy | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-lazy | polars into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)
-┌─────────────────────┬─────┐
-│ a                   ┆ b   │
-│ ---                 ┆ --- │
-│ datetime[ns]        ┆ i64 │
-╞═════════════════════╪═════╡
-│ 2025-01-01 00:00:00 ┆ 2   │
-│ 2025-01-02 00:00:00 ┆ 4   │
-└─────────────────────┴─────┘"#
+┌─────────────────────────┬─────┐
+│ a                       ┆ b   │
+│ ---                     ┆ --- │
+│ datetime[ns, UTC]       ┆ i64 │
+╞═════════════════════════╪═════╡
+│ 2025-01-01 00:00:00 UTC ┆ 2   │
+│ 2025-01-02 00:00:00 UTC ┆ 4   │
+└─────────────────────────┴─────┘"#
                         .trim(),
                     Span::test_data(),
                 )),

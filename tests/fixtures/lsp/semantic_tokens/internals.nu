@@ -13,3 +13,6 @@ export def "foo bar" [] {
 foo bar
 
 overlay use foo
+use std/assert
+
+assert equal

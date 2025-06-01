@@ -61,7 +61,9 @@ fn upsert_uses_enumerate_index_inserting() {
 
 #[test]
 fn upsert_uses_enumerate_index_updating() {
-    let actual = nu!("[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon");
+    let actual = nu!(
+        "[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
+    );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }
@@ -84,9 +86,11 @@ fn upsert_at_end_of_list() {
 fn upsert_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | upsert 5 abc");
 
-    assert!(actual
-        .err
-        .contains("can't insert at index (the next available index is 3)"));
+    assert!(
+        actual
+            .err
+            .contains("can't insert at index (the next available index is 3)")
+    );
 }
 
 #[test]
@@ -107,9 +111,11 @@ fn upsert_at_end_of_list_stream() {
 fn upsert_past_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | upsert 5 abc");
 
-    assert!(actual
-        .err
-        .contains("can't insert at index (the next available index is 3)"));
+    assert!(
+        actual
+            .err
+            .contains("can't insert at index (the next available index is 3)")
+    );
 }
 
 #[test]

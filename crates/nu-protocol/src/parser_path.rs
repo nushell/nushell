@@ -1,6 +1,6 @@
 use crate::{
-    engine::{StateWorkingSet, VirtualPath},
     FileId,
+    engine::{StateWorkingSet, VirtualPath},
 };
 use std::{
     ffi::OsStr,

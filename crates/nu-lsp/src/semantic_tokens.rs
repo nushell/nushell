@@ -3,12 +3,12 @@ use std::sync::Arc;
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{SemanticToken, SemanticTokens, SemanticTokensParams};
 use nu_protocol::{
+    Span,
     ast::{Block, Expr, Expression, Traverse},
     engine::StateWorkingSet,
-    Span,
 };
 
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 
 /// Important to keep spans in increasing order,
 /// since `SemanticToken`s are created by relative positions
@@ -19,32 +19,22 @@ use crate::{span_to_range, LanguageServer};
 fn extract_semantic_tokens_from_expression(
     expr: &Expression,
     working_set: &StateWorkingSet,
-) -> Option<Vec<Span>> {
-    let closure = |e| extract_semantic_tokens_from_expression(e, working_set);
+) -> Vec<Span> {
     match &expr.expr {
         Expr::Call(call) => {
-            let command_name_bytes = working_set.get_span_contents(call.head);
-            let head_span = if command_name_bytes.contains(&b' ')
-                // Some keywords that are already highlighted properly, e.g. by tree-sitter-nu
-                && !command_name_bytes.starts_with(b"export")
-                && !command_name_bytes.starts_with(b"overlay")
+            let command_name = working_set.get_span_contents(call.head);
+            // Exclude some keywords that are supposed to be already highlighted properly,
+            // e.g. by tree-sitter-nu
+            if command_name.contains(&b' ')
+                && !command_name.starts_with(b"export")
+                && !command_name.starts_with(b"overlay")
             {
                 vec![call.head]
             } else {
                 vec![]
-            };
-            let spans = head_span
-                .into_iter()
-                .chain(
-                    call.arguments
-                        .iter()
-                        .filter_map(|arg| arg.expr())
-                        .flat_map(|e| e.flat_map(working_set, &closure)),
-                )
-                .collect();
-            Some(spans)
+            }
         }
-        _ => None,
+        _ => vec![],
     }
 }
 
@@ -67,14 +57,14 @@ impl LanguageServer {
         offset: usize,
         file: &FullTextDocument,
     ) -> Vec<SemanticToken> {
-        let spans = block.flat_map(working_set, &|e| {
-            extract_semantic_tokens_from_expression(e, working_set)
-        });
+        let mut results = Vec::new();
+        let closure = |e| extract_semantic_tokens_from_expression(e, working_set);
+        block.flat_map(working_set, &closure, &mut results);
         let mut last_token_line = 0;
         let mut last_token_char = 0;
         let mut last_span = Span::unknown();
         let mut tokens = vec![];
-        for sp in spans {
+        for sp in results {
             let range = span_to_range(&sp, file, offset);
             // shouldn't happen
             if sp < last_span {
@@ -106,11 +96,11 @@ mod tests {
     use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
-    use lsp_types::{
-        request::{Request, SemanticTokensFullRequest},
-        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
-    };
     use lsp_types::{PartialResultParams, SemanticTokensParams};
+    use lsp_types::{
+        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
+        request::{Request, SemanticTokensFullRequest},
+    };
     use nu_test_support::fs::fixtures;
 
     fn send_semantic_token_request(client_connection: &Connection, uri: Uri) -> Message {
@@ -144,7 +134,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_semantic_token_request(&client_connection, script.clone());
+        let resp = send_semantic_token_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -155,7 +145,8 @@ mod tests {
                 1, 2, 10, 0, 0,
                 7, 15, 13, 0, 0,
                 0, 20, 10, 0, 0,
-                4, 0, 7, 0, 0
+                4, 0, 7, 0, 0,
+                5, 0, 12, 0, 0
             ]})
         );
     }

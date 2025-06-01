@@ -76,9 +76,11 @@ fn http_put_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual
-        .err
-        .contains("Data must be provided either through pipeline or positional argument"))
+    assert!(
+        actual
+            .err
+            .contains("Data must be provided either through pipeline or positional argument")
+    )
 }
 
 #[test]

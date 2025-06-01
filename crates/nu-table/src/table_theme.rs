@@ -156,6 +156,16 @@ impl TableTheme {
         Self::new(theme, full)
     }
 
+    pub fn single() -> TableTheme {
+        let full = Style::modern()
+            .corner_top_left('┌')
+            .corner_top_right('┐')
+            .corner_bottom_left('└')
+            .corner_bottom_right('┘');
+
+        Self::new(Style::sharp(), full)
+    }
+
     pub fn none() -> TableTheme {
         Self::new(Style::blank(), Style::blank())
     }

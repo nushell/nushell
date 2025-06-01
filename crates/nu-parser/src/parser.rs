@@ -1,21 +1,21 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::{
-    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
-    lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
+    Token, TokenContents,
+    lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
+    lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
+    parse_shape_specs::{ShapeDescriptorUse, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
-    Token, TokenContents,
 };
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean,
-    FilesizeUnit, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
+    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -455,8 +455,10 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+    if contents.starts_with(b"$") {
         parse_dollar_expr(working_set, span)
+    } else if contents.starts_with(b"(") {
+        parse_paren_expr(working_set, span, &SyntaxShape::Any)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
     } else {
@@ -969,6 +971,8 @@ pub fn parse_internal_call(
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
+    let deprecation = decl.deprecation_info();
+
     // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = match decl.name() {
         "use" | "overlay use" | "source-env" if decl.is_keyword() => {
@@ -1262,6 +1266,16 @@ pub fn parse_internal_call(
 
     check_call(working_set, command_span, &signature, &call);
 
+    deprecation
+        .into_iter()
+        .filter_map(|entry| entry.parse_warning(&signature.name, &call))
+        .for_each(|warning| {
+            // FIXME: if two flags are deprecated and both are used in one command,
+            // the second flag's deprecation won't show until the first flag is removed
+            // (but it won't be flagged as reported until it is actually reported)
+            working_set.warning(warning);
+        });
+
     if signature.creates_scope {
         working_set.exit_scope();
     }
@@ -1302,7 +1316,6 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             }
         }
 
-        // TODO: Try to remove the clone
         let decl = working_set.get_decl(decl_id);
 
         let parsed_call = if let Some(alias) = decl.as_alias() {
@@ -1797,7 +1810,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
             &contents[..dotdot_pos[0]],
             span.start,
             &[],
-            &[b'.', b'?'],
+            &[b'.', b'?', b'!'],
             true,
         );
         if let Some(_err) = err {
@@ -1977,15 +1990,33 @@ pub fn parse_paren_expr(
     let starting_error_count = working_set.parse_errors.len();
 
     if let Some(expr) = parse_range(working_set, span) {
-        expr
-    } else {
-        working_set.parse_errors.truncate(starting_error_count);
+        return expr;
+    }
 
-        if matches!(shape, SyntaxShape::Signature) {
-            parse_signature(working_set, span)
+    working_set.parse_errors.truncate(starting_error_count);
+
+    if matches!(shape, SyntaxShape::Signature) {
+        return parse_signature(working_set, span);
+    }
+
+    let fcp_expr = parse_full_cell_path(working_set, None, span);
+    let fcp_error_count = working_set.parse_errors.len();
+    if fcp_error_count > starting_error_count {
+        let malformed_subexpr = working_set.parse_errors[starting_error_count..]
+            .iter()
+            .any(|e| match e {
+                ParseError::Unclosed(right, _) if right == ")" => true,
+                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                _ => false,
+            });
+        if malformed_subexpr {
+            working_set.parse_errors.truncate(starting_error_count);
+            parse_string(working_set, span)
         } else {
-            parse_full_cell_path(working_set, None, span)
+            fcp_expr
         }
+    } else {
+        fcp_expr
     }
 }
 
@@ -2037,6 +2068,10 @@ pub fn parse_brace_expr(
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
+        if matches!(shape, SyntaxShape::Block) {
+            working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
+            return Expression::garbage(working_set, span);
+        }
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
@@ -2297,9 +2332,55 @@ pub fn parse_cell_path(
     expect_dot: bool,
 ) -> Vec<PathMember> {
     enum TokenType {
-        Dot,           // .
-        QuestionOrDot, // ? or .
-        PathMember,    // an int or string, like `1` or `foo`
+        Dot,              // .
+        DotOrSign,        // . or ? or !
+        DotOrExclamation, // . or !
+        DotOrQuestion,    // . or ?
+        PathMember,       // an int or string, like `1` or `foo`
+    }
+
+    enum ModifyMember {
+        No,
+        Optional,
+        Insensitive,
+    }
+
+    impl TokenType {
+        fn expect(&mut self, byte: u8) -> Result<ModifyMember, &'static str> {
+            match (&*self, byte) {
+                (Self::PathMember, _) => {
+                    *self = Self::DotOrSign;
+                    Ok(ModifyMember::No)
+                }
+                (
+                    Self::Dot | Self::DotOrSign | Self::DotOrExclamation | Self::DotOrQuestion,
+                    b'.',
+                ) => {
+                    *self = Self::PathMember;
+                    Ok(ModifyMember::No)
+                }
+                (Self::DotOrSign, b'!') => {
+                    *self = Self::DotOrQuestion;
+                    Ok(ModifyMember::Insensitive)
+                }
+                (Self::DotOrSign, b'?') => {
+                    *self = Self::DotOrExclamation;
+                    Ok(ModifyMember::Optional)
+                }
+                (Self::DotOrSign, _) => Err(". or ! or ?"),
+                (Self::DotOrExclamation, b'!') => {
+                    *self = Self::Dot;
+                    Ok(ModifyMember::Insensitive)
+                }
+                (Self::DotOrExclamation, _) => Err(". or !"),
+                (Self::DotOrQuestion, b'?') => {
+                    *self = Self::Dot;
+                    Ok(ModifyMember::Optional)
+                }
+                (Self::DotOrQuestion, _) => Err(". or ?"),
+                (Self::Dot, _) => Err("."),
+            }
+        }
     }
 
     // Parsing a cell path is essentially a state machine, and this is the state
@@ -2314,73 +2395,68 @@ pub fn parse_cell_path(
     for path_element in tokens {
         let bytes = working_set.get_span_contents(path_element.span);
 
-        match expected_token {
-            TokenType::Dot => {
-                if bytes.len() != 1 || bytes[0] != b'.' {
-                    working_set.error(ParseError::Expected(".", path_element.span));
-                    return tail;
-                }
-                expected_token = TokenType::PathMember;
-            }
-            TokenType::QuestionOrDot => {
-                if bytes.len() == 1 && bytes[0] == b'.' {
-                    expected_token = TokenType::PathMember;
-                } else if bytes.len() == 1 && bytes[0] == b'?' {
-                    if let Some(last) = tail.last_mut() {
-                        match last {
-                            PathMember::String {
-                                ref mut optional, ..
-                            } => *optional = true,
-                            PathMember::Int {
-                                ref mut optional, ..
-                            } => *optional = true,
-                        }
-                    }
-                    expected_token = TokenType::Dot;
-                } else {
-                    working_set.error(ParseError::Expected(". or ?", path_element.span));
-                    return tail;
-                }
-            }
-            TokenType::PathMember => {
-                let starting_error_count = working_set.parse_errors.len();
+        // both parse_int and parse_string require their source to be non-empty
+        // all cases where `bytes` is empty is an error
+        let Some((&first, rest)) = bytes.split_first() else {
+            working_set.error(ParseError::Expected("string", path_element.span));
+            return tail;
+        };
+        let single_char = rest.is_empty();
 
-                let expr = parse_int(working_set, path_element.span);
-                working_set.parse_errors.truncate(starting_error_count);
+        if let TokenType::PathMember = expected_token {
+            let starting_error_count = working_set.parse_errors.len();
 
-                match expr {
-                    Expression {
-                        expr: Expr::Int(val),
-                        span,
-                        ..
-                    } => tail.push(PathMember::Int {
-                        val: val as usize,
-                        span,
-                        optional: false,
-                    }),
-                    _ => {
-                        let result = parse_string(working_set, path_element.span);
-                        match result {
-                            Expression {
-                                expr: Expr::String(string),
+            let expr = parse_int(working_set, path_element.span);
+            working_set.parse_errors.truncate(starting_error_count);
+
+            match expr {
+                Expression {
+                    expr: Expr::Int(val),
+                    span,
+                    ..
+                } => tail.push(PathMember::Int {
+                    val: val as usize,
+                    span,
+                    optional: false,
+                }),
+                _ => {
+                    let result = parse_string(working_set, path_element.span);
+                    match result {
+                        Expression {
+                            expr: Expr::String(string),
+                            span,
+                            ..
+                        } => {
+                            tail.push(PathMember::String {
+                                val: string,
                                 span,
-                                ..
-                            } => {
-                                tail.push(PathMember::String {
-                                    val: string,
-                                    span,
-                                    optional: false,
-                                });
-                            }
-                            _ => {
-                                working_set
-                                    .error(ParseError::Expected("string", path_element.span));
-                                return tail;
-                            }
+                                optional: false,
+                                casing: Casing::Sensitive,
+                            });
+                        }
+                        _ => {
+                            working_set.error(ParseError::Expected("string", path_element.span));
+                            return tail;
                         }
                     }
                 }
-                expected_token = TokenType::QuestionOrDot;
+            }
+            expected_token = TokenType::DotOrSign;
+        } else {
+            match expected_token.expect(if single_char { first } else { b' ' }) {
+                Ok(modify) => {
+                    if let Some(last) = tail.last_mut() {
+                        match modify {
+                            ModifyMember::No => {}
+                            ModifyMember::Optional => last.make_optional(),
+                            ModifyMember::Insensitive => last.make_insensitive(),
+                        }
+                    };
+                }
+                Err(expected) => {
+                    working_set.error(ParseError::Expected(expected, path_element.span));
+                    return tail;
+                }
             }
         }
     }
@@ -2391,7 +2467,13 @@ pub fn parse_cell_path(
 pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let source = working_set.get_span_contents(span);
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
+    let (tokens, err) = lex(
+        source,
+        span.start,
+        &[b'\n', b'\r'],
+        &[b'.', b'?', b'!'],
+        true,
+    );
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -2417,7 +2499,13 @@ pub fn parse_full_cell_path(
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
 
-    let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
+    let (tokens, err) = lex(
+        source,
+        span.start,
+        &[b'\n', b'\r'],
+        &[b'.', b'?', b'!'],
+        true,
+    );
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -2678,7 +2766,7 @@ pub fn parse_unit_value<'res>(
 
     if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
         let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
+        let lhs = strip_underscores(&value.as_bytes()[..lhs_len]);
         let lhs_span = Span::new(span.start, span.start + lhs_len);
         let unit_span = Span::new(span.start + lhs_len, span.end);
         if lhs.ends_with('$') {
@@ -2701,12 +2789,31 @@ pub fn parse_unit_value<'res>(
             }
         });
 
-        let (num, unit) = match convert {
-            Some(convert_to) => (
-                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
-                convert_to.0,
-            ),
-            None => (number_part as i64, *unit),
+        let mut unit = match convert {
+            Some(convert_to) => convert_to.0,
+            None => *unit,
+        };
+
+        let num_float = match convert {
+            Some(convert_to) => {
+                (number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)
+            }
+            None => number_part,
+        };
+
+        // Convert all durations to nanoseconds to not lose precision
+        let num = match unit_to_ns_factor(&unit) {
+            Some(factor) => {
+                let num_ns = num_float * factor;
+                if i64::MIN as f64 <= num_ns && num_ns <= i64::MAX as f64 {
+                    unit = Unit::Nanosecond;
+                    num_ns as i64
+                } else {
+                    // not safe to convert, because of the overflow
+                    num_float as i64
+                }
+            }
+            None => num_float as i64,
         };
 
         trace!("-- found {} {:?}", num, unit);
@@ -2784,7 +2891,7 @@ pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
     (
         Unit::Filesize(FilesizeUnit::EiB),
         "EIB",
-        Some((Unit::Filesize(FilesizeUnit::EiB), 1024)),
+        Some((Unit::Filesize(FilesizeUnit::PiB), 1024)),
     ),
     (Unit::Filesize(FilesizeUnit::B), "B", None),
 ];
@@ -2812,6 +2919,20 @@ pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
     (Unit::Day, "day", Some((Unit::Minute, 1440))),
     (Unit::Week, "wk", Some((Unit::Day, 7))),
 ];
+
+fn unit_to_ns_factor(unit: &Unit) -> Option<f64> {
+    match unit {
+        Unit::Nanosecond => Some(1.0),
+        Unit::Microsecond => Some(1_000.0),
+        Unit::Millisecond => Some(1_000_000.0),
+        Unit::Second => Some(1_000_000_000.0),
+        Unit::Minute => Some(60.0 * 1_000_000_000.0),
+        Unit::Hour => Some(60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Day => Some(24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        Unit::Week => Some(7.0 * 24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        _ => None,
+    }
+}
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
 fn modf(x: f64) -> (f64, f64) {
@@ -3580,6 +3701,16 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
         Expr::Closure(block_id) => block_id,
+        Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var().is_some_and(|id| id != var_id) => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
+        Expr::Var(arg_var_id) if arg_var_id != var_id => {
+            let mut expression = expression;
+            expression.ty = Type::Any;
+            return expression;
+        }
         _ => {
             // We have an expression, so let's convert this into a block.
             let mut block = Block::new();
@@ -4166,8 +4297,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             "Default value is the wrong type"
                                                                 .into(),
                                                             format!(
-                                                            "expected default value to be `{t}`"
-                                                                ),
+                                                                "expected default value to be `{t}`"
+                                                            ),
                                                             expression_span,
                                                         ),
                                                     )
@@ -6380,7 +6511,7 @@ pub fn parse_block(
 }
 
 /// Compile an IR block for the `Block`, adding a compile error on failure
-fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
+pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     match nu_engine::compile(working_set, block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
@@ -6878,13 +7009,9 @@ pub fn parse(
 
     let mut output = {
         if let Some(block) = previously_parsed_block {
-            // dbg!("previous block");
             return block;
         } else {
-            // dbg!("starting lex");
             let (output, err) = lex(contents, new_span.start, &[], &[], false);
-            // dbg!("finished lex");
-            // dbg!(&output);
             if let Some(err) = err {
                 working_set.error(err)
             }

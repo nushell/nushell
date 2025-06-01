@@ -1,11 +1,11 @@
-use super::{completion_options::NuMatcher, SemanticSuggestion};
+use super::{SemanticSuggestion, completion_options::NuMatcher};
 use crate::{
-    completions::{Completer, CompletionOptions},
     SuggestionKind,
+    completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     Span,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
@@ -27,21 +27,20 @@ impl Completer for AttributeCompletion {
         let attr_commands =
             working_set.find_commands_by_predicate(|s| s.starts_with(b"attr "), true);
 
-        for (name, desc, ty) in attr_commands {
+        for (decl_id, name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).into_owned(),
                     description: desc,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
-                kind: Some(SuggestionKind::Command(ty)),
+                kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
             });
         }
 
@@ -70,15 +69,14 @@ impl Completer for AttributableCompletion {
                 suggestion: Suggestion {
                     value: cmd.name().into(),
                     description: Some(cmd.description().into()),
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    ..Default::default()
                 },
-                kind: Some(SuggestionKind::Command(cmd.command_type())),
+                kind: Some(SuggestionKind::Command(cmd.command_type(), None)),
             });
         }
 

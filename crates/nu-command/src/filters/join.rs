@@ -255,6 +255,16 @@ fn join_rows(
     config: &Config,
     span: Span,
 ) {
+    if !this
+        .iter()
+        .any(|this_record| match this_record.as_record() {
+            Ok(record) => record.contains(this_join_key),
+            Err(_) => false,
+        })
+    {
+        // `this` table does not contain the join column; do nothing
+        return;
+    }
     for this_row in this {
         if let Value::Record {
             val: this_record, ..
@@ -281,39 +291,40 @@ fn join_rows(
                             result.push(Value::record(record, span))
                         }
                     }
-                } else if !matches!(join_type, JoinType::Inner) {
-                    // `other` table did not contain any rows matching
-                    // `this` row on the join column; emit a single joined
-                    // row with null values for columns not present,
-                    let other_record = other_keys
-                        .iter()
-                        .map(|&key| {
-                            let val = if Some(key.as_ref()) == shared_join_key {
-                                this_record
-                                    .get(key)
-                                    .cloned()
-                                    .unwrap_or_else(|| Value::nothing(span))
-                            } else {
-                                Value::nothing(span)
-                            };
-
-                            (key.clone(), val)
-                        })
-                        .collect();
-
-                    let record = match join_type {
-                        JoinType::Inner | JoinType::Right => {
-                            merge_records(&other_record, this_record, shared_join_key)
-                        }
-                        JoinType::Left => {
-                            merge_records(this_record, &other_record, shared_join_key)
-                        }
-                        _ => panic!("not implemented"),
-                    };
-
-                    result.push(Value::record(record, span))
+                    continue;
                 }
-            } // else { a row is missing a value for the join column }
+            }
+            if !matches!(join_type, JoinType::Inner) {
+                // Either `this` row is missing a value for the join column or
+                // `other` table did not contain any rows matching
+                // `this` row on the join column; emit a single joined
+                // row with null values for columns not present
+                let other_record = other_keys
+                    .iter()
+                    .map(|&key| {
+                        let val = if Some(key.as_ref()) == shared_join_key {
+                            this_record
+                                .get(key)
+                                .cloned()
+                                .unwrap_or_else(|| Value::nothing(span))
+                        } else {
+                            Value::nothing(span)
+                        };
+
+                        (key.clone(), val)
+                    })
+                    .collect();
+
+                let record = match join_type {
+                    JoinType::Inner | JoinType::Right => {
+                        merge_records(&other_record, this_record, shared_join_key)
+                    }
+                    JoinType::Left => merge_records(this_record, &other_record, shared_join_key),
+                    _ => panic!("not implemented"),
+                };
+
+                result.push(Value::record(record, span))
+            }
         };
     }
 }

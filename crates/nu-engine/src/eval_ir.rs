@@ -1,7 +1,10 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
+    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{
@@ -9,14 +12,11 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
 /// Evaluate the compiled representation of a [`Block`].
@@ -678,7 +678,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span, true)?;
+                let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
@@ -694,9 +694,8 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
-                let value = value.follow_cell_path(&path.members, true)?;
-                ctx.put_reg(*dst, value.into_pipeline_data());
+                let value = value.follow_cell_path(&path.members)?;
+                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
                 Err(*error)
@@ -995,7 +994,7 @@ fn binary_op(
             return Err(ShellError::IrEvalError {
                 msg: "can't eval assignment with the `binary-op` instruction".into(),
                 span: Some(span),
-            })
+            });
         }
     };
 
@@ -1323,7 +1322,7 @@ fn check_input_types(
             return Err(ShellError::NushellFailed {
                 msg: "Command input type strings is empty, despite being non-zero earlier"
                     .to_string(),
-            })
+            });
         }
         1 => input_types.swap_remove(0),
         2 => input_types.join(" and "),
@@ -1530,7 +1529,7 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     let file = options
         .create(true)
         .open(&path_expanded)
-        .map_err(|err| IoError::new(err.kind(), path.span(), path_expanded))?;
+        .map_err(|err| IoError::new(err, path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 

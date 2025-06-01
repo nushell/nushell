@@ -1,6 +1,7 @@
 use crate::{
+    DeclId, FromValue, ShellError, Span, Value,
     ast::{self, Expression},
-    ir, DeclId, FromValue, ShellError, Span, Value,
+    ir,
 };
 
 use super::{EngineState, Stack, StateWorkingSet};

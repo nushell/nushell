@@ -1,7 +1,7 @@
 use core::slice;
 use indexmap::IndexMap;
 use nu_protocol::{
-    engine::Call, IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value,
+    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value, engine::Call,
 };
 
 pub fn run_with_function(
@@ -102,7 +102,7 @@ pub fn calculate(
             mf(&new_vals?, span, name)
         }
         PipelineData::Value(val, ..) => mf(&[val], span, name),
-        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: name }),
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: name }),
         val => Err(ShellError::UnsupportedInput {
             msg: "Only ints, floats, lists, records, or ranges are supported".into(),
             input: "value originates from here".into(),

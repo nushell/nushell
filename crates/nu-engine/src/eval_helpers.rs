@@ -3,10 +3,10 @@ use crate::{
     eval_ir_block, eval_subexpression,
 };
 use nu_protocol::{
+    PipelineData, ShellError, Value,
     ast::{Block, Expression},
     debugger::{WithDebug, WithoutDebug},
     engine::{EngineState, Stack},
-    PipelineData, ShellError, Value,
 };
 
 /// Type of eval_block() function

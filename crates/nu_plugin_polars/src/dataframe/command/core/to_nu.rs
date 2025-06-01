@@ -1,13 +1,12 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value, record,
 };
 
 use crate::{
-    dataframe::values::NuExpression,
-    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::NuDataFrame;
@@ -39,6 +38,8 @@ impl PluginCommand for ToNu {
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
                 (Type::Custom("dataframe".into()), Type::table()),
+                (Type::Custom("datatype".into()), Type::Any),
+                (Type::Custom("schema".into()), Type::Any),
             ])
             .category(Category::Custom("dataframe".into()))
     }
@@ -68,8 +69,7 @@ impl PluginCommand for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example:
-                    "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
                 result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {
@@ -86,30 +86,53 @@ impl PluginCommand for ToNu {
     fn run(
         &self,
         plugin: &Self::Plugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head)?;
-        if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
-            dataframe_command(plugin, call, value)
-        } else {
-            expression_command(plugin, call, value)
-        }
-        .map_err(|e| e.into())
+        command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 }
 
-fn dataframe_command(
+fn command(
     plugin: &PolarsPlugin,
+    _engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: Value,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let value = input.into_value(call.head)?;
+    match PolarsPluginObject::try_from_value(plugin, &value)? {
+        PolarsPluginObject::NuDataFrame(df) => dataframe_command(call, df),
+        PolarsPluginObject::NuLazyFrame(lazy) => dataframe_command(call, lazy.collect(call.head)?),
+        PolarsPluginObject::NuExpression(expr) => {
+            let value = expr.to_value(call.head)?;
+            Ok(PipelineData::Value(value, None))
+        }
+        PolarsPluginObject::NuDataType(dt) => {
+            let value = dt.base_value(call.head)?;
+            Ok(PipelineData::Value(value, None))
+        }
+        PolarsPluginObject::NuSchema(schema) => {
+            let value = schema.base_value(call.head)?;
+            Ok(PipelineData::Value(value, None))
+        }
+        _ => Err(cant_convert_err(
+            &value,
+            &[
+                PolarsPluginType::NuDataFrame,
+                PolarsPluginType::NuLazyFrame,
+                PolarsPluginType::NuExpression,
+                PolarsPluginType::NuDataType,
+                PolarsPluginType::NuSchema,
+            ],
+        )),
+    }
+}
+
+fn dataframe_command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.get_flag("rows")?;
     let tail: bool = call.has_flag("tail")?;
     let index: bool = call.has_flag("index")?;
-
-    let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
 
     let values = if tail {
         df.tail(rows, index, call.head)?
@@ -123,17 +146,6 @@ fn dataframe_command(
     };
 
     let value = Value::list(values, call.head);
-
-    Ok(PipelineData::Value(value, None))
-}
-
-fn expression_command(
-    plugin: &PolarsPlugin,
-    call: &EvaluatedCall,
-    input: Value,
-) -> Result<PipelineData, ShellError> {
-    let expr = NuExpression::try_from_value(plugin, &input)?;
-    let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))
 }

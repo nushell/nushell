@@ -3,12 +3,12 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
+    BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
-    VarId,
+    record,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -17,6 +17,8 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
+// Note: When adding new constants to $nu, please update the doc at https://nushell.sh/book/special_variables.html
+// or at least add a TODO/reminder issue in nushell.github.io so we don't lose track of it.
 pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         #[allow(deprecated)]

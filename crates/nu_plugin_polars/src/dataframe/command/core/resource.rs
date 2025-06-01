@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-use crate::{cloud::build_cloud_options, PolarsPlugin};
+use crate::{PolarsPlugin, cloud::build_cloud_options};
 use nu_path::expand_path_with;
 use nu_protocol::{ShellError, Span, Spanned};
 use polars_io::cloud::CloudOptions;

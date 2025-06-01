@@ -11,7 +11,7 @@ use tabled::{
     tables::{PoolTable, TableValue},
 };
 
-use crate::{is_color_empty, string_width, string_wrap, TableTheme};
+use crate::{TableTheme, is_color_empty, string_width, string_wrap};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
@@ -119,7 +119,7 @@ fn build_vertical_map(record: Record, config: &Config) -> TableValue {
 fn string_append_to_width(key: &mut String, max: usize) {
     let width = string_width(key);
     let rest = max - width;
-    key.extend(std::iter::repeat(' ').take(rest));
+    key.extend(std::iter::repeat_n(' ', rest));
 }
 
 fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {

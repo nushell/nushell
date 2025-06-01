@@ -1,5 +1,5 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {

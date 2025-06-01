@@ -1,11 +1,11 @@
 use nu_protocol::{
+    IntoSpanned, OutDest, RegId, Span, Spanned,
     ast::{Expression, RedirectionTarget},
     engine::StateWorkingSet,
     ir::{Instruction, RedirectMode},
-    IntoSpanned, OutDest, RegId, Span, Spanned,
 };
 
-use super::{compile_expression, BlockBuilder, CompileError};
+use super::{BlockBuilder, CompileError, compile_expression};
 
 #[derive(Default, Clone)]
 pub(crate) struct RedirectModes {
@@ -98,7 +98,7 @@ pub(crate) fn finish_redirection(
         if !matches!(
             modes.err,
             Some(Spanned {
-                item: RedirectMode::Pipe { .. },
+                item: RedirectMode::Pipe,
                 ..
             })
         ) {

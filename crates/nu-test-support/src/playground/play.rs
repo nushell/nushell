@@ -1,11 +1,11 @@
 use super::Director;
 use crate::fs::{self, Stub};
-use nu_glob::{glob, Uninterruptible};
+use nu_glob::{Uninterruptible, glob};
 #[cfg(not(target_arch = "wasm32"))]
 use nu_path::Path;
 use nu_path::{AbsolutePath, AbsolutePathBuf};
 use std::str;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 
 #[derive(Default, Clone, Debug)]
 pub struct EnvironmentVariable {

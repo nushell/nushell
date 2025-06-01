@@ -1,7 +1,7 @@
 use crate::{
+    BlockId, DeclId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

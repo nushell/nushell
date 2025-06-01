@@ -1,17 +1,18 @@
 use crate::completions::{
-    completion_common::{surround_remove, FileSuggestion},
+    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    completion_common::{FileSuggestion, surround_remove},
     completion_options::NuMatcher,
-    file_path_completion, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    file_path_completion,
 };
 use nu_path::expand_tilde;
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet, VirtualPath},
     Span,
+    engine::{Stack, StateWorkingSet, VirtualPath},
 };
 use reedline::Suggestion;
 use std::{
     collections::HashSet,
-    path::{is_separator, PathBuf, MAIN_SEPARATOR_STR},
+    path::{MAIN_SEPARATOR_STR, PathBuf, is_separator},
 };
 
 pub struct DotNuCompletion {
