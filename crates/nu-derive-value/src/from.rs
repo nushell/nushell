@@ -570,16 +570,15 @@ fn parse_value_via_fields(
                 let ident_s =
                     name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 let ty = &field.ty;
-                fields_ts.push(match type_is_option(ty) {
-                    true => quote! {
+                fields_ts.push(match (type_is_option(ty), member_attrs.default) {
+                    (true, _) => quote! {
                         #ident: record
                             .remove(#ident_s)
                             .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
                             .transpose()?
                             .flatten()
                     },
-
-                    false => quote! {
+                    (false, false) => quote! {
                         #ident: <#ty as nu_protocol::FromValue>::from_value(
                             record
                                 .remove(#ident_s)
@@ -589,6 +588,13 @@ fn parse_value_via_fields(
                                     src_span: span
                                 })?,
                         )?
+                    },
+                    (false, true) => quote! {
+                        #ident: record
+                            .remove(#ident_s)
+                            .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
+                            .transpose()?
+                            .unwrap_or_default()
                     },
                 });
             }
