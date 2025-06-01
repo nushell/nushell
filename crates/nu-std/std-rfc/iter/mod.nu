@@ -36,7 +36,8 @@ def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>
 # the cell-paths to access those values.
 #
 # If a cell-path is provided as argument, rather than traversing all children,
-# only the given cell-path is followed
+# only the given cell-path is followed. The cell-path is evaluated at each level,
+# relative to the parent element.
 #
 # If a closure is provided, it will be used to get children from parent values.
 # The closure can have a variety of return types, each one in the list being
