@@ -20,7 +20,7 @@ A condition can be either a "row condition" or a closure. A row condition is a s
 Each element of the input can be accessed through the $it variable.
 
 On the left hand side of a row condition, any field name is automatically expanded to use $it.
-For example, where type == dir is equivalent to where $it.type == dir. This expansion does not happen when passing a subexpression or closure to where.
+For example, `where type == dir` is equivalent to `where $it.type == dir`. This expansion does not happen when passing a subexpression or closure to where.
 
 When using a closure, the element is passed as an argument and as pipeline input to the closure.
 
