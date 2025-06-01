@@ -5,21 +5,31 @@ use crate::{FromValue, ParseWarning, ShellError, Type, Value, ast::Call};
 // The `FromValue` derive macro fully qualifies paths to "nu_protocol".
 use crate::{self as nu_protocol, ReportMode, Span};
 
+/// A entry which indicates that some part of, or all of, a command is deprecated
+///
+/// Commands can implement [`Command::deprecation_info`] to return deprecation entries,
+/// which will cause a parse-time warning. Additionally, custom commands can use the
+/// @deprecated attribute to add a `DeprecationEntry`.
 #[derive(FromValue)]
 pub struct DeprecationEntry {
+    /// The type of deprecation
     // might need to revisit this if we added additional DeprecationTypes
     #[nu_value(rename = "flag", default)]
     pub ty: DeprecationType,
+    /// How this deprecation should be reported
     #[nu_value(rename = "report")]
     pub report_mode: ReportMode,
+    /// When this deprecation started
     pub since: Option<String>,
+    /// When this item is expected to be removed
     pub expected_removal: Option<String>,
+    /// Help text, possibly including a suggestion for what to use instead
     pub help: Option<String>,
 }
 
 /// What this deprecation affects
 #[derive(Default)]
-enum DeprecationType {
+pub enum DeprecationType {
     /// Deprecation of whole command
     #[default]
     Command,
