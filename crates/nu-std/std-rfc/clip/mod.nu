@@ -29,17 +29,17 @@ export def copy [
   clip paste
 } --result "Hello"
 export def paste []: [nothing -> string] {
-	try {
-		term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
-	} catch {
-		error make -u {
-			msg: "Terminal did not responds to OSC 52 paste request."
-			help: $"Check if your terminal supports OSC 52."
-		}
-	}
-	| decode
-	| decode base64
-	| decode
+  try {
+    term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
+  } catch {
+    error make -u {
+      msg: "Terminal did not responds to OSC 52 paste request."
+      help: $"Check if your terminal supports OSC 52."
+    }
+  }
+  | decode
+  | decode base64
+  | decode
 }
 
 # Add a prefix to each line of the content to be copied
