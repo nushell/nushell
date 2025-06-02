@@ -7,7 +7,7 @@ mod simple {
 
     #[test]
     fn extracts_fields_from_the_given_the_pattern() {
-        Playground::setup("parse_test_1", |dirs, sandbox| {
+        Playground::setup("parse_test_simple_1", |dirs, sandbox| {
             sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
                 r#"
@@ -35,7 +35,7 @@ mod simple {
 
     #[test]
     fn double_open_curly_evaluates_to_a_single_curly() {
-        Playground::setup("parse_test_regex_2", |dirs, _sandbox| {
+        Playground::setup("parse_test_simple_2", |dirs, _sandbox| {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
@@ -51,7 +51,7 @@ mod simple {
 
     #[test]
     fn properly_escapes_text() {
-        Playground::setup("parse_test_regex_3", |dirs, _sandbox| {
+        Playground::setup("parse_test_simple_3", |dirs, _sandbox| {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
@@ -67,7 +67,7 @@ mod simple {
 
     #[test]
     fn properly_captures_empty_column() {
-        Playground::setup("parse_test_regex_4", |dirs, _sandbox| {
+        Playground::setup("parse_test_simple_4", |dirs, _sandbox| {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
@@ -84,7 +84,7 @@ mod simple {
 
     #[test]
     fn errors_when_missing_closing_brace() {
-        Playground::setup("parse_test_regex_5", |dirs, _sandbox| {
+        Playground::setup("parse_test_simple_5", |dirs, _sandbox| {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
@@ -98,6 +98,25 @@ mod simple {
                 actual
                     .err
                     .contains("Found opening `{` without an associated closing `}`")
+            );
+        })
+    }
+
+    #[test]
+    fn ignore_multiple_placeholder() {
+        Playground::setup("parse_test_simple_6", |dirs, _sandbox| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+                    | parse "{_}:{level}:{_}:{entry}"
+                    | to json -r
+                "#
+            ));
+
+            assert_eq!(
+                actual.out,
+                r#"[{"level":"INFO","entry":"all is well"},{"level":"ERROR","entry":"something bad happened"}]"#
             );
         })
     }
