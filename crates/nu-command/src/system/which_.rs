@@ -14,7 +14,7 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .rest("rest", SyntaxShape::String, "Additional applications.")
+            .rest("applications", SyntaxShape::String, "Application(s)")
             .switch("all", "list all executables", Some('a'))
             .category(Category::System)
     }

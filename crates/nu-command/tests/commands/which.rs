@@ -107,7 +107,7 @@ fn do_not_show_hidden_commands() {
 }
 
 #[test]
-fn which_accepts_splatted_list() {
+fn which_accepts_spread_list() {
     let actual = nu!(
         cwd: ".",  // or any valid path
         r#"
