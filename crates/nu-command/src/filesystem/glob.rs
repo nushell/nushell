@@ -286,8 +286,8 @@ impl Command for Glob {
 
 #[cfg(windows)]
 fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<String, ShellError> {
-    let glob_pattern = glob_pattern.replace('\\', "/");
-    let mut chars = glob_pattern.chars();
+    let replaced = glob_pattern.replace('\\', "/");
+    let mut chars = replaced.chars();
     match (chars.next(), chars.next(), chars.next()) {
         (Some(drive), Some(':'), Some(sep)) if drive.is_ascii_alphabetic() => {
             if matches!(sep, '/' | '\\') {
