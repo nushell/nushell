@@ -16,7 +16,26 @@ impl CustomSet {
             vals: vals.iter().filter_map(SetValue::from_value).collect(),
         }
     }
+}
 
+impl Iterator for CustomSet {
+    type Item = SetValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+
+impl IntoIterator for CustomSet {
+    type Item = SetValue;
+    type IntoIter = std::collections::hash_set::IntoIter<SetValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vals.into_iter()
+    }
+}
+
+impl CustomSet {
     pub fn iter(&self) -> std::collections::hash_set::Iter<SetValue> {
         self.vals.iter()
     }

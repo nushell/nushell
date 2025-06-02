@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
+    BlockId, ByteStreamSource, Category, CustomSet, PipelineMetadata, Signature,
     engine::{Closure, StateWorkingSet},
 };
 use std::any::type_name;
@@ -424,6 +424,26 @@ fn describe_value_inner(
                 "type" => Value::string("list", head),
                 "detailed_type" => Value::string(value_type, head),
                 "length" => Value::int(vals.len() as i64, head),
+                "rust_type" => Value::string(type_of(&vals), head),
+                "value" => value,
+            })
+        }
+        Value::Set { ref mut vals, .. } => {
+            let new_values: Vec<Value> = vals
+                .clone()
+                .into_iter()
+                .map(|v| {
+                    describe_value_inner(std::mem::take(&mut v.to_value()), head, engine_state)
+                        .into_value(head)
+                })
+                .collect();
+            let l = new_values.len();
+            *vals = Box::new(CustomSet::new(new_values));
+
+            Description::Record(record! {
+                "type" => Value::string("set", head),
+                "detailed_type" => Value::string(value_type, head),
+                "length" => Value::int(l as i64, head),
                 "rust_type" => Value::string(type_of(&vals), head),
                 "value" => value,
             })

@@ -99,11 +99,12 @@ impl<'a> StyleComputer<'a> {
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),
-            Value::Record { .. } | Value::List { .. } => TextStyle::with_style(Left, s),
+            Value::Record { .. } | Value::List { .. } | Value::Set { .. } => {
+                TextStyle::with_style(Left, s)
+            }
             Value::Closure { .. } | Value::Custom { .. } | Value::Error { .. } => {
-                        TextStyle::basic_left()
-                    }
-            Value::Set { vals, internal_span } => todo!(),
+                TextStyle::basic_left()
+            }
         }
     }
 
@@ -132,6 +133,7 @@ impl<'a> StyleComputer<'a> {
             ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
             ("record".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("set".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
             ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
             ("search_result".to_string(), ComputableStyle::Static(Color::White.normal().on(Color::Red))),
