@@ -287,12 +287,12 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
             output.push_str("(?");
             if column == "_" {
                 // discard placeholder column(s)
-                output.push_str(":");
+                output.push(':');
             } else {
                 // create capture group for column
                 output.push_str("P<");
                 output.push_str(&column);
-                output.push_str(">");
+                output.push('>');
             }
             output.push_str(".*?)");
         }
