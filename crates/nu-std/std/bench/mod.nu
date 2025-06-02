@@ -91,15 +91,20 @@ export def main [
             let code = $x.item
             let idx = $x.index
 
+            let bench_num = if ($commands | length) > 1 { $" ($idx + 1)"}
+
             seq 1 $warmup | each {|i|
+                if $progress { print -n $"Warmup($bench_num): ($i) / ($warmup)\r" }
                 if $prepare != null { $idx | do $prepare $idx | ignore }
                 do --ignore-errors=$ignore_errors $code | ignore
                 if $conclude != null { $idx | do $conclude $idx | ignore }
             }
 
+            if $progress and $warmup > 0 { print $"Warmup($bench_num): ($warmup) / ($warmup)" }
+
             let times: list<duration> = (
                 seq 1 $rounds | each {|i|
-                    if $progress { print -n $"($i) / ($rounds)\r" }
+                    if $progress { print -n $"Benchmark($bench_num): ($i) / ($rounds)\r" }
 
                     if $prepare != null { $idx | do $prepare $idx | ignore }
                     let time = timeit { do --ignore-errors=$ignore_errors $code | ignore }
@@ -109,7 +114,7 @@ export def main [
                 }
             )
 
-            if $progress { print $"($rounds) / ($rounds)" }
+            if $progress { print $"Benchmark($bench_num): ($rounds) / ($rounds)" }
 
             {
                 mean: ($times | math avg)
