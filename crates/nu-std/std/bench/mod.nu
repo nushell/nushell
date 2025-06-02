@@ -92,7 +92,9 @@ export def main [
             let idx = $x.index
 
             seq 1 $warmup | each {|i|
+                if $prepare != null { $idx | do $prepare $idx | ignore }
                 do --ignore-errors=$ignore_errors $code | ignore
+                if $conclude != null { $idx | do $conclude $idx | ignore }
             }
 
             let times: list<duration> = (
