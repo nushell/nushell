@@ -1,5 +1,6 @@
 mod ast;
 mod debug_;
+mod env;
 mod explain;
 mod info;
 mod inspect;
@@ -19,6 +20,7 @@ mod view_span;
 
 pub use ast::Ast;
 pub use debug_::Debug;
+pub use env::DebugEnv;
 pub use explain::Explain;
 pub use info::DebugInfo;
 pub use inspect::Inspect;
