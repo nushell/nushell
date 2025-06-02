@@ -62,16 +62,17 @@ Benchmark 2: { 2 ** 4 }
 
 { 2 + 4 } ran
     1 times faster than { 2 ** 4 }"
-@example "use --setup to compile before benchmarking" { bench { ./target/release/foo } --setup { cargo build --release } }
-@example "use --warmup to fill the disk cache before benchmarking" { bench { fd } { jwalk . -k } -w 1 -n 10 }
+@example "use `--setup` to compile before benchmarking" { bench { ./target/release/foo } --setup { cargo build --release } }
+@example "use `--prepare` to benchmark rust compilation speed" { bench { cargo build --release } --prepare { cargo clean } }
+@example "use `--warmup` to fill the disk cache before benchmarking" { bench { fd } { jwalk . -k } -w 1 -n 10 }
 export def main [
     ...commands: closure     # the piece(s) of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
     --warmup (-w): int = 0   # the number of warmup rounds (not timed) to do before the benchmark, useful for filling the disk cache in I/O-heavy programs
     --setup (-s): closure    # command to run before all benchmarks
-    --prepare (-S): closure  # command to run before each benchmark (same as `--setup` if only doing one benchmark)
     --cleanup (-c): closure  # command to run after all benchmarks
-    --conclude (-C): closure # command to run after each benchmark (same as `--cleanup` if only doing one benchmark)
+    --prepare (-S): closure  # command to run before each timing round (for multiple commands, the index is passed to this closure so you can do different behaviour)
+    --conclude (-C): closure # command to run after each timing round (for multiple commands, the index is passed to this closure so you can do different behaviour)
     --ignore-errors (-i)     # ignore errors in the command
     --verbose (-v)           # show individual times (has no effect if used with `--pretty`)
     --progress (-P)          # prints the progress
@@ -86,9 +87,9 @@ export def main [
     if $setup != null { do $setup | ignore }
 
     let results = (
-        $commands | each {|code|
-
-            if $prepare != null { do $prepare | ignore }
+        $commands | enumerate | each {|x|
+            let code = $x.item
+            let idx = $x.index
 
             seq 1 $warmup | each {|i|
                 do --ignore-errors=$ignore_errors $code | ignore
@@ -97,13 +98,16 @@ export def main [
             let times: list<duration> = (
                 seq 1 $rounds | each {|i|
                     if $progress { print -n $"($i) / ($rounds)\r" }
-                    timeit { do --ignore-errors=$ignore_errors $code | ignore }
+
+                    if $prepare != null { $idx | do $prepare $idx | ignore }
+                    let time = timeit { do --ignore-errors=$ignore_errors $code | ignore }
+                    if $conclude != null { $idx | do $conclude $idx | ignore }
+
+                    $time
                 }
             )
 
             if $progress { print $"($rounds) / ($rounds)" }
-
-            if $conclude != null { do $conclude | ignore }
 
             {
                 mean: ($times | math avg)
