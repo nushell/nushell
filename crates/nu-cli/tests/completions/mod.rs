@@ -1579,16 +1579,25 @@ fn attribute_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
+    // Compile a list of built-in attribute names (without the "attr " prefix)
+    let attribute_names: Vec<String> = engine
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .map(|(sig, _)| sig.name)
+        .filter(|name| name.starts_with("attr "))
+        .map(|name| name[5..].to_string())
+        .collect();
+
+    // Make sure we actually found some attributes so the test is valid
+    assert!(attribute_names.contains(&String::from("example")));
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("@", 1);
 
-    // Only checking for the builtins and not the std attributes
-    let expected: Vec<_> = vec!["category", "example", "search-terms"];
-
     // Match results
-    match_suggestions(&expected, &suggestions);
+    match_suggestions_by_string(&attribute_names, &suggestions);
 }
 
 #[test]
@@ -2344,6 +2353,32 @@ fn exact_match() {
     let target_dir = format!("open {}", file(dir.join("partial")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
     assert!(suggestions.len() > 1);
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+#[test]
+fn exact_match_case_insensitive() {
+    use nu_test_support::playground::Playground;
+    use support::completions_helpers::new_engine_helper;
+
+    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
+        playground.mkdir("AA/foo");
+        playground.mkdir("aa/foo");
+        playground.mkdir("aaa/foo");
+
+        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
+        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+        let target = format!("open {}", folder(dir.join("aa")));
+        match_suggestions(
+            &vec![
+                folder(dir.join("AA").join("foo")).as_str(),
+                folder(dir.join("aa").join("foo")).as_str(),
+                folder(dir.join("aaa").join("foo")).as_str(),
+            ],
+            &completer.complete(&target, target.len()),
+        );
+    });
 }
 
 #[ignore = "was reverted, still needs fixing"]

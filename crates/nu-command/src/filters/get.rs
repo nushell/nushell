@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, ast::PathMember, report_shell_warning};
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, Signals, ast::PathMember};
 
 #[derive(Clone)]
 pub struct Get;
@@ -132,19 +132,7 @@ If multiple cell paths are given, this will produce a list of values."#
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        let sensitive_span = call.get_flag_span(stack, "sensitive");
         let metadata = input.metadata();
-        if let Some(span) = sensitive_span {
-            report_shell_warning(
-                engine_state,
-                &ShellError::Deprecated {
-                    deprecated: "sensitive flag",
-                    suggestion: "",
-                    span,
-                    help: Some("cell-paths are case-sensitive by default"),
-                },
-            );
-        }
         action(
             input,
             cell_path,
@@ -154,6 +142,18 @@ If multiple cell paths are given, this will produce a list of values."#
             call.head,
         )
         .map(|x| x.set_metadata(metadata))
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![
+            DeprecationEntry {
+                ty: DeprecationType::Flag("sensitive".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.105.0".into()),
+                expected_removal: None,
+                help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
+            }
+        ]
     }
 }
 

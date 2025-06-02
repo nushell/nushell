@@ -1,12 +1,13 @@
 use std::fs::File;
 
+use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{ShellError, Spanned};
-use polars::prelude::{CsvWriter, SerWriter};
+use polars::prelude::{CsvWriter, SerWriter, SinkOptions};
 use polars_io::csv::write::{CsvWriterOptions, SerializeOptions};
 
 use crate::{
-    command::core::resource::Resource,
+    command::core::{resource::Resource, save::sink_target_from_string},
     values::{NuDataFrame, NuLazyFrame},
 };
 
@@ -17,8 +18,9 @@ pub(crate) fn command_lazy(
     lazy: &NuLazyFrame,
     resource: Resource,
 ) -> Result<(), ShellError> {
-    let file_path = resource.path;
+    let file_path = sink_target_from_string(resource.path.clone());
     let file_span = resource.span;
+    debug!("Writing csv file {}", resource.path);
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let separator = delimiter
         .and_then(|d| d.item.chars().next().map(|c| c as u8))
@@ -36,8 +38,17 @@ pub(crate) fn command_lazy(
     };
 
     lazy.to_polars()
-        .sink_csv(file_path, options, resource.cloud_options)
+        .sink_csv(
+            file_path,
+            options,
+            resource.cloud_options,
+            SinkOptions::default(),
+        )
+        .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
+        .map(|_| {
+            debug!("Wrote parquet file {}", resource.path);
+        })
 }
 
 pub(crate) fn command_eager(

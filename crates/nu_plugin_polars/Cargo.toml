@@ -33,11 +33,11 @@ indexmap = { version = "2.9" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.53" }
-polars-io = { version = "0.46", features = ["avro", "cloud", "aws"] }
-polars-arrow = { version = "0.46" }
-polars-ops = { version = "0.46", features = ["pivot", "cutqcut"] }
-polars-plan = { version = "0.46", features = ["regex"] }
-polars-utils = { version = "0.46" }
+polars-io = { version = "0.48", features = ["avro", "cloud", "aws"] }
+polars-arrow = { version = "0.48" }
+polars-ops = { version = "0.48", features = ["pivot", "cutqcut"] }
+polars-plan = { version = "0.48", features = ["regex"] }
+polars-utils = { version = "0.48" }
 typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
@@ -50,11 +50,12 @@ hashbrown = { version = "0.15", features = ["rayon", "serde"] }
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { version = "1.45", features = ["full"] }
-object_store = { version = "0.11", default-features = false }
+object_store = { version = "0.12", features = ["aws"], default-features = false }
 url.workspace = true
 
 [dependencies.polars]
 features = [
+  "abs",
   "arg_where",
   "bigidx",
   "checked_arithmetic",
@@ -78,24 +79,28 @@ features = [
   "is_in",
   "json",
   "lazy",
+  "log",
   "object",
   "parquet",
   "pivot",
   "random",
+  "replace",
   "rolling_window",
   "rows",
   "round_series",
   "serde",
   "serde-lazy",
+  "sign",
   "strings",
   "string_to_integer",
   "streaming",
   "timezones",
   "temporal",
   "to_dummies",
+  "trigonometry",
 ]
 optional = false
-version = "0.46"
+version = "0.48"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.2" }

@@ -118,7 +118,10 @@ fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
         "[[name nickname]; [Maurice moe] [Laurence larry]] | find --no-highlight --regex ce | get name | to json -r"
     );
 
-    assert_eq!(actual.out, r#"["Maurice","Laurence"]"#);
+    assert_eq!(
+        actual.out,
+        r#"["\u001b[37mMauri\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m","\u001b[37mLauren\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m"]"#
+    );
     assert_eq!(actual_no_highlight.out, r#"["Maurice","Laurence"]"#);
 }
 

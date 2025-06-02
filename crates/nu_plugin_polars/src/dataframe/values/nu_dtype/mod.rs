@@ -2,10 +2,10 @@ pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
 use nu_protocol::{ShellError, Span, Value, record};
-use polars::prelude::{DataType, Field, PlSmallStr, TimeUnit, UnknownKind};
+use polars::prelude::{DataType, Field, TimeUnit, UnknownKind};
 use uuid::Uuid;
 
-use crate::{Cacheable, PolarsPlugin};
+use crate::{Cacheable, PolarsPlugin, command::datetime::timezone_from_str};
 
 use super::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
@@ -166,7 +166,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
         "time" => Ok(DataType::Time),
         "null" => Ok(DataType::Null),
         "unknown" => Ok(DataType::Unknown(UnknownKind::Any)),
-        "object" => Ok(DataType::Object("unknown", None)),
+        "object" => Ok(DataType::Object("unknown")),
         _ if dtype.starts_with("list") => {
             let dtype = dtype
                 .trim_start_matches("list")
@@ -206,12 +206,10 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
             let timezone = if "*" == next {
                 None
             } else {
-                Some(next.to_string())
+                let zone_str = next.to_string();
+                Some(timezone_from_str(&zone_str, None)?)
             };
-            Ok(DataType::Datetime(
-                time_unit,
-                timezone.map(PlSmallStr::from),
-            ))
+            Ok(DataType::Datetime(time_unit, timezone))
         }
         _ if dtype.starts_with("duration") => {
             let inner = dtype.trim_start_matches("duration<").trim_end_matches('>');

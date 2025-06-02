@@ -188,7 +188,7 @@ fn command(
     let tail = df
         .as_ref()
         .iter()
-        .filter(|col| !matches!(col.dtype(), &DataType::Object("object", _)))
+        .filter(|col| !matches!(col.dtype(), &DataType::Object("object")))
         .map(|col| {
             let count = col.len() as f64;
 

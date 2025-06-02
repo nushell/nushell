@@ -102,7 +102,7 @@ fn literal_expr(value: &SqlValue) -> Result<Expr> {
         SqlValue::HexStringLiteral(s) => lit(s.clone()),
         SqlValue::DoubleQuotedString(s) => lit(s.clone()),
         SqlValue::Boolean(b) => lit(*b),
-        SqlValue::Null => Expr::Literal(LiteralValue::Null),
+        SqlValue::Null => Expr::Literal(LiteralValue::untyped_null()),
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("Parsing SQL Value {value:?} was not supported in polars-sql yet!").into(),

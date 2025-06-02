@@ -62,7 +62,7 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
     let input = $in
 
     # Get a list of elements to be updated and their indices
-    let to_update = ($input.content | enumerate | filter {|it|
+    let to_update = ($input.content | enumerate | where {|it|
         let item = $it.item
         $step == '*' or $item.tag == $step
     })

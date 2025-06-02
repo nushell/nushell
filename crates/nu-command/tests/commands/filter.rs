@@ -14,5 +14,5 @@ fn filter_with_return_in_closure() {
     ));
 
     assert_eq!(actual.out, "[2, 4, 6, 8, 10]");
-    assert!(actual.err.is_empty());
+    assert!(actual.err.contains("deprecated"));
 }

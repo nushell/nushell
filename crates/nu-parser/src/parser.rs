@@ -971,6 +971,8 @@ pub fn parse_internal_call(
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
+    let deprecation = decl.deprecation_info();
+
     // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = match decl.name() {
         "use" | "overlay use" | "source-env" if decl.is_keyword() => {
@@ -1264,6 +1266,16 @@ pub fn parse_internal_call(
 
     check_call(working_set, command_span, &signature, &call);
 
+    deprecation
+        .into_iter()
+        .filter_map(|entry| entry.parse_warning(&signature.name, &call))
+        .for_each(|warning| {
+            // FIXME: if two flags are deprecated and both are used in one command,
+            // the second flag's deprecation won't show until the first flag is removed
+            // (but it won't be flagged as reported until it is actually reported)
+            working_set.warning(warning);
+        });
+
     if signature.creates_scope {
         working_set.exit_scope();
     }
@@ -1304,7 +1316,6 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             }
         }
 
-        // TODO: Try to remove the clone
         let decl = working_set.get_decl(decl_id);
 
         let parsed_call = if let Some(alias) = decl.as_alias() {
@@ -2057,6 +2068,10 @@ pub fn parse_brace_expr(
     } else if matches!(second_token_contents, Some(TokenContents::Pipe))
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
+        if matches!(shape, SyntaxShape::Block) {
+            working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
+            return Expression::garbage(working_set, span);
+        }
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
