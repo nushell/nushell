@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.104.3"
+version = "0.104.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
