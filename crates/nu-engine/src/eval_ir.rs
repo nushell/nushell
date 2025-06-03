@@ -617,6 +617,22 @@ fn eval_instruction<D: DebugContext>(
             ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
             Ok(Continue)
         }
+        Instruction::SetAdd { src_dst, item } => {
+            let set_value = ctx.collect_reg(*src_dst, *span)?;
+            let item = ctx.collect_reg(*item, *span)?;
+            let set_span = set_value.span();
+            let mut set = set_value.into_set()?;
+            set.push(&item)?;
+            ctx.put_reg(
+                *src_dst,
+                Value::Set {
+                    vals: set,
+                    internal_span: set_span,
+                }
+                .into_pipeline_data(),
+            );
+            Ok(Continue)
+        }
         Instruction::RecordInsert { src_dst, key, val } => {
             let record_value = ctx.collect_reg(*src_dst, *span)?;
             let key = ctx.collect_reg(*key, *span)?;
@@ -879,6 +895,7 @@ fn literal_value(
             Value::range(range, span)
         }
         Literal::List { capacity } => Value::list(Vec::with_capacity(*capacity), span),
+        Literal::Set { capacity } => Value::set(Vec::with_capacity(*capacity), span)?,
         Literal::Record { capacity } => Value::record(Record::with_capacity(*capacity), span),
         Literal::Filepath {
             val: path,

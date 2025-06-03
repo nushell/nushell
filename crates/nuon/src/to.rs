@@ -202,6 +202,15 @@ fn value_to_string(
                 ))
             }
         }
+        // TODO : improve
+        Value::Set { vals, .. } => Ok(format!(
+            "<{}>",
+            vals.as_ref()
+                .into_iter()
+                .map(|v| v.to_value().into_string().unwrap_or_default())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )),
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => match **val {
             Range::IntRange(range) => Ok(range.to_string()),

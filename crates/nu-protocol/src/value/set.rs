@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::Value;
+use crate::{ShellError, Value};
 use crate::{Span, SyntaxShape, Type};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -11,18 +11,28 @@ pub struct CustomSet {
 }
 
 impl CustomSet {
-    pub fn new(vals: Vec<Value>) -> Self {
-        Self {
-            vals: vals.iter().filter_map(SetValue::from_value).collect(),
-        }
+    pub fn new(vals: Vec<Value>) -> Result<Self, ShellError> {
+        Ok(Self {
+            vals: vals
+                .iter()
+                .filter_map(|v| SetValue::from_value(v).ok())
+                .collect(),
+        })
+    }
+
+    // TODO : correct error ?
+    pub fn push(&mut self, val: &Value) -> Result<(), ShellError> {
+        self.vals.insert(SetValue::from_value(val)?);
+        Ok(())
     }
 }
 
-impl Iterator for CustomSet {
-    type Item = SetValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+impl CustomSet {
+    pub fn len(&self) -> usize {
+        self.vals.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.vals.is_empty()
     }
 }
 
@@ -35,8 +45,11 @@ impl IntoIterator for CustomSet {
     }
 }
 
-impl CustomSet {
-    pub fn iter(&self) -> std::collections::hash_set::Iter<SetValue> {
+impl<'a> IntoIterator for &'a CustomSet {
+    type Item = &'a SetValue;
+    type IntoIter = std::collections::hash_set::Iter<'a, SetValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.vals.iter()
     }
 }
@@ -74,9 +87,9 @@ impl SetValue {
         }
     }
 
-    pub fn from_value(value: &Value) -> Option<Self> {
+    pub fn from_value(value: &Value) -> Result<Self, ShellError> {
         match value {
-            Value::Int { val, .. } => Some(SetValue::Int(*val)),
+            Value::Int { val, .. } => Ok(SetValue::Int(*val)),
             Value::Bool { .. }
             | Value::Float { .. }
             | Value::String { .. }
@@ -93,7 +106,10 @@ impl SetValue {
             | Value::Binary { .. }
             | Value::CellPath { .. }
             | Value::Custom { .. }
-            | Value::Nothing { .. } => None,
+            | Value::Nothing { .. } => Err(ShellError::TypeMismatch {
+                err_message: String::from("Set does not access this type"),
+                span: todo!(),
+            }),
         }
     }
 }

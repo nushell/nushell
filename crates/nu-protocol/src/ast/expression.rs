@@ -6,7 +6,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::ListItem;
+use super::{ListItem, SetItem};
 
 /// Wrapper around [`Expr`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -176,6 +176,14 @@ impl Expression {
             Expr::Int(_) => false,
             Expr::Keyword(kw) => kw.expr.has_in_variable(working_set),
             Expr::List(list) => {
+                for item in list {
+                    if item.expr().has_in_variable(working_set) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Expr::Set(list) => {
                 for item in list {
                     if item.expr().has_in_variable(working_set) {
                         return true;
@@ -368,6 +376,12 @@ impl Expression {
                         .replace_span(working_set, replaced, new_span);
                 }
             }
+            Expr::Set(list) => {
+                for item in list {
+                    item.expr_mut()
+                        .replace_span(working_set, replaced, new_span);
+                }
+            }
             Expr::Operator(_) => {}
             Expr::Range(range) => {
                 if let Some(left) = &mut range.from {
@@ -510,6 +524,13 @@ impl Expression {
                         ListItem::Item(expr) | ListItem::Spread(_, expr) => {
                             expr.replace_in_variable(working_set, new_var_id)
                         }
+                    }
+                }
+            }
+            Expr::Set(items) => {
+                for item in items.iter_mut() {
+                    match item {
+                        SetItem::Item(expr) => expr.replace_in_variable(working_set, new_var_id),
                     }
                 }
             }

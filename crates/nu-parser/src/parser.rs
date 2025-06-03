@@ -6594,6 +6594,11 @@ pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId
                 discover_captures_in_pattern(item, seen)
             }
         }
+        Pattern::Set(items) => {
+            for item in items {
+                discover_captures_in_pattern(item, seen)
+            }
+        }
         Pattern::Record(items) => {
             for item in items {
                 discover_captures_in_pattern(&item.1, seen)
@@ -6780,6 +6785,11 @@ pub fn discover_captures_in_expr(
         }
         Expr::List(list) => {
             for item in list {
+                discover_captures_in_expr(working_set, item.expr(), seen, seen_blocks, output)?;
+            }
+        }
+        Expr::Set(set) => {
+            for item in set {
                 discover_captures_in_expr(working_set, item.expr(), seen, seen_blocks, output)?;
             }
         }

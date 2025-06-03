@@ -188,6 +188,12 @@ fn local_into_string(
             .map(|x| local_into_string(engine_state, x, ", ", serialize_types))
             .collect::<Vec<_>>()
             .join(separator),
+        Value::Set { vals, .. } => vals
+            .as_ref()
+            .into_iter()
+            .map(|x| local_into_string(engine_state, x.to_value(), ", ", serialize_types))
+            .collect::<Vec<_>>()
+            .join(separator),
         Value::Record { val, .. } => val
             .into_owned()
             .into_iter()

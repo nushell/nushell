@@ -188,6 +188,8 @@ pub enum Instruction {
     ListPush { src_dst: RegId, item: RegId },
     /// Spread a value onto the end of a list. Used to construct list literals.
     ListSpread { src_dst: RegId, items: RegId },
+    /// Add a value to a set.
+    SetAdd { src_dst: RegId, item: RegId },
     /// Insert a key-value pair into a record. Used to construct record literals. Raises an error if
     /// the key already existed in the record.
     RecordInsert {
@@ -313,6 +315,7 @@ impl Instruction {
             Instruction::GlobFrom { src_dst, .. } => Some(src_dst),
             Instruction::ListPush { src_dst, .. } => Some(src_dst),
             Instruction::ListSpread { src_dst, .. } => Some(src_dst),
+            Instruction::SetAdd { src_dst, .. } => Some(src_dst),
             Instruction::RecordInsert { src_dst, .. } => Some(src_dst),
             Instruction::RecordSpread { src_dst, .. } => Some(src_dst),
             Instruction::Not { src_dst } => Some(src_dst),
@@ -408,6 +411,9 @@ pub enum Literal {
         inclusion: RangeInclusion,
     },
     List {
+        capacity: usize,
+    },
+    Set {
         capacity: usize,
     },
     Record {

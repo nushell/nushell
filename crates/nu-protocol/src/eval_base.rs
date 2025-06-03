@@ -68,6 +68,10 @@ pub trait Eval {
                 }
                 Ok(Value::list(output, expr_span))
             }
+            Expr::Set(list) => {
+                let output = list.iter().map(|v| Self::eval::<D>(state, mut_state, v.expr())).collect::<Result<Vec<_>, ShellError>>()?;
+                Value::set(output, expr_span)
+            }
             Expr::Record(items) => {
                 let mut record = Record::new();
                 let mut col_names = HashMap::new();

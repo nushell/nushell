@@ -244,6 +244,19 @@ pub(crate) fn write_value(
                 )?;
             }
         }
+        Value::Set { vals, .. } => {
+            mp::write_array_len(out, convert(vals.len(), span)?).err_span(span)?;
+            for val in vals.as_ref() {
+                write_value(
+                    out,
+                    &val.to_value(),
+                    depth + 1,
+                    engine_state,
+                    call_span,
+                    serialize_types,
+                )?;
+            }
+        }
         Value::Nothing { .. } => {
             mp::write_nil(out)
                 .map_err(InvalidMarkerWrite)

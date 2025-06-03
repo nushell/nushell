@@ -582,6 +582,15 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner set `Set` or returns an error if this `Value` is not a set
+    pub fn into_set(self) -> Result<Box<CustomSet>, ShellError> {
+        if let Value::Set { vals, .. } = self {
+            Ok(vals)
+        } else {
+            self.cant_convert_to("list")
+        }
+    }
+
     /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
@@ -804,11 +813,16 @@ impl Value {
             }
             Value::Set { vals, .. } => {
                 let first = vals
-                    .iter()
+                    .as_ref()
+                    .into_iter()
                     .next()
                     .map(SetType::from_value)
                     .unwrap_or(SetType::Nothing);
-                match vals.iter().all(|t| SetType::from_value(t) == first) {
+                match vals
+                    .as_ref()
+                    .into_iter()
+                    .all(|t| SetType::from_value(t) == first)
+                {
                     true => Type::Set(Box::new(SetType::Any)),
                     false => Type::Set(Box::new(SetType::Any)),
                 }
@@ -894,9 +908,10 @@ impl Value {
 
             // matching composite types
             (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
-            (Value::Set { vals, .. }, Type::Set(inner)) => {
-                vals.iter().all(|val| val.is_subtype_of(inner))
-            }
+            (Value::Set { vals, .. }, Type::Set(inner)) => vals
+                .as_ref()
+                .into_iter()
+                .all(|val| val.is_subtype_of(inner)),
             (Value::List { vals, .. }, Type::List(inner)) => {
                 vals.iter().all(|val| val.is_subtype_of(inner))
             }
@@ -1000,8 +1015,9 @@ impl Value {
             Value::Glob { val, .. } => val.clone(),
             Value::Set { vals, .. } => format!(
                 // TODO : change print characters
-                "{{{}}}",
-                vals.iter()
+                "<{}>",
+                vals.as_ref()
+                    .into_iter()
                     .map(|x| x.to_value().to_expanded_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -1744,7 +1760,8 @@ impl Value {
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
             Value::Set { vals, .. } => vals
-                .iter()
+                .as_ref()
+                .into_iter()
                 .try_for_each(|list_value| list_value.to_value().recurse_mut(f)),
             Value::List { vals, .. } => vals
                 .iter_mut()
@@ -1883,11 +1900,11 @@ impl Value {
         }
     }
 
-    pub fn set(vals: Vec<Value>, span: Span) -> Value {
-        Value::Set {
-            vals: Box::new(CustomSet::new(vals)),
+    pub fn set(vals: Vec<Value>, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::Set {
+            vals: Box::new(CustomSet::new(vals)?),
             internal_span: span,
-        }
+        })
     }
 
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
@@ -2001,7 +2018,7 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_set(vals: Vec<Value>) -> Value {
+    pub fn test_set(vals: Vec<Value>) -> Result<Value, ShellError> {
         Value::set(vals, Span::test_data())
     }
 
@@ -2061,7 +2078,7 @@ impl Value {
             Value::test_float(0.0),
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
-            Value::test_set(Vec::new()),
+            Value::test_set(Vec::new()).unwrap(),
             Value::test_list(Vec::new()),
             Value::test_closure(Closure {
                 block_id: BlockId::new(0),

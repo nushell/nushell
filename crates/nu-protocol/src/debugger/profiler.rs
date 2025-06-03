@@ -342,6 +342,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Int(_) => "int".to_string(),
         Expr::Keyword(_) => "keyword".to_string(),
         Expr::List(_) => "list".to_string(),
+        Expr::Set(_) => "set".to_string(),
         Expr::MatchBlock(_) => "match block".to_string(),
         Expr::Nothing => "nothing".to_string(),
         Expr::Operator(_) => "operator".to_string(),

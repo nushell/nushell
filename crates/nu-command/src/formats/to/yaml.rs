@@ -121,15 +121,17 @@ pub fn value_to_yaml_value(
             }
             serde_yaml::Value::Mapping(m)
         }
-        Value::List { vals, .. } => {
-            let mut out = vec![];
-
-            for value in vals {
-                out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
-            }
-
-            serde_yaml::Value::Sequence(out)
-        }
+        Value::List { vals, .. } => serde_yaml::Value::Sequence(
+            vals.iter()
+                .map(|v| value_to_yaml_value(engine_state, v, serialize_types))
+                .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
+        ),
+        Value::Set { vals, .. } => serde_yaml::Value::Sequence(
+            vals.as_ref()
+                .into_iter()
+                .map(|v| value_to_yaml_value(engine_state, &v.to_value(), serialize_types))
+                .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
+        ),
         Value::Closure { val, .. } => {
             if serialize_types {
                 let block = engine_state.get_block(val.block_id);

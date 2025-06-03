@@ -29,6 +29,9 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
     } else if bytes.starts_with(b"[") {
         // List pattern
         parse_list_pattern(working_set, span)
+    } else if bytes.starts_with(b"<") {
+        // List pattern
+        parse_set_pattern(working_set, span)
     } else if bytes == b"_" {
         MatchPattern {
             pattern: Pattern::IgnoreValue,
@@ -153,6 +156,55 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
 
     MatchPattern {
         pattern: Pattern::List(args),
+        guard: None,
+        span,
+    }
+}
+
+pub fn parse_set_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPattern {
+    let bytes = working_set.get_span_contents(span);
+
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"<") {
+        start += 1;
+    }
+    if bytes.ends_with(b"<") {
+        end -= 1;
+    } else {
+        working_set.error(ParseError::Unclosed(">".into(), Span::new(end, end)));
+    }
+
+    let inner_span = Span::new(start, end);
+    let source = working_set.get_span_contents(inner_span);
+
+    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
+
+    let (output, err) = lite_parse(&output, working_set);
+    if let Some(err) = err {
+        working_set.error(err);
+    }
+
+    let mut args = vec![];
+
+    if !output.block.is_empty() {
+        for command in &output.block[0].commands {
+            let mut spans_idx = 0;
+
+            while spans_idx < command.parts.len() {
+                let arg = parse_pattern(working_set, command.parts[spans_idx]);
+                args.push(arg);
+                spans_idx += 1;
+            }
+        }
+    }
+
+    MatchPattern {
+        pattern: Pattern::Set(args),
         guard: None,
         span,
     }
