@@ -10,7 +10,7 @@ def add-parent [parent: cell-path]: table<path: cell-path> -> table<path: cell-p
 
 def get-children []: [any -> table<path: cell-path, item: any>] {
     let val = $in
-    match ($val | describe -d).type {
+    match ($val | describe --detailed).type {
         "record" => { $val | transpose path item }
         "list" => { $val | enumerate | rename path item }
         _ => { return [] }
@@ -20,7 +20,7 @@ def get-children []: [any -> table<path: cell-path, item: any>] {
 def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>] {
     let x = try { get $path } catch { return [] }
 
-    if ($x | describe -d).type == "list" {
+    if ($x | describe --detailed).type == "list" {
         $x | get-children | add-parent $path
     } else {
         [{
@@ -108,11 +108,11 @@ export def recurse [
     get_children?: oneof<cell-path, closure> # Specify how to get children from parent value.
     --depth-first # Descend depth-first rather than breadth first
 ]: [any -> list<any>] {
-    let descend = match ($get_children | describe) {
+    let descend = match ($get_children | describe --detailed).type {
         "nothing" => {
             {|| get-children }
         }
-        "cell-path" => {
+        "cell-path" | "string" | "int" => {
             {|| get-children-at $get_children }
         }
         "closure" => {
@@ -128,6 +128,16 @@ export def recurse [
                 $output
                 | if not $has_item { wrap item } else { }
                 | default "<closure>" path
+            }
+        }
+        $type => {
+            error make {
+                msg: "Type mismatch."
+                label: {
+                    text: $"Cannot get child values using a ($type)"
+                    span: (metadata $get_children).span
+                }
+                help: "Try using a cell-path or a closure."
             }
         }
     }
