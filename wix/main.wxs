@@ -278,7 +278,7 @@
     <SetProperty Id="ReplacePathsInWindowsTerminalProfile"
                  Sequence="execute"
                  After="CostFinalize"
-                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#nu.exe]` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
+                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `\&quot;[#nu.exe]\&quot;` | update profiles.icon `\&quot;[#nu.ico]\&quot;`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
                  Condition="&amp;WindowsTerminalProfileFeature=3" />
 
     <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
