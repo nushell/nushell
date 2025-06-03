@@ -3294,6 +3294,14 @@ impl Value {
     pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if *rhs < 0 {
+                    return Err(ShellError::IncorrectValue {
+        msg: "Negative exponent for integer power is unsupported; use floats instead.".into(),
+        val_span: span,
+        call_span: op,  // or `span` again if `op` is not available or suitable
+    });
+                }
+
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::int(val, span))
                 } else {
