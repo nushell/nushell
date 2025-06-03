@@ -441,23 +441,11 @@ impl Eval for EvalConst {
         state.get_config().clone()
     }
 
-    fn eval_filepath(
-        _: &StateWorkingSet,
-        _: &mut (),
-        path: String,
-        _: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
+    fn eval_filepath(path: String, _: bool, span: Span) -> Result<Value, ShellError> {
         Ok(Value::string(path, span))
     }
 
-    fn eval_directory(
-        _: &StateWorkingSet,
-        _: &mut (),
-        _: String,
-        _: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
+    fn eval_directory(_: String, _: bool, span: Span) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }
 

@@ -280,6 +280,14 @@ fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
 }
 
 #[test]
+fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
+    run_test(
+        r#"def spam [foo: path] { echo $foo }; spam foo/.../bar"#,
+        "../bar",
+    )
+}
+
+#[test]
 fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
     let _ = fail_test(
         r#"def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f"#,
