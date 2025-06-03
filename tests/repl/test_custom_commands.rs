@@ -281,9 +281,13 @@ fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
 
 #[test]
 fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
+    #[cfg(windows)]
+    let expected = "..\\bar";
+    #[cfg(not(windows))]
+    let expected = "../bar";
     run_test(
         r#"def spam [foo: path] { echo $foo }; spam foo/.../bar"#,
-        "../bar",
+        expected,
     )
 }
 
