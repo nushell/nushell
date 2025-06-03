@@ -3298,7 +3298,7 @@ impl Value {
                     return Err(ShellError::IncorrectValue {
                         msg: "Negative exponent for integer power is unsupported; use floats instead.".into(),
                         val_span: span,
-                        call_span: op,  
+                        call_span: op,
                     });
                 }
 
