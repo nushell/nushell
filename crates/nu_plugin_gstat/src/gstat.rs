@@ -21,6 +21,7 @@ impl GStat {
         value: &Value,
         current_dir: &str,
         path: Option<Spanned<String>>,
+        calculate_tag: bool,
         span: Span,
     ) -> Result<Value, LabeledError> {
         // use std::any::Any;
@@ -92,14 +93,14 @@ impl GStat {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "".to_string());
 
-        let mut desc_opts = DescribeOptions::new();
-        desc_opts.describe_tags();
-
-        let tag = if let Ok(Ok(s)) = repo.describe(&desc_opts).map(|d| d.format(None)) {
-            s
-        } else {
-            "no_tag".to_string()
-        };
+        let tag = calculate_tag
+            .then(|| {
+                let mut desc_opts = DescribeOptions::new();
+                desc_opts.describe_tags();
+                repo.describe(&desc_opts).ok()?.format(None).ok()
+            })
+            .flatten()
+            .unwrap_or_else(|| "no_tag".to_string());
 
         // Leave this in case we want to turn it into a table instead of a list
         // Ok(Value::List {
