@@ -137,7 +137,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
                 result: None,
             },
             Example {
-                description: r#"Find case-insensitively files called "readme", with a subexpression"#,
+                description: r#"Find case-insensitively files called "readme", with a subexpression inside the row condition"#,
                 example: "ls | where ($it.name | str downcase) =~ readme",
                 result: None,
             },
