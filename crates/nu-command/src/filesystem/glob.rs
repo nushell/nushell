@@ -294,9 +294,9 @@ fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<S
         (Some(drive), Some(':'), Some(_)) if drive.is_ascii_alphabetic() => {
             Err(ShellError::GenericError {
                 error: "invalid Windows path format".into(),
-                msg: "Windows paths with drive letters must include a path separator (/ or \\) after the colon".into(),
+                msg: "Windows paths with drive letters must include a path separator (/) after the colon".into(),
                 span: Some(glob_span),
-                help: Some("use format like 'C:/' or 'C:\\' instead of 'C:'".into()),
+                help: Some("use format like 'C:/' instead of 'C:'".into()),
                 inner: vec![],
             })
         }
