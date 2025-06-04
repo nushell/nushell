@@ -783,18 +783,6 @@ pub fn map_value_completions<'a>(
                             _ => None,
                         };
                     }
-                    "extra" => {
-                        // Convert the value to string
-                        if let Ok(extras) = value.as_list().and_then(|extras| {
-                            extras
-                                .iter()
-                                .map(|extra| extra.coerce_string())
-                                .collect::<Result<Vec<_>, _>>()
-                        }) {
-                            // Update the suggestion value
-                            suggestion.extra = Some(extras);
-                        }
-                    }
                     "span" => {
                         if let Value::Record { val: span, .. } = value {
                             let start = span
