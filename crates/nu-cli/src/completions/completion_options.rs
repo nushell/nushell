@@ -5,6 +5,7 @@ use nucleo_matcher::{
     Config, Matcher, Utf32Str,
     pattern::{Atom, AtomKind, CaseMatching, Normalization},
 };
+use reedline::Suggestion;
 use std::{borrow::Cow, fmt::Display};
 
 use super::SemanticSuggestion;
@@ -49,8 +50,8 @@ enum State<T> {
     Fuzzy {
         matcher: Matcher,
         atom: Atom,
-        /// Holds (haystack, item, score)
-        items: Vec<(String, T, u16)>,
+        /// Holds (haystack, item, score, match_indices)
+        items: Vec<(String, T, u16, Vec<usize>)>,
     },
 }
 
@@ -158,7 +159,8 @@ impl<T> NuMatcher<'_, T> {
                     return false;
                 };
                 if let Some(item) = item {
-                    items.push((haystack.to_string(), item, score));
+                    let indices = indices.iter().map(|i| *i as usize).collect();
+                    items.push((haystack.to_string(), item, score, indices));
                 }
                 true
             }
@@ -177,10 +179,9 @@ impl<T> NuMatcher<'_, T> {
         self.matches_aux(haystack, None)
     }
 
-    /// Get all the items that matched (sorted)
-    pub fn results(self) -> Vec<T> {
-        match self.state {
-            State::Prefix { mut items, .. } | State::Substring { mut items, .. } => {
+    fn sort(&mut self) {
+        match &mut self.state {
+            State::Prefix { items, .. } | State::Substring { items, .. } => {
                 items.sort_by(|(haystack1, _), (haystack2, _)| {
                     let cmp_sensitive = haystack1.cmp(haystack2);
                     if self.options.case_sensitive {
@@ -192,26 +193,33 @@ impl<T> NuMatcher<'_, T> {
                             .then(cmp_sensitive)
                     }
                 });
-                items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
             }
-            State::Fuzzy { mut items, .. } => {
-                match self.options.sort {
-                    CompletionSort::Alphabetical => {
-                        items.sort_by(|(haystack1, _, _), (haystack2, _, _)| {
-                            haystack1.cmp(haystack2)
-                        });
-                    }
-                    CompletionSort::Smart => {
-                        items.sort_by(|(haystack1, _, score1), (haystack2, _, score2)| {
-                            score2.cmp(score1).then(haystack1.cmp(haystack2))
-                        });
-                    }
+            State::Fuzzy { items, .. } => match self.options.sort {
+                CompletionSort::Alphabetical => {
+                    items.sort_by(|(haystack1, _, _, _), (haystack2, _, _, _)| {
+                        haystack1.cmp(haystack2)
+                    });
                 }
-                items
-                    .into_iter()
-                    .map(|(_, item, _)| item)
-                    .collect::<Vec<_>>()
-            }
+                CompletionSort::Smart => {
+                    items.sort_by(|(haystack1, _, score1, _), (haystack2, _, score2, _)| {
+                        score2.cmp(score1).then(haystack1.cmp(haystack2))
+                    });
+                }
+            },
+        }
+    }
+
+    pub fn results(mut self) -> Vec<(T, Option<Vec<usize>>)> {
+        self.sort();
+        match self.state {
+            State::Prefix { items, .. } | State::Substring { items, .. } => items
+                .into_iter()
+                .map(|(_, item)| (item, None))
+                .collect::<Vec<_>>(),
+            State::Fuzzy { items, .. } => items
+                .into_iter()
+                .map(|(_, item, _, indices)| (item, Some(indices)))
+                .collect::<Vec<_>>(),
         }
     }
 }
@@ -220,6 +228,26 @@ impl NuMatcher<'_, SemanticSuggestion> {
     pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
         let value = sugg.suggestion.value.to_string();
         self.add(value, sugg)
+    }
+
+    /// Get all the items that matched (sorted)
+    pub fn suggestion_results(mut self) -> Vec<SemanticSuggestion> {
+        self.sort();
+        match self.state {
+            State::Prefix { items, .. } | State::Substring { items, .. } => {
+                items.into_iter().map(|(_, item)| item).collect::<Vec<_>>()
+            }
+            State::Fuzzy { items, .. } => items
+                .into_iter()
+                .map(|(_, item, _, indices)| SemanticSuggestion {
+                    suggestion: Suggestion {
+                        match_indices: Some(indices),
+                        ..item.suggestion
+                    },
+                    kind: item.kind,
+                })
+                .collect::<Vec<_>>(),
+        }
     }
 }
 
@@ -308,10 +336,11 @@ mod test {
         };
         let mut matcher = NuMatcher::new(needle, &options);
         matcher.add(haystack, haystack);
+        let results: Vec<_> = matcher.results().iter().map(|r| r.0).collect();
         if should_match {
-            assert_eq!(vec![haystack], matcher.results());
+            assert_eq!(vec![haystack], results);
         } else {
-            assert_ne!(vec![haystack], matcher.results());
+            assert_ne!(vec![haystack], results);
         }
     }
 
@@ -326,7 +355,14 @@ mod test {
             matcher.add(item, item);
         }
         // Sort by score, then in alphabetical order
-        assert_eq!(vec!["fob", "foo bar", "foo/bar"], matcher.results());
+        assert_eq!(
+            vec![
+                ("fob", Some(vec![0, 1, 2])),
+                ("foo bar", Some(vec![0, 1, 4])),
+                ("foo/bar", Some(vec![0, 1, 4]))
+            ],
+            matcher.results()
+        );
     }
 
     #[test]
@@ -344,6 +380,12 @@ mod test {
             matcher.add(item, item);
         }
         // Make sure the spaces are respected
-        assert_eq!(vec!["'i love spaces' so much"], matcher.results());
+        assert_eq!(
+            vec![(
+                "'i love spaces' so much",
+                Some(vec![0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+            )],
+            matcher.results()
+        );
     }
 }
