@@ -286,21 +286,19 @@ impl Command for Glob {
 
 #[cfg(windows)]
 fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<String, ShellError> {
-    let replaced = glob_pattern.replace('\\', "/");
-    let mut chars = replaced.chars();
+    let mut chars = glob_pattern.chars();
     match (chars.next(), chars.next(), chars.next()) {
-        (Some(drive), Some(':'), Some(sep)) if drive.is_ascii_alphabetic() => {
-            if matches!(sep, '/' | '\\') {
-                Ok(format!("{drive}\\:/{}", chars.as_str()))
-            } else {
-                Err(ShellError::GenericError {
-                    error: "invalid Windows path format".into(),
-                    msg: "Windows paths with drive letters must include a path separator (/ or \\) after the colon".into(),
-                    span: Some(glob_span),
-                    help: Some("use format like 'C:/' or 'C:\\' instead of 'C:'".into()),
-                    inner: vec![],
-                })
-            }
+        (Some(drive), Some(':'), Some('/' | '\\')) if drive.is_ascii_alphabetic() => {
+            Ok(format!("{drive}\\:/{}", chars.as_str()))
+        }
+        (Some(drive), Some(':'), Some(_)) if drive.is_ascii_alphabetic() => {
+            Err(ShellError::GenericError {
+                error: "invalid Windows path format".into(),
+                msg: "Windows paths with drive letters must include a path separator (/ or \\) after the colon".into(),
+                span: Some(glob_span),
+                help: Some("use format like 'C:/' or 'C:\\' instead of 'C:'".into()),
+                inner: vec![],
+            })
         }
         _ => Ok(glob_pattern),
     }
@@ -359,12 +357,6 @@ mod windows_tests {
 
     #[test]
     fn windows_glob_pattern_with_drive_letter() {
-        let pattern = "C:\\**\\*.txt".to_string();
-        assert!(WaxGlob::new(&pattern).is_err());
-
-        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
-        assert!(WaxGlob::new(&result).is_ok());
-
         let pattern = "D:/*.mp4".to_string();
         let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
         assert!(WaxGlob::new(&result).is_ok());
@@ -372,6 +364,10 @@ mod windows_tests {
         let pattern = "Z:/**/*.md".to_string();
         let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
         assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "C:/nested/**/escaped/path/<[_a-zA-Z\\-]>.md".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(dbg!(WaxGlob::new(&result)).is_ok());
     }
 
     #[test]
