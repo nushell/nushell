@@ -15,7 +15,7 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
+    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant, set::SetType,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -73,7 +73,15 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
         return true;
     }
 
-    if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
+    if b == b'('
+        || b == b'{'
+        || b == b'['
+        || b == b'<'
+        || b == b'$'
+        || b == b'"'
+        || b == b'\''
+        || b == b'-'
+    {
         return true;
     }
 
@@ -461,6 +469,8 @@ fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> 
         parse_paren_expr(working_set, span, &SyntaxShape::Any)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
+    } else if contents.starts_with(b"<") {
+        parse_set_expression(working_set, span, &SyntaxShape::Any)
     } else {
         parse_external_string(working_set, span)
     }
@@ -4477,6 +4487,85 @@ pub fn parse_list_expression(
     )
 }
 
+pub fn parse_set_expression(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    element_shape: &SyntaxShape,
+) -> Expression {
+    let bytes = working_set.get_span_contents(span);
+
+    let mut start = span.start;
+    let mut end = span.end;
+
+    if bytes.starts_with(b"<") {
+        start += 1;
+    }
+    if bytes.ends_with(b">") {
+        end -= 1;
+    } else {
+        working_set.error(ParseError::Unclosed(">".into(), Span::new(end, end)));
+    }
+
+    let inner_span = Span::new(start, end);
+    let source = working_set.get_span_contents(inner_span);
+
+    let (output, err) = lex(source, inner_span.start, &[b'\n', b'\r', b','], &[], true);
+    if let Some(err) = err {
+        working_set.error(err)
+    }
+
+    let (mut output, err) = lite_parse(&output, working_set);
+    if let Some(err) = err {
+        working_set.error(err)
+    }
+
+    let mut args = vec![];
+
+    let mut contained_type: Option<Type> = None;
+
+    if !output.block.is_empty() {
+        for command in output.block.remove(0).commands {
+            let mut spans_idx = 0;
+
+            while spans_idx < command.parts.len() {
+                let (arg, ty) = {
+                    let arg = parse_multispan_value(
+                        working_set,
+                        &command.parts,
+                        &mut spans_idx,
+                        element_shape,
+                    );
+                    let ty = arg.ty.clone();
+                    (SetItem::Item(arg), ty)
+                };
+
+                if let Some(ref ctype) = contained_type {
+                    if *ctype != ty {
+                        contained_type = Some(Type::Any);
+                    }
+                } else {
+                    contained_type = Some(ty);
+                }
+
+                args.push(arg);
+
+                spans_idx += 1;
+            }
+        }
+    }
+
+    Expression::new(
+        working_set,
+        Expr::Set(args),
+        span,
+        Type::Set(Box::new(if let Some(ty) = contained_type {
+            SetType::from_type(ty)
+        } else {
+            SetType::Any
+        })),
+    )
+}
+
 fn parse_table_row(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -5094,6 +5183,7 @@ pub fn parse_value(
         b'[' => match shape {
             SyntaxShape::Any
             | SyntaxShape::List(_)
+            | SyntaxShape::Set(_)
             | SyntaxShape::Table(_)
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
@@ -5111,6 +5201,30 @@ pub fn parse_value(
             }
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
+                return Expression::garbage(working_set, span);
+            }
+        },
+        b'<' => match shape {
+            SyntaxShape::Any
+            | SyntaxShape::List(_)
+            | SyntaxShape::Set(_)
+            | SyntaxShape::Table(_)
+            | SyntaxShape::Signature
+            | SyntaxShape::Filepath
+            | SyntaxShape::String
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::ExternalArgument => {}
+            SyntaxShape::OneOf(possible_shapes) => {
+                if !possible_shapes
+                    .iter()
+                    .any(|s| matches!(s, SyntaxShape::Set(_)))
+                {
+                    working_set.error(ParseError::Expected("non-<> value", span));
+                    return Expression::garbage(working_set, span);
+                }
+            }
+            _ => {
+                working_set.error(ParseError::Expected("non-<> value", span));
                 return Expression::garbage(working_set, span);
             }
         },
@@ -5157,6 +5271,9 @@ pub fn parse_value(
 
                 Expression::garbage(working_set, span)
             }
+        }
+        SyntaxShape::Set(elem) => {
+            todo!()
         }
         SyntaxShape::Table(_) => {
             if bytes.starts_with(b"[") {
