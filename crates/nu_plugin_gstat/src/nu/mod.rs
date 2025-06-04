@@ -27,7 +27,7 @@ impl SimplePluginCommand for GStat {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .switch("disable-tag", "Disable git tag resolving", None)
+            .switch("no-tag", "Disable git tag resolving", None)
             .optional("path", SyntaxShape::Filepath, "path to repo")
             .category(Category::Custom("prompt".to_string()))
     }
@@ -42,7 +42,7 @@ impl SimplePluginCommand for GStat {
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
         let current_dir = engine.get_current_dir()?;
-        let disable_tag = call.has_flag("disable-tag")?;
+        let disable_tag = call.has_flag("no-tag")?;
 
         self.gstat(input, &current_dir, repo_path, !disable_tag, call.head)
     }
