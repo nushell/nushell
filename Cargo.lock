@@ -3827,6 +3827,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.104.2"
 dependencies = [
+ "fancy-regex",
  "log",
  "nu-glob",
  "nu-path",

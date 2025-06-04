@@ -18,6 +18,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.104.2", default-features =
 nu-path = { path = "../nu-path", version = "0.104.2" }
 nu-glob = { path = "../nu-glob", version = "0.104.2" }
 nu-utils = { path = "../nu-utils", version = "0.104.2", default-features = false }
+fancy-regex = { workspace = true }
 log = { workspace = true }
 
 [features]
