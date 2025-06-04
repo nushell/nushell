@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use nu_plugin::EngineInterface;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
-use polars::prelude::col;
+use polars::prelude::{col, nth};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -101,12 +101,12 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
     fn custom_value_follow_path_int(
         &self,
         plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         _self_span: Span,
         index: nu_protocol::Spanned<usize>,
     ) -> Result<Value, ShellError> {
-        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
-        eager.get_value(index.item, index.span)
+        let expr = NuExpression::from(nth(index.item as i64));
+        expr.cache_and_to_value(plugin, engine, index.span)
     }
 
     fn custom_value_follow_path_string(
