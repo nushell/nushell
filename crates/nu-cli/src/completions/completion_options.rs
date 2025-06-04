@@ -159,7 +159,12 @@ impl<T> NuMatcher<'_, T> {
                     return false;
                 };
                 if let Some(item) = item {
-                    let indices = indices.iter().map(|i| *i as usize).collect();
+                    let indices = indices
+                        .iter()
+                        .map(|i| {
+                            usize::try_from(*i).expect("should be on at least a 32-bit system")
+                        })
+                        .collect();
                     items.push((haystack.to_string(), item, score, indices));
                 }
                 true
