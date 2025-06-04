@@ -356,7 +356,7 @@ mod windows_tests {
     use super::*;
 
     #[test]
-    fn windows_glob_pattern_with_drive_letter() {
+    fn glob_pattern_with_drive_letter() {
         let pattern = "D:/*.mp4".to_string();
         let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
         assert!(WaxGlob::new(&result).is_ok());
@@ -371,7 +371,7 @@ mod windows_tests {
     }
 
     #[test]
-    fn windows_glob_pattern_without_drive_letter() {
+    fn glob_pattern_without_drive_letter() {
         let pattern = "/usr/bin/*.sh".to_string();
         let result = patch_windows_glob_pattern(pattern.clone(), Span::test_data()).unwrap();
         assert_eq!(result, pattern);
@@ -384,14 +384,14 @@ mod windows_tests {
     }
 
     #[test]
-    fn invalid_windows_path_format() {
+    fn invalid_path_format() {
         let invalid = "C:lol".to_string();
         let result = patch_windows_glob_pattern(invalid, Span::test_data());
         assert!(result.is_err());
     }
 
     #[test]
-    fn unpatched_windows_patterns() {
+    fn unpatched_patterns() {
         let unpatched = "C:/Users/*.txt".to_string();
         assert!(WaxGlob::new(&unpatched).is_err());
 
