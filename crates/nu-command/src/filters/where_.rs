@@ -17,12 +17,12 @@ impl Command for Where {
         r#"A condition is evaluated for each element of the input, and only elements which meet the condition are included in the output.
 
 A condition can be either a "row condition" or a closure. A row condition is a special short-hand syntax to makes accessing fields easier.
-Each element of the input can be accessed through the $it variable.
+Each element of the input can be accessed through the `$it` variable.
 
-On the left hand side of a row condition, any field name is automatically expanded to use $it.
-For example, `where type == dir` is equivalent to `where $it.type == dir`. This expansion does not happen when passing a subexpression or closure to where.
+On the left hand side of a row condition, any field name is automatically expanded to use `$it`.
+For example, `where type == dir` is equivalent to `where $it.type == dir`. This expansion does not happen when passing a subexpression or closure to `where`.
 
-When using a closure, the element is passed as an argument and as pipeline input to the closure.
+When using a closure, the element is passed as an argument and as pipeline input (`$in`) to the closure. Unlike row conditions, the `$it` variable isn't available inside closures.
 
 Row conditions cannot be stored in a variable. To pass a condition with a variable, use a closure instead."#
     }
