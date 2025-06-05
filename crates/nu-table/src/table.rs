@@ -418,8 +418,15 @@ fn is_header_on_border(t: &NuTable) -> bool {
 }
 
 fn table_insert_footer_if(t: &mut NuTable) {
-    if t.config.structure.with_header && t.config.structure.with_footer {
-        duplicate_row(&mut t.data, 0);
+    let with_footer = t.config.structure.with_header && t.config.structure.with_footer;
+    if !with_footer {
+        return;
+    }
+
+    duplicate_row(&mut t.data, 0);
+
+    if !t.heights.is_empty() {
+        t.heights.push(t.heights[0]);
     }
 }
 
@@ -473,8 +480,12 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
         .map(|s| s.to_string())
         .collect();
 
+    // drop height row
+    t.heights.remove(0);
+
     // WE NEED TO RELCULATE WIDTH.
     // TODO: cause we have configuration beforehand we can just not calculate it in?
+    // Why we do it exactly??
     table_recalculate_widths(t);
 
     let alignment = t.styles.alignments.header;
