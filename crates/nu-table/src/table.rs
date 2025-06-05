@@ -21,7 +21,7 @@ use tabled::{
         },
         dimension::{CompleteDimension, PeekableGridDimension},
         records::{
-            ExactRecords, IterRecords, PeekableRecords,
+            IterRecords, PeekableRecords,
             vec_records::{Cell, Text, VecRecords},
         },
     },
@@ -719,9 +719,9 @@ fn width_ctrl_truncate(
 
                 // NOTE: An optimization to have proper heights without going over all the data again.
                 // We are going only for all rows in changed columns
-                for row in 0..recs.count_rows() {
+                for (row, row_height) in heights.iter_mut().enumerate() {
                     let height = recs.count_lines(Position::new(row, col));
-                    heights[row] = max(heights[row], height);
+                    *row_height = max(*row_height, height);
                 }
             }
             TrimStrategy::Truncate { suffix } => {
