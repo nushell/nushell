@@ -70,11 +70,11 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
 fn format_code<'a>(text: &'a str) -> Cow<'a, str> {
     // See [`tests::test_code_formatting`] for examples
     let pattern = r"(?x)     # verbose mode
-        (?<![:alphanum:])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
+        (?<![\p{Letter}\d])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
         `
         ([^`\n]+?)           # capture characters inside backticks, excluding backticks and newlines. ungreedy.
         `
-        (?![:alphanum:])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
+        (?![\p{Letter}\d])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
     ";
 
     let Ok(re) = Regex::new(pattern) else {
@@ -634,34 +634,38 @@ mod tests {
         // and borrowed to mean not a match, since the content didn't change
 
         // match: typical example
-        let pattern = "Run the `foo` command";
-        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+        let haystack = "Run the `foo` command";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
 
         // no match: backticks preceded by alphanum
-        let pattern = "foo`bar`";
-        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+        let haystack = "foo`bar`";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
 
         // match: command at beginning of string is ok
-        let pattern = "`my-command` is cool";
-        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+        let haystack = "`my-command` is cool";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
 
         // match: preceded and followed by newline is ok
-        let pattern = r"
+        let haystack = r"
 `command`
 ";
-        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
 
         // no match: newline between backticks
-        let pattern = "// hello `beautiful \n world`";
-        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+        let haystack = "// hello `beautiful \n world`";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
 
         // match: backticks followed by period, not letter/number
-        let pattern = "try running `my cool command`.";
-        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+        let haystack = "try running `my cool command`.";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // match: backticks enclosed by parenthesis, not letter/number
+        let haystack = "a command (`my cool command`).";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
 
         // no match: only characters inside backticks are backticks
         // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
-        let pattern = "```\ncode block\n```";
-        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+        let haystack = "```\ncode block\n```";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
     }
 }
