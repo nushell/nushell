@@ -14,7 +14,7 @@
 @example "Find an element starting with 'a'" {
     ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e starts-with "a" }
 } --result "abc"
-@example "Try to find an element starting with 'a'" { ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e mod 2 == 0} } --result null
+@example "Try to find an even element" { ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e mod 2 == 0} } --result null
 export def find [
     fn: closure # the closure used to perform the search 
 ] {
@@ -29,7 +29,7 @@ export def find [
 @example "Find the index of an element starting with 's'" {
     ["iter", "abc", "shell", "around", "nushell", "std"] | iter find-index {|x| $x starts-with 's'}
 } --result 2
-@example "Try to find the index of an element starting with 's'" {
+@example "Try to find the index of an even element" {
     [3 5 13 91] | iter find-index {|x| $x mod 2 == 0}
 } --result -1
 export def find-index [
