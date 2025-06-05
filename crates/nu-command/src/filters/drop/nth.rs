@@ -1,4 +1,3 @@
-use itertools::Either;
 use nu_engine::command_prelude::*;
 use nu_protocol::{PipelineIterator, Range};
 use std::ops::Bound;
@@ -18,13 +17,11 @@ impl Command for DropNth {
                 (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .allow_variants_without_examples(true)
-            .required(
-                "row number or row range",
-                // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
+            .rest(
+                "rest",
                 SyntaxShape::Any,
-                "The number of the row to drop or a range to drop consecutive rows.",
+                "The row numbers or ranges to drop.",
             )
-            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 
@@ -103,105 +100,106 @@ impl Command for DropNth {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let metadata = input.metadata();
-        let number_or_range = extract_int_or_range(engine_state, stack, call)?;
 
-        let rows = match number_or_range.item {
-            Either::Left(row_number) => {
-                let and_rows: Vec<Spanned<i64>> = call.rest(engine_state, stack, 1)?;
-                let mut rows: Vec<_> = and_rows.into_iter().map(|x| x.item as usize).collect();
-                rows.push(row_number as usize);
-                rows.sort_unstable();
-                rows
-            }
-            Either::Right(Range::FloatRange(_)) => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "float range".into(),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: number_or_range.span,
-                });
-            }
-            Either::Right(Range::IntRange(range)) => {
-                // check for negative range inputs, e.g., (2..-5)
-                let end_negative = match range.end() {
-                    Bound::Included(end) | Bound::Excluded(end) => end < 0,
-                    Bound::Unbounded => false,
-                };
-                if range.start().is_negative() || end_negative {
+        // Accept all arguments (int or range) from position 0 onwards
+        let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
+
+        if args.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "row number or row range".to_string(),
+                span: head,
+            });
+        }
+
+        // Accumulate all rows to drop
+        let mut rows_to_drop = vec![];
+
+        for value in args {
+            if let Ok(i) = value.as_int() {
+                if i < 0 {
                     return Err(ShellError::UnsupportedInput {
                         msg: "drop nth accepts only positive ints".into(),
                         input: "value originates from here".into(),
                         msg_span: head,
-                        input_span: number_or_range.span,
+                        input_span: value.span(),
                     });
                 }
-                // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
-                if range.step() < 0 {
-                    return Err(ShellError::UnsupportedInput {
-                        msg: "The upper bound needs to be equal or larger to the lower bound"
-                            .into(),
-                        input: "value originates from here".into(),
-                        msg_span: head,
-                        input_span: number_or_range.span,
-                    });
-                }
+                rows_to_drop.push(i as usize);
+            } else if let Ok(range) = value.as_range() {
+                match range {
+                    Range::IntRange(range) => {
+                        let start = range.start();
+                        if start < 0 {
+                            return Err(ShellError::UnsupportedInput {
+                                msg: "drop nth accepts only positive ints".into(),
+                                input: "value originates from here".into(),
+                                msg_span: head,
+                                input_span: value.span(),
+                            });
+                        }
 
-                let start = range.start() as usize;
+                        let end = match range.end() {
+                            Bound::Included(end) => end,
+                            Bound::Excluded(end) => end - 1,
+                            Bound::Unbounded => {
+                                let start = range.start() as usize;
+                                return Ok(input
+                                    .into_iter()
+                                    .take(start)
+                                    .into_pipeline_data_with_metadata(
+                                        head,
+                                        engine_state.signals().clone(),
+                                        metadata,
+                                    ));
+                            }
+                        };
 
-                let end = match range.end() {
-                    Bound::Included(end) => end as usize,
-                    Bound::Excluded(end) => (end - 1) as usize,
-                    Bound::Unbounded => {
-                        return Ok(input
-                            .into_iter()
-                            .take(start)
-                            .into_pipeline_data_with_metadata(
-                                head,
-                                engine_state.signals().clone(),
-                                metadata,
-                            ));
+                        if end < start {
+                            return Err(ShellError::UnsupportedInput {
+                                msg:
+                                    "The upper bound needs to be equal or larger to the lower bound"
+                                        .into(),
+                                input: "value originates from here".into(),
+                                msg_span: head,
+                                input_span: value.span(),
+                            });
+                        }
+
+                        let end = if let PipelineData::Value(Value::List { vals, .. }, _) = &input {
+                            end.min((vals.len() as i64) - 1)
+                        } else {
+                            end
+                        };
+
+                        rows_to_drop.extend((start as usize)..=(end as usize));
                     }
-                };
-
-                let end = if let PipelineData::Value(Value::List { vals, .. }, _) = &input {
-                    end.min(vals.len() - 1)
-                } else {
-                    end
-                };
-
-                (start..=end).collect()
+                    Range::FloatRange(_) => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "float range not supported".into(),
+                            input: "value originates from here".into(),
+                            msg_span: head,
+                            input_span: value.span(),
+                        });
+                    }
+                }
+            } else {
+                return Err(ShellError::TypeMismatch {
+                    err_message: "Expected int or range".into(),
+                    span: value.span(),
+                });
             }
-        };
+        }
+
+        rows_to_drop.sort_unstable();
+        rows_to_drop.dedup();
 
         Ok(DropNthIterator {
             input: input.into_iter(),
-            rows,
+            rows: rows_to_drop,
             current: 0,
         }
         .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
-}
-
-fn extract_int_or_range(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<Spanned<Either<i64, Range>>, ShellError> {
-    let value: Value = call.req(engine_state, stack, 0)?;
-
-    let int_opt = value.as_int().map(Either::Left).ok();
-    let range_opt = value.as_range().map(Either::Right).ok();
-
-    int_opt
-        .or(range_opt)
-        .ok_or_else(|| ShellError::TypeMismatch {
-            err_message: "int or range".into(),
-            span: value.span(),
-        })
-        .map(|either| Spanned {
-            item: either,
-            span: value.span(),
-        })
 }
 
 struct DropNthIterator {
