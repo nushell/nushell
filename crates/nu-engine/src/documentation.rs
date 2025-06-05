@@ -67,7 +67,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     code_string.to_string()
 }
 
-fn format_code<'a>(text: &'a str) -> Cow<'a, str> {
+fn format_code(text: &str) -> Cow<'_, str> {
     // See [`tests::test_code_formatting`] for examples
     let pattern = r"(?x)     # verbose mode
         (?<![\p{Letter}\d])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
