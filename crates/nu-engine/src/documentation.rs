@@ -68,15 +68,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
 }
 
 fn format_code<'a>(text: &'a str) -> Cow<'a, str> {
-    // Examples:
-    // Run the `foo` command -> match
-    // foo`bar` -> no match (backticks preceded by alphanum)
-    // `foo`bar -> no match (backticks followed by alphanum)
-    // ^`my-command` is cool -> match
-    // ^`command`$ -> match
-    // hello `beautiful \n world` -> no match (newline)
-    // try running `my cool command`. -> match, since backtick
-    // ```\ncode block\n```: no match (only characters inside backticks are backticks)
+    // See [`tests::test_code_formatting`] for examples
     let pattern = r"(?x)     # verbose mode
         (?<![:alphanum:])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
         `
@@ -630,4 +622,46 @@ where
         long_desc.push('\n');
     }
     long_desc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_code_formatting() {
+        // using Cow::Owned here to mean a match, since the content changed,
+        // and borrowed to mean not a match, since the content didn't change
+
+        // match: typical example
+        let pattern = "Run the `foo` command";
+        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+
+        // no match: backticks preceded by alphanum
+        let pattern = "foo`bar`";
+        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+
+        // match: command at beginning of string is ok
+        let pattern = "`my-command` is cool";
+        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+
+        // match: preceded and followed by newline is ok
+        let pattern = r"
+`command`
+";
+        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+
+        // no match: newline between backticks
+        let pattern = "// hello `beautiful \n world`";
+        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+
+        // match: backticks followed by period, not letter/number
+        let pattern = "try running `my cool command`.";
+        assert!(matches!(format_code(pattern), Cow::Owned(_)));
+
+        // no match: only characters inside backticks are backticks
+        // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
+        let pattern = "```\ncode block\n```";
+        assert!(matches!(format_code(pattern), Cow::Borrowed(_)));
+    }
 }
