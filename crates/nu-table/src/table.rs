@@ -362,9 +362,7 @@ fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
         return Some(String::new());
     }
 
-    let widths = table_truncate(&mut t, termwidth);
-    let widths = widths?;
-
+    let widths = table_truncate(&mut t, termwidth)?;
     let head = remove_header_if(&mut t);
     table_insert_footer_if(&mut t);
 
@@ -908,7 +906,7 @@ fn truncate_columns_by_content(
 
     let has_only_trail = widths.len() == 1;
     let is_enough_space = width <= termwidth;
-    if has_only_trail || !is_enough_space  {
+    if has_only_trail || !is_enough_space {
         // nothing to show anyhow
         return WidthEstimation::new(widths_original, vec![], width, false, true);
     }
