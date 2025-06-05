@@ -92,6 +92,16 @@ impl NuTable {
         self.count_cols
     }
 
+    pub fn create(text: String) -> NuRecordsValue {
+        Text::new(text)
+    }
+
+    pub fn insert_value(&mut self, pos: (usize, usize), value: NuRecordsValue) {
+        let width = value.width() + indent_sum(self.config.indent);
+        self.widths[pos.1] = max(self.widths[pos.1], width);
+        self.data[pos.0][pos.1] = value;
+    }
+
     pub fn insert(&mut self, pos: (usize, usize), text: String) {
         let text = Text::new(text);
         let width = text.width() + indent_sum(self.config.indent);
