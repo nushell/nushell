@@ -28,6 +28,7 @@ use tabled::{
     settings::{
         Alignment, CellOption, Color, Padding, TableOption, Width,
         formatting::AlignmentStrategy,
+        height::HeightList,
         object::{Columns, Rows},
         themes::ColumnNames,
         width::Truncate,
@@ -47,6 +48,7 @@ pub type NuRecordsValue = Text<String>;
 pub struct NuTable {
     data: Vec<Vec<NuRecordsValue>>,
     widths: Vec<usize>,
+    heights: Vec<usize>,
     count_rows: usize,
     count_cols: usize,
     styles: Styles,
@@ -59,6 +61,7 @@ impl NuTable {
         Self {
             data: vec![vec![Text::default(); count_cols]; count_rows],
             widths: vec![2; count_cols],
+            heights: vec![0; count_rows],
             count_rows,
             count_cols,
             styles: Styles {
@@ -94,8 +97,11 @@ impl NuTable {
 
     pub fn insert(&mut self, pos: (usize, usize), text: String) {
         let text = Text::new(text);
-        let width = text.width() + indent_sum(self.config.indent);
+        let pad = indent_sum(self.config.indent);
+        let width = text.width() + pad;
+        let height = text.count_lines();
         self.widths[pos.1] = max(self.widths[pos.1], width);
+        self.heights[pos.0] = max(self.heights[pos.0], height);
         self.data[pos.0][pos.1] = text;
     }
 
@@ -103,10 +109,12 @@ impl NuTable {
         assert_eq!(self.data[index].len(), row.len());
 
         for (i, text) in row.iter().enumerate() {
-            self.widths[i] = max(
-                self.widths[i],
-                text.width() + indent_sum(self.config.indent),
-            );
+            let pad = indent_sum(self.config.indent);
+            let width = text.width() + pad;
+            let height = text.count_lines();
+
+            self.widths[i] = max(self.widths[i], width);
+            self.heights[index] = max(self.heights[index], height);
         }
 
         self.data[index] = row;
@@ -115,8 +123,23 @@ impl NuTable {
     pub fn pop_column(&mut self, count: usize) {
         self.count_cols -= count;
         self.widths.truncate(self.count_cols);
-        for row in &mut self.data[..] {
+
+        for (row, height) in self.data.iter_mut().zip(self.heights.iter_mut()) {
             row.truncate(self.count_cols);
+
+            let row_height = *height;
+            let mut new_height = 0;
+            for cell in row.iter() {
+                let height = cell.count_lines();
+                if height == row_height {
+                    new_height = height;
+                    break;
+                }
+
+                new_height = max(new_height, height);
+            }
+
+            *height = new_height;
         }
 
         // set to default styles of the popped columns
@@ -136,8 +159,14 @@ impl NuTable {
     pub fn push_column(&mut self, text: String) {
         let value = Text::new(text);
 
-        self.widths
-            .push(value.width() + indent_sum(self.config.indent));
+        let pad = indent_sum(self.config.indent);
+        let width = value.width() + pad;
+        let height = value.count_lines();
+        self.widths.push(width);
+
+        for row in 0..self.count_rows {
+            self.heights[row] = max(self.heights[row], height);
+        }
 
         for row in &mut self.data[..] {
             row.push(value.clone());
@@ -264,6 +293,8 @@ impl NuTable {
     }
 }
 
+// NOTE: Must never be called from nu-table - made only for tests
+// FIXME: remove it?
 impl From<Vec<Vec<Text<String>>>> for NuTable {
     fn from(value: Vec<Vec<Text<String>>>) -> Self {
         let count_rows = value.len();
@@ -472,14 +503,13 @@ fn draw_table(
     set_styles(&mut table, t.styles, &structure);
     set_indent(&mut table, t.config.indent);
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
-    truncate_table(&mut table, &t.config, width, termwidth);
+    truncate_table(&mut table, &t.config, width, termwidth, t.heights);
     table_set_border_header(&mut table, head, &t.config);
-
     table_to_string(table, termwidth)
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
-    table.with(styles.cfg);
+    table.with(CachedOpt(styles.cfg));
     align_table(table, styles.alignments, structure);
     colorize_table(table, styles.colors, structure);
 }
@@ -516,10 +546,17 @@ fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &Tabl
     table.with(SetLineHeaders::new(head, 0, pad));
 }
 
-fn truncate_table(table: &mut Table, cfg: &TableConfig, width: WidthEstimation, termwidth: usize) {
+fn truncate_table(
+    table: &mut Table,
+    cfg: &TableConfig,
+    width: WidthEstimation,
+    termwidth: usize,
+    heights: Vec<usize>,
+) {
     let trim = cfg.trim.clone();
     let pad = cfg.indent.left + cfg.indent.right;
     let ctrl = WidthCtrl::new(termwidth, width, trim, cfg.expand, pad);
+    table.with(HeightList::new(heights));
     table.with(ctrl);
 }
 
@@ -614,7 +651,12 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
     }
 
     fn hint_change(&self) -> Option<Entity> {
-        None
+        if self.width.truncate {
+            // recalculate height
+            Some(Entity::Row(0))
+        } else {
+            None
+        }
     }
 }
 
@@ -676,22 +718,12 @@ fn align_table(
     table.with(AlignmentStrategy::PerLine);
 
     if structure.with_header {
-        table.modify(
-            Rows::first(),
-            (
-                AlignmentStrategy::PerCell,
-                Alignment::from(alignments.header),
-            ),
-        );
+        table.modify(Rows::first(), AlignmentStrategy::PerCell);
+        table.modify(Rows::first(), Alignment::from(alignments.header));
 
         if structure.with_footer {
-            table.modify(
-                Rows::last(),
-                (
-                    AlignmentStrategy::PerCell,
-                    Alignment::from(alignments.header),
-                ),
-            );
+            table.modify(Rows::last(), AlignmentStrategy::PerCell);
+            table.modify(Rows::last(), Alignment::from(alignments.header));
         }
     }
 
@@ -1142,6 +1174,36 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders
 fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, to: usize) {
     if let Some(line) = theme.get_horizontal_line(from) {
         theme.insert_horizontal_line(to, *line);
+    }
+}
+
+// TODO: contrib to tabled hint
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+struct CachedOpt<T>(T);
+
+impl<R, C, D, T> TableOption<R, C, D> for CachedOpt<T>
+where
+    T: TableOption<R, C, D>,
+{
+    fn change(self, recs: &mut R, cfg: &mut C, dims: &mut D) {
+        self.0.change(recs, cfg, dims);
+    }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
+    }
+}
+
+impl<R, C, T> CellOption<R, C> for CachedOpt<T>
+where
+    T: CellOption<R, C>,
+{
+    fn change(self, records: &mut R, cfg: &mut C, entity: Entity) {
+        self.0.change(records, cfg, entity);
+    }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
     }
 }
 
