@@ -21,14 +21,13 @@ use tabled::{
         },
         dimension::{CompleteDimension, PeekableGridDimension},
         records::{
-            IterRecords,
+            ExactRecords, IterRecords, PeekableRecords,
             vec_records::{Cell, Text, VecRecords},
         },
     },
     settings::{
         Alignment, CellOption, Color, Padding, TableOption, Width,
         formatting::AlignmentStrategy,
-        height::HeightList,
         object::{Columns, Rows},
         themes::ColumnNames,
         width::Truncate,
@@ -509,7 +508,7 @@ fn draw_table(
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
-    table.with(CachedOpt(styles.cfg));
+    table.with(styles.cfg);
     align_table(table, styles.alignments, structure);
     colorize_table(table, styles.colors, structure);
 }
@@ -553,10 +552,10 @@ fn truncate_table(
     termwidth: usize,
     heights: Vec<usize>,
 ) {
+    // TODO: remove clone
     let trim = cfg.trim.clone();
-    let pad = cfg.indent.left + cfg.indent.right;
-    let ctrl = WidthCtrl::new(termwidth, width, trim, cfg.expand, pad);
-    table.with(HeightList::new(heights));
+    let pad = indent_sum(cfg.indent);
+    let ctrl = DimensionCtrl::new(termwidth, width, trim, cfg.expand, pad, heights);
     table.with(ctrl);
 }
 
@@ -580,21 +579,23 @@ fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
     }
 }
 
-struct WidthCtrl {
+struct DimensionCtrl {
     width: WidthEstimation,
     trim_strategy: TrimStrategy,
     max_width: usize,
     expand: bool,
     pad: usize,
+    heights: Vec<usize>,
 }
 
-impl WidthCtrl {
+impl DimensionCtrl {
     fn new(
         max_width: usize,
         width: WidthEstimation,
         trim_strategy: TrimStrategy,
         expand: bool,
         pad: usize,
+        heights: Vec<usize>,
     ) -> Self {
         Self {
             width,
@@ -602,6 +603,7 @@ impl WidthCtrl {
             max_width,
             expand,
             pad,
+            heights,
         }
     }
 }
@@ -634,7 +636,7 @@ impl WidthEstimation {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for DimensionCtrl {
     fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, dims: &mut CompleteDimension) {
         if self.width.truncate {
             width_ctrl_truncate(self, recs, cfg, dims);
@@ -647,18 +649,17 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
         }
 
         // NOTE: just an optimization; to not recalculate it internally
+        dims.set_heights(self.heights);
         dims.set_widths(self.width.needed);
     }
 
     fn hint_change(&self) -> Option<Entity> {
-        if self.width.truncate {
-            // recalculate height
-            // TODO: Actually we could optmize it as well.
-            //       Currently we recalculate but in case of WRAP
-            //       We can be certain that the height can't be lower it will always be bigger then original
-            //       So we could make changes in place
-            //
-            //       But we can't do anything about truncate.
+        // NOTE:
+        // Because we are assuming that:
+        // len(lines(wrapped(string))) >= len(lines(string))
+        //
+        // Only truncation case must be relaclucated in term of height.
+        if self.width.truncate && matches!(self.trim_strategy, TrimStrategy::Truncate { .. }) {
             Some(Entity::Row(0))
         } else {
             None
@@ -667,21 +668,24 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
 }
 
 fn width_ctrl_expand(
-    ctrl: WidthCtrl,
+    ctrl: DimensionCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
     dims: &mut CompleteDimension,
 ) {
+    dims.set_heights(ctrl.heights);
     let opt = Width::increase(ctrl.max_width);
     TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
 }
 
 fn width_ctrl_truncate(
-    ctrl: WidthCtrl,
+    ctrl: DimensionCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
     dims: &mut CompleteDimension,
 ) {
+    let mut heights = ctrl.heights;
+
     // todo: maybe general for loop better
     for (col, (&width, width_original)) in ctrl
         .width
@@ -701,6 +705,13 @@ fn width_ctrl_truncate(
                 let wrap = Width::wrap(width).keep_words(*try_to_keep_words);
 
                 CellOption::<NuRecords, _>::change(wrap, recs, cfg, Entity::Column(col));
+
+                // NOTE: An optimization to have proper heights without going over all the data again.
+                // We are going only for all rows in changed columns
+                for row in 0..recs.count_rows() {
+                    let height = recs.count_lines(Position::new(row, col));
+                    heights[row] = max(heights[row], height);
+                }
             }
             TrimStrategy::Truncate { suffix } => {
                 let mut truncate = Width::truncate(width);
@@ -713,6 +724,7 @@ fn width_ctrl_truncate(
         }
     }
 
+    dims.set_heights(heights);
     dims.set_widths(ctrl.width.needed);
 }
 
@@ -1180,36 +1192,6 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders
 fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, to: usize) {
     if let Some(line) = theme.get_horizontal_line(from) {
         theme.insert_horizontal_line(to, *line);
-    }
-}
-
-// TODO: contrib to tabled hint
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct CachedOpt<T>(T);
-
-impl<R, C, D, T> TableOption<R, C, D> for CachedOpt<T>
-where
-    T: TableOption<R, C, D>,
-{
-    fn change(self, recs: &mut R, cfg: &mut C, dims: &mut D) {
-        self.0.change(recs, cfg, dims);
-    }
-
-    fn hint_change(&self) -> Option<Entity> {
-        None
-    }
-}
-
-impl<R, C, T> CellOption<R, C> for CachedOpt<T>
-where
-    T: CellOption<R, C>,
-{
-    fn change(self, records: &mut R, cfg: &mut C, entity: Entity) {
-        self.0.change(records, cfg, entity);
-    }
-
-    fn hint_change(&self) -> Option<Entity> {
-        None
     }
 }
 
