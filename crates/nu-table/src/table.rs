@@ -653,6 +653,12 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
     fn hint_change(&self) -> Option<Entity> {
         if self.width.truncate {
             // recalculate height
+            // TODO: Actually we could optmize it as well.
+            //       Currently we recalculate but in case of WRAP
+            //       We can be certain that the height can't be lower it will always be bigger then original
+            //       So we could make changes in place
+            //
+            //       But we can't do anything about truncate.
             Some(Entity::Row(0))
         } else {
             None
