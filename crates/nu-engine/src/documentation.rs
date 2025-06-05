@@ -68,20 +68,22 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
 }
 
 fn format_code<'a>(text: &'a str) -> Cow<'a, str> {
-    // Pattern:
-    // (?<![:alphanum:]) # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
-    // `([^`]+?)` # capture characters inside backticks, excluding backticks and newlines. ungreedy.
-    // (?![:alphanum:]) # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
-    //
     // Examples:
-    // Run the `foo` command: match
-    // foo`bar`: no match (backticks preceded by alphanum)
-    // `foo`bar: no match (backticks followed by alphanum)
-    // ^`my-command` is cool: match
-    // ^`command`$ : match
-    // hello `beautiful \n world`: no match (newline)
+    // Run the `foo` command -> match
+    // foo`bar` -> no match (backticks preceded by alphanum)
+    // `foo`bar -> no match (backticks followed by alphanum)
+    // ^`my-command` is cool -> match
+    // ^`command`$ -> match
+    // hello `beautiful \n world` -> no match (newline)
+    // try running `my cool command`. -> match, since backtick
     // ```\ncode block\n```: no match (only characters inside backticks are backticks)
-    let pattern = r"(?<![:alphanum:])`([^`\n]+?)`(?![:alphanum:])";
+    let pattern = r"(?x)     # verbose mode
+        (?<![:alphanum:])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
+        `
+        ([^`\n]+?)           # capture characters inside backticks, excluding backticks and newlines. ungreedy.
+        `
+        (?![:alphanum:])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
+    ";
 
     let Ok(re) = Regex::new(pattern) else {
         return Cow::Borrowed(text);
