@@ -365,7 +365,9 @@ fn build_table(mut t: NuTable, termwidth: usize) -> Option<String> {
         return Some(String::new());
     }
 
-    let widths = table_truncate(&mut t, termwidth)?;
+    let widths = table_truncate(&mut t, termwidth);
+    let widths = widths?;
+
     let head = remove_header_if(&mut t);
     table_insert_footer_if(&mut t);
 
@@ -479,7 +481,8 @@ fn draw_table(
     truncate_table(&mut table, &t.config, width, termwidth);
     table_set_border_header(&mut table, head, &t.config);
 
-    table_to_string(table, termwidth)
+    let string = table.to_string();
+    Some(string)
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
@@ -532,16 +535,6 @@ fn indent_sum(indent: TableIndent) -> usize {
 
 fn set_indent(table: &mut Table, indent: TableIndent) {
     table.with(Padding::new(indent.left, indent.right, 0, 0));
-}
-
-fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
-    let total_width = table.total_width();
-    if total_width > termwidth {
-        None
-    } else {
-        let content = table.to_string();
-        Some(content)
-    }
 }
 
 struct WidthCtrl {
@@ -904,7 +897,9 @@ fn truncate_columns_by_content(
     widths.push(trailing_column_width);
     width += trailing_column_width;
 
-    if widths.len() == 1 {
+    let has_only_trail = widths.len() == 1;
+    let is_enough_space = width <= termwidth;
+    if has_only_trail || !is_enough_space  {
         // nothing to show anyhow
         return WidthEstimation::new(widths_original, vec![], width, false, true);
     }
