@@ -8,7 +8,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value, record,
 };
-use polars::prelude::DataType;
+use polars::{df, prelude::DataType};
 
 #[derive(Clone)]
 pub struct ExprCol;
@@ -29,7 +29,7 @@ impl PluginCommand for ExprCol {
             .required(
                 "column name",
                 SyntaxShape::String,
-                "Name of column to be used. '*' can be used for all columns.",
+                "Name of column to be used. '*' can be used for all columns. Accepts regular expression input; regular expressions should start with ^ and end with $.",
             )
             .rest(
                 "more columns",
@@ -104,6 +104,21 @@ impl PluginCommand for ExprCol {
                         None,
                     )
                     .expect("should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Select columns using a regular expression",
+                example: "[[ham hamburger foo bar]; [1 11 2 a] [2 22 1 b]] | polars into-df | polars select (polars col '^ham.*$') | polars collect",
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!(
+                            "ham" => [1, 2],
+                            "hamburger" => [11, 22],
+                        )
+                        .expect("should not fail to create dataframe"),
+                    )
                     .into_value(Span::test_data()),
                 ),
             },
