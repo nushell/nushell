@@ -119,9 +119,9 @@ impl Command for UCp {
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+            (UpdateMode::IfOlder, CopyMode::Update)
         } else {
-            (UpdateMode::ReplaceAll, CopyMode::Copy)
+            (UpdateMode::All, CopyMode::Copy)
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
@@ -252,7 +252,7 @@ impl Command for UCp {
             dereference: !recursive,
             progress_bar: progress,
             attributes_only: false,
-            backup: BackupMode::NoBackup,
+            backup: BackupMode::None,
             copy_contents: false,
             cli_dereference: false,
             copy_mode,
@@ -264,6 +264,8 @@ impl Command for UCp {
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
+            set_selinux_context: false,
+            context: None,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
