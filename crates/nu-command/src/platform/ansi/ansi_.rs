@@ -634,6 +634,11 @@ Operating system commands:
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
+                description: "Use simple hex string",
+                example: r#"$"(ansi '#4169E1')Hello(ansi reset)"  # royal blue foreground color"#,
+                result: Some(Value::test_string("\u{1b}[38;2;65;105;225mHello\u{1b}[0m")),
+            },
+            Example {
                 description: "Use structured escape codes",
                 example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
         fg: '#0000ff'
