@@ -7,7 +7,7 @@ mod simple {
 
     #[test]
     fn extracts_fields_from_the_given_the_pattern() {
-        Playground::setup("parse_test_1", |dirs, sandbox| {
+        Playground::setup("parse_test_simple_1", |dirs, sandbox| {
             sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
                 r#"
@@ -35,71 +35,74 @@ mod simple {
 
     #[test]
     fn double_open_curly_evaluates_to_a_single_curly() {
-        Playground::setup("parse_test_regex_2", |dirs, _sandbox| {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    echo "{abc}123"
-                    | parse "{{abc}{name}"
-                    | get name.0
-                "#
-            ));
-
-            assert_eq!(actual.out, "123");
-        })
+        let actual = nu!(pipeline(
+            r#"
+                echo "{abc}123"
+                | parse "{{abc}{name}"
+                | get name.0
+            "#
+        ));
+        assert_eq!(actual.out, "123");
     }
 
     #[test]
     fn properly_escapes_text() {
-        Playground::setup("parse_test_regex_3", |dirs, _sandbox| {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    echo "(abc)123"
-                    | parse "(abc){name}"
-                    | get name.0
-                "#
-            ));
+        let actual = nu!(pipeline(
+            r#"
+                echo "(abc)123"
+                | parse "(abc){name}"
+                | get name.0
+            "#
+        ));
 
-            assert_eq!(actual.out, "123");
-        })
+        assert_eq!(actual.out, "123");
     }
 
     #[test]
     fn properly_captures_empty_column() {
-        Playground::setup("parse_test_regex_4", |dirs, _sandbox| {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
-                    | parse "{timestamp}:{level}:{tag}:{entry}"
-                    | get entry
-                    | get 1
-                "#
-            ));
+        let actual = nu!(pipeline(
+            r#"
+                echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+                | parse "{timestamp}:{level}:{tag}:{entry}"
+                | get entry
+                | get 1
+            "#
+        ));
 
-            assert_eq!(actual.out, "something bad happened");
-        })
+        assert_eq!(actual.out, "something bad happened");
     }
 
     #[test]
     fn errors_when_missing_closing_brace() {
-        Playground::setup("parse_test_regex_5", |dirs, _sandbox| {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    echo "(abc)123"
-                    | parse "(abc){name"
-                    | get name
-                "#
-            ));
+        let actual = nu!(pipeline(
+            r#"
+                echo "(abc)123"
+                | parse "(abc){name"
+                | get name
+            "#
+        ));
 
-            assert!(
-                actual
-                    .err
-                    .contains("Found opening `{` without an associated closing `}`")
-            );
-        })
+        assert!(
+            actual
+                .err
+                .contains("Found opening `{` without an associated closing `}`")
+        );
+    }
+
+    #[test]
+    fn ignore_multiple_placeholder() {
+        let actual = nu!(pipeline(
+            r#"
+                echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+                | parse "{_}:{level}:{_}:{entry}"
+                | to json -r
+            "#
+        ));
+
+        assert_eq!(
+            actual.out,
+            r#"[{"level":"INFO","entry":"all is well"},{"level":"ERROR","entry":"something bad happened"}]"#
+        );
     }
 }
 

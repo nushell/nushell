@@ -333,20 +333,20 @@ export def run-tests [
                 commands: (get-annotated $row.name)
             }
         }
-        | filter {|x| ($x.commands|length) > 0}
+        | where {|x| ($x.commands|length) > 0}
         | upsert commands {|module|
             $module.commands
             | create-test-record
         }
         | flatten
-        | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
-        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
-        | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
+        | where {|x| ($x.test|length) > 0}
+        | where {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | where {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
+        | where {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
-            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
+            | where {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | where {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {

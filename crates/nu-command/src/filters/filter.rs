@@ -1,6 +1,5 @@
-use super::utils::chain_error_with_input;
-use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_engine::command_prelude::*;
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 #[derive(Clone)]
 pub struct Filter;
@@ -15,8 +14,8 @@ impl Command for Filter {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command works similar to 'where' but allows reading the predicate closure from
-a variable. On the other hand, the "row condition" syntax is not supported."#
+        r#"This command works similar to 'where' but can only use a closure as a predicate.
+The "row condition" syntax is not supported."#
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -47,80 +46,20 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        let closure: Closure = call.req(engine_state, stack, 0)?;
+        use super::where_::Where;
+        <Where as Command>::run(&Where, engine_state, stack, call, input)
+    }
 
-        let metadata = input.metadata();
-        match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream(..) => {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(input
-                    .into_iter()
-                    .filter_map(move |value| {
-                        match closure
-                            .run_with_value(value.clone())
-                            .and_then(|data| data.into_value(head))
-                        {
-                            Ok(cond) => cond.is_true().then_some(value),
-                            Err(err) => {
-                                let span = value.span();
-                                let err = chain_error_with_input(err, value.is_error(), span);
-                                Some(Value::error(err, span))
-                            }
-                        }
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+    fn deprecation_info(&self) -> Vec<nu_protocol::DeprecationEntry> {
+        vec![
+            DeprecationEntry {
+                ty: DeprecationType::Command,
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.105.0".into()),
+                expected_removal: None,
+                help: Some("`where` command can be used instead, as it can now read the predicate closure from a variable".into()),
             }
-            PipelineData::ByteStream(stream, ..) => {
-                if let Some(chunks) = stream.chunks() {
-                    let mut closure = ClosureEval::new(engine_state, stack, closure);
-                    Ok(chunks
-                        .into_iter()
-                        .filter_map(move |value| {
-                            let value = match value {
-                                Ok(value) => value,
-                                Err(err) => return Some(Value::error(err, head)),
-                            };
-
-                            match closure
-                                .run_with_value(value.clone())
-                                .and_then(|data| data.into_value(head))
-                            {
-                                Ok(cond) => cond.is_true().then_some(value),
-                                Err(err) => {
-                                    let span = value.span();
-                                    let err = chain_error_with_input(err, value.is_error(), span);
-                                    Some(Value::error(err, span))
-                                }
-                            }
-                        })
-                        .into_pipeline_data(head, engine_state.signals().clone()))
-                } else {
-                    Ok(PipelineData::Empty)
-                }
-            }
-            // This match allows non-iterables to be accepted,
-            // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
-                let result = ClosureEvalOnce::new(engine_state, stack, closure)
-                    .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head));
-
-                Ok(match result {
-                    Ok(cond) => cond.is_true().then_some(value),
-                    Err(err) => {
-                        let span = value.span();
-                        let err = chain_error_with_input(err, value.is_error(), span);
-                        Some(Value::error(err, span))
-                    }
-                }
-                .into_pipeline_data(head, engine_state.signals().clone()))
-            }
-        }
-        .map(|data| data.set_metadata(metadata))
+        ]
     }
 
     fn examples(&self) -> Vec<Example> {

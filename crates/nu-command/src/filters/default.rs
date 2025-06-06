@@ -1,5 +1,11 @@
+use std::{borrow::Cow, ops::Deref};
+
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{ListStream, Signals};
+use nu_protocol::{
+    ListStream, Signals,
+    ast::{Expr, Expression},
+    report_shell_warning,
+};
 
 #[derive(Clone)]
 pub struct Default;
@@ -32,6 +38,11 @@ impl Command for Default {
             .category(Category::Filters)
     }
 
+    // FIXME remove once deprecation warning is no longer needed
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn description(&self) -> &str {
         "Sets a default value if a row's column is missing or null."
     }
@@ -46,14 +57,19 @@ impl Command for Default {
         let default_value: Value = call.req(engine_state, stack, 0)?;
         let columns: Vec<String> = call.rest(engine_state, stack, 1)?;
         let empty = call.has_flag(engine_state, stack, "empty")?;
+
+        // FIXME for deprecation of closure passed via variable
+        let default_value_expr = call.positional_nth(stack, 0);
+        let default_value =
+            DefaultValue::new(engine_state, stack, default_value, default_value_expr);
+
         default(
-            engine_state,
-            stack,
             call,
             input,
             default_value,
             empty,
             columns,
+            engine_state.signals(),
         )
     }
 
@@ -134,16 +150,14 @@ impl Command for Default {
 }
 
 fn default(
-    engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-    default_value: Value,
+    mut default_value: DefaultValue,
     default_when_empty: bool,
     columns: Vec<String>,
+    signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let input_span = input.span().unwrap_or(call.head);
-    let mut default_value = DefaultValue::new(engine_state, stack, default_value);
     let metadata = input.metadata();
 
     // If user supplies columns, check if input is a record or list of records
@@ -184,7 +198,7 @@ fn default(
                         item
                     }
                 })
-                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+                .into_pipeline_data_with_metadata(head, signals.clone(), metadata))
         // If columns are given, but input does not use columns, return an error
         } else {
             Err(ShellError::PipelineMismatch {
@@ -227,8 +241,20 @@ enum DefaultValue {
 }
 
 impl DefaultValue {
-    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Self {
+    fn new(
+        engine_state: &EngineState,
+        stack: &Stack,
+        value: Value,
+        expr: Option<&Expression>,
+    ) -> Self {
         let span = value.span();
+
+        // FIXME temporary workaround to warn people of breaking change from #15654
+        let value = match closure_variable_warning(engine_state, value, expr) {
+            Ok(val) => val,
+            Err(default_value) => return default_value,
+        };
+
         match value {
             Value::Closure { val, .. } => {
                 let closure_eval = ClosureEval::new(engine_state, stack, *val);
@@ -275,6 +301,54 @@ fn fill_record(
         }
     }
     Ok(Value::record(record, span))
+}
+
+fn closure_variable_warning(
+    engine_state: &EngineState,
+    value: Value,
+    value_expr: Option<&Expression>,
+) -> Result<Value, DefaultValue> {
+    // only warn if we are passed a closure inside a variable
+    let from_variable = matches!(
+        value_expr,
+        Some(Expression {
+            expr: Expr::FullCellPath(_),
+            ..
+        })
+    );
+
+    let span = value.span();
+    match (&value, from_variable) {
+        // this is a closure from inside a variable
+        (Value::Closure { .. }, true) => {
+            let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
+            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
+            let suggestion = match span_contents {
+                Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
+                Cow::Owned(s) if s.deref() == "$carapace_completer" => {
+                    carapace_suggestion.to_string()
+                }
+                _ => format!("change this to {{ {} }}", span_contents).to_string(),
+            };
+
+            report_shell_warning(
+                engine_state,
+                &ShellError::DeprecationWarning {
+                    deprecation_type: "Behavior",
+                    suggestion,
+                    span,
+                    help: Some(
+                        r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
+In a future release, closures passed by variable will also be lazily evaluated.",
+                    ),
+                },
+            );
+
+            // bypass the normal DefaultValue::new logic
+            Err(DefaultValue::Calculated(value))
+        }
+        _ => Ok(value),
+    }
 }
 
 #[cfg(test)]

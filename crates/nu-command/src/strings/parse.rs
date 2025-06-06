@@ -46,6 +46,13 @@ impl Command for Parse {
                 })])),
             },
             Example {
+                description: "Parse a string, ignoring a column with _",
+                example: "\"hello world\" | parse \"{foo} {_}\"",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "foo" => Value::test_string("hello"),
+                })])),
+            },
+            Example {
                 description: "This is how the first example is interpreted in the source code",
                 example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -277,9 +284,17 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
         }
 
         if !column.is_empty() {
-            output.push_str("(?P<");
-            output.push_str(&column);
-            output.push_str(">.*?)");
+            output.push_str("(?");
+            if column == "_" {
+                // discard placeholder column(s)
+                output.push(':');
+            } else {
+                // create capture group for column
+                output.push_str("P<");
+                output.push_str(&column);
+                output.push('>');
+            }
+            output.push_str(".*?)");
         }
 
         if before.is_empty() && column.is_empty() {

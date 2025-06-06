@@ -2,6 +2,8 @@
 // TODO: Stop building `tabled` when it's clear we are out of terminal
 // NOTE: TODO the above we could expose something like [`WidthCtrl`] in which case we could also laverage the width list build right away.
 //       currently it seems like we do recacalculate it for `table -e`?
+// TODO: (not hard) We could properly handle dimension - we already do it for width - just need to do height as well
+// TODO: (need to check) Maybe Vec::with_dimension and insert "Iterators" would be better instead of preallocated Vec<Vec<>> and index.
 
 use std::cmp::{max, min};
 
@@ -14,14 +16,12 @@ use tabled::{
     builder::Builder,
     grid::{
         ansi::ANSIBuf,
-        colors::Colors,
         config::{
-            AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Indent, Position, Sides,
-            SpannedConfig,
+            AlignmentHorizontal, ColoredConfig, Entity, Indent, Position, Sides, SpannedConfig,
         },
-        dimension::{CompleteDimensionVecRecords, SpannedGridDimension},
+        dimension::{CompleteDimension, PeekableGridDimension},
         records::{
-            IntoRecords, IterRecords, Records,
+            IterRecords,
             vec_records::{Cell, Text, VecRecords},
         },
     },
@@ -92,12 +92,10 @@ impl NuTable {
         self.count_cols
     }
 
-    pub fn insert(&mut self, pos: Position, text: String) {
+    pub fn insert(&mut self, pos: (usize, usize), text: String) {
         let text = Text::new(text);
-        self.widths[pos.1] = max(
-            self.widths[pos.1],
-            text.width() + indent_sum(self.config.indent),
-        );
+        let width = text.width() + indent_sum(self.config.indent);
+        self.widths[pos.1] = max(self.widths[pos.1], width);
         self.data[pos.0][pos.1] = text;
     }
 
@@ -148,7 +146,7 @@ impl NuTable {
         self.count_cols += 1;
     }
 
-    pub fn insert_style(&mut self, pos: Position, style: TextStyle) {
+    pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
         if let Some(style) = style.color_style {
             let style = convert_style(style);
             self.styles.cfg.set_color(pos.into(), style.into());
@@ -241,7 +239,8 @@ impl NuTable {
 
     pub fn clear_all_colors(&mut self) {
         self.clear_border_color();
-        self.styles.cfg.set_colors(EntityMap::default());
+        let cfg = std::mem::take(&mut self.styles.cfg);
+        self.styles.cfg = ColoredConfig::new(cfg.into_inner());
     }
 
     /// Converts a table to a String.
@@ -280,9 +279,7 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
 
 fn table_recalculate_widths(t: &mut NuTable) {
     let pad = indent_sum(t.config.indent);
-    let records = IterRecords::new(&t.data, t.count_cols, Some(t.count_rows));
-    let widths = build_width(records, pad);
-    t.widths = widths;
+    t.widths = build_width(&t.data, t.count_cols, t.count_rows, pad);
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
@@ -425,15 +422,14 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
             let alignment = *t
                 .styles
                 .cfg
-                .get_alignment_horizontal(Entity::Cell(row, col));
+                .get_alignment_horizontal(Position::new(row, col));
             if alignment != t.styles.alignments.data {
                 t.styles
                     .cfg
                     .set_alignment_horizontal(Entity::Cell(row - 1, col), alignment);
             }
 
-            // TODO: use get_color from upstream (when released)
-            let color = t.styles.cfg.get_colors().get_color((row, col)).cloned();
+            let color = t.styles.cfg.get_color(Position::new(row, col)).cloned();
             if let Some(color) = color {
                 t.styles.cfg.set_color(Entity::Cell(row - 1, col), color);
             }
@@ -511,6 +507,7 @@ fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &Tabl
         };
     }
 
+    // todo: Move logic to SetLineHeaders - so it be faster - cleaner
     if with_footer {
         let last_row = table.count_rows();
         table.with(SetLineHeaders::new(head.clone(), last_row, pad));
@@ -535,6 +532,8 @@ fn set_indent(table: &mut Table, indent: TableIndent) {
 }
 
 fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
+    // Note: this is a "safe" path; presumable it must never happen cause we must made all the checks already
+    // TODO: maybe remove it? I think so?
     let total_width = table.total_width();
     if total_width > termwidth {
         None
@@ -598,13 +597,8 @@ impl WidthEstimation {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for WidthCtrl {
-    fn change(
-        self,
-        recs: &mut NuRecords,
-        cfg: &mut ColoredConfig,
-        dims: &mut CompleteDimensionVecRecords<'_>,
-    ) {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for WidthCtrl {
+    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, dims: &mut CompleteDimension) {
         if self.width.truncate {
             width_ctrl_truncate(self, recs, cfg, dims);
             return;
@@ -618,24 +612,29 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         // NOTE: just an optimization; to not recalculate it internally
         dims.set_widths(self.width.needed);
     }
+
+    fn hint_change(&self) -> Option<Entity> {
+        None
+    }
 }
 
 fn width_ctrl_expand(
     ctrl: WidthCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimensionVecRecords,
+    dims: &mut CompleteDimension,
 ) {
     let opt = Width::increase(ctrl.max_width);
-    TableOption::<VecRecords<_>, _, _>::change(opt, recs, cfg, dims);
+    TableOption::<NuRecords, _, _>::change(opt, recs, cfg, dims);
 }
 
 fn width_ctrl_truncate(
     ctrl: WidthCtrl,
     recs: &mut NuRecords,
     cfg: &mut ColoredConfig,
-    dims: &mut CompleteDimensionVecRecords,
+    dims: &mut CompleteDimension,
 ) {
+    // todo: maybe general for loop better
     for (col, (&width, width_original)) in ctrl
         .width
         .needed
@@ -677,10 +676,22 @@ fn align_table(
     table.with(AlignmentStrategy::PerLine);
 
     if structure.with_header {
-        table.modify(Rows::first(), Alignment::from(alignments.header));
+        table.modify(
+            Rows::first(),
+            (
+                AlignmentStrategy::PerCell,
+                Alignment::from(alignments.header),
+            ),
+        );
 
         if structure.with_footer {
-            table.modify(Rows::last(), Alignment::from(alignments.header));
+            table.modify(
+                Rows::last(),
+                (
+                    AlignmentStrategy::PerCell,
+                    Alignment::from(alignments.header),
+                ),
+            );
         }
     }
 
@@ -1054,22 +1065,27 @@ fn convert_alignment(alignment: nu_color_config::Alignment) -> AlignmentHorizont
     }
 }
 
-fn build_width<R>(records: R, pad: usize) -> Vec<usize>
-where
-    R: Records,
-    <R::Iter as IntoRecords>::Cell: AsRef<str>,
-{
+fn build_width(
+    records: &[Vec<NuRecordsValue>],
+    count_cols: usize,
+    count_rows: usize,
+    pad: usize,
+) -> Vec<usize> {
     // TODO: Expose not spaned version (could be optimized).
     let mut cfg = SpannedConfig::default();
-    let padding = Sides {
-        left: Indent::spaced(pad),
-        ..Default::default()
-    };
+    cfg.set_padding(
+        Entity::Global,
+        Sides::new(
+            Indent::spaced(pad),
+            Indent::zero(),
+            Indent::zero(),
+            Indent::zero(),
+        ),
+    );
 
-    cfg.set_padding(Entity::Global, padding);
+    let records = IterRecords::new(records, count_cols, Some(count_rows));
 
-    // TODO: Use peekable width
-    SpannedGridDimension::width(records, &cfg)
+    PeekableGridDimension::width(records, &cfg)
 }
 
 // It's laverages a use of guuaranted cached widths before hand
@@ -1086,13 +1102,8 @@ impl SetLineHeaders {
     }
 }
 
-impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetLineHeaders {
-    fn change(
-        self,
-        recs: &mut NuRecords,
-        cfg: &mut ColoredConfig,
-        dims: &mut CompleteDimensionVecRecords<'_>,
-    ) {
+impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders {
+    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, dims: &mut CompleteDimension) {
         let widths = match dims.get_widths() {
             Some(widths) => widths,
             None => {
@@ -1131,20 +1142,6 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
 fn theme_copy_horizontal_line(theme: &mut tabled::settings::Theme, from: usize, to: usize) {
     if let Some(line) = theme.get_horizontal_line(from) {
         theme.insert_horizontal_line(to, *line);
-    }
-}
-
-// todo: create a method
-#[derive(Debug, Default)]
-struct GetDims(Vec<usize>);
-
-impl<R, C> TableOption<R, C, CompleteDimensionVecRecords<'_>> for &mut GetDims {
-    fn change(self, _: &mut R, _: &mut C, dims: &mut CompleteDimensionVecRecords<'_>) {
-        self.0 = dims.get_widths().expect("expected to get it").to_vec();
-    }
-
-    fn hint_change(&self) -> Option<Entity> {
-        None
     }
 }
 

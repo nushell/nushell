@@ -1,9 +1,8 @@
 # run a piece of `nushell` code multiple times and measure the time of execution.
 #
-# this command returns a benchmark report of the following form:
+# this command returns a benchmark report in the form of a table/record, or a string if using `--pretty`
 #
-# > **Note**
-# > `std bench --pretty` will return a `string`.
+# if multiple commands are passed, it will show a comparison of their runtimes.
 @example "measure the performance of simple addition" { bench { 1 + 2 } } --result {
     mean: 2308ns,
     min: 2000ns,
@@ -63,9 +62,18 @@ Benchmark 2: { 2 ** 4 }
 
 { 2 + 4 } ran
     1 times faster than { 2 ** 4 }"
+@example "use `--setup` to compile before benchmarking" { bench { ./target/release/foo } --setup { cargo build --release } }
+@example "use `--prepare` to benchmark rust compilation speed" { bench { cargo build --release } --prepare { cargo clean } }
+@example "use `--warmup` to fill the disk cache before benchmarking" { bench { fd } { jwalk . -k } -w 1 -n 10 }
 export def main [
-    ...codes: closure        # the piece(s) of `nushell` code to measure the performance of
+    ...commands: closure     # the piece(s) of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
+    --warmup (-w): int = 0   # the number of warmup rounds (not timed) to do before the benchmark, useful for filling the disk cache in I/O-heavy programs
+    --setup (-s): closure    # command to run before all benchmarks
+    --cleanup (-c): closure  # command to run after all benchmarks
+    --prepare (-S): closure  # command to run before each timing round (for multiple commands, the index is passed to this closure so you can do different behaviour)
+    --conclude (-C): closure # command to run after each timing round (for multiple commands, the index is passed to this closure so you can do different behaviour)
+    --ignore-errors (-i)     # ignore errors in the command
     --verbose (-v)           # show individual times (has no effect if used with `--pretty`)
     --progress (-P)          # prints the progress
     --pretty (-p)            # shows the results in human-readable format: "<mean> +/- <stddev>"
@@ -76,16 +84,37 @@ export def main [
     nothing -> table<code: string, mean: duration, std: duration, ratio: float>
     nothing -> string
 ] {
+    if $setup != null { do $setup | ignore }
+
     let results = (
-        $codes | each {|code|
+        $commands | enumerate | each {|x|
+            let code = $x.item
+            let idx = $x.index
+
+            let bench_num = if ($commands | length) > 1 { $" ($idx + 1)"}
+
+            seq 1 $warmup | each {|i|
+                if $progress { print -n $"Warmup($bench_num): ($i) / ($warmup)\r" }
+                if $prepare != null { $idx | do $prepare $idx | ignore }
+                do --ignore-errors=$ignore_errors $code | ignore
+                if $conclude != null { $idx | do $conclude $idx | ignore }
+            }
+
+            if $progress and $warmup > 0 { print $"Warmup($bench_num): ($warmup) / ($warmup)" }
+
             let times: list<duration> = (
                 seq 1 $rounds | each {|i|
-                    if $progress { print -n $"($i) / ($rounds)\r" }
-                    timeit { do $code }
+                    if $progress { print -n $"Benchmark($bench_num): ($i) / ($rounds)\r" }
+
+                    if $prepare != null { $idx | do $prepare $idx | ignore }
+                    let time = timeit { do --ignore-errors=$ignore_errors $code | ignore }
+                    if $conclude != null { $idx | do $conclude $idx | ignore }
+
+                    $time
                 }
             )
 
-            if $progress { print $"($rounds) / ($rounds)" }
+            if $progress { print $"Benchmark($bench_num): ($rounds) / ($rounds)" }
 
             {
                 mean: ($times | math avg)
@@ -96,6 +125,8 @@ export def main [
             | if $verbose { merge { times: $times }} else {}
         }
     )
+
+    if $cleanup != null { do $cleanup | ignore }
 
     # One benchmark
     if ($results | length) == 1 {
@@ -110,7 +141,7 @@ export def main [
     # Multiple benchmarks
     let min_mean = $results | get mean | math min
     let results = (
-        $codes
+        $commands
         | each { view source $in | nu-highlight }
         | wrap code
         | merge $results

@@ -1219,12 +1219,12 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    #[error("{deprecated} is deprecated and will be removed in a future release")]
-    #[diagnostic()]
-    Deprecated {
-        deprecated: &'static str,
-        suggestion: &'static str,
-        #[label("{deprecated} is deprecated. {suggestion}")]
+    #[error("{deprecation_type} deprecated.")]
+    #[diagnostic(code(nu::shell::deprecated))]
+    DeprecationWarning {
+        deprecation_type: &'static str,
+        suggestion: String,
+        #[label("{suggestion}")]
         span: Span,
         #[help]
         help: Option<&'static str>,

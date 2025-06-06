@@ -3,6 +3,7 @@ use crate::{
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
     VarId, VirtualPathId,
     ast::Block,
+    cli_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
@@ -115,6 +116,7 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+    pub report_log: Arc<Mutex<ReportLog>>,
 
     pub jobs: Arc<Mutex<Jobs>>,
 
@@ -201,6 +203,7 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
+            report_log: Arc::default(),
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
                 id: JobId::new(0),
