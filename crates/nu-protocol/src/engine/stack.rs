@@ -414,7 +414,7 @@ impl Stack {
         result
     }
 
-    /// Get flattened hidden variables
+    /// Get hidden envs, but without envs defined previously in `excluded_overlay_name`.
     pub fn get_hidden_env_vars(
         &self,
         excluded_overlay_name: &str,
