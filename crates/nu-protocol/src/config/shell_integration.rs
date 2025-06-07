@@ -19,7 +19,7 @@ impl Default for ShellIntegrationConfig {
             osc2: true,
             osc7: true,
             osc8: true,
-            osc9_9: false,
+            osc9_9: cfg!(windows),
             osc133: true,
             osc633: true,
             reset_application_mode: true,
