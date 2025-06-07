@@ -32,6 +32,7 @@ pub enum Expr {
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
     List(Vec<ListItem>),
+    Set(Vec<SetItem>),
     Table(Table),
     Record(Vec<RecordItem>),
     Keyword(Box<Keyword>),
@@ -89,6 +90,7 @@ impl Expr {
             | Expr::BinaryOp(_, _, _)
             | Expr::Closure(_) // piping into a closure value, not into a closure call
             | Expr::List(_)
+            | Expr::Set(_)
             | Expr::Table(_)
             | Expr::Record(_)
             | Expr::ValueWithUnit(_)
@@ -159,6 +161,26 @@ impl ListItem {
 
     pub fn expr_mut(&mut self) -> &mut Expression {
         let (ListItem::Item(expr) | ListItem::Spread(_, expr)) = self;
+        expr
+    }
+}
+
+// TODO : spread
+/// Expressions permitted inside a set expression/literal
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SetItem {
+    /// A normal expression
+    Item(Expression),
+}
+
+impl SetItem {
+    pub fn expr(&self) -> &Expression {
+        let SetItem::Item(expr) = self;
+        expr
+    }
+
+    pub fn expr_mut(&mut self) -> &mut Expression {
+        let SetItem::Item(expr) = self;
         expr
     }
 }

@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::{
         Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
         MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
+        RecordItem, SetItem,
     },
     engine::StateWorkingSet,
 };
@@ -31,6 +31,7 @@ pub enum FlatShape {
     InternalCall(DeclId),
     Keyword,
     List,
+    Set,
     Literal,
     MatchPattern,
     Nothing,
@@ -71,6 +72,7 @@ impl FlatShape {
             FlatShape::InternalCall(_) => "shape_internalcall",
             FlatShape::Keyword => "shape_keyword",
             FlatShape::List => "shape_list",
+            FlatShape::Set => "shape_set",
             FlatShape::Literal => "shape_literal",
             FlatShape::MatchPattern => "shape_match_pattern",
             FlatShape::Nothing => "shape_nothing",
@@ -458,6 +460,35 @@ fn flatten_expression_into(
                 output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
         }
+        // TODO : adapt
+        Expr::Set(set) => {
+            let outer_span = expr.span;
+            let mut last_end = outer_span.start;
+
+            for item in set {
+                match item {
+                    SetItem::Item(expr) => {
+                        let flattened = flatten_expression(working_set, expr);
+
+                        if let Some(first) = flattened.first() {
+                            if first.0.start > last_end {
+                                output.push((Span::new(last_end, first.0.start), FlatShape::Set));
+                            }
+                        }
+
+                        if let Some(last) = flattened.last() {
+                            last_end = last.0.end;
+                        }
+
+                        output.extend(flattened);
+                    }
+                }
+            }
+
+            if last_end < outer_span.end {
+                output.push((Span::new(last_end, outer_span.end), FlatShape::Set));
+            }
+        }
         Expr::StringInterpolation(exprs) => {
             let mut flattened = vec![];
             for expr in exprs {
@@ -614,6 +645,25 @@ fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, Fl
         Pattern::IgnoreValue => output.push((match_pattern.span, FlatShape::Nothing)),
         Pattern::IgnoreRest => output.push((match_pattern.span, FlatShape::Nothing)),
         Pattern::List(items) => {
+            if let Some(first) = items.first() {
+                if let Some(last) = items.last() {
+                    output.push((
+                        Span::new(match_pattern.span.start, first.span.start),
+                        FlatShape::MatchPattern,
+                    ));
+                    for item in items {
+                        flatten_pattern_into(item, output);
+                    }
+                    output.push((
+                        Span::new(last.span.end, match_pattern.span.end),
+                        FlatShape::MatchPattern,
+                    ))
+                }
+            } else {
+                output.push((match_pattern.span, FlatShape::MatchPattern));
+            }
+        }
+        Pattern::Set(items) => {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
                     output.push((

@@ -140,6 +140,16 @@ pub fn value_to_json_value(
         Value::List { vals, .. } => {
             nu_json::Value::Array(json_list(engine_state, vals, call_span, serialize_types)?)
         }
+        Value::Set { vals, .. } => nu_json::Value::Array(json_list(
+            engine_state,
+            &vals
+                .as_ref()
+                .into_iter()
+                .map(|v| v.to_value())
+                .collect::<Vec<Value>>(),
+            call_span,
+            serialize_types,
+        )?),
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
             if serialize_types {

@@ -1,4 +1,5 @@
 use crate::SyntaxShape;
+use crate::set::SetType;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 #[cfg(test)]
@@ -19,6 +20,7 @@ pub enum Type {
     Filesize,
     Float,
     Int,
+    Set(Box<SetType>),
     List(Box<Type>),
     #[default]
     Nothing,
@@ -33,6 +35,10 @@ pub enum Type {
 impl Type {
     pub fn list(inner: Type) -> Self {
         Self::List(Box::new(inner))
+    }
+
+    pub fn set(inner: Type) -> Self {
+        Self::Set(Box::new(SetType::from_type(inner)))
     }
 
     pub fn record() -> Self {
@@ -115,6 +121,7 @@ impl Type {
             Type::Duration => SyntaxShape::Duration,
             Type::Date => SyntaxShape::DateTime,
             Type::Filesize => SyntaxShape::Filesize,
+            Type::Set(x) => SyntaxShape::Set(Box::new(x.to_shape())),
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
@@ -143,6 +150,7 @@ impl Type {
             Type::Range => String::from("range"),
             Type::Record(_) => String::from("record"),
             Type::Table(_) => String::from("table"),
+            Type::Set(_) => String::from("set"),
             Type::List(_) => String::from("list"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
@@ -198,6 +206,7 @@ impl Display for Type {
                     )
                 }
             }
+            Type::Set(l) => write!(f, "set<{l}>"),
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
