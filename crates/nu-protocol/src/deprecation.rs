@@ -16,6 +16,8 @@ pub struct DeprecationEntry {
     // might need to revisit this if we added additional DeprecationTypes
     #[nu_value(rename = "flag", default)]
     pub ty: DeprecationType,
+    /// If this item was renamed, the new name for it
+    pub renamed: Option<String>,
     /// How this deprecation should be reported
     #[nu_value(rename = "report")]
     pub report_mode: ReportMode,
@@ -24,7 +26,7 @@ pub struct DeprecationEntry {
     /// When this item is expected to be removed
     pub expected_removal: Option<String>,
     /// Help text, possibly including a suggestion for what to use instead
-    pub help: Option<String>,
+    pub message: Option<String>,
 }
 
 /// What this deprecation affects
@@ -91,14 +93,18 @@ impl DeprecationEntry {
         }
     }
 
-    fn type_name(&self) -> String {
-        match &self.ty {
-            DeprecationType::Command => "Command".to_string(),
-            DeprecationType::Flag(_) => "Flag".to_string(),
+    fn warning(&self) -> String {
+        let ty = match self.ty {
+            DeprecationType::Command => "Command",
+            DeprecationType::Flag(_) => "Flag",
+        };
+        match &self.renamed {
+            Some(renamed_to) => format!("{ty} renamed to {renamed_to}."),
+            None => format!("{ty} deprecated."),
         }
     }
 
-    fn label(&self, command_name: &str) -> String {
+    fn removal_info(&self, command_name: &str) -> String {
         let name = match &self.ty {
             DeprecationType::Command => command_name,
             DeprecationType::Flag(flag) => &format!("{command_name} --{flag}"),
@@ -116,7 +122,7 @@ impl DeprecationEntry {
 
     fn span(&self, call: &Call) -> Span {
         match &self.ty {
-            DeprecationType::Command => call.span(),
+            DeprecationType::Command => call.head,
             DeprecationType::Flag(flag) => call
                 .get_named_arg(flag)
                 .map(|arg| arg.span)
@@ -129,16 +135,25 @@ impl DeprecationEntry {
             return None;
         }
 
-        let dep_type = self.type_name();
-        let label = self.label(command_name);
+        let warning = self.warning();
+        let removal_info = self.removal_info(command_name);
         let span = self.span(call);
         let report_mode = self.report_mode;
+
+        let (label, help) = match (self.renamed, self.message) {
+            // if this is a rename and we have a message, put the message on the label rather than the help text,
+            // to draw attention to the rename suggestion rather than the removal info
+            (Some(_), Some(message)) => (message, Some(removal_info)),
+            // if this isn't a rename (or there's no message), we want to highlight the fact that this will be removed,
+            // so put the removal info on the label and the message in the help text
+            (_, message) => (removal_info, message),
+        };
         Some(ParseWarning::DeprecationWarning {
-            dep_type,
+            warning,
             label,
             span,
             report_mode,
-            help: self.help,
+            help,
         })
     }
 }

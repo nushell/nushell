@@ -149,9 +149,10 @@ If multiple cell paths are given, this will produce a list of values."#
             DeprecationEntry {
                 ty: DeprecationType::Flag("sensitive".into()),
                 report_mode: ReportMode::FirstUse,
+                renamed: None,
                 since: Some("0.105.0".into()),
                 expected_removal: None,
-                help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
+                message: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
             }
         ]
     }

@@ -55,9 +55,10 @@ The "row condition" syntax is not supported."#
             DeprecationEntry {
                 ty: DeprecationType::Command,
                 report_mode: ReportMode::FirstUse,
+                renamed: None,
                 since: Some("0.105.0".into()),
                 expected_removal: None,
-                help: Some("`where` command can be used instead, as it can now read the predicate closure from a variable".into()),
+                message: Some("`where` command can be used instead, as it can now read the predicate closure from a variable".into()),
             }
         ]
     }

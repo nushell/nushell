@@ -8,10 +8,10 @@ use super::ReportMode;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
-    #[error("{dep_type} deprecated.")]
+    #[error("{warning}")]
     #[diagnostic(code(nu::parser::deprecated))]
     DeprecationWarning {
-        dep_type: String,
+        warning: String,
         #[label("{label}")]
         span: Span,
         label: String,
@@ -39,10 +39,8 @@ impl ParseWarning {
 impl Hash for ParseWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            ParseWarning::DeprecationWarning {
-                dep_type, label, ..
-            } => {
-                dep_type.hash(state);
+            ParseWarning::DeprecationWarning { warning, label, .. } => {
+                warning.hash(state);
                 label.hash(state);
             }
         }
