@@ -435,7 +435,7 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
     AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
 
-    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
+    AnsiCode{ short_name: Some("rst"), long_name: "reset", code: "\x1b[0m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -632,6 +632,11 @@ Operating system commands:
                 description: "Use escape codes, without the '\\x1b['",
                 example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
+            },
+            Example {
+                description: "Use simple hex string",
+                example: r#"$"(ansi '#4169E1')Hello(ansi reset)"  # royal blue foreground color"#,
+                result: Some(Value::test_string("\u{1b}[38;2;65;105;225mHello\u{1b}[0m")),
             },
             Example {
                 description: "Use structured escape codes",
@@ -874,13 +879,13 @@ fn generate_ansi_code_list(
                 record! {
                     "name" => name,
                     "preview" => preview,
-                    "short name" => short_name,
+                    "short_name" => short_name,
                     "code" => code,
                 }
             } else {
                 record! {
                     "name" => name,
-                    "short name" => short_name,
+                    "short_name" => short_name,
                     "code" => code,
                 }
             };
