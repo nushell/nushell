@@ -37,11 +37,16 @@ def get-annotated [
         source `($file)`
         scope commands
         | select name attributes
-        | where attributes != []
         | to nuon
     '
     | from nuon
-    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | each {|e|
+        # filter commands with test attributes, and map attributes to annotation name
+        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -i $x }
+        if ($test_attributes | is-not-empty) {
+          $e | update attributes $test_attributes.0
+        }
+      }
     | rename function_name annotation
 }
 
