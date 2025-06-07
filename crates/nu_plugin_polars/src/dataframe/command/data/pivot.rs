@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use chrono::DateTime;
-use polars_ops::pivot::{PivotAgg, pivot};
+use polars_ops::pivot::{PivotAgg, pivot_stable};
 
 use crate::{
     PolarsPlugin,
@@ -237,7 +237,7 @@ fn command_eager(
 
     let polars_df = df.to_polars();
     // todo add other args
-    let pivoted = pivot(
+    let pivoted = pivot_stable(
         &polars_df,
         &on_col_string,
         Some(&index_col_string),
