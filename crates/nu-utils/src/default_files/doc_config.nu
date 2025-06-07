@@ -236,7 +236,7 @@ $env.config.shell_integration.osc633 = true
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
 # This sequence is commonly used to keep cursor key modes in sync between the local
-# terminal and a remove SSH host.
+# terminal and a remote SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
