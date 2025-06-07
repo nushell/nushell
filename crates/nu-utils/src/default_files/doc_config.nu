@@ -207,6 +207,7 @@ $env.config.shell_integration.osc7 = true
 # osc9_9 (bool):
 # Enables/Disables OSC 9;9 support, originally a ConEmu terminal feature. This is an
 # alternative to OSC 7 which also communicates the current path to the terminal.
+# This is enabled by default on Windows as it is used by the Windows Terminal.
 $env.config.shell_integration.osc9_9 = false
 
 # osc8 (bool):
