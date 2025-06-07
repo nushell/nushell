@@ -202,6 +202,7 @@ $env.config.shell_integration.osc2 = true
 # osc7 (bool):
 # Nushell will report the current directory to the terminal using OSC 7. This is useful when
 # spawning new tabs in the same directory.
+# This is disabled by default on Windows in favor of the `osc9_9` option.
 $env.config.shell_integration.osc7 = true
 
 # osc9_9 (bool):
