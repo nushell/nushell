@@ -1,7 +1,6 @@
 use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
-use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
     BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineMetadata,
     ShellError, Span, Value, VarId,
@@ -402,45 +401,6 @@ impl Eval for EvalRuntime {
 
     fn get_config(engine_state: Self::State<'_>, stack: &mut Stack) -> Arc<Config> {
         stack.get_config(engine_state)
-    }
-
-    fn eval_filepath(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if quoted {
-            Ok(Value::string(path, span))
-        } else {
-            let cwd = engine_state.cwd(Some(stack))?;
-            let path = expand_path_with(path, cwd, true);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
-    }
-
-    fn eval_directory(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if path == "-" {
-            Ok(Value::string("-", span))
-        } else if quoted {
-            Ok(Value::string(path, span))
-        } else {
-            let cwd = engine_state
-                .cwd(Some(stack))
-                .map(AbsolutePathBuf::into_std_path_buf)
-                .unwrap_or_default();
-            let path = expand_path_with(path, cwd, true);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
     }
 
     fn eval_var(

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{AbsolutePathBuf, expand_path_with};
+use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
     PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
@@ -888,9 +888,7 @@ fn literal_value(
             if *no_expand {
                 Value::string(path, span)
             } else {
-                let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
-                let path = expand_path_with(path, cwd, true);
-
+                let path = expand_path(path, true);
                 Value::string(path.to_string_lossy(), span)
             }
         }
@@ -904,13 +902,7 @@ fn literal_value(
             } else if *no_expand {
                 Value::string(path, span)
             } else {
-                let cwd = ctx
-                    .engine_state
-                    .cwd(Some(ctx.stack))
-                    .map(AbsolutePathBuf::into_std_path_buf)
-                    .unwrap_or_default();
-                let path = expand_path_with(path, cwd, true);
-
+                let path = expand_path(path, true);
                 Value::string(path.to_string_lossy(), span)
             }
         }

@@ -60,7 +60,10 @@ where
     canonicalize(path)
 }
 
-fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
+/// Resolve only path components (tilde, ., .., ...+), if possible.
+///
+/// Doesn't convert to absolute form or use syscalls. Output may begin with "../"
+pub fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
     let path = if need_expand_tilde {
         expand_tilde(path)
     } else {
@@ -77,7 +80,7 @@ fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
 ///
 /// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
 ///
-/// Does not convert to absolute form nor does it resolve symlinks.
+/// Converts to absolute form but does not resolve symlinks.
 /// The input path is specified relative to another path
 pub fn expand_path_with<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where

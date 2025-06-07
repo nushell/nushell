@@ -1,4 +1,6 @@
 //! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
+use nu_path::expand_path;
+
 use crate::{
     BlockId, Config, ENV_VARIABLE_ID, GetSpan, Range, Record, ShellError, Span, Value, VarId,
     ast::{
@@ -32,9 +34,23 @@ pub trait Eval {
             Expr::Int(i) => Ok(Value::int(*i, expr_span)),
             Expr::Float(f) => Ok(Value::float(*f, expr_span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr_span)),
-            Expr::Filepath(path, quoted) => Self::eval_filepath(state, mut_state, path.clone(), *quoted, expr_span),
+            Expr::Filepath(path, quoted) => {
+                if *quoted {
+                    Ok(Value::string(path, expr_span))
+                } else {
+                    let path = expand_path(path, true);
+                    Ok(Value::string(path.to_string_lossy(), expr_span))
+                }
+            }
             Expr::Directory(path, quoted) => {
-                Self::eval_directory(state, mut_state, path.clone(), *quoted, expr_span)
+                if path == "-" {
+                    Ok(Value::string("-", expr_span))
+                } else if *quoted {
+                    Ok(Value::string(path, expr_span))
+                } else {
+                    let path = expand_path(path, true);
+                    Ok(Value::string(path.to_string_lossy(), expr_span))
+                }
             }
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr_span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr_span)),
@@ -328,22 +344,6 @@ pub trait Eval {
     }
 
     fn get_config(state: Self::State<'_>, mut_state: &mut Self::MutState) -> Arc<Config>;
-
-    fn eval_filepath(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError>;
-
-    fn eval_directory(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError>;
 
     fn eval_var(
         state: Self::State<'_>,
