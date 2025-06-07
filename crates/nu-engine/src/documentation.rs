@@ -1,4 +1,5 @@
 use crate::eval_call;
+use fancy_regex::Regex;
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
     SpanId, Spanned, SyntaxShape, Type, Value,
@@ -9,12 +10,16 @@ use nu_protocol::{
     record,
 };
 use nu_utils::terminal_size;
-use std::{collections::HashMap, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write};
 
 /// ANSI style reset
 const RESET: &str = "\x1b[0m";
 /// ANSI set default color (as set in the terminal)
 const DEFAULT_COLOR: &str = "\x1b[39m";
+/// ANSI set default dimmed
+const DEFAULT_DIMMED: &str = "\x1b[2;39m";
+/// ANSI set default italic
+const DEFAULT_ITALIC: &str = "\x1b[3;39m";
 
 pub fn get_full_help(
     command: &dyn Command,
@@ -62,6 +67,23 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     code_string.to_string()
 }
 
+fn format_code(text: &str) -> Cow<'_, str> {
+    // See [`tests::test_code_formatting`] for examples
+    let pattern = r"(?x)     # verbose mode
+        (?<![\p{Letter}\d])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
+        `
+        ([^`\n]+?)           # capture characters inside backticks, excluding backticks and newlines. ungreedy.
+        `
+        (?![\p{Letter}\d])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
+    ";
+
+    let Ok(re) = Regex::new(pattern) else {
+        return Cow::Borrowed(text);
+    };
+    let replace = format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}$1{RESET}");
+    re.replace_all(text, replace)
+}
+
 fn get_documentation(
     sig: &Signature,
     examples: &[Example],
@@ -78,17 +100,18 @@ fn get_documentation(
     let help_subcolor_one = &help_style.subcolor_one;
 
     let cmd_name = &sig.name;
+
     let mut long_desc = String::new();
 
     let desc = &sig.description;
     if !desc.is_empty() {
-        long_desc.push_str(desc);
+        long_desc.push_str(&format_code(desc));
         long_desc.push_str("\n\n");
     }
 
     let extra_desc = &sig.extra_description;
     if !extra_desc.is_empty() {
-        long_desc.push_str(extra_desc);
+        long_desc.push_str(&format_code(extra_desc));
         long_desc.push_str("\n\n");
     }
 
@@ -129,12 +152,15 @@ fn get_documentation(
             {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    sig.name, command_type, sig.description
+                    sig.name,
+                    command_type,
+                    format_code(&sig.description)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name, sig.description
+                    sig.name,
+                    format_code(&sig.description)
                 ));
             }
         }
@@ -257,7 +283,7 @@ fn get_documentation(
     for example in examples {
         long_desc.push('\n');
         long_desc.push_str("  ");
-        long_desc.push_str(example.description);
+        long_desc.push_str(&format_code(example.description));
 
         if !nu_config.use_ansi_coloring.get(engine_state) {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
@@ -529,7 +555,7 @@ fn write_positional(
         }
     };
     if !positional.desc.is_empty() || arg_kind == PositionalKind::Optional {
-        let _ = write!(long_desc, ": {}", positional.desc);
+        let _ = write!(long_desc, ": {}", format_code(&positional.desc));
     }
     if arg_kind == PositionalKind::Optional {
         if let Some(value) = &positional.default_value {
@@ -588,7 +614,7 @@ where
             );
         }
         if !flag.desc.is_empty() {
-            let _ = write!(long_desc, ": {}", flag.desc);
+            let _ = write!(long_desc, ": {}", format_code(&flag.desc));
         }
         if let Some(value) = &flag.default_value {
             let _ = write!(long_desc, " (default: {})", &value_formatter(value));
@@ -596,4 +622,50 @@ where
         long_desc.push('\n');
     }
     long_desc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_code_formatting() {
+        // using Cow::Owned here to mean a match, since the content changed,
+        // and borrowed to mean not a match, since the content didn't change
+
+        // match: typical example
+        let haystack = "Run the `foo` command";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // no match: backticks preceded by alphanum
+        let haystack = "foo`bar`";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+
+        // match: command at beginning of string is ok
+        let haystack = "`my-command` is cool";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // match: preceded and followed by newline is ok
+        let haystack = r"
+`command`
+";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // no match: newline between backticks
+        let haystack = "// hello `beautiful \n world`";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+
+        // match: backticks followed by period, not letter/number
+        let haystack = "try running `my cool command`.";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // match: backticks enclosed by parenthesis, not letter/number
+        let haystack = "a command (`my cool command`).";
+        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+
+        // no match: only characters inside backticks are backticks
+        // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
+        let haystack = "```\ncode block\n```";
+        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+    }
 }
