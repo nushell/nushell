@@ -109,7 +109,9 @@ impl Command for StorDelete {
                 // dbg!(&sql_stmt);
                 conn.execute(&sql_stmt, [])
                     .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from delete".into(),
+                        error:
+                            "Failed to delete using the SQLite connection in memory from delete.rs."
+                                .into(),
                         msg: err.to_string(),
                         span: Some(Span::test_data()),
                         help: None,
