@@ -414,6 +414,37 @@ impl Stack {
         result
     }
 
+    /// Get hidden envs, but without envs defined previously in `excluded_overlay_name`.
+    pub fn get_hidden_env_vars(
+        &self,
+        excluded_overlay_name: &str,
+        engine_state: &EngineState,
+    ) -> HashMap<String, Value> {
+        let mut result = HashMap::new();
+
+        for overlay_name in self.active_overlays.iter().rev() {
+            if overlay_name == excluded_overlay_name {
+                continue;
+            }
+            if let Some(env_names) = self.env_hidden.get(overlay_name) {
+                for n in env_names {
+                    if result.contains_key(n) {
+                        continue;
+                    }
+                    // get env value.
+                    if let Some(Some(v)) = engine_state
+                        .env_vars
+                        .get(overlay_name)
+                        .map(|env_vars| env_vars.get(n))
+                    {
+                        result.insert(n.to_string(), v.clone());
+                    }
+                }
+            }
+        }
+        result
+    }
+
     /// Same as get_env_vars, but returns only the names as a HashSet
     pub fn get_env_var_names(&self, engine_state: &EngineState) -> HashSet<String> {
         let mut result = HashSet::new();
