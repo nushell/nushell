@@ -4078,7 +4078,7 @@ fn operator_type_error(
     }
 }
 
-fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
     let now = Local::now().with_timezone(val.offset());
     let delta = *val - now;
     match delta.num_nanoseconds() {
