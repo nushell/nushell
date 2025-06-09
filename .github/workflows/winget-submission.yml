@@ -25,5 +25,5 @@ jobs:
           installers-regex: 'msvc\.msi$'
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
-          token: ${{ secrets.NUSHELL_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fork-user: nushell
