@@ -152,7 +152,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -169,7 +169,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -186,22 +186,22 @@ impl Command for Table {
             },
             Example {
                 description: "Change the table theme to the specified theme for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
                 result: None,
             },
             Example {
                 description: "Force showing of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
                 result: None,
             },
             Example {
                 description: "Set the starting number of the #/index column to 100 for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },
             Example {
                 description: "Force hiding of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
         ]
