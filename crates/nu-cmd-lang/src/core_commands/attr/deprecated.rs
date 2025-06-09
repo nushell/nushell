@@ -18,7 +18,13 @@ impl Command for AttrDeprecated {
             .optional(
                 "message",
                 SyntaxShape::String,
-                "Help message to include with deprecation warning.",
+                "Message to include with deprecation warning.",
+            )
+            .named(
+                "renamed",
+                SyntaxShape::String,
+                "If this item was renamed, the new name for the item",
+                None,
             )
             .named(
                 "flag",
@@ -54,7 +60,7 @@ impl Command for AttrDeprecated {
     fn extra_description(&self) -> &str {
         "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the first usage will trigger a deprecation warning.
 
-A help message can be included to provide more context for the deprecation, such as what to use as a replacement.
+A message can be included to provide more context for the deprecation, such as what to use as a replacement.
 
 Also consider setting the category to deprecated with @category deprecated"
     }
@@ -108,14 +114,18 @@ Also consider setting the category to deprecated with @category deprecated"
 
 fn deprecated_record(call: WrapCall) -> Result<Value, ShellError> {
     let (call, message): (_, Option<Spanned<String>>) = call.opt(0)?;
+    let (call, renamed): (_, Option<Spanned<String>>) = call.get_flag("renamed")?;
     let (call, flag): (_, Option<Spanned<String>>) = call.get_flag("flag")?;
     let (call, since): (_, Option<Spanned<String>>) = call.get_flag("since")?;
     let (call, remove): (_, Option<Spanned<String>>) = call.get_flag("remove")?;
     let (call, report): (_, Option<Spanned<String>>) = call.get_flag("report")?;
 
     let mut record = Record::new();
+    if let Some(renamed) = renamed {
+        record.push("renamed", Value::string(renamed.item, renamed.span))
+    }
     if let Some(message) = message {
-        record.push("help", Value::string(message.item, message.span))
+        record.push("message", Value::string(message.item, message.span))
     }
     if let Some(flag) = flag {
         record.push("flag", Value::string(flag.item, flag.span))
