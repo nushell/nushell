@@ -10,6 +10,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
 jobs:
 
   winget:
