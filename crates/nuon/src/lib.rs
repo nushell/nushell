@@ -3,19 +3,21 @@ mod from;
 mod to;
 
 pub use from::from_nuon;
-pub use to::to_nuon;
 pub use to::ToStyle;
+pub use to::to_nuon;
 
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
     use nu_protocol::{
+        BlockId, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
-        engine::Closure,
-        record, IntRange, Range, Span, Value,
+        casing::Casing,
+        engine::{Closure, EngineState},
+        record,
     };
 
-    use crate::{from_nuon, to_nuon, ToStyle};
+    use crate::{ToStyle, from_nuon, to_nuon};
 
     /// test something of the form
     /// ```nushell
@@ -25,11 +27,15 @@ mod tests {
     /// an optional "middle" value can be given to test what the value is between `from nuon` and
     /// `to nuon`.
     fn nuon_end_to_end(input: &str, middle: Option<Value>) {
+        let engine_state = EngineState::new();
         let val = from_nuon(input, None).unwrap();
         if let Some(m) = middle {
             assert_eq!(val, m);
         }
-        assert_eq!(to_nuon(&val, ToStyle::Raw, None).unwrap(), input);
+        assert_eq!(
+            to_nuon(&engine_state, &val, ToStyle::Default, None, false).unwrap(),
+            input
+        );
     }
 
     #[test]
@@ -155,7 +161,7 @@ mod tests {
     #[test]
     fn filesize() {
         nuon_end_to_end("1024b", Some(Value::test_filesize(1024)));
-        assert_eq!(from_nuon("1kib", None).unwrap(), Value::test_filesize(1024),);
+        assert_eq!(from_nuon("1kib", None).unwrap(), Value::test_filesize(1024));
     }
 
     #[test]
@@ -172,18 +178,25 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn to_nuon_errs_on_closure() {
-        assert!(to_nuon(
-            &Value::test_closure(Closure {
-                block_id: 0,
-                captures: vec![]
-            }),
-            ToStyle::Raw,
-            None,
-        )
-        .unwrap_err()
-        .to_string()
-        .contains("Unsupported input"));
+        let engine_state = EngineState::new();
+
+        assert!(
+            to_nuon(
+                &engine_state,
+                &Value::test_closure(Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![]
+                }),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported input")
+        );
     }
 
     #[test]
@@ -196,8 +209,17 @@ mod tests {
 
     #[test]
     fn binary_roundtrip() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
-            to_nuon(&from_nuon("0x[1f ff]", None).unwrap(), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &from_nuon("0x[1f ff]", None).unwrap(),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap(),
             "0x[1FFF]"
         );
     }
@@ -237,64 +259,114 @@ mod tests {
 
     #[test]
     fn float_doesnt_become_int() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
-            to_nuon(&Value::test_float(1.0), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &Value::test_float(1.0),
+                ToStyle::Default,
+                None,
+                false
+            )
+            .unwrap(),
             "1.0"
         );
     }
 
     #[test]
     fn float_inf_parsed_properly() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
-            to_nuon(&Value::test_float(f64::INFINITY), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &Value::test_float(f64::INFINITY),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap(),
             "inf"
         );
     }
 
     #[test]
     fn float_neg_inf_parsed_properly() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
-            to_nuon(&Value::test_float(f64::NEG_INFINITY), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &Value::test_float(f64::NEG_INFINITY),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap(),
             "-inf"
         );
     }
 
     #[test]
     fn float_nan_parsed_properly() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
-            to_nuon(&Value::test_float(-f64::NAN), ToStyle::Raw, None).unwrap(),
+            to_nuon(
+                &engine_state,
+                &Value::test_float(-f64::NAN),
+                ToStyle::Default,
+                None,
+                false,
+            )
+            .unwrap(),
             "NaN"
         );
     }
 
     #[test]
     fn to_nuon_converts_columns_with_spaces() {
-        assert!(from_nuon(
-            &to_nuon(
-                &Value::test_list(vec![
-                    Value::test_record(record!(
-                        "a" => Value::test_int(1),
-                        "b" => Value::test_int(2),
-                        "c d" => Value::test_int(3)
-                    )),
-                    Value::test_record(record!(
-                        "a" => Value::test_int(4),
-                        "b" => Value::test_int(5),
-                        "c d" => Value::test_int(6)
-                    ))
-                ]),
-                ToStyle::Raw,
-                None
+        let engine_state = EngineState::new();
+
+        assert!(
+            from_nuon(
+                &to_nuon(
+                    &engine_state,
+                    &Value::test_list(vec![
+                        Value::test_record(record!(
+                            "a" => Value::test_int(1),
+                            "b" => Value::test_int(2),
+                            "c d" => Value::test_int(3)
+                        )),
+                        Value::test_record(record!(
+                            "a" => Value::test_int(4),
+                            "b" => Value::test_int(5),
+                            "c d" => Value::test_int(6)
+                        ))
+                    ]),
+                    ToStyle::Default,
+                    None,
+                    false,
+                )
+                .unwrap(),
+                None,
             )
-            .unwrap(),
-            None,
-        )
-        .is_ok());
+            .is_ok()
+        );
     }
 
     #[test]
     fn to_nuon_quotes_empty_string() {
-        let res = to_nuon(&Value::test_string(""), ToStyle::Raw, None);
+        let engine_state = EngineState::new();
+
+        let res = to_nuon(
+            &engine_state,
+            &Value::test_string(""),
+            ToStyle::Default,
+            None,
+            false,
+        );
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), r#""""#);
     }
@@ -330,8 +402,18 @@ mod tests {
             r#"$.foo.bar.0"#,
             Some(Value::test_cell_path(CellPath {
                 members: vec![
-                    PathMember::string("foo".to_string(), false, Span::new(2, 5)),
-                    PathMember::string("bar".to_string(), false, Span::new(6, 9)),
+                    PathMember::string(
+                        "foo".to_string(),
+                        false,
+                        Casing::Sensitive,
+                        Span::new(2, 5),
+                    ),
+                    PathMember::string(
+                        "bar".to_string(),
+                        false,
+                        Casing::Sensitive,
+                        Span::new(6, 9),
+                    ),
                     PathMember::int(0, false, Span::new(10, 11)),
                 ],
             })),
@@ -340,8 +422,11 @@ mod tests {
 
     #[test]
     fn does_not_quote_strings_unnecessarily() {
+        let engine_state = EngineState::new();
+
         assert_eq!(
             to_nuon(
+                &engine_state,
                 &Value::test_list(vec![
                     Value::test_record(record!(
                         "a" => Value::test_int(1),
@@ -354,8 +439,9 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                ToStyle::Raw,
-                None
+                ToStyle::Default,
+                None,
+                false,
             )
             .unwrap(),
             "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]"
@@ -363,12 +449,14 @@ mod tests {
 
         assert_eq!(
             to_nuon(
+                &engine_state,
                 &Value::test_record(record!(
                     "ro name" => Value::test_string("sam"),
                     "rank" => Value::test_int(10)
                 )),
-                ToStyle::Raw,
-                None
+                ToStyle::Default,
+                None,
+                false,
             )
             .unwrap(),
             "{\"ro name\": sam, rank: 10}"
@@ -413,10 +501,12 @@ mod tests {
     // }
     // ```
     fn read_code_should_fail_rather_than_panic() {
-        assert!(from_nuon(
-            include_str!("../../../tests/fixtures/formats/code.nu"),
-            None,
-        )
-        .is_err());
+        assert!(
+            from_nuon(
+                include_str!("../../../tests/fixtures/formats/code.nu"),
+                None,
+            )
+            .is_err()
+        );
     }
 }

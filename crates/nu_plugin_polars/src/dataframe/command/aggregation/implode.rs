@@ -1,8 +1,8 @@
+use crate::PolarsPlugin;
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+    CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
@@ -37,11 +37,14 @@ impl PluginCommand for ExprImplode {
             description: "Create two lists for columns a and b with all the rows as values.",
             example: "[[a b]; [1 4] [2 5] [3 6]] | polars into-df | polars select (polars col '*' | polars implode) | polars collect",
             result: Some(
-                NuDataFrame::from(df!(
-                    "a"=> [[1i64, 2, 3].iter().collect::<Series>()],
-                    "b"=> [[4i64, 5, 6].iter().collect::<Series>()],
-                ).expect("should not fail"))
-                .into_value(Span::unknown())
+                NuDataFrame::from(
+                    df!(
+                        "a"=> [[1i64, 2, 3].iter().collect::<Series>()],
+                        "b"=> [[4i64, 5, 6].iter().collect::<Series>()],
+                    )
+                    .expect("should not fail"),
+                )
+                .into_value(Span::unknown()),
             ),
         }]
     }
@@ -53,12 +56,14 @@ impl PluginCommand for ExprImplode {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
             _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

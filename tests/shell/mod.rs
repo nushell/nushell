@@ -274,7 +274,7 @@ fn run_in_noninteractive_mode() {
 #[test]
 fn run_with_no_newline() {
     let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
-        .args(["--no-newline", "-c", "\"hello world\""])
+        .args(["-n", "--no-newline", "-c", "\"hello world\""])
         .output()
         .expect("failed to run nu");
 
@@ -332,6 +332,51 @@ fn source_empty_file() {
 
         let actual = nu!(cwd: dirs.test(), pipeline("nu empty.nu"));
         assert!(actual.out.is_empty());
+    })
+}
+
+#[test]
+fn source_use_null() {
+    let actual = nu!(r#"source null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"source-env null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+
+    let actual = nu!(r#"overlay use null"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn source_use_file_named_null() {
+    Playground::setup("source_file_named_null", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "null",
+            r#"export-env { print "hello world" }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), r#"source "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"source-env "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
+
+        let actual = nu!(cwd: dirs.test(), r#"overlay use "null""#);
+        assert!(actual.out.contains("hello world"));
+        assert!(actual.err.is_empty());
     })
 }
 

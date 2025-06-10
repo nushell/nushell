@@ -1,16 +1,16 @@
 use nu_engine::eval_block;
 use nu_protocol::{
+    BlockId, IntoPipelineData, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
-    IntoPipelineData, Span, Value,
 };
-use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
+use reedline::{Completer, Suggestion, menu_functions::parse_selection_char};
 use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
 
 pub struct NuMenuCompleter {
-    block_id: usize,
+    block_id: BlockId,
     span: Span,
     stack: Stack,
     engine_state: Arc<EngineState>,
@@ -19,7 +19,7 @@ pub struct NuMenuCompleter {
 
 impl NuMenuCompleter {
     pub fn new(
-        block_id: usize,
+        block_id: BlockId,
         span: Span,
         stack: Stack,
         engine_state: Arc<EngineState>,
@@ -28,7 +28,7 @@ impl NuMenuCompleter {
         Self {
             block_id,
             span,
-            stack: stack.reset_out_dest().capture(),
+            stack: stack.reset_out_dest().collect_value(),
             engine_state,
             only_buffer_difference,
         }

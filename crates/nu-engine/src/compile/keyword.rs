@@ -1,11 +1,11 @@
 use nu_protocol::{
+    IntoSpanned, RegId, Type, VarId,
     ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
-    IntoSpanned, RegId, Type, VarId,
 };
 
-use super::{compile_block, compile_expression, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_block, compile_expression};
 
 /// Compile a call to `if` as a branch-if
 pub(crate) fn compile_if(
@@ -47,7 +47,7 @@ pub(crate) fn compile_if(
             working_set,
             builder,
             condition,
-            RedirectModes::capture_out(condition.span),
+            RedirectModes::value(condition.span),
             None,
             condition_reg,
         )?;
@@ -181,7 +181,7 @@ pub(crate) fn compile_match(
         working_set,
         builder,
         match_expr,
-        RedirectModes::capture_out(match_expr.span),
+        RedirectModes::value(match_expr.span),
         None,
         match_reg,
     )?;
@@ -197,13 +197,11 @@ pub(crate) fn compile_match(
     for (pattern, _) in match_block {
         let match_label = builder.label(None);
         match_labels.push(match_label);
-        builder.push(
-            Instruction::Match {
-                pattern: Box::new(pattern.pattern.clone()),
-                src: match_reg,
-                index: match_label.0,
-            }
-            .into_spanned(pattern.span),
+        builder.r#match(
+            pattern.pattern.clone(),
+            match_reg,
+            match_label,
+            pattern.span,
         )?;
         // Also add a label for the next match instruction or failure case
         next_labels.push(builder.label(Some(builder.here())));
@@ -233,7 +231,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 guard,
-                RedirectModes::capture_out(guard.span),
+                RedirectModes::value(guard.span),
                 None,
                 guard_reg,
             )?;
@@ -257,7 +255,7 @@ pub(crate) fn compile_match(
         builder.drop_reg(match_reg)?;
 
         // Execute match right hand side expression
-        if let Some(block_id) = expr.as_block() {
+        if let Expr::Block(block_id) = expr.expr {
             let block = working_set.get_block(block_id);
             compile_block(
                 working_set,
@@ -319,7 +317,7 @@ pub(crate) fn compile_let(
         working_set,
         builder,
         block,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         Some(io_reg),
         io_reg,
     )?;
@@ -427,7 +425,7 @@ pub(crate) fn compile_try(
                     working_set,
                     builder,
                     catch_expr,
-                    RedirectModes::capture_out(catch_expr.span),
+                    RedirectModes::value(catch_expr.span),
                     None,
                     closure_reg,
                 )?;
@@ -473,7 +471,7 @@ pub(crate) fn compile_try(
     if let Some(mode) = redirect_modes.err {
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
-    builder.push(Instruction::WriteToOutDests { src: io_reg }.into_spanned(call.head))?;
+    builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
@@ -655,7 +653,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         cond_arg,
-        RedirectModes::capture_out(call.head),
+        RedirectModes::value(call.head),
         None,
         io_reg,
     )?;
@@ -739,7 +737,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         in_expr,
-        RedirectModes::capture_out(in_expr.span),
+        RedirectModes::value(in_expr.span),
         None,
         stream_reg,
     )?;
@@ -867,7 +865,7 @@ pub(crate) fn compile_return(
             working_set,
             builder,
             arg_expr,
-            RedirectModes::capture_out(arg_expr.span),
+            RedirectModes::value(arg_expr.span),
             None,
             io_reg,
         )?;

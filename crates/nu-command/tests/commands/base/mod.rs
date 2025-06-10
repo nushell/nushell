@@ -1,5 +1,6 @@
 use data_encoding::HEXUPPER;
 use rand::prelude::*;
+use rand::random_range;
 use rand_chacha::ChaCha8Rng;
 
 use nu_test_support::nu;
@@ -16,7 +17,7 @@ fn random_bytes() -> Vec<String> {
 
     (0..NUM)
         .map(|_| {
-            let length = rng.gen_range(0..512);
+            let length = random_range(0..512);
             let mut bytes = vec![0u8; length];
             rng.fill_bytes(&mut bytes);
             HEXUPPER.encode(&bytes)

@@ -106,7 +106,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                         wrong_type: other.get_type().to_string(),
                         dst_span: head,
                         src_span: other.span(),
-                    })
+                    });
                 }
             };
 

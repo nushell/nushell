@@ -41,3 +41,10 @@ fn const_median() {
     let actual = nu!("const MEDIAN = [1 3 5] | math median; $MEDIAN");
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn cannot_median_infinite_range() {
+    let actual = nu!("0.. | math median");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
+}

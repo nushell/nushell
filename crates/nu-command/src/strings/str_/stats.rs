@@ -9,9 +9,9 @@ use unicode_segmentation::UnicodeSegmentation;
 pub type Counted = BTreeMap<Counter, usize>;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrStats;
 
-impl Command for SubCommand {
+impl Command for StrStats {
     fn name(&self) -> &str {
         "str stats"
     }
@@ -64,17 +64,19 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(38),
                         "chars" =>     Value::test_int(38),
                         "graphemes" => Value::test_int(38),
+                        "unicode-width" => Value::test_int(38),
                 })),
             },
             Example {
                 description: "Counts unicode characters",
-                example: r#"'今天天气真好' | str stats "#,
+                example: r#"'今天天气真好' | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),
                         "words" =>     Value::test_int(6),
                         "bytes" =>     Value::test_int(18),
                         "chars" =>     Value::test_int(6),
                         "graphemes" => Value::test_int(6),
+                        "unicode-width" => Value::test_int(12),
                 })),
             },
             Example {
@@ -86,6 +88,7 @@ impl Command for SubCommand {
                         "bytes" =>     Value::test_int(15),
                         "chars" =>     Value::test_int(14),
                         "graphemes" => Value::test_int(13),
+                        "unicode-width" => Value::test_int(13),
                 })),
             },
         ]
@@ -105,6 +108,7 @@ fn stats(
     input.map(
         move |v| {
             let value_span = v.span();
+            let type_ = v.get_type();
             // First, obtain the span. If this fails, propagate the error that results.
             if let Value::Error { error, .. } = v {
                 return Value::error(*error, span);
@@ -113,8 +117,9 @@ fn stats(
             match v.coerce_into_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: type_.to_string(),
                         dst_span: span,
                         src_span: value_span,
                     },
@@ -139,12 +144,13 @@ fn counter(contents: &str, span: Span) -> Value {
         "bytes" => get_count(&counts, Counter::Bytes, span),
         "chars" => get_count(&counts, Counter::CodePoints, span),
         "graphemes" => get_count(&counts, Counter::GraphemeClusters, span),
+        "unicode-width" => get_count(&counts, Counter::UnicodeWidth, span),
     };
 
     Value::record(record, span)
 }
 
-/// Take all the counts in `other_counts` and sum them into `accum`.
+// /// Take all the counts in `other_counts` and sum them into `accum`.
 // pub fn sum_counts(accum: &mut Counted, other_counts: &Counted) {
 //     for (counter, count) in other_counts {
 //         let entry = accum.entry(*counter).or_insert(0);
@@ -152,7 +158,7 @@ fn counter(contents: &str, span: Span) -> Value {
 //     }
 // }
 
-/// Sums all the `Counted` instances into a new one.
+// /// Sums all the `Counted` instances into a new one.
 // pub fn sum_all_counts<'a, I>(counts: I) -> Counted
 // where
 //     I: IntoIterator<Item = &'a Counted>,
@@ -208,6 +214,7 @@ impl Count for Counter {
             }
             Counter::Words => s.unicode_words().count(),
             Counter::CodePoints => s.chars().count(),
+            Counter::UnicodeWidth => unicode_width::UnicodeWidthStr::width(s),
         }
     }
 }
@@ -229,15 +236,19 @@ pub enum Counter {
 
     /// Counts unicode code points
     CodePoints,
+
+    /// Counts the width of the string
+    UnicodeWidth,
 }
 
 /// A convenience array of all counter types.
-pub const ALL_COUNTERS: [Counter; 5] = [
+pub const ALL_COUNTERS: [Counter; 6] = [
     Counter::GraphemeClusters,
     Counter::Bytes,
     Counter::Lines,
     Counter::Words,
     Counter::CodePoints,
+    Counter::UnicodeWidth,
 ];
 
 impl fmt::Display for Counter {
@@ -248,6 +259,7 @@ impl fmt::Display for Counter {
             Counter::Lines => "lines",
             Counter::Words => "words",
             Counter::CodePoints => "codepoints",
+            Counter::UnicodeWidth => "unicode-width",
         };
 
         write!(f, "{s}")
@@ -283,7 +295,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrStats {})
     }
 }
 
@@ -297,6 +309,7 @@ fn test_one_newline() {
     correct_counts.insert(Counter::GraphemeClusters, 1);
     correct_counts.insert(Counter::Bytes, 1);
     correct_counts.insert(Counter::CodePoints, 1);
+    correct_counts.insert(Counter::UnicodeWidth, 1);
 
     assert_eq!(correct_counts, counts);
 }
@@ -336,6 +349,7 @@ fn test_count_counts_lines() {
 
     // one more than grapheme clusters because of \r\n
     correct_counts.insert(Counter::CodePoints, 24);
+    correct_counts.insert(Counter::UnicodeWidth, 23);
 
     assert_eq!(correct_counts, counts);
 }
@@ -353,6 +367,7 @@ fn test_count_counts_words() {
     correct_counts.insert(Counter::Bytes, i_can_eat_glass.len());
     correct_counts.insert(Counter::Words, 9);
     correct_counts.insert(Counter::CodePoints, 50);
+    correct_counts.insert(Counter::UnicodeWidth, 50);
 
     assert_eq!(correct_counts, counts);
 }

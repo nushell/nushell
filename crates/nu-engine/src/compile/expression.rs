@@ -1,13 +1,13 @@
 use super::{
-    compile_binary_op, compile_block, compile_call, compile_external_call, compile_load_env,
-    BlockBuilder, CompileError, RedirectModes,
+    BlockBuilder, CompileError, RedirectModes, compile_binary_op, compile_block, compile_call,
+    compile_external_call, compile_load_env,
 };
 
 use nu_protocol::{
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
-    IntoSpanned, RegId, Span, Value, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(
@@ -72,6 +72,14 @@ pub(crate) fn compile_expression(
     };
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => compile_expression(
+            working_set,
+            builder,
+            &ab.item,
+            redirect_modes,
+            in_reg,
+            out_reg,
+        ),
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
@@ -90,7 +98,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         part_expr,
-                        RedirectModes::capture_out(part_expr.span),
+                        RedirectModes::value(part_expr.span),
                         None,
                         reg,
                     )?;
@@ -148,7 +156,7 @@ pub(crate) fn compile_expression(
                 working_set,
                 builder,
                 subexpr,
-                RedirectModes::capture_out(subexpr.span),
+                RedirectModes::value(subexpr.span),
                 None,
                 out_reg,
             )?;
@@ -156,13 +164,13 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::BinaryOp(lhs, op, rhs) => {
-            if let Expr::Operator(ref operator) = op.expr {
+            if let Expr::Operator(operator) = op.expr {
                 drop_input(builder)?;
                 compile_binary_op(
                     working_set,
                     builder,
                     lhs,
-                    operator.clone().into_spanned(op.span),
+                    operator.into_spanned(op.span),
                     rhs,
                     expr.span,
                     out_reg,
@@ -217,7 +225,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     reg,
                 )?;
@@ -265,7 +273,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         column,
-                        RedirectModes::capture_out(column.span),
+                        RedirectModes::value(column.span),
                         None,
                         reg,
                     )?;
@@ -290,7 +298,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         item,
-                        RedirectModes::capture_out(item.span),
+                        RedirectModes::value(item.span),
                         None,
                         item_reg,
                     )?;
@@ -337,7 +345,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             key,
-                            RedirectModes::capture_out(key.span),
+                            RedirectModes::value(key.span),
                             None,
                             key_reg,
                         )?;
@@ -345,7 +353,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             val,
-                            RedirectModes::capture_out(val.span),
+                            RedirectModes::value(val.span),
                             None,
                             val_reg,
                         )?;
@@ -365,7 +373,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             expr,
-                            RedirectModes::capture_out(expr.span),
+                            RedirectModes::value(expr.span),
                             None,
                             reg,
                         )?;
@@ -449,7 +457,7 @@ pub(crate) fn compile_expression(
                     // general, which shouldn't be captured any differently than they otherwise
                     // would be.
                     if !full_cell_path.tail.is_empty() {
-                        RedirectModes::capture_out(expr.span)
+                        RedirectModes::value(expr.span)
                     } else {
                         redirect_modes
                     },
@@ -491,7 +499,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     exprs_iter.next().expect("peek() was Some"),
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     out_reg,
                 )?;
@@ -507,7 +515,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(expr.span),
+                    RedirectModes::value(expr.span),
                     None,
                     scratch_reg,
                 )?;

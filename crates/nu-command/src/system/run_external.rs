@@ -1,10 +1,16 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_path::{dots::expand_ndots, expand_tilde};
-use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
-use nu_system::ForegroundChild;
+use nu_engine::{command_prelude::*, env_to_strings};
+use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
+use nu_protocol::{
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
+    process::{ChildProcess, PostWaitCallback},
+    shell_error::io::IoError,
+};
+use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
@@ -30,15 +36,10 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
-                "command",
-                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
-                "External command to run.",
-            )
             .rest(
-                "args",
+                "command",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
-                "Arguments for external command.",
+                "External command to run, with arguments.",
             )
             .category(Category::System)
     }
@@ -51,12 +52,30 @@ impl Command for External {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
+        let rest = call.rest::<Value>(engine_state, stack, 0)?;
+        let name_args = rest.split_first().map(|(x, y)| (x, y.to_vec()));
 
-        let name: Value = call.req(engine_state, stack, 0)?;
+        let Some((name, mut call_args)) = name_args else {
+            return Err(ShellError::MissingParameter {
+                param_name: "no command given".into(),
+                span: call.head,
+            });
+        };
 
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
             Value::String { val, .. } => Cow::Borrowed(val),
+            Value::List { vals, .. } => {
+                let Some((first, args)) = vals.split_first() else {
+                    return Err(ShellError::MissingParameter {
+                        param_name: "external command given as list empty".into(),
+                        span: call.head,
+                    });
+                };
+                // Prepend elements in command list to the list of arguments except the first
+                call_args.splice(0..0, args.to_vec());
+                first.coerce_str()?
+            }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
@@ -68,23 +87,84 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
+        let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+
+        // On Windows, the user could have run the cmd.exe built-in commands "assoc"
+        // and "ftype" to create a file association for an arbitrary file extension.
+        // They then could have added that extension to the PATHEXT environment variable.
+        // For example, a nushell script with extension ".nu" can be set up with
+        // "assoc .nu=nuscript" and "ftype nuscript=C:\path\to\nu.exe '%1' %*",
+        // and then by adding ".NU" to PATHEXT. In this case we use the which command,
+        // which will find the executable with or without the extension. If "which"
+        // returns true, that means that we've found the script and we believe the
+        // user wants to use the windows association to run the script. The only
+        // easy way to do this is to run cmd.exe with the script as an argument.
+        // File extensions of .COM, .EXE, .BAT, and .CMD are ignored because Windows
+        // can run those files directly. PS1 files are also ignored and that
+        // extension is handled in a separate block below.
+        let pathext_script_in_windows = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
+
+                !["COM", "EXE", "BAT", "CMD", "PS1"]
+                    .iter()
+                    .any(|c| *c == ext)
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // let's make sure it's a .ps1 script, but only on Windows
+        let (potential_powershell_script, path_to_ps1_executable) = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
+                let ext = executable
+                    .extension()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_uppercase();
+                (ext == "PS1", Some(executable))
+            } else {
+                (false, None)
+            }
+        } else {
+            (false, None)
+        };
+
         // Find the absolute path to the executable. On Windows, set the
-        // executable to "cmd.exe" if it's is a CMD internal command. If the
+        // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
+        {
             PathBuf::from("cmd.exe")
+        } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
+            // If we're on Windows and we're trying to run a PowerShell script, we'll use
+            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+            // it's automatically installed on all modern windows systems.
+            PathBuf::from("powershell.exe")
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
-            let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(expanded_name, &paths, cwd.as_ref()) else {
-                return Err(command_not_found(&name_str, call.head, engine_state, stack));
+            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
             executable
         };
 
         // Create the command.
-        let mut command = std::process::Command::new(executable);
+        let mut command = std::process::Command::new(&executable);
 
         // Configure PWD.
         command.current_dir(cwd);
@@ -95,18 +175,22 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_arguments_from_call(engine_state, stack, call)?;
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name_str) {
-            use std::os::windows::process::CommandExt;
-
+        if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &name_str]);
+            command.args(["/D", "/C", &expanded_name.to_string_lossy()]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
+        } else if potential_powershell_script {
+            command.args([
+                "-File",
+                &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
+            ]);
+            command.args(args.into_iter().map(|s| s.item));
         } else {
             command.args(args.into_iter().map(|s| s.item));
         }
@@ -114,22 +198,45 @@ impl Command for External {
         command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
-        // we'll setup a pipe that merge two streams into one.
+        // we'll set up a pipe that merges two streams into one.
         let stdout = stack.stdout();
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
-            let (reader, writer) = os_pipe::pipe()?;
-            command.stdout(writer.try_clone()?);
+            let (reader, writer) =
+                os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
+            command.stdout(
+                writer
+                    .try_clone()
+                    .map_err(|err| IoError::new(err, call.head, None))?,
+            );
             command.stderr(writer);
             Some(reader)
         } else {
-            command.stdout(Stdio::try_from(stdout)?);
-            command.stderr(Stdio::try_from(stderr)?);
+            if engine_state.is_background_job()
+                && matches!(stdout, OutDest::Inherit | OutDest::Print)
+            {
+                command.stdout(Stdio::null());
+            } else {
+                command.stdout(
+                    Stdio::try_from(stdout).map_err(|err| IoError::new(err, call.head, None))?,
+                );
+            }
+
+            if engine_state.is_background_job()
+                && matches!(stderr, OutDest::Inherit | OutDest::Print)
+            {
+                command.stderr(Stdio::null());
+            } else {
+                command.stderr(
+                    Stdio::try_from(stderr).map_err(|err| IoError::new(err, call.head, None))?,
+                );
+            }
+
             None
         };
 
         // Configure stdin. We'll try connecting input to the child process
-        // directly. If that's not possible, we'll setup a pipe and spawn a
+        // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
             PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
@@ -158,13 +265,34 @@ impl Command for External {
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
         #[cfg(windows)]
-        let mut child = ForegroundChild::spawn(command)?;
+        let child = ForegroundChild::spawn(command);
         #[cfg(unix)]
-        let mut child = ForegroundChild::spawn(
+        let child = ForegroundChild::spawn(
             command,
             engine_state.is_interactive,
+            engine_state.is_background_job(),
             &engine_state.pipeline_externals_state,
-        )?;
+        );
+
+        let mut child = child.map_err(|err| {
+            IoError::new_internal(
+                err,
+                "Could not spawn foreground child",
+                nu_protocol::location!(),
+            )
+        })?;
+
+        if let Some(thread_job) = engine_state.current_thread_job() {
+            if !thread_job.try_add_pid(child.pid()) {
+                kill_by_pid(child.pid().into()).map_err(|err| {
+                    ShellError::Io(IoError::new_internal(
+                        err,
+                        "Could not spawn external stdin worker",
+                        nu_protocol::location!(),
+                    ))
+                })?;
+            }
+        }
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
@@ -176,16 +304,41 @@ impl Command for External {
                 .spawn(move || {
                     let _ = write_pipeline_data(engine_state, stack, data, stdin);
                 })
-                .err_span(call.head)?;
+                .map_err(|err| {
+                    IoError::new_with_additional_context(
+                        err,
+                        call.head,
+                        None,
+                        "Could not spawn external stdin worker",
+                    )
+                })?;
         }
 
+        let child_pid = child.pid();
+
         // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(
+        let mut child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
             call.head,
+            Some(PostWaitCallback::for_job_control(
+                engine_state,
+                Some(child_pid),
+                executable
+                    .as_path()
+                    .file_name()
+                    .and_then(|it| it.to_str())
+                    .map(|it| it.to_string()),
+            )),
         )?;
+
+        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
+            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
+        {
+            child.ignore_error(true);
+        }
+
         Ok(PipelineData::ByteStream(
             ByteStream::child(child, call.head),
             None,
@@ -213,15 +366,13 @@ impl Command for External {
     }
 }
 
-/// Evaluate all arguments from a call, performing expansions when necessary.
-pub fn eval_arguments_from_call(
+/// Evaluate all arguments, performing expansions when necessary.
+pub fn eval_external_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call_args: Vec<Value>,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let eval_expression = get_eval_expression(engine_state);
-    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
     let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
 
     for arg in call_args {
@@ -229,9 +380,14 @@ pub fn eval_arguments_from_call(
         match arg {
             // Expand globs passed to run-external
             Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                expand_glob(&val, cwd.as_std_path(), span, engine_state.signals())?
-                    .into_iter()
-                    .map(|s| s.into_spanned(span)),
+                expand_glob(
+                    &val,
+                    cwd.as_std_path(),
+                    span,
+                    engine_state.signals().clone(),
+                )?
+                .into_iter()
+                .map(|s| s.into_spanned(span)),
             ),
             other => args
                 .push(OsString::from(coerce_into_string(engine_state, other)?).into_spanned(span)),
@@ -262,13 +418,11 @@ fn expand_glob(
     arg: &str,
     cwd: &Path,
     span: Span,
-    signals: &Signals,
+    signals: Signals,
 ) -> Result<Vec<OsString>, ShellError> {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-
-    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !arg.contains(GLOB_CHARS) {
+    if !nu_glob::is_glob(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
@@ -276,7 +430,7 @@ fn expand_glob(
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
     // dir
     let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
-    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None) {
+    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None, signals.clone()) {
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
@@ -338,12 +492,18 @@ fn write_pipeline_data(
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
-        writer.write_all(&val)?;
+        writer.write_all(&val).map_err(|err| {
+            IoError::new_internal(
+                err,
+                "Could not write pipeline data",
+                nu_protocol::location!(),
+            )
+        })?;
     } else {
-        stack.start_capture();
+        stack.start_collect_value();
 
         // Turn off color as we pass data through
-        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = UseAnsiColoring::False;
 
         // Invoke the `table` command.
         let output =
@@ -352,7 +512,13 @@ fn write_pipeline_data(
         // Write the output.
         for value in output {
             let bytes = value.coerce_into_binary()?;
-            writer.write_all(&bytes)?;
+            writer.write_all(&bytes).map_err(|err| {
+                IoError::new_internal(
+                    err,
+                    "Could not write pipeline data",
+                    nu_protocol::location!(),
+                )
+            })?;
         }
     }
     Ok(())
@@ -364,10 +530,11 @@ pub fn command_not_found(
     span: Span,
     engine_state: &EngineState,
     stack: &mut Stack,
+    cwd: &AbsolutePath,
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
     if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
-        let mut stack = stack.start_capture();
+        let mut stack = stack.start_collect_value();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.
         let canary = "ENTERED_COMMAND_NOT_FOUND";
@@ -435,15 +602,17 @@ pub fn command_not_found(
         } else {
             return ShellError::ExternalCommand {
                 label: format!("Command `{name}` not found"),
-                help: format!("A command with that name exists in module `{module}`. Try importing it with `use`"),
+                help: format!(
+                    "A command with that name exists in module `{module}`. Try importing it with `use`"
+                ),
                 span,
             };
         }
     }
 
     // Try to match the name with the search terms of existing commands.
-    let signatures = engine_state.get_signatures(false);
-    if let Some(sig) = signatures.iter().find(|sig| {
+    let signatures = engine_state.get_signatures_and_declids(false);
+    if let Some((sig, _)) = signatures.iter().find(|(sig, _)| {
         sig.search_terms
             .iter()
             .any(|term| term.to_folded_case() == name.to_folded_case())
@@ -456,7 +625,7 @@ pub fn command_not_found(
     }
 
     // Try a fuzzy search on the names of all existing commands.
-    if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
+    if let Some(cmd) = did_you_mean(signatures.iter().map(|(sig, _)| &sig.name), name) {
         // The user is invoking an external command with the same name as a
         // built-in command. Remind them of this.
         if cmd == name {
@@ -474,12 +643,14 @@ pub fn command_not_found(
     }
 
     // If we find a file, it's likely that the user forgot to set permissions
-    if Path::new(name).is_file() {
+    if cwd.join(name).is_file() {
         return ShellError::ExternalCommand {
-                        label: format!("Command `{name}` not found"),
-                        help: format!("`{name}` refers to a file that is not executable. Did you forget to to set execute permissions?"),
-                        span,
-                    };
+            label: format!("Command `{name}` not found"),
+            help: format!(
+                "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
+            ),
+            span,
+        };
     }
 
     // We found nothing useful. Give up and return a generic error message.
@@ -527,7 +698,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     let Spanned { item: arg, span } = arg;
     let bytes = arg.as_encoded_bytes();
     if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
-        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        // \r and \n truncate the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
                 "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
@@ -564,21 +735,6 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     }
 }
 
-/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
-/// path normalization that happens.
-fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
-    let string = path.as_ref().to_string_lossy();
-
-    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
-    // use it if it contains ://, because that looks like a URL scheme and the path normalization
-    // will mess with that.
-    if string.contains("...") && !string.contains("://") {
-        expand_ndots(path)
-    } else {
-        path.as_ref().to_owned()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -591,30 +747,30 @@ mod test {
 
             let cwd = dirs.test().as_std_path();
 
-            let actual = expand_glob("*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
             let expected = &["a.txt", "b.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("./*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), Signals::empty()).unwrap();
             let expected = &["'*.txt'"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob(".", cwd, Span::unknown(), Signals::empty()).unwrap();
             let expected = &["."];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("./a.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
             let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("[*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
             let expected = &["[*.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
+            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
             let home = dirs::home_dir().expect("failed to get home dir");
             let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);
@@ -623,8 +779,16 @@ mod test {
 
     #[test]
     fn test_write_pipeline_data() {
-        let engine_state = EngineState::new();
+        let mut engine_state = EngineState::new();
         let stack = Stack::new();
+        let cwd = std::env::current_dir()
+            .unwrap()
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
+        // set the PWD environment variable as it's required now
+        engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
         let mut buf = vec![];
         let input = PipelineData::Empty;

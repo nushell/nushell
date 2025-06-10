@@ -38,11 +38,11 @@ pub struct DecodeBase64;
 
 impl Command for DecodeBase64 {
     fn name(&self) -> &str {
-        "decode new-base64"
+        "decode base64"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("decode new-base64")
+        Signature::build("decode base64")
             .input_output_types(vec![(Type::String, Type::Binary)])
             .allow_variants_without_examples(true)
             .switch("url", "Decode the URL-safe Base64 version.", None)
@@ -62,17 +62,17 @@ impl Command for DecodeBase64 {
         vec![
             Example {
                 description: "Decode a Base64 string",
-                example: r#""U29tZSBEYXRh" | decode new-base64 | decode"#,
+                example: r#""U29tZSBEYXRh" | decode base64 | decode"#,
                 result: None,
             },
             Example {
                 description: "Decode arbitrary data",
-                example: r#""/w==" | decode new-base64"#,
+                example: r#""/w==" | decode base64"#,
                 result: Some(Value::test_binary(vec![0xFF])),
             },
             Example {
                 description: "Decode a URL-safe Base64 string",
-                example: r#""_w==" | decode new-base64 --url"#,
+                example: r#""_w==" | decode base64 --url"#,
                 result: Some(Value::test_binary(vec![0xFF])),
             },
         ]
@@ -109,11 +109,11 @@ pub struct EncodeBase64;
 
 impl Command for EncodeBase64 {
     fn name(&self) -> &str {
-        "encode new-base64"
+        "encode base64"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("encode new-base64")
+        Signature::build("encode base64")
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
@@ -135,17 +135,17 @@ impl Command for EncodeBase64 {
         vec![
             Example {
                 description: "Encode a string with Base64",
-                example: r#""Alphabet from A to Z" | encode new-base64"#,
+                example: r#""Alphabet from A to Z" | encode base64"#,
                 result: Some(Value::test_string("QWxwaGFiZXQgZnJvbSBBIHRvIFo=")),
             },
             Example {
                 description: "Encode arbitrary data",
-                example: r#"0x[BE EE FF] | encode new-base64"#,
+                example: r#"0x[BE EE FF] | encode base64"#,
                 result: Some(Value::test_string("vu7/")),
             },
             Example {
                 description: "Use a URL-safe alphabet",
-                example: r#"0x[BE EE FF] | encode new-base64 --url"#,
+                example: r#"0x[BE EE FF] | encode base64 --url"#,
                 result: Some(Value::test_string("vu7_")),
             },
         ]

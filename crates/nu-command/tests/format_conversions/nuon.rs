@@ -5,9 +5,9 @@ fn to_nuon_correct_compaction() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open appveyor.yml 
-            | to nuon 
-            | str length 
+            open appveyor.yml
+            | to nuon
+            | str length
             | $in > 500
         "#
     ));
@@ -179,27 +179,56 @@ fn to_nuon_records() {
 
 #[test]
 fn to_nuon_range() {
-    let actual = nu!(pipeline(
-        r#"
-            1..42
-            | to nuon
-        "#
-    ));
-
+    let actual = nu!(r#"1..42 | to nuon"#);
     assert_eq!(actual.out, "1..42");
+
+    let actual = nu!(r#"1..<42 | to nuon"#);
+    assert_eq!(actual.out, "1..<42");
+
+    let actual = nu!(r#"1..4..42 | to nuon"#);
+    assert_eq!(actual.out, "1..4..42");
+
+    let actual = nu!(r#"1..4..<42 | to nuon"#);
+    assert_eq!(actual.out, "1..4..<42");
+
+    let actual = nu!(r#"1.0..42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..42.0");
+
+    let actual = nu!(r#"1.0..<42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..<42.0");
+
+    let actual = nu!(r#"1.0..4.0..42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..42.0");
+
+    let actual = nu!(r#"1.0..4.0..<42.0 | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..<42.0");
 }
 
 #[test]
 fn from_nuon_range() {
-    let actual = nu!(pipeline(
-        r#"
-            "1..42"
-            | from nuon
-            | describe
-        "#
-    ));
+    let actual = nu!(r#"'1..42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..42");
 
-    assert_eq!(actual.out, "range");
+    let actual = nu!(r#"'1..<42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..<42");
+
+    let actual = nu!(r#"'1..4..42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..4..42");
+
+    let actual = nu!(r#"'1..4..<42' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1..4..<42");
+
+    let actual = nu!(r#"'1.0..42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..42.0");
+
+    let actual = nu!(r#"'1.0..<42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..<42.0");
+
+    let actual = nu!(r#"'1.0..4.0..42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..42.0");
+
+    let actual = nu!(r#"'1.0..4.0..<42.0' | from nuon | to nuon"#);
+    assert_eq!(actual.out, "1.0..4.0..<42.0");
 }
 
 #[test]
@@ -274,7 +303,7 @@ fn from_nuon_datetime() {
         "#
     ));
 
-    assert_eq!(actual.out, "date");
+    assert_eq!(actual.out, "datetime");
 }
 
 #[test]
@@ -286,7 +315,19 @@ fn to_nuon_errs_on_closure() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert closure to NUON"));
+    assert!(actual.err.contains("not deserializable"));
+}
+
+#[test]
+fn to_nuon_closure_coerced_to_quoted_string() {
+    let actual = nu!(pipeline(
+        r#"
+            {|| to nuon}
+            | to nuon --serialize
+        "#
+    ));
+
+    assert_eq!(actual.out, "\"{|| to nuon}\"");
 }
 
 #[test]

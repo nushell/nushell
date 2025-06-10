@@ -1,7 +1,7 @@
 use crate::{
+    BlockId, DeclId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -104,13 +104,17 @@ impl Expression {
 
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match &self.expr {
+            Expr::AttributeBlock(ab) => ab.item.has_in_variable(working_set),
             Expr::BinaryOp(left, _, right) => {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
             Expr::Block(block_id) | Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
-                block.captures.contains(&IN_VARIABLE_ID)
+                block
+                    .captures
+                    .iter()
+                    .any(|(var_id, _)| var_id == &IN_VARIABLE_ID)
                     || block
                         .pipelines
                         .iter()
@@ -280,6 +284,7 @@ impl Expression {
             self.span = new_span;
         }
         match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_span(working_set, replaced, new_span),
             Expr::BinaryOp(left, _, right) => {
                 left.replace_span(working_set, replaced, new_span);
                 right.replace_span(working_set, replaced, new_span);
@@ -428,6 +433,7 @@ impl Expression {
 
     pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
         match &mut self.expr {
+            Expr::AttributeBlock(ab) => ab.item.replace_in_variable(working_set, new_var_id),
             Expr::Bool(_) => {}
             Expr::Int(_) => {}
             Expr::Float(_) => {}
@@ -584,7 +590,7 @@ impl Expression {
         Expression {
             expr,
             span,
-            span_id: SpanId(0),
+            span_id: SpanId::new(0),
             ty,
             custom_completion: None,
         }

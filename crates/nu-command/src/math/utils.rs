@@ -1,6 +1,8 @@
 use core::slice;
 use indexmap::IndexMap;
-use nu_protocol::{engine::Call, IntoPipelineData, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{
+    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value, engine::Call,
+};
 
 pub fn run_with_function(
     call: &Call,
@@ -91,6 +93,7 @@ pub fn calculate(
             Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
+            ensure_bounded(val.as_ref(), span, name)?;
             let new_vals: Result<Vec<Value>, ShellError> = val
                 .into_range_iter(span, Signals::empty())
                 .map(|val| mf(&[val], span, name))
@@ -99,7 +102,7 @@ pub fn calculate(
             mf(&new_vals?, span, name)
         }
         PipelineData::Value(val, ..) => mf(&[val], span, name),
-        PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: name }),
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: name }),
         val => Err(ShellError::UnsupportedInput {
             msg: "Only ints, floats, lists, records, or ranges are supported".into(),
             input: "value originates from here".into(),
@@ -109,4 +112,15 @@ pub fn calculate(
                 .expect("non-Empty non-ListStream PipelineData had no span"),
         }),
     }
+}
+
+pub fn ensure_bounded(range: &Range, val_span: Span, call_span: Span) -> Result<(), ShellError> {
+    if range.is_bounded() {
+        return Ok(());
+    }
+    Err(ShellError::IncorrectValue {
+        msg: "Range must be bounded".to_string(),
+        val_span,
+        call_span,
+    })
 }

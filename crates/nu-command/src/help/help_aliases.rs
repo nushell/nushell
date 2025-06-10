@@ -144,7 +144,7 @@ pub fn help_aliases(
         long_desc.push_str(&format!("{G}Expansion{RESET}:\n  {alias_expansion}"));
 
         let config = stack.get_config(engine_state);
-        if !config.use_ansi_coloring {
+        if !config.use_ansi_coloring.get(engine_state) {
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 

@@ -1,18 +1,19 @@
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
-        event::{DataChange, ModifyKind, RenameMode},
         EventKind, RecursiveMode, Watcher,
+        event::{DataChange, ModifyKind, RenameMode},
     },
 };
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
     format_shell_error,
+    shell_error::io::IoError,
 };
 use std::{
     path::PathBuf,
-    sync::mpsc::{channel, RecvTimeoutError},
+    sync::mpsc::{RecvTimeoutError, channel},
     time::Duration,
 };
 
@@ -83,11 +84,12 @@ impl Command for Watch {
 
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
-            Err(_) => {
-                return Err(ShellError::DirectoryNotFound {
-                    dir: path_no_whitespace.to_string(),
-                    span: path_arg.span,
-                })
+            Err(err) => {
+                return Err(ShellError::Io(IoError::new(
+                    err,
+                    path_arg.span,
+                    PathBuf::from(path_no_whitespace),
+                )));
             }
         };
 
@@ -106,7 +108,7 @@ impl Command for Watch {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Debounce duration is invalid".to_string(),
                         span: val.span,
-                    })
+                    });
                 }
             },
             None => DEFAULT_WATCH_DEBOUNCE_DURATION,
@@ -126,7 +128,7 @@ impl Command for Watch {
                         return Err(ShellError::TypeMismatch {
                             err_message: "Glob pattern is invalid".to_string(),
                             span: glob.span,
-                        })
+                        });
                     }
                 }
             }
@@ -151,14 +153,22 @@ impl Command for Watch {
         let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
             Ok(d) => d,
             Err(e) => {
-                return Err(ShellError::IOError {
-                    msg: format!("Failed to create watcher: {e}"),
-                })
+                return Err(ShellError::GenericError {
+                    error: "Failed to create watcher".to_string(),
+                    msg: e.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::IOError {
-                msg: format!("Failed to create watcher: {e}"),
+            return Err(ShellError::GenericError {
+                error: "Failed to create watcher".to_string(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             });
         }
         // need to cache to make sure that rename event works.
@@ -194,7 +204,7 @@ impl Command for Watch {
 
                 match result {
                     Ok(val) => {
-                        val.print(engine_state, stack, false, false)?;
+                        val.print_table(engine_state, stack, false, false)?;
                     }
                     Err(err) => {
                         let working_set = StateWorkingSet::new(engine_state);
@@ -249,13 +259,21 @@ impl Command for Watch {
                     }
                 }
                 Ok(Err(_)) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Receiving events failed".to_string(),
                         msg: "Unexpected errors when receiving events".into(),
-                    })
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::IOError {
+                    return Err(ShellError::GenericError {
+                        error: "Disconnected".to_string(),
                         msg: "Unexpected disconnect from file watcher".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
                     });
                 }
                 Err(RecvTimeoutError::Timeout) => {}

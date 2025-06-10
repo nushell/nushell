@@ -6,7 +6,7 @@
 /// The width seems to be a fixed length, but it doesn't always fit.
 /// GuessWidth finds the column separation position
 /// from the reference line(header) and multiple lines(body).
-
+///
 /// Briefly, the algorithm uses a histogram of spaces to find widths.
 /// blanks, lines, and pos are variables used in the algorithm. The other
 /// items names below are just for reference.
@@ -19,7 +19,7 @@
 /// spaces = "      ^        ^        ^"
 ///    pos =  6 15 24 <- the carets show these positions
 /// the items in pos map to 3's in the blanks array
-
+///
 /// Now that we have pos, we can let split() use this pos array to figure out
 /// how to split all lines by comparing each index to see if there's a space.
 /// So, it looks at position 6, 15, 24 and sees if it has a space in those
@@ -291,42 +291,39 @@ fn positions_helper(blanks: &[usize], min_lines: usize) -> Vec<usize> {
     pos
 }
 
-// to_rows returns rows separated by columns.
-#[allow(dead_code)]
-fn to_rows(lines: Vec<String>, pos: Vec<usize>, trim_space: bool) -> Vec<Vec<String>> {
-    let mut rows: Vec<Vec<String>> = Vec::with_capacity(lines.len());
-    for line in lines {
-        let columns = split(&line, &pos, trim_space);
-        rows.push(columns);
-    }
-    rows
-}
-
-// to_table parses a slice of lines and returns a table.
-#[allow(dead_code)]
-pub fn to_table(lines: Vec<String>, header: usize, trim_space: bool) -> Vec<Vec<String>> {
-    let pos = positions(&lines, header, 2);
-    to_rows(lines, pos, trim_space)
-}
-
-// to_table_n parses a slice of lines and returns a table, but limits the number of splits.
-#[allow(dead_code)]
-pub fn to_table_n(
-    lines: Vec<String>,
-    header: usize,
-    num_split: usize,
-    trim_space: bool,
-) -> Vec<Vec<String>> {
-    let mut pos = positions(&lines, header, 2);
-    if pos.len() > num_split {
-        pos.truncate(num_split);
-    }
-    to_rows(lines, pos, trim_space)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{to_table, to_table_n, GuessWidth};
+    use super::*;
+
+    /// to_rows returns rows separated by columns.
+    fn to_rows(lines: Vec<String>, pos: Vec<usize>, trim_space: bool) -> Vec<Vec<String>> {
+        let mut rows: Vec<Vec<String>> = Vec::with_capacity(lines.len());
+        for line in lines {
+            let columns = split(&line, &pos, trim_space);
+            rows.push(columns);
+        }
+        rows
+    }
+
+    /// to_table parses a slice of lines and returns a table.
+    pub fn to_table(lines: Vec<String>, header: usize, trim_space: bool) -> Vec<Vec<String>> {
+        let pos = positions(&lines, header, 2);
+        to_rows(lines, pos, trim_space)
+    }
+
+    /// to_table_n parses a slice of lines and returns a table, but limits the number of splits.
+    pub fn to_table_n(
+        lines: Vec<String>,
+        header: usize,
+        num_split: usize,
+        trim_space: bool,
+    ) -> Vec<Vec<String>> {
+        let mut pos = positions(&lines, header, 2);
+        if pos.len() > num_split {
+            pos.truncate(num_split);
+        }
+        to_rows(lines, pos, trim_space)
+    }
 
     #[test]
     fn test_guess_width_ps_trim() {
@@ -653,8 +650,16 @@ nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP serve
         ];
 
         let want = vec![
-            vec!["2022-12-21T09:50:16+0000", "WARN", "A warning that should be ignored is usually at this level and should be actionable."],
-            vec!["2022-12-21T09:50:17+0000", "INFO", "This is less important than debug log and is often used to provide context in the current task."],
+            vec![
+                "2022-12-21T09:50:16+0000",
+                "WARN",
+                "A warning that should be ignored is usually at this level and should be actionable.",
+            ],
+            vec![
+                "2022-12-21T09:50:17+0000",
+                "INFO",
+                "This is less important than debug log and is often used to provide context in the current task.",
+            ],
         ];
 
         let header = 0;

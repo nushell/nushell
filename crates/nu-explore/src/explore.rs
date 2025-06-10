@@ -1,10 +1,9 @@
 use crate::{
-    run_pager,
+    PagerConfig, run_pager,
     util::{create_lscolors, create_map},
-    PagerConfig,
 };
 use nu_ansi_term::{Color, Style};
-use nu_color_config::{get_color_map, StyleComputer};
+use nu_color_config::{StyleComputer, get_color_map};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
@@ -72,6 +71,9 @@ impl Command for Explore {
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
 
         let lscolors = create_lscolors(engine_state, stack);
+        let cwd = engine_state.cwd(Some(stack)).map_or(String::new(), |path| {
+            path.to_str().unwrap_or("").to_string()
+        });
 
         let config = PagerConfig::new(
             &nu_config,
@@ -80,6 +82,7 @@ impl Command for Explore {
             &lscolors,
             peek_value,
             tail,
+            &cwd,
         );
 
         let result = run_pager(engine_state, &mut stack.clone(), input, config);
@@ -125,8 +128,7 @@ impl Command for Explore {
                 result: None,
             },
             Example {
-                description:
-                    "Explore a JSON file, then save the last visited sub-structure to a file",
+                description: "Explore a JSON file, then save the last visited sub-structure to a file",
                 example: r#"open file.json | explore --peek | to json | save part.json"#,
                 result: None,
             },

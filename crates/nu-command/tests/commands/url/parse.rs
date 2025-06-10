@@ -15,7 +15,7 @@ fn url_parse_simple() {
                     path: '/',
                     query: '',
                     fragment: '',
-                    params: {}
+                    params: []
                 }
             "#
     ));
@@ -37,7 +37,7 @@ fn url_parse_with_port() {
                     path: '/',
                     query: '',
                     fragment: '',
-                    params: {}
+                    params: []
                 }
             "#
     ));
@@ -60,7 +60,7 @@ fn url_parse_with_path() {
                     path: '/def/ghj',
                     query: '',
                     fragment: '',
-                    params: {}
+                    params: []
                 }
             "#
     ));
@@ -83,7 +83,30 @@ fn url_parse_with_params() {
                     path: '/def/ghj',
                     query: 'param1=11&param2=',
                     fragment: '',
-                    params: {param1: '11', param2: ''}
+                    params: [[key, value]; ["param1", "11"], ["param2", ""]]
+                }
+            "#
+    ));
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn url_parse_with_duplicate_params() {
+    let actual = nu!(pipeline(
+        r#"
+                ("http://www.abc.com:8811/def/ghj?param1=11&param2=&param1=22"
+                | url parse)
+                == {
+                    scheme: 'http',
+                    username: '',
+                    password: '',
+                    host: 'www.abc.com',
+                    port: '8811',
+                    path: '/def/ghj',
+                    query: 'param1=11&param2=&param1=22',
+                    fragment: '',
+                    params: [[key, value]; ["param1", "11"], ["param2", ""], ["param1", "22"]]
                 }
             "#
     ));
@@ -106,7 +129,7 @@ fn url_parse_with_fragment() {
                     path: '/def/ghj',
                     query: 'param1=11&param2=',
                     fragment: 'hello-fragment',
-                    params: {param1: '11', param2: ''}
+                    params: [[key, value]; ["param1", "11"], ["param2", ""]]
                 }
             "#
     ));
@@ -129,7 +152,7 @@ fn url_parse_with_username_and_password() {
                     path: '/def/ghj',
                     query: 'param1=11&param2=',
                     fragment: 'hello-fragment',
-                    params: {param1: '11', param2: ''}
+                    params: [[key, value]; ["param1", "11"], ["param2", ""]]
                 }
             "#
     ));

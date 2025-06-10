@@ -1,8 +1,8 @@
 use nu_protocol::{
-    ast::{Block, Pipeline, PipelineRedirection, RedirectionSource, RedirectionTarget},
+    CompileError, IntoSpanned, RegId, Span,
+    ast::{Block, Expr, Pipeline, PipelineRedirection, RedirectionSource, RedirectionTarget},
     engine::StateWorkingSet,
     ir::{Instruction, IrBlock, RedirectMode},
-    CompileError, IntoSpanned, RegId, Span,
 };
 
 mod builder;
@@ -18,7 +18,7 @@ use expression::compile_expression;
 use operator::*;
 use redirect::*;
 
-const BLOCK_INPUT: RegId = RegId(0);
+const BLOCK_INPUT: RegId = RegId::new(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
@@ -194,11 +194,25 @@ fn compile_pipeline(
             out_reg,
         )?;
 
-        // Clean up the redirection
-        finish_redirection(builder, redirect_modes, out_reg)?;
+        // only clean up the redirection if current element is not
+        // a subexpression.  The subexpression itself already clean it.
+        if !is_subexpression(&element.expr.expr) {
+            // Clean up the redirection
+            finish_redirection(builder, redirect_modes, out_reg)?;
+        }
 
         // The next pipeline element takes input from this output
         in_reg = Some(out_reg);
     }
     Ok(())
+}
+
+fn is_subexpression(expr: &Expr) -> bool {
+    match expr {
+        Expr::FullCellPath(inner) => {
+            matches!(&inner.head.expr, &Expr::Subexpression(..))
+        }
+        Expr::Subexpression(..) => true,
+        _ => false,
+    }
 }

@@ -15,6 +15,15 @@ fn out_html_simple() {
 }
 
 #[test]
+fn out_html_metadata() {
+    let actual = nu!(r#"
+            echo 3 | to html | metadata | get content_type
+        "#);
+
+    assert_eq!(actual.out, r#"text/html; charset=utf-8"#);
+}
+
+#[test]
 fn out_html_partial() {
     let actual = nu!(r#"
             echo 3 | to html -p

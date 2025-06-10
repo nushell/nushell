@@ -38,9 +38,11 @@ fn table_to_csv_text() {
             "#
         ));
 
-        assert!(actual
-            .out
-            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(
+            actual
+                .out
+                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
+        );
     })
 }
 
@@ -68,9 +70,11 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
             "#
         ));
 
-        assert!(actual
-            .out
-            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(
+            actual
+                .out
+                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
+        );
     })
 }
 
@@ -342,9 +346,11 @@ fn from_csv_text_with_multiple_char_separator() {
             "#
         ));
 
-        assert!(actual
-            .err
-            .contains("separator should be a single char or a 4-byte unicode"));
+        assert!(
+            actual
+                .err
+                .contains("separator should be a single char or a 4-byte unicode")
+        );
     })
 }
 
@@ -394,7 +400,7 @@ fn list_not_table_error() {
         "#
     ));
 
-    assert!(actual.err.contains("can't convert"))
+    assert!(actual.err.contains("Input type not supported"))
 }
 
 #[test]
@@ -469,7 +475,7 @@ fn from_csv_test_flexible_extra_vals() {
           echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, 2]");
+    assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
@@ -479,5 +485,5 @@ fn from_csv_test_flexible_missing_vals() {
           echo "a,b\n1" | from csv --flexible | first | values | to nuon
         "#
     ));
-    assert_eq!(actual.out, "[1, null]");
+    assert_eq!(actual.out, "[1]");
 }

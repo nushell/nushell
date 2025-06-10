@@ -1,5 +1,5 @@
 use crate::values::{Column, NuDataFrame};
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -119,7 +119,10 @@ impl PluginCommand for Rolling {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -169,7 +172,7 @@ fn command(
     })?;
 
     let name = format!("{}_{}", series.name(), roll_type.to_str());
-    res.rename(&name);
+    res.rename(name.into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

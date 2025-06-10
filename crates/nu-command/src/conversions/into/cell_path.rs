@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct IntoCellPath;
@@ -12,11 +12,17 @@ impl Command for IntoCellPath {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("into cell-path")
             .input_output_types(vec![
+                (Type::CellPath, Type::CellPath),
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
                     Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                        [
+                            ("value".into(), Type::Any),
+                            ("optional".into(), Type::Bool),
+                            ("insensitive".into(), Type::Bool),
+                        ]
+                        .into(),
                     ))),
                     Type::CellPath,
                 ),
@@ -57,12 +63,19 @@ impl Command for IntoCellPath {
                 })),
             },
             Example {
+                description: "Convert cell path into cell path",
+                example: "5 | into cell-path | into cell-path",
+                result: Some(Value::test_cell_path(CellPath {
+                    members: vec![PathMember::test_int(5, false)],
+                })),
+            },
+            Example {
                 description: "Convert string into cell path",
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
-                        PathMember::test_string("some".into(), false),
-                        PathMember::test_string("path".into(), false),
+                        PathMember::test_string("some".into(), false, Casing::Sensitive),
+                        PathMember::test_string("path".into(), false, Casing::Sensitive),
                     ],
                 })),
             },
@@ -72,19 +85,20 @@ impl Command for IntoCellPath {
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, false),
-                        PathMember::test_string("c".into(), false),
+                        PathMember::test_string("c".into(), false, Casing::Sensitive),
                         PathMember::test_int(7, false),
-                        PathMember::test_string("h".into(), false),
+                        PathMember::test_string("h".into(), false, Casing::Sensitive),
                     ],
                 })),
             },
             Example {
                 description: "Convert table into cell path",
-                example: "[[value, optional]; [5 true] [c false]] | into cell-path",
+                example: "[[value, optional, insensitive]; [5 true false] [c false false] [d false true]] | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),
-                        PathMember::test_string("c".into(), false),
+                        PathMember::test_string("c".into(), false, Casing::Sensitive),
+                        PathMember::test_string("d".into(), false, Casing::Insensitive),
                     ],
                 })),
             },
@@ -96,7 +110,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
     let head = call.head;
 
     match input {
-        PipelineData::Value(value, _) => Ok(value_to_cell_path(&value, head)?.into_pipeline_data()),
+        PipelineData::Value(value, _) => Ok(value_to_cell_path(value, head)?.into_pipeline_data()),
         PipelineData::ListStream(stream, ..) => {
             let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
@@ -167,13 +181,20 @@ fn record_to_path_member(
         }
     };
 
+    if let Some(insensitive) = record.get("insensitive") {
+        if insensitive.as_bool()? {
+            member.make_insensitive();
+        }
+    };
+
     Ok(member)
 }
 
-fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
+fn value_to_cell_path(value: Value, span: Span) -> Result<Value, ShellError> {
     match value {
-        Value::Int { val, .. } => Ok(int_to_cell_path(*val, span)),
-        Value::List { vals, .. } => list_to_cell_path(vals, span),
+        Value::CellPath { .. } => Ok(value),
+        Value::Int { val, .. } => Ok(int_to_cell_path(val, span)),
+        Value::List { vals, .. } => list_to_cell_path(&vals, span),
         other => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "int, list".into(),
             wrong_type: other.get_type().to_string(),
@@ -184,23 +205,20 @@ fn value_to_cell_path(value: &Value, span: Span) -> Result<Value, ShellError> {
 }
 
 fn value_to_path_member(val: &Value, span: Span) -> Result<PathMember, ShellError> {
+    let val_span = val.span();
     let member = match val {
-        Value::Int {
-            val,
-            internal_span: span,
-        } => int_to_path_member(*val, *span)?,
-        Value::String {
-            val,
-            internal_span: span,
-        } => PathMember::string(val.into(), false, *span),
-        Value::Record { val, internal_span } => record_to_path_member(val, *internal_span, span)?,
+        Value::Int { val, .. } => int_to_path_member(*val, val_span)?,
+        Value::String { val, .. } => {
+            PathMember::string(val.into(), false, Casing::Sensitive, val_span)
+        }
+        Value::Record { val, .. } => record_to_path_member(val, val_span, span)?,
         other => {
             return Err(ShellError::CantConvert {
                 to_type: "int or string".to_string(),
                 from_type: other.get_type().to_string(),
                 span: val.span(),
                 help: None,
-            })
+            });
         }
     };
 

@@ -1,4 +1,5 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
+use rstest::rstest;
 
 #[test]
 fn chained_operator_typecheck() -> TestResult {
@@ -12,7 +13,10 @@ fn type_in_list_of_this_type() -> TestResult {
 
 #[test]
 fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(r#"'hello' in [41 42 43]"#, "is not supported")
+    fail_test(
+        r#"'hello' in [41 42 43]"#,
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]
@@ -38,9 +42,24 @@ fn date_minus_duration() -> TestResult {
 }
 
 #[test]
+fn duration_minus_date_not_supported() -> TestResult {
+    fail_test(
+        "2day - 2023-04-22",
+        "nu::parser::operator_incompatible_types",
+    )
+}
+
+#[test]
 fn date_plus_duration() -> TestResult {
     let input = "2023-04-18 + 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
+    run_test(input, expected)
+}
+
+#[test]
+fn duration_plus_date() -> TestResult {
+    let input = "2024-11-10T00:00:00-00:00 + 4hr | format date";
+    let expected = "Sun, 10 Nov 2024 04:00:00 +0000";
     run_test(input, expected)
 }
 
@@ -110,7 +129,7 @@ fn record_subtyping_allows_record_after_general_command() -> TestResult {
 fn record_subtyping_allows_general_inner() -> TestResult {
     run_test(
         "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
-       "",
+        "",
     )
 }
 
@@ -141,4 +160,21 @@ fn in_variable_expression_wrong_output_type() -> TestResult {
         r#"def foo []: nothing -> int { 'foo' | $"($in)" }"#,
         "expected int",
     )
+}
+
+#[rstest]
+#[case("if true {} else { foo 1 }")]
+#[case("if true {} else if (foo 1) == null { }")]
+#[case("match 1 { 0 => { foo 1 } }")]
+#[case("try { } catch { foo 1 }")]
+/// type errors should propagate from `OneOf(Block | Closure | Expression, ..)`
+fn in_oneof_block_expected_type(#[case] input: &str) -> TestResult {
+    let def = "def foo [bar: bool] {};";
+
+    fail_test(&format!("{def} {input}"), "expected bool")
+}
+
+#[test]
+fn in_oneof_block_expected_block() -> TestResult {
+    fail_test("match 1 { 0 => { try 3 } }", "expected block")
 }

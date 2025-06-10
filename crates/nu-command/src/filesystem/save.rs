@@ -4,14 +4,15 @@ use nu_engine::get_eval_block;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast, byte_stream::copy_with_signals, process::ChildPipe, ByteStreamSource, DataSource, OutDest,
-    PipelineMetadata, Signals,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
+    byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
 };
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     thread,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone)]
@@ -85,6 +86,7 @@ impl Command for Save {
                 span: arg.span,
             });
 
+        let from_io_error = IoError::factory(span, path.item.as_path());
         match input {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
@@ -101,6 +103,7 @@ impl Command for Save {
                     ByteStreamSource::File(source) => {
                         stream_to_file(source, size, signals, file, span, progress)?;
                     }
+                    #[cfg(feature = "os")]
                     ByteStreamSource::Child(mut child) => {
                         fn write_or_consume_stderr(
                             stderr: ChildPipe,
@@ -127,7 +130,7 @@ impl Command for Save {
                                         io::copy(&mut tee, &mut io::stderr())
                                     }
                                 }
-                                .err_span(span)?;
+                                .map_err(|err| IoError::new(err, span, None))?;
                             }
                             Ok(())
                         }
@@ -151,7 +154,7 @@ impl Command for Save {
                                         )
                                     })
                                     .transpose()
-                                    .err_span(span)?;
+                                    .map_err(&from_io_error)?;
 
                                 let res = match stdout {
                                     ChildPipe::Pipe(pipe) => {
@@ -182,6 +185,8 @@ impl Command for Save {
                             }
                             (None, None) => {}
                         };
+
+                        child.wait()?;
                     }
                 }
 
@@ -199,15 +204,10 @@ impl Command for Save {
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
-                        .map_err(|err| ShellError::IOError {
-                            msg: err.to_string(),
-                        })?;
-                    file.write_all("\n".as_bytes())
-                        .map_err(|err| ShellError::IOError {
-                            msg: err.to_string(),
-                        })?;
+                        .map_err(&from_io_error)?;
+                    file.write_all("\n".as_bytes()).map_err(&from_io_error)?;
                 }
-                file.flush()?;
+                file.flush().map_err(&from_io_error)?;
 
                 Ok(PipelineData::empty())
             }
@@ -228,11 +228,8 @@ impl Command for Save {
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
-                file.write_all(&bytes).map_err(|err| ShellError::IOError {
-                    msg: err.to_string(),
-                })?;
-
-                file.flush()?;
+                file.write_all(&bytes).map_err(&from_io_error)?;
+                file.flush().map_err(&from_io_error)?;
 
                 Ok(PipelineData::empty())
             }
@@ -266,11 +263,21 @@ impl Command for Save {
                 example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
                 result: None,
             },
+            Example {
+                description: "Show the extensions for which the `save` command will automatically serialize",
+                example: r#"scope commands
+    | where name starts-with "to "
+    | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
+                result: None,
+            },
         ]
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }
 
@@ -416,18 +423,33 @@ fn prepare_path(
 }
 
 fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
-    let file = match (append, path.exists()) {
-        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
-        _ => std::fs::File::create(path),
+    let file: Result<File, nu_protocol::shell_error::io::ErrorKind> = match (append, path.exists())
+    {
+        (true, true) => std::fs::OpenOptions::new()
+            .append(true)
+            .open(path)
+            .map_err(|err| err.into()),
+        _ => {
+            // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
+            // A TOCTOU problem exists here, which may cause wrong error message to be shown
+            #[cfg(target_os = "windows")]
+            if path.is_dir() {
+                #[allow(
+                    deprecated,
+                    reason = "we don't get a IsADirectory error, so we need to provide it"
+                )]
+                Err(nu_protocol::shell_error::io::ErrorKind::from_std(
+                    std::io::ErrorKind::IsADirectory,
+                ))
+            } else {
+                std::fs::File::create(path).map_err(|err| err.into())
+            }
+            #[cfg(not(target_os = "windows"))]
+            std::fs::File::create(path).map_err(|err| err.into())
+        }
     };
 
-    file.map_err(|e| ShellError::GenericError {
-        error: format!("Problem with [{}], Permission denied", path.display()),
-        msg: e.to_string(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    })
+    file.map_err(|err_kind| ShellError::Io(IoError::new(err_kind, span, PathBuf::from(path))))
 }
 
 /// Get output file and optional stderr file
@@ -474,13 +496,16 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {
+    // TODO: maybe we can get a path in here
+    let from_io_error = IoError::factory(span, None);
+
     // https://github.com/nushell/nushell/pull/9377 contains the reason for not using `BufWriter`
     if progress {
         let mut bytes_processed = 0;
 
         let mut bar = progress_bar::NuProgressBar::new(known_size);
 
-        // TODO: reduce the number of progress bar updates?
+        let mut last_update = Instant::now();
 
         let mut reader = BufReader::new(source);
 
@@ -493,11 +518,14 @@ fn stream_to_file(
             match reader.fill_buf() {
                 Ok(&[]) => break Ok(()),
                 Ok(buf) => {
-                    file.write_all(buf).err_span(span)?;
+                    file.write_all(buf).map_err(&from_io_error)?;
                     let len = buf.len();
                     reader.consume(len);
                     bytes_processed += len as u64;
-                    bar.update_bar(bytes_processed);
+                    if last_update.elapsed() >= Duration::from_millis(75) {
+                        bar.update_bar(bytes_processed);
+                        last_update = Instant::now();
+                    }
                 }
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
                 Err(e) => break Err(e),
@@ -508,9 +536,9 @@ fn stream_to_file(
         if let Err(err) = res {
             let _ = file.flush();
             bar.abandoned_msg("# Error while saving #".to_owned());
-            Err(err.into_spanned(span).into())
+            Err(from_io_error(err).into())
         } else {
-            file.flush().err_span(span)?;
+            file.flush().map_err(&from_io_error)?;
             Ok(())
         }
     } else {

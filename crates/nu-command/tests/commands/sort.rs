@@ -34,6 +34,20 @@ fn sort_primitive_values() {
 }
 
 #[test]
+fn sort_table() {
+    // if a table's records are compared directly rather than holistically as a table,
+    // [100, 10, 5] will come before [100, 5, 8] because record comparison
+    // compares columns by alphabetical order, so price will be checked before quantity
+    let actual =
+        nu!("[[id, quantity, price]; [100, 10, 5], [100, 5, 8], [100, 5, 1]] | sort | to nuon");
+
+    assert_eq!(
+        actual.out,
+        r#"[[id, quantity, price]; [100, 5, 1], [100, 5, 8], [100, 10, 5]]"#
+    );
+}
+
+#[test]
 fn sort_different_types() {
     let actual = nu!("[a, 1, b, 2, c, 3, [4, 5, 6], d, 4, [1, 2, 3]] | sort | to json --raw");
 

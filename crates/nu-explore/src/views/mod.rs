@@ -15,15 +15,15 @@ use crossterm::event::KeyEvent;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
 
 pub use binary::BinaryView;
 pub use preview::Preview;
-pub use r#try::TryView;
 pub use record::{Orientation, RecordView};
+pub use r#try::TryView;
 
 #[derive(Debug, Default)]
 pub struct Layout {
@@ -58,6 +58,7 @@ pub struct ViewConfig<'a> {
     pub explore_config: &'a ExploreConfig,
     pub style_computer: &'a StyleComputer<'a>,
     pub lscolors: &'a LsColors,
+    pub cwd: &'a str,
 }
 
 impl<'a> ViewConfig<'a> {
@@ -66,12 +67,14 @@ impl<'a> ViewConfig<'a> {
         explore_config: &'a ExploreConfig,
         style_computer: &'a StyleComputer<'a>,
         lscolors: &'a LsColors,
+        cwd: &'a str,
     ) -> Self {
         Self {
             nu_config,
             explore_config,
             style_computer,
             lscolors,
+            cwd,
         }
     }
 }
@@ -86,7 +89,7 @@ pub trait View {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition>;
+    ) -> Transition;
 
     fn show_data(&mut self, _: usize) -> bool {
         false
@@ -113,7 +116,7 @@ impl View for Box<dyn View> {
         layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
+    ) -> Transition {
         self.as_mut()
             .handle_input(engine_state, stack, layout, info, key)
     }

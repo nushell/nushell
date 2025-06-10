@@ -1,7 +1,7 @@
 use super::Layout;
 use crate::{
     explore::TableConfig,
-    nu_common::{truncate_str, NuStyle, NuText},
+    nu_common::{NuStyle, NuText, truncate_str},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
@@ -13,7 +13,7 @@ use ratatui::{
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
-use std::cmp::{max, Ordering};
+use std::cmp::{Ordering, max};
 
 #[derive(Debug, Clone)]
 pub struct TableWidget<'a> {
@@ -87,7 +87,7 @@ impl StatefulWidget for TableWidget<'_> {
 }
 
 // todo: refactoring these to methods as they have quite a bit in common.
-impl<'a> TableWidget<'a> {
+impl TableWidget<'_> {
     // header at the top; header is always 1 line
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         let padding_l = self.config.column_padding_left as u16;
@@ -502,7 +502,7 @@ impl<'a> IndexColumn<'a> {
 impl Widget for IndexColumn<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         for row in 0..area.height {
-            let i = 1 + row as usize + self.start;
+            let i = row as usize + self.start;
             let text = i.to_string();
             let style = nu_style_to_tui(self.style_computer.compute(
                 "row_index",
@@ -565,7 +565,7 @@ fn render_split_line(
     style: NuStyle,
 ) -> u16 {
     if has_head {
-        render_vertical_split_line(buf, x, y, height, &[0], &[2], &[], style);
+        render_vertical_split_line(buf, x, y, height, &[y], &[y + 2], &[], style);
     } else {
         render_vertical_split_line(buf, x, y, height, &[], &[], &[], style);
     }

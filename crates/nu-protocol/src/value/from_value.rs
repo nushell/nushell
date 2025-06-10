@@ -1,7 +1,8 @@
 use crate::{
-    ast::{CellPath, PathMember},
-    engine::Closure,
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
+    ast::{CellPath, PathMember},
+    casing::Casing,
+    engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -26,6 +27,8 @@ use std::{
 /// - If `#[nu_value(rename_all = "...")]` is applied on the container (struct) the key of the
 ///   field will be case-converted accordingly.
 /// - If neither attribute is applied, the field name is used as is.
+/// - If `#[nu_value(default)]` is applied to a field, the field type's [`Default`] implementation
+///   will be used if the corresponding record field is missing
 ///
 /// Supported case conversions include those provided by [`heck`], such as
 /// "snake_case", "kebab-case", "PascalCase", and others.
@@ -133,7 +136,7 @@ pub trait FromValue: Sized {
         Type::Custom(
             any::type_name::<Self>()
                 .split(':')
-                .last()
+                .next_back()
                 .expect("str::split returns an iterator with at least one element")
                 .to_string()
                 .into_boxed_str(),
@@ -252,9 +255,7 @@ impl FromValue for i64 {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(val),
-            Value::Filesize { val, .. } => Ok(val),
             Value::Duration { val, .. } => Ok(val),
-
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -308,9 +309,7 @@ macro_rules! impl_from_value_for_uint {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
-                    Value::Int { val, .. }
-                    | Value::Filesize { val, .. }
-                    | Value::Duration { val, .. } => {
+                    Value::Int { val, .. } | Value::Duration { val, .. } => {
                         match val {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
@@ -589,6 +588,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
+                    casing: Casing::Sensitive,
                 }],
             }),
             Value::Int { val, .. } => {
@@ -775,7 +775,7 @@ fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Spa
 
 #[cfg(test)]
 mod tests {
-    use crate::{engine::Closure, FromValue, IntoValue, Record, Span, Type, Value};
+    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
     use std::ops::Deref;
 
     #[test]

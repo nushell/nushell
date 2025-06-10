@@ -1,13 +1,16 @@
 use log::info;
-use nu_engine::{convert_env_values, eval_block};
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    PipelineData, ShellError, Spanned, Value,
     cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_parse_warning, PipelineData, ShellError, Spanned, Value,
+    report_parse_error, report_parse_warning,
 };
 use std::sync::Arc;
+
+use crate::util::print_pipeline;
 
 #[derive(Default)]
 pub struct EvaluateCommandsOpts {
@@ -48,9 +51,6 @@ pub fn evaluate_commands(
         }
     }
 
-    // Translate environment variables from Strings to Values
-    convert_env_values(engine_state, stack)?;
-
     // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
@@ -72,7 +72,7 @@ pub fn evaluate_commands(
 
         if let Some(err) = working_set.compile_errors.first() {
             report_compile_error(&working_set, err);
-            // Not a fatal error, for now
+            std::process::exit(1);
         }
 
         (output, working_set.render())
@@ -93,7 +93,7 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    pipeline.print(engine_state, stack, no_newline, false)?;
+    print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 

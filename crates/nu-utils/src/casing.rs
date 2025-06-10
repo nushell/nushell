@@ -9,11 +9,6 @@ pub trait IgnoreCaseExt {
     /// language-invariant and consistent. Case folded text should be used
     /// solely for processing and generally should not be stored or displayed.
     ///
-    /// Note: this method might only do [`str::to_lowercase`] instead of a
-    /// full case fold, depending on how Nu is compiled. You should still
-    /// prefer using this method for generating case-insensitive strings,
-    /// though, as it expresses intent much better than `to_lowercase`.
-    ///
     /// [case folded]: <https://unicode.org/faq/casemap_charprop.html#2>
     fn to_folded_case(&self) -> String;
 
@@ -40,9 +35,7 @@ pub trait IgnoreCaseExt {
 
 impl IgnoreCaseExt for str {
     fn to_folded_case(&self) -> String {
-        // we only do to_lowercase, as unicase doesn't expose its case fold yet
-        // (seanmonstar/unicase#61) and we don't want to pull in another table
-        self.to_lowercase()
+        UniCase::new(self).to_folded_case()
     }
 
     fn eq_ignore_case(&self, other: &str) -> bool {

@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::format_duration_as_timeperiod;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoRecord;
 
-impl Command for SubCommand {
+impl Command for IntoRecord {
     fn name(&self) -> &str {
         "into record"
     }
@@ -99,6 +99,11 @@ impl Command for SubCommand {
                     "timezone" => Value::test_string("+02:00"),
                 })),
             },
+            Example {
+                description: "convert date components to table columns",
+                example: "2020-04-12T22:10:57+02:00 | into record | transpose | transpose -r",
+                result: None,
+            },
         ]
     }
 }
@@ -166,7 +171,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                                 item.get_type(),
                             ),
                             span,
-                        })
+                        });
                     }
                 }
             }
@@ -238,6 +243,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoRecord {})
     }
 }

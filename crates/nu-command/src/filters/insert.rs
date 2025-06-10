@@ -1,4 +1,6 @@
-use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use std::borrow::Cow;
+
+use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
@@ -114,6 +116,22 @@ When inserting into a specific index, the closure will instead get the current v
                     Value::test_int(4),
                 ])),
             },
+            Example {
+                description: "Insert into a nested path, creating new values as needed",
+                example: "[{} {a: [{}]}] | insert a.0.b \"value\"",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record!(
+                        "a" => Value::test_list(vec![Value::test_record(record!(
+                            "b" => Value::test_string("value"),
+                        ))]),
+                    )),
+                    Value::test_record(record!(
+                        "a" => Value::test_list(vec![Value::test_record(record!(
+                            "b" => Value::test_string("value"),
+                        ))]),
+                    )),
+                ])),
+            },
         ]
     }
 }
@@ -129,6 +147,8 @@ fn insert(
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
     match input {
+        // Propagate errors in the pipeline
+        PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
@@ -281,8 +301,8 @@ fn insert_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = if first_path_member_int {
         value
-            .clone()
-            .follow_cell_path(cell_path, false)
+            .follow_cell_path(cell_path)
+            .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {
         value.clone()
@@ -301,8 +321,8 @@ fn insert_single_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = if first_path_member_int {
         value
-            .clone()
-            .follow_cell_path(cell_path, false)
+            .follow_cell_path(cell_path)
+            .map(Cow::into_owned)
             .unwrap_or(Value::nothing(span))
     } else {
         value.clone()

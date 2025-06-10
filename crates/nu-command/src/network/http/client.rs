@@ -1,15 +1,15 @@
-use crate::formats::value_to_json_value;
+use crate::{formats::value_to_json_value, network::tls::tls};
 use base64::{
-    alphabet,
-    engine::{general_purpose::PAD, GeneralPurpose},
-    Engine,
+    Engine, alphabet,
+    engine::{GeneralPurpose, general_purpose::PAD},
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, LabeledError, Signals};
+use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
+    error::Error as StdError,
     io::Cursor,
     path::PathBuf,
     str::FromStr,
@@ -56,20 +56,9 @@ pub fn http_client(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
-    let tls = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Failed to build network tls: {}", e),
-            msg: String::new(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
-        .tls_connector(std::sync::Arc::new(tls));
+        .tls_connector(std::sync::Arc::new(tls(allow_insecure)?));
 
     if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
         agent_builder = agent_builder.redirects(0);
@@ -89,12 +78,22 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.coerce_into_string()?;
+    let mut requested_url = raw_url.coerce_into_string()?;
+    if requested_url.starts_with(':') {
+        requested_url = format!("http://localhost{}", requested_url);
+    } else if !requested_url.contains("://") {
+        requested_url = format!("http://{}", requested_url);
+    }
+
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
+            return Err(ShellError::UnsupportedInput {
+                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
+                input: format!("value: '{requested_url:?}'"),
+                msg_span: call.head,
+                input_span: span
+            });
         }
     };
 
@@ -184,6 +183,7 @@ pub fn request_add_authorization_header(
     request
 }
 
+#[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),
@@ -205,6 +205,7 @@ pub enum HttpBody {
 
 // remove once all commands have been migrated
 pub fn send_request(
+    engine_state: &EngineState,
     request: Request,
     http_body: HttpBody,
     content_type: Option<String>,
@@ -212,6 +213,9 @@ pub fn send_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
+    // hard code serialze_types to false because closures probably shouldn't be
+    // deserialized for send_request but it's required by send_json_request
+    let serialze_types = false;
 
     match http_body {
         HttpBody::None => {
@@ -238,7 +242,15 @@ pub fn send_request(
             };
 
             match body_type {
-                BodyType::Json => send_json_request(&request_url, body, req, span, signals),
+                BodyType::Json => send_json_request(
+                    engine_state,
+                    &request_url,
+                    body,
+                    req,
+                    span,
+                    signals,
+                    serialze_types,
+                ),
                 BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {
                     send_multipart_request(&request_url, body, req, span, signals)
@@ -252,15 +264,17 @@ pub fn send_request(
 }
 
 fn send_json_request(
+    engine_state: &EngineState,
     request_url: &str,
     body: Value,
     req: Request,
     span: Span,
     signals: &Signals,
+    serialize_types: bool,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(&body)?;
+            let data = value_to_json_value(engine_state, &body, span, serialize_types)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
         // If the body type is string, assume it is string json content.
@@ -314,7 +328,7 @@ fn send_form_request(
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
                 return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
-                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(), 
+                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
                     val_span: body.span(),
                     call_span: span,
                 }));
@@ -358,10 +372,8 @@ fn send_multipart_request(
         Value::Record { val, .. } => {
             let mut builder = MultipartWriter::new();
 
-            let err = |e| {
-                ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: format!("failed to build multipart data: {}", e),
-                })
+            let err = |e: std::io::Error| {
+                ShellErrorOrRequestError::ShellError(IoError::new(e, span, None).into())
             };
 
             for (col, val) in val.into_owned() {
@@ -376,7 +388,7 @@ fn send_multipart_request(
                         format!("Content-Length: {}", val.len()),
                     ];
                     builder
-                        .add(&mut Cursor::new(val), &headers.join("\n"))
+                        .add(&mut Cursor::new(val), &headers.join("\r\n"))
                         .map_err(err)?;
                 } else {
                     let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
@@ -398,7 +410,7 @@ fn send_multipart_request(
                     err_message: format!("Accepted types: [record]. Check: {HTTP_DOCS}"),
                     span: body.span(),
                 },
-            ))
+            ));
         }
     };
     send_cancellable_request(request_url, Box::new(request_fn), span, signals)
@@ -449,6 +461,9 @@ fn send_cancellable_request(
         .spawn(move || {
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
+        })
+        .map_err(|err| {
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
         })
         .map_err(ShellError::from)?;
 
@@ -505,6 +520,9 @@ fn send_cancellable_request_bytes(
             // may fail if the user has cancelled the operation
             let _ = tx.send(ret);
         })
+        .map_err(|err| {
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
+        })
         .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
@@ -525,7 +543,7 @@ pub fn request_set_timeout(
     mut request: Request,
 ) -> Result<Request, ShellError> {
     if let Some(timeout) = timeout {
-        let val = timeout.as_i64()?;
+        let val = timeout.as_duration()?;
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
                 err_message: "Timeout value must be an int and larger than 0".to_string(),
@@ -533,7 +551,7 @@ pub fn request_set_timeout(
             });
         }
 
-        request = request.timeout(Duration::from_secs(val as u64));
+        request = request.timeout(Duration::from_nanos(val as u64));
     }
 
     Ok(request)
@@ -604,27 +622,61 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
-        Error::Status(400, _) => {
-            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
-        }
-        Error::Status(403, _) => {
-            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
-        }
-        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
-        Error::Status(408, _) => {
-            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
-        }
-        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
+        Error::Status(301, _) => ShellError::NetworkFailure {
+            msg: format!("Resource moved permanently (301): {requested_url:?}"),
+            span,
+        },
+        Error::Status(400, _) => ShellError::NetworkFailure {
+            msg: format!("Bad request (400) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(403, _) => ShellError::NetworkFailure {
+            msg: format!("Access forbidden (403) to {requested_url:?}"),
+            span,
+        },
+        Error::Status(404, _) => ShellError::NetworkFailure {
+            msg: format!("Requested file not found (404): {requested_url:?}"),
+            span,
+        },
+        Error::Status(408, _) => ShellError::NetworkFailure {
+            msg: format!("Request timeout (408): {requested_url:?}"),
+            span,
+        },
+        Error::Status(_, _) => ShellError::NetworkFailure {
+            msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ), span },
-
-        Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
-            t => ShellError::NetworkFailure { msg: t.to_string(), span },
+            ),
+            span,
         },
+
+        Error::Transport(t) => {
+            let generic_network_failure = || ShellError::NetworkFailure {
+                msg: t.to_string(),
+                span,
+            };
+            match t.kind() {
+                ErrorKind::ConnectionFailed => ShellError::NetworkFailure {
+                    msg: format!(
+                        "Cannot make request to {requested_url}, there was an error establishing a connection.",
+                    ),
+                    span,
+                },
+                ErrorKind::Io => 'io: {
+                    let Some(source) = t.source() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    let Some(io_error) = source.downcast_ref::<std::io::Error>() else {
+                        break 'io generic_network_failure();
+                    };
+
+                    ShellError::Io(IoError::new(io_error, span, None))
+                }
+                _ => generic_network_failure(),
+            }
+        }
     }
 }
 
@@ -662,7 +714,7 @@ fn transform_response_using_content_type(
                         )
                 })?
                 .path_segments()
-                .and_then(|segments| segments.last())
+                .and_then(|mut segments| segments.next_back())
                 .and_then(|name| if name.is_empty() { None } else { Some(name) })
                 .and_then(|name| {
                     PathBuf::from(name)
@@ -901,6 +953,7 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .cloned()
         .and_then(|proxy| proxy.coerce_into_string().ok())
 }
 

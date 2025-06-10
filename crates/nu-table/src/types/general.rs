@@ -1,175 +1,196 @@
-use super::has_index;
-use crate::{
-    clean_charset, colorize_space,
-    common::{
-        create_nu_table_config, get_empty_style, get_header_style, get_index_style,
-        get_value_style, nu_value_to_string_colored, NuText, INDEX_COLUMN_NAME,
-    },
-    NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
-};
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Value};
 
+use crate::{
+    NuRecordsValue, NuTable, StringResult, TableOpts, TableOutput, TableResult, clean_charset,
+    colorize_space,
+    common::{
+        INDEX_COLUMN_NAME, NuText, check_value, configure_table, get_empty_style, get_header_style,
+        get_index_style, get_value_style, nu_value_to_string_colored,
+    },
+    types::has_index,
+};
+
 pub struct JustTable;
 
 impl JustTable {
-    pub fn table(input: &[Value], opts: TableOpts<'_>) -> StringResult {
-        create_table(input, opts)
+    pub fn table(input: Vec<Value>, opts: TableOpts<'_>) -> StringResult {
+        list_table(input, opts)
     }
 
-    pub fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+    pub fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
         kv_table(record, opts)
     }
 }
 
-fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
-    match table(input, &opts)? {
-        Some(mut out) => {
-            let left = opts.config.table.padding.left;
-            let right = opts.config.table.padding.right;
-            out.table.set_indent(left, right);
+fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
+    let output = create_table(input, &opts)?;
+    let mut out = match output {
+        Some(out) => out,
+        None => return Ok(None),
+    };
 
-            colorize_space(out.table.get_records_mut(), opts.style_computer);
+    // TODO: It would be WAY more effitient to do right away instead of second pass over the data.
+    colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
-            let table_config =
-                create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
-            Ok(out.table.draw(table_config, opts.width))
-        }
-        None => Ok(None),
-    }
-}
-
-fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
-    let mut data = vec![Vec::with_capacity(2); record.len()];
-    for ((column, value), row) in record.iter().zip(data.iter_mut()) {
-        opts.signals.check(opts.span)?;
-
-        let value = nu_value_to_string_colored(value, opts.config, opts.style_computer);
-
-        let key = NuTableCell::new(column.to_string());
-        let value = NuTableCell::new(value);
-
-        row.push(key);
-        row.push(value);
-    }
-
-    let mut table = NuTable::from(data);
-    table.set_index_style(TextStyle::default_field());
-
-    let mut out = TableOutput::new(table, false, true);
-
-    let left = opts.config.table.padding.left;
-    let right = opts.config.table.padding.right;
-    out.table.set_indent(left, right);
-
-    let table_config =
-        create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
-    let table = out.table.draw(table_config, opts.width);
+    configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
+    let table = out.table.draw(opts.width);
 
     Ok(table)
 }
 
-fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
+fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
+    let mut table = NuTable::new(record.len(), 2);
+    table.set_index_style(TextStyle::default_field());
+    table.set_indent(opts.config.table.padding);
+
+    for (i, (key, value)) in record.into_iter().enumerate() {
+        opts.signals.check(opts.span)?;
+
+        let value = nu_value_to_string_colored(&value, opts.config, &opts.style_computer);
+
+        table.insert((i, 0), key);
+        table.insert((i, 1), value);
+    }
+
+    let mut out = TableOutput::from_table(table, false, true);
+    configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
+    let table = out.table.draw(opts.width);
+
+    Ok(table)
+}
+
+fn create_table(input: Vec<Value>, opts: &TableOpts<'_>) -> TableResult {
     if input.is_empty() {
         return Ok(None);
     }
 
-    let mut headers = get_columns(input);
+    let headers = get_columns(&input);
     let with_index = has_index(opts, &headers);
+    let with_header = !headers.is_empty();
     let row_offset = opts.index_offset;
 
-    let with_header = !headers.is_empty();
-    if !with_header {
-        let table = to_table_with_no_header(input, with_index, row_offset, opts)?;
-        let table = table.map(|table| TableOutput::new(table, false, with_index));
-        return Ok(table);
-    }
+    let table = match (with_header, with_index) {
+        (true, true) => create_table_with_header_and_index(input, headers, row_offset, opts)?,
+        (true, false) => create_table_with_header(input, headers, opts)?,
+        (false, true) => create_table_with_no_header_and_index(input, row_offset, opts)?,
+        (false, false) => create_table_with_no_header(input, opts)?,
+    };
 
-    if with_header && with_index {
-        headers.insert(0, "#".into());
-    }
-
-    // The header with the INDEX is removed from the table headers since
-    // it is added to the natural table index
-    let headers: Vec<_> = headers
-        .into_iter()
-        .filter(|header| header != INDEX_COLUMN_NAME)
-        .collect();
-
-    let table = to_table_with_header(input, &headers, with_index, row_offset, opts)?;
-    let table = table.map(|table| TableOutput::new(table, true, with_index));
+    let table = table.map(|table| TableOutput::from_table(table, with_header, with_index));
 
     Ok(table)
 }
 
-fn to_table_with_header(
-    input: &[Value],
-    headers: &[String],
-    with_index: bool,
-    row_offset: usize,
+fn create_table_with_header(
+    input: Vec<Value>,
+    headers: Vec<String>,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
     let mut table = NuTable::new(count_rows, count_columns);
-    table.set_header_style(get_header_style(opts.style_computer));
-    table.set_index_style(get_index_style(opts.style_computer));
+    table.set_header_style(get_header_style(&opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    for (i, text) in headers.iter().enumerate() {
-        table.insert((0, i), text.to_owned());
+    for (row, item) in input.into_iter().enumerate() {
+        opts.signals.check(opts.span)?;
+        check_value(&item)?;
+
+        for (col, header) in headers.iter().enumerate() {
+            let (text, style) = get_string_value_with_header(&item, header, opts);
+
+            let pos = (row + 1, col);
+            table.insert(pos, text);
+            table.insert_style(pos, style);
+        }
     }
 
-    for (row, item) in input.iter().enumerate() {
+    let headers = collect_headers(headers, false);
+    table.set_row(0, headers);
+
+    Ok(Some(table))
+}
+
+fn create_table_with_header_and_index(
+    input: Vec<Value>,
+    headers: Vec<String>,
+    row_offset: usize,
+    opts: &TableOpts<'_>,
+) -> Result<Option<NuTable>, ShellError> {
+    let head = collect_headers(headers, true);
+
+    let count_rows = input.len() + 1;
+    let count_columns = head.len();
+
+    let mut table = NuTable::new(count_rows, count_columns);
+    table.set_header_style(get_header_style(&opts.style_computer));
+    table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
+
+    table.set_row(0, head.clone());
+
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
+        check_value(&item)?;
 
-        if let Value::Error { error, .. } = item {
-            return Err(*error.clone());
-        }
+        let text = get_table_row_index(&item, opts.config, row, row_offset);
+        table.insert((row + 1, 0), text);
 
-        if with_index {
-            let text = get_table_row_index(item, opts.config, row, row_offset);
-            table.insert((row + 1, 0), text);
-        }
+        for (col, head) in head.iter().enumerate().skip(1) {
+            let (text, style) = get_string_value_with_header(&item, head.as_ref(), opts);
 
-        let skip_index = usize::from(with_index);
-        for (col, header) in headers.iter().enumerate().skip(skip_index) {
-            let (text, style) = get_string_value_with_header(item, header, opts);
-
-            table.insert((row + 1, col), text);
-            table.insert_style((row + 1, col), style);
+            let pos = (row + 1, col);
+            table.insert(pos, text);
+            table.insert_style(pos, style);
         }
     }
 
     Ok(Some(table))
 }
 
-fn to_table_with_no_header(
-    input: &[Value],
-    with_index: bool,
+fn create_table_with_no_header(
+    input: Vec<Value>,
+    opts: &TableOpts<'_>,
+) -> Result<Option<NuTable>, ShellError> {
+    let mut table = NuTable::new(input.len(), 1);
+    table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
+
+    for (row, item) in input.into_iter().enumerate() {
+        opts.signals.check(opts.span)?;
+        check_value(&item)?;
+
+        let (text, style) = get_string_value(&item, opts);
+
+        table.insert((row, 0), text);
+        table.insert_style((row, 0), style);
+    }
+
+    Ok(Some(table))
+}
+
+fn create_table_with_no_header_and_index(
+    input: Vec<Value>,
     row_offset: usize,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
-    let mut table = NuTable::new(input.len(), with_index as usize + 1);
-    table.set_index_style(get_index_style(opts.style_computer));
+    let mut table = NuTable::new(input.len(), 1 + 1);
+    table.set_index_style(get_index_style(&opts.style_computer));
+    table.set_indent(opts.config.table.padding);
 
-    for (row, item) in input.iter().enumerate() {
+    for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(opts.span)?;
+        check_value(&item)?;
 
-        if let Value::Error { error, .. } = item {
-            return Err(*error.clone());
-        }
+        let index = get_table_row_index(&item, opts.config, row, row_offset);
+        let (value, style) = get_string_value(&item, opts);
 
-        if with_index {
-            let text = get_table_row_index(item, opts.config, row, row_offset);
-            table.insert((row, 0), text);
-        }
-
-        let (text, style) = get_string_value(item, opts);
-
-        let pos = (row, with_index as usize);
-        table.insert(pos, text);
-        table.insert_style(pos, style);
+        table.insert((row, 0), index);
+        table.insert((row, 1), value);
+        table.insert_style((row, 1), style);
     }
 
     Ok(Some(table))
@@ -179,16 +200,20 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
     match item {
         Value::Record { val, .. } => match val.get(header) {
             Some(value) => get_string_value(value, opts),
-            None => get_empty_style(opts.style_computer),
+            None => get_empty_style(
+                opts.config.table.missing_value_symbol.clone(),
+                &opts.style_computer,
+            ),
         },
         value => get_string_value(value, opts),
     }
 }
 
 fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
-    let (mut text, style) = get_value_style(item, opts.config, opts.style_computer);
-    let is_string_value = matches!(item, Value::String { .. });
-    if is_string_value {
+    let (mut text, style) = get_value_style(item, opts.config, &opts.style_computer);
+
+    let is_string = matches!(item, Value::String { .. });
+    if is_string {
         text = clean_charset(&text);
     }
 
@@ -203,4 +228,30 @@ fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize)
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),
     }
+}
+
+fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
+    // The header with the INDEX is removed from the table headers since
+    // it is added to the natural table index
+    let length = if index {
+        headers.len() + 1
+    } else {
+        headers.len()
+    };
+
+    let mut v = Vec::with_capacity(length);
+
+    if index {
+        v.insert(0, NuRecordsValue::new("#".into()));
+    }
+
+    for text in headers {
+        if text == INDEX_COLUMN_NAME {
+            continue;
+        }
+
+        v.push(NuRecordsValue::new(text));
+    }
+
+    v
 }

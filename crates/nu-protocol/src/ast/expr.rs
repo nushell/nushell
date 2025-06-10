@@ -2,16 +2,17 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
-    Range, Table, ValueWithUnit,
+    AttributeBlock, Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword,
+    MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{
-    ast::ImportPattern, engine::StateWorkingSet, BlockId, OutDest, Signature, Span, VarId,
+    BlockId, ModuleId, OutDest, Signature, Span, VarId, ast::ImportPattern, engine::StateWorkingSet,
 };
 
 /// An [`Expression`] AST node
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
+    AttributeBlock(AttributeBlock),
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -47,7 +48,7 @@ pub enum Expr {
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(Box<ImportPattern>),
-    Overlay(Option<BlockId>), // block ID of the overlay's origin module
+    Overlay(Option<ModuleId>),
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
     /// The boolean is `true` if the string is quoted.
@@ -67,6 +68,7 @@ impl Expr {
         working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
         match self {
+            Expr::AttributeBlock(ab) => ab.item.expr.pipe_redirection(working_set),
             Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
             Expr::Collect(_, _) => {
                 // A collect expression always has default redirection, it's just going to collect

@@ -2,25 +2,25 @@ mod table_widget;
 
 use self::table_widget::{TableWidget, TableWidgetState};
 use super::{
-    cursor::{Position, WindowCursor2D},
-    util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
+    cursor::{CursorMoveHandler, Position, WindowCursor2D},
+    util::{make_styled_string, nu_style_to_tui},
 };
 use crate::{
     explore::ExploreConfig,
-    nu_common::{collect_input, lscolorize, NuSpan, NuText},
+    nu_common::{NuSpan, NuText, collect_input, lscolorize},
     pager::{
-        report::{Report, Severity},
         Frame, Transition, ViewInfo,
+        report::{Report, Severity},
     },
     views::ElementInfo,
 };
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Config, Record, Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::collections::HashMap;
@@ -127,7 +127,7 @@ impl RecordView {
         if layer.record_text.is_none() {
             let mut data =
                 convert_records_to_string(&layer.record_values, cfg.nu_config, cfg.style_computer);
-            lscolorize(&layer.column_names, &mut data, cfg.lscolors);
+            lscolorize(&layer.column_names, &mut data, cfg.cwd, cfg.lscolors);
 
             layer.record_text = Some(data);
         }
@@ -213,26 +213,21 @@ impl View for RecordView {
         _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
-    ) -> Option<Transition> {
-        let result = match self.mode {
-            UIMode::View => Ok(handle_key_event_view_mode(self, &key)),
-            UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
-        };
-
-        match result {
-            Ok(result) => {
-                if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
+    ) -> Transition {
+        match self.handle_input_key(&key) {
+            Ok((transition, ..)) => {
+                if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
                     let report = self.create_records_report();
                     info.status = Some(report);
                 }
 
-                result
+                transition
             }
             Err(e) => {
                 log::error!("Error handling input in RecordView: {e}");
                 let report = Report::message(e.to_string(), Severity::Err);
                 info.status = Some(report);
-                None
+                Transition::None
             }
         }
     }
@@ -310,7 +305,7 @@ pub struct RecordLayer {
     column_names: Vec<String>,
     // These are the raw records in the current layer. The sole reason we keep this around is so we can return the original value
     // if it's being peeked. Otherwise we could accept an iterator over it.
-    // or if it could be Clonable we could do that anyway;
+    // or if it could be Cloneable we could do that anyway;
     // cause it would keep memory footprint lower while keep everything working
     // (yee would make return O(n); we would need to traverse iterator once again; but maybe worth it)
     record_values: Vec<Vec<Value>>,
@@ -372,194 +367,99 @@ impl RecordLayer {
     }
 }
 
-fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
-    match key {
-        KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageUp,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.prev_row_page();
-
-            return Some(Transition::Ok);
-        }
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageDown,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.next_row_page();
-
-            return Some(Transition::Ok);
-        }
-        _ => {}
+impl CursorMoveHandler for RecordView {
+    fn get_cursor(&mut self) -> &mut WindowCursor2D {
+        &mut self.get_top_layer_mut().cursor
     }
+    fn handle_enter(&mut self) -> Result<Transition> {
+        match self.mode {
+            UIMode::View => self.set_cursor_mode(),
+            UIMode::Cursor => {
+                let value = self.get_current_value();
 
-    match key.code {
-        KeyCode::Esc => {
-            if view.layer_stack.len() > 1 {
-                view.layer_stack.pop();
-                view.mode = UIMode::Cursor;
+                // ...but it only makes sense to drill down into a few types of values
+                if !matches!(
+                    value,
+                    Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
+                ) {
+                    return Ok(Transition::None);
+                }
 
-                Some(Transition::Ok)
-            } else {
-                Some(Transition::Exit)
+                let is_record = matches!(value, Value::Record { .. });
+                let next_layer = create_layer(value.clone())?;
+                push_layer(self, next_layer);
+
+                if is_record {
+                    self.set_top_layer_orientation(Orientation::Left);
+                } else {
+                    self.set_top_layer_orientation(self.orientation);
+                }
             }
         }
-        KeyCode::Char('i') | KeyCode::Enter => {
-            view.set_cursor_mode();
 
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('t') => {
-            view.transpose();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
-        KeyCode::Up | KeyCode::Char('k') => {
-            view.get_top_layer_mut().cursor.prev_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            view.get_top_layer_mut().cursor.next_row_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Left | KeyCode::Char('h') => {
-            view.get_top_layer_mut().cursor.prev_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            view.get_top_layer_mut().cursor.next_column_i();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::Home | KeyCode::Char('g') => {
-            view.get_top_layer_mut().cursor.row_move_to_start();
-
-            Some(Transition::Ok)
-        }
-        KeyCode::End | KeyCode::Char('G') => {
-            view.get_top_layer_mut().cursor.row_move_to_end();
-
-            Some(Transition::Ok)
-        }
-        _ => None,
+        Ok(Transition::Ok)
     }
-}
-
-fn handle_key_event_cursor_mode(
-    view: &mut RecordView,
-    key: &KeyEvent,
-) -> Result<Option<Transition>> {
-    match key {
-        KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
+    fn handle_esc(&mut self) -> Transition {
+        match self.mode {
+            UIMode::View => {
+                if self.layer_stack.len() > 1 {
+                    self.layer_stack.pop();
+                    self.mode = UIMode::Cursor;
+                } else {
+                    return Transition::Exit;
+                }
+            }
+            UIMode::Cursor => self.set_view_mode(),
         }
-        | KeyEvent {
-            code: KeyCode::PageUp,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.prev_row_page();
-
-            return Ok(Some(Transition::Ok));
-        }
-        KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        }
-        | KeyEvent {
-            code: KeyCode::PageDown,
-            ..
-        } => {
-            view.get_top_layer_mut().cursor.next_row_page();
-
-            return Ok(Some(Transition::Ok));
-        }
-        _ => {}
+        Transition::Ok
     }
+    fn handle_expand(&mut self) -> Transition {
+        Transition::Cmd(String::from("expand"))
+    }
+    fn handle_transpose(&mut self) -> Transition {
+        match self.mode {
+            UIMode::View => {
+                self.transpose();
 
-    match key.code {
-        KeyCode::Esc => {
-            view.set_view_mode();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Up | KeyCode::Char('k') => {
-            view.get_top_layer_mut().cursor.prev_row();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            view.get_top_layer_mut().cursor.next_row();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Left | KeyCode::Char('h') => {
-            view.get_top_layer_mut().cursor.prev_column();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            view.get_top_layer_mut().cursor.next_column();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::Home | KeyCode::Char('g') => {
-            view.get_top_layer_mut().cursor.row_move_to_start();
-
-            Ok(Some(Transition::Ok))
-        }
-        KeyCode::End | KeyCode::Char('G') => {
-            view.get_top_layer_mut().cursor.row_move_to_end();
-
-            Ok(Some(Transition::Ok))
-        }
-        // Try to "drill down" into the selected value
-        KeyCode::Enter => {
-            let value = view.get_current_value();
-
-            // ...but it only makes sense to drill down into a few types of values
-            if !matches!(
-                value,
-                Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
-            ) {
-                return Ok(None);
+                Transition::Ok
             }
-
-            let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value.clone())?;
-            push_layer(view, next_layer);
-
-            if is_record {
-                view.set_top_layer_orientation(Orientation::Left);
-            } else {
-                view.set_top_layer_orientation(view.orientation);
-            }
-
-            Ok(Some(Transition::Ok))
+            _ => Transition::None,
         }
-        _ => Ok(None),
+    }
+    // for these, copy standard CursorMoveHandler for UIMode::View, but use special handling for UIMode::Cursor
+    // NOTE: https://stackoverflow.com/a/31462293/2016290 says there's plans for Rust to allow calling super functions,
+    // but not yet, and since they're all one line, it seems simpler to copy than make a lot of helper functions
+    fn handle_left(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.prev_column_i(),
+            _ => self.get_top_layer_mut().cursor.prev_column(),
+        }
+    }
+    fn handle_right(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.next_column_i(),
+            _ => self.get_top_layer_mut().cursor.next_column(),
+        }
+    }
+    fn handle_up(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.prev_row_i(),
+            _ => self.get_top_layer_mut().cursor.prev_row(),
+        }
+    }
+    fn handle_down(&mut self) {
+        match self.mode {
+            UIMode::View => self.get_top_layer_mut().cursor.next_row_i(),
+            _ => self.get_top_layer_mut().cursor.next_row(),
+        }
     }
 }
 
 fn create_layer(value: Value) -> Result<RecordLayer> {
     let (columns, values) = collect_input(value)?;
-
+    if columns.is_empty() {
+        return Err(anyhow::anyhow!("Nothing to explore in empty collections!"));
+    }
     Ok(RecordLayer::new(columns, values))
 }
 
@@ -785,4 +685,122 @@ fn strip_string(text: &str) -> String {
     String::from_utf8(strip_ansi_escapes::strip(text))
         .map_err(|_| ())
         .unwrap_or_else(|_| text.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{Value, span::Span};
+
+    // Helper to create a simple test Value::Record
+    fn create_test_record() -> Value {
+        let mut record = Record::new();
+        record.insert(
+            "name".to_string(),
+            Value::string("sample", Span::test_data()),
+        );
+        record.insert("value".to_string(), Value::int(42, Span::test_data()));
+        Value::record(record, Span::test_data())
+    }
+
+    // Helper to create a simple test Value::List
+    fn create_test_list() -> Value {
+        let items = vec![
+            Value::string("item1", Span::test_data()),
+            Value::string("item2", Span::test_data()),
+        ];
+        Value::list(items, Span::test_data())
+    }
+
+    #[test]
+    fn test_create_layer_empty_collection() {
+        // Test with empty record
+        let empty_record = Value::record(Record::new(), Span::test_data());
+        let result = create_layer(empty_record);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Nothing to explore in empty collections!"
+        );
+
+        // Test with empty list
+        let empty_list = Value::list(vec![], Span::test_data());
+        let result = create_layer(empty_list);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Nothing to explore in empty collections!"
+        );
+    }
+
+    #[test]
+    fn test_create_layer_valid_record() {
+        let record = create_test_record();
+        let result = create_layer(record);
+        assert!(result.is_ok());
+
+        let layer = result.unwrap();
+        assert_eq!(layer.column_names, vec!["name", "value"]);
+        assert_eq!(layer.record_values.len(), 1);
+        assert_eq!(layer.record_values[0].len(), 2);
+    }
+
+    #[test]
+    fn test_create_layer_valid_list() {
+        let list = create_test_list();
+        let result = create_layer(list);
+        assert!(result.is_ok());
+
+        let layer = result.unwrap();
+        assert_eq!(layer.column_names, vec![""]);
+        assert_eq!(layer.record_values.len(), 2);
+        assert_eq!(layer.record_values[0].len(), 1);
+    }
+
+    #[test]
+    fn test_transpose_table() {
+        // Create a simple 2x3 table
+        let mut layer = RecordLayer::new(
+            vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
+            vec![
+                vec![
+                    Value::string("r1c1", Span::test_data()),
+                    Value::string("r1c2", Span::test_data()),
+                    Value::string("r1c3", Span::test_data()),
+                ],
+                vec![
+                    Value::string("r2c1", Span::test_data()),
+                    Value::string("r2c2", Span::test_data()),
+                    Value::string("r2c3", Span::test_data()),
+                ],
+            ],
+        );
+
+        // Before transpose
+        assert_eq!(layer.count_rows(), 2);
+        assert_eq!(layer.count_columns(), 3);
+        assert!(!layer.was_transposed);
+
+        // After transpose
+        transpose_table(&mut layer);
+        assert_eq!(layer.count_rows(), 3);
+        assert_eq!(layer.count_columns(), 3); // Now includes header row
+        assert!(layer.was_transposed);
+
+        // After transpose back
+        transpose_table(&mut layer);
+        assert_eq!(layer.count_rows(), 2);
+        assert_eq!(layer.count_columns(), 3);
+        assert!(!layer.was_transposed);
+    }
+
+    #[test]
+    fn test_estimate_page_size() {
+        // Test with header
+        let area = Rect::new(0, 0, 80, 24);
+        assert_eq!(estimate_page_size(area, true), 18); // 24 - 3 (status bar) - 3 (header) = 18
+
+        // Test without header
+        assert_eq!(estimate_page_size(area, false), 21); // 24 - 3 (status bar) = 21
+    }
 }

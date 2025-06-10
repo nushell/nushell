@@ -9,16 +9,18 @@ fn msgpack_test(fixture_name: &str, commands: Option<&str>) -> nu_test_support::
 
     let mut outcome = None;
     Playground::setup(&format!("msgpack test {}", fixture_name), |dirs, _| {
-        assert!(nu!(
-            cwd: dirs.test(),
-            format!(
-                "nu -n '{}' '{}'",
-                path_to_generate_nu.display(),
-                fixture_name
-            ),
-        )
-        .status
-        .success());
+        assert!(
+            nu!(
+                cwd: dirs.test(),
+                format!(
+                    "nu -n '{}' '{}'",
+                    path_to_generate_nu.display(),
+                    fixture_name
+                ),
+            )
+            .status
+            .success()
+        );
 
         outcome = Some(nu!(
             cwd: dirs.test(),

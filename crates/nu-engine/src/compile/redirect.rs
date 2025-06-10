@@ -1,11 +1,11 @@
 use nu_protocol::{
+    IntoSpanned, OutDest, RegId, Span, Spanned,
     ast::{Expression, RedirectionTarget},
     engine::StateWorkingSet,
     ir::{Instruction, RedirectMode},
-    IntoSpanned, OutDest, RegId, Span, Spanned,
 };
 
-use super::{compile_expression, BlockBuilder, CompileError};
+use super::{BlockBuilder, CompileError, compile_expression};
 
 #[derive(Default, Clone)]
 pub(crate) struct RedirectModes {
@@ -14,9 +14,9 @@ pub(crate) struct RedirectModes {
 }
 
 impl RedirectModes {
-    pub(crate) fn capture_out(span: Span) -> Self {
+    pub(crate) fn value(span: Span) -> Self {
         RedirectModes {
-            out: Some(RedirectMode::Capture.into_spanned(span)),
+            out: Some(RedirectMode::Value.into_spanned(span)),
             err: None,
         }
     }
@@ -46,7 +46,7 @@ pub(crate) fn redirection_target_to_mode(
                 working_set,
                 builder,
                 expr,
-                RedirectModes::capture_out(*redir_span),
+                RedirectModes::value(*redir_span),
                 None,
                 path_reg,
             )?;
@@ -98,7 +98,7 @@ pub(crate) fn finish_redirection(
         if !matches!(
             modes.err,
             Some(Spanned {
-                item: RedirectMode::Pipe { .. },
+                item: RedirectMode::Pipe,
                 ..
             })
         ) {
@@ -148,9 +148,11 @@ pub(crate) fn out_dest_to_redirect_mode(
     out_dest
         .map(|out_dest| match out_dest {
             OutDest::Pipe => Ok(RedirectMode::Pipe),
-            OutDest::Capture => Ok(RedirectMode::Capture),
+            OutDest::PipeSeparate => Ok(RedirectMode::PipeSeparate),
+            OutDest::Value => Ok(RedirectMode::Value),
             OutDest::Null => Ok(RedirectMode::Null),
-            OutDest::Inherit => Ok(RedirectMode::Inherit),
+            OutDest::Print => Ok(RedirectMode::Print),
+            OutDest::Inherit => Err(CompileError::InvalidRedirectMode { span }),
             OutDest::File(_) => Err(CompileError::InvalidRedirectMode { span }),
         })
         .transpose()

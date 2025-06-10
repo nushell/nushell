@@ -196,9 +196,11 @@ fn use_module_creates_accurate_did_you_mean_2() {
     let actual = nu!(r#"
             module spam { export def foo [] { "foo" } }; foo
         "#);
-    assert!(actual
-        .err
-        .contains("A command with that name exists in module `spam`"));
+    assert!(
+        actual
+            .err
+            .contains("A command with that name exists in module `spam`")
+    );
 }
 
 #[test]
@@ -284,9 +286,9 @@ fn use_main_def_known_external() {
 #[test]
 fn use_main_not_exported() {
     let inp = &[
-        r#"module spam { def main [] { "spam" } }"#,
-        r#"use spam"#,
-        r#"spam"#,
+        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
+        r#"use my-super-cool-and-unique-module-name"#,
+        r#"my-super-cool-and-unique-module-name"#,
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -307,4 +309,48 @@ fn can_use_sub_subname_from_submodule() {
         r#"module spam { export module foo { export def bar [] {"bar"} } }; use spam foo bar; bar"#;
     let actual = nu!(inp);
     assert_eq!(actual.out, "bar")
+}
+
+#[test]
+fn test_use_with_printing_file_pwd() {
+    Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
+        let file = dirs.test().join("mod.nu");
+        nu.with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.FILE_PWD
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "use ."
+        );
+
+        assert_eq!(actual.out, dirs.test().to_string_lossy());
+    });
+}
+
+#[test]
+fn test_use_with_printing_current_file() {
+    Playground::setup("use_with_printing_current_file", |dirs, nu| {
+        let file = dirs.test().join("mod.nu");
+        nu.with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.CURRENT_FILE
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "use ."
+        );
+
+        assert_eq!(actual.out, dirs.test().join("mod.nu").to_string_lossy());
+    });
 }

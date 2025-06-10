@@ -11,9 +11,9 @@ struct Arguments {
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathDirname;
 
-impl Command for SubCommand {
+impl Command for PathDirname {
     fn name(&self) -> &str {
         "path dirname"
     }
@@ -118,8 +118,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example:
-                    "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 --replace C:\\Users\\viking",
+                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 --replace C:\\Users\\viking",
                 result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
             },
         ]
@@ -148,8 +147,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example:
-                    "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace /home/viking",
+                example: "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace /home/viking",
                 result: Some(Value::test_string("/home/viking/code/test.txt")),
             },
         ]
@@ -194,6 +192,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathDirname {})
     }
 }

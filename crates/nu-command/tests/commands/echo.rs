@@ -34,3 +34,9 @@ fn echo_range_handles_exclusive_down() {
 
     assert_eq!(actual.out, "[3,2]");
 }
+
+#[test]
+fn echo_is_const() {
+    let actual = nu!(r#"const val = echo 1..3; $val | to json --raw"#);
+    assert_eq!(actual.out, "[1,2,3]");
+}

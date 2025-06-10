@@ -7,8 +7,8 @@ use polars::{prelude::NamedFrom, series::Series};
 use uuid::Uuid;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame},
 };
 
 #[derive(Clone)]
@@ -42,7 +42,10 @@ impl PluginCommand for CacheGet {
     polars store-ls | get key | first | polars store-get $in"#,
             result: Some(
                 NuDataFrame::try_from_series_vec(
-                    vec![Series::new("a", &[1_i64, 3]), Series::new("b", &[2_i64, 4])],
+                    vec![
+                        Series::new("a".into(), &[1_i64, 3]),
+                        Series::new("b".into(), &[2_i64, 4]),
+                    ],
                     Span::test_data(),
                 )
                 .expect("could not create dataframe")

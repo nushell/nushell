@@ -7,10 +7,13 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
-use polars_plan::prelude::{lit, Expr, Null};
+use nu_protocol::{PipelineData, Record, ShellError, Span, Value, did_you_mean};
+use polars::prelude::{
+    Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
+};
+use polars_plan::prelude::{Expr, Null, lit};
 use polars_utils::total_ord::{TotalEq, TotalHash};
+use std::fmt;
 use std::{
     cmp::Ordering,
     collections::HashSet,
@@ -25,8 +28,8 @@ use crate::{Cacheable, PolarsPlugin};
 pub use self::custom_value::NuDataFrameCustomValue;
 
 use super::{
-    cant_convert_err, nu_schema::NuSchema, utils::DEFAULT_ROWS, CustomValueSupport, NuLazyFrame,
-    PolarsPluginObject, PolarsPluginType,
+    CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    nu_schema::NuSchema, utils::DEFAULT_ROWS,
 };
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
@@ -68,7 +71,7 @@ impl Default for DataFrameValue {
 
 impl PartialEq for DataFrameValue {
     fn eq(&self, other: &Self) -> bool {
-        self.0.partial_cmp(&other.0).map_or(false, Ordering::is_eq)
+        self.0.partial_cmp(&other.0).is_some_and(Ordering::is_eq)
     }
 }
 impl Eq for DataFrameValue {}
@@ -116,6 +119,12 @@ impl From<DataFrame> for NuDataFrame {
     }
 }
 
+impl fmt::Display for NuDataFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.df)
+    }
+}
+
 impl NuDataFrame {
     pub fn new(from_lazy: bool, df: DataFrame) -> Self {
         let id = Uuid::new_v4();
@@ -135,7 +144,7 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
-        match DataFrame::new(vec![series]) {
+        match DataFrame::new(vec![series.into()]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
@@ -181,7 +190,7 @@ impl NuDataFrame {
                 )?,
                 _ => {
                     let key = "0".to_string();
-                    conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
+                    conversion::insert_value(value, key.into(), &mut column_values, &maybe_schema)?
                 }
             }
         }
@@ -191,13 +200,16 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: format!("Unable to create DataFrame: {e}"),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
+
+        let dataframe =
+            DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: format!("Unable to create DataFrame: {e}"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
 
         Ok(Self::new(false, dataframe))
     }
@@ -209,7 +221,7 @@ impl NuDataFrame {
         let mut column_values: ColumnMap = IndexMap::new();
 
         for column in columns {
-            let name = column.name().to_string();
+            let name = column.name().clone();
             for value in column {
                 conversion::insert_value(value, name.clone(), &mut column_values, &maybe_schema)?;
             }
@@ -295,16 +307,17 @@ impl NuDataFrame {
             .df
             .get_columns()
             .first()
-            .expect("We have already checked that the width is 1");
+            .expect("We have already checked that the width is 1")
+            .as_materialized_series();
 
         Ok(series.clone())
     }
 
     pub fn get_value(&self, row: usize, span: Span) -> Result<Value, ShellError> {
         let series = self.as_series(span)?;
-        let column = conversion::create_column(&series, row, row + 1, span)?;
+        let column = conversion::create_column_from_series(&series, row, row + 1, span)?;
 
-        if column.len() == 0 {
+        if column.is_empty() {
             Err(ShellError::AccessEmptyContent { span })
         } else {
             let value = column
@@ -437,7 +450,7 @@ impl NuDataFrame {
     }
 
     pub fn schema(&self) -> NuSchema {
-        NuSchema::new(self.df.schema())
+        NuSchema::new(Arc::clone(self.df.schema()))
     }
 
     /// This differs from try_from_value as it will attempt to coerce the type into a NuDataFrame.
@@ -493,10 +506,9 @@ fn add_missing_columns(
             })
             .collect();
 
-        // todo - fix
         let missing_exprs: Vec<Expr> = missing
             .iter()
-            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(name))
+            .map(|(name, dtype)| lit(Null {}).cast((*dtype).to_owned()).alias(*name))
             .collect();
 
         let df = if !missing.is_empty() {

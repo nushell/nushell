@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicU32, Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, atomic::AtomicU32};
 
 use nu_protocol::{ShellError, Span};
 use nu_system::ForegroundGuard;

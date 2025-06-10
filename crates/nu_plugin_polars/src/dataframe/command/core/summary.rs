@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use crate::values::{Column, NuDataFrame};
 
@@ -10,8 +10,8 @@ use nu_protocol::{
 use polars::{
     chunked_array::ChunkedArray,
     prelude::{
-        AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray,
-        QuantileInterpolOptions, Series, StringType,
+        AnyValue, Column as PolarsColumn, DataFrame, DataType, Float64Type, IntoSeries,
+        NewChunkedArray, QuantileMethod, StringType,
     },
 };
 
@@ -112,7 +112,10 @@ impl PluginCommand for Summary {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -177,15 +180,15 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let names = ChunkedArray::<StringType>::from_slice_options("descriptor", &labels).into_series();
+    let names =
+        ChunkedArray::<StringType>::from_slice_options("descriptor".into(), &labels).into_series();
 
     let head = std::iter::once(names);
 
     let tail = df
         .as_ref()
-        .get_columns()
         .iter()
-        .filter(|col| !matches!(col.dtype(), &DataType::Object("object", _)))
+        .filter(|col| !matches!(col.dtype(), &DataType::Object("object")))
         .map(|col| {
             let count = col.len() as f64;
 
@@ -199,9 +202,9 @@ fn command(
                 .clone()
                 .into_iter()
                 .map(|q| {
-                    col.quantile_reduce(q, QuantileInterpolOptions::default())
+                    col.quantile_reduce(q, QuantileMethod::default())
                         .ok()
-                        .map(|s| s.into_series("quantile"))
+                        .map(|s| s.into_series("quantile".into()))
                         .and_then(|ca| ca.cast(&DataType::Float64).ok())
                         .and_then(|ca| match ca.get(0) {
                             Ok(AnyValue::Float64(v)) => Some(v),
@@ -217,10 +220,13 @@ fn command(
             descriptors.push(max);
 
             let name = format!("{} ({})", col.name(), col.dtype());
-            ChunkedArray::<Float64Type>::from_slice_options(&name, &descriptors).into_series()
+            ChunkedArray::<Float64Type>::from_slice_options(name.into(), &descriptors).into_series()
         });
 
-    let res = head.chain(tail).collect::<Vec<Series>>();
+    let res = head
+        .chain(tail)
+        .map(PolarsColumn::from)
+        .collect::<Vec<PolarsColumn>>();
 
     let polars_df = DataFrame::new(res).map_err(|e| ShellError::GenericError {
         error: "Dataframe Error".into(),

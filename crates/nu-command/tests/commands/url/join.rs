@@ -27,7 +27,7 @@ fn url_join_with_only_user() {
                     "password": "",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -44,7 +44,7 @@ fn url_join_with_only_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -61,7 +61,7 @@ fn url_join_with_user_and_pwd() {
                     "password": "pwd",
                     "host": "localhost",
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -79,7 +79,7 @@ fn url_join_with_query() {
                     "host": "localhost",
                     "query": "par_1=aaa&par_2=bbb"
                     "port": "",
-                } | url join 
+                } | url join
             "#
     ));
 
@@ -154,12 +154,16 @@ fn url_join_with_different_query_and_params() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Mismatch, qs from params is: ?par_1=aaab&par_2=bbb"));
-    assert!(actual
-        .err
-        .contains("instead query is: ?par_1=aaa&par_2=bbb"));
+    assert!(
+        actual
+            .err
+            .contains("Mismatch, query string from params is: ?par_1=aaab&par_2=bbb")
+    );
+    assert!(
+        actual
+            .err
+            .contains("instead query is: ?par_1=aaa&par_2=bbb")
+    );
 
     let actual = nu!(pipeline(
         r#"
@@ -178,12 +182,16 @@ fn url_join_with_different_query_and_params() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Mismatch, query param is: par_1=aaa&par_2=bbb"));
-    assert!(actual
-        .err
-        .contains("instead qs from params is: ?par_1=aaab&par_2=bbb"));
+    assert!(
+        actual
+            .err
+            .contains("Mismatch, query param is: par_1=aaa&par_2=bbb")
+    );
+    assert!(
+        actual
+            .err
+            .contains("instead query string from params is: ?par_1=aaab&par_2=bbb")
+    );
 }
 
 #[test]
@@ -201,7 +209,11 @@ fn url_join_with_invalid_params() {
             "#
     ));
 
-    assert!(actual.err.contains("Key params has to be a record"));
+    assert!(
+        actual
+            .err
+            .contains("Key params has to be a record or a table")
+    );
 }
 
 #[test]
@@ -243,9 +255,11 @@ fn url_join_with_invalid_port() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Port parameter should represent an unsigned int"));
+    assert!(
+        actual
+            .err
+            .contains("Port parameter should represent an unsigned int")
+    );
 
     let actual = nu!(pipeline(
         r#"
@@ -257,9 +271,11 @@ fn url_join_with_invalid_port() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Port parameter should be an unsigned int or a string representing it"));
+    assert!(
+        actual
+            .err
+            .contains("Port parameter should be an unsigned int or a string representing it")
+    );
 }
 
 #[test]
@@ -345,4 +361,83 @@ fn url_join_with_empty_params() {
     ));
 
     assert_eq!(actual.out, "https://localhost/foo");
+}
+
+#[test]
+fn url_join_with_list_in_params() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": {
+                    "par_1": "aaa",
+                    "par_2": ["bbb", "ccc"]
+                },
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb&par_2=ccc"
+    );
+}
+
+#[test]
+fn url_join_with_params_table() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": [
+                    ["key", "value"];
+                    ["par_1", "aaa"],
+                    ["par_2", "bbb"],
+                    ["par_1", "ccc"],
+                    ["par_2", "ddd"],
+                ],
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert_eq!(
+        actual.out,
+        "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb&par_1=ccc&par_2=ddd"
+    );
+}
+
+#[test]
+fn url_join_with_params_invalid_table() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "http",
+                "username": "usr",
+                "password": "pwd",
+                "host": "localhost",
+                "params": (
+                    [
+                        { key: foo, value: bar }
+                        "not a record"
+                    ]
+                ),
+                "port": "1234",
+            } | url join
+        "#
+    ));
+
+    assert!(actual.err.contains("expected a table"));
+    assert!(
+        actual
+            .err
+            .contains("not a table, contains non-record values")
+    );
 }

@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use std::{io::Write, marker::PhantomData};
 
@@ -49,6 +49,7 @@ where
             .category(Category::Hash)
             .input_output_types(vec![
                 (Type::String, Type::Any),
+                (Type::Binary, Type::Any),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])

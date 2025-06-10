@@ -6,11 +6,11 @@ use nu_protocol::{
 use polars::df;
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
+use crate::values::CustomValueSupport;
 
-use crate::values::utils::convert_columns_string;
 use crate::values::NuDataFrame;
+use crate::values::utils::convert_columns_string;
 
 #[derive(Clone)]
 pub struct DropDuplicates;
@@ -49,7 +49,7 @@ impl PluginCommand for DropDuplicates {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df 
+            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df
                 | polars drop-duplicates
                 | polars sort-by a",
             result: Some(
@@ -72,7 +72,10 @@ impl PluginCommand for DropDuplicates {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -103,7 +106,7 @@ fn command(
 
     let polars_df = df
         .as_ref()
-        .unique(subset_slice, keep_strategy, None)
+        .unique_stable(subset_slice, keep_strategy, None)
         .map_err(|e| ShellError::GenericError {
             error: "Error dropping duplicates".into(),
             msg: e.to_string(),

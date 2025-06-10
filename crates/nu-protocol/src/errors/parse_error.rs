@@ -1,11 +1,10 @@
-use std::{
-    fmt::Display,
-    str::{from_utf8, Utf8Error},
-};
-
-use crate::{ast::RedirectionSource, did_you_mean, Span, Type};
+use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
+use std::{
+    fmt::Display,
+    str::{Utf8Error, from_utf8},
+};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
@@ -54,6 +53,10 @@ pub enum ParseError {
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
     ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
+
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_did_you_mean))]
+    ExpectedWithDidYouMean(&'static str, DidYouMean, #[label("expected {0}. {1}")] Span),
 
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
@@ -111,38 +114,36 @@ pub enum ParseError {
         span: Span,
     },
 
-    #[error("{0} is not supported on values of type {3}")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationLHS(
-        String,
-        #[label = "doesn't support this value"] Span,
-        #[label("{3}")] Span,
-        Type,
-    ),
+    /// One or more of the values have types not supported by the operator.
+    #[error("The '{op}' operator does not work on values of type '{unsupported}'.")]
+    #[diagnostic(code(nu::parser::operator_unsupported_type))]
+    OperatorUnsupportedType {
+        op: &'static str,
+        unsupported: Type,
+        #[label = "does not support '{unsupported}'"]
+        op_span: Span,
+        #[label("{unsupported}")]
+        unsupported_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
-    #[error("{0} is not supported between {3} and {5}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationRHS(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-    ),
-
-    #[error("{0} is not supported between {3}, {5}, and {7}.")]
-    #[diagnostic(code(nu::parser::unsupported_operation))]
-    UnsupportedOperationTernary(
-        String,
-        #[label = "doesn't support these values"] Span,
-        #[label("{3}")] Span,
-        Type,
-        #[label("{5}")] Span,
-        Type,
-        #[label("{7}")] Span,
-        Type,
-    ),
+    /// The operator supports the types of both values, but not the specific combination of their types.
+    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+    #[diagnostic(code(nu::parser::operator_incompatible_types))]
+    OperatorIncompatibleTypes {
+        op: &'static str,
+        lhs: Type,
+        rhs: Type,
+        #[label = "does not operate between '{lhs}' and '{rhs}'"]
+        op_span: Span,
+        #[label("{lhs}")]
+        lhs_span: Span,
+        #[label("{rhs}")]
+        rhs_span: Span,
+        #[help]
+        help: Option<&'static str>,
+    },
 
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -244,14 +245,18 @@ pub enum ParseError {
     #[error("Module not found.")]
     #[diagnostic(
         code(nu::parser::module_not_found),
-        help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
+        help(
+            "module files and their paths must be available before your script is run as parsing occurs before anything is evaluated"
+        )
     )]
     ModuleNotFound(#[label = "module {1} not found"] Span, String),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+        help(
+            "Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually."
+        )
     )]
     ModuleMissingModNuFile(
         String,
@@ -265,7 +270,9 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
+        help(
+            "Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}."
+        )
     )]
     NamedAsModule(
         String,
@@ -287,7 +294,9 @@ pub enum ParseError {
     #[error("Can't export alias defined as 'main'.")]
     #[diagnostic(
         code(nu::parser::export_main_alias_not_allowed),
-        help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
+        help(
+            "Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command."
+        )
     )]
     ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
 
@@ -298,7 +307,9 @@ pub enum ParseError {
     #[error("Overlay prefix mismatch.")]
     #[diagnostic(
         code(nu::parser::overlay_prefix_mismatch),
-        help("Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag.")
+        help(
+            "Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag."
+        )
     )]
     OverlayPrefixMismatch(
         String,
@@ -309,7 +320,9 @@ pub enum ParseError {
     #[error("Module or overlay not found.")]
     #[diagnostic(
         code(nu::parser::module_or_overlay_not_found),
-        help("Requires either an existing overlay, a module, or an import pattern defining a module.")
+        help(
+            "Requires either an existing overlay, a module, or an import pattern defining a module."
+        )
     )]
     ModuleOrOverlayNotFound(#[label = "not a module or an overlay"] Span),
 
@@ -473,7 +486,9 @@ pub enum ParseError {
     #[error("Plugin not found")]
     #[diagnostic(
         code(nu::parser::plugin_not_found),
-        help("plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"),
+        help(
+            "plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"
+        )
     )]
     PluginNotFound {
         name: String,
@@ -512,9 +527,42 @@ pub enum ParseError {
     #[error("This command does not have a ...rest parameter")]
     #[diagnostic(
         code(nu::parser::unexpected_spread_arg),
-        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
+        help(
+            "To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest"
+        )
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_mutable_variable),
+        help("declare the variable with `mut`, or shadow it again with `let`")
+    )]
+    AssignmentRequiresMutableVar(#[label("needs to be a mutable variable")] Span),
+
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
+    #[error("Assignment operations require a variable.")]
+    #[diagnostic(
+        code(nu::parser::assignment_requires_variable),
+        help("try assigning to a variable or a cell path of a variable")
+    )]
+    AssignmentRequiresVar(#[label("needs to be a variable")] Span),
+
+    #[error("Attributes must be followed by a definition.")]
+    #[diagnostic(
+        code(nu::parser::attribute_requires_definition),
+        help("try following this line with a `def` or `extern` definition")
+    )]
+    AttributeRequiresDefinition(#[label("must be followed by a definition")] Span),
 }
 
 impl ParseError {
@@ -527,10 +575,10 @@ impl ParseError {
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
             ParseError::ExpectedWithStringMsg(_, s) => *s,
+            ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
-            ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
-            ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
-            ParseError::UnsupportedOperationTernary(_, _, _, _, _, _, s, _) => *s,
+            ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
+            ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,
@@ -603,6 +651,9 @@ impl ParseError {
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
             ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
+            ParseError::AssignmentRequiresVar(s) => *s,
+            ParseError::AssignmentRequiresMutableVar(s) => *s,
+            ParseError::AttributeRequiresDefinition(s) => *s,
         }
     }
 }

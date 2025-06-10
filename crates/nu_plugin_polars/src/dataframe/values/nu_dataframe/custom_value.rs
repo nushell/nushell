@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    values::{CustomValueSupport, PolarsPluginCustomValue},
     Cacheable, PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginCustomValue},
 };
 
 use super::NuDataFrame;
@@ -27,7 +27,7 @@ impl CustomValue for NuDataFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuDataFrameCustomValue".into()
+        "NuDataFrame".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

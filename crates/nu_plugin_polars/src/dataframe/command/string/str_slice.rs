@@ -1,8 +1,8 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -13,7 +13,7 @@ use nu_protocol::{
     Value,
 };
 use polars::{
-    prelude::{lit, Expr, IntoSeries, NamedFrom, Null, StringNameSpaceImpl},
+    prelude::{Expr, IntoSeries, NamedFrom, Null, StringNameSpaceImpl, lit},
     series::Series,
 };
 
@@ -117,6 +117,7 @@ impl PluginCommand for StrSlice {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -134,6 +135,7 @@ impl PluginCommand for StrSlice {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -160,13 +162,14 @@ fn command_df(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let start: i64 = call.req(0)?;
-    let start = Series::new("", &[start]);
+    let start = Series::new("".into(), &[start]).into();
 
     let length: Option<i64> = call.get_flag("length")?;
     let length = match length {
-        Some(v) => Series::new("", &[v as u64]),
-        None => Series::new_null("", 1),
-    };
+        Some(v) => Series::new("".into(), &[v as u64]),
+        None => Series::new_null("".into(), 1),
+    }
+    .into();
 
     let series = df.as_series(call.head)?;
 
@@ -187,7 +190,7 @@ fn command_df(
             help: None,
             inner: vec![],
         })?
-        .with_name(series.name());
+        .with_name(series.name().to_owned());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

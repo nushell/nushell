@@ -1,6 +1,6 @@
 use crate::dataframe::command::data::sql_expr::parse_sql_expr;
 use polars::error::{ErrString, PolarsError};
-use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
+use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, col};
 use sqlparser::ast::{
     Expr as SqlExpr, GroupByExpr, Select, SelectItem, SetExpr, Statement, TableFactor,
     Value as SQLValue,
@@ -98,11 +98,11 @@ impl SQLContext {
         // Check for group by
         // After projection since there might be number.
         let group_by = match &select_stmt.group_by {
-                GroupByExpr::All =>
+                GroupByExpr::All(_) =>
                   Err(
                       PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported, not all".into())
                   )?,
-                GroupByExpr::Expressions(expressions) => expressions
+                GroupByExpr::Expressions(expressions, _) => expressions
             }
             .iter()
             .map(
@@ -171,7 +171,8 @@ impl SQLContext {
                         .schema()
                         .get_at_index(shm_p)
                         .unwrap_or((&"".into(), &DataType::Null))
-                        .0)
+                        .0
+                        .clone())
                 })
                 .collect::<Vec<_>>();
             agg_df.select(final_proj)
@@ -197,7 +198,7 @@ impl SQLContext {
                         _ => {
                             return Err(PolarsError::ComputeError(
                                 "INSERT, UPDATE is not supported for polars".into(),
-                            ))
+                            ));
                         }
                     };
                     match &query.limit {
@@ -213,14 +214,14 @@ impl SQLContext {
                         _ => {
                             return Err(PolarsError::ComputeError(
                                 "Only support number argument to LIMIT clause".into(),
-                            ))
+                            ));
                         }
                     }
                 }
                 _ => {
                     return Err(PolarsError::ComputeError(
                         format!("Statement type {ast:?} is not supported").into(),
-                    ))
+                    ));
                 }
             })
         }

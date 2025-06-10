@@ -1,6 +1,9 @@
-use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
+use nu_protocol::{
+    NuGlob,
+    shell_error::{self, io::IoError},
+};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -116,9 +119,9 @@ impl Command for UCp {
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+            (UpdateMode::IfOlder, CopyMode::Update)
         } else {
-            (UpdateMode::ReplaceAll, CopyMode::Copy)
+            (UpdateMode::All, CopyMode::Copy)
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
@@ -142,21 +145,11 @@ impl Command for UCp {
         } else {
             uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard)
         };
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "android",
-            target_os = "macos"
-        ))]
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
         let reflink_mode = uu_cp::ReflinkMode::Auto;
-        #[cfg(not(any(
-            target_os = "linux",
-            target_os = "freebsd",
-            target_os = "android",
-            target_os = "macos"
-        )))]
+        #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -203,14 +196,15 @@ impl Command for UCp {
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
             let exp_files: Vec<Result<PathBuf, ShellError>> =
-                nu_engine::glob_from(&p, &cwd, call.head, None)
+                nu_engine::glob_from(&p, &cwd, call.head, None, engine_state.signals().clone())
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound {
-                    file: p.item.to_string(),
-                    span: p.span,
-                });
+                return Err(ShellError::Io(IoError::new(
+                    shell_error::io::ErrorKind::FileNotFound,
+                    p.span,
+                    PathBuf::from(p.item.to_string()),
+                )));
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -258,7 +252,7 @@ impl Command for UCp {
             dereference: !recursive,
             progress_bar: progress,
             attributes_only: false,
-            backup: BackupMode::NoBackup,
+            backup: BackupMode::None,
             copy_contents: false,
             cli_dereference: false,
             copy_mode,
@@ -270,6 +264,8 @@ impl Command for UCp {
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
+            set_selinux_context: false,
+            context: None,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
@@ -283,7 +279,7 @@ impl Command for UCp {
                         span: None,
                         help: None,
                         inner: vec![],
-                    })
+                    });
                 }
             };
             // TODO: What should we do in place of set_exit_code?

@@ -1,5 +1,5 @@
-use crate::values::{CustomValueSupport, NuDataFrame};
 use crate::PolarsPlugin;
+use crate::values::{CustomValueSupport, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -28,7 +28,7 @@ impl PluginCommand for ValueCount {
             .named(
                 "column",
                 SyntaxShape::String,
-                "Provide a custom name for the coutn column",
+                "Provide a custom name for the count column",
                 Some('c'),
             )
             .switch("sort", "Whether or not values should be sorted", Some('s'))
@@ -74,7 +74,10 @@ impl PluginCommand for ValueCount {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -92,7 +95,7 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let res = series
-        .value_counts(sort, parallel, column, normalize)
+        .value_counts(sort, parallel, column.into(), normalize)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating value counts values".into(),
             msg: e.to_string(),

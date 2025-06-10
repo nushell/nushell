@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval};
+use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -24,11 +24,7 @@ impl Command for Reduce {
             )
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![
-                    SyntaxShape::Any,
-                    SyntaxShape::Any,
-                    SyntaxShape::Int,
-                ])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "Reducing function.",
             )
             .allow_variants_without_examples(true)
@@ -56,8 +52,7 @@ impl Command for Reduce {
                 result: Some(Value::test_int(-8)),
             },
             Example {
-                example:
-                    "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
+                example: "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
                 result: Some(Value::test_int(24)),
             },
@@ -78,15 +73,22 @@ impl Command for Reduce {
             },
             Example {
                 example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | enumerate | reduce --fold '' {|str all| $"($all)(if $str.index != 0 {'; '})($str.index + 1)-($str.item)" }"#,
-                description:
-                    "Add ascending numbers to each of the filenames, and join with semicolons.",
+                description: "Add ascending numbers to each of the filenames, and join with semicolons.",
                 result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
             Example {
                 example: r#"let s = "Str"; 0..2 | reduce --fold '' {|it, acc| $acc + $s}"#,
-                description:
-                    "Concatenate a string with itself, using a range to determine the number of times.",
+                description: "Concatenate a string with itself, using a range to determine the number of times.",
                 result: Some(Value::test_string("StrStrStr")),
+            },
+            Example {
+                example: r#"[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}"#,
+                description: "Merge multiple records together, making use of the fact that the accumulated value is also supplied as pipeline input to the closure.",
+                result: Some(Value::test_record(record!(
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(3),
+                ))),
             },
         ]
     }
@@ -135,8 +137,8 @@ mod test {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::{Merge, test_examples_with_commands};
 
-        test_examples(Reduce {})
+        test_examples_with_commands(Reduce {}, &[&Merge])
     }
 }

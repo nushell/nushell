@@ -1,4 +1,4 @@
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent};
+use nu_test_support::fs::{Stub::EmptyFile, Stub::FileWithContent, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
@@ -202,7 +202,7 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.test(),
             "mv non-existing-file test_folder/"
         );
-        assert!(actual.err.contains("Directory not found"));
+        assert!(actual.err.contains("nu::shell::io::not_found"));
     })
 }
 
@@ -249,9 +249,11 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() {
             "mv file?.txt not_a_dir"
         );
 
-        assert!(actual
-            .err
-            .contains("Can only move multiple sources if destination is a directory"));
+        assert!(
+            actual
+                .err
+                .contains("Can only move multiple sources if destination is a directory")
+        );
     })
 }
 
@@ -513,13 +515,18 @@ fn test_mv_no_clobber() {
         sandbox.with_files(&[EmptyFile(file_a)]);
         sandbox.with_files(&[EmptyFile(file_b)]);
 
-        let actual = nu!(
+        let _ = nu!(
             cwd: dirs.test(),
             "mv -n {} {}",
             file_a,
             file_b,
         );
-        assert!(actual.err.contains("not replacing"));
+
+        let file_count = nu!(
+            cwd: dirs.test(),
+            "ls test_mv* | length | to nuon"
+        );
+        assert_eq!(file_count.out, "2");
     })
 }
 
@@ -541,13 +548,15 @@ fn mv_with_no_target() {
             cwd: dirs.test(),
             "mv a",
         );
-        assert!(actual.err.contains(
-            format!(
-                "Missing destination path operand after {}",
-                dirs.test().join("a").display()
+        assert!(
+            actual.err.contains(
+                format!(
+                    "Missing destination path operand after {}",
+                    dirs.test().join("a").display()
+                )
+                .as_str()
             )
-            .as_str()
-        ));
+        );
     })
 }
 

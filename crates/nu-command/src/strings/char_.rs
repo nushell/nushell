@@ -1,9 +1,9 @@
-use indexmap::{indexmap, IndexMap};
+use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
 
 use nu_protocol::Signals;
-use once_cell::sync::Lazy;
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -12,10 +12,17 @@ const ENV_PATH_SEPARATOR_CHAR: char = ';';
 #[cfg(not(target_family = "windows"))]
 const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const LINE_SEPARATOR_CHAR: &str = "\r\n";
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const LINE_SEPARATOR_CHAR: char = '\n';
+
 #[derive(Clone)]
 pub struct Char;
 
-static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
+static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
     indexmap! {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
@@ -59,6 +66,9 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
+        "eol" => LINE_SEPARATOR_CHAR.to_string(),
+        "lsep" => LINE_SEPARATOR_CHAR.to_string(),
+        "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
@@ -150,10 +160,13 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
     }
 });
 
-static NO_OUTPUT_CHARS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     [
         // If the character is in the this set, we don't output it to prevent
         // the broken of `char --list` command table format and alignment.
+        "nul",
+        "null_byte",
+        "zero_byte",
         "newline",
         "enter",
         "nl",
@@ -163,6 +176,9 @@ static NO_OUTPUT_CHARS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "crlf",
         "bel",
         "backspace",
+        "lsep",
+        "line_sep",
+        "eol",
     ]
     .into_iter()
     .collect()

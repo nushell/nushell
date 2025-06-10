@@ -2,6 +2,9 @@ use nu_test_support::fs::files_exist_at;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
+#[cfg(not(windows))]
+use uucore::mode;
+
 #[test]
 fn creates_directory() {
     Playground::setup("mkdir_test_1", |dirs, _| {
@@ -145,10 +148,13 @@ fn mkdir_umask_permission() {
             .permissions()
             .mode();
 
+        let umask = mode::get_umask();
+        let default_mode = 0o40777;
+        let expected: u32 = default_mode & !umask;
+
         assert_eq!(
-            actual, 0o40755,
-            "Most *nix systems have 0o00022 as the umask. \
-            So directory permission should be 0o40755 = 0o40777 & (!0o00022)"
+            actual, expected,
+            "Umask should have been applied to created folder"
         );
     })
 }

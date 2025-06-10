@@ -57,8 +57,10 @@ impl Command for ExportEnv {
 
         let eval_block = get_eval_block(engine_state);
 
-        let _ = eval_block(engine_state, &mut callee_stack, block, input);
+        // Run the block (discard the result)
+        let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
+        // Merge the block's environment to the current stack
         redirect_env(engine_state, caller_stack, &callee_stack);
 
         Ok(PipelineData::empty())

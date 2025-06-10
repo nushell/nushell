@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
@@ -764,66 +764,36 @@ fn range_with_mixed_types() {
 
 #[test]
 fn filesize_math() {
-    let actual = nu!("
-        100 * 10kib
-        ");
-
-    assert_eq!(actual.out, "1000.0 KiB");
-    // why 1000.0 KB instead of 1.0 MB?
-    // looks like `byte.get_appropriate_unit(false)` behaves this way
+    let actual = nu!("100 * 10kB");
+    assert_eq!(actual.out, "1.0 MB");
 }
 
 #[test]
 fn filesize_math2() {
-    let actual = nu!("
-        100 / 10kb
-        ");
-
-    assert!(actual.err.contains("doesn't support"));
+    let actual = nu!("100 / 10kB");
+    assert!(
+        actual
+            .err
+            .contains("nu::parser::operator_incompatible_types")
+    );
 }
 
 #[test]
 fn filesize_math3() {
-    let actual = nu!("
-        100kib / 10
-        ");
-
-    assert_eq!(actual.out, "10.0 KiB");
+    let actual = nu!("100kB / 10");
+    assert_eq!(actual.out, "10.0 kB");
 }
+
 #[test]
 fn filesize_math4() {
-    let actual = nu!("
-        100kib * 5
-        ");
-
-    assert_eq!(actual.out, "500.0 KiB");
+    let actual = nu!("100kB * 5");
+    assert_eq!(actual.out, "500.0 kB");
 }
 
 #[test]
 fn filesize_math5() {
-    let actual = nu!("
-        1000 * 1kib
-        ");
-
-    assert_eq!(actual.out, "1000.0 KiB");
-}
-
-#[test]
-fn filesize_math6() {
-    let actual = nu!("
-        1000 * 1mib
-        ");
-
-    assert_eq!(actual.out, "1000.0 MiB");
-}
-
-#[test]
-fn filesize_math7() {
-    let actual = nu!("
-        1000 * 1gib
-        ");
-
-    assert_eq!(actual.out, "1000.0 GiB");
+    let actual = nu!("100 * 1kB");
+    assert_eq!(actual.out, "100.0 kB");
 }
 
 #[test]
@@ -1165,7 +1135,89 @@ fn command_not_found_error_shows_not_found_2() {
 #[test]
 fn error_on_out_greater_pipe() {
     let actual = nu!(r#""foo" o>| print"#);
-    assert!(actual
-        .err
-        .contains("Redirecting stdout to a pipe is the same as normal piping"))
+    assert!(
+        actual
+            .err
+            .contains("Redirecting stdout to a pipe is the same as normal piping")
+    )
+}
+
+#[test]
+fn error_with_backtrace() {
+    Playground::setup("error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run `a 3`, and it raises error, so there should be 1.
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b"#);
+
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run `b`, it runs `a 3`, and it raises error, so there should be 2.
+        assert_eq!(chained_error_cnt.len(), 2);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"error make {msg: 'a custom err'}"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
+}
+
+#[test]
+fn liststream_error_with_backtrace() {
+    Playground::setup("liststream error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3"#);
+        assert!(actual.err.contains("a custom error"));
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};def b [] { a 1; a 3; a 2 };b"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("a custom error"));
+        let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
+        assert_eq!(eval_with_input_cnt.len(), 2);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"[1] | each { error make {msg: 'a custom err'} }"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
 }

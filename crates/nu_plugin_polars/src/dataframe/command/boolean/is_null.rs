@@ -1,8 +1,8 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -80,6 +80,7 @@ impl PluginCommand for IsNull {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command(plugin, engine, call, df),
@@ -100,6 +101,7 @@ impl PluginCommand for IsNull {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -110,7 +112,7 @@ fn command(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let mut res = df.as_series(call.head)?.is_null();
-    res.rename("is_null");
+    res.rename("is_null".into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -15,6 +15,7 @@ impl Command for Reject {
             .input_output_types(vec![
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
+                (Type::list(Type::Any), Type::list(Type::Any)),
             ])
             .switch(
                 "ignore-errors",
@@ -62,6 +63,7 @@ impl Command for Reject {
                             val: val.clone(),
                             span: *col_span,
                             optional: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv.clone());
@@ -108,21 +110,17 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "b" => Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "b" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" =>  Value::test_int(1),
+                    "b" =>  Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject the specified field in a record",
@@ -161,20 +159,26 @@ impl Command for Reject {
                     Value::test_record(record! { "name" => Value::test_string("Cargo.lock") }),
                 ])),
             },
+            Example {
+                description: "Reject item in list",
+                example: "[1 2 3] | reject 1",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(3),
+                ])),
+            },
         ]
     }
 }
 
 fn reject(
-    _engine_state: &EngineState,
+    engine_state: &EngineState,
     span: Span,
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let metadata = input.metadata();
-    let val = input.into_value(span)?;
-    let mut val = val;
     let mut new_columns = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
@@ -212,10 +216,43 @@ fn reject(
     });
 
     new_columns.append(&mut new_rows);
-    for cell_path in new_columns {
-        val.remove_data_at_cell_path(&cell_path.members)?;
+
+    let has_integer_path_member = new_columns.iter().any(|path| {
+        path.members
+            .iter()
+            .any(|member| matches!(member, PathMember::Int { .. }))
+    });
+
+    match input {
+        PipelineData::ListStream(stream, ..) if !has_integer_path_member => {
+            let result = stream
+                .into_iter()
+                .map(move |mut value| {
+                    let span = value.span();
+
+                    for cell_path in new_columns.iter() {
+                        if let Err(error) = value.remove_data_at_cell_path(&cell_path.members) {
+                            return Value::error(error, span);
+                        }
+                    }
+
+                    value
+                })
+                .into_pipeline_data(span, engine_state.signals().clone());
+
+            Ok(result)
+        }
+
+        input => {
+            let mut val = input.into_value(span)?;
+
+            for cell_path in new_columns {
+                val.remove_data_at_cell_path(&cell_path.members)?;
+            }
+
+            Ok(val.into_pipeline_data_with_metadata(metadata))
+        }
     }
-    Ok(val.into_pipeline_data_with_metadata(metadata))
 }
 
 #[cfg(test)]

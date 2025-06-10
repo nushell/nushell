@@ -13,23 +13,23 @@ use crate::{
     explore::ExploreConfig,
     nu_common::{NuColor, NuConfig, NuStyle},
     registry::{Command, CommandRegistry},
-    views::{util::nu_style_to_tui, ViewConfig},
+    views::{ViewConfig, util::nu_style_to_tui},
 };
 use anyhow::Result;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+        enable_raw_mode,
     },
 };
 use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 use std::{
@@ -128,10 +128,17 @@ impl<'a> Pager<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Transition {
-    // TODO: should we add a noop transition instead of doing Option<Transition> everywhere?
     Ok,
     Exit,
     Cmd(String),
+    None,
+}
+
+#[derive(Debug, Clone)]
+pub enum StatusTopOrEnd {
+    Top,
+    End,
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -143,6 +150,8 @@ pub struct PagerConfig<'a> {
     // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
     pub tail: bool,
+    // Just a cached dir we are working in used for color manipulations
+    pub cwd: String,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -153,6 +162,7 @@ impl<'a> PagerConfig<'a> {
         lscolors: &'a LsColors,
         peek_value: bool,
         tail: bool,
+        cwd: &str,
     ) -> Self {
         Self {
             nu_config,
@@ -161,6 +171,7 @@ impl<'a> PagerConfig<'a> {
             lscolors,
             peek_value,
             tail,
+            cwd: cwd.to_string(),
         }
     }
 }
@@ -208,34 +219,32 @@ fn render_ui(
             view_stack.curr_view.as_mut().map(|p| &mut p.view),
         );
 
-        if let Some(transition) = transition {
-            let (exit, cmd_name) = react_to_event_result(
-                transition,
-                engine_state,
-                &commands,
-                pager,
-                &mut view_stack,
-                stack,
-                info,
-            );
+        let (exit, cmd_name) = react_to_event_result(
+            transition,
+            engine_state,
+            &commands,
+            pager,
+            &mut view_stack,
+            stack,
+            info,
+        );
 
-            if let Some(value) = exit {
-                break Ok(value);
+        if let Some(value) = exit {
+            break Ok(value);
+        }
+
+        if !cmd_name.is_empty() {
+            if let Some(r) = info.report.as_mut() {
+                r.message = cmd_name;
+                r.level = Severity::Success;
+            } else {
+                info.report = Some(Report::success(cmd_name));
             }
 
-            if !cmd_name.is_empty() {
-                if let Some(r) = info.report.as_mut() {
-                    r.message = cmd_name;
-                    r.level = Severity::Success;
-                } else {
-                    info.report = Some(Report::success(cmd_name));
-                }
-
-                let info = info.clone();
-                term.draw(|f| {
-                    draw_info(f, pager, info);
-                })?;
-            }
+            let info = info.clone();
+            term.draw(|f| {
+                draw_info(f, pager, info);
+            })?;
         }
 
         if pager.cmd_buf.run_cmd {
@@ -315,6 +324,7 @@ fn react_to_event_result(
                 }
             }
         }
+        Transition::None => (None, String::default()),
     }
 }
 
@@ -334,7 +344,7 @@ fn draw_frame(
     layout: &mut Layout,
     info: ViewInfo,
 ) {
-    let area = f.size();
+    let area = f.area();
     let available_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
 
     if let Some(page) = view {
@@ -349,7 +359,7 @@ fn draw_frame(
 }
 
 fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
-    let area = f.size();
+    let area = f.area();
 
     if let Some(report) = info.status {
         let last_2nd_line = area.bottom().saturating_sub(2);
@@ -371,6 +381,7 @@ fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
         cfg.explore_config,
         cfg.style_computer,
         cfg.lscolors,
+        &pager.config.cwd,
     )
 }
 
@@ -414,21 +425,17 @@ fn run_command(
                 Transition::Ok => Ok(CmdResult::new(false, false, String::new())),
                 Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
                 Transition::Cmd { .. } => todo!("not used so far"),
+                Transition::None => panic!("Transition::None not expected from command.react()"),
             }
         }
         Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
-            let view_cfg = ViewConfig::new(
-                pager.config.nu_config,
-                pager.config.explore_config,
-                pager.config.style_computer,
-                pager.config.lscolors,
-            );
+            let view_cfg = create_view_config(pager);
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take() {
-                if !view.stackable {
+                if view.stackable {
                     view_stack.stack.push(view);
                 }
             }
@@ -446,14 +453,14 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
         let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos, area.height - 1);
+            f.set_cursor_position((next_pos, area.height - 1));
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
         let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
-            f.set_cursor(next_pos, area.height - 1);
+            f.set_cursor_position((next_pos, area.height - 1));
         }
     }
 }
@@ -617,17 +624,17 @@ fn handle_events<V: View>(
     search: &mut SearchBuf,
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
-) -> Option<Transition> {
+) -> Transition {
     // We are only interested in Pressed events;
     // It's crucial because there are cases where terminal MIGHT produce false events;
     // 2 events 1 for release 1 for press.
     // Want to react only on 1 of them so we do.
     let mut key = match events.next_key_press() {
         Ok(Some(key)) => key,
-        Ok(None) => return None,
+        Ok(None) => return Transition::None,
         Err(e) => {
             log::error!("Failed to read key event: {e}");
-            return None;
+            return Transition::None;
         }
     };
 
@@ -647,15 +654,15 @@ fn handle_events<V: View>(
             view.as_deref_mut(),
             key,
         );
-        if result.is_some() {
+        if !matches!(result, Transition::None) {
             return result;
         }
         match events.try_next_key_press() {
             Ok(Some(next_key)) => key = next_key,
-            Ok(None) => return None,
+            Ok(None) => return Transition::None,
             Err(e) => {
                 log::error!("Failed to peek key event: {e}");
-                return None;
+                return Transition::None;
             }
         }
     }
@@ -671,29 +678,29 @@ fn handle_event<V: View>(
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
     key: KeyEvent,
-) -> Option<Transition> {
+) -> Transition {
     if handle_exit_key_event(&key) {
-        return Some(Transition::Exit);
+        return Transition::Exit;
     }
 
     if handle_general_key_events1(&key, search, command, view.as_deref_mut()) {
-        return None;
+        return Transition::None;
     }
 
     if let Some(view) = &mut view {
         let t = view.handle_input(engine_state, stack, layout, info, key);
         match t {
-            Some(Transition::Exit) => return Some(Transition::Ok),
-            Some(Transition::Cmd(cmd)) => return Some(Transition::Cmd(cmd)),
-            Some(Transition::Ok) => return None,
-            None => {}
+            Transition::Exit => return Transition::Ok,
+            Transition::Cmd(cmd) => return Transition::Cmd(cmd),
+            Transition::Ok => return Transition::None,
+            Transition::None => {}
         }
     }
 
     // was not handled so we must check our default controls
     handle_general_key_events2(&key, search, command, view, info);
 
-    None
+    Transition::None
 }
 
 fn handle_exit_key_event(key: &KeyEvent) -> bool {

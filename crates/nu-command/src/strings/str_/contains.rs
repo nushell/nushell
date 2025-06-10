@@ -1,10 +1,10 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrContains;
 
 struct Arguments {
     substring: String,
@@ -18,7 +18,7 @@ impl CmdArgument for Arguments {
     }
 }
 
-impl Command for SubCommand {
+impl Command for StrContains {
     fn name(&self) -> &str {
         "str contains"
     }
@@ -77,20 +77,6 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag_const(working_set, "not")? {
-            nu_protocol::report_shell_error(
-                working_set.permanent(),
-                &ShellError::GenericError {
-                    error: "Deprecated option".into(),
-                    msg: "`str contains --not {string}` is deprecated and will be removed in 0.95."
-                        .into(),
-                    span: Some(call.head),
-                    help: Some("Please use the `not` operator instead.".into()),
-                    inner: vec![],
-                },
-            );
-        }
-
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -201,6 +187,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrContains {})
     }
 }

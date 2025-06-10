@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, DataSource, PipelineMetadata};
 
 use std::fmt::Write;
 
@@ -32,7 +32,35 @@ impl Command for ViewSource {
         let arg: Value = call.req(engine_state, stack, 0)?;
         let arg_span = arg.span();
 
-        match arg {
+        let source = match arg {
+            Value::Int { val, .. } => {
+                if let Some(block) =
+                    engine_state.try_get_block(nu_protocol::BlockId::new(val as usize))
+                {
+                    if let Some(span) = block.span {
+                        let contents = engine_state.get_span_contents(span);
+                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            .into_pipeline_data())
+                    } else {
+                        Err(ShellError::GenericError {
+                            error: "Cannot view int value".to_string(),
+                            msg: "the block does not have a viewable span".to_string(),
+                            span: Some(arg_span),
+                            help: None,
+                            inner: vec![],
+                        })
+                    }
+                } else {
+                    Err(ShellError::GenericError {
+                        error: format!("Block Id {} does not exist", arg.coerce_into_string()?),
+                        msg: "this number does not correspond to a block".to_string(),
+                        span: Some(arg_span),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            }
+
             Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
@@ -130,7 +158,7 @@ impl Command for ViewSource {
                             Ok(Value::string(final_contents, call.head).into_pipeline_data())
                         } else {
                             Err(ShellError::GenericError {
-                                error: "Cannot view value".to_string(),
+                                error: "Cannot view string value".to_string(),
                                 msg: "the command does not have a viewable block span".to_string(),
                                 span: Some(arg_span),
                                 help: None,
@@ -139,7 +167,7 @@ impl Command for ViewSource {
                         }
                     } else {
                         Err(ShellError::GenericError {
-                            error: "Cannot view value".to_string(),
+                            error: "Cannot view string decl value".to_string(),
                             msg: "the command does not have a viewable block".to_string(),
                             span: Some(arg_span),
                             help: None,
@@ -155,7 +183,7 @@ impl Command for ViewSource {
                             .into_pipeline_data())
                     } else {
                         Err(ShellError::GenericError {
-                            error: "Cannot view value".to_string(),
+                            error: "Cannot view string module value".to_string(),
                             msg: "the module does not have a viewable block".to_string(),
                             span: Some(arg_span),
                             help: None,
@@ -164,7 +192,7 @@ impl Command for ViewSource {
                     }
                 } else {
                     Err(ShellError::GenericError {
-                        error: "Cannot view value".to_string(),
+                        error: "Cannot view string value".to_string(),
                         msg: "this name does not correspond to a viewable value".to_string(),
                         span: Some(arg_span),
                         help: None,
@@ -193,7 +221,13 @@ impl Command for ViewSource {
                     })
                 }
             }
-        }
+        };
+        source.map(|x| {
+            x.set_metadata(Some(PipelineMetadata {
+                data_source: DataSource::None,
+                content_type: Some("application/x-nuscript".into()),
+            }))
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -216,7 +250,9 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a custom command with flags and arguments",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
+                result: Some(Value::test_string(
+                    "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
+                )),
             },
             Example {
                 description: "View the source of a module",

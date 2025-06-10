@@ -13,7 +13,7 @@ use nu_plugin::{EngineInterface, PluginCommand};
 use nu_protocol::{LabeledError, ShellError, Span};
 use uuid::Uuid;
 
-use crate::{values::PolarsPluginObject, EngineWrapper, PolarsPlugin};
+use crate::{EngineWrapper, PolarsPlugin, values::PolarsPluginObject};
 
 use log::debug;
 
@@ -197,11 +197,11 @@ mod test {
 
     impl EngineWrapper for &MockEngineWrapper {
         fn get_env_var(&self, _key: &str) -> Option<String> {
-            todo!()
+            unimplemented!()
         }
 
         fn use_color(&self) -> bool {
-            todo!()
+            unimplemented!()
         }
 
         fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {

@@ -47,9 +47,9 @@ impl PluginCommand for Sum {
     ) -> Result<PipelineData, LabeledError> {
         let mut acc = IntOrFloat::Int(0);
         for value in input {
-            if let Ok(n) = value.as_i64() {
+            if let Ok(n) = value.as_int() {
                 acc.add_i64(n);
-            } else if let Ok(n) = value.as_f64() {
+            } else if let Ok(n) = value.as_float() {
                 acc.add_f64(n);
             } else {
                 return Err(LabeledError::new("Sum only accepts ints and floats")
@@ -72,10 +72,10 @@ enum IntOrFloat {
 impl IntOrFloat {
     pub(crate) fn add_i64(&mut self, n: i64) {
         match self {
-            IntOrFloat::Int(ref mut v) => {
+            IntOrFloat::Int(v) => {
                 *v += n;
             }
-            IntOrFloat::Float(ref mut v) => {
+            IntOrFloat::Float(v) => {
                 *v += n as f64;
             }
         }
@@ -86,7 +86,7 @@ impl IntOrFloat {
             IntOrFloat::Int(v) => {
                 *self = IntOrFloat::Float(*v as f64 + n);
             }
-            IntOrFloat::Float(ref mut v) => {
+            IntOrFloat::Float(v) => {
                 *v += n;
             }
         }

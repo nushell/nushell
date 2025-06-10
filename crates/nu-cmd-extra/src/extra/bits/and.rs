@@ -26,7 +26,7 @@ impl Command for BitsAnd {
             .required(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
-                "right-hand side of the operation",
+                "Right-hand side of the operation.",
             )
             .named(
                 "endian",
@@ -65,7 +65,7 @@ impl Command for BitsAnd {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Endian must be one of native, little, big".to_string(),
                         span: endian.span,
-                    })
+                    });
                 }
             }
         } else {
@@ -113,8 +113,7 @@ impl Command for BitsAnd {
                 ])),
             },
             Example {
-                description:
-                    "Apply bitwise and to binary data of varying lengths with specified endianness",
+                description: "Apply bitwise and to binary data of varying lengths with specified endianness",
                 example: "0x[c0 ff ee] | bits and 0x[ff] --endian big",
                 result: Some(Value::test_binary(vec![0x00, 0x00, 0xee])),
             },

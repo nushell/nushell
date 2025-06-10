@@ -1,5 +1,5 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
@@ -37,7 +37,7 @@ impl Command for BitsRor {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to rotate right")
+            .required("bits", SyntaxShape::Int, "Number of bits to rotate right.")
             .switch(
                 "signed",
                 "always treat input number as a signed number",

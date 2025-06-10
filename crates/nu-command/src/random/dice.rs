@@ -1,18 +1,18 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
-use rand::prelude::{thread_rng, Rng};
+use rand::random_range;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct RandomDice;
 
-impl Command for SubCommand {
+impl Command for RandomDice {
     fn name(&self) -> &str {
         "random dice"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("random dice")
-            .input_output_types(vec![(Type::Nothing, Type::ListStream)])
+            .input_output_types(vec![(Type::Nothing, Type::list(Type::Int))])
             .allow_variants_without_examples(true)
             .named(
                 "dice",
@@ -73,10 +73,7 @@ fn dice(
     let dice: usize = call.get_flag(engine_state, stack, "dice")?.unwrap_or(1);
     let sides: usize = call.get_flag(engine_state, stack, "sides")?.unwrap_or(6);
 
-    let iter = (0..dice).map(move |_| {
-        let mut thread_rng = thread_rng();
-        Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
-    });
+    let iter = (0..dice).map(move |_| Value::int(random_range(1..sides + 1) as i64, span));
 
     Ok(ListStream::new(iter, span, engine_state.signals().clone()).into())
 }
@@ -89,6 +86,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(RandomDice {})
     }
 }

@@ -1,5 +1,5 @@
-use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{engine::Closure, PipelineIterator};
+use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::{PipelineIterator, engine::Closure};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -16,7 +16,7 @@ impl Command for UpdateCells {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run an update for each cell",
+                "The closure to run an update for each cell.",
             )
             .named(
                 "columns",

@@ -1,12 +1,15 @@
 use nu_test_support::nu;
+use rstest::rstest;
 
-#[test]
-fn let_name_builtin_var() {
-    let actual = nu!("let in = 3");
-
-    assert!(actual
-        .err
-        .contains("'in' is the name of a builtin Nushell variable"));
+#[rstest]
+#[case("let in = 3")]
+#[case("let in: int = 3")]
+fn let_name_builtin_var(#[case] assignment: &str) {
+    assert!(
+        nu!(assignment)
+            .err
+            .contains("'in' is the name of a builtin Nushell variable")
+    );
 }
 
 #[test]

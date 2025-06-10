@@ -1,4 +1,4 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
@@ -16,7 +16,7 @@ impl Command for StorDelete {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to insert into",
+                "name of the table you want to delete or delete from",
                 Some('t'),
             )
             .named(
@@ -45,8 +45,7 @@ impl Command for StorDelete {
                 result: None,
             },
             Example {
-                description:
-                    "Delete some rows from the in-memory sqlite database with a where clause",
+                description: "Delete some rows from the in-memory sqlite database with a where clause",
                 example: "stor delete --table-name nudb --where-clause \"int1 == 5\"",
                 result: None,
             },

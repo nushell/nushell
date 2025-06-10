@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use nu_protocol::{
+    IntoSpanned, RegId, Span, Spanned,
     ast::{Argument, Call, Expression, ExternalArgument},
     engine::StateWorkingSet,
     ir::{Instruction, IrAstRef, Literal},
-    IntoSpanned, RegId, Span, Spanned,
 };
 
-use super::{compile_expression, keyword::*, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -20,12 +20,11 @@ pub(crate) fn compile_call(
 
     // Check if this call has --help - if so, just redirect to `help`
     if call.named_iter().any(|(name, _, _)| name.item == "help") {
-        return compile_help(
-            working_set,
-            builder,
-            decl.name().into_spanned(call.head),
-            io_reg,
-        );
+        let name = working_set
+            .find_decl_name(call.decl_id) // check for name in scope
+            .and_then(|name| std::str::from_utf8(name).ok())
+            .unwrap_or(decl.name()); // fall back to decl's name
+        return compile_help(working_set, builder, name.into_spanned(call.head), io_reg);
     }
 
     // Try to figure out if this is a keyword call like `if`, and handle those specially
@@ -71,6 +70,9 @@ pub(crate) fn compile_call(
             "return" => {
                 return compile_return(working_set, builder, call, redirect_modes, io_reg);
             }
+            "def" | "export def" => {
+                return builder.load_empty(io_reg);
+            }
             _ => (),
         }
     }
@@ -108,7 +110,7 @@ pub(crate) fn compile_call(
                     working_set,
                     builder,
                     expr,
-                    RedirectModes::capture_out(arg.span()),
+                    RedirectModes::value(arg.span()),
                     None,
                     arg_reg,
                 )?;

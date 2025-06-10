@@ -1,6 +1,6 @@
 use nu_ansi_term::{Color, Style};
 use nu_color_config::TextStyle;
-use nu_table::{NuTable, NuTableConfig, TableTheme};
+use nu_table::{NuTable, TableTheme};
 use tabled::grid::records::vec_records::Text;
 
 fn main() {
@@ -21,22 +21,20 @@ fn main() {
     let headers = to_cell_info_vec(&table_headers);
     let rows = to_cell_info_vec(&row_data);
 
-    let mut rows = vec![rows; 3];
-    rows.insert(0, headers);
+    let mut table = NuTable::new(4, 3);
+    table.set_row(0, headers);
 
-    let mut table = NuTable::from(rows);
+    for i in 0..3 {
+        table.set_row(i + 1, rows.clone());
+    }
 
     table.set_data_style(TextStyle::basic_left());
     table.set_header_style(TextStyle::basic_center().style(Style::new().on(Color::Blue)));
-
-    let table_cfg = NuTableConfig {
-        theme: TableTheme::rounded(),
-        with_header: true,
-        ..Default::default()
-    };
+    table.set_theme(TableTheme::rounded());
+    table.set_structure(false, true, false);
 
     let output_table = table
-        .draw(table_cfg, width)
+        .draw(width)
         .unwrap_or_else(|| format!("Couldn't fit table into {width} columns!"));
 
     println!("{output_table}")

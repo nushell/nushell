@@ -102,7 +102,7 @@ fn to_tsv(
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -123,6 +123,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToTsv {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

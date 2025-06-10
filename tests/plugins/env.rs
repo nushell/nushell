@@ -40,7 +40,17 @@ fn get_current_dir() {
         "cd tests; example env --cwd"
     );
     assert!(result.status.success());
+    #[cfg(not(windows))]
     assert_eq!(cwd, result.out);
+    #[cfg(windows)]
+    {
+        // cwd == r"e:\Study\Nushell", while result.out == r"E:\Study\Nushell"
+        assert_eq!(
+            cwd.chars().next().unwrap().to_ascii_uppercase(),
+            result.out.chars().next().unwrap().to_ascii_uppercase()
+        );
+        assert_eq!(cwd[1..], result.out[1..]);
+    }
 }
 
 #[test]

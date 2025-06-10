@@ -1,11 +1,10 @@
+use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
-use regex::Regex;
-
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitRow;
 
-impl Command for SubCommand {
+impl Command for SplitRow {
     fn name(&self) -> &str {
         "split row"
     }
@@ -158,7 +157,7 @@ fn split_row(
     let regex = if args.has_regex {
         Regex::new(&args.separator.item)
     } else {
-        let escaped = regex::escape(&args.separator.item);
+        let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
     .map_err(|e| ShellError::GenericError {
@@ -187,17 +186,42 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                 match max_split {
                     Some(max_split) => regex
                         .splitn(&s, max_split)
-                        .map(|x: &str| Value::string(x, v_span))
+                        .map(|x| match x {
+                            Ok(val) => Value::string(val, v_span),
+                            Err(err) => Value::error(
+                                ShellError::GenericError {
+                                    error: "Error with regular expression".into(),
+                                    msg: err.to_string(),
+                                    span: Some(v_span),
+                                    help: None,
+                                    inner: vec![],
+                                },
+                                v_span,
+                            ),
+                        })
                         .collect(),
                     None => regex
                         .split(&s)
-                        .map(|x: &str| Value::string(x, v_span))
+                        .map(|x| match x {
+                            Ok(val) => Value::string(val, v_span),
+                            Err(err) => Value::error(
+                                ShellError::GenericError {
+                                    error: "Error with regular expression".into(),
+                                    msg: err.to_string(),
+                                    span: Some(v_span),
+                                    help: None,
+                                    inner: vec![],
+                                },
+                                v_span,
+                            ),
+                        })
                         .collect(),
                 }
             } else {
                 vec![Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: name,
                         src_span: v_span,
                     },
@@ -216,6 +240,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitRow {})
     }
 }

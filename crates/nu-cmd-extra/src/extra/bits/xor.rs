@@ -27,7 +27,7 @@ impl Command for BitsXor {
             .required(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
-                "right-hand side of the operation",
+                "Right-hand side of the operation.",
             )
             .named(
                 "endian",
@@ -66,7 +66,7 @@ impl Command for BitsXor {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Endian must be one of native, little, big".to_string(),
                         span: endian.span,
-                    })
+                    });
                 }
             }
         } else {
@@ -106,8 +106,7 @@ impl Command for BitsXor {
                 result: Some(Value::test_binary(vec![0x70, 0x40])),
             },
             Example {
-                description:
-                    "Apply bitwise xor to binary data of varying lengths with specified endianness",
+                description: "Apply bitwise xor to binary data of varying lengths with specified endianness",
                 example: "0x[ca fe] | bits xor 0x[aa] --endian big",
                 result: Some(Value::test_binary(vec![0xca, 0x54])),
             },

@@ -1,6 +1,7 @@
 use nu_protocol::{
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
     CompileError, IntoSpanned, RegId, Span, Spanned,
+    ast::Pattern,
+    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -58,9 +59,9 @@ impl BlockBuilder {
                 }
             })
         {
-            Ok(RegId(index as u32))
+            Ok(RegId::new(index as u32))
         } else if self.register_allocation_state.len() < (u32::MAX as usize - 2) {
-            let reg_id = RegId(self.register_allocation_state.len() as u32);
+            let reg_id = RegId::new(self.register_allocation_state.len() as u32);
             self.register_allocation_state.push(true);
             Ok(reg_id)
         } else {
@@ -73,13 +74,16 @@ impl BlockBuilder {
     /// Check if a register is initialized with a value.
     pub(crate) fn is_allocated(&self, reg_id: RegId) -> bool {
         self.register_allocation_state
-            .get(reg_id.0 as usize)
+            .get(reg_id.get() as usize)
             .is_some_and(|state| *state)
     }
 
     /// Mark a register as initialized.
     pub(crate) fn mark_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        if let Some(is_allocated) = self.register_allocation_state.get_mut(reg_id.0 as usize) {
+        if let Some(is_allocated) = self
+            .register_allocation_state
+            .get_mut(reg_id.get() as usize)
+        {
             *is_allocated = true;
             Ok(())
         } else {
@@ -92,7 +96,7 @@ impl BlockBuilder {
     /// Mark a register as empty, so that it can be used again by something else.
     #[track_caller]
     pub(crate) fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        let index = reg_id.0 as usize;
+        let index = reg_id.get() as usize;
 
         if self
             .register_allocation_state
@@ -202,7 +206,7 @@ impl BlockBuilder {
             Instruction::Span { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
-            Instruction::WriteToOutDests { src } => allocate(&[*src], &[]),
+            Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),
             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
             Instruction::DropVariable { var_id: _ } => Ok(()),
@@ -421,6 +425,24 @@ impl BlockBuilder {
     /// Add a `jump` instruction
     pub(crate) fn jump(&mut self, label_id: LabelId, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Jump { index: label_id.0 }.into_spanned(span))
+    }
+
+    /// Add a `match` instruction
+    pub(crate) fn r#match(
+        &mut self,
+        pattern: Pattern,
+        src: RegId,
+        label_id: LabelId,
+        span: Span,
+    ) -> Result<(), CompileError> {
+        self.push(
+            Instruction::Match {
+                pattern: Box::new(pattern),
+                src,
+                index: label_id.0,
+            }
+            .into_spanned(span),
+        )
     }
 
     /// The index that the next instruction [`.push()`](Self::push)ed will have.

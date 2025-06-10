@@ -1,13 +1,70 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{iter::FusedIterator, ops::RangeBounds};
 
-use crate::{ShellError, Span, Value};
+use crate::{ShellError, Span, Value, casing::Casing};
 
-use serde::{de::Visitor, ser::SerializeMap, Deserialize, Serialize};
+use nu_utils::IgnoreCaseExt;
+use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]
 pub struct Record {
     inner: Vec<(String, Value)>,
+}
+
+/// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
+///
+/// Implements commonly used methods of [`Record`].
+pub struct CasedRecord<R> {
+    record: R,
+    casing: Casing,
+}
+
+impl<R> CasedRecord<R> {
+    fn cmp(&self, lhs: &str, rhs: &str) -> bool {
+        match self.casing {
+            Casing::Sensitive => lhs == rhs,
+            Casing::Insensitive => lhs.eq_ignore_case(rhs),
+        }
+    }
+}
+
+impl<'a> CasedRecord<&'a Record> {
+    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+        self.record.columns().any(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+        self.record
+            .columns()
+            .rposition(|k| self.cmp(k, col.as_ref()))
+    }
+
+    pub fn get(self, col: impl AsRef<str>) -> Option<&'a Value> {
+        let idx = self.index_of(col)?;
+        let (_, value) = self.record.get_index(idx)?;
+        Some(value)
+    }
+}
+
+impl<'a> CasedRecord<&'a mut Record> {
+    fn shared(&'a self) -> CasedRecord<&'a Record> {
+        CasedRecord {
+            record: &*self.record,
+            casing: self.casing,
+        }
+    }
+
+    pub fn get_mut(self, col: impl AsRef<str>) -> Option<&'a mut Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, value) = self.record.get_index_mut(idx)?;
+        Some(value)
+    }
+
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.shared().index_of(col)?;
+        let (_, val) = self.record.inner.remove(idx);
+        Some(val)
+    }
 }
 
 impl Record {
@@ -18,6 +75,20 @@ impl Record {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn cased(&self, casing: Casing) -> CasedRecord<&Record> {
+        CasedRecord {
+            record: self,
+            casing,
+        }
+    }
+
+    pub fn cased_mut(&mut self, casing: Casing) -> CasedRecord<&mut Record> {
+        CasedRecord {
+            record: self,
+            casing,
         }
     }
 
@@ -106,6 +177,12 @@ impl Record {
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
         self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
+    }
+
+    pub fn get_index_mut(&mut self, idx: usize) -> Option<(&mut String, &mut Value)> {
+        self.inner
+            .get_mut(idx)
+            .map(|(col, val): &mut (_, _)| (col, val))
     }
 
     /// Remove single value by key
@@ -440,13 +517,13 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Iter<'a> {
+impl DoubleEndedIterator for Iter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, val): &(_, _)| (col, val))
     }
 }
 
-impl<'a> ExactSizeIterator for Iter<'a> {
+impl ExactSizeIterator for Iter<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -482,13 +559,13 @@ impl<'a> Iterator for IterMut<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for IterMut<'a> {
+impl DoubleEndedIterator for IterMut<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, val)| (&*col, val))
     }
 }
 
-impl<'a> ExactSizeIterator for IterMut<'a> {
+impl ExactSizeIterator for IterMut<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -524,13 +601,13 @@ impl<'a> Iterator for Columns<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Columns<'a> {
+impl DoubleEndedIterator for Columns<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(col, _)| col)
     }
 }
 
-impl<'a> ExactSizeIterator for Columns<'a> {
+impl ExactSizeIterator for Columns<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -584,13 +661,13 @@ impl<'a> Iterator for Values<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Values<'a> {
+impl DoubleEndedIterator for Values<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(_, val)| val)
     }
 }
 
-impl<'a> ExactSizeIterator for Values<'a> {
+impl ExactSizeIterator for Values<'_> {
     fn len(&self) -> usize {
         self.iter.len()
     }

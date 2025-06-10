@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
@@ -12,9 +12,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoGlob;
 
-impl Command for SubCommand {
+impl Command for IntoGlob {
     fn name(&self) -> &str {
         "into glob"
     }
@@ -22,6 +22,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into glob")
             .input_output_types(vec![
+                (Type::Glob, Type::Glob),
                 (Type::String, Type::Glob),
                 (
                     Type::List(Box::new(Type::String)),
@@ -65,6 +66,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_glob("1234")),
             },
             Example {
+                description: "convert glob to glob",
+                example: "'1234' | into glob | into glob",
+                result: Some(Value::test_glob("1234")),
+            },
+            Example {
                 description: "convert filepath to glob",
                 example: "ls Cargo.toml | get name | into glob",
                 result: None,
@@ -94,6 +100,7 @@ fn glob_helper(
 fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
     match input {
         Value::String { val, .. } => Value::glob(val.to_string(), false, span),
+        Value::Glob { .. } => input.clone(),
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("glob"),
@@ -114,6 +121,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoGlob {})
     }
 }

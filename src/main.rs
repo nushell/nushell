@@ -1,4 +1,5 @@
 mod command;
+mod command_context;
 mod config_files;
 mod ide;
 mod logger;
@@ -8,25 +9,21 @@ mod signals;
 mod terminal;
 mod test_bins;
 
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::{trace, Level};
+use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_cmd_base::util::get_init_cwd;
+use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_shell_error, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    engine::Stack, record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -34,14 +31,25 @@ use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
 
-fn get_engine_state() -> EngineState {
-    let engine_state = nu_cmd_lang::create_default_context();
-    #[cfg(feature = "plugin")]
-    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
-    let engine_state = nu_command::add_shell_command_context(engine_state);
-    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
-    let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
+/// Get the directory where the Nushell executable is located.
+fn current_exe_directory() -> PathBuf {
+    let mut path = std::env::current_exe().expect("current_exe() should succeed");
+    path.pop();
+    path
+}
+
+/// Get the current working directory from the environment.
+fn current_dir_from_environment() -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        return cwd;
+    }
+    if let Ok(cwd) = std::env::var("PWD") {
+        return cwd.into();
+    }
+    if let Some(home) = nu_path::home_dir() {
+        return home.into_std_path_buf();
+    }
+    current_exe_directory()
 }
 
 fn main() -> Result<()> {
@@ -54,9 +62,10 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    // Get initial current working directory.
-    let init_cwd = get_init_cwd();
-    let mut engine_state = get_engine_state();
+    let mut engine_state = command_context::get_engine_state();
+
+    // Get the current working directory from the environment.
+    let init_cwd = current_dir_from_environment();
 
     // Custom additions
     let delta = {
@@ -73,18 +82,14 @@ fn main() -> Result<()> {
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state);
 
+    #[cfg(feature = "rustls-tls")]
+    nu_command::tls::CRYPTO_PROVIDER.default();
+
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
     // the env.nu file exists, these values will be overwritten, if it does not exist, or
     // there is an error reading it, these values will be used.
-    let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
-        path.push("nushell");
-        path.into()
-    } else {
-        // Not really sure what to default this to if nu_path::config_dir() returns None
-        std::path::PathBuf::new()
-    };
-
+    let nushell_config_path: PathBuf = nu_path::nu_config_dir().map(Into::into).unwrap_or_default();
     if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
         if !xdg_config_home.is_empty() {
             if nushell_config_path
@@ -133,22 +138,44 @@ fn main() -> Result<()> {
 
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
-    engine_state.add_env_var(
-        "NU_LIB_DIRS".to_string(),
+    // env.NU_LIB_DIRS to be replaced by constant (below) - Eventual deprecation
+    // but an empty list for now to allow older code to work
+    engine_state.add_env_var("NU_LIB_DIRS".to_string(), Value::test_list(vec![]));
+
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_LIB_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
+    );
+    working_set.set_variable_const_val(
+        var_id,
         Value::test_list(vec![
             Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
             Value::test_string(default_nushell_completions_path.to_string_lossy()),
         ]),
     );
+    engine_state.merge_delta(working_set.render())?;
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
-    engine_state.add_env_var(
-        "NU_PLUGIN_DIRS".to_string(),
-        Value::test_list(vec![Value::test_string(
-            default_nu_plugin_dirs_path.to_string_lossy(),
-        )]),
+    engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let var_id = working_set.add_variable(
+        b"$NU_PLUGIN_DIRS".into(),
+        Span::unknown(),
+        Type::List(Box::new(Type::String)),
+        false,
     );
+    working_set.set_variable_const_val(
+        var_id,
+        Value::test_list(vec![
+            Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+            Value::test_string(current_exe_directory().to_string_lossy()),
+        ]),
+    );
+    engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
 
     // This is the real secret sauce to having an in-memory sqlite db. You must
@@ -178,7 +205,10 @@ fn main() -> Result<()> {
 
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let use_color = engine_state
+        .get_config()
+        .use_ansi_coloring
+        .get(&engine_state);
 
     // Set up logger
     if let Some(level) = parsed_nu_cli_args
@@ -244,6 +274,18 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+    engine_state.add_env_var(
+        "config".into(),
+        Config::default().into_value(Span::unknown()),
+    );
+    perf!("$env.config setup", start_time, use_color);
+
+    engine_state.add_env_var(
+        "ENV_CONVERSIONS".to_string(),
+        Value::test_record(record! {}),
+    );
+
+    start_time = std::time::Instant::now();
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;
         let vals: Vec<_> = include_path
@@ -252,7 +294,15 @@ fn main() -> Result<()> {
             .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
+        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        let var_id = working_set.add_variable(
+            b"$NU_LIB_DIRS".into(),
+            span,
+            Type::List(Box::new(Type::String)),
+            false,
+        );
+        working_set.set_variable_const_val(var_id, Value::list(vals, span));
+        engine_state.merge_delta(working_set.render())?;
     }
     perf!("NU_LIB_DIRS setup", start_time, use_color);
 
@@ -260,6 +310,16 @@ fn main() -> Result<()> {
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
+
+    let mut stack = Stack::new();
+    start_time = std::time::Instant::now();
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring.get(&engine_state);
+    // Translate environment variables from Strings to Values
+    if let Err(e) = convert_env_values(&mut engine_state, &mut stack) {
+        report_shell_error(&engine_state, &e);
+    }
+    perf!("Convert path to list", start_time, use_color);
 
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
@@ -314,11 +374,20 @@ fn main() -> Result<()> {
             "chop" => test_bins::chop(),
             "repeater" => test_bins::repeater(),
             "repeat_bytes" => test_bins::repeat_bytes(),
+            // Important: nu_repl must be called with `--testbin=nu_repl`
+            // `--testbin nu_repl` will not work due to argument count logic
+            // in test_bins.rs
             "nu_repl" => test_bins::nu_repl(),
             "input_bytes_length" => test_bins::input_bytes_length(),
             _ => std::process::exit(1),
         }
         std::process::exit(0)
+    } else {
+        // If we're not running a testbin, set the current working directory to
+        // the location of the Nushell executable. This prevents the OS from
+        // locking the directory where the user launched Nushell.
+        std::env::set_current_dir(current_exe_directory())
+            .expect("set_current_dir() should succeed");
     }
     perf!("run test_bins", start_time, use_color);
 
@@ -340,7 +409,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
+        use nu_protocol::{ErrSpan, PluginIdentity, RegisteredPlugin, engine::StateWorkingSet};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -349,7 +418,13 @@ fn main() -> Result<()> {
         for plugin_filename in plugins {
             // Make sure the plugin filenames are canonicalized
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
-                .err_span(plugin_filename.span)
+                .map_err(|err| {
+                    nu_protocol::shell_error::io::IoError::new(
+                        err,
+                        plugin_filename.span,
+                        PathBuf::from(&plugin_filename.item),
+                    )
+                })
                 .map_err(ShellError::from)?;
 
             let identity = PluginIdentity::new(&filename, None)
@@ -393,27 +468,69 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state)?
+        LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             &commands,
             input,
             entire_start_time,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
+            stack,
             parsed_nu_cli_args,
             use_color,
             script_name,
             args_to_script,
             input,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else {
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
+        // Environment variables that apply only when in REPL
+        engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_NORMAL".to_string(),
+            Value::test_string("> "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_INDICATOR_VI_INSERT".to_string(),
+            Value::test_string(": "),
+        );
+        engine_state.add_env_var(
+            "PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string("::: "),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+            Value::test_string(""),
+        );
+        engine_state.add_env_var(
+            "TRANSIENT_PROMPT_COMMAND_RIGHT".to_string(),
+            Value::test_string(""),
+        );
+        let mut shlvl = engine_state
+            .get_env_var("SHLVL")
+            .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
+            .unwrap_or(0);
+        shlvl += 1;
+        engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
+
+        run_repl(
+            &mut engine_state,
+            stack,
+            parsed_nu_cli_args,
+            entire_start_time,
+        )?;
+
+        cleanup_exit(0, &engine_state, 0);
     }
 
     Ok(())

@@ -3,10 +3,10 @@ authors = ["The Nushell Project Developers"]
 build = "build.rs"
 description = "Nushell's core language commands"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-lang"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 name = "nu-cmd-lang"
-version = "0.97.2"
+version = "0.104.2"
 
 [lib]
 bench = false
@@ -15,19 +15,35 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.97.2" }
-nu-parser = { path = "../nu-parser", version = "0.97.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.97.2" }
-nu-utils = { path = "../nu-utils", version = "0.97.2" }
+nu-engine = { path = "../nu-engine", version = "0.104.2", default-features = false }
+nu-parser = { path = "../nu-parser", version = "0.104.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.104.2", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.104.2", default-features = false }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.104.2" }
 
 itertools = { workspace = true }
-shadow-rs = { version = "0.34", default-features = false }
+shadow-rs = { version = "1.1", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.34", default-features = false }
+shadow-rs = { version = "1.1", default-features = false, features = ["build"] }
+
+[dev-dependencies]
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }
+miette = { workspace = true }
 
 [features]
-mimalloc = []
+default = ["os"]
+os = [
+  "nu-engine/os",
+  "nu-protocol/os",
+  "nu-utils/os",
+]
+plugin = [
+  "nu-protocol/plugin",
+  "os",
+]
+
 trash-support = []
 sqlite = []
 static-link-openssl = []

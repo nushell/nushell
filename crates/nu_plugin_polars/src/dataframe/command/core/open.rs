@@ -1,36 +1,30 @@
 use crate::{
+    EngineWrapper, PolarsPlugin,
+    command::core::resource::Resource,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
-    EngineWrapper, PolarsPlugin,
 };
-use nu_path::expand_path_with;
+use log::debug;
 use nu_utils::perf;
 
-use nu_plugin::PluginCommand;
+use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    shell_error::{self, io::IoError},
 };
 
-use std::{
-    fs::File,
-    io::BufReader,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use polars::{
     lazy::frame::LazyJsonLineReader,
     prelude::{
         CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
-        LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+        LazyFrame, ParquetReader, PlSmallStr, ScanArgsIpc, ScanArgsParquet, SerReader,
     },
 };
 
-use polars_io::{
-    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
-};
+use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -52,8 +46,8 @@ impl PluginCommand for OpenDataFrame {
         Signature::build(self.name())
             .required(
                 "file",
-                SyntaxShape::Filepath,
-                "file path to load values from",
+                SyntaxShape::String,
+                "file path or cloud url to load values from",
             )
             .switch("eager", "Open dataframe as an eager dataframe", None)
             .named(
@@ -93,10 +87,33 @@ impl PluginCommand for OpenDataFrame {
             )
             .named(
                 "schema",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::Any,
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s')
             )
+            .switch(
+                "hive-enabled",
+                "Enable hive support. Parquet and Arrow files",
+                None,
+            )
+            .named(
+                "hive-start-idx",
+                SyntaxShape::Number,
+                "Start index of hive partitioning. Parquet and Arrow files",
+                None,
+            )
+            .named(
+                "hive-schema",
+                SyntaxShape::Any,
+                r#"Hive schema in format [{name: str}]. Parquet and Arrow files"#,
+                None,
+            )
+            .switch(
+                "hive-try-parse-dates",
+                "Try to parse dates in hive partitioning. Parquet and Arrow files",
+                None,
+            )
+            .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
@@ -114,8 +131,8 @@ impl PluginCommand for OpenDataFrame {
         plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
-        _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, LabeledError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call).map_err(|e| e.into())
     }
 }
@@ -125,29 +142,49 @@ fn command(
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
-    let spanned_file: Spanned<PathBuf> = call.req(0)?;
-    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
-    let file_span = spanned_file.span;
+    let spanned_file: Spanned<String> = call.req(0)?;
+    debug!("file: {}", spanned_file.item);
 
+    let resource = Resource::new(plugin, engine, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
-        .or_else(|| {
-            file_path
-                .extension()
-                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
+        .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
+    debug!("resource: {resource:?}");
+
+    let is_eager = call.has_flag("eager")?;
+
+    if is_eager && resource.cloud_options.is_some() {
+        return Err(ShellError::GenericError {
+            error: "Cloud URLs are not supported with --eager".into(),
+            msg: "".into(),
+            span: call.get_flag_span("eager"),
+            help: Some("Remove flag".into()),
+            inner: vec![],
         });
+    }
+
+    let hive_options = build_hive_options(plugin, call)?;
+
+    let uri = spanned_file.item.clone();
+    let data_source = DataSource::FilePath(uri.into());
+
+    let metadata = PipelineMetadata::default().with_data_source(data_source);
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Csv | PolarsFileType::Tsv => {
-                from_csv(plugin, engine, call, &file_path, file_span)
+                from_csv(plugin, engine, call, resource, is_eager)
             }
-            PolarsFileType::Parquet => from_parquet(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Arrow => from_arrow(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Json => from_json(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Avro => from_avro(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Parquet => {
+                from_parquet(plugin, engine, call, resource, is_eager, hive_options)
+            }
+            PolarsFileType::Arrow => {
+                from_arrow(plugin, engine, call, resource, is_eager, hive_options)
+            }
+            PolarsFileType::Json => from_json(plugin, engine, call, resource, is_eager),
+            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, resource, is_eager),
+            PolarsFileType::Avro => from_avro(plugin, engine, call, resource, is_eager),
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
                 &[
@@ -161,37 +198,33 @@ fn command(
                 blamed,
             )),
         },
-        None => Err(ShellError::FileNotFoundCustom {
-            msg: "File without extension".into(),
-            span: spanned_file.span,
-        }),
+        None => Err(ShellError::Io(IoError::new_with_additional_context(
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
+            spanned_file.span,
+            PathBuf::from(spanned_file.item),
+            "File without extension",
+        ))),
     }
-    .map(|value| PipelineData::Value(value, None))
+    .map(|value| PipelineData::Value(value, Some(metadata)))
 }
 
 fn from_parquet(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    is_eager: bool,
+    hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
-    if !call.has_flag("eager")? {
-        let file: String = call.req(0)?;
+    let file_path = resource.path;
+    let file_span = resource.span;
+    if !is_eager {
         let args = ScanArgsParquet {
-            n_rows: None,
-            cache: true,
-            parallel: ParallelStrategy::Auto,
-            rechunk: false,
-            row_index: None,
-            low_memory: false,
-            cloud_options: None,
-            use_statistics: false,
-            hive_options: HiveOptions::default(),
-            glob: true,
+            cloud_options: resource.cloud_options,
+            hive_options,
+            ..Default::default()
         };
-
-        let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
+        let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
                 msg: format!("{e:?}"),
@@ -238,11 +271,16 @@ fn from_avro(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    _is_eager: bool, // ignore, lazy frames are not currently supported
 ) -> Result<Value, ShellError> {
-    let columns: Option<Vec<String>> = call.get_flag("columns")?;
+    let file_path = resource.path;
+    let file_span = resource.span;
+    if resource.cloud_options.is_some() {
+        return Err(cloud_not_supported(PolarsFileType::Avro, file_span));
+    }
 
+    let columns: Option<Vec<String>> = call.get_flag("columns")?;
     let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -275,21 +313,24 @@ fn from_arrow(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    is_eager: bool,
+    hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
-    if !call.has_flag("eager")? {
-        let file: String = call.req(0)?;
+    let file_path = resource.path;
+    let file_span = resource.span;
+    if !is_eager {
         let args = ScanArgsIpc {
             n_rows: None,
             cache: true,
             rechunk: false,
             row_index: None,
-            memory_map: true,
-            cloud_options: None,
+            cloud_options: resource.cloud_options,
+            include_file_paths: None,
+            hive_options,
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
+        let df: NuLazyFrame = LazyFrame::scan_ipc(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
                 msg: format!("{e:?}"),
@@ -336,9 +377,14 @@ fn from_json(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    _is_eager: bool, // ignore = lazy frames not currently supported
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
+    if resource.cloud_options.is_some() {
+        return Err(cloud_not_supported(PolarsFileType::Json, file_span));
+    }
     let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -348,7 +394,7 @@ fn from_json(
     })?;
     let maybe_schema = call
         .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
         .transpose()?;
 
     let buf_reader = BufReader::new(file);
@@ -377,9 +423,11 @@ fn from_ndjson(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let infer_schema: NonZeroUsize = call
         .get_flag("infer-schema")?
         .and_then(NonZeroUsize::new)
@@ -387,17 +435,14 @@ fn from_ndjson(
             NonZeroUsize::new(DEFAULT_INFER_SCHEMA)
                 .expect("The default infer-schema should be non zero"),
         );
-    let maybe_schema = call
-        .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
-        .transpose()?;
-
-    if !call.has_flag("eager")? {
+    let maybe_schema = get_schema(plugin, call)?;
+    if !is_eager {
         let start_time = std::time::Instant::now();
 
         let df = LazyJsonLineReader::new(file_path)
             .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
+            .with_cloud_options(resource.cloud_options.clone())
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: format!("NDJSON reader error: {e}"),
@@ -456,9 +501,11 @@ fn from_csv(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
-    file_path: &Path,
-    file_span: Span,
+    resource: Resource,
+    is_eager: bool,
 ) -> Result<Value, ShellError> {
+    let file_path = resource.path;
+    let file_span = resource.span;
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
     let infer_schema: usize = call
@@ -466,14 +513,11 @@ fn from_csv(
         .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
+    let maybe_schema = get_schema(plugin, call)?;
+    let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
-    let maybe_schema = call
-        .get_flag("schema")?
-        .map(|schema| NuSchema::try_from(&schema))
-        .transpose()?;
-
-    if !call.has_flag("eager")? {
-        let csv_reader = LazyCsvReader::new(file_path);
+    if !is_eager {
+        let csv_reader = LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options);
 
         let csv_reader = match delimiter {
             None => csv_reader,
@@ -496,14 +540,11 @@ fn from_csv(
             }
         };
 
-        let csv_reader = csv_reader.with_has_header(!no_header);
-
-        let csv_reader = match maybe_schema {
-            Some(schema) => csv_reader.with_schema(Some(schema.into())),
-            None => csv_reader,
-        };
-
-        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
+        let csv_reader = csv_reader
+            .with_has_header(!no_header)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_schema(maybe_schema.map(Into::into))
+            .with_truncate_ragged_lines(truncate_ragged_lines);
 
         let csv_reader = match skip_rows {
             None => csv_reader,
@@ -532,7 +573,11 @@ fn from_csv(
             .with_infer_schema_length(Some(infer_schema))
             .with_skip_rows(skip_rows.unwrap_or_default())
             .with_schema(maybe_schema.map(|s| s.into()))
-            .with_columns(columns.map(|v| Arc::from(v.into_boxed_slice())))
+            .with_columns(
+                columns
+                    .map(|v| v.iter().map(PlSmallStr::from).collect::<Vec<PlSmallStr>>())
+                    .map(|v| Arc::from(v.into_boxed_slice())),
+            )
             .map_parse_options(|options| {
                 options
                     .with_separator(
@@ -542,8 +587,9 @@ fn from_csv(
                             .unwrap_or(b','),
                     )
                     .with_encoding(CsvEncoding::LossyUtf8)
+                    .with_truncate_ragged_lines(truncate_ragged_lines)
             })
-            .try_into_reader_with_file_path(Some(file_path.to_path_buf()))
+            .try_into_reader_with_file_path(Some(file_path.into()))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
@@ -565,4 +611,45 @@ fn from_csv(
         let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     }
+}
+
+fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: format!(
+            "Cloud operations not supported for file type {}",
+            file_type.to_str()
+        ),
+        msg: "".into(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    }
+}
+
+fn build_hive_options(
+    plugin: &PolarsPlugin,
+    call: &EvaluatedCall,
+) -> Result<HiveOptions, ShellError> {
+    let enabled: Option<bool> = call.get_flag("hive-enabled")?;
+    let hive_start_idx: Option<usize> = call.get_flag("hive-start-idx")?;
+    let schema: Option<NuSchema> = call
+        .get_flag::<Value>("hive-schema")?
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
+        .transpose()?;
+    let try_parse_dates: bool = call.has_flag("hive-try-parse-dates")?;
+
+    Ok(HiveOptions {
+        enabled,
+        hive_start_idx: hive_start_idx.unwrap_or(0),
+        schema: schema.map(|s| s.into()),
+        try_parse_dates,
+    })
+}
+
+fn get_schema(plugin: &PolarsPlugin, call: &EvaluatedCall) -> Result<Option<NuSchema>, ShellError> {
+    let schema: Option<NuSchema> = call
+        .get_flag("schema")?
+        .map(|schema| NuSchema::try_from_value(plugin, &schema))
+        .transpose()?;
+    Ok(schema)
 }

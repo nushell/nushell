@@ -1,11 +1,11 @@
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
+use nu_parser::{escape_for_script_arg, parse};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
     report_parse_error,
 };
-use nu_utils::stdout_write_all_and_flush;
+use nu_utils::{escape_quote_string, stdout_write_all_and_flush};
 
 pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
     // Would be nice if we had a way to parse this. The first flags we see will be going to nushell

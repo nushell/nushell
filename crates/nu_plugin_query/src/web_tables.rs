@@ -1,5 +1,5 @@
 use crate::query_web::css;
-use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
+use scraper::{Html, Selector as ScraperSelector, element_ref::ElementRef};
 use std::collections::HashMap;
 
 pub type Headers = HashMap<String, usize>;
@@ -66,7 +66,7 @@ impl WebTable {
         let mut tables = html
             .select(&sel_table)
             .filter(|table| {
-                table.select(&sel_tr).next().map_or(false, |tr| {
+                table.select(&sel_tr).next().is_some_and(|tr| {
                     let cells = select_cells(tr, &sel_th, true);
                     if inspect_mode {
                         eprintln!("Potential HTML Headers = {:?}\n", &cells);

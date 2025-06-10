@@ -1,18 +1,23 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
+    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
+    engine::{
+        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+    },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
-    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
 
-use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
+use crate::{
+    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -113,25 +118,28 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
         // log::trace!("{reg_id} <- {new_value:?}");
-        self.registers[reg_id.0 as usize] = new_value;
+        self.registers[reg_id.get() as usize] = new_value;
     }
 
     /// Borrow the contents of a register.
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
-        &self.registers[reg_id.0 as usize]
+        &self.registers[reg_id.get() as usize]
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
         // log::trace!("<- {reg_id}");
-        std::mem::replace(&mut self.registers[reg_id.0 as usize], PipelineData::Empty)
+        std::mem::replace(
+            &mut self.registers[reg_id.get() as usize],
+            PipelineData::Empty,
+        )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.0 as usize] {
+        match &self.registers[reg_id.get() as usize] {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
@@ -179,6 +187,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
     // Program counter, starts at zero.
     let mut pc = 0;
+    let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -187,7 +196,7 @@ fn eval_ir_block_impl<D: DebugContext>(
 
         D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
 
-        let result = eval_instruction::<D>(ctx, instruction, span, ast);
+        let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
         D::leave_instruction(
             ctx.engine_state,
@@ -220,8 +229,10 @@ fn eval_ir_block_impl<D: DebugContext>(
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
+                } else if need_backtrace {
+                    let err = ShellError::into_chainned(err, *span);
+                    return Err(err);
                 } else {
-                    // If not, exit the block with the error
                     return Err(err);
                 }
             }
@@ -251,7 +262,10 @@ fn prepare_error_handler(
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
-                error.item.into_value(error.span).into_pipeline_data(),
+                error
+                    .item
+                    .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
+                    .into_pipeline_data(),
             );
         } else {
             // Set the register to empty
@@ -274,6 +288,7 @@ fn eval_instruction<D: DebugContext>(
     instruction: &Instruction,
     span: &Span,
     ast: &Option<IrAstRef>,
+    need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
@@ -319,13 +334,13 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src);
             drain(ctx, data)
         }
-        Instruction::WriteToOutDests { src } => {
+        Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
             let res = {
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.write_to_out_dests(ctx.engine_state, stack)?
+                data.drain_to_out_dests(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, res);
             Ok(Continue)
@@ -376,9 +391,15 @@ fn eval_instruction<D: DebugContext>(
 
             if !is_automatic_env_var(&key) {
                 let is_config = key == "config";
-                ctx.stack.add_env_var(key.into_owned(), value);
+                let update_conversions = key == ENV_CONVERSIONS;
+
+                ctx.stack.add_env_var(key.into_owned(), value.clone());
+
                 if is_config {
                     ctx.stack.update_config(ctx.engine_state)?;
+                }
+                if update_conversions {
+                    convert_env_vars(ctx.stack, ctx.engine_state, &value)?;
                 }
                 Ok(Continue)
             } else {
@@ -470,8 +491,9 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src) {
+            #[cfg(feature = "os")]
             PipelineData::ByteStream(stream, _)
-                if matches!(stream.source(), ByteStreamSource::Child(_)) =>
+                if matches!(stream.source(), nu_protocol::ByteStreamSource::Child(_)) =>
             {
                 Ok(Continue)
             }
@@ -504,14 +526,19 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let result = {
-                let mut stack = ctx
-                    .stack
-                    .push_redirection(Some(Redirection::File(file)), None);
-                src.write_to_out_dests(ctx.engine_state, &mut stack)?
+            let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
+                stream.source().is_external()
+            } else {
+                false
             };
-            // Abort execution if there's an exit code from a failed external
-            drain(ctx, result)
+            if let Err(err) = src.write_to(file.as_ref()) {
+                if is_external {
+                    ctx.stack.set_last_error(&err);
+                }
+                Err(err)?
+            } else {
+                Ok(Continue)
+            }
         }
         Instruction::CloseFile { file_num } => {
             if ctx.files[*file_num as usize].take().is_some() {
@@ -525,7 +552,14 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
-            let result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            if need_backtrace {
+                match &mut result {
+                    PipelineData::ByteStream(s, ..) => s.push_caller_span(*span),
+                    PipelineData::ListStream(s, ..) => s.push_caller_span(*span),
+                    _ => (),
+                };
+            }
             ctx.put_reg(*src_dst, result);
             Ok(Continue)
         }
@@ -644,7 +678,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span, true)?;
+                let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
@@ -660,9 +694,8 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
-                let value = value.follow_cell_path(&path.members, true)?;
-                ctx.put_reg(*dst, value.into_pipeline_data());
+                let value = value.follow_cell_path(&path.members)?;
+                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
                 Err(*error)
@@ -823,7 +856,7 @@ fn literal_value(
             let captures = block
                 .captures
                 .iter()
-                .map(|var_id| get_var(ctx, *var_id, span).map(|val| (*var_id, val)))
+                .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
                 Closure {
@@ -930,23 +963,25 @@ fn binary_op(
             }
             Comparison::In => lhs_val.r#in(op_span, &rhs_val, span)?,
             Comparison::NotIn => lhs_val.not_in(op_span, &rhs_val, span)?,
+            Comparison::Has => lhs_val.has(op_span, &rhs_val, span)?,
+            Comparison::NotHas => lhs_val.not_has(op_span, &rhs_val, span)?,
             Comparison::StartsWith => lhs_val.starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
-            Math::Plus => lhs_val.add(op_span, &rhs_val, span)?,
-            Math::Append => lhs_val.append(op_span, &rhs_val, span)?,
-            Math::Minus => lhs_val.sub(op_span, &rhs_val, span)?,
+            Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
+            Math::Subtract => lhs_val.sub(op_span, &rhs_val, span)?,
             Math::Multiply => lhs_val.mul(op_span, &rhs_val, span)?,
             Math::Divide => lhs_val.div(op_span, &rhs_val, span)?,
+            Math::FloorDivide => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Modulo => lhs_val.modulo(op_span, &rhs_val, span)?,
-            Math::FloorDivision => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Pow => lhs_val.pow(op_span, &rhs_val, span)?,
+            Math::Concatenate => lhs_val.concat(op_span, &rhs_val, span)?,
         },
         Operator::Boolean(bl) => match bl {
-            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
             Boolean::Or => lhs_val.or(op_span, &rhs_val, span)?,
             Boolean::Xor => lhs_val.xor(op_span, &rhs_val, span)?,
+            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
         },
         Operator::Bits(bit) => match bit {
             Bits::BitOr => lhs_val.bit_or(op_span, &rhs_val, span)?,
@@ -959,7 +994,7 @@ fn binary_op(
             return Err(ShellError::IrEvalError {
                 msg: "can't eval assignment with the `binary-op` instruction".into(),
                 span: Some(span),
-            })
+            });
         }
     };
 
@@ -990,58 +1025,65 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result;
+    let result = (|| {
+        if let Some(block_id) = decl.block_id() {
+            // If the decl is a custom command
+            let block = engine_state.get_block(block_id);
 
-    if let Some(block_id) = decl.block_id() {
-        // If the decl is a custom command
-        let block = engine_state.get_block(block_id);
+            // check types after acquiring block to avoid unnecessarily cloning Signature
+            check_input_types(&input, &block.signature, head)?;
 
-        // Set up a callee stack with the captures and move arguments from the stack into variables
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+            // Set up a callee stack with the captures and move arguments from the stack into variables
+            let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        gather_arguments(
-            engine_state,
-            block,
-            &mut caller_stack,
-            &mut callee_stack,
-            *args_base,
-            args_len,
-            head,
-        )?;
+            gather_arguments(
+                engine_state,
+                block,
+                &mut caller_stack,
+                &mut callee_stack,
+                *args_base,
+                args_len,
+                head,
+            )?;
 
-        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
-        // recoverable in Rust.
-        callee_stack.recursion_count += 1;
+            // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+            // recoverable in Rust.
+            callee_stack.recursion_count += 1;
 
-        result = eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+            let result =
+                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
 
-        // Move environment variables back into the caller stack scope if requested to do so
-        if block.redirect_env {
-            redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            // Move environment variables back into the caller stack scope if requested to do so
+            if block.redirect_env {
+                redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            }
+
+            result
+        } else {
+            check_input_types(&input, &decl.signature(), head)?;
+            // FIXME: precalculate this and save it somewhere
+            let span = Span::merge_many(
+                std::iter::once(head).chain(
+                    caller_stack
+                        .arguments
+                        .get_args(*args_base, args_len)
+                        .iter()
+                        .flat_map(|arg| arg.span()),
+                ),
+            );
+
+            let call = Call {
+                decl_id,
+                head,
+                span,
+                args_base: *args_base,
+                args_len,
+            };
+
+            // Run the call
+            decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
         }
-    } else {
-        // FIXME: precalculate this and save it somewhere
-        let span = Span::merge_many(
-            std::iter::once(head).chain(
-                caller_stack
-                    .arguments
-                    .get_args(*args_base, args_len)
-                    .iter()
-                    .flat_map(|arg| arg.span()),
-            ),
-        );
-
-        let call = Call {
-            decl_id,
-            head,
-            span,
-            args_base: *args_base,
-            args_len,
-        };
-
-        // Run the call
-        result = decl.run(engine_state, &mut caller_stack, &(&call).into(), input);
-    };
+    })();
 
     drop(caller_stack);
 
@@ -1224,23 +1266,83 @@ fn gather_arguments(
 
 /// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
-    if match val {
-        // An empty list is compatible with any list or table type
-        Value::List { vals, .. } if vals.is_empty() => {
-            matches!(ty, Type::Any | Type::List(_) | Type::Table(_))
-        }
-        // FIXME: the allocation that might be required here is not great, it would be nice to be
-        // able to just directly check whether a value is compatible with a type
-        _ => val.get_type().is_subtype(ty),
-    } {
-        Ok(())
-    } else {
-        Err(ShellError::CantConvert {
+    match val {
+        Value::Error { error, .. } => Err(*error.clone()),
+        _ if val.is_subtype_of(ty) => Ok(()),
+        _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
             from_type: val.get_type().to_string(),
             span: val.span(),
             help: None,
-        })
+        }),
+    }
+}
+
+/// Type check pipeline input against command's input types
+fn check_input_types(
+    input: &PipelineData,
+    signature: &Signature,
+    head: Span,
+) -> Result<(), ShellError> {
+    let io_types = &signature.input_output_types;
+
+    // If a command doesn't have any input/output types, then treat command input type as any
+    if io_types.is_empty() {
+        return Ok(());
+    }
+
+    // If a command only has a nothing input type, then allow any input data
+    if io_types.iter().all(|(intype, _)| intype == &Type::Nothing) {
+        return Ok(());
+    }
+
+    match input {
+        // early return error directly if detected
+        PipelineData::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
+        // bypass run-time typechecking for custom types
+        PipelineData::Value(Value::Custom { .. }, ..) => return Ok(()),
+        _ => (),
+    }
+
+    // Check if the input type is compatible with *any* of the command's possible input types
+    if io_types
+        .iter()
+        .any(|(command_type, _)| input.is_subtype_of(command_type))
+    {
+        return Ok(());
+    }
+
+    let mut input_types = io_types
+        .iter()
+        .map(|(input, _)| input.to_string())
+        .collect::<Vec<String>>();
+
+    let expected_string = match input_types.len() {
+        0 => {
+            return Err(ShellError::NushellFailed {
+                msg: "Command input type strings is empty, despite being non-zero earlier"
+                    .to_string(),
+            });
+        }
+        1 => input_types.swap_remove(0),
+        2 => input_types.join(" and "),
+        _ => {
+            input_types
+                .last_mut()
+                .expect("Vector with length >2 has no elements")
+                .insert_str(0, "and ");
+            input_types.join(", ")
+        }
+    };
+
+    match input {
+        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: expected_string,
+            wrong_type: input.get_type().to_string(),
+            dst_span: head,
+            src_span: input.span().unwrap_or(Span::unknown()),
+        }),
     }
 }
 
@@ -1370,14 +1472,40 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
     match data {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
-            if let Err(err) = stream.drain() {
+            let callback_spans = stream.get_caller_spans().clone();
+            if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
-                return Err(err);
+                if callback_spans.is_empty() {
+                    return Err(err);
+                } else {
+                    for s in callback_spans {
+                        err = ShellError::EvalBlockWithInput {
+                            span: s,
+                            sources: vec![err],
+                        }
+                    }
+                    return Err(err);
+                }
             } else {
                 ctx.stack.set_last_exit_code(0, span);
             }
         }
-        PipelineData::ListStream(stream, ..) => stream.drain()?,
+        PipelineData::ListStream(stream, ..) => {
+            let callback_spans = stream.get_caller_spans().clone();
+            if let Err(mut err) = stream.drain() {
+                if callback_spans.is_empty() {
+                    return Err(err);
+                } else {
+                    for s in callback_spans {
+                        err = ShellError::EvalBlockWithInput {
+                            span: s,
+                            sources: vec![err],
+                        }
+                    }
+                    return Err(err);
+                }
+            }
+        }
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
     Ok(Continue)
@@ -1400,8 +1528,8 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     }
     let file = options
         .create(true)
-        .open(path_expanded)
-        .err_span(path.span())?;
+        .open(&path_expanded)
+        .map_err(|err| IoError::new(err, path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 
@@ -1414,9 +1542,11 @@ fn eval_redirection(
 ) -> Result<Option<Redirection>, ShellError> {
     match mode {
         RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
-        RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
+        RedirectMode::PipeSeparate => Ok(Some(Redirection::Pipe(OutDest::PipeSeparate))),
+        RedirectMode::Value => Ok(Some(Redirection::Pipe(OutDest::Value))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
+        RedirectMode::Print => Ok(Some(Redirection::Pipe(OutDest::Print))),
         RedirectMode::File { file_num } => {
             let file = ctx
                 .files

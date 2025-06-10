@@ -1,4 +1,4 @@
-use crate::{missing_flag_error, values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, missing_flag_error, values::CustomValueSupport};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -72,7 +72,10 @@ impl PluginCommand for SetSeries {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -175,7 +178,7 @@ fn command(
             })?;
 
             let mut res = res.into_series();
-            res.rename("string");
+            res.rename("string".into());
 
             NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)
         }

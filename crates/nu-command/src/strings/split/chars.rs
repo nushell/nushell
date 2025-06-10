@@ -4,9 +4,9 @@ use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitChars;
 
-impl Command for SubCommand {
+impl Command for SplitChars {
     fn name(&self) -> &str {
         "split chars"
     }
@@ -153,8 +153,9 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
                 )
             } else {
                 Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: name,
                         src_span: v_span,
                     },
@@ -173,6 +174,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitChars {})
     }
 }

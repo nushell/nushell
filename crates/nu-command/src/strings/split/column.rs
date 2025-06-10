@@ -1,11 +1,10 @@
+use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
-use regex::Regex;
-
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitColumn;
 
-impl Command for SubCommand {
+impl Command for SplitColumn {
     fn name(&self) -> &str {
         "split column"
     }
@@ -182,7 +181,7 @@ fn split_column(
     let regex = if args.has_regex {
         Regex::new(&args.separator.item)
     } else {
-        let escaped = regex::escape(&args.separator.item);
+        let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
     .map_err(|e| ShellError::GenericError {
@@ -220,10 +219,12 @@ fn split_column_helper(
         let split_result: Vec<_> = match max_split {
             Some(max_split) => separator
                 .splitn(&s, max_split)
+                .filter_map(|x| x.ok())
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
             None => separator
                 .split(&s)
+                .filter_map(|x| x.ok())
                 .filter(|x| !(collapse_empty && x.is_empty()))
                 .collect(),
         };
@@ -254,8 +255,9 @@ fn split_column_helper(
             v => {
                 let span = v.span();
                 vec![Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: head,
                         src_span: span,
                     },
@@ -274,6 +276,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitColumn {})
     }
 }

@@ -29,6 +29,10 @@ impl Command for HideEnv {
         "Hide environment variables in the current scope."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["unset", "drop"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -63,7 +67,7 @@ impl Command for HideEnv {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Hide an environment variable",
-            example: r#"$env.HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
+            example: r#"$env.HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in $env"#,
             result: Some(Value::test_bool(false)),
         }]
     }

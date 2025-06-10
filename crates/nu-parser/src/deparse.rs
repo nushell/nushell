@@ -1,23 +1,10 @@
+use nu_utils::escape_quote_string;
+
 fn string_should_be_quoted(input: &str) -> bool {
     input.starts_with('$')
         || input
             .chars()
             .any(|c| c == ' ' || c == '(' || c == '\'' || c == '`' || c == '"' || c == '\\')
-}
-
-pub fn escape_quote_string(input: &str) -> String {
-    let mut output = String::with_capacity(input.len() + 2);
-    output.push('"');
-
-    for c in input.chars() {
-        if c == '"' || c == '\\' {
-            output.push('\\');
-        }
-        output.push(c);
-    }
-
-    output.push('"');
-    output
 }
 
 // Escape rules:

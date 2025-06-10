@@ -1,11 +1,11 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Signals};
-use once_cell::sync::Lazy;
+use nu_protocol::{Signals, engine::StateWorkingSet};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
-pub struct AnsiCommand;
+pub struct Ansi;
 
 struct AnsiCode {
     short_name: Option<&'static str>,
@@ -14,7 +14,7 @@ struct AnsiCode {
 }
 
 #[rustfmt::skip]
-static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
+static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode{ short_name: Some("g"), long_name: "green", code: Color::Green.prefix().to_string()},
     AnsiCode{ short_name: Some("gb"), long_name: "green_bold", code: Color::Green.bold().prefix().to_string()},
     AnsiCode{ short_name: Some("gu"), long_name: "green_underline", code: Color::Green.underline().prefix().to_string()},
@@ -47,13 +47,13 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lrr"), long_name: "light_red_reverse", code: Color::LightRed.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lr"), long_name: "bg_light_red", code: Style::new().on(Color::LightRed).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("u"), long_name: "blue", code: Color::Blue.prefix().to_string()},
-    AnsiCode{ short_name: Some("ub"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("uu"), long_name: "blue_underline", code: Color::Blue.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("ui"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("ud"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("ur"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_u"), long_name: "bg_blue", code: Style::new().on(Color::Blue).prefix().to_string()},
+    AnsiCode{ short_name: Some("b"), long_name: "blue", code: Color::Blue.prefix().to_string()},
+    AnsiCode{ short_name: Some("bb"), long_name: "blue_bold", code: Color::Blue.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("bu"), long_name: "blue_underline", code: Color::Blue.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("bi"), long_name: "blue_italic", code: Color::Blue.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("bd"), long_name: "blue_dimmed", code: Color::Blue.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("br"), long_name: "blue_reverse", code: Color::Blue.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_b"), long_name: "bg_blue", code: Style::new().on(Color::Blue).prefix().to_string()},
 
     AnsiCode{ short_name: Some("lu"), long_name: "light_blue", code: Color::LightBlue.prefix().to_string()},
     AnsiCode{ short_name: Some("lub"), long_name: "light_blue_bold", code: Color::LightBlue.bold().prefix().to_string()},
@@ -63,13 +63,13 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lur"), long_name: "light_blue_reverse", code: Color::LightBlue.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lu"), long_name: "bg_light_blue", code: Style::new().on(Color::LightBlue).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("b"), long_name: "black", code: Color::Black.prefix().to_string()},
-    AnsiCode{ short_name: Some("bb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("bu"), long_name: "black_underline", code: Color::Black.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("bi"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("bd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("br"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_b"), long_name: "bg_black", code: Style::new().on(Color::Black).prefix().to_string()},
+    AnsiCode{ short_name: Some("k"), long_name: "black", code: Color::Black.prefix().to_string()},
+    AnsiCode{ short_name: Some("kb"), long_name: "black_bold", code: Color::Black.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("ku"), long_name: "black_underline", code: Color::Black.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("ki"), long_name: "black_italic", code: Color::Black.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("kd"), long_name: "black_dimmed", code: Color::Black.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("kr"), long_name: "black_reverse", code: Color::Black.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_k"), long_name: "bg_black", code: Style::new().on(Color::Black).prefix().to_string()},
 
     AnsiCode{ short_name: Some("ligr"), long_name: "light_gray", code: Color::LightGray.prefix().to_string()},
     AnsiCode{ short_name: Some("ligrb"), long_name: "light_gray_bold", code: Color::LightGray.bold().prefix().to_string()},
@@ -425,8 +425,6 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("grey89"), long_name: "xterm_grey89", code: Color::Fixed(254).prefix().to_string()},
     AnsiCode { short_name: Some("grey93"), long_name: "xterm_grey93", code: Color::Fixed(255).prefix().to_string()},
 
-    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
-
     // Attributes
     AnsiCode { short_name: Some("n"), long_name: "attr_normal", code: Color::Green.suffix().to_string()},
     AnsiCode { short_name: Some("bo"), long_name: "attr_bold", code: Style::new().bold().prefix().to_string()},
@@ -436,6 +434,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode { short_name: Some("bl"), long_name: "attr_blink", code: Style::new().blink().prefix().to_string()},
     AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
     AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
+
+    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -448,7 +448,8 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_end", code: "\x1b[0J".to_string()}, // clears from cursor until end of screen
     AnsiCode{ short_name: None, long_name:"clear_screen_from_cursor_to_beginning", code: "\x1b[1J".to_string()}, // clears from cursor to beginning of screen
     AnsiCode{ short_name: Some("cls"), long_name:"clear_entire_screen", code: "\x1b[2J".to_string()}, // clears the entire screen
-    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clsb"), long_name:"clear_entire_screen_plus_buffer", code: "\x1b[2J\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
+    AnsiCode{ short_name: Some("clb"), long_name:"clear_scrollback_buffer", code: "\x1b[3J".to_string()}, // clear entire screen and delete all lines saved in the scrollback buffer
     AnsiCode{ short_name: None, long_name:"erase_line", code: "\x1b[K".to_string()},                   // clears the current line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_end", code: "\x1b[0K".to_string()}, // clears from cursor to end of line
     AnsiCode{ short_name: None, long_name:"erase_line_from_cursor_to_beginning", code: "\x1b[1K".to_string()}, // clears from cursor to start of line
@@ -465,6 +466,14 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
 
     // Cursor position in ESC [ <r>;<c>R where r = row and c = column
     AnsiCode{ short_name: None, long_name:"cursor_position", code: "\x1b[6n".to_string()},
+    // Move cursor one character left
+    AnsiCode{ short_name: None, long_name:"cursor_left", code: "\x1b[D".to_string()},
+    // Move cursor one character right
+    AnsiCode{ short_name: None, long_name:"cursor_right", code: "\x1b[C".to_string()},
+    // Move cursor one line up
+    AnsiCode{ short_name: None, long_name:"cursor_up", code: "\x1b[A".to_string()},
+    // Move cursor one line down
+    AnsiCode{ short_name: None, long_name:"cursor_down", code: "\x1b[B".to_string()},
 
     // Report Terminal Identity
     AnsiCode{ short_name: None, long_name:"identity", code: "\x1b[0c".to_string()},
@@ -493,10 +502,10 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     ]
 });
 
-static CODE_MAP: Lazy<HashMap<&'static str, &'static str>> =
-    Lazy::new(|| build_ansi_hashmap(&CODE_LIST));
+static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
+    LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
-impl Command for AnsiCommand {
+impl Command for Ansi {
     fn name(&self) -> &str {
         "ansi"
     }
@@ -653,7 +662,10 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = stack.get_config(engine_state).use_ansi_coloring;
+        let use_ansi_coloring = stack
+            .get_config(engine_state)
+            .use_ansi_coloring
+            .get(engine_state);
 
         if list {
             return Ok(generate_ansi_code_list(
@@ -672,7 +684,7 @@ Operating system commands:
                 return Err(ShellError::MissingParameter {
                     param_name: "code".into(),
                     span: call.head,
-                })
+                });
             }
         };
 
@@ -690,7 +702,10 @@ Operating system commands:
         let list: bool = call.has_flag_const(working_set, "list")?;
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
-        let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
+        let use_ansi_coloring = working_set
+            .get_config()
+            .use_ansi_coloring
+            .get(working_set.permanent());
 
         if list {
             return Ok(generate_ansi_code_list(
@@ -709,7 +724,7 @@ Operating system commands:
                 return Err(ShellError::MissingParameter {
                     param_name: "code".into(),
                     span: call.head,
-                })
+                });
             }
         };
 
@@ -789,7 +804,7 @@ fn heavy_lifting(
                     return Err(ShellError::TypeMismatch {
                         err_message: String::from("Unknown ansi code"),
                         span: code.span(),
-                    })
+                    });
                 }
             }
         }
@@ -812,9 +827,11 @@ fn heavy_lifting(
                 "attr" => nu_style.attr = Some(v.coerce_into_string()?),
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
-                        msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
+                        msg: format!(
+                            "unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"
+                        ),
                         span,
-                    })
+                    });
                 }
             }
         }
@@ -841,15 +858,19 @@ fn generate_ansi_code_list(
         .map(move |(i, ansi_code)| {
             let name = Value::string(ansi_code.long_name, call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
-            // The first 102 items in the ansi array are colors
-            let preview = if i < 389 {
-                Value::string(format!("{}NUSHELL\u{1b}[0m", &ansi_code.code), call_span)
-            } else {
-                Value::string("\u{1b}[0m", call_span)
-            };
             let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
 
             let record = if use_ansi_coloring {
+                // The first 397 items in the ansi array are previewable
+                let preview = if i < 397 {
+                    Value::string(
+                        format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
+                        call_span,
+                    )
+                } else {
+                    Value::string("\u{1b}[0m", call_span)
+                };
+
                 record! {
                     "name" => name,
                     "preview" => preview,
@@ -883,12 +904,57 @@ fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::ansi::ansi_::AnsiCommand;
+    use crate::platform::ansi::ansi_::Ansi;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
 
-        test_examples(AnsiCommand {})
+        test_examples(Ansi {})
+    }
+
+    #[test]
+    fn no_duplicate_short_names() {
+        use crate::platform::ansi::ansi_::CODE_LIST;
+        use std::collections::HashSet;
+
+        let mut seen = HashSet::new();
+        let mut duplicates = Vec::new();
+
+        for ansi in CODE_LIST.iter() {
+            if let Some(name) = ansi.short_name {
+                if !seen.insert(name) {
+                    duplicates.push(name);
+                }
+            }
+        }
+
+        assert!(
+            duplicates.is_empty(),
+            "Duplicate short_names found: {:?}",
+            duplicates
+        );
+    }
+
+    #[test]
+    fn no_duplicate_long_names() {
+        use crate::platform::ansi::ansi_::CODE_LIST;
+        use std::collections::HashSet;
+
+        let mut seen = HashSet::new();
+        let mut duplicates = Vec::new();
+
+        for ansi in CODE_LIST.iter() {
+            let name = ansi.long_name;
+            if !seen.insert(name) {
+                duplicates.push(name);
+            }
+        }
+
+        assert!(
+            duplicates.is_empty(),
+            "Duplicate long_names found: {:?}",
+            duplicates
+        );
     }
 }

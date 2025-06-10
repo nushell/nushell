@@ -1,9 +1,10 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathCeil;
 
-impl Command for SubCommand {
+impl Command for MathCeil {
     fn name(&self) -> &str {
         "math ceil"
     }
@@ -16,6 +17,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -45,6 +47,16 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
+        }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
@@ -58,6 +70,16 @@ impl Command for SubCommand {
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head),
@@ -103,6 +125,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathCeil {})
     }
 }

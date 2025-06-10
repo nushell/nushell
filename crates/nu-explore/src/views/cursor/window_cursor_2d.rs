@@ -1,3 +1,6 @@
+use crate::pager::{StatusTopOrEnd, Transition};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
 use super::WindowCursor;
 use anyhow::Result;
 
@@ -168,5 +171,135 @@ impl WindowCursor2D {
 
         self.y
             .set_window_start_position(self.y.window_starts_at() - 1)
+    }
+}
+
+pub trait CursorMoveHandler {
+    fn get_cursor(&mut self) -> &mut WindowCursor2D;
+
+    // standard handle_EVENT handlers that can be overwritten
+    fn handle_enter(&mut self) -> Result<Transition> {
+        Ok(Transition::None)
+    }
+    fn handle_esc(&mut self) -> Transition {
+        Transition::Exit
+    }
+    fn handle_expand(&mut self) -> Transition {
+        Transition::None
+    }
+    fn handle_left(&mut self) {
+        self.get_cursor().prev_column_i()
+    }
+    fn handle_right(&mut self) {
+        self.get_cursor().next_column_i()
+    }
+    fn handle_up(&mut self) {
+        self.get_cursor().prev_row_i()
+    }
+    fn handle_down(&mut self) {
+        self.get_cursor().next_row_i()
+    }
+    fn handle_transpose(&mut self) -> Transition {
+        Transition::None
+    }
+
+    // top-level event handler should not be overwritten
+    fn handle_input_key(&mut self, key: &KeyEvent) -> Result<(Transition, StatusTopOrEnd)> {
+        let key_combo_status = match key {
+            // PageUp supports Vi (Ctrl+b) and Emacs (Alt+v) keybindings
+            KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('b'),
+                ..
+            }
+            | KeyEvent {
+                modifiers: KeyModifiers::ALT,
+                code: KeyCode::Char('v'),
+                ..
+            }
+            | KeyEvent {
+                code: KeyCode::PageUp,
+                ..
+            } => {
+                self.get_cursor().prev_row_page();
+                StatusTopOrEnd::Top
+            }
+            // PageDown supports Vi (Ctrl+f) and Emacs (Ctrl+v) keybindings
+            KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('f'),
+                ..
+            }
+            | KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('v'),
+                ..
+            }
+            | KeyEvent {
+                code: KeyCode::PageDown,
+                ..
+            } => {
+                self.get_cursor().next_row_page();
+                self.get_cursor().prev_row();
+                StatusTopOrEnd::End
+            }
+            // Up support Emacs (Ctrl+p) keybinding
+            KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('p'),
+                ..
+            } => {
+                self.handle_up();
+                StatusTopOrEnd::Top
+            }
+            // Down support Emacs (Ctrl+n) keybinding
+            KeyEvent {
+                modifiers: KeyModifiers::CONTROL,
+                code: KeyCode::Char('n'),
+                ..
+            } => {
+                self.handle_down();
+                StatusTopOrEnd::End
+            }
+            _ => StatusTopOrEnd::None,
+        };
+        match key_combo_status {
+            StatusTopOrEnd::Top | StatusTopOrEnd::End => {
+                return Ok((Transition::Ok, key_combo_status));
+            }
+            _ => {} // not page up or page down, so don't return; continue to next match block
+        }
+
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => Ok((self.handle_esc(), StatusTopOrEnd::None)),
+            KeyCode::Char('i') | KeyCode::Enter => Ok((self.handle_enter()?, StatusTopOrEnd::None)),
+            KeyCode::Char('t') => Ok((self.handle_transpose(), StatusTopOrEnd::None)),
+            KeyCode::Char('e') => Ok((self.handle_expand(), StatusTopOrEnd::None)),
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.handle_up();
+                Ok((Transition::Ok, StatusTopOrEnd::Top))
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.handle_down();
+                Ok((Transition::Ok, StatusTopOrEnd::End))
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.handle_left();
+                Ok((Transition::Ok, StatusTopOrEnd::None))
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.handle_right();
+                Ok((Transition::Ok, StatusTopOrEnd::None))
+            }
+            KeyCode::Home | KeyCode::Char('g') => {
+                self.get_cursor().row_move_to_start();
+                Ok((Transition::Ok, StatusTopOrEnd::Top))
+            }
+            KeyCode::End | KeyCode::Char('G') => {
+                self.get_cursor().row_move_to_end();
+                Ok((Transition::Ok, StatusTopOrEnd::End))
+            }
+            _ => Ok((Transition::None, StatusTopOrEnd::None)),
+        }
     }
 }

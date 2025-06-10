@@ -9,7 +9,7 @@ fn each_works_separately() {
 
 #[test]
 fn each_group_works() {
-    let actual = nu!("echo [1 2 3 4 5 6] | group 3 | to json --raw");
+    let actual = nu!("echo [1 2 3 4 5 6] | chunks 3 | to json --raw");
 
     assert_eq!(actual.out, "[[1,2,3],[4,5,6]]");
 }

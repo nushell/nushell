@@ -1,5 +1,6 @@
+use chrono::Datelike;
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
+use nu_protocol::{Signals, shell_error::io::IoError};
 
 use std::io::Write;
 
@@ -94,23 +95,31 @@ fn run(
         Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
+            let from_io_error = IoError::factory(span, None);
+
             // Write each input to the buffer
             if let Some(value) = iter.next() {
                 // Write the separator if this is not the first
                 if first {
                     first = false;
                 } else if let Some(separator) = &separator {
-                    write!(buffer, "{}", separator)?;
+                    write!(buffer, "{}", separator).map_err(&from_io_error)?;
                 }
 
                 match value {
                     Value::Error { error, .. } => {
                         return Err(*error);
                     }
-                    // Hmm, not sure what we actually want.
-                    // `to_expanded_string` formats dates as human readable which feels funny.
-                    Value::Date { val, .. } => write!(buffer, "{val:?}")?,
-                    value => write!(buffer, "{}", value.to_expanded_string("\n", &config))?,
+                    Value::Date { val, .. } => {
+                        let date_str = if val.year() >= 0 {
+                            val.to_rfc2822()
+                        } else {
+                            val.to_rfc3339()
+                        };
+                        write!(buffer, "{date_str}").map_err(&from_io_error)?
+                    }
+                    value => write!(buffer, "{}", value.to_expanded_string("\n", &config))
+                        .map_err(&from_io_error)?,
                 }
                 Ok(true)
             } else {

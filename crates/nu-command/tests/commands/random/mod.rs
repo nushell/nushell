@@ -1,3 +1,4 @@
+mod binary;
 mod bool;
 mod chars;
 mod dice;

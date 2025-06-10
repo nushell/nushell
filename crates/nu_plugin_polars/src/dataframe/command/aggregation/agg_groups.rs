@@ -1,8 +1,8 @@
+use crate::PolarsPlugin;
 use crate::dataframe::values::NuExpression;
 use crate::values::{
-    cant_convert_err, CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType,
+    CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
@@ -34,7 +34,7 @@ impl PluginCommand for ExprAggGroups {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Get the groiup index of the group by operations.",
+            description: "Get the group index of the group by operations.",
             example: r#"[[group value]; [one 94] [one 95] [one 96] [two 97] [two 98] [two 99]] 
                 | polars into-df 
                 | polars group-by group
@@ -61,12 +61,14 @@ impl PluginCommand for ExprAggGroups {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
             _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

@@ -188,7 +188,7 @@ fn filesystem_not_a_directory() {
             actual.err
         );
         assert!(
-            actual.err.contains("is not a directory"),
+            actual.err.contains("nu::shell::io::not_a_directory"),
             "actual={:?}",
             actual.err
         );
@@ -210,7 +210,7 @@ fn filesystem_directory_not_found() {
             actual.err
         );
         assert!(
-            actual.err.contains("directory not found"),
+            actual.err.contains("nu::shell::io::directory_not_found"),
             "actual={:?}",
             actual.err
         );
@@ -262,11 +262,12 @@ fn test_change_windows_drive() {
                 subst Z: /d
             "#
         );
-        assert!(dirs
-            .test()
-            .join("test_folder")
-            .join("test_file.txt")
-            .exists());
+        assert!(
+            dirs.test()
+                .join("test_folder")
+                .join("test_file.txt")
+                .exists()
+        );
     })
 }
 
@@ -282,7 +283,7 @@ fn cd_permission_denied_folder() {
                 cd banned
             "
         );
-        assert!(actual.err.contains("Cannot change directory to"));
+        assert!(actual.err.contains("nu::shell::io::permission_denied"));
         nu!(
             cwd: dirs.test(),
             "

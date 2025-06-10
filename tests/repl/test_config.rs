@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, run_test_std, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test, run_test_std};
 
 #[test]
 fn mutate_nu_config() -> TestResult {
@@ -95,8 +95,8 @@ fn mutate_nu_config_nested_history() -> TestResult {
 #[test]
 fn mutate_nu_config_nested_filesize() -> TestResult {
     run_test_std(
-        r#"$env.config.filesize.format = 'kb'; $env.config.filesize.format"#,
-        "kb",
+        r#"$env.config.filesize.unit = 'kB'; $env.config.filesize.unit"#,
+        "kB",
     )
 }
 
@@ -119,7 +119,7 @@ fn mutate_nu_config_plugin() -> TestResult {
 
 #[test]
 fn reject_nu_config_plugin_non_record() -> TestResult {
-    fail_test(r#"$env.config.plugins = 5"#, "should be a record")
+    fail_test(r#"$env.config.plugins = 5"#, "Type mismatch")
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn mutate_nu_config_plugin_gc_default_stop_after_negative() -> TestResult {
             $env.config.plugin_gc.default.stop_after = -1sec
             $env.config.plugin_gc.default.stop_after
         "#,
-        "must not be negative",
+        "expected a non-negative duration",
     )
 }
 

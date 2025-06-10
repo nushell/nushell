@@ -1,7 +1,7 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use crate::values::{
-    cant_convert_err, Column, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    Column, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -82,9 +82,9 @@ impl PluginCommand for Cumulative {
         vec![
             Example {
                 description: "Cumulative sum for a column",
-                example: "[[a]; [1] [2] [3] [4] [5]] 
-                    | polars into-df 
-                    | polars select (polars col a | polars cumulative sum | polars as cum_a) 
+                example: "[[a]; [1] [2] [3] [4] [5]]
+                    | polars into-df
+                    | polars select (polars col a | polars cumulative sum | polars as cum_a)
                     | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -156,6 +156,7 @@ impl PluginCommand for Cumulative {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         let cum_type: Spanned<String> = call.req(0)?;
         let cum_type = CumulativeType::from_str(&cum_type.item, cum_type.span)?;
@@ -177,6 +178,7 @@ impl PluginCommand for Cumulative {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -234,7 +236,7 @@ fn command_df(
     })?;
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());
-    res.rename(&name);
+    res.rename(name.into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

@@ -1,8 +1,8 @@
-use nu_protocol::{ast::Operator, ShellError, Span, Spanned, Value};
-use polars::prelude::{DataFrame, Series};
+use nu_protocol::{ShellError, Span, Spanned, Value, ast::Operator};
+use polars::prelude::{Column as PolarsColumn, DataFrame};
 
-use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
+use crate::values::CustomValueSupport;
 
 use super::between_values::{
     between_dataframes, compute_between_series, compute_series_single_value,
@@ -126,7 +126,7 @@ impl NuDataFrame {
                     .iter()
                     .chain(other.df.get_columns())
                     .map(|s| {
-                        let name = if columns.contains(&s.name()) {
+                        let name = if columns.contains(&s.name().as_str()) {
                             format!("{}_{}", s.name(), "x")
                         } else {
                             columns.push(s.name());
@@ -134,10 +134,10 @@ impl NuDataFrame {
                         };
 
                         let mut series = s.clone();
-                        series.rename(&name);
+                        series.rename(name.into());
                         series
                     })
-                    .collect::<Vec<Series>>();
+                    .collect::<Vec<PolarsColumn>>();
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error creating dataframe".into(),
@@ -195,7 +195,7 @@ impl NuDataFrame {
                             }),
                         }
                     })
-                    .collect::<Result<Vec<Series>, ShellError>>()?;
+                    .collect::<Result<Vec<PolarsColumn>, ShellError>>()?;
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error appending dataframe".into(),

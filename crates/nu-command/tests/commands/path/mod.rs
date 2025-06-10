@@ -4,6 +4,7 @@ mod exists;
 mod expand;
 mod join;
 mod parse;
+mod self_;
 mod split;
 mod type_;
 

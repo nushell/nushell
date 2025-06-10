@@ -47,26 +47,25 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_string("N"),
+                    Value::test_string("u"),
+                    Value::test_string("s"),
+                    Value::test_string("h"),
+                    Value::test_string("e"),
+                    Value::test_string("l"),
+                    Value::test_string("l"),
+                ])),
             },
             Example {
                 description: "flatten a table, get the first item",
                 example: "[[N, u, s, h, e, l, l]] | flatten | first",
-                result: None,//Some(Value::test_string("N")),
+                result: None, //Some(Value::test_string("N")),
             },
             Example {
                 description: "flatten a column having a nested table",
                 example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
-                result: None,//Some(Value::test_string("arepa")),
+                result: None, //Some(Value::test_string("arepa")),
             },
             Example {
                 description: "restrict the flattening by passing column names",
@@ -109,7 +108,7 @@ impl Command for Flatten {
                     ],
                     Span::test_data(),
                 )),
-            }
+            },
         ]
     }
 }
@@ -157,7 +156,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut inner_table = None;
 
             for (column_index, (column, value)) in val.into_owned().into_iter().enumerate() {
-                let column_requested = columns.iter().find(|c| c.to_string() == column);
+                let column_requested = columns.iter().find(|c| c.to_column_name() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
 

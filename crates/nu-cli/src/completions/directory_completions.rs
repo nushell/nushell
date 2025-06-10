@@ -1,38 +1,30 @@
 use crate::completions::{
-    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
     Completer, CompletionOptions,
+    completion_common::{AdjustView, adjust_if_intermediate, complete_item},
 };
-use nu_ansi_term::Style;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
     Span,
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::SemanticSuggestion;
+use super::{SemanticSuggestion, SuggestionKind, completion_common::FileSuggestion};
 
-#[derive(Clone, Default)]
-pub struct DirectoryCompletion {}
-
-impl DirectoryCompletion {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+pub struct DirectoryCompletion;
 
 impl Completer for DirectoryCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: Vec<u8>,
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
+        let AdjustView { prefix, span, .. } =
+            adjust_if_intermediate(prefix.as_ref(), working_set, span);
 
         // Filter only the folders
         #[allow(deprecated)]
@@ -47,16 +39,15 @@ impl Completer for DirectoryCompletion {
         .into_iter()
         .map(move |x| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
-                style: x.2,
+                value: x.path,
+                style: x.style,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: x.span.start - offset,
+                    end: x.span.end - offset,
                 },
                 ..Suggestion::default()
             },
-            // TODO????
-            kind: None,
+            kind: Some(SuggestionKind::Directory),
         })
         .collect();
 
@@ -92,6 +83,6 @@ pub fn directory_completion(
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(true, span, partial, cwd, options, engine_state, stack)
+) -> Vec<FileSuggestion> {
+    complete_item(true, span, partial, &[cwd], options, engine_state, stack)
 }

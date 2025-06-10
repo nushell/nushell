@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
-use std::io::Read;
 
 #[derive(Clone)]
 pub struct Take;
@@ -89,20 +88,11 @@ impl Command for Take {
             )),
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
-                    if let Some(reader) = stream.reader() {
-                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
-                        Ok(PipelineData::ByteStream(
-                            ByteStream::read(
-                                reader.take(rows_desired as u64),
-                                head,
-                                Signals::empty(),
-                                ByteStreamType::Binary,
-                            ),
-                            metadata,
-                        ))
-                    } else {
-                        Ok(PipelineData::Empty)
-                    }
+                    let span = stream.span();
+                    Ok(PipelineData::ByteStream(
+                        stream.take(span, rows_desired as u64)?,
+                        metadata,
+                    ))
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),

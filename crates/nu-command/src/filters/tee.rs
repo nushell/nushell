@@ -1,13 +1,17 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+#[cfg(feature = "os")]
+use nu_protocol::process::ChildPipe;
+#[cfg(test)]
+use nu_protocol::shell_error;
 use nu_protocol::{
-    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, report_shell_error,
     ByteStream, ByteStreamSource, OutDest, PipelineMetadata, Signals,
+    byte_stream::copy_with_signals, engine::Closure, report_shell_error, shell_error::io::IoError,
 };
 use std::{
     io::{self, Read, Write},
     sync::{
-        mpsc::{self, Sender},
         Arc,
+        mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
 };
@@ -53,8 +57,7 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example:
-                    "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
+                example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
                 description: "Save error messages from an external command to a file without \
                     redirecting them",
                 result: None,
@@ -68,7 +71,7 @@ use it in your pipeline."#
                 example: "10000 | tee { 1..$in | print } | $in * 5",
                 description: "Do something with a value on another thread, while also passing through the value",
                 result: Some(Value::test_int(50000)),
-            }
+            },
         ]
     }
 
@@ -80,6 +83,7 @@ use it in your pipeline."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let from_io_error = IoError::factory(head, None);
         let use_stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         let closure: Spanned<Closure> = call.req(engine_state, stack, 0)?;
@@ -152,18 +156,19 @@ use it in your pipeline."#
                         metadata,
                     ))
                 }
+                #[cfg(feature = "os")]
                 ByteStreamSource::Child(mut child) => {
                     let stderr_thread = if use_stderr {
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stderr, tee_thread);
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
                                 OutDest::Null => copy_on_thread(tee, io::sink(), &info).map(Some),
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_on_thread(tee, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -176,12 +181,14 @@ use it in your pipeline."#
 
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(stdout);
                                     Ok(())
                                 }
                                 OutDest::Null => copy_pipe(stdout, io::sink(), &info),
-                                OutDest::Inherit => copy_pipe(stdout, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => {
+                                    copy_pipe(stdout, io::stdout(), &info)
+                                }
                                 OutDest::File(file) => copy_pipe(stdout, file.as_ref(), &info),
                             }?;
                         }
@@ -191,14 +198,14 @@ use it in your pipeline."#
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             let info = info.clone();
                             match stack.stderr() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stderr = Some(stderr);
                                     Ok(None)
                                 }
                                 OutDest::Null => {
                                     copy_pipe_on_thread(stderr, io::sink(), &info).map(Some)
                                 }
-                                OutDest::Inherit => {
+                                OutDest::Print | OutDest::Inherit => {
                                     copy_pipe_on_thread(stderr, io::stderr(), &info).map(Some)
                                 }
                                 OutDest::File(file) => {
@@ -213,12 +220,12 @@ use it in your pipeline."#
                             let tee_thread = spawn_tee(info.clone(), eval_block)?;
                             let tee = IoTee::new(stdout, tee_thread);
                             match stack.stdout() {
-                                OutDest::Pipe | OutDest::Capture => {
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value => {
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
                                 OutDest::Null => copy(tee, io::sink(), &info),
-                                OutDest::Inherit => copy(tee, io::stdout(), &info),
+                                OutDest::Print | OutDest::Inherit => copy(tee, io::stdout(), &info),
                                 OutDest::File(file) => copy(tee, file.as_ref(), &info),
                             }?;
                         }
@@ -258,7 +265,7 @@ use it in your pipeline."#
                     let input = rx.into_pipeline_data_with_metadata(span, signals, metadata_clone);
                     eval_block(input)
                 })
-                .err_span(call.head)?
+                .map_err(&from_io_error)?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(
                     span,
@@ -273,14 +280,14 @@ use it in your pipeline."#
                 tee_once(engine_state_arc, move || {
                     eval_block(value_clone.into_pipeline_data_with_metadata(metadata_clone))
                 })
-                .err_span(call.head)?;
+                .map_err(&from_io_error)?;
                 Ok(value.into_pipeline_data_with_metadata(metadata))
             }
         }
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
-        (Some(OutDest::Capture), Some(OutDest::Capture))
+        (Some(OutDest::PipeSeparate), Some(OutDest::PipeSeparate))
     }
 }
 
@@ -388,7 +395,7 @@ impl<R: Read> Read for IoTee<R> {
         if let Some(thread) = self.thread.take() {
             if thread.is_finished() {
                 if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::new(io::ErrorKind::Other, err));
+                    return Err(io::Error::other(err));
                 }
             } else {
                 self.thread = Some(thread)
@@ -399,7 +406,7 @@ impl<R: Read> Read for IoTee<R> {
             self.sender = None;
             if let Some(thread) = self.thread.take() {
                 if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::new(io::ErrorKind::Other, err));
+                    return Err(io::Error::other(err));
                 }
             }
         } else if let Some(sender) = self.sender.as_mut() {
@@ -434,7 +441,9 @@ fn spawn_tee(
             );
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
-        .err_span(info.span)?;
+        .map_err(|err| {
+            IoError::new_with_additional_context(err, info.span, None, "Could not spawn tee")
+        })?;
 
     Ok(TeeThread { sender, thread })
 }
@@ -452,6 +461,7 @@ fn copy(src: impl Read, dest: impl Write, info: &StreamInfo) -> Result<(), Shell
     Ok(())
 }
 
+#[cfg(feature = "os")]
 fn copy_pipe(pipe: ChildPipe, dest: impl Write, info: &StreamInfo) -> Result<(), ShellError> {
     match pipe {
         ChildPipe::Pipe(pipe) => copy(pipe, dest, info),
@@ -472,9 +482,13 @@ fn copy_on_thread(
             copy_with_signals(src, dest, span, &signals)?;
             Ok(())
         })
-        .map_err(|e| e.into_spanned(span).into())
+        .map_err(|err| {
+            IoError::new_with_additional_context(err, span, None, "Could not spawn stderr copier")
+                .into()
+        })
 }
 
+#[cfg(feature = "os")]
 fn copy_pipe_on_thread(
     pipe: ChildPipe,
     dest: impl Write + Send + 'static,
@@ -514,7 +528,12 @@ fn tee_forwards_errors_back_immediately() {
     use std::time::Duration;
     let slow_input = (0..100).inspect(|_| std::thread::sleep(Duration::from_millis(1)));
     let iter = tee(slow_input, |_| {
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
+            Span::test_data(),
+            None,
+            "test",
+        )))
     })
     .expect("io error");
     for result in iter {
@@ -532,8 +551,8 @@ fn tee_forwards_errors_back_immediately() {
 #[test]
 fn tee_waits_for_the_other_thread() {
     use std::sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     };
     use std::time::Duration;
     let waited = Arc::new(AtomicBool::new(false));
@@ -541,7 +560,12 @@ fn tee_waits_for_the_other_thread() {
     let iter = tee(0..100, move |_| {
         std::thread::sleep(Duration::from_millis(10));
         waited_clone.store(true, Ordering::Relaxed);
-        Err(ShellError::IOError { msg: "test".into() })
+        Err(ShellError::Io(IoError::new_with_additional_context(
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
+            Span::test_data(),
+            None,
+            "test",
+        )))
     })
     .expect("io error");
     let last = iter.last();

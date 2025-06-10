@@ -3,9 +3,9 @@ use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathStddev;
 
-impl Command for SubCommand {
+impl Command for MathStddev {
     fn name(&self) -> &str {
         "math stddev"
     }
@@ -14,6 +14,7 @@ impl Command for SubCommand {
         Signature::build("math stddev")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
             ])
@@ -53,6 +54,18 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag(engine_state, stack, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_stddev(sample))
     }
 
@@ -63,6 +76,18 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag_const(working_set, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_stddev(sample))
     }
 
@@ -111,6 +136,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathStddev {})
     }
 }

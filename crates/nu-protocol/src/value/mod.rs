@@ -1,7 +1,6 @@
 mod custom_value;
 mod duration;
 mod filesize;
-mod from;
 mod from_value;
 mod glob;
 mod into_value;
@@ -9,6 +8,7 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
+pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
@@ -20,25 +20,24 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
+    BlockId, Config, ShellError, Signals, Span, Type,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    Config, ShellError, Signals, Span, Type,
 };
-use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
+use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
-    contains_emoji,
-    locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    IgnoreCaseExt, SharedCow,
+    SharedCow, contains_emoji,
+    locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
 };
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
-    ops::Bound,
+    ops::{Bound, ControlFlow, Deref},
     path::PathBuf,
 };
 
@@ -49,124 +48,129 @@ use std::{
 pub enum Value {
     Bool {
         val: bool,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Int {
         val: i64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Float {
         val: f64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Filesize {
-        val: i64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Duration {
-        val: i64,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Date {
-        val: DateTime<FixedOffset>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Range {
-        val: Box<Range>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     String {
         val: String,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Glob {
         val: String,
         no_expand: bool,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Filesize {
+        val: Filesize,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Duration {
+        val: i64,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Date {
+        val: DateTime<FixedOffset>,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Range {
+        val: Box<Range>,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Record {
         val: SharedCow<Record>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     List {
         vals: Vec<Value>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Closure {
         val: Box<Closure>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
-    Nothing {
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     CellPath {
         val: CellPath,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
     Custom {
         val: Box<dyn CustomValue>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
+    Nothing {
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
 }
+
+// This is to document/enforce the size of `Value` in bytes.
+// We should try to avoid increasing the size of `Value`,
+// and PRs that do so will have to change the number below so that it's noted in review.
+const _: () = assert!(std::mem::size_of::<Value>() <= 48);
 
 impl Clone for Value {
     fn clone(&self) -> Self {
@@ -302,7 +306,7 @@ impl Value {
     }
 
     /// Returns the inner `i64` filesize value or an error if this `Value` is not a filesize
-    pub fn as_filesize(&self) -> Result<i64, ShellError> {
+    pub fn as_filesize(&self) -> Result<Filesize, ShellError> {
         if let Value::Filesize { val, .. } = self {
             Ok(*val)
         } else {
@@ -324,7 +328,7 @@ impl Value {
         if let Value::Date { val, .. } = self {
             Ok(*val)
         } else {
-            self.cant_convert_to("date")
+            self.cant_convert_to("datetime")
         }
     }
 
@@ -367,9 +371,11 @@ impl Value {
     /// Returns this `Value` converted to a `str` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -379,9 +385,11 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -391,9 +399,11 @@ impl Value {
     /// ```
     pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
         match self {
+            Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Float { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::String { val, .. } => Ok(Cow::Borrowed(val)),
+            Value::Glob { val, .. } => Ok(Cow::Borrowed(val)),
             Value::Binary { val, .. } => match std::str::from_utf8(val) {
                 Ok(s) => Ok(Cow::Borrowed(s)),
                 Err(_) => self.cant_convert_to("string"),
@@ -417,9 +427,11 @@ impl Value {
     /// if you do not need to keep the original `Value` around.
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -429,9 +441,11 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -446,9 +460,11 @@ impl Value {
     /// Returns this `Value` converted to a `String` or an error if it cannot be converted
     ///
     /// Only the following `Value` cases will return an `Ok` result:
+    /// - `Bool`
     /// - `Int`
     /// - `Float`
     /// - `String`
+    /// - `Glob`
     /// - `Binary` (only if valid utf-8)
     /// - `Date`
     ///
@@ -458,9 +474,11 @@ impl Value {
     ///     assert_eq!(
     ///         matches!(
     ///             val,
-    ///             Value::Int { .. }
+    ///             Value::Bool { .. }
+    ///                 | Value::Int { .. }
     ///                 | Value::Float { .. }
     ///                 | Value::String { .. }
+    ///                 | Value::Glob { .. }
     ///                 | Value::Binary { .. }
     ///                 | Value::Date { .. }
     ///         ),
@@ -471,9 +489,11 @@ impl Value {
     pub fn coerce_into_string(self) -> Result<String, ShellError> {
         let span = self.span();
         match self {
+            Value::Bool { val, .. } => Ok(val.to_string()),
             Value::Int { val, .. } => Ok(val.to_string()),
             Value::Float { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
+            Value::Glob { val, .. } => Ok(val),
             Value::Binary { val, .. } => match String::from_utf8(val) {
                 Ok(s) => Ok(s),
                 Err(err) => Value::binary(err.into_bytes(), span).cant_convert_to("string"),
@@ -648,6 +668,36 @@ impl Value {
         }
     }
 
+    /// Interprets this `Value` as a boolean based on typical conventions for environment values.
+    ///
+    /// The following rules are used:
+    /// - Values representing `false`:
+    ///   - Empty strings or strings that equal to "false" in any case
+    ///   - The number `0` (as an integer, float or string)
+    ///   - `Nothing`
+    ///   - Explicit boolean `false`
+    /// - Values representing `true`:
+    ///   - Non-zero numbers (integer or float)
+    ///   - Non-empty strings
+    ///   - Explicit boolean `true`
+    ///
+    /// For all other, more complex variants of [`Value`], the function cannot determine a
+    /// boolean representation and returns `Err`.
+    pub fn coerce_bool(&self) -> Result<bool, ShellError> {
+        match self {
+            Value::Bool { val: false, .. } | Value::Int { val: 0, .. } | Value::Nothing { .. } => {
+                Ok(false)
+            }
+            Value::Float { val, .. } if val <= &f64::EPSILON => Ok(false),
+            Value::String { val, .. } => match val.trim().to_ascii_lowercase().as_str() {
+                "" | "0" | "false" => Ok(false),
+                _ => Ok(true),
+            },
+            Value::Bool { .. } | Value::Int { .. } | Value::Float { .. } => Ok(true),
+            _ => self.cant_convert_to("bool"),
+        }
+    }
+
     /// Returns a reference to the inner [`CustomValue`] trait object or an error if this `Value` is not a custom value
     pub fn as_custom_value(&self) -> Result<&dyn CustomValue, ShellError> {
         if let Value::Custom { val, .. } = self {
@@ -767,6 +817,66 @@ impl Value {
         }
     }
 
+    /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
+    ///
+    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
+    ///
+    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
+    /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
+    ///
+    /// Empty lists are considered subtypes of all `list<T>` types.
+    ///
+    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
+    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
+    ///
+    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
+    pub fn is_subtype_of(&self, other: &Type) -> bool {
+        // records are structurally typed
+        let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
+            Value::Record { val, .. } => other
+                .iter()
+                .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
+            _ => false,
+        };
+
+        // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
+        match (self, other) {
+            (_, Type::Any) => true,
+
+            // `Type` allocation for scalar types is trivial
+            (
+                Value::Bool { .. }
+                | Value::Int { .. }
+                | Value::Float { .. }
+                | Value::String { .. }
+                | Value::Glob { .. }
+                | Value::Filesize { .. }
+                | Value::Duration { .. }
+                | Value::Date { .. }
+                | Value::Range { .. }
+                | Value::Closure { .. }
+                | Value::Error { .. }
+                | Value::Binary { .. }
+                | Value::CellPath { .. }
+                | Value::Nothing { .. },
+                _,
+            ) => self.get_type().is_subtype_of(other),
+
+            // matching composite types
+            (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
+            (Value::List { vals, .. }, Type::List(inner)) => {
+                vals.iter().all(|val| val.is_subtype_of(inner))
+            }
+            (Value::List { vals, .. }, Type::Table(inner)) => {
+                vals.iter().all(|val| record_compatible(val, inner))
+            }
+            (Value::Custom { val, .. }, Type::Custom(inner)) => val.type_name() == **inner,
+
+            // non-matching composite types
+            (Value::Record { .. } | Value::List { .. } | Value::Custom { .. }, _) => false,
+        }
+    }
+
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
@@ -830,7 +940,7 @@ impl Value {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
             Value::Float { val, .. } => val.to_string(),
-            Value::Filesize { val, .. } => format_filesize_from_conf(*val, config),
+            Value::Filesize { val, .. } => config.filesize.format(*val).to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
                 Some(format) => self.format_datetime(val, format),
@@ -842,7 +952,7 @@ impl Value {
                         } else {
                             val.to_rfc3339()
                         },
-                        HumanTime::from(*val),
+                        human_time_from_now(val),
                     )
                 }
             },
@@ -863,7 +973,7 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
+            Value::Closure { val, .. } => format!("closure_{}", val.block_id.get()),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
@@ -888,9 +998,9 @@ impl Value {
         match self {
             Value::Date { val, .. } => match &config.datetime_format.table {
                 Some(format) => self.format_datetime(val, format),
-                None => HumanTime::from(*val).to_string(),
+                None => human_time_from_now(val).to_string(),
             },
-            Value::List { ref vals, .. } => {
+            Value::List { vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
                         "[table {} row{}]",
@@ -969,224 +1079,80 @@ impl Value {
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
-    pub fn follow_cell_path(
-        self,
+    pub fn follow_cell_path<'out>(
+        &'out self,
         cell_path: &[PathMember],
-        insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        let mut current = self;
+    ) -> Result<Cow<'out, Value>, ShellError> {
+        enum MultiLife<'out, 'local, T>
+        where
+            'out: 'local,
+            T: ?Sized,
+        {
+            Out(&'out T),
+            Local(&'local T),
+        }
 
-        for member in cell_path {
-            match member {
-                PathMember::Int {
-                    val: count,
-                    span: origin_span,
-                    optional,
-                } => {
-                    // Treat a numeric path member as `select <val>`
-                    match current {
-                        Value::List { mut vals, .. } => {
-                            if *count < vals.len() {
-                                // `vals` is owned and will be dropped right after this,
-                                // so we can `swap_remove` the value at index `count`
-                                // without worrying about preserving order.
-                                current = vals.swap_remove(*count);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if vals.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
-                            } else {
-                                return Err(ShellError::AccessBeyondEnd {
-                                    max_idx: vals.len() - 1,
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Binary { val, .. } => {
-                            if let Some(item) = val.get(*count) {
-                                current = Value::int(*item as i64, *origin_span);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
-                            } else {
-                                return Err(ShellError::AccessBeyondEnd {
-                                    max_idx: val.len() - 1,
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Range { ref val, .. } => {
-                            if let Some(item) = val
-                                .into_range_iter(current.span(), Signals::empty())
-                                .nth(*count)
-                            {
-                                current = item;
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else {
-                                return Err(ShellError::AccessBeyondEndOfStream {
-                                    span: *origin_span,
-                                });
-                            }
-                        }
-                        Value::Custom { ref val, .. } => {
-                            current =
-                                match val.follow_path_int(current.span(), *count, *origin_span) {
-                                    Ok(val) => val,
-                                    Err(err) => {
-                                        if *optional {
-                                            return Ok(Value::nothing(*origin_span));
-                                        // short-circuit
-                                        } else {
-                                            return Err(err);
-                                        }
-                                    }
-                                };
-                        }
-                        Value::Nothing { .. } if *optional => {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        }
-                        // Records (and tables) are the only built-in which support column names,
-                        // so only use this message for them.
-                        Value::Record { .. } => {
-                            return Err(ShellError::TypeMismatch {
-                                err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
-                                span: *origin_span,
-                            });
-                        }
-                        Value::Error { error, .. } => return Err(*error),
-                        x => {
-                            return Err(ShellError::IncompatiblePathAccess {
-                                type_name: format!("{}", x.get_type()),
-                                span: *origin_span,
-                            });
-                        }
-                    }
-                }
-                PathMember::String {
-                    val: column_name,
-                    span: origin_span,
-                    optional,
-                } => {
-                    let span = current.span();
+        impl<'out, 'local, T> Deref for MultiLife<'out, 'local, T>
+        where
+            'out: 'local,
+            T: ?Sized,
+        {
+            type Target = T;
 
-                    match current {
-                        Value::Record { mut val, .. } => {
-                            // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                            if let Some(found) = val.to_mut().iter_mut().rev().find(|x| {
-                                if insensitive {
-                                    x.0.eq_ignore_case(column_name)
-                                } else {
-                                    x.0 == column_name
-                                }
-                            }) {
-                                current = std::mem::take(found.1);
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if let Some(suggestion) =
-                                did_you_mean(val.columns(), column_name)
-                            {
-                                return Err(ShellError::DidYouMean {
-                                    suggestion,
-                                    span: *origin_span,
-                                });
-                            } else {
-                                return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.clone(),
-                                    span: Some(*origin_span),
-                                    src_span: span,
-                                });
-                            }
-                        }
-                        // String access of Lists always means Table access.
-                        // Create a List which contains each matching value for contained
-                        // records in the source list.
-                        Value::List { vals, .. } => {
-                            let list = vals
-                                .into_iter()
-                                .map(|val| {
-                                    let val_span = val.span();
-                                    match val {
-                                        Value::Record { mut val, .. } => {
-                                            if let Some(found) =
-                                                val.to_mut().iter_mut().rev().find(|x| {
-                                                    if insensitive {
-                                                        x.0.eq_ignore_case(column_name)
-                                                    } else {
-                                                        x.0 == column_name
-                                                    }
-                                                })
-                                            {
-                                                Ok(std::mem::take(found.1))
-                                            } else if *optional {
-                                                Ok(Value::nothing(*origin_span))
-                                            } else if let Some(suggestion) =
-                                                did_you_mean(val.columns(), column_name)
-                                            {
-                                                Err(ShellError::DidYouMean {
-                                                    suggestion,
-                                                    span: *origin_span,
-                                                })
-                                            } else {
-                                                Err(ShellError::CantFindColumn {
-                                                    col_name: column_name.clone(),
-                                                    span: Some(*origin_span),
-                                                    src_span: val_span,
-                                                })
-                                            }
-                                        }
-                                        Value::Nothing { .. } if *optional => {
-                                            Ok(Value::nothing(*origin_span))
-                                        }
-                                        _ => Err(ShellError::CantFindColumn {
-                                            col_name: column_name.clone(),
-                                            span: Some(*origin_span),
-                                            src_span: val_span,
-                                        }),
-                                    }
-                                })
-                                .collect::<Result<_, _>>()?;
-
-                            current = Value::list(list, span);
-                        }
-                        Value::Custom { ref val, .. } => {
-                            current = match val.follow_path_string(
-                                current.span(),
-                                column_name.clone(),
-                                *origin_span,
-                            ) {
-                                Ok(val) => val,
-                                Err(err) => {
-                                    if *optional {
-                                        return Ok(Value::nothing(*origin_span));
-                                    // short-circuit
-                                    } else {
-                                        return Err(err);
-                                    }
-                                }
-                            }
-                        }
-                        Value::Nothing { .. } if *optional => {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        }
-                        Value::Error { error, .. } => return Err(*error),
-                        x => {
-                            return Err(ShellError::IncompatiblePathAccess {
-                                type_name: format!("{}", x.get_type()),
-                                span: *origin_span,
-                            });
-                        }
-                    }
+            fn deref(&self) -> &Self::Target {
+                match *self {
+                    MultiLife::Out(x) => x,
+                    MultiLife::Local(x) => x,
                 }
             }
         }
+
+        // A dummy value is required, otherwise rust doesn't allow references, which we need for
+        // the `std::ptr::eq` comparison
+        let mut store: Value = Value::test_nothing();
+        let mut current: MultiLife<'out, '_, Value> = MultiLife::Out(self);
+
+        for member in cell_path {
+            current = match current {
+                MultiLife::Out(current) => match get_value_member(current, member)? {
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                    ControlFlow::Continue(x) => match x {
+                        Cow::Borrowed(x) => MultiLife::Out(x),
+                        Cow::Owned(x) => {
+                            store = x;
+                            MultiLife::Local(&store)
+                        }
+                    },
+                },
+                MultiLife::Local(current) => match get_value_member(current, member)? {
+                    ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
+                    ControlFlow::Continue(x) => match x {
+                        Cow::Borrowed(x) => MultiLife::Local(x),
+                        Cow::Owned(x) => {
+                            store = x;
+                            MultiLife::Local(&store)
+                        }
+                    },
+                },
+            };
+        }
+
         // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
         // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
-        if let Value::Error { error, .. } = current {
-            Err(*error)
+        if let Value::Error { error, .. } = &*current {
+            Err(error.as_ref().clone())
         } else {
-            Ok(current)
+            Ok(match current {
+                MultiLife::Out(x) => Cow::Borrowed(x),
+                MultiLife::Local(x) => {
+                    let x = if std::ptr::eq(x, &store) {
+                        store
+                    } else {
+                        x.clone()
+                    };
+                    Cow::Owned(x)
+                }
+            })
         }
     }
 
@@ -1196,9 +1162,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value>,
     ) -> Result<(), ShellError> {
-        let orig = self.clone();
-
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1217,6 +1181,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1224,18 +1189,11 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
-                                        let new_col = if path.is_empty() {
-                                            new_val.clone()
-                                        } else {
-                                            let mut new_col =
-                                                Value::record(Record::new(), new_val.span());
-                                            new_col
-                                                .upsert_data_at_cell_path(path, new_val.clone())?;
-                                            new_col
-                                        };
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1252,16 +1210,10 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
-                            let new_col = if path.is_empty() {
-                                new_val
-                            } else {
-                                let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.upsert_data_at_cell_path(path, new_val)?;
-                                new_col
-                            };
+                            let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1285,14 +1237,9 @@ impl Value {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
-                        } else if !path.is_empty() {
-                            return Err(ShellError::AccessBeyondEnd {
-                                max_idx: vals.len() - 1,
-                                span: *span,
-                            });
                         } else {
                             // If the upsert is at 1 + the end of the list, it's OK.
-                            vals.push(new_val);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1316,9 +1263,7 @@ impl Value {
         cell_path: &[PathMember],
         callback: Box<dyn FnOnce(&Value) -> Value + 'a>,
     ) -> Result<(), ShellError> {
-        let orig = self.clone();
-
-        let new_val = callback(&orig.follow_cell_path(cell_path, false)?);
+        let new_val = callback(self.follow_cell_path(cell_path)?.as_ref());
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
@@ -1337,6 +1282,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1344,7 +1290,9 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    if let Some(val) =
+                                        record.to_mut().cased_mut(*casing).get_mut(col_name)
+                                    {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         return Err(ShellError::CantFindColumn {
@@ -1366,7 +1314,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name) {
                             val.update_data_at_cell_path(path, new_val)?;
                         } else {
                             return Err(ShellError::CantFindColumn {
@@ -1425,13 +1373,16 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        casing,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if record.to_mut().remove(col_name).is_none() && !optional {
+                                        let value =
+                                            record.to_mut().cased_mut(*casing).remove(col_name);
+                                        if value.is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
                                                 span: Some(*span),
@@ -1451,7 +1402,13 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if record.to_mut().remove(col_name).is_none() && !optional {
+                            if record
+                                .to_mut()
+                                .cased_mut(*casing)
+                                .remove(col_name)
+                                .is_none()
+                                && !optional
+                            {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
                                     span: Some(*span),
@@ -1500,13 +1457,16 @@ impl Value {
                         val: col_name,
                         span,
                         optional,
+                        casing,
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                                        let val =
+                                            record.to_mut().cased_mut(*casing).get_mut(col_name);
+                                        if let Some(val) = val {
                                             val.remove_data_at_cell_path(path)?;
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
@@ -1528,7 +1488,8 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if let Some(val) = record.to_mut().get_mut(col_name) {
+                            if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name)
+                            {
                                 val.remove_data_at_cell_path(path)?;
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
@@ -1573,7 +1534,6 @@ impl Value {
             }
         }
     }
-
     pub fn insert_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -1586,6 +1546,7 @@ impl Value {
                 PathMember::String {
                     val: col_name,
                     span,
+                    casing,
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
@@ -1594,7 +1555,7 @@ impl Value {
                             match val {
                                 Value::Record { val: record, .. } => {
                                     let record = record.to_mut();
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1609,18 +1570,8 @@ impl Value {
                                             )?;
                                         }
                                     } else {
-                                        let new_col = if path.is_empty() {
-                                            new_val.clone()
-                                        } else {
-                                            let mut new_col =
-                                                Value::record(Record::new(), new_val.span());
-                                            new_col.insert_data_at_cell_path(
-                                                path,
-                                                new_val.clone(),
-                                                head_span,
-                                            )?;
-                                            new_col
-                                        };
+                                        let new_col =
+                                            Value::with_data_at_cell_path(path, new_val.clone())?;
                                         record.push(col_name, new_col);
                                     }
                                 }
@@ -1638,7 +1589,7 @@ impl Value {
                     }
                     Value::Record { val: record, .. } => {
                         let record = record.to_mut();
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -1649,13 +1600,7 @@ impl Value {
                                 val.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
                         } else {
-                            let new_col = if path.is_empty() {
-                                new_val
-                            } else {
-                                let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.insert_data_at_cell_path(path, new_val, head_span)?;
-                                new_col
-                            };
+                            let new_col = Value::with_data_at_cell_path(path, new_val)?;
                             record.push(col_name, new_col);
                         }
                     }
@@ -1683,14 +1628,9 @@ impl Value {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
-                        } else if !path.is_empty() {
-                            return Err(ShellError::AccessBeyondEnd {
-                                max_idx: vals.len() - 1,
-                                span: *span,
-                            });
                         } else {
                             // If the insert is at 1 + the end of the list, it's OK.
-                            vals.push(new_val);
+                            vals.push(Value::with_data_at_cell_path(path, new_val)?);
                         }
                     }
                     _ => {
@@ -1707,6 +1647,36 @@ impl Value {
         Ok(())
     }
 
+    /// Creates a new [Value] with the specified member at the specified path.
+    /// This is used by [Value::insert_data_at_cell_path] and [Value::upsert_data_at_cell_path] whenever they have the need to insert a non-existent element
+    fn with_data_at_cell_path(cell_path: &[PathMember], value: Value) -> Result<Value, ShellError> {
+        if let Some((member, path)) = cell_path.split_first() {
+            let span = value.span();
+            match member {
+                PathMember::String { val, .. } => Ok(Value::record(
+                    std::iter::once((val.clone(), Value::with_data_at_cell_path(path, value)?))
+                        .collect(),
+                    span,
+                )),
+                PathMember::Int { val, .. } => {
+                    if *val == 0usize {
+                        Ok(Value::list(
+                            vec![Value::with_data_at_cell_path(path, value)?],
+                            span,
+                        ))
+                    } else {
+                        Err(ShellError::InsertAfterNextFreeIndex {
+                            available_idx: 0,
+                            span,
+                        })
+                    }
+                }
+            }
+        } else {
+            Ok(value)
+        }
+    }
+
     /// Visits all values contained within the value (including this value) with a mutable reference
     /// given to the closure.
     ///
@@ -1721,16 +1691,16 @@ impl Value {
         f(self)?;
         // Check for contained values
         match self {
-            Value::Record { ref mut val, .. } => val
+            Value::Record { val, .. } => val
                 .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
-            Value::List { ref mut vals, .. } => vals
+            Value::List { vals, .. } => vals
                 .iter_mut()
                 .try_for_each(|list_value| list_value.recurse_mut(f)),
             // Closure captures are visited. Maybe these don't have to be if they are changed to
             // more opaque references.
-            Value::Closure { ref mut val, .. } => val
+            Value::Closure { val, .. } => val
                 .captures
                 .iter_mut()
                 .map(|(_, captured_value)| captured_value)
@@ -1812,9 +1782,9 @@ impl Value {
         }
     }
 
-    pub fn filesize(val: i64, span: Span) -> Value {
+    pub fn filesize(val: impl Into<Filesize>, span: Span) -> Value {
         Value::Filesize {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
@@ -1931,7 +1901,7 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_filesize(val: i64) -> Value {
+    pub fn test_filesize(val: impl Into<Filesize>) -> Value {
         Value::filesize(val, Span::test_data())
     }
 
@@ -2029,7 +1999,7 @@ impl Value {
             Value::test_record(Record::new()),
             Value::test_list(Vec::new()),
             Value::test_closure(Closure {
-                block_id: 0,
+                block_id: BlockId::new(0),
                 captures: Vec::new(),
             }),
             Value::test_nothing(),
@@ -2043,6 +2013,188 @@ impl Value {
             }),
             // Value::test_custom_value(Box::new(todo!())),
         ]
+    }
+}
+
+fn get_value_member<'a>(
+    current: &'a Value,
+    member: &PathMember,
+) -> Result<ControlFlow<Span, Cow<'a, Value>>, ShellError> {
+    match member {
+        PathMember::Int {
+            val: count,
+            span: origin_span,
+            optional,
+        } => {
+            // Treat a numeric path member as `select <val>`
+            match current {
+                Value::List { vals, .. } => {
+                    if *count < vals.len() {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(&vals[*count])))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if vals.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: *origin_span })
+                    } else {
+                        Err(ShellError::AccessBeyondEnd {
+                            max_idx: vals.len() - 1,
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Binary { val, .. } => {
+                    if let Some(item) = val.get(*count) {
+                        Ok(ControlFlow::Continue(Cow::Owned(Value::int(
+                            *item as i64,
+                            *origin_span,
+                        ))))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if val.is_empty() {
+                        Err(ShellError::AccessEmptyContent { span: *origin_span })
+                    } else {
+                        Err(ShellError::AccessBeyondEnd {
+                            max_idx: val.len() - 1,
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Range { val, .. } => {
+                    if let Some(item) = val
+                        .into_range_iter(current.span(), Signals::empty())
+                        .nth(*count)
+                    {
+                        Ok(ControlFlow::Continue(Cow::Owned(item)))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else {
+                        Err(ShellError::AccessBeyondEndOfStream {
+                            span: *origin_span,
+                        })
+                    }
+                }
+                Value::Custom { val, .. } => {
+                    match val.follow_path_int(current.span(), *count, *origin_span)
+                    {
+                        Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
+                        Err(err) => {
+                            if *optional {
+                                Ok(ControlFlow::Break(*origin_span))
+                                // short-circuit
+                            } else {
+                                Err(err)
+                            }
+                        }
+                    }
+                }
+                Value::Nothing { .. } if *optional => Ok(ControlFlow::Break(*origin_span)),
+                // Records (and tables) are the only built-in which support column names,
+                // so only use this message for them.
+                Value::Record { .. } => Err(ShellError::TypeMismatch {
+                    err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
+                    span: *origin_span,
+                }),
+                Value::Error { error, .. } => Err(*error.clone()),
+                x => Err(ShellError::IncompatiblePathAccess { type_name: format!("{}", x.get_type()), span: *origin_span }),
+            }
+        }
+        PathMember::String {
+            val: column_name,
+            span: origin_span,
+            optional,
+            casing,
+        } => {
+            let span = current.span();
+            match current {
+                Value::Record { val, .. } => {
+                    let found = val.cased(*casing).get(column_name);
+                    if let Some(found) = found {
+                        Ok(ControlFlow::Continue(Cow::Borrowed(found)))
+                    } else if *optional {
+                        Ok(ControlFlow::Break(*origin_span))
+                        // short-circuit
+                    } else if let Some(suggestion) = did_you_mean(val.columns(), column_name) {
+                        Err(ShellError::DidYouMean {
+                            suggestion,
+                            span: *origin_span,
+                        })
+                    } else {
+                        Err(ShellError::CantFindColumn {
+                            col_name: column_name.clone(),
+                            span: Some(*origin_span),
+                            src_span: span,
+                        })
+                    }
+                }
+                // String access of Lists always means Table access.
+                // Create a List which contains each matching value for contained
+                // records in the source list.
+                Value::List { vals, .. } => {
+                    let list = vals
+                        .iter()
+                        .map(|val| {
+                            let val_span = val.span();
+                            match val {
+                                Value::Record { val, .. } => {
+                                    let found = val.cased(*casing).get(column_name);
+                                    if let Some(found) = found {
+                                        Ok(found.clone())
+                                    } else if *optional {
+                                        Ok(Value::nothing(*origin_span))
+                                    } else if let Some(suggestion) =
+                                        did_you_mean(val.columns(), column_name)
+                                    {
+                                        Err(ShellError::DidYouMean {
+                                            suggestion,
+                                            span: *origin_span,
+                                        })
+                                    } else {
+                                        Err(ShellError::CantFindColumn {
+                                            col_name: column_name.clone(),
+                                            span: Some(*origin_span),
+                                            src_span: val_span,
+                                        })
+                                    }
+                                }
+                                Value::Nothing { .. } if *optional => {
+                                    Ok(Value::nothing(*origin_span))
+                                }
+                                _ => Err(ShellError::CantFindColumn {
+                                    col_name: column_name.clone(),
+                                    span: Some(*origin_span),
+                                    src_span: val_span,
+                                }),
+                            }
+                        })
+                        .collect::<Result<_, _>>()?;
+
+                    Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
+                }
+                Value::Custom { val, .. } => {
+                    match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
+                    {
+                        Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
+                        Err(err) => {
+                            if *optional {
+                                Ok(ControlFlow::Break(*origin_span))
+                                // short-circuit
+                            } else {
+                                Err(err)
+                            }
+                        }
+                    }
+                }
+                Value::Nothing { .. } if *optional => Ok(ControlFlow::Break(*origin_span)),
+                Value::Error { error, .. } => Err(error.as_ref().clone()),
+                x => Err(ShellError::IncompatiblePathAccess {
+                    type_name: format!("{}", x.get_type()),
+                    span: *origin_span,
+                }),
+            }
+        }
     }
 }
 
@@ -2073,183 +2225,183 @@ impl PartialOrd for Value {
                 Value::Bool { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Int { .. } => Some(Ordering::Less),
                 Value::Float { .. } => Some(Ordering::Less),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs as f64, *rhs),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { val: rhs, .. } => compare_floats(*lhs, *rhs as f64),
                 Value::Float { val: rhs, .. } => compare_floats(*lhs, *rhs),
+                Value::String { .. } => Some(Ordering::Less),
+                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Filesize { .. } => Some(Ordering::Less),
                 Value::Duration { .. } => Some(Ordering::Less),
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Duration { .. } => Some(Ordering::Less),
-                Value::Date { .. } => Some(Ordering::Less),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Date { .. } => Some(Ordering::Less),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Date { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Range { .. } => Some(Ordering::Less),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Range { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::String { .. } => Some(Ordering::Less),
-                Value::Glob { .. } => Some(Ordering::Less),
-                Value::Record { .. } => Some(Ordering::Less),
-                Value::List { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Glob { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Filesize { .. } => Some(Ordering::Less),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Duration { .. } => Some(Ordering::Less),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Duration { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Date { .. } => Some(Ordering::Less),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Date { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Range { .. } => Some(Ordering::Less),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Range { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
@@ -2279,134 +2431,134 @@ impl PartialOrd for Value {
                 }
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Nothing { .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Equal),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
                 Value::Int { .. } => Some(Ordering::Greater),
                 Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Filesize { .. } => Some(Ordering::Greater),
                 Value::Duration { .. } => Some(Ordering::Greater),
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
             },
             (Value::Custom { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
+            (Value::Nothing { .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                Value::List { .. } => Some(Ordering::Greater),
+                Value::Closure { .. } => Some(Ordering::Greater),
+                Value::Error { .. } => Some(Ordering::Greater),
+                Value::Binary { .. } => Some(Ordering::Greater),
+                Value::CellPath { .. } => Some(Ordering::Greater),
+                Value::Custom { .. } => Some(Ordering::Greater),
+                Value::Nothing { .. } => Some(Ordering::Equal),
+            },
         }
     }
 }
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.partial_cmp(other).map_or(false, Ordering::is_eq)
+        self.partial_cmp(other).is_some_and(Ordering::is_eq)
     }
 }
 
@@ -2417,7 +2569,11 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "add operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                     })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2432,7 +2588,17 @@ impl Value {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 Ok(Value::string(lhs.to_string() + rhs, span))
             }
-
+            (Value::Duration { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
+                if let Some(val) = rhs.checked_add_signed(chrono::Duration::nanoseconds(*lhs)) {
+                    Ok(Value::date(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "addition operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
                     Ok(Value::date(val, span))
@@ -2440,7 +2606,7 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "addition operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2451,72 +2617,41 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add(*rhs) {
+                if let Some(val) = *lhs + *rhs {
                     Ok(Value::filesize(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
-
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Plus), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Add), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn append(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                let mut lhs = lhs.clone();
-                let mut rhs = rhs.clone();
-                lhs.append(&mut rhs);
-                Ok(Value::list(lhs, span))
-            }
-            (Value::List { vals: lhs, .. }, val) => {
-                let mut lhs = lhs.clone();
-                lhs.push(val.clone());
-                Ok(Value::list(lhs, span))
-            }
-            (val, Value::List { vals: rhs, .. }) => {
-                let mut rhs = rhs.clone();
-                rhs.insert(0, val.clone());
-                Ok(Value::list(rhs, span))
-            }
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                Ok(Value::string(lhs.to_string() + rhs, span))
-            }
-            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
-                let mut val = lhs.clone();
-                val.extend(rhs);
-                Ok(Value::binary(val, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Append), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Add),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Date { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -2526,7 +2661,11 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "subtraction operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2540,14 +2679,13 @@ impl Value {
             }
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 let result = lhs.signed_duration_since(*rhs);
-
                 if let Some(v) = result.num_nanoseconds() {
                     Ok(Value::duration(v, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
@@ -2557,7 +2695,7 @@ impl Value {
                     _ => Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     }),
                 }
             }
@@ -2568,33 +2706,40 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_sub(*rhs) {
+                if let Some(val) = *lhs - *rhs {
                     Ok(Value::filesize(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: "".into(),
+                        help: None,
                     })
                 }
             }
-
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Minus), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::Subtract), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Subtract),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Date { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
@@ -2604,7 +2749,11 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2617,16 +2766,48 @@ impl Value {
                 Ok(Value::float(lhs * rhs, span))
             }
             (Value::Int { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::filesize(*lhs * *rhs, span))
+                if let Some(val) = *lhs * *rhs {
+                    Ok(Value::filesize(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::filesize(*lhs * *rhs, span))
+                if let Some(val) = *lhs * *rhs {
+                    Ok(Value::filesize(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
             }
             (Value::Float { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::filesize((*lhs * *rhs as f64) as i64, span))
+                if let Some(val) = *lhs * *rhs {
+                    Ok(Value::filesize(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::filesize((*lhs as f64 * *rhs) as i64, span))
+                if let Some(val) = *lhs * *rhs {
+                    Ok(Value::filesize(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "multiply operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
             }
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 Ok(Value::duration(*lhs * *rhs, span))
@@ -2643,27 +2824,31 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Multiply),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
     pub fn div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2688,57 +2873,72 @@ impl Value {
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == Filesize::ZERO {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(lhs.get() as f64 / rhs.get() as f64, span))
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::filesize(
-                        ((*lhs as f64) / (*rhs as f64)) as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = lhs.get().checked_div(*rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::filesize((*lhs as f64 / rhs) as i64, span))
+                    if let Ok(val) = Filesize::try_from(lhs.get() as f64 / rhs) {
+                        Ok(Value::filesize(val, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    if lhs % rhs == 0 {
-                        Ok(Value::int(lhs / rhs, span))
-                    } else {
-                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
-                    }
-                } else {
+                if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Ok(Value::float(*lhs as f64 / *rhs as f64, span))
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(
-                        ((*lhs as f64) / (*rhs as f64)) as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = lhs.checked_div(*rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::duration(((*lhs as f64) / rhs) as i64, span))
+                    let val = *lhs as f64 / rhs;
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2746,148 +2946,454 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Divide),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
         }
     }
 
     pub fn floor_div(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Taken from the unstable `div_floor` function in the std library.
+        fn checked_div_floor_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let quotient = dividend.checked_div(divisor)?;
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `quotient - 1` cannot overflow, because:
+                //     `quotient` would have to be `i64::MIN`
+                //     => `divisor` would have to be `1`
+                //     => `remainder` would have to be `0`
+                // But `remainder == 0` is excluded from the check above.
+                Some(quotient - 1)
+            } else {
+                Some(quotient)
+            }
+        }
+
+        fn checked_div_floor_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                Some((dividend / divisor).floor())
+            }
+        }
+
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::int(
-                        (lhs / rhs).clamp(i64::MIN as f64, i64::MAX as f64).floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(lhs.get(), rhs.get()) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == Filesize::ZERO {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::filesize(
-                        ((*lhs as f64) / (*rhs as f64))
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(lhs.get(), *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::filesize(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(lhs.get() as f64, *rhs) {
+                    if let Ok(val) = Filesize::try_from(val) {
+                        Ok(Value::filesize(val, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs as f64)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
-                } else {
+                if let Some(val) = checked_div_floor_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
                     Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::duration(
-                        (*lhs as f64 / *rhs)
-                            .clamp(i64::MIN as f64, i64::MAX as f64)
-                            .floor() as i64,
-                        span,
-                    ))
+                if let Some(val) = checked_div_floor_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
+                lhs.operation(self.span(), Operator::Math(Math::FloorDivide), op, rhs)
             }
+            _ => Err(operator_type_error(
+                Operator::Math(Math::FloorDivide),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
+        }
+    }
 
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        // Based off the unstable `div_floor` function in the std library.
+        fn checked_mod_i64(dividend: i64, divisor: i64) -> Option<i64> {
+            let remainder = dividend.checked_rem(divisor)?;
+            if (remainder > 0 && divisor < 0) || (remainder < 0 && divisor > 0) {
+                // Note that `remainder + divisor` cannot overflow, because `remainder` and
+                // `divisor` have opposite signs.
+                Some(remainder + divisor)
+            } else {
+                Some(remainder)
+            }
+        }
+
+        fn checked_mod_f64(dividend: f64, divisor: f64) -> Option<f64> {
+            if divisor == 0.0 {
+                None
+            } else {
+                let remainder = dividend % divisor;
+                if (remainder > 0.0 && divisor < 0.0) || (remainder < 0.0 && divisor > 0.0) {
+                    Some(remainder + divisor)
+                } else {
+                    Some(remainder)
+                }
+            }
+        }
+
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::int(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs, *rhs as f64) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs, *rhs) {
+                    Ok(Value::float(val, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(lhs.get(), rhs.get()) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == Filesize::ZERO {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(lhs.get(), *rhs) {
+                    Ok(Value::filesize(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "modulo operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(lhs.get() as f64, *rhs) {
+                    if let Ok(val) = Filesize::try_from(val) {
+                        Ok(Value::filesize(val, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "modulo operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_i64(*lhs, *rhs) {
+                    Ok(Value::duration(val, span))
+                } else if *rhs == 0 {
+                    Err(ShellError::DivisionByZero { span: op })
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "division operation overflowed".into(),
+                        span,
+                        help: None,
+                    })
+                }
+            }
+            (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                if let Some(val) = checked_mod_f64(*lhs as f64, *rhs) {
+                    if i64::MIN as f64 <= val && val <= i64::MAX as f64 {
+                        Ok(Value::duration(val as i64, span))
+                    } else {
+                        Err(ShellError::OperatorOverflow {
+                            msg: "division operation overflowed".into(),
+                            span,
+                            help: None,
+                        })
+                    }
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Modulo),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::Duration { .. }
+                            | Value::Filesize { .. },
+                    )
+                },
+            )),
+        }
+    }
+
+    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhsv, .. }) => {
+                if *rhsv < 0 {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "Negative exponent for integer power is unsupported; use floats instead.".into(),
+                        val_span: rhs.span(),
+                        call_span: op,
+                    });
+                }
+
+                if let Some(val) = lhs.checked_pow(*rhsv as u32) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "pow operation overflowed".into(),
+                        span,
+                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                    })
+                }
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float((*lhs as f64).powf(*rhs), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs as f64), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Math(Math::Pow),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. } | Value::Float { .. }),
+            )),
+        }
+    }
+
+    pub fn concat(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::List { vals: lhs, .. }, Value::List { vals: rhs, .. }) => {
+                Ok(Value::list([lhs.as_slice(), rhs.as_slice()].concat(), span))
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::string([lhs.as_str(), rhs.as_str()].join(""), span))
+            }
+            (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => Ok(Value::binary(
+                [lhs.as_slice(), rhs.as_slice()].concat(),
+                span,
+            )),
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Concatenate), op, rhs)
+            }
+            _ => {
+                let help = if matches!(self, Value::List { .. })
+                    || matches!(rhs, Value::List { .. })
+                {
+                    Some(
+                        "if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.",
+                    )
+                } else {
+                    None
+                };
+                let is_supported = |val: &Value| {
+                    matches!(
+                        val,
+                        Value::List { .. }
+                            | Value::String { .. }
+                            | Value::Binary { .. }
+                            | Value::Custom { .. }
+                    )
+                };
+                Err(match (is_supported(self), is_supported(rhs)) {
+                    (true, true) => ShellError::OperatorIncompatibleTypes {
+                        op: Operator::Math(Math::Concatenate),
+                        lhs: self.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: self.span(),
+                        rhs_span: rhs.span(),
+                        help,
+                    },
+                    (true, false) => ShellError::OperatorUnsupportedType {
+                        op: Operator::Math(Math::Concatenate),
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help,
+                    },
+                    (false, _) => ShellError::OperatorUnsupportedType {
+                        op: Operator::Math(Math::Concatenate),
+                        unsupported: self.get_type(),
+                        op_span: op,
+                        unsupported_span: self.span(),
+                        help,
+                    },
+                })
+            }
         }
     }
 
@@ -2905,30 +3411,32 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                Operator::Comparison(Comparison::LessThan),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(matches!(ordering, Ordering::Less), span))
-        } else {
-            Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
-        }
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Less)),
+            span,
+        ))
     }
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -2945,28 +3453,35 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                Operator::Comparison(Comparison::LessThanOrEqual),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        self.partial_cmp(rhs)
-            .map(|ordering| Value::bool(matches!(ordering, Ordering::Less | Ordering::Equal), span))
-            .ok_or(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
+        Ok(Value::bool(
+            matches!(
+                self.partial_cmp(rhs),
+                Some(Ordering::Less | Ordering::Equal)
+            ),
+            span,
+        ))
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -2983,28 +3498,32 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                Operator::Comparison(Comparison::GreaterThan),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        self.partial_cmp(rhs)
-            .map(|ordering| Value::bool(matches!(ordering, Ordering::Greater), span))
-            .ok_or(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            })
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Greater)),
+            span,
+        ))
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3021,32 +3540,35 @@ impl Value {
             return Ok(Value::nothing(span));
         }
 
-        if !type_compatible(self.get_type(), rhs.get_type())
-            && (self.get_type() != Type::Any)
-            && (rhs.get_type() != Type::Any)
-        {
-            return Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            });
+        if !type_compatible(self.get_type(), rhs.get_type()) {
+            return Err(operator_type_error(
+                Operator::Comparison(Comparison::GreaterThanOrEqual),
+                op,
+                self,
+                rhs,
+                |val| {
+                    matches!(
+                        val,
+                        Value::Int { .. }
+                            | Value::Float { .. }
+                            | Value::String { .. }
+                            | Value::Filesize { .. }
+                            | Value::Duration { .. }
+                            | Value::Date { .. }
+                            | Value::Bool { .. }
+                            | Value::Nothing { .. }
+                    )
+                },
+            ));
         }
 
-        match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::bool(
-                matches!(ordering, Ordering::Greater | Ordering::Equal),
-                span,
-            )),
-            None => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
+        Ok(Value::bool(
+            matches!(
+                self.partial_cmp(rhs),
+                Some(Ordering::Greater | Ordering::Equal)
+            ),
+            span,
+        ))
     }
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3059,22 +3581,10 @@ impl Value {
             );
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(matches!(ordering, Ordering::Equal), span))
-        } else {
-            match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::bool(false, span))
-                }
-                _ => Err(ShellError::OperatorMismatch {
-                    op_span: op,
-                    lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span(),
-                    rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span(),
-                }),
-            }
-        }
+        Ok(Value::bool(
+            matches!(self.partial_cmp(rhs), Some(Ordering::Equal)),
+            span,
+        ))
     }
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3087,22 +3597,10 @@ impl Value {
             );
         }
 
-        if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::bool(!matches!(ordering, Ordering::Equal), span))
-        } else {
-            match (self, rhs) {
-                (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::bool(true, span))
-                }
-                _ => Err(ShellError::OperatorMismatch {
-                    op_span: op,
-                    lhs_ty: self.get_type().to_string(),
-                    lhs_span: self.span(),
-                    rhs_ty: rhs.get_type().to_string(),
-                    rhs_span: rhs.span(),
-                }),
-            }
-        }
+        Ok(Value::bool(
+            !matches!(self.partial_cmp(rhs), Some(Ordering::Equal)),
+            span,
+        ))
     }
 
     pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
@@ -3143,13 +3641,34 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            (lhs, rhs) => Err(
+                if matches!(
+                    rhs,
+                    Value::List { .. }
+                        | Value::Range { .. }
+                        | Value::String { .. }
+                        | Value::Record { .. }
+                        | Value::Custom { .. }
+                ) {
+                    ShellError::OperatorIncompatibleTypes {
+                        op: Operator::Comparison(Comparison::In),
+                        lhs: lhs.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: lhs.span(),
+                        rhs_span: rhs.span(),
+                        help: None,
+                    }
+                } else {
+                    ShellError::OperatorUnsupportedType {
+                        op: Operator::Comparison(Comparison::In),
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help: None,
+                    }
+                },
+            ),
         }
     }
 
@@ -3194,14 +3713,43 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            (lhs, rhs) => Err(
+                if matches!(
+                    rhs,
+                    Value::List { .. }
+                        | Value::Range { .. }
+                        | Value::String { .. }
+                        | Value::Record { .. }
+                        | Value::Custom { .. }
+                ) {
+                    ShellError::OperatorIncompatibleTypes {
+                        op: Operator::Comparison(Comparison::NotIn),
+                        lhs: lhs.get_type(),
+                        rhs: rhs.get_type(),
+                        op_span: op,
+                        lhs_span: lhs.span(),
+                        rhs_span: rhs.span(),
+                        help: None,
+                    }
+                } else {
+                    ShellError::OperatorUnsupportedType {
+                        op: Operator::Comparison(Comparison::NotIn),
+                        unsupported: rhs.get_type(),
+                        op_span: op,
+                        unsupported_span: rhs.span(),
+                        help: None,
+                    }
+                },
+            ),
         }
+    }
+
+    pub fn has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#in(op, self, span)
+    }
+
+    pub fn not_has(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        rhs.r#not_in(op, self, span)
     }
 
     pub fn regex_match(
@@ -3262,13 +3810,17 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                if invert {
+                    Operator::Comparison(Comparison::NotRegexMatch)
+                } else {
+                    Operator::Comparison(Comparison::RegexMatch)
+                },
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
         }
     }
 
@@ -3283,13 +3835,13 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::StartsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
         }
     }
 
@@ -3304,13 +3856,67 @@ impl Value {
                 op,
                 rhs,
             ),
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::EndsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs | rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitOr),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs ^ rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitXor),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
+        }
+    }
+
+    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs & rhs, span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
+            }
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::BitAnd),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
         }
     }
 
@@ -3326,20 +3932,20 @@ impl Value {
                         msg: "right operand to bit-shl exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::ShiftLeft),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
         }
     }
 
@@ -3355,143 +3961,20 @@ impl Value {
                         msg: "right operand to bit-shr exceeds available bits in underlying data"
                             .into(),
                         span,
-                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                        help: Some(format!("Limit operand to 0 <= rhs < {}", i64::BITS)),
                     })
                 }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs | rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs ^ rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs & rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn modulo(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::int(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(*lhs as f64 % *rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::float(*lhs % *rhs as f64, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                if *rhs != 0.0 {
-                    Ok(Value::float(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if *rhs != 0 {
-                    Ok(Value::duration(lhs % rhs, span))
-                } else {
-                    Err(ShellError::DivisionByZero { span: op })
-                }
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
-            }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
-        }
-    }
-
-    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
-                Ok(Value::bool(*lhs && *rhs, span))
-            }
-            (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
-            }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Bits(Bits::ShiftRight),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Int { .. }),
+            )),
         }
     }
 
@@ -3503,13 +3986,13 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Boolean(Boolean::Or),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Bool { .. }),
+            )),
         }
     }
 
@@ -3521,45 +4004,31 @@ impl Value {
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Boolean(Boolean::Xor),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Bool { .. }),
+            )),
         }
     }
 
-    pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+    pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_pow(*rhs as u32) {
-                    Ok(Value::int(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
-                }
-            }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::float((*lhs as f64).powf(*rhs), span))
-            }
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::float(lhs.powf(*rhs as f64), span))
-            }
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::float(lhs.powf(*rhs), span))
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs && *rhs, span))
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
-                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
+                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
             }
-
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: op,
-                lhs_ty: self.get_type().to_string(),
-                lhs_span: self.span(),
-                rhs_ty: rhs.get_type().to_string(),
-                rhs_span: rhs.span(),
-            }),
+            _ => Err(operator_type_error(
+                Operator::Boolean(Boolean::And),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::Bool { .. }),
+            )),
         }
     }
 }
@@ -3574,10 +4043,220 @@ fn type_compatible(a: Type, b: Type) -> bool {
     matches!((a, b), (Type::Int, Type::Float) | (Type::Float, Type::Int))
 }
 
+fn operator_type_error(
+    op: Operator,
+    op_span: Span,
+    lhs: &Value,
+    rhs: &Value,
+    is_supported: fn(&Value) -> bool,
+) -> ShellError {
+    let is_supported = |val| is_supported(val) || matches!(val, Value::Custom { .. });
+    match (is_supported(lhs), is_supported(rhs)) {
+        (true, true) => ShellError::OperatorIncompatibleTypes {
+            op,
+            lhs: lhs.get_type(),
+            rhs: rhs.get_type(),
+            op_span,
+            lhs_span: lhs.span(),
+            rhs_span: rhs.span(),
+            help: None,
+        },
+        (true, false) => ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: rhs.get_type(),
+            op_span,
+            unsupported_span: rhs.span(),
+            help: None,
+        },
+        (false, _) => ShellError::OperatorUnsupportedType {
+            op,
+            unsupported: lhs.get_type(),
+            op_span,
+            unsupported_span: lhs.span(),
+            help: None,
+        },
+    }
+}
+
+pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+    let now = Local::now().with_timezone(val.offset());
+    let delta = *val - now;
+    match delta.num_nanoseconds() {
+        Some(num_nanoseconds) => {
+            let delta_seconds = num_nanoseconds as f64 / 1_000_000_000.0;
+            let delta_seconds_rounded = delta_seconds.round() as i64;
+            HumanTime::from(Duration::seconds(delta_seconds_rounded))
+        }
+        None => {
+            // Happens if the total number of nanoseconds exceeds what fits in an i64
+            // Note: not using delta.num_days() because it results is wrong for years before ~936: a extra year is added
+            let delta_years = val.year() - now.year();
+            HumanTime::from(Duration::days(delta_years as i64 * 365))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Record, Value};
     use crate::record;
+
+    mod at_cell_path {
+        use crate::casing::Casing;
+
+        use crate::{IntoValue, Span};
+
+        use super::super::PathMember;
+        use super::*;
+
+        #[test]
+        fn test_record_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            let span = Span::test_data();
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_string("a".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("b".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("c".to_string(), false, Casing::Sensitive),
+                        PathMember::test_string("d".to_string(), false, Casing::Sensitive),
+                    ],
+                    value_to_insert,
+                ),
+                // {a:{b:c{d:"value"}}}
+                Ok(record!(
+                    "a" => record!(
+                        "b" => record!(
+                            "c" => record!(
+                                "d" => Value::test_string("value")
+                            ).into_value(span)
+                        ).into_value(span)
+                    ).into_value(span)
+                )
+                .into_value(span))
+            );
+        }
+
+        #[test]
+        fn test_lists_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                        PathMember::test_int(0, false),
+                    ],
+                    value_to_insert.clone(),
+                ),
+                // [[[[["value"]]]]]
+                Ok(Value::test_list(vec![Value::test_list(vec![
+                    Value::test_list(vec![Value::test_list(vec![value_to_insert])])
+                ])]))
+            );
+        }
+        #[test]
+        fn test_mixed_with_data_at_cell_path() {
+            let value_to_insert = Value::test_string("value");
+            let span = Span::test_data();
+            assert_eq!(
+                Value::with_data_at_cell_path(
+                    &[
+                        PathMember::test_string("a".to_string(), false, Casing::Sensitive),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("b".to_string(), false, Casing::Sensitive),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("c".to_string(), false, Casing::Sensitive),
+                        PathMember::test_int(0, false),
+                        PathMember::test_string("d".to_string(), false, Casing::Sensitive),
+                        PathMember::test_int(0, false),
+                    ],
+                    value_to_insert.clone(),
+                ),
+                // [{a:[{b:[{c:[{d:["value"]}]}]}]]}
+                Ok(record!(
+                    "a" => Value::test_list(vec![record!(
+                        "b" => Value::test_list(vec![record!(
+                            "c" => Value::test_list(vec![record!(
+                                "d" => Value::test_list(vec![value_to_insert])
+                            ).into_value(span)])
+                        ).into_value(span)])
+                    ).into_value(span)])
+                )
+                .into_value(span))
+            );
+        }
+
+        #[test]
+        fn test_nested_upsert_data_at_cell_path() {
+            let span = Span::test_data();
+            let mut base_value = record!(
+                "a" => Value::test_list(vec![])
+            )
+            .into_value(span);
+
+            let value_to_insert = Value::test_string("value");
+            let res = base_value.upsert_data_at_cell_path(
+                &[
+                    PathMember::test_string("a".to_string(), false, Casing::Sensitive),
+                    PathMember::test_int(0, false),
+                    PathMember::test_string("b".to_string(), false, Casing::Sensitive),
+                    PathMember::test_int(0, false),
+                ],
+                value_to_insert.clone(),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                base_value,
+                // {a:[{b:["value"]}]}
+                record!(
+                    "a" => Value::test_list(vec![
+                        record!(
+                            "b" => Value::test_list(vec![value_to_insert])
+                        )
+                        .into_value(span)
+                    ])
+                )
+                .into_value(span)
+            );
+        }
+
+        #[test]
+        fn test_nested_insert_data_at_cell_path() {
+            let span = Span::test_data();
+            let mut base_value = record!(
+                "a" => Value::test_list(vec![])
+            )
+            .into_value(span);
+
+            let value_to_insert = Value::test_string("value");
+            let res = base_value.insert_data_at_cell_path(
+                &[
+                    PathMember::test_string("a".to_string(), false, Casing::Sensitive),
+                    PathMember::test_int(0, false),
+                    PathMember::test_string("b".to_string(), false, Casing::Sensitive),
+                    PathMember::test_int(0, false),
+                ],
+                value_to_insert.clone(),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                base_value,
+                // {a:[{b:["value"]}]}
+                record!(
+                    "a" => Value::test_list(vec![
+                        record!(
+                            "b" => Value::test_list(vec![value_to_insert])
+                        )
+                        .into_value(span)
+                    ])
+                )
+                .into_value(span)
+            );
+        }
+    }
 
     mod is_empty {
         use super::*;
@@ -3651,6 +4330,136 @@ mod tests {
         }
     }
 
+    mod is_subtype {
+        use crate::Type;
+
+        use super::*;
+
+        fn assert_subtype_equivalent(value: &Value, ty: &Type) {
+            assert_eq!(value.is_subtype_of(ty), value.get_type().is_subtype_of(ty));
+        }
+
+        #[test]
+        fn test_list() {
+            let ty_int_list = Type::list(Type::Int);
+            let ty_str_list = Type::list(Type::String);
+            let ty_any_list = Type::list(Type::Any);
+            let ty_list_list_int = Type::list(Type::list(Type::Int));
+
+            let list = Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ]);
+
+            assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
+            assert_subtype_equivalent(&list, &ty_any_list);
+
+            let list = Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_string("hi"),
+                Value::test_int(3),
+            ]);
+
+            assert_subtype_equivalent(&list, &ty_int_list);
+            assert_subtype_equivalent(&list, &ty_str_list);
+            assert_subtype_equivalent(&list, &ty_any_list);
+
+            let list = Value::test_list(vec![Value::test_list(vec![Value::test_int(1)])]);
+
+            assert_subtype_equivalent(&list, &ty_list_list_int);
+
+            // The type of an empty lists is a subtype of any list or table type
+            let ty_table = Type::Table(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let empty = Value::test_list(vec![]);
+
+            assert_subtype_equivalent(&empty, &ty_any_list);
+            assert!(empty.is_subtype_of(&ty_int_list));
+            assert!(empty.is_subtype_of(&ty_table));
+        }
+
+        #[test]
+        fn test_record() {
+            let ty_abc = Type::Record(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let ty_ab = Type::Record(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_inner = Type::Record(Box::new([("inner".into(), ty_abc.clone())]));
+
+            let record_abc = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+                "c" => Value::test_int(3),
+            });
+            let record_ab = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+
+            assert_subtype_equivalent(&record_abc, &ty_abc);
+            assert_subtype_equivalent(&record_abc, &ty_ab);
+            assert_subtype_equivalent(&record_ab, &ty_abc);
+            assert_subtype_equivalent(&record_ab, &ty_ab);
+
+            let record_inner = Value::test_record(record! {
+                "inner" => record_abc
+            });
+            assert_subtype_equivalent(&record_inner, &ty_inner);
+        }
+
+        #[test]
+        fn test_table() {
+            let ty_abc = Type::Table(Box::new([
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Int),
+                ("c".into(), Type::Int),
+            ]));
+            let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_list_any = Type::list(Type::Any);
+
+            let record_abc = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+                "c" => Value::test_int(3),
+            });
+            let record_ab = Value::test_record(record! {
+                "a" => Value::test_int(1),
+                "b" => Value::test_int(2),
+            });
+
+            let table_abc = Value::test_list(vec![record_abc.clone(), record_abc.clone()]);
+            let table_ab = Value::test_list(vec![record_ab.clone(), record_ab.clone()]);
+
+            assert_subtype_equivalent(&table_abc, &ty_abc);
+            assert_subtype_equivalent(&table_abc, &ty_ab);
+            assert_subtype_equivalent(&table_ab, &ty_abc);
+            assert_subtype_equivalent(&table_ab, &ty_ab);
+            assert_subtype_equivalent(&table_abc, &ty_list_any);
+
+            let table_mixed = Value::test_list(vec![record_abc.clone(), record_ab.clone()]);
+            assert_subtype_equivalent(&table_mixed, &ty_abc);
+            assert!(table_mixed.is_subtype_of(&ty_ab));
+
+            let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
+            let table_mixed_types = Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_string("a"),
+                }),
+            ]);
+            assert!(table_mixed_types.is_subtype_of(&ty_a));
+        }
+    }
+
     mod into_string {
         use chrono::{DateTime, FixedOffset};
 
@@ -3683,5 +4492,45 @@ mod tests {
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
         }
+    }
+
+    #[test]
+    fn test_env_as_bool() {
+        // explicit false values
+        assert_eq!(Value::test_bool(false).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_int(0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_float(0.0).coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_string("0").coerce_bool(), Ok(false));
+        assert_eq!(Value::test_nothing().coerce_bool(), Ok(false));
+
+        // explicit true values
+        assert_eq!(Value::test_bool(true).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_int(1).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(1.0).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("1").coerce_bool(), Ok(true));
+
+        // implicit true values
+        assert_eq!(Value::test_int(42).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_float(0.5).coerce_bool(), Ok(true));
+        assert_eq!(Value::test_string("not zero").coerce_bool(), Ok(true));
+
+        // complex values returning None
+        assert!(Value::test_record(Record::default()).coerce_bool().is_err());
+        assert!(
+            Value::test_list(vec![Value::test_int(1)])
+                .coerce_bool()
+                .is_err()
+        );
+        assert!(
+            Value::test_date(
+                chrono::DateTime::parse_from_rfc3339("2024-01-01T12:00:00+00:00").unwrap(),
+            )
+            .coerce_bool()
+            .is_err()
+        );
+        assert!(Value::test_glob("*.rs").coerce_bool().is_err());
+        assert!(Value::test_binary(vec![1, 2, 3]).coerce_bool().is_err());
+        assert!(Value::test_duration(3600).coerce_bool().is_err());
     }
 }

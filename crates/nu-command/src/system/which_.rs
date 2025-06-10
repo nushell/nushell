@@ -14,8 +14,7 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .required("application", SyntaxShape::String, "Application.")
-            .rest("rest", SyntaxShape::String, "Additional applications.")
+            .rest("applications", SyntaxShape::String, "Application(s).")
             .switch("all", "list all executables", Some('a'))
             .category(Category::System)
     }
@@ -25,7 +24,14 @@ impl Command for Which {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["find", "path", "location", "command"]
+        vec![
+            "find",
+            "path",
+            "location",
+            "command",
+            "whereis",     // linux binary to find binary locations in path
+            "get-command", // powershell command to find commands and binaries in path
+        ]
     }
 
     fn run(

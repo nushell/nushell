@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn module_private_import_decl() {
@@ -610,6 +611,29 @@ fn deep_import_patterns() {
     let inp = &[module_decl, "use spam eggs beans foo", "foo"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "foo");
+}
+
+#[rstest]
+fn deep_import_aliased_external_args(
+    #[values(
+        "use spam; spam eggs beans foo bar",
+        "use spam eggs; eggs beans foo bar",
+        "use spam eggs beans; beans foo bar",
+        "use spam eggs beans foo; foo bar"
+    )]
+    input: &str,
+) {
+    let module_decl = "
+        module spam {
+            export module eggs {
+                export module beans {
+                    export alias foo = ^echo
+                }
+            }
+        }
+    ";
+    let actual = nu!(format!("{module_decl}; {input}"));
+    assert_eq!(actual.out, "bar");
 }
 
 #[test]

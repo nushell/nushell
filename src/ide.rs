@@ -1,12 +1,14 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
-use nu_parser::{flatten_block, parse, FlatShape};
+use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
+    DeclId, ShellError, Span, Value, VarId,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, DeclId, ShellError, Span, Value, VarId,
+    report_shell_error,
+    shell_error::io::{IoError, IoErrorExt, NotFound},
 };
 use reedline::Completer;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug)]
@@ -24,10 +26,11 @@ fn find_id(
 ) -> Option<(Id, usize, Span)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
+    let _ = working_set.files.push(file_path.into(), Span::unknown());
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let location = location as usize + offset;
         for item in flattened {
             if location >= item.0.start && location < item.0.end {
@@ -53,15 +56,16 @@ fn read_in_file<'a>(
     file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
-        .into_diagnostic()
-        .unwrap_or_else(|e| {
-            report_shell_error(
-                engine_state,
-                &ShellError::FileNotFoundCustom {
-                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    span: Span::unknown(),
-                },
-            );
+        .map_err(|err| {
+            ShellError::Io(IoError::new_with_additional_context(
+                err.not_found_as(NotFound::File),
+                Span::unknown(),
+                PathBuf::from(file_path),
+                "Could not read file",
+            ))
+        })
+        .unwrap_or_else(|err| {
+            report_shell_error(engine_state, &err);
             std::process::exit(1);
         });
 
@@ -80,7 +84,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
 
-    let max_errors = if let Ok(max_errors) = max_errors.as_i64() {
+    let max_errors = if let Ok(max_errors) = max_errors.as_int() {
         max_errors as usize
     } else {
         100
@@ -88,6 +92,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
         for (idx, err) in working_set.parse_errors.iter().enumerate() {
@@ -603,7 +608,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &
             std::process::exit(1);
         });
 
-    if let Ok(location) = location.as_i64() {
+    if let Ok(location) = location.as_int() {
         let results = completer.complete(
             &String::from_utf8_lossy(&file)[..location as usize],
             location as usize,
@@ -631,6 +636,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        let _ = working_set.files.push(file_path.into(), Span::unknown());
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 
         let flat = flatten_block(&working_set, &parsed_block);
@@ -661,15 +667,15 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
 fn json_merge(a: &mut JsonValue, b: &JsonValue) {
     match (a, b) {
-        (JsonValue::Object(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Object(a), JsonValue::Object(b)) => {
             for (k, v) in b {
                 json_merge(a.entry(k).or_insert(JsonValue::Null), v);
             }
         }
-        (JsonValue::Array(ref mut a), JsonValue::Array(b)) => {
+        (JsonValue::Array(a), JsonValue::Array(b)) => {
             a.extend(b.clone());
         }
-        (JsonValue::Array(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Array(a), JsonValue::Object(b)) => {
             a.extend([JsonValue::Object(b.clone())]);
         }
         (a, b) => {

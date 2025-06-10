@@ -1,7 +1,7 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals};
+use nu_protocol::{ListStream, Signals, shell_error::io::IoError};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -70,23 +70,22 @@ impl Command for FromJson {
         let span = call.head;
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
+        let metadata = input.metadata().map(|md| md.with_content_type(None));
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, metadata) => {
-                    Ok(PipelineData::ListStream(
-                        read_json_lines(
-                            Cursor::new(val),
-                            span,
-                            strict,
-                            engine_state.signals().clone(),
-                        ),
-                        metadata,
-                    ))
-                }
-                PipelineData::ByteStream(stream, metadata)
+                PipelineData::Value(Value::String { val, .. }, ..) => Ok(PipelineData::ListStream(
+                    read_json_lines(
+                        Cursor::new(val),
+                        span,
+                        strict,
+                        engine_state.signals().clone(),
+                    ),
+                    metadata,
+                )),
+                PipelineData::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {
@@ -107,7 +106,7 @@ impl Command for FromJson {
             }
         } else {
             // Return a single JSON value
-            let (string_input, span, metadata) = input.collect_string_strict(span)?;
+            let (string_input, span, ..) = input.collect_string_strict(span)?;
 
             if string_input.is_empty() {
                 return Ok(Value::nothing(span).into_pipeline_data());
@@ -135,7 +134,7 @@ fn read_json_lines(
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
-            let line = line.err_span(span)?;
+            let line = line.map_err(|err| IoError::new(err, span, None))?;
             if strict {
                 convert_string_to_value_strict(&line, span)
             } else {
@@ -185,26 +184,6 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-// Converts row+column to a Span, assuming bytes (1-based rows)
-fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
-    let mut cur_row = 1;
-    let mut cur_col = 1;
-
-    for (offset, curr_byte) in contents.bytes().enumerate() {
-        if curr_byte == b'\n' {
-            cur_row += 1;
-            cur_col = 1;
-        }
-        if cur_row >= row && cur_col >= col {
-            return Span::new(offset, offset);
-        } else {
-            cur_col += 1;
-        }
-    }
-
-    Span::new(contents.len(), contents.len())
-}
-
 fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
@@ -212,7 +191,7 @@ fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, Shel
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
-                let label_span = convert_row_column_to_span(row, col, string_input);
+                let label_span = Span::from_row_column(row, col, string_input);
                 Err(ShellError::GenericError {
                     error: "Error while parsing JSON text".into(),
                     msg: "error parsing JSON text".into(),
@@ -241,7 +220,7 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
         Err(err) => Err(if err.is_syntax() {
             let label = err.to_string();
-            let label_span = convert_row_column_to_span(err.line(), err.column(), string_input);
+            let label_span = Span::from_row_column(err.line(), err.column(), string_input);
             ShellError::GenericError {
                 error: "Error while parsing JSON text".into(),
                 msg: "error parsing JSON text".into(),
@@ -267,6 +246,10 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Metadata, MetadataSet};
+
     use super::*;
 
     #[test]
@@ -274,5 +257,34 @@ mod test {
         use crate::test_examples;
 
         test_examples(FromJson {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromJson {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

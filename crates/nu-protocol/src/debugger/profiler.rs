@@ -4,14 +4,15 @@
 //! profiling Nushell code.
 
 use crate::{
+    PipelineData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
-    record, PipelineData, ShellError, Span, Value,
+    record,
 };
-use std::time::Instant;
 use std::{borrow::Borrow, io::BufRead};
+use web_time::Instant;
 
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);
@@ -20,7 +21,7 @@ struct ElementId(usize);
 #[derive(Debug, Clone)]
 struct ElementInfo {
     start: Instant,
-    duration_sec: f64,
+    duration_ns: i64,
     depth: i64,
     element_span: Span,
     element_output: Option<Value>,
@@ -33,7 +34,7 @@ impl ElementInfo {
     pub fn new(depth: i64, element_span: Span) -> Self {
         ElementInfo {
             start: Instant::now(),
-            duration_sec: 0.0,
+            duration_ns: 0,
             depth,
             element_span,
             element_output: None,
@@ -42,6 +43,13 @@ impl ElementInfo {
             children: vec![],
         }
     }
+}
+
+/// Whether [`Profiler`] should report duration as [`Value::Duration`]
+#[derive(Debug, Clone, Copy)]
+pub enum DurationMode {
+    Milliseconds,
+    Value,
 }
 
 /// Options for [`Profiler`]
@@ -55,6 +63,7 @@ pub struct ProfilerOptions {
     pub collect_exprs: bool,
     pub collect_instructions: bool,
     pub collect_lines: bool,
+    pub duration_mode: DurationMode,
 }
 
 /// Basic profiler, used in `debug profile`
@@ -71,7 +80,7 @@ impl Profiler {
     pub fn new(opts: ProfilerOptions, span: Span) -> Self {
         let first = ElementInfo {
             start: Instant::now(),
-            duration_sec: 0.0,
+            duration_ns: 0,
             depth: 0,
             element_span: span,
             element_output: opts.collect_values.then(|| Value::nothing(span)),
@@ -116,7 +125,7 @@ impl Debugger for Profiler {
             return;
         };
 
-        root_element.duration_sec = root_element.start.elapsed().as_secs_f64();
+        root_element.duration_ns = root_element.start.elapsed().as_nanos() as i64;
     }
 
     fn enter_block(&mut self, _engine_state: &EngineState, _block: &Block) {
@@ -185,7 +194,7 @@ impl Debugger for Profiler {
             return;
         };
 
-        last_element.duration_sec = last_element.start.elapsed().as_secs_f64();
+        last_element.duration_ns = last_element.start.elapsed().as_nanos() as i64;
         last_element.element_output = out_opt;
 
         self.element_stack.pop();
@@ -259,7 +268,7 @@ impl Debugger for Profiler {
                     .or_else(|| {
                         instruction
                             .output_register()
-                            .map(|register| Ok(&registers[register.0 as usize]))
+                            .map(|register| Ok(&registers[register.get() as usize]))
                     })
                     .map(|result| format_result(&result, span))
             })
@@ -270,7 +279,7 @@ impl Debugger for Profiler {
             return;
         };
 
-        last_element.duration_sec = last_element.start.elapsed().as_secs_f64();
+        last_element.duration_ns = last_element.start.elapsed().as_nanos() as i64;
         last_element.element_output = out_opt;
 
         self.element_stack.pop();
@@ -302,6 +311,7 @@ fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
 
 fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
     match expr {
+        Expr::AttributeBlock(ab) => expr_to_string(engine_state, &ab.item.expr),
         Expr::Binary(_) => "binary".to_string(),
         Expr::BinaryOp(_, _, _) => "binary operation".to_string(),
         Expr::Block(_) => "block".to_string(),
@@ -475,10 +485,16 @@ fn collect_data(
         row.push("output", val.clone());
     }
 
-    row.push(
-        "duration_ms",
-        Value::float(element.duration_sec * 1e3, profiler_span),
-    );
+    match profiler.opts.duration_mode {
+        DurationMode::Milliseconds => {
+            let val = Value::float(element.duration_ns as f64 / 1000.0 / 1000.0, profiler_span);
+            row.push("duration_ms", val);
+        }
+        DurationMode::Value => {
+            let val = Value::duration(element.duration_ns, profiler_span);
+            row.push("duration", val);
+        }
+    };
 
     let mut rows = vec![Value::record(row, profiler_span)];
 

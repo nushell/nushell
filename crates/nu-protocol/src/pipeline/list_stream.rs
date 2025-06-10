@@ -15,6 +15,7 @@ pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
 pub struct ListStream {
     stream: ValueIterator,
     span: Span,
+    caller_spans: Vec<Span>,
 }
 
 impl ListStream {
@@ -27,12 +28,25 @@ impl ListStream {
         Self {
             stream: Box::new(InterruptIter::new(iter, signals)),
             span,
+            caller_spans: vec![],
         }
     }
 
     /// Returns the [`Span`] associated with this [`ListStream`].
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    /// Push a caller [`Span`] to the bytestream, it's useful to construct a backtrace.
+    pub fn push_caller_span(&mut self, span: Span) {
+        if span != self.span {
+            self.caller_spans.push(span)
+        }
+    }
+
+    /// Get all caller [`Span`], it's useful to construct a backtrace.
+    pub fn get_caller_spans(&self) -> &Vec<Span> {
+        &self.caller_spans
     }
 
     /// Changes the [`Span`] associated with this [`ListStream`].
@@ -94,6 +108,7 @@ impl ListStream {
         Self {
             stream: Box::new(f(self.stream)),
             span: self.span,
+            caller_spans: self.caller_spans,
         }
     }
 

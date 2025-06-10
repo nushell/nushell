@@ -32,7 +32,9 @@ fn list_stream() {
 
 #[test]
 fn table_stream() {
-    let actual = nu!("([[foo bar]; [0 1] [2 3] [4 5]] | every 1 | chunks 2) == ([[foo bar]; [0 1] [2 3] [4 5]] | chunks 2)");
+    let actual = nu!(
+        "([[foo bar]; [0 1] [2 3] [4 5]] | every 1 | chunks 2) == ([[foo bar]; [0 1] [2 3] [4 5]] | chunks 2)"
+    );
     assert_eq!(actual.out, "true");
 }
 

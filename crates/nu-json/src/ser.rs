@@ -142,25 +142,23 @@ where
     fn serialize_f32(self, value: f32) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
         fmt_f32_or_null(&mut self.writer, if value == -0f32 { 0f32 } else { value })
-            .map_err(From::from)
     }
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
         fmt_f64_or_null(&mut self.writer, if value == -0f64 { 0f64 } else { value })
-            .map_err(From::from)
     }
 
     #[inline]
     fn serialize_char(self, value: char) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        escape_char(&mut self.writer, value).map_err(From::from)
+        escape_char(&mut self.writer, value)
     }
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        quote_str(&mut self.writer, &mut self.formatter, value).map_err(From::from)
+        quote_str(&mut self.writer, &mut self.formatter, value)
     }
 
     #[inline]
@@ -310,7 +308,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeSeq for Compound<'a, W, F>
+impl<W, F> ser::SerializeSeq for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -337,7 +335,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeTuple for Compound<'a, W, F>
+impl<W, F> ser::SerializeTuple for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -357,7 +355,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeTupleStruct for Compound<'a, W, F>
+impl<W, F> ser::SerializeTupleStruct for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -377,7 +375,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeTupleVariant for Compound<'a, W, F>
+impl<W, F> ser::SerializeTupleVariant for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -401,7 +399,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeMap for Compound<'a, W, F>
+impl<W, F> ser::SerializeMap for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -438,7 +436,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeStruct for Compound<'a, W, F>
+impl<W, F> ser::SerializeStruct for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -458,7 +456,7 @@ where
     }
 }
 
-impl<'a, W, F> ser::SerializeStructVariant for Compound<'a, W, F>
+impl<W, F> ser::SerializeStructVariant for Compound<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -486,7 +484,7 @@ struct MapKeySerializer<'a, W: 'a, F: 'a> {
     ser: &'a mut Serializer<W, F>,
 }
 
-impl<'a, W, F> ser::Serializer for MapKeySerializer<'a, W, F>
+impl<W, F> ser::Serializer for MapKeySerializer<'_, W, F>
 where
     W: io::Write,
     F: Formatter,
@@ -496,7 +494,7 @@ where
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        escape_key(&mut self.ser.writer, value).map_err(From::from)
+        escape_key(&mut self.ser.writer, value)
     }
 
     type SerializeSeq = ser::Impossible<(), Error>;
@@ -694,7 +692,7 @@ struct HjsonFormatter<'a> {
     braces_same_line: bool,
 }
 
-impl<'a> Default for HjsonFormatter<'a> {
+impl Default for HjsonFormatter<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -719,7 +717,7 @@ impl<'a> HjsonFormatter<'a> {
     }
 }
 
-impl<'a> Formatter for HjsonFormatter<'a> {
+impl Formatter for HjsonFormatter<'_> {
     fn open<W>(&mut self, writer: &mut W, ch: u8) -> Result<()>
     where
         W: io::Write,
@@ -853,7 +851,7 @@ pub fn escape_key<W>(wr: &mut W, value: &str) -> Result<()>
 where
     W: io::Write,
 {
-    escape_bytes(wr, value.as_bytes()).map_err(From::from)
+    escape_bytes(wr, value.as_bytes())
 }
 
 #[inline]

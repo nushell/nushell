@@ -1,7 +1,7 @@
-use crate::nu_common::{truncate_str, NuColor, NuStyle, NuText};
+use crate::nu_common::{NuColor, NuStyle, NuText, truncate_str};
 use nu_color_config::{Alignment, StyleComputer};
 use nu_protocol::{ShellError, Value};
-use nu_table::{string_width, TextStyle};
+use nu_table::{TextStyle, string_width};
 use ratatui::{
     buffer::Buffer,
     style::{Color, Modifier, Style},

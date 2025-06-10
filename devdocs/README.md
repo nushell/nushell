@@ -9,4 +9,4 @@ A complementary (currently stale) resource has been the [Nushell contributor boo
 - [Developer FAQ](FAQ.md)
 - [How to/SOPs](HOWTOS.md)
 - [Platform support policy](PLATFORM_SUPPORT.md)
-- [Our Rust style](devdocs/rust_style.md)
+- [Our Rust style](rust_style.md)

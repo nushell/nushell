@@ -4,7 +4,9 @@ use nu_test_support::nu;
 fn export_subcommands_help() {
     let actual = nu!("export def -h");
 
-    assert!(actual
-        .out
-        .contains("Define a custom command and export it from a module"));
+    assert!(
+        actual
+            .out
+            .contains("Define a custom command and export it from a module")
+    );
 }

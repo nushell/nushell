@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::{Span, VarId};
+use crate::{Span, Value, VarId};
 use serde::{Deserialize, Serialize};
 
 /// AST Node for match arm with optional match guard
@@ -23,10 +23,12 @@ pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     /// List destructuring
     List(Vec<MatchPattern>),
-    /// Matching against a literal
+    /// Matching against a literal (from expression result)
     // TODO: it would be nice if this didn't depend on AST
     // maybe const evaluation can get us to a Value instead?
-    Value(Box<Expression>),
+    Expression(Box<Expression>),
+    /// Matching against a literal (pure value)
+    Value(Value),
     /// binding to a variable
     Variable(VarId),
     /// the `pattern1 \ pattern2` or-pattern
@@ -62,7 +64,11 @@ impl Pattern {
                 }
             }
             Pattern::Rest(var_id) => output.push(*var_id),
-            Pattern::Value(_) | Pattern::IgnoreValue | Pattern::Garbage | Pattern::IgnoreRest => {}
+            Pattern::Expression(_)
+            | Pattern::Value(_)
+            | Pattern::IgnoreValue
+            | Pattern::Garbage
+            | Pattern::IgnoreRest => {}
         }
 
         output

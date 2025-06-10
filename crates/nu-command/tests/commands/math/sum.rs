@@ -73,13 +73,18 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
         cwd: "tests/fixtures/formats/",
         "open sample-sys-output.json | math sum"
     );
-    assert!(actual
-        .err
-        .contains("Attempted to compute the sum of a value that cannot be summed"));
+    assert!(actual.err.contains("can't convert record"));
 }
 
 #[test]
 fn const_sum() {
     let actual = nu!("const SUM = [1 3] | math sum; $SUM");
     assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn cannot_sum_infinite_range() {
+    let actual = nu!("0.. | math sum");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
 }

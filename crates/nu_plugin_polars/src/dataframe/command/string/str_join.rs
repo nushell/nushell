@@ -1,8 +1,8 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -93,6 +93,7 @@ impl PluginCommand for StrJoin {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -103,6 +104,7 @@ impl PluginCommand for StrJoin {
             _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -159,7 +161,7 @@ fn command_df(
 
     let mut res = chunked.concat(other_chunked);
 
-    res.rename(series.name());
+    res.rename(series.name().to_owned());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

@@ -29,7 +29,8 @@ impl Command for FromToml {
         let span = call.head;
         let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');
-        Ok(convert_string_to_value(string_input, span)?.into_pipeline_data_with_metadata(metadata))
+        Ok(convert_string_to_value(string_input, span)?
+            .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -144,8 +145,11 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
 
 #[cfg(test)]
 mod tests {
+    use crate::{Metadata, MetadataSet};
+
     use super::*;
     use chrono::TimeZone;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
     use toml::value::Datetime;
 
     #[test]
@@ -330,5 +334,34 @@ mod tests {
         let result = convert_toml_datetime_to_value(&toml_date, span);
 
         assert_eq!(result, reference_date);
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(FromToml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(MetadataSet {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | $in"#;
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("source" => Value::test_string("ls"))),
+            result.expect("There should be a result")
+        )
     }
 }

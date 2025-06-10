@@ -1,9 +1,10 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
+#[cfg(feature = "os")]
+use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    engine::Closure,
-    process::{ChildPipe, ChildProcess},
-    ByteStream, ByteStreamSource, OutDest,
+    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
 };
+
 use std::{
     io::{Cursor, Read},
     thread,
@@ -29,16 +30,6 @@ impl Command for Do {
                 "ignore-errors",
                 "ignore errors as the closure runs",
                 Some('i'),
-            )
-            .switch(
-                "ignore-shell-errors",
-                "ignore shell errors as the closure runs",
-                Some('s'),
-            )
-            .switch(
-                "ignore-program-errors",
-                "ignore external program errors as the closure runs",
-                Some('p'),
             )
             .switch(
                 "capture-errors",
@@ -69,10 +60,7 @@ impl Command for Do {
         let block: Closure = call.req(engine_state, caller_stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
-        let ignore_shell_errors = ignore_all_errors
-            || call.has_flag(engine_state, caller_stack, "ignore-shell-errors")?;
-        let ignore_program_errors = ignore_all_errors
-            || call.has_flag(engine_state, caller_stack, "ignore-program-errors")?;
+
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
@@ -81,9 +69,6 @@ impl Command for Do {
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-
-        // Applies to all block evaluation once set true
-        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
 
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
@@ -95,6 +80,13 @@ impl Command for Do {
         match result {
             Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();
+                #[cfg(not(feature = "os"))]
+                return Err(ShellError::DisabledOsSupport {
+                    msg: "Cannot create a thread to receive stdout message.".to_string(),
+                    span: Some(span),
+                });
+
+                #[cfg(feature = "os")]
                 match stream.into_child() {
                     Ok(mut child) => {
                         // Use a thread to receive stdout message.
@@ -113,10 +105,16 @@ impl Command for Do {
                                     .name("stdout consumer".to_string())
                                     .spawn(move || {
                                         let mut buf = Vec::new();
-                                        stdout.read_to_end(&mut buf)?;
+                                        stdout.read_to_end(&mut buf).map_err(|err| {
+                                            IoError::new_internal(
+                                                err,
+                                                "Could not read stdout to end",
+                                                nu_protocol::location!(),
+                                            )
+                                        })?;
                                         Ok::<_, ShellError>(buf)
                                     })
-                                    .err_span(head)
+                                    .map_err(|err| IoError::new(err, head, None))
                             })
                             .transpose()?;
 
@@ -126,7 +124,9 @@ impl Command for Do {
                             None => String::new(),
                             Some(mut stderr) => {
                                 let mut buf = String::new();
-                                stderr.read_to_string(&mut buf).err_span(span)?;
+                                stderr
+                                    .read_to_string(&mut buf)
+                                    .map_err(|err| IoError::new(err, span, None))?;
                                 buf
                             }
                         };
@@ -147,6 +147,7 @@ impl Command for Do {
                             None
                         };
 
+                        child.ignore_error(false);
                         child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
@@ -165,18 +166,22 @@ impl Command for Do {
                 }
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
-                if ignore_program_errors
-                    && !matches!(caller_stack.stdout(), OutDest::Pipe | OutDest::Capture) =>
+                if ignore_all_errors
+                    && !matches!(
+                        caller_stack.stdout(),
+                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                    ) =>
             {
+                #[cfg(feature = "os")]
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.set_exit_code(0)
+                    child.ignore_error(true);
                 }
                 Ok(PipelineData::ByteStream(stream, metadata))
             }
-            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
+            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
             }
-            Ok(PipelineData::ListStream(stream, metadata)) if ignore_shell_errors => {
+            Ok(PipelineData::ListStream(stream, metadata)) if ignore_all_errors => {
                 let stream = stream.map(move |value| {
                     if let Value::Error { .. } = value {
                         Value::nothing(head)
@@ -205,16 +210,6 @@ impl Command for Do {
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
                 example: r#"do --ignore-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore shell errors",
-                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
-                result: None,
-            },
-            Example {
-                description: "Run the closure and ignore external program errors",
-                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {
@@ -269,22 +264,13 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.get_type().is_subtype(&param_type) {
-                // need to check if result is an empty list, and param_type is table or list
-                // nushell needs to pass type checking for the case.
-                let empty_list_matches = result
-                    .as_list()
-                    .map(|l| l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_)))
-                    .unwrap_or(false);
-
-                if !empty_list_matches {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
-                }
+            if required && !result.is_subtype_of(&param_type) {
+                return Err(ShellError::CantConvert {
+                    to_type: param.shape.to_type().to_string(),
+                    from_type: result.get_type().to_string(),
+                    span: result.span(),
+                    help: None,
+                });
             }
             stack.add_var(var_id, result);
         } else if let Some(value) = &param.default_value {

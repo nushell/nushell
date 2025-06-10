@@ -1,12 +1,13 @@
 use std::process::Command;
 
-fn main() -> shadow_rs::SdResult<()> {
+fn main() {
     // Look up the current Git commit ourselves instead of relying on shadow_rs,
     // because shadow_rs does it in a really slow-to-compile way (it builds libgit2)
     let hash = get_git_hash().unwrap_or_default();
     println!("cargo:rustc-env=NU_COMMIT_HASH={hash}");
-
-    shadow_rs::new()
+    shadow_rs::ShadowBuilder::builder()
+        .build()
+        .expect("shadow builder build should success");
 }
 
 fn get_git_hash() -> Option<String> {

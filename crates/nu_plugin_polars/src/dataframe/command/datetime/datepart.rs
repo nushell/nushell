@@ -1,9 +1,10 @@
 use crate::values::NuExpression;
+use std::sync::Arc;
 
 use crate::{
-    dataframe::values::{Column, NuDataFrame},
-    values::CustomValueSupport,
     PolarsPlugin,
+    dataframe::values::{Column, NuDataFrame, NuSchema},
+    values::CustomValueSupport,
 };
 use chrono::{DateTime, FixedOffset};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -13,7 +14,7 @@ use nu_protocol::{
 };
 use polars::{
     datatypes::{DataType, TimeUnit},
-    prelude::NamedFrom,
+    prelude::{Field, NamedFrom, Schema},
     series::Series,
 };
 
@@ -54,14 +55,20 @@ impl PluginCommand for ExprDatePart {
         vec![
             Example {
                 description: "Creates an expression to capture the year date part",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | polars with-column [(polars col datetime | polars datepart year | polars as datetime_year )]"#,
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" --naive | polars with-column [(polars col datetime | polars datepart year | polars as datetime_year )]"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
                             Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
                             Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
                         ],
-                        None,
+                        Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
+                            Field::new(
+                                "datetime".into(),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
+                            ),
+                            Field::new("datetime_year".into(), DataType::Int64),
+                        ])))),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -69,7 +76,7 @@ impl PluginCommand for ExprDatePart {
             },
             Example {
                 description: "Creates an expression to capture multiple date parts",
-                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" |
+                example: r#"[["2021-12-30T01:02:03.123456789"]] | polars into-df | polars as-datetime "%Y-%m-%dT%H:%M:%S.%9f" --naive |
                 polars with-column [ (polars col datetime | polars datepart year | polars as datetime_year ),
                 (polars col datetime | polars datepart month | polars as datetime_month ),
                 (polars col datetime | polars datepart day | polars as datetime_day ),
@@ -80,16 +87,16 @@ impl PluginCommand for ExprDatePart {
                 result: Some(
                     NuDataFrame::try_from_series_vec(
                         vec![
-                            Series::new("datetime", &[dt.timestamp_nanos_opt()])
+                            Series::new("datetime".into(), &[dt.timestamp_nanos_opt()])
                                 .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))
                                 .expect("Error casting to datetime type"),
-                            Series::new("datetime_year", &[2021_i64]), // i32 was coerced to i64
-                            Series::new("datetime_month", &[12_i8]),
-                            Series::new("datetime_day", &[30_i8]),
-                            Series::new("datetime_hour", &[1_i8]),
-                            Series::new("datetime_minute", &[2_i8]),
-                            Series::new("datetime_second", &[3_i8]),
-                            Series::new("datetime_ns", &[123456789_i64]), // i32 was coerced to i64
+                            Series::new("datetime_year".into(), &[2021_i64]), // i32 was coerced to i64
+                            Series::new("datetime_month".into(), &[12_i8]),
+                            Series::new("datetime_day".into(), &[30_i8]),
+                            Series::new("datetime_hour".into(), &[1_i8]),
+                            Series::new("datetime_minute".into(), &[2_i8]),
+                            Series::new("datetime_second".into(), &[3_i8]),
+                            Series::new("datetime_ns".into(), &[123456789_i64]), // i32 was coerced to i64
                         ],
                         Span::test_data(),
                     )
@@ -124,6 +131,7 @@ impl PluginCommand for ExprDatePart {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let part: Spanned<String> = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
@@ -151,6 +159,7 @@ impl PluginCommand for ExprDatePart {
         }.into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

@@ -163,3 +163,9 @@ fn alias_default_help() {
     let first_help_line = actual.out.lines().next().unwrap();
     assert!(first_help_line.starts_with("Alias for `echo 'I am a beautiful teapot'`"));
 }
+
+#[test]
+fn export_alias_with_overlay_use_works() {
+    let actual = nu!("export alias teapot = overlay use");
+    assert!(actual.err.is_empty())
+}

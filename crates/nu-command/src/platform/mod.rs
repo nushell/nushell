@@ -5,7 +5,7 @@ mod input;
 mod is_terminal;
 mod kill;
 mod sleep;
-mod term_size;
+mod term;
 #[cfg(unix)]
 mod ulimit;
 mod whoami;
@@ -19,7 +19,7 @@ pub use input::InputListen;
 pub use is_terminal::IsTerminal;
 pub use kill::Kill;
 pub use sleep::Sleep;
-pub use term_size::TermSize;
+pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]
 pub use ulimit::ULimit;
 pub use whoami::Whoami;

@@ -1,11 +1,8 @@
-use std::fmt;
-
+use super::{ShellError, shell_error::io::IoError};
+use crate::Span;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-
-use crate::Span;
-
-use super::ShellError;
+use std::fmt;
 
 /// A very generic type of error used for interfacing with external code, such as scripts and
 /// plugins.
@@ -18,7 +15,7 @@ pub struct LabeledError {
     pub msg: String,
     /// Labeled spans attached to the error, demonstrating to the user where the problem is.
     #[serde(default)]
-    pub labels: Vec<ErrorLabel>,
+    pub labels: Box<Vec<ErrorLabel>>,
     /// A unique machine- and search-friendly error code to associate to the error. (e.g.
     /// `nu::shell::missing_config_value`)
     #[serde(default)]
@@ -31,7 +28,7 @@ pub struct LabeledError {
     pub help: Option<String>,
     /// Errors that are related to or caused this error
     #[serde(default)]
-    pub inner: Vec<LabeledError>,
+    pub inner: Box<Vec<LabeledError>>,
 }
 
 impl LabeledError {
@@ -50,11 +47,11 @@ impl LabeledError {
     pub fn new(msg: impl Into<String>) -> LabeledError {
         LabeledError {
             msg: msg.into(),
-            labels: vec![],
+            labels: Box::new(vec![]),
             code: None,
             url: None,
             help: None,
-            inner: vec![],
+            inner: Box::new(vec![]),
         }
     }
 
@@ -146,8 +143,16 @@ impl LabeledError {
     /// [`ShellError`] implements `miette::Diagnostic`:
     ///
     /// ```rust
-    /// # use nu_protocol::{ShellError, LabeledError};
-    /// let error = LabeledError::from_diagnostic(&ShellError::IOError { msg: "error".into() });
+    /// # use nu_protocol::{ShellError, LabeledError, shell_error::{self, io::IoError}, Span};
+    /// #
+    /// let error = LabeledError::from_diagnostic(
+    ///     &ShellError::Io(IoError::new_with_additional_context(
+    ///         shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
+    ///         Span::test_data(),
+    ///         None,
+    ///         "some error"
+    ///     ))
+    /// );
     /// assert!(error.to_string().contains("I/O error"));
     /// ```
     pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> LabeledError {
@@ -161,7 +166,8 @@ impl LabeledError {
                     text: label.label().unwrap_or("").into(),
                     span: Span::new(label.offset(), label.offset() + label.len()),
                 })
-                .collect(),
+                .collect::<Vec<_>>()
+                .into(),
             code: diag.code().map(|s| s.to_string()),
             url: diag.url().map(|s| s.to_string()),
             help: diag.help().map(|s| s.to_string()),
@@ -170,7 +176,8 @@ impl LabeledError {
                 .into_iter()
                 .flatten()
                 .map(Self::from_diagnostic)
-                .collect(),
+                .collect::<Vec<_>>()
+                .into(),
         }
     }
 }
@@ -237,6 +244,12 @@ impl Diagnostic for LabeledError {
 
 impl From<ShellError> for LabeledError {
     fn from(err: ShellError) -> Self {
+        LabeledError::from_diagnostic(&err)
+    }
+}
+
+impl From<IoError> for LabeledError {
+    fn from(err: IoError) -> Self {
         LabeledError::from_diagnostic(&err)
     }
 }

@@ -4,7 +4,7 @@ use ical::{parser::ical::component::*, property::Property};
 use indexmap::IndexMap;
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, ShellError, Signature, Span, Type, Value, record,
 };
 use std::io::BufReader;
 

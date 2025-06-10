@@ -1,8 +1,8 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 
 use super::super::super::values::{Column, NuDataFrame};
@@ -55,9 +55,7 @@ impl PluginCommand for ToUpperCase {
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "a".to_string(),
-                            vec![
-                                Value::test_string("ABC"),
-                            ],
+                            vec![Value::test_string("ABC")],
                         )],
                         None,
                     )
@@ -94,6 +92,7 @@ impl PluginCommand for ToUpperCase {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -111,6 +110,7 @@ impl PluginCommand for ToUpperCase {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -141,7 +141,7 @@ fn command_df(
     })?;
 
     let mut res = casted.to_uppercase();
-    res.rename(series.name());
+    res.rename(series.name().clone());
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

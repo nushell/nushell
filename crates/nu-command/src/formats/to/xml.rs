@@ -4,7 +4,7 @@ use nu_engine::command_prelude::*;
 
 use quick_xml::{
     escape,
-    events::{BytesEnd, BytesStart, BytesText, Event},
+    events::{BytesEnd, BytesPI, BytesStart, BytesText, Event},
 };
 use std::{borrow::Cow, io::Cursor};
 
@@ -75,17 +75,13 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             Example {
                 description: "Produce less escaping sequences in resulting xml",
                 example: r#"{tag: note attributes: {a: "'qwe'\\"} content: ["\"'"]} | to xml --partial-escape"#,
-                result: Some(Value::test_string(
-                    r#"<note a="'qwe'\">"'</note>"#
-                ))
+                result: Some(Value::test_string(r#"<note a="'qwe'\">"'</note>"#)),
             },
             Example {
                 description: "Save space using self-closed tags",
                 example: r#"{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed"#,
-                result: Some(Value::test_string(
-                    r#"<root><a/><b/><c/></root>"#
-                ))
-            }
+                result: Some(Value::test_string(r#"<root><a/><b/><c/></root>"#)),
+            },
         ]
     }
 
@@ -169,7 +165,7 @@ impl Job {
         let mut iter = bytes.iter().enumerate();
         let mut pos = 0;
         while let Some((new_pos, byte)) =
-            iter.find(|(_, &ch)| matches!(ch, b'<' | b'>' | b'&' | b'"'))
+            iter.find(|(_, ch)| matches!(ch, b'<' | b'>' | b'&' | b'"'))
         {
             escaped.extend_from_slice(&bytes[pos..new_pos]);
             match byte {
@@ -210,14 +206,14 @@ impl Job {
         if let Value::Record { val: record, .. } = &entry {
             if let Some(bad_column) = Self::find_invalid_column(record) {
                 return Err(ShellError::CantConvert {
-                to_type: "XML".into(),
-                from_type: "record".into(),
-                span: entry_span,
-                help: Some(format!(
-                    "Invalid column \"{}\" in xml entry. Only \"{}\", \"{}\" and \"{}\" are permitted",
-                    bad_column, COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME
-                )),
-            });
+                    to_type: "XML".into(),
+                    from_type: "record".into(),
+                    span: entry_span,
+                    help: Some(format!(
+                        "Invalid column \"{}\" in xml entry. Only \"{}\", \"{}\" and \"{}\" are permitted",
+                        bad_column, COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME
+                    )),
+                });
             }
             // If key is not found it is assumed to be nothing. This way
             // user can write a tag like {tag: a content: [...]} instead
@@ -406,7 +402,7 @@ impl Job {
         let content_text = format!("{} {}", tag, content);
         // PI content must NOT be escaped
         // https://www.w3.org/TR/xml/#sec-pi
-        let pi_content = BytesText::from_escaped(content_text.as_str());
+        let pi_content = BytesPI::new(content_text.as_str());
 
         self.writer
             .write_event(Event::PI(pi_content))
@@ -514,7 +510,7 @@ impl Job {
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     use super::*;
 
@@ -535,6 +531,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToXml {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

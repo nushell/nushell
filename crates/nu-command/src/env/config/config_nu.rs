@@ -1,7 +1,5 @@
-use nu_cmd_base::util::get_editor;
-use nu_engine::{command_prelude::*, env_to_strings};
-use nu_protocol::{process::ChildProcess, ByteStream};
-use nu_system::ForegroundChild;
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct ConfigNu;
@@ -17,10 +15,14 @@ impl Command for ConfigNu {
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch(
                 "default",
-                "Print default `config.nu` file instead.",
+                "Print the internal default `config.nu` file instead.",
                 Some('d'),
             )
-        // TODO: Signature narrower than what run actually supports theoretically
+            .switch(
+                "doc",
+                "Print a commented `config.nu` with documentation instead.",
+                Some('s'),
+            )
     }
 
     fn description(&self) -> &str {
@@ -30,18 +32,18 @@ impl Command for ConfigNu {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "allow user to open and update nu config",
+                description: "open user's config.nu in the default editor",
                 example: "config nu",
                 result: None,
             },
             Example {
-                description: "allow user to print default `config.nu` file",
-                example: "config nu --default,",
+                description: "pretty-print a commented `config.nu` that explains common settings",
+                example: "config nu --doc | nu-highlight",
                 result: None,
             },
             Example {
-                description: "allow saving the default `config.nu` locally",
-                example: "config nu --default | save -f ~/.config/nushell/default_config.nu",
+                description: "pretty-print the internal `config.nu` file which is loaded before user's config",
+                example: "config nu --default | nu-highlight",
                 result: None,
             },
         ]
@@ -54,66 +56,37 @@ impl Command for ConfigNu {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // `--default` flag handling
-        if call.has_flag(engine_state, stack, "default")? {
-            let head = call.head;
-            return Ok(Value::string(nu_utils::get_default_config(), head).into_pipeline_data());
+        let default_flag = call.has_flag(engine_state, stack, "default")?;
+        let doc_flag = call.has_flag(engine_state, stack, "doc")?;
+        if default_flag && doc_flag {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "can't use `--default` at the same time".into(),
+                left_span: call.get_flag_span(stack, "default").expect("has flag"),
+                right_message: "because of `--doc`".into(),
+                right_span: call.get_flag_span(stack, "doc").expect("has flag"),
+            });
         }
 
-        // Find the editor executable.
-        let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
-        let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-        let cwd = engine_state.cwd(Some(stack))?;
-        let editor_executable = crate::which(&editor_name, &paths, cwd.as_ref()).ok_or(
-            ShellError::ExternalCommand {
-                label: format!("`{editor_name}` not found"),
-                help: "Failed to find the editor executable".into(),
-                span: call.head,
-            },
-        )?;
+        // `--default` flag handling
+        if default_flag {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_default_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
+        }
 
-        let Some(config_path) = engine_state.get_config_path("config-path") else {
-            return Err(ShellError::GenericError {
-                error: "Could not find $nu.config-path".into(),
-                msg: "Could not find $nu.config-path".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            });
-        };
-        let config_path = config_path.to_string_lossy().to_string();
+        // `--doc` flag handling
+        if doc_flag {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_doc_config(), head)
+                .into_pipeline_data_with_metadata(
+                    PipelineMetadata::default()
+                        .with_content_type("application/x-nuscript".to_string().into()),
+                ));
+        }
 
-        // Create the command.
-        let mut command = std::process::Command::new(editor_executable);
-
-        // Configure PWD.
-        command.current_dir(cwd);
-
-        // Configure environment variables.
-        let envs = env_to_strings(engine_state, stack)?;
-        command.env_clear();
-        command.envs(envs);
-
-        // Configure args.
-        command.arg(config_path);
-        command.args(editor_args);
-
-        // Spawn the child process. On Unix, also put the child process to
-        // foreground if we're in an interactive session.
-        #[cfg(windows)]
-        let child = ForegroundChild::spawn(command)?;
-        #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            command,
-            engine_state.is_interactive,
-            &engine_state.pipeline_externals_state,
-        )?;
-
-        // Wrap the output into a `PipelineData::ByteStream`.
-        let child = ChildProcess::new(child, None, false, call.head)?;
-        Ok(PipelineData::ByteStream(
-            ByteStream::child(child, call.head),
-            None,
-        ))
+        super::config_::start_editor("config-path", engine_state, stack, call)
     }
 }

@@ -1,9 +1,11 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathLog;
 
-impl Command for SubCommand {
+impl Command for MathLog {
     fn name(&self) -> &str {
         "math log"
     }
@@ -21,6 +23,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -47,24 +50,17 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-
-        if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Base has to be greater 0".into(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: base.span,
-            });
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        let base = base.item;
-        input.map(
-            move |value| operate(value, head, base),
-            engine_state.signals(),
-        )
+        log(base, call.head, input, engine_state.signals())
     }
 
     fn run_const(
@@ -75,24 +71,17 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
-
-        if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput {
-                msg: "Base has to be greater 0".into(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: base.span,
-            });
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
         }
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        let base = base.item;
-        input.map(
-            move |value| operate(value, head, base),
-            working_set.permanent().signals(),
-        )
+        log(base, call.head, input, working_set.permanent().signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -116,6 +105,28 @@ impl Command for SubCommand {
             },
         ]
     }
+}
+
+fn log(
+    base: Spanned<f64>,
+    head: Span,
+    input: PipelineData,
+    signals: &Signals,
+) -> Result<PipelineData, ShellError> {
+    if base.item <= 0.0f64 {
+        return Err(ShellError::UnsupportedInput {
+            msg: "Base has to be greater 0".into(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: base.span,
+        });
+    }
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+    let base = base.item;
+    input.map(move |value| operate(value, head, base), signals)
 }
 
 fn operate(value: Value, head: Span, base: f64) -> Value {
@@ -172,6 +183,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathLog {})
     }
 }

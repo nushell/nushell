@@ -1,4 +1,4 @@
-use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
@@ -16,6 +16,10 @@ impl Command for StorInsert {
             .input_output_types(vec![
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::table()),
             ])
             .required_named(
                 "table-name",
@@ -42,14 +46,25 @@ impl Command for StorInsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-                description: "Insert data the in-memory sqlite database using a data-record of column-name and column-value pairs",
+        vec![
+            Example {
+                description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
                 example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
                 result: None,
             },
             Example {
                 description: "Insert data through pipeline input as a record of column-name and column-value pairs",
                 example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17} | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert data through pipeline input as a table literal",
+                example: "[[bool1 int1 float1]; [true 5 1.1], [false 8 3.14]] | stor insert --table-name nudb",
+                result: None,
+            },
+            Example {
+                description: "Insert ls entries",
+                example: "ls | stor insert --table-name files",
                 result: None,
             },
         ]
@@ -71,10 +86,11 @@ impl Command for StorInsert {
             Signals::empty(),
         ));
 
-        // Check if the record is being passed as input or using the data record parameter
-        let columns = handle(span, data_record, input)?;
+        let records = handle(span, data_record, input)?;
 
-        process(table_name, span, &db, columns)?;
+        for record in records {
+            process(table_name.clone(), span, &db, record)?;
+        }
 
         Ok(Value::custom(db, span).into_pipeline_data())
     }
@@ -84,51 +100,54 @@ fn handle(
     span: Span,
     data_record: Option<Record>,
     input: PipelineData,
-) -> Result<Record, ShellError> {
-    match input {
-        PipelineData::Empty => data_record.ok_or_else(|| ShellError::MissingParameter {
-            param_name: "requires a record".into(),
-            span,
-        }),
-        PipelineData::Value(value, ..) => {
-            // Since input is being used, check if the data record parameter is used too
-            if data_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--data-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-            match value {
-                Value::Record { val, .. } => Ok(val.into_owned()),
-                val => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: val.get_type().to_string(),
-                    dst_span: Span::unknown(),
-                    src_span: val.span(),
-                }),
-            }
+) -> Result<Vec<Record>, ShellError> {
+    // Check for conflicting use of both pipeline input and flag
+    if let Some(record) = data_record {
+        if !matches!(input, PipelineData::Empty) {
+            return Err(ShellError::GenericError {
+                error: "Pipeline and Flag both being used".into(),
+                msg: "Use either pipeline input or '--data-record' parameter".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
+        return Ok(vec![record]);
+    }
+
+    // Handle the input types
+    let values = match input {
+        PipelineData::Empty => {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires a table or a record".into(),
+                span,
+            });
+        }
+        PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
+        PipelineData::Value(Value::List { vals, .. }, ..) => vals,
+        PipelineData::Value(val, ..) => vec![val],
         _ => {
-            if data_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--data-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-            Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list or record".into(),
                 wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
-            })
+            });
         }
-    }
+    };
+
+    values
+        .into_iter()
+        .map(|val| match val {
+            Value::Record { val, .. } => Ok(val.into_owned()),
+            other => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: other.span(),
+            }),
+        })
+        .collect()
 }
 
 fn process(
@@ -146,27 +165,23 @@ fn process(
     let new_table_name = table_name.unwrap_or("table".into());
 
     if let Ok(conn) = db.open_connection() {
-        let mut create_stmt = format!("INSERT INTO {} ( ", new_table_name);
+        let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
+        let mut column_placeholders: Vec<String> = Vec::new();
+
         let cols = record.columns();
         cols.for_each(|col| {
-            create_stmt.push_str(&format!("{}, ", col));
+            column_placeholders.push(col.to_string());
         });
-        if create_stmt.ends_with(", ") {
-            create_stmt.pop();
-            create_stmt.pop();
-        }
+
+        create_stmt.push_str(&column_placeholders.join(", "));
 
         // Values are set as placeholders.
-        create_stmt.push_str(") VALUES ( ");
+        create_stmt.push_str(") VALUES (");
+        let mut value_placeholders: Vec<String> = Vec::new();
         for (index, _) in record.columns().enumerate() {
-            create_stmt.push_str(&format!("?{}, ", index + 1));
+            value_placeholders.push(format!("?{}", index + 1));
         }
-
-        if create_stmt.ends_with(", ") {
-            create_stmt.pop();
-            create_stmt.pop();
-        }
-
+        create_stmt.push_str(&value_placeholders.join(", "));
         create_stmt.push(')');
 
         // dbg!(&create_stmt);

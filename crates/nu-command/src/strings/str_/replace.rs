@@ -1,5 +1,5 @@
 use fancy_regex::{NoExpand, Regex};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 struct Arguments {
@@ -19,9 +19,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrReplace;
 
-impl Command for SubCommand {
+impl Command for StrReplace {
     fn name(&self) -> &str {
         "str replace"
     }
@@ -156,31 +156,32 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("my_library.nu")),
             },
             Example {
-                description: "Find and replace all occurrences of find string using regular expression",
+                description: "Find and replace contents with capture group using regular expression, with escapes",
+                example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' '$$$varname = $value'",
+                result: Some(Value::test_string("$hello = world")),
+            },
+            Example {
+                description: "Find and replace all occurrences of found string using regular expression",
                 example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace all occurrences of find string in table using regular expression",
-                example:
-                    "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_string("azc"),
-                        "ColB" => Value::test_string("abc"),
-                        "ColC" => Value::test_string("ads"),
-                    })],
-                )),
+                description: "Find and replace all occurrences of found string in table using regular expression",
+                example: "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_string("azc"),
+                    "ColB" => Value::test_string("abc"),
+                    "ColC" => Value::test_string("ads"),
+                })])),
             },
             Example {
-                description: "Find and replace all occurrences of find string in record using regular expression",
-                example:
-                    "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
+                description: "Find and replace all occurrences of found string in record using regular expression",
+                example: "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
                 result: Some(Value::test_record(record! {
-                        "KeyA" => Value::test_string("azc"),
-                        "KeyB" => Value::test_string("abc"),
-                        "KeyC" => Value::test_string("ads"),
-                    })),
+                    "KeyA" => Value::test_string("azc"),
+                    "KeyB" => Value::test_string("abc"),
+                    "KeyC" => Value::test_string("ads"),
+                })),
             },
             Example {
                 description: "Find and replace contents without using the replace parameter as a regular expression",
@@ -205,9 +206,10 @@ impl Command for SubCommand {
             Example {
                 description: "Find and replace on individual lines using multiline regular expression",
                 example: r#""non-matching line\n123. one line\n124. another line\n" | str replace --all --multiline '^[0-9]+\. ' ''"#,
-                result: Some(Value::test_string("non-matching line\none line\nanother line\n")),
+                result: Some(Value::test_string(
+                    "non-matching line\none line\nanother line\n",
+                )),
             },
-
         ]
     }
 }
@@ -299,7 +301,7 @@ fn action(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, Arguments, SubCommand};
+    use super::{Arguments, StrReplace, action};
 
     fn test_spanned_string(val: &str) -> Spanned<String> {
         Spanned {
@@ -312,7 +314,7 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrReplace {})
     }
 
     #[test]

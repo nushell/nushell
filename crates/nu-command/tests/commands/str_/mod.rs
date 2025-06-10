@@ -389,6 +389,13 @@ fn substring_by_negative_index() {
 }
 
 #[test]
+fn substring_of_empty_string() {
+    let actual = nu!("'' | str substring ..0");
+    assert_eq!(actual.err, "");
+    assert_eq!(actual.out, "");
+}
+
+#[test]
 fn str_reverse() {
     let actual = nu!(r#"
         echo "nushell" | str reverse

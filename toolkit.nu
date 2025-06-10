@@ -6,6 +6,8 @@
 # (**2**) catch classical flaws in the new changes with *clippy* and (**3**)
 # make sure all the tests pass.
 
+const toolkit_dir = path self .
+
 # check standard code formatting and apply the changes
 export def fmt [
     --check # do not apply the format changes, only check the syntax
@@ -17,14 +19,14 @@ export def fmt [
 
     if $check {
         try {
-            cargo fmt --all -- --check
+            ^cargo fmt --all -- --check
         } catch {
             error make --unspanned {
                 msg: $"\nplease run ('toolkit fmt' | pretty-format-command) to fix formatting!"
             }
         }
     } else {
-        cargo fmt --all
+        ^cargo fmt --all
     }
 }
 
@@ -41,11 +43,11 @@ export def clippy [
 
     # If changing these settings also change CI settings in .github/workflows/ci.yml
     try {(
-        cargo clippy
+        ^cargo clippy
             --workspace
             --exclude nu_plugin_*
-            --features ($features | str join ",")
-        --
+            --features ($features | default [] | str join ",")
+            --
             -D warnings
             -D clippy::unwrap_used
             -D clippy::unchecked_duration_subtraction
@@ -56,12 +58,12 @@ export def clippy [
     }
     # In tests we don't have to deny unwrap
     (
-        cargo clippy
+        ^cargo clippy
             --tests
             --workspace
             --exclude nu_plugin_*
-            --features ($features | str join ",")
-        --
+            --features ($features | default [] | str join ",")
+            --
             -D warnings
     )
 
@@ -69,9 +71,9 @@ export def clippy [
         print $"running ('toolkit clippy' | pretty-format-command) on plugins"
     }
     (
-        cargo clippy
+        ^cargo clippy
             --package nu_plugin_*
-        --
+            --
             -D warnings
             -D clippy::unwrap_used
             -D clippy::unchecked_duration_subtraction
@@ -92,15 +94,15 @@ export def test [
 ] {
     if $fast {
         if $workspace {
-            cargo nextest run --all
+            ^cargo nextest run --all
         } else {
-            cargo nextest run --features ($features | str join ",")
+            ^cargo nextest run --features ($features | default [] | str join ",")
         }
     } else {
         if $workspace {
-            cargo test --workspace
+            ^cargo test --workspace
         } else {
-            cargo test --features ($features | str join ",")
+            ^cargo test --features ($features | default [] | str join ",")
         }
     }
 }
@@ -109,7 +111,7 @@ export def test [
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
-    cargo run -- --no-config-file -c $"
+    ^cargo run -- --no-config-file -c $"
         use crates/nu-std/testing.nu
         testing run-tests --path crates/nu-std ($extra_args)
     "
@@ -303,7 +305,7 @@ export def "check pr" [
 
 # run Nushell from source with a right indicator
 export def run [] {
-    cargo run -- ...[
+    ^cargo run -- ...[
         -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
     ]
 }
@@ -325,7 +327,7 @@ def build-nushell [features: string] {
     print $'(char nl)Building nushell'
     print '----------------------------'
 
-    cargo build --features $features --locked
+    ^cargo build --features $features --locked
 }
 
 def build-plugin [] {
@@ -335,7 +337,7 @@ def build-plugin [] {
     print '----------------------------'
 
     cd $"crates/($plugin)"
-    cargo build
+    ^cargo build
 }
 
 # build Nushell and plugins with some features
@@ -343,7 +345,7 @@ export def build [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
     --all # build all plugins with Nushell
 ] {
-    build-nushell ($features | str join ",")
+    build-nushell ($features | default [] | str join ",")
 
     if not $all {
         return
@@ -353,6 +355,7 @@ export def build [
         nu_plugin_inc,
         nu_plugin_gstat,
         nu_plugin_query,
+        nu_plugin_polars,
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
@@ -373,7 +376,7 @@ def install-plugin [] {
     print $'(char nl)Installing ($plugin)'
     print '----------------------------'
 
-    cargo install --path $"crates/($plugin)"
+    ^cargo install --path $"crates/($plugin)"
 }
 
 # install Nushell and features you want
@@ -382,7 +385,7 @@ export def install [
     --all # install all plugins with Nushell
 ] {
     touch crates/nu-cmd-lang/build.rs # needed to make sure `version` has the correct `commit_hash`
-    cargo install --path . --features ($features | str join ",") --locked --force
+    ^cargo install --path . --features ($features | default [] | str join ",") --locked --force
     if not $all {
         return
     }
@@ -391,6 +394,7 @@ export def install [
         nu_plugin_inc,
         nu_plugin_gstat,
         nu_plugin_query,
+        nu_plugin_polars,
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
@@ -438,23 +442,23 @@ def compute-coverage [] {
     # show env outputs .ini/.toml style description of the variables
     # In order to use from toml, we need to make sure our string literals are single quoted
     # This is especially important when running on Windows since "C:\blah" is treated as an escape
-    cargo llvm-cov show-env | str replace (char dq) (char sq) -a | from toml | load-env
+    ^cargo llvm-cov show-env | str replace (char dq) (char sq) -a | from toml | load-env
 
     print "Cleaning up coverage data"
-    cargo llvm-cov clean --workspace
+    ^cargo llvm-cov clean --workspace
 
     print "Building with workspace and profile=ci"
     # Apparently we need to explicitly build the necessary parts
     # using the `--profile=ci` is basically `debug` build with unnecessary symbols stripped
     # leads to smaller binaries and potential savings when compiling and running
-    cargo build --workspace --profile=ci
+    ^cargo build --workspace --profile=ci
 
     print "Running tests with --workspace and profile=ci"
-    cargo test --workspace --profile=ci
+    ^cargo test --workspace --profile=ci
 
     # You need to provide the used profile to find the raw data
     print "Generating coverage report as lcov.info"
-    cargo llvm-cov report --lcov --output-path lcov.info --profile=ci
+    ^cargo llvm-cov report --lcov --output-path lcov.info --profile=ci
 }
 
 # Script to generate coverage locally
@@ -512,12 +516,12 @@ export def benchmark-compare [
     # benchmark the target revision
     print $'-- Running benchmarks for ($target)'
     git checkout $target
-    cargo export $tgt_bin_dir -- bench
+    ^cargo export $tgt_bin_dir -- bench
 
     # benchmark the comparison reference revision
     print $'-- Running benchmarks for ($reference)'
     git checkout $reference
-    cargo export $ref_bin_dir -- bench
+    ^cargo export $ref_bin_dir -- bench
 
     # return back to the whatever revision before benchmarking
     print '-- Done'
@@ -547,7 +551,7 @@ export def benchmark-log [
     if $target != $current {
         git checkout $target
     }
-    cargo export $bin_dir -- bench
+    ^cargo export $bin_dir -- bench
 
     # return back to the whatever revision before benchmarking
     print '-- Done'
@@ -588,6 +592,71 @@ export def 'release-pkg windows' [
         rm -rf output
         _EXTRA_=msi nu .github/workflows/release-pkg.nu
         cp $"target/wix/nu-($version)-($target)-pc-windows-msvc.msi" $artifacts_dir
+    }
+}
+
+# these crates should compile for wasm
+const wasm_compatible_crates = [
+    "nu-cmd-base",
+    "nu-cmd-extra",
+    "nu-cmd-lang",
+    "nu-color-config",
+    "nu-command",
+    "nu-derive-value",
+    "nu-engine",
+    "nu-glob",
+    "nu-json",
+    "nu-parser",
+    "nu-path",
+    "nu-pretty-hex",
+    "nu-protocol",
+    "nu-std",
+    "nu-system",
+    "nu-table",
+    "nu-term-grid",
+    "nu-utils",
+    "nuon"
+]
+
+def "prep wasm" [] {
+    ^rustup target add wasm32-unknown-unknown
+}
+
+# build crates for wasm
+export def "build wasm" [] {
+    prep wasm
+
+    for crate in $wasm_compatible_crates {
+        print $'(char nl)Building ($crate) for wasm'
+        print '----------------------------'
+        (
+            ^cargo build
+                -p $crate
+                --target wasm32-unknown-unknown
+                --no-default-features
+        )
+    }
+}
+
+# make sure no api is used that doesn't work with wasm
+export def "clippy wasm" [] {
+    prep wasm
+
+    $env.CLIPPY_CONF_DIR = $toolkit_dir | path join clippy wasm
+
+    for crate in $wasm_compatible_crates {
+        print $'(char nl)Checking ($crate) for wasm'
+        print '----------------------------'
+        (
+            ^cargo clippy
+                -p $crate
+                --target wasm32-unknown-unknown
+                --no-default-features
+                --
+                -D warnings
+                -D clippy::unwrap_used
+                -D clippy::unchecked_duration_subtraction
+        )
     }
 }
 

@@ -302,7 +302,7 @@ impl<'a> MapSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeStruct for MapSerializer<'a> {
+impl serde::ser::SerializeStruct for MapSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -320,7 +320,7 @@ impl<'a> serde::ser::SerializeStruct for MapSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
+impl serde::ser::SerializeMap for MapSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -351,7 +351,7 @@ impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeStructVariant for MapSerializer<'a> {
+impl serde::ser::SerializeStructVariant for MapSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -385,7 +385,7 @@ impl<'a> SeqSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeSeq for SeqSerializer<'a> {
+impl serde::ser::SerializeSeq for SeqSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -402,7 +402,7 @@ impl<'a> serde::ser::SerializeSeq for SeqSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTuple for SeqSerializer<'a> {
+impl serde::ser::SerializeTuple for SeqSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -419,7 +419,7 @@ impl<'a> serde::ser::SerializeTuple for SeqSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTupleStruct for SeqSerializer<'a> {
+impl serde::ser::SerializeTupleStruct for SeqSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 
@@ -436,7 +436,7 @@ impl<'a> serde::ser::SerializeTupleStruct for SeqSerializer<'a> {
     }
 }
 
-impl<'a> serde::ser::SerializeTupleVariant for SeqSerializer<'a> {
+impl serde::ser::SerializeTupleVariant for SeqSerializer<'_> {
     type Ok = Value;
     type Error = Error;
 

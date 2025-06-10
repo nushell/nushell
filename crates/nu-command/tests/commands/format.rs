@@ -76,13 +76,13 @@ fn format_filesize_works() {
             cwd: dirs.test(), pipeline(
             "
                 ls
-                | format filesize KB size
+                | format filesize kB size
                 | get size
                 | first
             "
         ));
 
-        assert_eq!(actual.out, "0.0 KB");
+        assert_eq!(actual.out, "0 kB");
     })
 }
 
@@ -105,10 +105,24 @@ fn format_filesize_works_with_nonempty_files() {
             );
 
             #[cfg(not(windows))]
-            assert_eq!(actual.out, "25");
+            assert_eq!(actual.out, "25 B");
 
             #[cfg(windows)]
-            assert_eq!(actual.out, "27");
+            assert_eq!(actual.out, "27 B");
         },
     )
+}
+
+#[test]
+fn format_filesize_with_invalid_unit() {
+    let actual = nu!("1MB | format filesize sec");
+
+    assert!(actual.err.contains("invalid_unit"));
+}
+
+#[test]
+fn format_duration_with_invalid_unit() {
+    let actual = nu!("1sec | format duration MB");
+
+    assert!(actual.err.contains("invalid_unit"));
 }

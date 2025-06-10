@@ -1,6 +1,8 @@
+use std/testing *
 use std *
+use std/assert
 
-#[test]
+@test
 def iter_find [] {
     let hastack1 = [1 2 3 4 5 6 7]
     let hastack2 = [nushell rust shell iter std]
@@ -19,7 +21,7 @@ def iter_find [] {
     assert equal $res null
 }
 
-#[test]
+@test
 def iter_intersperse [] {
     let res = ([1 2 3 4] | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
@@ -36,11 +38,11 @@ def iter_intersperse [] {
     let res = (1..4 | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
 
-    let res = (4 | iter intersperse 1)
+    let res = ([4] | iter intersperse 1)
     assert equal $res [4]
 }
 
-#[test]
+@test
 def iter_scan [] {
     let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y} -n)
     assert equal $scanned [1, 3, 6]
@@ -48,11 +50,14 @@ def iter_scan [] {
     let scanned = ([1 2 3] | iter scan 0 {|x, y| $x + $y})
     assert equal $scanned [0, 1, 3, 6]
 
-    let scanned = ([a b c d] | iter scan "" {|x, y| [$x, $y] | str join} -n)
+    let scanned = ([a b c d] | iter scan "" {|it, acc| [$acc, $it] | str join} -n)
+    assert equal $scanned ["a" "ab" "abc" "abcd"]
+
+    let scanned = ([a b c d] | iter scan "" {|it, acc| append $it | str join} -n)
     assert equal $scanned ["a" "ab" "abc" "abcd"]
 }
 
-#[test]
+@test
 def iter_filter_map [] {
     let res = ([2 5 "4" 7] | iter filter-map {|it| $it ** 2})
     assert equal $res [4 25 49]
@@ -64,7 +69,7 @@ def iter_filter_map [] {
     assert equal $res [3 42 69]
 }
 
-#[test]
+@test
 def iter_find_index [] {
     let res = (
          ["iter", "abc", "shell", "around", "nushell", "std"]
@@ -80,7 +85,7 @@ def iter_find_index [] {
     assert equal $res 0
 }
 
-#[test]
+@test
 def iter_zip_with [] {
     let res = (
         [1 2 3] | iter zip-with [2 3 4] {|a, b| $a + $b }
@@ -88,7 +93,7 @@ def iter_zip_with [] {
 
     assert equal $res [3 5 7]
 
-    let res = (42 | iter zip-with [1 2 3] {|a, b| $a // $b})
+    let res = ([42] | iter zip-with [1 2 3] {|a, b| $a // $b})
     assert equal $res [42]
 
     let res = (2..5 | iter zip-with 4 {|a, b| $a * $b})
@@ -107,7 +112,7 @@ def iter_zip_with [] {
     ]
 }
 
-#[test]
+@test
 def iter_flat_map [] {
     let res = (
         [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|it| $it | math sum}
@@ -118,7 +123,7 @@ def iter_flat_map [] {
     assert equal $res [11 22 33]
 }
 
-#[test]
+@test
 def iter_zip_into_record [] {
     let headers = [name repo position]
     let values = [rust github 1]

@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
@@ -76,9 +76,11 @@ fn correctly_escape_external_arguments() {
 fn escape_also_escapes_equals() {
     let actual = nu!("^MYFOONAME=MYBARVALUE");
 
-    assert!(actual
-        .err
-        .contains("Command `MYFOONAME=MYBARVALUE` not found"));
+    assert!(
+        actual
+            .err
+            .contains("Command `MYFOONAME=MYBARVALUE` not found")
+    );
 }
 
 #[test]
@@ -132,7 +134,7 @@ fn command_not_found_error_suggests_typo_fix() {
 fn command_not_found_error_recognizes_non_executable_file() {
     let actual = nu!("./Cargo.toml");
     assert!(actual.err.contains(
-        "refers to a file that is not executable. Did you forget to to set execute permissions?"
+        "refers to a file that is not executable. Did you forget to set execute permissions?"
     ));
 }
 
@@ -631,12 +633,99 @@ fn exit_code_stops_execution_closure() {
 fn exit_code_stops_execution_custom_command() {
     let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
 }
 
 #[test]
 fn exit_code_stops_execution_for_loop() {
     let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("exited with code 42"));
+    assert!(!actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn display_error_with_exit_code_stops() {
+    Playground::setup("errexit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "tmp_env.nu",
+            "$env.config.display_errors.exit_code = true",
+        )]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            "def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'",
+        );
+        assert!(actual.err.contains("exited with code"));
+        assert_eq!(actual.out, "");
+    });
+}
+
+#[test]
+fn display_error_exit_code_stops_execution_for_loop() {
+    Playground::setup("errexit", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "tmp_env.nu",
+            "$env.config.display_errors.exit_code = true",
+        )]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            "for x in [0 1] { nu -c 'exit 42'; print $x }",
+        );
+        assert!(actual.err.contains("exited with code"));
+        assert_eq!(actual.out, "");
+    });
+}
+
+#[test]
+fn arg_dont_run_subcommand_if_surrounded_with_quote() {
+    let actual = nu!("nu --testbin cococo `(echo aa)`");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo \"(echo aa)\"");
+    assert_eq!(actual.out, "(echo aa)");
+    let actual = nu!("nu --testbin cococo '(echo aa)'");
+    assert_eq!(actual.out, "(echo aa)");
+}
+
+#[test]
+fn external_error_with_backtrace() {
+    Playground::setup("external error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"def a [x] { if $x == 3 { nu --testbin --fail }};def b [] {a 1; a 3; a 2}; b"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        assert_eq!(chained_error_cnt.len(), 1);
+        assert!(actual.err.contains("non_zero_exit_code"));
+        let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
+        assert_eq!(eval_with_input_cnt.len(), 1);
+
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"nu --testbin --fail"#);
+        let chained_error_cnt: Vec<&str> = actual
+            .err
+            .matches("diagnostic code: chained_error")
+            .collect();
+        // run error make directly, show no backtrace is available
+        assert_eq!(chained_error_cnt.len(), 0);
+    });
+}
+
+#[test]
+fn sub_external_expression_with_and_op_should_raise_proper_error() {
+    let actual = nu!("(nu --testbin cococo false) and true");
+    assert!(
+        actual
+            .err
+            .contains("The 'and' operator does not work on values of type 'string'")
+    )
 }

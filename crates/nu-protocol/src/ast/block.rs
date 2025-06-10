@@ -1,12 +1,12 @@
 use super::Pipeline;
-use crate::{engine::StateWorkingSet, ir::IrBlock, OutDest, Signature, Span, Type, VarId};
+use crate::{OutDest, Signature, Span, Type, VarId, engine::StateWorkingSet, ir::IrBlock};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub signature: Box<Signature>,
     pub pipelines: Vec<Pipeline>,
-    pub captures: Vec<VarId>,
+    pub captures: Vec<(VarId, Span)>,
     pub redirect_env: bool,
     /// The block compiled to IR instructions. Not available for subexpressions.
     pub ir_block: Option<IrBlock>,

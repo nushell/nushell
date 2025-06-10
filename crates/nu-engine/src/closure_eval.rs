@@ -1,11 +1,11 @@
 use crate::{
-    eval_block_with_early_return, get_eval_block_with_early_return, EvalBlockWithEarlyReturnFn,
+    EvalBlockWithEarlyReturnFn, eval_block_with_early_return, get_eval_block_with_early_return,
 };
 use nu_protocol::{
+    IntoPipelineData, PipelineData, ShellError, Value,
     ast::Block,
     debugger::{WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvVars, Stack},
-    IntoPipelineData, PipelineData, ShellError, Value,
 };
 use std::{
     borrow::Cow,
@@ -72,6 +72,29 @@ impl ClosureEval {
     pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
         let engine_state = engine_state.clone();
         let stack = stack.captures_to_stack(closure.captures);
+        let block = engine_state.get_block(closure.block_id).clone();
+        let env_vars = stack.env_vars.clone();
+        let env_hidden = stack.env_hidden.clone();
+        let eval = get_eval_block_with_early_return(&engine_state);
+
+        Self {
+            engine_state,
+            stack,
+            block,
+            arg_index: 0,
+            env_vars,
+            env_hidden,
+            eval,
+        }
+    }
+
+    pub fn new_preserve_out_dest(
+        engine_state: &EngineState,
+        stack: &Stack,
+        closure: Closure,
+    ) -> Self {
+        let engine_state = engine_state.clone();
+        let stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
@@ -183,6 +206,22 @@ impl<'a> ClosureEvalOnce<'a> {
         Self {
             engine_state,
             stack: stack.captures_to_stack(closure.captures),
+            block,
+            arg_index: 0,
+            eval,
+        }
+    }
+
+    pub fn new_preserve_out_dest(
+        engine_state: &'a EngineState,
+        stack: &Stack,
+        closure: Closure,
+    ) -> Self {
+        let block = engine_state.get_block(closure.block_id);
+        let eval = get_eval_block_with_early_return(engine_state);
+        Self {
+            engine_state,
+            stack: stack.captures_to_stack_preserve_out_dest(closure.captures),
             block,
             arg_index: 0,
             eval,

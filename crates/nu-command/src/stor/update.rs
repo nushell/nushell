@@ -1,6 +1,7 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use rusqlite::params_from_iter;
 
 #[derive(Clone)]
 pub struct StorUpdate;
@@ -15,6 +16,9 @@ impl Command for StorUpdate {
             .input_output_types(vec![
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::table()),
             ])
             .required_named(
                 "table-name",
@@ -48,21 +52,21 @@ impl Command for StorUpdate {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-        Example {
-            description: "Update the in-memory sqlite database",
-            example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17}",
-            result: None,
-        },
-        Example {
-            description: "Update the in-memory sqlite database with a where clause",
-            example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17} --where-clause \"bool1 = 1\"",
-            result: None,
-        },
-        Example {
-            description: "Update the in-memory sqlite database through pipeline input",
-            example: "{str1: nushell datetime1: 2020-04-17} | stor update --table-name nudb",
-            result: None,
-        },
+            Example {
+                description: "Update the in-memory sqlite database",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17}",
+                result: None,
+            },
+            Example {
+                description: "Update the in-memory sqlite database with a where clause",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17} --where-clause \"bool1 = 1\"",
+                result: None,
+            },
+            Example {
+                description: "Update the in-memory sqlite database through pipeline input",
+                example: "{str1: nushell datetime1: 2020-04-17} | stor update --table-name nudb",
+                result: None,
+            },
         ]
     }
 
@@ -163,36 +167,12 @@ fn process(
         let mut update_stmt = format!("UPDATE {} ", new_table_name);
 
         update_stmt.push_str("SET ");
-        let vals = record.iter();
-        vals.for_each(|(key, val)| match val {
-            Value::Int { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            Value::Float { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            Value::String { val, .. } => {
-                update_stmt.push_str(&format!("{} = '{}', ", key, val));
-            }
-            Value::Date { val, .. } => {
-                update_stmt.push_str(&format!("{} = '{}', ", key, val));
-            }
-            Value::Bool { val, .. } => {
-                update_stmt.push_str(&format!("{} = {}, ", key, val));
-            }
-            _ => {
-                // return Err(ShellError::UnsupportedInput {
-                //     msg: format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
-                //     input: "value originates from here".to_string(),
-                //     msg_span: span,
-                //     input_span: val.span(),
-                // });
-            }
-        });
-        if update_stmt.ends_with(", ") {
-            update_stmt.pop();
-            update_stmt.pop();
+        let mut placeholders: Vec<String> = Vec::new();
+
+        for (index, (key, _)) in record.iter().enumerate() {
+            placeholders.push(format!("{} = ?{}", key, index + 1));
         }
+        update_stmt.push_str(&placeholders.join(", "));
 
         // Yup, this is a bit janky, but I'm not sure a better way to do this without having
         // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
@@ -202,7 +182,10 @@ fn process(
         }
         // dbg!(&update_stmt);
 
-        conn.execute(&update_stmt, [])
+        // Get the params from the passed values
+        let params = values_to_sql(record.values().cloned())?;
+
+        conn.execute(&update_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open SQLite connection in memory from update".into(),
                 msg: err.to_string(),

@@ -1,14 +1,15 @@
 use crate::{
-    init::{create_command, make_plugin_interface},
     PluginGc,
+    init::{create_command, make_plugin_interface},
 };
 
 use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     HandlerGuard, Handlers, PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin,
     ShellError,
+    engine::{EngineState, Stack},
+    shell_error::io::IoError,
 };
 use std::{
     collections::HashMap,
@@ -110,9 +111,11 @@ impl PersistentPlugin {
                     Some(PreferredCommunicationMode::Stdio)
                 )
             {
-                log::warn!("{}: Trying again with stdio communication because mode {:?} failed with {result:?}",
+                log::warn!(
+                    "{}: Trying again with stdio communication because mode {:?} failed with {result:?}",
                     self.identity.name(),
-                    mutable.preferred_mode);
+                    mutable.preferred_mode
+                );
                 // Reset to stdio and try again, but this time don't catch any error
                 mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
                 self.clone().spawn(&envs, &mut mutable)?;
@@ -170,7 +173,9 @@ impl PersistentPlugin {
             let error_msg = match err.kind() {
                 std::io::ErrorKind::NotFound => match program_name {
                     Ok(prog_name) => {
-                        format!("Can't find {prog_name}, please make sure that {prog_name} is in PATH.")
+                        format!(
+                            "Can't find {prog_name}, please make sure that {prog_name} is in PATH."
+                        )
                     }
                     _ => {
                         format!("Error spawning child process: {err}")
@@ -184,7 +189,9 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self).map_err(|err| {
+            IoError::new_internal(err, "Could not start plugin gc", nu_protocol::location!())
+        })?;
 
         let pid = child.id();
         let interface = make_plugin_interface(
@@ -353,7 +360,7 @@ impl GetPlugin for PersistentPlugin {
                     // We need the current environment variables for `python` based plugins. Or
                     // we'll likely have a problem when a plugin is implemented in a virtual Python
                     // environment.
-                    let stack = &mut stack.start_capture();
+                    let stack = &mut stack.start_collect_value();
                     nu_engine::env::env_to_strings(engine_state, stack)
                 })
                 .transpose()?;

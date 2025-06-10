@@ -1,5 +1,5 @@
+use fancy_regex::Regex;
 use nu_test_support::{nu, playground::Playground};
-use regex::Regex;
 
 #[test]
 fn record_with_redefined_key() {
@@ -31,71 +31,43 @@ enum ExpectedOut<'a> {
 use self::ExpectedOut::*;
 
 fn test_eval(source: &str, expected_out: ExpectedOut) {
-    Playground::setup("test_eval_ast", |ast_dirs, _playground| {
-        Playground::setup("test_eval_ir", |ir_dirs, _playground| {
-            let actual_ast = nu!(
-                cwd: ast_dirs.test(),
-                use_ir: false,
-                source,
-            );
-            let actual_ir = nu!(
-                cwd: ir_dirs.test(),
-                use_ir: true,
-                source,
-            );
+    Playground::setup("test_eval", |dirs, _playground| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            source,
+        );
 
-            match expected_out {
-                Eq(eq) => {
-                    assert_eq!(actual_ast.out, eq);
-                    assert_eq!(actual_ir.out, eq);
-                    assert!(actual_ast.status.success());
-                    assert!(actual_ir.status.success());
-                }
-                Matches(regex) => {
-                    let compiled_regex = Regex::new(regex).expect("regex failed to compile");
-                    assert!(
-                        compiled_regex.is_match(&actual_ast.out),
-                        "AST eval out does not match: {}\n{}",
-                        regex,
-                        actual_ast.out
-                    );
-                    assert!(
-                        compiled_regex.is_match(&actual_ir.out),
-                        "IR eval out does not match: {}\n{}",
-                        regex,
-                        actual_ir.out,
-                    );
-                    assert!(actual_ast.status.success());
-                    assert!(actual_ir.status.success());
-                }
-                Error(regex) => {
-                    let compiled_regex = Regex::new(regex).expect("regex failed to compile");
-                    assert!(
-                        compiled_regex.is_match(&actual_ast.err),
-                        "AST eval err does not match: {}",
-                        regex
-                    );
-                    assert!(
-                        compiled_regex.is_match(&actual_ir.err),
-                        "IR eval err does not match: {}",
-                        regex
-                    );
-                    assert!(!actual_ast.status.success());
-                    assert!(!actual_ir.status.success());
-                }
-                FileEq(path, contents) => {
-                    let ast_contents = std::fs::read_to_string(ast_dirs.test().join(path))
-                        .expect("failed to read AST file");
-                    let ir_contents = std::fs::read_to_string(ir_dirs.test().join(path))
-                        .expect("failed to read IR file");
-                    assert_eq!(ast_contents.trim(), contents);
-                    assert_eq!(ir_contents.trim(), contents);
-                    assert!(actual_ast.status.success());
-                    assert!(actual_ir.status.success());
-                }
+        match expected_out {
+            Eq(eq) => {
+                assert_eq!(actual.out, eq);
+                assert!(actual.status.success());
             }
-            assert_eq!(actual_ast.out, actual_ir.out);
-        })
+            Matches(regex) => {
+                let compiled_regex = Regex::new(regex).expect("regex failed to compile");
+                assert!(
+                    compiled_regex.is_match(&actual.out).unwrap_or(false),
+                    "eval out does not match: {}\n{}",
+                    regex,
+                    actual.out,
+                );
+                assert!(actual.status.success());
+            }
+            Error(regex) => {
+                let compiled_regex = Regex::new(regex).expect("regex failed to compile");
+                assert!(
+                    compiled_regex.is_match(&actual.err).unwrap_or(false),
+                    "eval err does not match: {}",
+                    regex
+                );
+                assert!(!actual.status.success());
+            }
+            FileEq(path, contents) => {
+                let read_contents =
+                    std::fs::read_to_string(dirs.test().join(path)).expect("failed to read file");
+                assert_eq!(read_contents.trim(), contents);
+                assert!(actual.status.success());
+            }
+        }
     });
 }
 
@@ -116,7 +88,7 @@ fn literal_float() {
 
 #[test]
 fn literal_filesize() {
-    test_eval("30MiB", Eq("30.0 MiB"))
+    test_eval("30MB", Eq("30.0 MB"))
 }
 
 #[test]
@@ -131,7 +103,27 @@ fn literal_binary() {
 
 #[test]
 fn literal_closure() {
-    test_eval("{||}", Matches("<Closure"))
+    test_eval("{||}", Matches("closure_"))
+}
+
+#[test]
+fn literal_closure_to_nuon() {
+    test_eval("{||} | to nuon --serialize", Eq("\"{||}\""))
+}
+
+#[test]
+fn literal_closure_to_json() {
+    test_eval("{||} | to json --serialize", Eq("\"{||}\""))
+}
+
+#[test]
+fn literal_closure_to_toml() {
+    test_eval("{a: {||}} | to toml --serialize", Eq("a = \"{||}\""))
+}
+
+#[test]
+fn literal_closure_to_yaml() {
+    test_eval("{||} | to yaml --serialize", Eq("'{||}'"))
 }
 
 #[test]
@@ -187,7 +179,7 @@ fn record_spread() {
 #[test]
 fn binary_op_example() {
     test_eval(
-        "(([1 2] ++ [3 4]) == [1 2 3 4]) and (([1 2 3] ++ 4) == ([1] ++ [2 3 4]))",
+        "(([1 2] ++ [3 4]) == [1 2 3 4]) and (([1] ++ [2 3 4]) == [1 2 3 4])",
         Eq("true"),
     )
 }

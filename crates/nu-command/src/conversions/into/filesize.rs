@@ -1,12 +1,12 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
 use nu_engine::command_prelude::*;
 
 use nu_utils::get_system_locale;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoFilesize;
 
-impl Command for SubCommand {
+impl Command for IntoFilesize {
     fn name(&self) -> &str {
         "into filesize"
     }
@@ -116,7 +116,7 @@ impl Command for SubCommand {
     }
 }
 
-pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
     let value_span = input.span();
     match input {
         Value::Filesize { .. } => input.clone(),
@@ -197,6 +197,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoFilesize {})
     }
 }

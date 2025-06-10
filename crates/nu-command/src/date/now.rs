@@ -2,9 +2,9 @@ use chrono::Local;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct DateNow;
 
-impl Command for SubCommand {
+impl Command for DateNow {
     fn name(&self) -> &str {
         "date now"
     }
@@ -38,8 +38,13 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get the current date and display it in a given format string.",
+                description: "Get the current date and format it in a given format string.",
                 example: r#"date now | format date "%Y-%m-%d %H:%M:%S""#,
+                result: None,
+            },
+            Example {
+                description: "Get the current date and format it according to the RFC 3339 standard.",
+                example: r#"date now | format date "%+""#,
                 result: None,
             },
             Example {
@@ -53,7 +58,7 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get current time in full RFC 3339 format with time zone.",
+                description: "Get current time and format it in the debug format (RFC 2822 with timezone)",
                 example: r#"date now | debug"#,
                 result: None,
             },

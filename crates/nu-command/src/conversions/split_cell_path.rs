@@ -1,10 +1,10 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, IntoValue};
+use nu_protocol::{IntoValue, ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitCellPath;
 
-impl Command for SubCommand {
+impl Command for SplitCellPath {
     fn name(&self) -> &str {
         "split cell-path"
     }
@@ -16,7 +16,12 @@ impl Command for SubCommand {
                 (
                     Type::CellPath,
                     Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                        [
+                            ("value".into(), Type::Any),
+                            ("optional".into(), Type::Bool),
+                            ("insensitive".into(), Type::Bool),
+                        ]
+                        .into(),
                     ))),
                 ),
             ])
@@ -40,11 +45,12 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let input_type = input.get_type();
 
         let src_span = match input {
             // Early return on correct type and empty pipeline
             PipelineData::Value(Value::CellPath { val, .. }, _) => {
-                return Ok(split_cell_path(val, head)?.into_pipeline_data())
+                return Ok(split_cell_path(val, head)?.into_pipeline_data());
             }
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
 
@@ -54,8 +60,9 @@ impl Command for SubCommand {
             PipelineData::ListStream(stream, ..) => stream.span(),
             PipelineData::ByteStream(stream, ..) => stream.span(),
         };
-        Err(ShellError::PipelineMismatch {
+        Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "cell-path".into(),
+            wrong_type: input_type.to_string(),
             dst_span: head,
             src_span,
         })
@@ -70,36 +77,43 @@ impl Command for SubCommand {
                     Value::test_record(record! {
                         "value" => Value::test_int(5),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
             Example {
                 description: "Split a complex cell-path",
-                example: r#"$.a.b?.1."2"."c.d" | split cell-path"#,
+                example: r#"$.a!.b?.1."2"."c.d" | split cell-path"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_string("a"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(true),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("b"),
                         "optional" => Value::test_bool(true),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_int(1),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("2"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                     Value::test_record(record! {
                         "value" => Value::test_string("c.d"),
                         "optional" => Value::test_bool(false),
+                        "insensitive" => Value::test_bool(false),
                     }),
                 ])),
             },
@@ -112,22 +126,29 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
     struct PathMemberRecord {
         value: Value,
         optional: bool,
+        insensitive: bool,
     }
 
     impl PathMemberRecord {
         fn from_path_member(pm: PathMember) -> Self {
-            let (optional, internal_span) = match pm {
-                PathMember::String { optional, span, .. }
-                | PathMember::Int { optional, span, .. } => (optional, span),
+            let (optional, insensitive, internal_span) = match pm {
+                PathMember::String {
+                    optional,
+                    casing,
+                    span,
+                    ..
+                } => (optional, casing == Casing::Insensitive, span),
+                PathMember::Int { optional, span, .. } => (optional, false, span),
             };
             let value = match pm {
-                PathMember::String { val, .. } => Value::String { val, internal_span },
-                PathMember::Int { val, .. } => Value::Int {
-                    val: val as i64,
-                    internal_span,
-                },
+                PathMember::String { val, .. } => Value::string(val, internal_span),
+                PathMember::Int { val, .. } => Value::int(val as i64, internal_span),
             };
-            Self { value, optional }
+            Self {
+                value,
+                optional,
+                insensitive,
+            }
         }
     }
 
@@ -142,10 +163,7 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
         })
         .collect();
 
-    Ok(Value::List {
-        vals: members,
-        internal_span: span,
-    })
+    Ok(Value::list(members, span))
 }
 
 #[cfg(test)]
@@ -156,6 +174,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitCellPath {})
     }
 }

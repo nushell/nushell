@@ -2,7 +2,7 @@ use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
 use nu_utils::IgnoreCaseExt;
-use std::collections::{hash_map::IntoIter, HashMap};
+use std::collections::{HashMap, hash_map::IntoIter};
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -46,7 +46,7 @@ impl Command for Uniq {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["distinct", "deduplicate"]
+        vec!["distinct", "deduplicate", "count"]
     }
 
     fn run(
@@ -84,41 +84,34 @@ impl Command for Uniq {
             Example {
                 description: "Return the input values that occur more than once",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::list(
-                    vec![Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(vec![Value::test_int(2)], Span::test_data())),
             },
             Example {
                 description: "Return the input values that occur once only",
                 example: "[1 2 2] | uniq --unique",
-                result: Some(Value::list(
-                    vec![Value::test_int(1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(vec![Value::test_int(1)], Span::test_data())),
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
                 example: "['hello' 'goodbye' 'Hello'] | uniq --ignore-case",
-                result: Some(Value::test_list(
-                    vec![Value::test_string("hello"), Value::test_string("goodbye")],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("hello"),
+                    Value::test_string("goodbye"),
+                ])),
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq --count",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "value" => Value::test_int(1),
-                            "count" => Value::test_int(1),
-                        }),
-                        Value::test_record(record! {
-                            "value" => Value::test_int(2),
-                            "count" => Value::test_int(2),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_int(1),
+                        "count" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_int(2),
+                        "count" => Value::test_int(2),
+                    }),
+                ])),
             },
         ]
     }
@@ -213,9 +206,15 @@ fn sort_attributes(val: Value) -> Value {
     }
 }
 
-fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
+fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown()))
+    nuon::to_nuon(
+        engine_state,
+        &value,
+        nuon::ToStyle::Default,
+        Some(Span::unknown()),
+        false,
+    )
 }
 
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {
@@ -264,7 +263,7 @@ pub fn uniq(
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {
-                let key = generate_key(&item);
+                let key = generate_key(engine_state, &item);
 
                 match key {
                     Ok(key) => {

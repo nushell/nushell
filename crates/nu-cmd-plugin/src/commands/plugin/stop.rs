@@ -16,7 +16,7 @@ impl Command for PluginStop {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name, or filename, of the plugin to stop",
+                "The name, or filename, of the plugin to stop.",
             )
             .category(Category::Plugin)
     }

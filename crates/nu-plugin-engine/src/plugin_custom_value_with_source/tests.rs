@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use nu_plugin_protocol::test_util::{test_plugin_custom_value, TestCustomValue};
-use nu_protocol::{engine::Closure, record, CustomValue, IntoSpanned, ShellError, Span, Value};
+use nu_plugin_protocol::test_util::{TestCustomValue, test_plugin_custom_value};
+use nu_protocol::{
+    BlockId, CustomValue, IntoSpanned, ShellError, Span, Value, VarId, engine::Closure, record,
+};
 
 use crate::{
-    test_util::test_plugin_custom_value_with_source, PluginCustomValueWithSource, PluginSource,
+    PluginCustomValueWithSource, PluginSource, test_util::test_plugin_custom_value_with_source,
 };
 
 use super::WithSource;
@@ -132,8 +134,11 @@ fn check_closure_custom_values(
 fn add_source_in_nested_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
     let mut val = Value::test_closure(Closure {
-        block_id: 0,
-        captures: vec![(0, orig_custom_val.clone()), (1, orig_custom_val.clone())],
+        block_id: BlockId::new(0),
+        captures: vec![
+            (VarId::new(0), orig_custom_val.clone()),
+            (VarId::new(1), orig_custom_val.clone()),
+        ],
     });
     let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;

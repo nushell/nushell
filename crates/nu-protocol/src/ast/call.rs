@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    ShellError, Span, Spanned, Value,
+    DeclId, FromValue, ShellError, Span, Spanned, Value, ast::Expression, engine::StateWorkingSet,
+    eval_const::eval_constant,
 };
 
 /// Parsed command arguments
@@ -76,6 +76,15 @@ pub enum ExternalArgument {
     Spread(Expression),
 }
 
+impl ExternalArgument {
+    pub fn expr(&self) -> &Expression {
+        match self {
+            ExternalArgument::Regular(expr) => expr,
+            ExternalArgument::Spread(expr) => expr,
+        }
+    }
+}
+
 /// Parsed call of a `Command`
 ///
 /// As we also implement some internal keywords in terms of the `Command` trait, this type stores the passed arguments as [`Expression`].
@@ -96,7 +105,7 @@ pub struct Call {
 impl Call {
     pub fn new(head: Span) -> Call {
         Self {
-            decl_id: 0,
+            decl_id: DeclId::new(0),
             head,
             arguments: vec![],
             parser_info: HashMap::new(),

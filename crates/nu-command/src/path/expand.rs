@@ -17,9 +17,9 @@ struct Arguments {
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathExpand;
 
-impl Command for SubCommand {
+impl Command for PathExpand {
     fn name(&self) -> &str {
         "path expand"
     }
@@ -197,6 +197,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathExpand {})
     }
 }

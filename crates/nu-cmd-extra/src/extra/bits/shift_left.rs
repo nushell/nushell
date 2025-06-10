@@ -1,6 +1,6 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
+use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
 use itertools::Itertools;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use std::iter;
@@ -40,7 +40,7 @@ impl Command for BitsShl {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to shift left")
+            .required("bits", SyntaxShape::Int, "Number of bits to shift left.")
             .switch(
                 "signed",
                 "always treat input number as a signed number",
@@ -237,7 +237,8 @@ fn shift_bytes_left(data: &[u8], byte_shift: usize) -> Vec<u8> {
 
 fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
     use itertools::Position::*;
-    debug_assert!((1..8).contains(&bit_shift),
+    debug_assert!(
+        (1..8).contains(&bit_shift),
         "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
     );
     data.iter()
@@ -249,7 +250,7 @@ fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -
             Last | Only => lhs << bit_shift,
             _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
         })
-        .chain(iter::repeat(0).take(byte_shift))
+        .chain(iter::repeat_n(0, byte_shift))
         .collect::<Vec<u8>>()
 }
 

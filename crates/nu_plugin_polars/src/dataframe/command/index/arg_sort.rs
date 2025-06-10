@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -113,13 +113,15 @@ fn command(
         nulls_last: call.has_flag("nulls-last")?,
         multithreaded: true,
         maintain_order: call.has_flag("maintain-order")?,
+        // todo - expose limit
+        limit: None,
     };
 
     let mut res = df
         .as_series(call.head)?
         .arg_sort(sort_options)
         .into_series();
-    res.rename("arg_sort");
+    res.rename("arg_sort".into());
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

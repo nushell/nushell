@@ -82,6 +82,14 @@ fn catch_block_can_use_error_object() {
     assert_eq!(output.out, "Division by zero.")
 }
 
+#[test]
+fn catch_input_type_mismatch_and_rethrow() {
+    let actual = nu!(
+        "let x: any = 1; try { $x | get 1 } catch {|err| error make { msg: ($err | get msg) } }"
+    );
+    assert!(actual.err.contains("Input type not supported"));
+}
+
 // This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
 // For reasons we don't understand, the Windows CI runners are prone to stack overflow.
 // TODO: investigate so we can enable on Windows
@@ -104,4 +112,45 @@ fn exit_code_available_in_catch_env() {
 fn exit_code_available_in_catch() {
     let actual = nu!("try { nu -c 'exit 42' } catch { |e| $e.exit_code }");
     assert_eq!(actual.out, "42");
+}
+
+#[test]
+fn catches_exit_code_in_assignment() {
+    let actual = nu!("let x = try { nu -c 'exit 42' } catch { |e| $e.exit_code }; $x");
+    assert_eq!(actual.out, "42");
+}
+
+#[test]
+fn catches_exit_code_in_expr() {
+    let actual = nu!("print (try { nu -c 'exit 42' } catch { |e| $e.exit_code })");
+    assert_eq!(actual.out, "42");
+}
+
+#[test]
+fn prints_only_if_last_pipeline() {
+    let actual = nu!("try { 'should not print' }; 'last value'");
+    assert_eq!(actual.out, "last value");
+
+    let actual = nu!("try { ['should not print'] | every 1 }; 'last value'");
+    assert_eq!(actual.out, "last value");
+}
+
+#[test]
+fn get_error_columns() {
+    let actual = nu!(" try { non_existent_command } catch {|err| $err} | columns | to json -r");
+    assert_eq!(
+        actual.out,
+        "[\"msg\",\"debug\",\"raw\",\"rendered\",\"json\"]"
+    );
+}
+
+#[test]
+fn get_json_error() {
+    let actual = nu!(
+        "try { non_existent_command } catch {|err| $err} | get json | from json | update labels.span {{start: 0 end: 0}} | to json -r"
+    );
+    assert_eq!(
+        actual.out,
+        "{\"msg\":\"External command failed\",\"labels\":[{\"text\":\"Command `non_existent_command` not found\",\"span\":{\"start\":0,\"end\":0}}],\"code\":\"nu::shell::external_command\",\"url\":null,\"help\":\"`non_existent_command` is neither a Nushell built-in or a known external command\",\"inner\":[]}"
+    );
 }

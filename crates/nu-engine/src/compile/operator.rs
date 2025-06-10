@@ -1,12 +1,12 @@
 use nu_protocol::{
-    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember},
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Spanned, Value,
+    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember, Pattern},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
-    IntoSpanned, RegId, Span, Spanned, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
-use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression};
 
 pub(crate) fn compile_binary_op(
     working_set: &StateWorkingSet,
@@ -35,7 +35,7 @@ pub(crate) fn compile_binary_op(
                 working_set,
                 builder,
                 rhs,
-                RedirectModes::capture_out(rhs.span),
+                RedirectModes::value(rhs.span),
                 None,
                 out_reg,
             )?;
@@ -53,62 +53,60 @@ pub(crate) fn compile_binary_op(
             working_set,
             builder,
             lhs,
-            RedirectModes::capture_out(lhs.span),
+            RedirectModes::value(lhs.span),
             None,
             lhs_reg,
         )?;
 
         match op.item {
-            // `and` / `or` are short-circuiting, and we can get by with one register and a branch
-            Operator::Boolean(Boolean::And) => {
-                let true_label = builder.label(None);
-                builder.branch_if(lhs_reg, true_label, op.span)?;
+            // `and` / `or` are short-circuiting, use `match` to avoid running the RHS if LHS is
+            // the correct value. Be careful to support and/or on non-boolean values
+            Operator::Boolean(bool_op @ Boolean::And)
+            | Operator::Boolean(bool_op @ Boolean::Or) => {
+                // `and` short-circuits on false, and `or` short-circuits on true.
+                let short_circuit_value = match bool_op {
+                    Boolean::And => false,
+                    Boolean::Or => true,
+                    Boolean::Xor => unreachable!(),
+                };
 
-                // If the branch was not taken it's false, so short circuit to load false
-                let false_label = builder.label(None);
-                builder.jump(false_label, op.span)?;
+                // Before match against lhs_reg, it's important to collect it first to get a concrete value if there is a subexpression.
+                builder.push(Instruction::Collect { src_dst: lhs_reg }.into_spanned(lhs.span))?;
+                // Short-circuit to return `lhs_reg`. `match` op does not consume `lhs_reg`.
+                let short_circuit_label = builder.label(None);
+                builder.r#match(
+                    Pattern::Value(Value::bool(short_circuit_value, op.span)),
+                    lhs_reg,
+                    short_circuit_label,
+                    op.span,
+                )?;
 
-                builder.set_label(true_label, builder.here())?;
+                // If the match failed then this was not the short-circuit value, so we have to run
+                // the RHS expression
+                let rhs_reg = builder.next_register()?;
                 compile_expression(
                     working_set,
                     builder,
                     rhs,
-                    RedirectModes::capture_out(rhs.span),
+                    RedirectModes::value(rhs.span),
                     None,
-                    lhs_reg,
+                    rhs_reg,
                 )?;
 
-                let end_label = builder.label(None);
-                builder.jump(end_label, op.span)?;
-
-                // Consumed by `branch-if`, so we have to set it false again
-                builder.set_label(false_label, builder.here())?;
-                builder.load_literal(lhs_reg, Literal::Bool(false).into_spanned(lhs.span))?;
-
-                builder.set_label(end_label, builder.here())?;
-            }
-            Operator::Boolean(Boolean::Or) => {
-                let true_label = builder.label(None);
-                builder.branch_if(lhs_reg, true_label, op.span)?;
-
-                // If the branch was not taken it's false, so do the right-side expression
-                compile_expression(
-                    working_set,
-                    builder,
-                    rhs,
-                    RedirectModes::capture_out(rhs.span),
-                    None,
-                    lhs_reg,
+                // It may seem intuitive that we can just return RHS here, but we do have to
+                // actually execute the binary-op in case this is not a boolean
+                builder.push(
+                    Instruction::BinaryOp {
+                        lhs_dst: lhs_reg,
+                        op: Operator::Boolean(bool_op),
+                        rhs: rhs_reg,
+                    }
+                    .into_spanned(op.span),
                 )?;
 
-                let end_label = builder.label(None);
-                builder.jump(end_label, op.span)?;
-
-                // Consumed by `branch-if`, so we have to set it true again
-                builder.set_label(true_label, builder.here())?;
-                builder.load_literal(lhs_reg, Literal::Bool(true).into_spanned(lhs.span))?;
-
-                builder.set_label(end_label, builder.here())?;
+                // In either the short-circuit case or other case, the result is in lhs_reg =
+                // out_reg
+                builder.set_label(short_circuit_label, builder.here())?;
             }
             _ => {
                 // Any other operator, via `binary-op`
@@ -118,7 +116,7 @@ pub(crate) fn compile_binary_op(
                     working_set,
                     builder,
                     rhs,
-                    RedirectModes::capture_out(rhs.span),
+                    RedirectModes::value(rhs.span),
                     None,
                     rhs_reg,
                 )?;
@@ -154,11 +152,11 @@ pub(crate) fn compile_binary_op(
 pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
     match assignment {
         Assignment::Assign => None,
-        Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
-        Assignment::AppendAssign => Some(Operator::Math(Math::Append)),
-        Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
+        Assignment::AddAssign => Some(Operator::Math(Math::Add)),
+        Assignment::SubtractAssign => Some(Operator::Math(Math::Subtract)),
         Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
         Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),
+        Assignment::ConcatenateAssign => Some(Operator::Math(Math::Concatenate)),
     }
 }
 
@@ -277,7 +275,7 @@ pub(crate) fn compile_assignment(
                     working_set,
                     builder,
                     &path.head,
-                    RedirectModes::capture_out(path.head.span),
+                    RedirectModes::value(path.head.span),
                     None,
                     head_reg,
                 )?;
@@ -335,43 +333,46 @@ pub(crate) fn compile_load_env(
     path: &[PathMember],
     out_reg: RegId,
 ) -> Result<(), CompileError> {
-    if path.is_empty() {
-        builder.push(
+    match path {
+        [] => builder.push(
             Instruction::LoadVariable {
                 dst: out_reg,
                 var_id: ENV_VARIABLE_ID,
             }
             .into_spanned(span),
-        )?;
-    } else {
-        let (key, optional) = match &path[0] {
-            PathMember::String { val, optional, .. } => (builder.data(val)?, *optional),
-            PathMember::Int { span, .. } => {
-                return Err(CompileError::AccessEnvByInt { span: *span })
-            }
-        };
-        let tail = &path[1..];
-
-        if optional {
-            builder.push(Instruction::LoadEnvOpt { dst: out_reg, key }.into_spanned(span))?;
-        } else {
-            builder.push(Instruction::LoadEnv { dst: out_reg, key }.into_spanned(span))?;
+        )?,
+        [PathMember::Int { span, .. }, ..] => {
+            return Err(CompileError::AccessEnvByInt { span: *span });
         }
+        [
+            PathMember::String {
+                val: key, optional, ..
+            },
+            tail @ ..,
+        ] => {
+            let key = builder.data(key)?;
 
-        if !tail.is_empty() {
-            let path = builder.literal(
-                Literal::CellPath(Box::new(CellPath {
-                    members: tail.to_vec(),
-                }))
-                .into_spanned(span),
-            )?;
-            builder.push(
-                Instruction::FollowCellPath {
-                    src_dst: out_reg,
-                    path,
-                }
-                .into_spanned(span),
-            )?;
+            builder.push(if *optional {
+                Instruction::LoadEnvOpt { dst: out_reg, key }.into_spanned(span)
+            } else {
+                Instruction::LoadEnv { dst: out_reg, key }.into_spanned(span)
+            })?;
+
+            if !tail.is_empty() {
+                let path = builder.literal(
+                    Literal::CellPath(Box::new(CellPath {
+                        members: tail.to_vec(),
+                    }))
+                    .into_spanned(span),
+                )?;
+                builder.push(
+                    Instruction::FollowCellPath {
+                        src_dst: out_reg,
+                        path,
+                    }
+                    .into_spanned(span),
+                )?;
+            }
         }
     }
     Ok(())

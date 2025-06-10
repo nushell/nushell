@@ -1,22 +1,24 @@
 use crate::test_util::TestCaseExt;
 
 use super::{EngineInterfaceManager, ReceivedPluginCall};
-use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
+use nu_engine::command_prelude::IoError;
+use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
-    test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse,
     EvaluatedCall, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
+    test_util::{TestCustomValue, expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    engine::Closure, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value,
+    BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
+    PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    engine::Closure, shell_error,
 };
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{self, TryRecvError},
         Arc,
+        mpsc::{self, TryRecvError},
     },
 };
 
@@ -88,9 +90,12 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 }
 
 fn test_io_error() -> ShellError {
-    ShellError::IOError {
-        msg: "test io error".into(),
-    }
+    ShellError::Io(IoError::new_with_additional_context(
+        shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
+        Span::test_data(),
+        None,
+        "test io error",
+    ))
 }
 
 fn check_test_io_error(error: &ShellError) {
@@ -538,8 +543,8 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
 }
 
 #[test]
-fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
-) -> Result<(), ShellError> {
+fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data()
+-> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;
 
@@ -1040,8 +1045,8 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
         .eval_closure_with_stream(
             &Spanned {
                 item: Closure {
-                    block_id: 42,
-                    captures: vec![(0, Value::test_int(5))],
+                    block_id: BlockId::new(42),
+                    captures: vec![(VarId::new(0), Value::test_int(5))],
                 },
                 span: Span::test_data(),
             },
@@ -1064,10 +1069,14 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                 redirect_stdout,
                 redirect_stderr,
             } => {
-                assert_eq!(42, closure.item.block_id, "closure.item.block_id");
+                assert_eq!(
+                    BlockId::new(42),
+                    closure.item.block_id,
+                    "closure.item.block_id"
+                );
                 assert_eq!(1, closure.item.captures.len(), "closure.item.captures.len");
                 assert_eq!(
-                    (0, Value::test_int(5)),
+                    (VarId::new(0), Value::test_int(5)),
                     closure.item.captures[0],
                     "closure.item.captures[0]"
                 );

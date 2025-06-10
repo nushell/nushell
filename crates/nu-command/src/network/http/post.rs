@@ -1,14 +1,14 @@
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, HttpBody, RequestFlags,
+    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpPost;
 
-impl Command for SubCommand {
+impl Command for HttpPost {
     fn name(&self) -> &str {
         "http post"
     }
@@ -39,8 +39,8 @@ impl Command for SubCommand {
             )
             .named(
                 "max-time",
-                SyntaxShape::Int,
-                "timeout period in seconds",
+                SyntaxShape::Duration,
+                "max duration before timeout occurs",
                 Some('m'),
             )
             .named(
@@ -113,8 +113,13 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with custom header",
-                example: "http post --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Post content to example.com, with custom header using a record",
+                example: "http post --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Post content to example.com, with custom header using a list",
+                example: "http post --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
@@ -128,8 +133,13 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Upload a file to example.com",
-                example: "http post --content-type multipart/form-data https://www.example.com { audio: (open -r file.mp3) }",
+                description: "Upload a binary file to example.com",
+                example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.mp3) }",
+                result: None,
+            },
+            Example {
+                description: "Convert a text file into binary and upload it to example.com",
+                example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.txt | into binary) }",
                 result: None,
             },
         ]
@@ -219,6 +229,7 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
 
     let response = send_request(
+        engine_state,
         request.clone(),
         args.data,
         args.content_type,
@@ -252,6 +263,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpPost {})
     }
 }

@@ -87,21 +87,10 @@ pub fn help_commands(
             name.push_str(&r.item);
         }
 
-        let output = engine_state
-            .get_decls_sorted(false)
-            .into_iter()
-            .filter_map(|(_, decl_id)| {
-                let decl = engine_state.get_decl(decl_id);
-                (decl.name() == name).then_some(decl)
-            })
-            .map(|cmd| get_full_help(cmd, engine_state, stack))
-            .collect::<Vec<String>>();
-
-        if !output.is_empty() {
-            Ok(
-                Value::string(output.join("======================\n\n"), call.head)
-                    .into_pipeline_data(),
-            )
+        if let Some(decl) = engine_state.find_decl(name.as_bytes(), &[]) {
+            let cmd = engine_state.get_decl(decl);
+            let help_text = get_full_help(cmd, engine_state, stack);
+            Ok(Value::string(help_text, call.head).into_pipeline_data())
         } else {
             Err(ShellError::CommandNotFound {
                 span: Span::merge_many(rest.iter().map(|s| s.span)),
@@ -220,6 +209,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "params" => param_table,
             "input_output" => input_output_table,
             "search_terms" => Value::string(search_terms.join(", "), span),
+            "is_const" => Value::bool(decl.is_const(), span),
         };
 
         found_cmds_vec.push(Value::record(record, span));

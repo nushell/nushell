@@ -1,15 +1,15 @@
-use std::sync::Arc;
-
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{into_code, Config};
+use nu_protocol::Config;
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
+use std::sync::Arc;
 
 struct Arguments {
     decimals_value: Option<i64>,
     cell_paths: Option<Vec<CellPath>>,
     config: Arc<Config>,
+    group_digits: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -19,9 +19,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct IntoString;
 
-impl Command for SubCommand {
+impl Command for IntoString {
     fn name(&self) -> &str {
         "into string"
     }
@@ -38,6 +38,7 @@ impl Command for SubCommand {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (Type::Range, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
@@ -50,6 +51,11 @@ impl Command for SubCommand {
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",
+            )
+            .switch(
+                "group-digits",
+                "group digits together by the locale specific thousands separator",
+                Some('g'),
             )
             .named(
                 "decimals",
@@ -127,8 +133,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "convert filesize to string",
-                example: "1KiB | into string",
-                result: Some(Value::test_string("1.0 KiB")),
+                example: "1kB | into string",
+                result: Some(Value::test_string("1.0 kB")),
             },
             Example {
                 description: "convert duration to string",
@@ -147,6 +153,7 @@ fn string_helper(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
+    let group_digits = call.has_flag(engine_state, stack, "group-digits")?;
     if let Some(decimal_val) = decimals_value {
         if decimal_val.is_negative() {
             return Err(ShellError::TypeMismatch {
@@ -181,6 +188,7 @@ fn string_helper(
             decimals_value,
             cell_paths,
             config,
+            group_digits,
         };
         operate(action, args, input, head, engine_state.signals())
     }
@@ -189,10 +197,12 @@ fn string_helper(
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let digits = args.decimals_value;
     let config = &args.config;
+    let group_digits = args.group_digits;
+
     match input {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
-            let res = format_int(*val, false, decimal_value);
+            let res = format_int(*val, group_digits, decimal_value);
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
@@ -205,15 +215,17 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         }
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
-        Value::String { val, .. } => Value::string(val.to_string(), span),
-        Value::Glob { val, .. } => Value::string(val.to_string(), span),
-
-        Value::Filesize { val: _, .. } => {
-            Value::string(input.to_expanded_string(", ", config), span)
+        Value::String { val, .. } => Value::string(val, span),
+        Value::Glob { val, .. } => Value::string(val, span),
+        Value::Filesize { val, .. } => {
+            if group_digits {
+                let decimal_value = digits.unwrap_or(0) as usize;
+                Value::string(format_int(val.get(), group_digits, decimal_value), span)
+            } else {
+                Value::string(input.to_expanded_string(", ", config), span)
+            }
         }
         Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
-
-        Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),
         Value::Record { .. } => Value::error(
             // Watch out for CantConvert's argument order
@@ -249,6 +261,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 })
                 .unwrap_or_else(|err| Value::error(err, span))
         }
+        Value::Error { .. } => input.clone(),
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("string"),
@@ -293,6 +306,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(IntoString {})
     }
 }

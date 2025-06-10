@@ -1,15 +1,15 @@
 use super::{
+    Interface, InterfaceManager, PluginRead, PluginWrite,
     stream::{StreamManager, StreamManagerHandle},
     test_util::TestCase,
-    Interface, InterfaceManager, PluginRead, PluginWrite,
 };
 use nu_plugin_protocol::{
     ByteStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput, StreamData,
     StreamMessage,
 };
 use nu_protocol::{
-    engine::Sequence, ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream,
-    PipelineData, PipelineMetadata, ShellError, Signals, Span, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
+    PipelineMetadata, ShellError, Signals, Span, Value, engine::Sequence, shell_error::io::IoError,
 };
 use std::{path::Path, sync::Arc};
 
@@ -245,7 +245,8 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
             match stream.into_source() {
                 ByteStreamSource::Read(mut read) => {
                     let mut buf = Vec::new();
-                    read.read_to_end(&mut buf)?;
+                    read.read_to_end(&mut buf)
+                        .map_err(|err| IoError::new(err, test_span, None))?;
                     let iter = buf.chunks_exact(out_pattern.len());
                     assert_eq!(iter.len(), iterations);
                     for chunk in iter {

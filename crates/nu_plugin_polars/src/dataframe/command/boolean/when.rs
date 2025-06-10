@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen},
     values::{CustomValueSupport, NuWhenType},
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -35,10 +35,16 @@ impl PluginCommand for ExprWhen {
                 SyntaxShape::Any,
                 "expression that will be applied when predicate is true",
             )
-            .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
-            )
+            .input_output_types(vec![
+                (Type::Nothing, Type::Custom("expression".into())),
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                // FIXME Type::Any input added to disable pipeline input type checking, as run-time checks can raise undesirable type errors
+                // which aren't caught by the parser. see https://github.com/nushell/nushell/pull/14922 for more details
+                (Type::Any, Type::Custom("expression".into())),
+            ])
             .category(Category::Custom("expression".into()))
     }
 
@@ -105,6 +111,7 @@ impl PluginCommand for ExprWhen {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let when_predicate: Value = call.req(0)?;
         let when_predicate = NuExpression::try_from_value(plugin, &when_predicate)?;
 
@@ -131,6 +138,7 @@ impl PluginCommand for ExprWhen {
         when_then
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

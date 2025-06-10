@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 use std::io::Read;
 
 pub fn empty(
@@ -14,17 +15,8 @@ pub fn empty(
     if !columns.is_empty() {
         for val in input {
             for column in &columns {
-                let val = val.clone();
-                match val.follow_cell_path(&column.members, false) {
-                    Ok(Value::Nothing { .. }) => {}
-                    Ok(_) => {
-                        if negate {
-                            return Ok(Value::bool(true, head).into_pipeline_data());
-                        } else {
-                            return Ok(Value::bool(false, head).into_pipeline_data());
-                        }
-                    }
-                    Err(err) => return Err(err),
+                if !val.follow_cell_path(&column.members)?.is_nothing() {
+                    return Ok(Value::bool(negate, head).into_pipeline_data());
                 }
             }
         }
@@ -41,7 +33,12 @@ pub fn empty(
                 let span = stream.span();
                 match stream.reader() {
                     Some(reader) => {
-                        let is_empty = reader.bytes().next().transpose().err_span(span)?.is_none();
+                        let is_empty = reader
+                            .bytes()
+                            .next()
+                            .transpose()
+                            .map_err(|err| IoError::new(err, span, None))?
+                            .is_none();
                         if negate {
                             Ok(Value::bool(!is_empty, head).into_pipeline_data())
                         } else {

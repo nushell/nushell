@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
-use std::process::{Command as CommandSys, Stdio};
+use nu_system::build_kill_command;
+use std::process::Stdio;
 
 #[derive(Clone)]
 pub struct Kill;
@@ -17,12 +18,11 @@ impl Command for Kill {
         let signature = Signature::build("kill")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required(
+            .rest(
                 "pid",
                 SyntaxShape::Int,
-                "Process id of process that is to be killed.",
+                "Process ids of processes that are to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
@@ -50,75 +50,47 @@ impl Command for Kill {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let pid: i64 = call.req(engine_state, stack, 0)?;
-        let rest: Vec<i64> = call.rest(engine_state, stack, 1)?;
+        let pids: Vec<i64> = call.rest(engine_state, stack, 0)?;
         let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
         let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
 
-        let mut cmd = if cfg!(windows) {
-            let mut cmd = CommandSys::new("taskkill");
+        if pids.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "pid".to_string(),
+                span: call.arguments_span(),
+            });
+        }
 
-            if force {
-                cmd.arg("/F");
-            }
-
-            cmd.arg("/PID");
-            cmd.arg(pid.to_string());
-
-            // each pid must written as `/PID 0` otherwise
-            // taskkill will act as `killall` unix command
-            for id in &rest {
-                cmd.arg("/PID");
-                cmd.arg(id.to_string());
-            }
-
-            cmd
-        } else {
-            let mut cmd = CommandSys::new("kill");
-            if force {
-                if let Some(Spanned {
+        if cfg!(unix) {
+            if let (
+                true,
+                Some(Spanned {
                     item: _,
                     span: signal_span,
-                }) = signal
-                {
-                    return Err(ShellError::IncompatibleParameters {
-                        left_message: "force".to_string(),
-                        left_span: call.get_flag_span(stack, "force").ok_or_else(|| {
-                            ShellError::GenericError {
-                                error: "Flag error".into(),
-                                msg: "flag force not found".into(),
-                                span: Some(call.head),
-                                help: None,
-                                inner: vec![],
-                            }
-                        })?,
-                        right_message: "signal".to_string(),
-                        right_span: Span::merge(
-                            call.get_flag_span(stack, "signal").ok_or_else(|| {
-                                ShellError::GenericError {
-                                    error: "Flag error".into(),
-                                    msg: "flag signal not found".into(),
-                                    span: Some(call.head),
-                                    help: None,
-                                    inner: vec![],
-                                }
-                            })?,
-                            signal_span,
-                        ),
-                    });
-                }
-                cmd.arg("-9");
-            } else if let Some(signal_value) = signal {
-                cmd.arg(format!("-{}", signal_value.item));
+                }),
+            ) = (force, signal)
+            {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "force".to_string(),
+                    left_span: call
+                        .get_flag_span(stack, "force")
+                        .expect("Had flag force, but didn't have span for flag"),
+                    right_message: "signal".to_string(),
+                    right_span: Span::merge(
+                        call.get_flag_span(stack, "signal")
+                            .expect("Had flag signal, but didn't have span for flag"),
+                        signal_span,
+                    ),
+                });
             }
-
-            cmd.arg(pid.to_string());
-
-            cmd.args(rest.iter().map(move |id| id.to_string()));
-
-            cmd
         };
+
+        let mut cmd = build_kill_command(
+            force,
+            pids.iter().copied(),
+            signal.map(|spanned| spanned.item as u32),
+        );
 
         // pipe everything to null
         if quiet {

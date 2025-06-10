@@ -13,7 +13,7 @@ impl Command for ToNuon {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "raw",
-                "remove all of the whitespace (default behaviour and overwrites -i and -t)",
+                "remove all of the whitespace (overwrites -i and -t)",
                 Some('r'),
             )
             .named(
@@ -27,6 +27,11 @@ impl Command for ToNuon {
                 SyntaxShape::Number,
                 "specify indentation tab quantity",
                 Some('t'),
+            )
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
             )
             .category(Category::Formats)
     }
@@ -47,6 +52,7 @@ impl Command for ToNuon {
             .unwrap_or_default()
             .with_content_type(Some("application/x-nuon".into()));
 
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -54,25 +60,18 @@ impl Command for ToNuon {
         } else if let Some(i) = call.get_flag(engine_state, stack, "indent")? {
             nuon::ToStyle::Spaces(i)
         } else {
-            nuon::ToStyle::Raw
+            nuon::ToStyle::Default
         };
 
         let span = call.head;
         let value = input.into_value(span)?;
 
-        match nuon::to_nuon(&value, style, Some(span)) {
+        match nuon::to_nuon(engine_state, &value, style, Some(span), serialize_types) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
                 .into_pipeline_data_with_metadata(Some(metadata))),
-            _ => Ok(Value::error(
-                ShellError::CantConvert {
-                    to_type: "NUON".into(),
-                    from_type: value.get_type().to_string(),
-                    span,
-                    help: None,
-                },
-                span,
-            )
-            .into_pipeline_data_with_metadata(Some(metadata))),
+            Err(error) => {
+                Ok(Value::error(error, span).into_pipeline_data_with_metadata(Some(metadata)))
+            }
         }
     }
 
@@ -81,7 +80,7 @@ impl Command for ToNuon {
             Example {
                 description: "Outputs a NUON string representing the contents of this list, compact by default",
                 example: "[1 2 3] | to nuon",
-                result: Some(Value::test_string("[1, 2, 3]"))
+                result: Some(Value::test_string("[1, 2, 3]")),
             },
             Example {
                 description: "Outputs a NUON array of ints, with pretty indentation",
@@ -91,13 +90,22 @@ impl Command for ToNuon {
             Example {
                 description: "Overwrite any set option with --raw",
                 example: "[1 2 3] | to nuon --indent 2 --raw",
-                result: Some(Value::test_string("[1, 2, 3]"))
+                result: Some(Value::test_string("[1,2,3]")),
             },
             Example {
                 description: "A more complex record with multiple data types",
                 example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
-                result: Some(Value::test_string("{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}"))
-            }
+                result: Some(Value::test_string(
+                    "{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}",
+                )),
+            },
+            Example {
+                description: "A more complex record with --raw",
+                example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --raw",
+                result: Some(Value::test_string(
+                    "{date:2000-01-01T00:00:00+00:00,data:[1,[2,3],4.56]}",
+                )),
+            },
         ]
     }
 }
@@ -107,7 +115,7 @@ mod test {
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
-    use crate::Metadata;
+    use crate::{Get, Metadata};
 
     #[test]
     fn test_examples() {
@@ -126,6 +134,7 @@ mod test {
 
             working_set.add_decl(Box::new(ToNuon {}));
             working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
 
             working_set.render()
         };

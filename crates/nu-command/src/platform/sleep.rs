@@ -70,8 +70,8 @@ impl Command for Sleep {
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {
-                description: "Sleep for 3sec",
-                example: "sleep 1sec 1sec 1sec",
+                description: "Use multiple arguments to write a duration with multiple units, which is unsupported by duration literals",
+                example: "sleep 1min 30sec",
                 result: None,
             },
             Example {

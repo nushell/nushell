@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::io::IoError;
 
 use super::msgpack::write_value;
 
@@ -30,6 +31,11 @@ impl Command for ToMsgpackz {
                 SyntaxShape::Int,
                 "Window size for brotli compression (default 20)",
                 Some('w'),
+            )
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
             )
             .category(Category::Formats)
     }
@@ -68,6 +74,7 @@ impl Command for ToMsgpackz {
             .get_flag(engine_state, stack, "window-size")?
             .map(to_u32)
             .transpose()?;
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
 
         let value_span = input.span().unwrap_or(call.head);
         let value = input.into_value(value_span)?;
@@ -79,8 +86,16 @@ impl Command for ToMsgpackz {
             window_size.map(|w| w.item).unwrap_or(DEFAULT_WINDOW_SIZE),
         );
 
-        write_value(&mut out, &value, 0)?;
-        out.flush().err_span(call.head)?;
+        write_value(
+            &mut out,
+            &value,
+            0,
+            engine_state,
+            call.head,
+            serialize_types,
+        )?;
+        out.flush()
+            .map_err(|err| IoError::new(err, call.head, None))?;
         drop(out);
 
         Ok(Value::binary(out_buf, call.head).into_pipeline_data())

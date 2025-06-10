@@ -20,7 +20,7 @@ impl CustomValue for NuWhenCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuWhenCustomValue".into()
+        "NuWhen".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

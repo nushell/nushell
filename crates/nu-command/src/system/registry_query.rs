@@ -1,7 +1,8 @@
 use nu_engine::command_prelude::*;
 
-use windows::{core::PCWSTR, Win32::System::Environment::ExpandEnvironmentStringsW};
-use winreg::{enums::*, types::FromRegValue, RegKey};
+use nu_protocol::shell_error::io::IoError;
+use windows::{Win32::System::Environment::ExpandEnvironmentStringsW, core::PCWSTR};
+use winreg::{RegKey, enums::*, types::FromRegValue};
 
 #[derive(Clone)]
 pub struct RegistryQuery;
@@ -90,7 +91,9 @@ fn registry_query(
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     let reg_hive = get_reg_hive(engine_state, stack, call)?;
-    let reg_key = reg_hive.open_subkey(registry_key.item)?;
+    let reg_key = reg_hive
+        .open_subkey(registry_key.item)
+        .map_err(|err| IoError::new(err, *registry_key_span, None))?;
 
     if registry_value.is_none() {
         let mut reg_values = vec![];
@@ -181,7 +184,7 @@ fn get_reg_hive(
                 msg: "Entered unreachable code".into(),
                 label: "Unknown registry hive".into(),
                 span: call.head,
-            })
+            });
         }
     };
     Ok(RegKey::predef(hkey))
