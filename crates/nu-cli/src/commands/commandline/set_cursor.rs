@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct CommandlineSetCursor;
 
-impl Command for SubCommand {
+impl Command for CommandlineSetCursor {
     fn name(&self) -> &str {
         "commandline set-cursor"
     }
@@ -18,7 +18,7 @@ impl Command for SubCommand {
                 "set the current cursor position to the end of the buffer",
                 Some('e'),
             )
-            .optional("pos", SyntaxShape::Int, "Cursor position to be set")
+            .optional("pos", SyntaxShape::Int, "Cursor position to be set.")
             .category(Category::Core)
     }
 

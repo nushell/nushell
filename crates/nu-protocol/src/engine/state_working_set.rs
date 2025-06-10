@@ -1,11 +1,12 @@
 use crate::{
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
+    ParseError, ParseWarning, ResolvedImportPattern, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
     ast::Block,
     engine::{
-        description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility,
+        CachedFile, Command, CommandType, EngineState, OverlayFrame, StateDelta, Variable,
+        VirtualPath, Visibility, description::build_desc,
     },
-    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, OverlayId,
-    ParseError, ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -206,7 +207,7 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn move_predecls_to_overlay(&mut self) {
+    fn move_predecls_to_overlay(&mut self) {
         let predecls: HashMap<Vec<u8>, DeclId> =
             self.delta.last_scope_frame_mut().predecls.drain().collect();
 
@@ -310,10 +311,6 @@ impl<'a> StateWorkingSet<'a> {
         } else {
             permanent_span_start
         }
-    }
-
-    pub fn global_span_offset(&self) -> usize {
-        self.permanent_state.next_span_start()
     }
 
     pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
@@ -553,34 +550,6 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn contains_decl_partial_match(&self, name: &[u8]) -> bool {
-        let mut removed_overlays = vec![];
-
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                for decl in &overlay_frame.decls {
-                    if decl.0.starts_with(name) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        for overlay_frame in self
-            .permanent_state
-            .active_overlays(&removed_overlays)
-            .rev()
-        {
-            for decl in &overlay_frame.decls {
-                if decl.0.starts_with(name) {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
     pub fn next_var_id(&self) -> VarId {
         let num_permanent_vars = self.permanent_state.num_vars();
         VarId::new(num_permanent_vars + self.delta.vars.len())
@@ -779,21 +748,22 @@ impl<'a> StateWorkingSet<'a> {
         &self,
         mut predicate: impl FnMut(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
+    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame.active_overlays.iter().rev() {
                 let overlay_frame = scope_frame.get_overlay(*overlay_id);
 
-                for decl in &overlay_frame.decls {
-                    if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
-                        let command = self.get_decl(*decl.1);
+                for (name, decl_id) in &overlay_frame.decls {
+                    if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
+                        let command = self.get_decl(*decl_id);
                         if ignore_deprecated && command.signature().category == Category::Removed {
                             continue;
                         }
                         output.push((
-                            decl.0.clone(),
+                            *decl_id,
+                            name.clone(),
                             Some(command.description().to_string()),
                             command.command_type(),
                         ));
@@ -848,20 +818,6 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
-    pub fn has_overlay(&self, name: &[u8]) -> bool {
-        for scope_frame in self.delta.scope.iter().rev() {
-            if scope_frame
-                .overlays
-                .iter()
-                .any(|(overlay_name, _)| name == overlay_name)
-            {
-                return true;
-            }
-        }
-
-        self.permanent_state.has_overlay(name)
-    }
-
     /// Find the overlay corresponding to `name`.
     pub fn find_overlay(&self, name: &[u8]) -> Option<&OverlayFrame> {
         for scope_frame in self.delta.scope.iter().rev() {
@@ -883,7 +839,7 @@ impl<'a> StateWorkingSet<'a> {
                 .active_overlay_names(&mut removed_overlays)
                 .iter()
                 .rev()
-                .last()
+                .next_back()
             {
                 return last_name;
             }
@@ -899,7 +855,7 @@ impl<'a> StateWorkingSet<'a> {
             if let Some(last_overlay) = scope_frame
                 .active_overlays(&mut removed_overlays)
                 .rev()
-                .last()
+                .next_back()
             {
                 return last_overlay;
             }
@@ -915,7 +871,12 @@ impl<'a> StateWorkingSet<'a> {
             let name = self.last_overlay_name().to_vec();
             let origin = overlay_frame.origin;
             let prefixed = overlay_frame.prefixed;
-            self.add_overlay(name, origin, vec![], vec![], prefixed);
+            self.add_overlay(
+                name,
+                origin,
+                ResolvedImportPattern::new(vec![], vec![], vec![], vec![]),
+                prefixed,
+            );
         }
 
         self.delta
@@ -952,8 +913,7 @@ impl<'a> StateWorkingSet<'a> {
         &mut self,
         name: Vec<u8>,
         origin: ModuleId,
-        decls: Vec<(Vec<u8>, DeclId)>,
-        modules: Vec<(Vec<u8>, ModuleId)>,
+        definitions: ResolvedImportPattern,
         prefixed: bool,
     ) {
         let last_scope_frame = self.delta.last_scope_frame_mut();
@@ -980,8 +940,22 @@ impl<'a> StateWorkingSet<'a> {
 
         self.move_predecls_to_overlay();
 
-        self.use_decls(decls);
-        self.use_modules(modules);
+        self.use_decls(definitions.decls);
+        self.use_modules(definitions.modules);
+
+        let mut constants = vec![];
+
+        for (name, const_vid) in definitions.constants {
+            constants.push((name, const_vid));
+        }
+
+        for (name, const_val) in definitions.constant_values {
+            let const_var_id =
+                self.add_variable(name.clone(), Span::unknown(), const_val.get_type(), false);
+            self.set_variable_const_val(const_var_id, const_val);
+            constants.push((name, const_var_id));
+        }
+        self.use_variables(constants);
     }
 
     pub fn remove_overlay(&mut self, name: &[u8], keep_custom: bool) {

@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 
 #[test]
 fn contains() -> TestResult {
@@ -73,10 +73,10 @@ fn invalid_not_regex_fails() -> TestResult {
 
 #[test]
 fn regex_on_int_fails() -> TestResult {
-    fail_test(r#"33 =~ foo"#, "is not supported")
+    fail_test(r#"33 =~ foo"#, "nu::parser::operator_unsupported_type")
 }
 
 #[test]
 fn not_regex_on_int_fails() -> TestResult {
-    fail_test(r#"33 !~ foo"#, "is not supported")
+    fail_test(r#"33 !~ foo"#, "nu::parser::operator_unsupported_type")
 }

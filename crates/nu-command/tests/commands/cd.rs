@@ -210,7 +210,7 @@ fn filesystem_directory_not_found() {
             actual.err
         );
         assert!(
-            actual.err.contains("nu::shell::io::not_found"),
+            actual.err.contains("nu::shell::io::directory_not_found"),
             "actual={:?}",
             actual.err
         );
@@ -262,11 +262,12 @@ fn test_change_windows_drive() {
                 subst Z: /d
             "#
         );
-        assert!(dirs
-            .test()
-            .join("test_folder")
-            .join("test_file.txt")
-            .exists());
+        assert!(
+            dirs.test()
+                .join("test_folder")
+                .join("test_file.txt")
+                .exists()
+        );
     })
 }
 

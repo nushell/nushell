@@ -1,4 +1,5 @@
 use std/assert
+use std/testing *
 use std-rfc/tables *
 
 const test_table = [
@@ -29,7 +30,7 @@ const enumerated_table = [
   [   9         'a9'      'b9'      'c9'      'd9'      'e9'      'f9' ]
 ]
 
-#[test]
+@test
 def select-slice--single_int [] {
   assert equal (
     $test_table | select slices 1
@@ -38,7 +39,7 @@ def select-slice--single_int [] {
   )
 }
 
-#[test]
+@test
 def select-slice--single_slice [] {
   assert equal (
     $test_table | select slices 2..4
@@ -47,7 +48,7 @@ def select-slice--single_slice [] {
   )
 }
 
-#[test]
+@test
 def select-slice--complex [] {
   assert equal (
     # First and every following third-row + second row
@@ -57,7 +58,7 @@ def select-slice--complex [] {
   )
 }
 
-#[test]
+@test
 def select-slice--out_of_bounds [] {
   assert equal (
     $test_table | select slices 100
@@ -66,7 +67,7 @@ def select-slice--out_of_bounds [] {
   )
 }
 
-#[test]
+@test
 def reject-slice--single_index [] {
   assert equal (
     $test_table | reject slices 4
@@ -75,7 +76,7 @@ def reject-slice--single_index [] {
   )
 }
 
-#[test]
+@test
 def reject-slice--slices [] {
   assert equal (
     # Reject rows 0-3 and 5-9, leaving only 4
@@ -85,14 +86,14 @@ def reject-slice--slices [] {
   )
 }
 
-#[test]
+@test
 def reject-slice--out_of_bounds [] {
   assert error {
     $test_table | reject slices 1000
   }
 }
 
-#[test]
+@test
 def select-col--index [] {
   assert equal (
     $test_table | select column-slices 2
@@ -101,7 +102,7 @@ def select-col--index [] {
   )
 }
 
-#[test]
+@test
 def select-col--indices [] {
   assert equal (
     $test_table | select column-slices 2 4
@@ -110,7 +111,7 @@ def select-col--indices [] {
   )
 }
 
-#[test]
+@test
 def select-col--slices_and_index [] {
   assert equal (
     $test_table | select column-slices 0..2..5 1
@@ -119,7 +120,7 @@ def select-col--slices_and_index [] {
   )
 }
 
-#[test]
+@test
 def reject-col--slices_and_index [] {
   assert equal (
     $test_table | reject column-slices 0..2..5 1
@@ -128,7 +129,7 @@ def reject-col--slices_and_index [] {
   )
 }
 
-#[test]
+@test
 def reject-col--out_of_bounds [] {
   assert equal (
     $test_table | reject column-slices 1_000
@@ -217,7 +218,7 @@ const movies = [
     [ "(500) Days of Summer", comedy, Fox, 81, 8.096, 87, 60.72, 2009 ]
 ]
 
-#[test]
+@test
 def count_movies_by_Lead_Studio [] {
     let grouped = $movies | group-by Lead_Studio --to-table
     let out = $grouped | aggregate
@@ -242,7 +243,7 @@ def count_movies_by_Lead_Studio [] {
     assert equal $out $expected
 }
 
-#[test]
+@test
 def average_gross_by_Genre [] {
     let grouped = $movies | group-by Genre --to-table
     let out = $grouped | aggregate --ops {avg: {math avg}} Worldwide_Gross | select Genre Worldwide_Gross_avg
@@ -267,7 +268,7 @@ def average_gross_by_Genre [] {
     assert equal $out $expected
 }
 
-#[test]
+@test
 def aggregate_default_ops [] {
     let grouped = $movies | group-by Genre --to-table
     let out = $grouped | aggregate Worldwide_Gross
@@ -292,7 +293,7 @@ def aggregate_default_ops [] {
     assert equal $out $expected
 }
 
-#[test]
+@test
 def throw_error_on_non-table_input [] {
     # without --to-table
     let out = try {
@@ -304,7 +305,7 @@ def throw_error_on_non-table_input [] {
     assert equal $out "input must be a table"
 }
 
-#[test]
+@test
 def throw_error_on_non-existing_column [] {
     let grouped = $movies | group-by Genre --to-table
     let error = try {
@@ -316,7 +317,7 @@ def throw_error_on_non-existing_column [] {
     assert equal $error.inner.0.msg "Cannot find column '$.items.NotInTheDataSet'"
 }
 
-#[test]
+@test
 def aggregate_stats_without_grouping [] {
     let out = $movies | aggregate Year | update cells -c [Year_min Year_avg Year_max Year_sum] {math round -p 2}
     let expected = [{

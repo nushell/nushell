@@ -1,11 +1,13 @@
 #[cfg(not(windows))]
 use nu_path::AbsolutePath;
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::fs::{Stub::EmptyFile, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
 #[cfg(not(windows))]
 use std::fs;
+#[cfg(windows)]
+use std::{fs::OpenOptions, os::windows::fs::OpenOptionsExt};
 
 #[test]
 fn removes_a_file() {
@@ -419,7 +421,7 @@ fn set_dir_read_only(directory: &AbsolutePath, read_only: bool) {
 }
 
 #[cfg(not(windows))]
-impl<'a> Drop for Cleanup<'a> {
+impl Drop for Cleanup<'_> {
     /// Restores write permissions to the given directory so that the Playground can be successfully
     /// cleaned up.
     fn drop(&mut self) {
@@ -560,5 +562,28 @@ fn rm_with_tilde() {
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
         assert!(actual.err.is_empty());
         assert!(!files_exist_at(&["~tilde"], dirs.test()));
+    })
+}
+
+#[test]
+#[cfg(windows)]
+fn rm_already_in_use() {
+    Playground::setup("rm_already_in_use", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("i_will_be_used.txt")]);
+
+        let file_path = dirs.root().join("rm_already_in_use/i_will_be_used.txt");
+        let _file = OpenOptions::new()
+            .read(true)
+            .write(false)
+            .share_mode(0) // deny all sharing
+            .open(file_path)
+            .unwrap();
+
+        let outcome = nu!(
+            cwd: dirs.root(),
+            "rm rm_already_in_use/i_will_be_used.txt"
+        );
+
+        assert!(outcome.err.contains("nu::shell::io::already_in_use"));
     })
 }

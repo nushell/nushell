@@ -13,7 +13,7 @@ export def dark-theme [] {
         int: white
         filesize: cyan
         duration: white
-        date: purple
+        datetime: purple
         range: white
         float: white
         string: white
@@ -81,7 +81,7 @@ export def light-theme [] {
         int: dark_gray
         filesize: cyan_bold
         duration: dark_gray
-        date: purple
+        datetime: purple
         range: dark_gray
         float: dark_gray
         string: dark_gray
@@ -131,5 +131,15 @@ export def light-theme [] {
         shape_variable: purple
         shape_vardecl: purple
         shape_raw_string: light_purple
+    }
+}
+
+# Returns helper closures that can be used for ENV_CONVERSIONS and other purposes
+export def env-conversions [] {
+    {
+        "path": {
+            from_string: {|s| $s | split row (char esep) | path expand --no-symlink }
+            to_string: {|v| $v | path expand --no-symlink | str join (char esep) }
+        }
     }
 }

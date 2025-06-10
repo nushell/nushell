@@ -1,14 +1,14 @@
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, HttpBody, RequestFlags,
+    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpPatch;
 
-impl Command for SubCommand {
+impl Command for HttpPatch {
     fn name(&self) -> &str {
         "http patch"
     }
@@ -109,14 +109,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Patch content to example.com, with username and password",
-                example:
-                    "http patch --user myuser --password mypass https://www.example.com 'body'",
+                example: "http patch --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Patch content to example.com, with custom header",
-                example:
-                    "http patch --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Patch content to example.com, with custom header using a record",
+                example: "http patch --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Patch content to example.com, with custom header using a list",
+                example: "http patch --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
@@ -250,6 +253,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpPatch {})
     }
 }

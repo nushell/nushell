@@ -1,11 +1,11 @@
 use nu_protocol::{
+    DeclId, Span, SyntaxShape, VarId,
     ast::{
         Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
         MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
         RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, Span, SyntaxShape, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -189,6 +189,12 @@ fn flatten_expression_into(
     }
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => {
+            for attr in &ab.attributes {
+                flatten_expression_into(working_set, &attr.expr, output);
+            }
+            flatten_expression_into(working_set, &ab.item, output);
+        }
         Expr::BinaryOp(lhs, op, rhs) => {
             flatten_expression_into(working_set, lhs, output);
             flatten_expression_into(working_set, op, output);
@@ -226,7 +232,8 @@ fn flatten_expression_into(
                     None
                 }
             } else {
-                None
+                // for empty closures
+                Some((outer_span, FlatShape::Closure))
             };
 
             output.extend(flattened);

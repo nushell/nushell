@@ -106,8 +106,7 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description:
-                    "Transposes the table without column names and specify a new column name",
+                description: "Transposes the table without column names and specify a new column name",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -175,10 +174,22 @@ pub fn transpose(
 
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
-    // Ensure error values are propagated
-    for i in input.iter() {
-        if let Value::Error { .. } = i {
-            return Ok(i.clone().into_pipeline_data_with_metadata(metadata));
+
+    // Ensure error values are propagated and non-record values are rejected
+    for value in input.iter() {
+        match value {
+            Value::Error { .. } => {
+                return Ok(value.clone().into_pipeline_data_with_metadata(metadata));
+            }
+            Value::Record { .. } => {} // go on, this is what we're looking for
+            _ => {
+                return Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "table or record".into(),
+                    wrong_type: "list<any>".into(),
+                    dst_span: call.head,
+                    src_span: value.span(),
+                });
+            }
         }
     }
 

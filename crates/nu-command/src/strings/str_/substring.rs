@@ -1,13 +1,13 @@
 use std::ops::Bound;
 
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, IntRange};
+use nu_protocol::{IntRange, engine::StateWorkingSet};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrSubstring;
 
 struct Arguments {
     range: IntRange,
@@ -21,7 +21,7 @@ impl CmdArgument for Arguments {
     }
 }
 
-impl Command for SubCommand {
+impl Command for StrSubstring {
     fn name(&self) -> &str {
         "str substring"
     }
@@ -116,8 +116,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Get a substring \"nushell\" from the text \"good nushell\" using a range",
+                description: "Get a substring \"nushell\" from the text \"good nushell\" using a range",
                 example: " 'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },
@@ -188,13 +187,13 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 mod tests {
     use nu_protocol::IntRange;
 
-    use super::{action, Arguments, Span, SubCommand, Value};
+    use super::{Arguments, Span, StrSubstring, Value, action};
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrSubstring {})
     }
 
     #[derive(Clone, Copy, Debug)]

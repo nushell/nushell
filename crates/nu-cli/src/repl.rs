@@ -6,12 +6,12 @@ use crate::prompt_update::{
     VSCODE_PRE_EXECUTION_MARKER,
 };
 use crate::{
+    NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
-    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
+    reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     util::eval_source,
-    NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -20,27 +20,30 @@ use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::env_to_strings;
+use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
+use nu_protocol::shell_error;
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
+    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    report_shell_error,
 };
 use nu_utils::{
-    filesystem::{have_permission, PermissionResult},
+    filesystem::{PermissionResult, have_permission},
     perf,
 };
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, Reedline, SqliteBackedHistory, Vi,
 };
+use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -264,6 +267,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -421,7 +425,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
             report_shell_error(engine_state, &e);
-            Reedline::create()
+            let line_editor = Reedline::create();
+            engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
+            line_editor
         });
 
     perf!("reedline adding menus", start_time, use_color);
@@ -703,7 +709,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             );
 
             println!();
-            return (false, stack, line_editor);
+
+            cleanup_exit((), engine_state, 0);
+
+            // if cleanup_exit didn't exit, we should keep running
+            return (true, stack, line_editor);
         }
         Err(err) => {
             let message = err.to_string();
@@ -859,7 +869,7 @@ fn do_auto_cd(
             report_shell_error(
                 engine_state,
                 &ShellError::Io(IoError::new_with_additional_context(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::DirectoryNotFound,
                     span,
                     PathBuf::from(&path),
                     "Cannot change directory",
@@ -869,11 +879,11 @@ fn do_auto_cd(
         path.to_string_lossy().to_string()
     };
 
-    if let PermissionResult::PermissionDenied(_) = have_permission(path.clone()) {
+    if let PermissionResult::PermissionDenied = have_permission(path.clone()) {
         report_shell_error(
             engine_state,
             &ShellError::Io(IoError::new_with_additional_context(
-                std::io::ErrorKind::PermissionDenied,
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
                 span,
                 PathBuf::from(path),
                 "Cannot change directory",
@@ -941,6 +951,9 @@ fn do_run_cmd(
     trace!("eval source: {}", s);
 
     let mut cmds = s.split_whitespace();
+
+    let had_warning_before = engine_state.exit_warning_given.load(Ordering::SeqCst);
+
     if let Some("exit") = cmds.next() {
         let mut working_set = StateWorkingSet::new(engine_state);
         let _ = parse(&mut working_set, None, s.as_bytes(), false);
@@ -949,13 +962,11 @@ fn do_run_cmd(
             match cmds.next() {
                 Some(s) => {
                     if let Ok(n) = s.parse::<i32>() {
-                        drop(line_editor);
-                        std::process::exit(n);
+                        return cleanup_exit(line_editor, engine_state, n);
                     }
                 }
                 None => {
-                    drop(line_editor);
-                    std::process::exit(0);
+                    return cleanup_exit(line_editor, engine_state, 0);
                 }
             }
         }
@@ -973,6 +984,14 @@ fn do_run_cmd(
         PipelineData::empty(),
         false,
     );
+
+    // if there was a warning before, and we got to this point, it means
+    // the possible call to cleanup_exit did not occur.
+    if had_warning_before && engine_state.is_interactive {
+        engine_state
+            .exit_warning_given
+            .store(false, Ordering::SeqCst);
+    }
 
     line_editor
 }
@@ -1431,6 +1450,7 @@ fn are_session_ids_in_sync() {
     let history = engine_state.history_config().unwrap();
     let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
+    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
         engine_state,
@@ -1447,7 +1467,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
+    use super::{ReplOperation, do_auto_cd, escape_special_vscode_bytes, parse_operation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;

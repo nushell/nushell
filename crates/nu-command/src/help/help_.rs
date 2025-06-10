@@ -1,5 +1,5 @@
 use crate::help::{help_aliases, help_commands, help_modules};
-use fancy_regex::{escape, Regex};
+use fancy_regex::{Regex, escape};
 use nu_ansi_term::Style;
 use nu_engine::command_prelude::*;
 use nu_utils::IgnoreCaseExt;

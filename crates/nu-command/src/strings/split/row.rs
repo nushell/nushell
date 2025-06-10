@@ -1,10 +1,10 @@
-use fancy_regex::{escape, Regex};
+use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitRow;
 
-impl Command for SubCommand {
+impl Command for SplitRow {
     fn name(&self) -> &str {
         "split row"
     }
@@ -219,8 +219,9 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                 }
             } else {
                 vec![Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: name,
                         src_span: v_span,
                     },
@@ -239,6 +240,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitRow {})
     }
 }

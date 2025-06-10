@@ -1,5 +1,6 @@
 mod ast;
 mod debug_;
+mod env;
 mod explain;
 mod info;
 mod inspect;
@@ -9,6 +10,7 @@ mod metadata_access;
 mod metadata_set;
 mod profile;
 mod timeit;
+mod util;
 mod view;
 mod view_blocks;
 mod view_files;
@@ -18,6 +20,7 @@ mod view_span;
 
 pub use ast::Ast;
 pub use debug_::Debug;
+pub use env::DebugEnv;
 pub use explain::Explain;
 pub use info::DebugInfo;
 pub use inspect::Inspect;

@@ -8,17 +8,17 @@ use lscolors::{LsColors, Style};
 use url::Url;
 use web_time::Instant;
 
-use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
+use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
-    Signals, TableMode, ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
+    ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
-    common::configure_table, CollapsedTable, ExpandedTable, JustTable, NuRecordsValue, NuTable,
-    StringResult, TableOpts, TableOutput,
+    CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
+    common::configure_table,
 };
 use nu_utils::{get_ls_colors, terminal_size};
 
@@ -152,7 +152,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -169,7 +169,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -186,23 +186,22 @@ impl Command for Table {
             },
             Example {
                 description: "Change the table theme to the specified theme for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
                 result: None,
             },
             Example {
                 description: "Force showing of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
                 result: None,
             },
             Example {
-                description:
-                    "Set the starting number of the #/index column to 100 for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
+                description: "Set the starting number of the #/index column to 100 for a single run",
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },
             Example {
                 description: "Force hiding of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
         ]
@@ -519,7 +518,7 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
                 (&mut reader)
                     .take(cfg.width as u64)
                     .read_to_end(&mut read_buf)
-                    .map_err(|err| IoError::new(err.kind(), span, None))?;
+                    .map_err(|err| IoError::new(err, span, None))?;
 
                 if !read_buf.is_empty() {
                     nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
@@ -545,8 +544,13 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     let span = input.data.span().unwrap_or(input.call.head);
 
     if record.is_empty() {
-        let value =
-            create_empty_placeholder("record", input.cfg.width, input.engine_state, input.stack);
+        let value = create_empty_placeholder(
+            "record",
+            input.cfg.width,
+            input.engine_state,
+            input.stack,
+            input.cfg.use_ansi_coloring,
+        );
         let value = Value::string(value, span);
         return Ok(value.into_pipeline_data());
     };
@@ -609,7 +613,7 @@ fn build_table_kv(
     span: Span,
 ) -> StringResult {
     match table_view {
-        TableView::General => JustTable::kv_table(&record, opts),
+        TableView::General => JustTable::kv_table(record, opts),
         TableView::Expanded {
             limit,
             flatten,
@@ -645,7 +649,7 @@ fn build_table_batch(
     }
 
     match view {
-        TableView::General => JustTable::table(&vals, opts),
+        TableView::General => JustTable::table(vals, opts),
         TableView::Expanded {
             limit,
             flatten,
@@ -898,6 +902,7 @@ impl Iterator for PagingTableCreator {
                     self.table_config.width,
                     &self.engine_state,
                     &self.stack,
+                    self.table_config.use_ansi_coloring,
                 );
                 let mut bytes = result.into_bytes();
                 // Add extra newline if show_empty is enabled
@@ -1084,20 +1089,25 @@ fn create_empty_placeholder(
     termwidth: usize,
     engine_state: &EngineState,
     stack: &Stack,
+    use_ansi_coloring: bool,
 ) -> String {
     let config = stack.get_config(engine_state);
     if !config.table.show_empty {
         return String::new();
     }
 
-    let cell = NuRecordsValue::new(format!("empty {}", value_type_name));
-    let data = vec![vec![cell]];
-    let mut table = NuTable::from(data);
+    let cell = format!("empty {}", value_type_name);
+    let mut table = NuTable::new(1, 1);
+    table.insert((0, 0), cell);
     table.set_data_style(TextStyle::default().dimmed());
     let mut out = TableOutput::from_table(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
     configure_table(&mut out, &config, style_computer, TableMode::default());
+
+    if !use_ansi_coloring {
+        out.table.clear_all_colors();
+    }
 
     out.table
         .draw(termwidth)
@@ -1153,6 +1163,7 @@ fn supported_table_modes() -> Vec<Value> {
         Value::test_string("restructured"),
         Value::test_string("ascii_rounded"),
         Value::test_string("basic_compact"),
+        Value::test_string("single"),
     ]
 }
 

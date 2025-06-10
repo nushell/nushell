@@ -142,25 +142,23 @@ where
     fn serialize_f32(self, value: f32) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
         fmt_f32_or_null(&mut self.writer, if value == -0f32 { 0f32 } else { value })
-            .map_err(From::from)
     }
 
     #[inline]
     fn serialize_f64(self, value: f64) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
         fmt_f64_or_null(&mut self.writer, if value == -0f64 { 0f64 } else { value })
-            .map_err(From::from)
     }
 
     #[inline]
     fn serialize_char(self, value: char) -> Result<()> {
         self.formatter.start_value(&mut self.writer)?;
-        escape_char(&mut self.writer, value).map_err(From::from)
+        escape_char(&mut self.writer, value)
     }
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        quote_str(&mut self.writer, &mut self.formatter, value).map_err(From::from)
+        quote_str(&mut self.writer, &mut self.formatter, value)
     }
 
     #[inline]
@@ -496,7 +494,7 @@ where
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        escape_key(&mut self.ser.writer, value).map_err(From::from)
+        escape_key(&mut self.ser.writer, value)
     }
 
     type SerializeSeq = ser::Impossible<(), Error>;
@@ -853,7 +851,7 @@ pub fn escape_key<W>(wr: &mut W, value: &str) -> Result<()>
 where
     W: io::Write,
 {
-    escape_bytes(wr, value.as_bytes()).map_err(From::from)
+    escape_bytes(wr, value.as_bytes())
 }
 
 #[inline]

@@ -2,9 +2,9 @@ use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathVariance;
 
-impl Command for SubCommand {
+impl Command for MathVariance {
     fn name(&self) -> &str {
         "math variance"
     }
@@ -13,6 +13,7 @@ impl Command for SubCommand {
         Signature::build("math variance")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
             ])
@@ -45,6 +46,18 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag(engine_state, stack, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_variance(sample))
     }
 
@@ -55,6 +68,18 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag_const(working_set, "sample")?;
+        let name = call.head;
+        let span = input.span().unwrap_or(name);
+        let input: PipelineData = match input.try_expand_range() {
+            Err(_) => {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Range must be bounded".to_string(),
+                    val_span: span,
+                    call_span: name,
+                });
+            }
+            Ok(val) => val,
+        };
         run_with_function(call, input, compute_variance(sample))
     }
 
@@ -91,8 +116,11 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput {
-                msg: format!("Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
-                        other.coerce_string()?, other.get_type()),
+                msg: format!(
+                    "Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
+                    other.coerce_string()?,
+                    other.get_type()
+                ),
                 input: "value originates from here".into(),
                 msg_span: span,
                 input_span: value.span(),
@@ -135,6 +163,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathVariance {})
     }
 }

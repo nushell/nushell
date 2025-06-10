@@ -2,8 +2,8 @@ use nu_parser::trim_quotes_str;
 use nu_protocol::{CompletionAlgorithm, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
-    pattern::{Atom, AtomKind, CaseMatching, Normalization},
     Config, Matcher, Utf32Str,
+    pattern::{Atom, AtomKind, CaseMatching, Normalization},
 };
 use std::{borrow::Cow, fmt::Display};
 
@@ -18,6 +18,12 @@ pub enum MatchAlgorithm {
     /// "git switch" is matched by "git sw"
     Prefix,
 
+    /// Only show suggestions which have a substring matching with the given input
+    ///
+    /// Example:
+    /// "git checkout" is matched by "checkout"
+    Substring,
+
     /// Only show suggestions which contain the input chars at any place
     ///
     /// Example:
@@ -25,14 +31,18 @@ pub enum MatchAlgorithm {
     Fuzzy,
 }
 
-pub struct NuMatcher<T> {
-    options: CompletionOptions,
+pub struct NuMatcher<'a, T> {
+    options: &'a CompletionOptions,
     needle: String,
     state: State<T>,
 }
 
 enum State<T> {
     Prefix {
+        /// Holds (haystack, item)
+        items: Vec<(String, T)>,
+    },
+    Substring {
         /// Holds (haystack, item)
         items: Vec<(String, T)>,
     },
@@ -45,11 +55,11 @@ enum State<T> {
 }
 
 /// Filters and sorts suggestions
-impl<T> NuMatcher<T> {
+impl<T> NuMatcher<'_, T> {
     /// # Arguments
     ///
     /// * `needle` - The text to search for
-    pub fn new(needle: impl AsRef<str>, options: CompletionOptions) -> NuMatcher<T> {
+    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<T> {
         let needle = trim_quotes_str(needle.as_ref());
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
@@ -62,6 +72,18 @@ impl<T> NuMatcher<T> {
                     options,
                     needle: lowercase_needle,
                     state: State::Prefix { items: Vec::new() },
+                }
+            }
+            MatchAlgorithm::Substring => {
+                let lowercase_needle = if options.case_sensitive {
+                    needle.to_owned()
+                } else {
+                    needle.to_folded_case()
+                };
+                NuMatcher {
+                    options,
+                    needle: lowercase_needle,
+                    state: State::Substring { items: Vec::new() },
                 }
             }
             MatchAlgorithm::Fuzzy => {
@@ -102,11 +124,21 @@ impl<T> NuMatcher<T> {
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
-                let matches = if self.options.positional {
-                    haystack_folded.starts_with(self.needle.as_str())
+                let matches = haystack_folded.starts_with(self.needle.as_str());
+                if matches {
+                    if let Some(item) = item {
+                        items.push((haystack.to_string(), item));
+                    }
+                }
+                matches
+            }
+            State::Substring { items } => {
+                let haystack_folded = if self.options.case_sensitive {
+                    Cow::Borrowed(haystack)
                 } else {
-                    haystack_folded.contains(self.needle.as_str())
+                    Cow::Owned(haystack.to_folded_case())
                 };
+                let matches = haystack_folded.contains(self.needle.as_str());
                 if matches {
                     if let Some(item) = item {
                         items.push((haystack.to_string(), item));
@@ -148,7 +180,7 @@ impl<T> NuMatcher<T> {
     /// Get all the items that matched (sorted)
     pub fn results(self) -> Vec<T> {
         match self.state {
-            State::Prefix { mut items, .. } => {
+            State::Prefix { mut items, .. } | State::Substring { mut items, .. } => {
                 items.sort_by(|(haystack1, _), (haystack2, _)| {
                     let cmp_sensitive = haystack1.cmp(haystack2);
                     if self.options.case_sensitive {
@@ -184,7 +216,7 @@ impl<T> NuMatcher<T> {
     }
 }
 
-impl NuMatcher<SemanticSuggestion> {
+impl NuMatcher<'_, SemanticSuggestion> {
     pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
         let value = sugg.suggestion.value.to_string();
         self.add(value, sugg)
@@ -195,6 +227,7 @@ impl From<CompletionAlgorithm> for MatchAlgorithm {
     fn from(value: CompletionAlgorithm) -> Self {
         match value {
             CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
+            CompletionAlgorithm::Substring => MatchAlgorithm::Substring,
             CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
         }
     }
@@ -206,6 +239,7 @@ impl TryFrom<String> for MatchAlgorithm {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
             "prefix" => Ok(Self::Prefix),
+            "substring" => Ok(Self::Substring),
             "fuzzy" => Ok(Self::Fuzzy),
             _ => Err(InvalidMatchAlgorithm::Unknown),
         }
@@ -230,7 +264,6 @@ impl std::error::Error for InvalidMatchAlgorithm {}
 #[derive(Clone)]
 pub struct CompletionOptions {
     pub case_sensitive: bool,
-    pub positional: bool,
     pub match_algorithm: MatchAlgorithm,
     pub sort: CompletionSort,
 }
@@ -239,7 +272,6 @@ impl Default for CompletionOptions {
     fn default() -> Self {
         Self {
             case_sensitive: true,
-            positional: true,
             match_algorithm: MatchAlgorithm::Prefix,
             sort: Default::default(),
         }
@@ -256,6 +288,9 @@ mod test {
     #[case(MatchAlgorithm::Prefix, "example text", "", true)]
     #[case(MatchAlgorithm::Prefix, "example text", "examp", true)]
     #[case(MatchAlgorithm::Prefix, "example text", "text", false)]
+    #[case(MatchAlgorithm::Substring, "example text", "", true)]
+    #[case(MatchAlgorithm::Substring, "example text", "text", true)]
+    #[case(MatchAlgorithm::Substring, "example text", "mplxt", false)]
     #[case(MatchAlgorithm::Fuzzy, "example text", "", true)]
     #[case(MatchAlgorithm::Fuzzy, "example text", "examp", true)]
     #[case(MatchAlgorithm::Fuzzy, "example text", "ext", true)]
@@ -271,7 +306,7 @@ mod test {
             match_algorithm,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new(needle, options);
+        let mut matcher = NuMatcher::new(needle, &options);
         matcher.add(haystack, haystack);
         if should_match {
             assert_eq!(vec![haystack], matcher.results());
@@ -286,7 +321,7 @@ mod test {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("fob", options);
+        let mut matcher = NuMatcher::new("fob", &options);
         for item in ["foo/bar", "fob", "foo bar"] {
             matcher.add(item, item);
         }
@@ -300,7 +335,7 @@ mod test {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("'love spaces' ", options);
+        let mut matcher = NuMatcher::new("'love spaces' ", &options);
         for item in [
             "'i love spaces'",
             "'i love spaces' so much",

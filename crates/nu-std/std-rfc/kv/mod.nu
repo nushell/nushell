@@ -14,20 +14,26 @@
 
 # Stores the pipeline value for later use
 #
-# If the key already exists, it is updated
-# to the new value provided.
-#
-# Usage:
-# <input> | kv set <key> <value?>
-#
-# Example:
-# ls ~ | kv set "home snapshot"
-# kv set foo 5
+# If the key already exists, it is updated to the new value provided.
+@example "Store the list of files in the home directory" {
+  ls ~ | kv set "home snapshot"
+}
+@example "Store a number" {
+  kv set foo 5
+}
+@example "Update a number and return it" {
+  let $new_foo = (kv get foo | kv set foo { $in + 1 } --return value)
+}
+@example "Use a single pipeline with closures" {
+  ls
+  | kv set names { get name }
+  | kv set sizes { get size }
+}
 export def "kv set" [
   key: string
   value_or_closure?: any
   --return (-r): string   # Whether and what to return to the pipeline output
-  --universal (-u)
+  --universal (-u)        # Store the key-value pair in a universal database
 ] {
   # Pipeline input is preferred, but prioritize
   # parameter if present. This allows $in to be
@@ -51,7 +57,7 @@ export def "kv set" [
   let db_open = (db_setup --universal=$universal)
   try {
     # Delete the existing key if it does exist
-    do $db_open | query db $"DELETE FROM std_kv_store WHERE key = '($key)'"
+    do $db_open | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $key }
   }
 
   match $universal {
@@ -95,36 +101,30 @@ export def "kv set" [
 
 # Retrieves a stored value by key
 #
-# Counterpart of "kv set". Returns null
-# if the key is not found.
-# 
-# Usage:
-# kv get <key> | <pipeline>
+# Counterpart of "kv set". Returns null if the key is not found.
+@example "Retrieve a stored value" {
+  kv get foo
+}
 export def "kv get" [
-  key: string # Key of the kv-pair to retrieve
-  --universal (-u)
+  key: string       # Key of the kv-pair to retrieve
+  --universal (-u)  # Whether to use the universal db
 ] {
   let db_open = (db_setup --universal=$universal)
   do $db_open
-    # Hack to turn a SQLiteDatabase into a table
-  | $in.std_kv_store | wrap temp | get temp
-  | where key == $key
-    # Should only be one occurrence of each key in the stor
-  | get -i value.0
-  | match $in {
-      # Key not found
-      null => null
-      # Key found
-      _ => { from nuon }
-  }
+    | query db "SELECT value FROM std_kv_store WHERE key = :key" --params { key: $key }
+    | match $in {
+      # Match should be exactly one row
+      [$el] => { $el.value | from nuon }
+      # Otherwise no match
+      _ => null
+    }
 }
 
 # List the currently stored key-value pairs
 #
-# Returns results as the Nushell value rather
-# than the stored nuon.
+# Returns results as the Nushell value rather than the stored nuon.
 export def "kv list" [
-  --universal (-u)
+  --universal (-u)  # Whether to use the universal db
 ] {
   let db_open = (db_setup --universal=$universal)
 
@@ -138,8 +138,8 @@ export def "kv list" [
 
 # Returns and removes a key-value pair
 export def --env "kv drop" [
-  key: string   # Key of the kv-pair to drop
-  --universal (-u)
+  key: string       # Key of the kv-pair to drop
+  --universal (-u)  # Whether to use the universal db
 ] {
   let db_open = (db_setup --universal=$universal)
 
@@ -148,7 +148,7 @@ export def --env "kv drop" [
   try {
     do $db_open
       # Hack to turn a SQLiteDatabase into a table
-    | query db $"DELETE FROM std_kv_store WHERE key = '($key)'"
+      | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $key }
   }
 
   if $universal and ($env.NU_KV_UNIVERSALS? | default false) {
@@ -161,12 +161,12 @@ export def --env "kv drop" [
 def universal_db_path [] {
   $env.NU_UNIVERSAL_KV_PATH?
   | default (
-      $nu.data-dir | path join "std_kv_variables.sqlite3"
+    $nu.data-dir | path join "std_kv_variables.sqlite3"
   )
 }
 
 def db_setup [
-  --universal
+  --universal   # Whether to use the universal db
 ] : nothing -> closure {
   try {
     match $universal {
@@ -179,7 +179,7 @@ def db_setup [
           value: ''
         }
         $dummy_record | into sqlite (universal_db_path) -t std_kv_store
-        open (universal_db_path) | query db $"DELETE FROM std_kv_store WHERE key = '($uuid)'"
+        open (universal_db_path) | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $uuid }
       }
       false => {
         # Create the stor table if it doesn't exist
@@ -190,8 +190,8 @@ def db_setup [
 
   # Return the correct closure for opening on-disk vs. in-memory
   match $universal {
-    true  => {|| {|| open (universal_db_path)}}
-    false => {|| {|| stor open}}
+    true  => {{|| open (universal_db_path)}}
+    false => {{|| stor open}}
   }
 }
 

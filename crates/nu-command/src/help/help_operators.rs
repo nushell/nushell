@@ -30,11 +30,11 @@ impl Command for HelpOperators {
         let head = call.head;
         let mut operators = [
             Operator::Assignment(Assignment::Assign),
-            Operator::Assignment(Assignment::PlusAssign),
-            Operator::Assignment(Assignment::ConcatAssign),
-            Operator::Assignment(Assignment::MinusAssign),
+            Operator::Assignment(Assignment::AddAssign),
+            Operator::Assignment(Assignment::SubtractAssign),
             Operator::Assignment(Assignment::MultiplyAssign),
             Operator::Assignment(Assignment::DivideAssign),
+            Operator::Assignment(Assignment::ConcatenateAssign),
             Operator::Comparison(Comparison::Equal),
             Operator::Comparison(Comparison::NotEqual),
             Operator::Comparison(Comparison::LessThan),
@@ -49,22 +49,22 @@ impl Command for HelpOperators {
             Operator::Comparison(Comparison::NotHas),
             Operator::Comparison(Comparison::StartsWith),
             Operator::Comparison(Comparison::EndsWith),
-            Operator::Math(Math::Plus),
-            Operator::Math(Math::Concat),
-            Operator::Math(Math::Minus),
+            Operator::Math(Math::Add),
+            Operator::Math(Math::Subtract),
             Operator::Math(Math::Multiply),
             Operator::Math(Math::Divide),
+            Operator::Math(Math::FloorDivide),
             Operator::Math(Math::Modulo),
-            Operator::Math(Math::FloorDivision),
             Operator::Math(Math::Pow),
+            Operator::Math(Math::Concatenate),
             Operator::Bits(Bits::BitOr),
             Operator::Bits(Bits::BitXor),
             Operator::Bits(Bits::BitAnd),
             Operator::Bits(Bits::ShiftLeft),
             Operator::Bits(Bits::ShiftRight),
-            Operator::Boolean(Boolean::And),
             Operator::Boolean(Boolean::Or),
             Operator::Boolean(Boolean::Xor),
+            Operator::Boolean(Boolean::And),
         ]
         .into_iter()
         .map(|op| {
@@ -87,7 +87,7 @@ impl Command for HelpOperators {
                 "operator" => Value::string("not", head),
                 "name" => Value::string("Not", head),
                 "description" => Value::string("Negates a value or expression.", head),
-                "precedence" => Value::int(0, head),
+                "precedence" => Value::int(55, head),
             },
             head,
         ));
@@ -151,32 +151,32 @@ fn description(operator: &Operator) -> &'static str {
         }
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
-        Operator::Math(Math::Plus) => "Adds two values.",
-        Operator::Math(Math::Concat) => {
-            "Concatenates two lists, two strings, or two binary values."
-        }
-        Operator::Math(Math::Minus) => "Subtracts two values.",
+        Operator::Math(Math::Add) => "Adds two values.",
+        Operator::Math(Math::Subtract) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",
         Operator::Math(Math::Divide) => "Divides two values.",
+        Operator::Math(Math::FloorDivide) => "Divides two values and floors the result.",
         Operator::Math(Math::Modulo) => "Divides two values and returns the remainder.",
-        Operator::Math(Math::FloorDivision) => "Divides two values and floors the result.",
         Operator::Math(Math::Pow) => "Raises one value to the power of another.",
-        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
+        Operator::Math(Math::Concatenate) => {
+            "Concatenates two lists, two strings, or two binary values."
+        }
         Operator::Boolean(Boolean::Or) => "Checks if either value is true.",
         Operator::Boolean(Boolean::Xor) => "Checks if one value is true and the other is false.",
+        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
         Operator::Bits(Bits::BitOr) => "Performs a bitwise OR on two values.",
         Operator::Bits(Bits::BitXor) => "Performs a bitwise XOR on two values.",
         Operator::Bits(Bits::BitAnd) => "Performs a bitwise AND on two values.",
         Operator::Bits(Bits::ShiftLeft) => "Bitwise shifts a value left by another.",
         Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
-        Operator::Assignment(Assignment::PlusAssign) => "Adds a value to a variable.",
-        Operator::Assignment(Assignment::ConcatAssign) => {
-            "Concatenates two lists, two strings, or two binary values."
-        }
-        Operator::Assignment(Assignment::MinusAssign) => "Subtracts a value from a variable.",
+        Operator::Assignment(Assignment::AddAssign) => "Adds a value to a variable.",
+        Operator::Assignment(Assignment::SubtractAssign) => "Subtracts a value from a variable.",
         Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
         Operator::Assignment(Assignment::DivideAssign) => "Divides a variable by a value.",
+        Operator::Assignment(Assignment::ConcatenateAssign) => {
+            "Concatenates a list, a string, or a binary value to a variable of the same type."
+        }
     }
 }
 

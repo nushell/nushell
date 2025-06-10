@@ -1,7 +1,7 @@
 use nu_engine::{CallExt, ClosureEval};
 use nu_protocol::{
-    engine::{Call, Closure, EngineState, Stack},
     IntoPipelineData, PipelineData, ShellError, Span, Value,
+    engine::{Call, Closure, EngineState, Stack},
 };
 
 pub fn chain_error_with_input(

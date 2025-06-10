@@ -2,9 +2,9 @@ use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct CommandlineGetCursor;
 
-impl Command for SubCommand {
+impl Command for CommandlineGetCursor {
     fn name(&self) -> &str {
         "commandline get-cursor"
     }

@@ -1,16 +1,17 @@
 use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
-use nu_protocol::{ast::PathMember, engine::EngineState, record, Span, Value};
+use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
-    fs::{line_ending, Stub},
+    fs::{Stub, line_ending},
     nu, pipeline,
     playground::{Dirs, Playground},
 };
 use rand::{
-    distributions::{Alphanumeric, DistString, Standard},
-    prelude::Distribution,
-    rngs::StdRng,
     Rng, SeedableRng,
+    distr::{Alphanumeric, SampleString, StandardUniform},
+    prelude::Distribution,
+    random_range,
+    rngs::StdRng,
 };
 use std::io::Write;
 
@@ -326,6 +327,7 @@ fn into_sqlite_big_insert() {
                         val: "somedate".into(),
                         span: Span::unknown(),
                         optional: false,
+                        casing: Casing::Sensitive,
                     }],
                     Box::new(|dateval| {
                         Value::string(dateval.coerce_string().unwrap(), dateval.span())
@@ -336,7 +338,7 @@ fn into_sqlite_big_insert() {
             let nuon = nuon::to_nuon(
                 &engine_state,
                 &value,
-                nuon::ToStyle::Raw,
+                nuon::ToStyle::Default,
                 Some(Span::unknown()),
                 serialize_types,
             )
@@ -382,7 +384,7 @@ struct TestRow(
 
 impl TestRow {
     pub fn random() -> Self {
-        StdRng::from_entropy().sample(Standard)
+        StdRng::from_os_rng().sample(StandardUniform)
     }
 }
 
@@ -405,7 +407,7 @@ impl From<TestRow> for Value {
     }
 }
 
-impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
+impl TryFrom<&rusqlite::Row<'_>> for TestRow {
     type Error = rusqlite::Error;
 
     fn try_from(row: &rusqlite::Row) -> Result<Self, Self::Error> {
@@ -433,12 +435,12 @@ impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
     }
 }
 
-impl Distribution<TestRow> for Standard {
+impl Distribution<TestRow> for StandardUniform {
     fn sample<R>(&self, rng: &mut R) -> TestRow
     where
         R: rand::Rng + ?Sized,
     {
-        let dt = DateTime::from_timestamp_millis(rng.gen_range(0..2324252554000))
+        let dt = DateTime::from_timestamp_millis(random_range(0..2324252554000))
             .unwrap()
             .fixed_offset();
 
@@ -446,18 +448,18 @@ impl Distribution<TestRow> for Standard {
 
         // limit the size of the numbers to work around
         // https://github.com/nushell/nushell/issues/10612
-        let filesize = rng.gen_range(-1024..=1024);
-        let duration = rng.gen_range(-1024..=1024);
+        let filesize = random_range(-1024..=1024);
+        let duration = random_range(-1024..=1024);
 
         TestRow(
-            rng.gen(),
-            rng.gen(),
-            rng.gen(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
             filesize,
             duration,
             dt,
             rand_string,
-            rng.gen::<u64>().to_be_bytes().to_vec(),
+            rng.random::<u64>().to_be_bytes().to_vec(),
             rusqlite::types::Value::Null,
         )
     }

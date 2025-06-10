@@ -32,3 +32,11 @@ fn throw_inner_error() {
 
     assert!(actual.err.contains(error.as_str()));
 }
+
+#[test]
+fn rejects_non_table_stream_input() {
+    let actual = nu!("[1 2 3] | each { |it| ($it * 2) } | transpose | to nuon");
+
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("only table"));
+}

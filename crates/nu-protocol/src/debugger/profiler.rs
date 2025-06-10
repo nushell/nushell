@@ -4,11 +4,12 @@
 //! profiling Nushell code.
 
 use crate::{
+    PipelineData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
-    record, PipelineData, ShellError, Span, Value,
+    record,
 };
 use std::{borrow::Borrow, io::BufRead};
 use web_time::Instant;
@@ -310,6 +311,7 @@ fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
 
 fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
     match expr {
+        Expr::AttributeBlock(ab) => expr_to_string(engine_state, &ab.item.expr),
         Expr::Binary(_) => "binary".to_string(),
         Expr::BinaryOp(_, _, _) => "binary operation".to_string(),
         Expr::Block(_) => "block".to_string(),

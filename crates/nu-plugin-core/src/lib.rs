@@ -13,11 +13,11 @@ pub use communication_mode::{
     ClientCommunicationIo, CommunicationMode, PreparedServerCommunication, ServerCommunicationIo,
 };
 pub use interface::{
-    stream::{FromShellError, StreamManager, StreamManagerHandle, StreamReader, StreamWriter},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite,
+    stream::{FromShellError, StreamManager, StreamManagerHandle, StreamReader, StreamWriter},
 };
 pub use serializers::{
-    json::JsonSerializer, msgpack::MsgPackSerializer, Encoder, EncodingType, PluginEncoder,
+    Encoder, EncodingType, PluginEncoder, json::JsonSerializer, msgpack::MsgPackSerializer,
 };
 
 #[doc(hidden)]

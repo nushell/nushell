@@ -1,10 +1,11 @@
+use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathLog;
 
-impl Command for SubCommand {
+impl Command for MathLog {
     fn name(&self) -> &str {
         "math log"
     }
@@ -22,6 +23,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Number)),
                     Type::List(Box::new(Type::Float)),
                 ),
+                (Type::Range, Type::List(Box::new(Type::Number))),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -46,7 +48,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
+        }
         log(base, call.head, input, engine_state.signals())
     }
 
@@ -56,7 +69,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
+        if let PipelineData::Value(
+            Value::Range {
+                ref val,
+                internal_span,
+            },
+            ..,
+        ) = input
+        {
+            ensure_bounded(val.as_ref(), internal_span, head)?;
+        }
         log(base, call.head, input, working_set.permanent().signals())
     }
 
@@ -159,6 +183,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathLog {})
     }
 }

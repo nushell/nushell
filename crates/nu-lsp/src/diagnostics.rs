@@ -1,13 +1,13 @@
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 use lsp_types::{
-    notification::{Notification, PublishDiagnostics},
     Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Uri,
+    notification::{Notification, PublishDiagnostics},
 };
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(&mut self, uri: Uri) -> Result<()> {
-        let mut engine_state = self.new_engine_state();
+        let mut engine_state = self.new_engine_state(Some(&uri));
         engine_state.generate_nu_constant();
 
         let Some((_, span, working_set)) = self.parse_file(&mut engine_state, &uri, true) else {
@@ -38,6 +38,17 @@ impl LanguageServer {
             });
         }
 
+        for warn in working_set.parse_warnings.iter() {
+            let message = warn.to_string();
+
+            diagnostics.diagnostics.push(Diagnostic {
+                range: span_to_range(&warn.span(), file, span.start),
+                severity: Some(DiagnosticSeverity::WARNING),
+                message,
+                ..Default::default()
+            });
+        }
+
         self.connection
             .sender
             .send(lsp_server::Message::Notification(
@@ -56,7 +67,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -87,7 +98,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -126,7 +137,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_none() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");

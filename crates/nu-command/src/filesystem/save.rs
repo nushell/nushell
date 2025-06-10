@@ -4,8 +4,8 @@ use nu_engine::get_eval_block;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast, byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
+    byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
 };
 use std::{
     fs::File,
@@ -130,7 +130,7 @@ impl Command for Save {
                                         io::copy(&mut tee, &mut io::stderr())
                                     }
                                 }
-                                .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                .map_err(|err| IoError::new(err, span, None))?;
                             }
                             Ok(())
                         }
@@ -261,6 +261,16 @@ impl Command for Save {
             Example {
                 description: "Save a running program's stderr to separate file",
                 example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
+                result: None,
+            },
+            Example {
+                description: "Show the extensions for which the `save` command will automatically serialize",
+                example: r#"scope commands
+    | where name starts-with "to "
+    | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }
+    | select extension name
+    | rename extension command
+"#,
                 result: None,
             },
         ]
@@ -418,18 +428,24 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
         (true, true) => std::fs::OpenOptions::new()
             .append(true)
             .open(path)
-            .map_err(|err| err.kind().into()),
+            .map_err(|err| err.into()),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
             #[cfg(target_os = "windows")]
             if path.is_dir() {
-                Err(nu_protocol::shell_error::io::ErrorKind::IsADirectory)
+                #[allow(
+                    deprecated,
+                    reason = "we don't get a IsADirectory error, so we need to provide it"
+                )]
+                Err(nu_protocol::shell_error::io::ErrorKind::from_std(
+                    std::io::ErrorKind::IsADirectory,
+                ))
             } else {
-                std::fs::File::create(path).map_err(|err| err.kind().into())
+                std::fs::File::create(path).map_err(|err| err.into())
             }
             #[cfg(not(target_os = "windows"))]
-            std::fs::File::create(path).map_err(|err| err.kind().into())
+            std::fs::File::create(path).map_err(|err| err.into())
         }
     };
 

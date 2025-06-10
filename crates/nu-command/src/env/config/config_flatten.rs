@@ -72,7 +72,7 @@ fn convert_string_to_value(
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
-                let label_span = convert_row_column_to_span(row, col, string_input);
+                let label_span = Span::from_row_column(row, col, string_input);
                 Err(ShellError::GenericError {
                     error: "Error while parsing JSON text".into(),
                     msg: "error parsing JSON text".into(),
@@ -172,24 +172,4 @@ fn expand_closure(
             }),
         _ => None,
     }
-}
-
-// Converts row+column to a Span, assuming bytes (1-based rows)
-fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
-    let mut cur_row = 1;
-    let mut cur_col = 1;
-
-    for (offset, curr_byte) in contents.bytes().enumerate() {
-        if curr_byte == b'\n' {
-            cur_row += 1;
-            cur_col = 1;
-        }
-        if cur_row >= row && cur_col >= col {
-            return Span::new(offset, offset);
-        } else {
-            cur_col += 1;
-        }
-    }
-
-    Span::new(contents.len(), contents.len())
 }

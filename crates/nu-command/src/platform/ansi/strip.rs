@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
@@ -16,9 +16,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct AnsiStrip;
 
-impl Command for SubCommand {
+impl Command for AnsiStrip {
     fn name(&self) -> &str {
         "ansi strip"
     }
@@ -83,14 +83,14 @@ fn action(input: &Value, args: &Arguments, _span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, Arguments, SubCommand};
-    use nu_protocol::{engine::EngineState, Span, Value};
+    use super::{AnsiStrip, Arguments, action};
+    use nu_protocol::{Span, Value, engine::EngineState};
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(AnsiStrip {})
     }
 
     #[test]

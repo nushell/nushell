@@ -1,13 +1,13 @@
 use super::{
-    compile_binary_op, compile_block, compile_call, compile_external_call, compile_load_env,
-    BlockBuilder, CompileError, RedirectModes,
+    BlockBuilder, CompileError, RedirectModes, compile_binary_op, compile_block, compile_call,
+    compile_external_call, compile_load_env,
 };
 
 use nu_protocol::{
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
-    IntoSpanned, RegId, Span, Value, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(
@@ -72,6 +72,14 @@ pub(crate) fn compile_expression(
     };
 
     match &expr.expr {
+        Expr::AttributeBlock(ab) => compile_expression(
+            working_set,
+            builder,
+            &ab.item,
+            redirect_modes,
+            in_reg,
+            out_reg,
+        ),
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
@@ -156,13 +164,13 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::BinaryOp(lhs, op, rhs) => {
-            if let Expr::Operator(ref operator) = op.expr {
+            if let Expr::Operator(operator) = op.expr {
                 drop_input(builder)?;
                 compile_binary_op(
                     working_set,
                     builder,
                     lhs,
-                    operator.clone().into_spanned(op.span),
+                    operator.into_spanned(op.span),
                     rhs,
                     expr.span,
                     out_reg,

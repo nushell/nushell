@@ -47,8 +47,8 @@ impl Command for Cal {
                 None,
             )
             .input_output_types(vec![
-                (Type::Nothing, Type::table()),
                 (Type::Nothing, Type::String),
+                (Type::Nothing, Type::table()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .category(Category::Generators)
@@ -291,7 +291,7 @@ fn add_month_to_table(
                 return Err(ShellError::UnknownOperator {
                     op_token: "Issue parsing command, invalid command".to_string(),
                     span: tag,
-                })
+                });
             }
         },
     };

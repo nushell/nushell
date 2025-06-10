@@ -1,12 +1,12 @@
 use nu_protocol::{
+    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Spanned, Value,
     ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember, Pattern},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
-    IntoSpanned, RegId, Span, Spanned, Value, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
-use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression};
 
 pub(crate) fn compile_binary_op(
     working_set: &StateWorkingSet,
@@ -70,6 +70,8 @@ pub(crate) fn compile_binary_op(
                     Boolean::Xor => unreachable!(),
                 };
 
+                // Before match against lhs_reg, it's important to collect it first to get a concrete value if there is a subexpression.
+                builder.push(Instruction::Collect { src_dst: lhs_reg }.into_spanned(lhs.span))?;
                 // Short-circuit to return `lhs_reg`. `match` op does not consume `lhs_reg`.
                 let short_circuit_label = builder.label(None);
                 builder.r#match(
@@ -150,11 +152,11 @@ pub(crate) fn compile_binary_op(
 pub(crate) fn decompose_assignment(assignment: Assignment) -> Option<Operator> {
     match assignment {
         Assignment::Assign => None,
-        Assignment::PlusAssign => Some(Operator::Math(Math::Plus)),
-        Assignment::ConcatAssign => Some(Operator::Math(Math::Concat)),
-        Assignment::MinusAssign => Some(Operator::Math(Math::Minus)),
+        Assignment::AddAssign => Some(Operator::Math(Math::Add)),
+        Assignment::SubtractAssign => Some(Operator::Math(Math::Subtract)),
         Assignment::MultiplyAssign => Some(Operator::Math(Math::Multiply)),
         Assignment::DivideAssign => Some(Operator::Math(Math::Divide)),
+        Assignment::ConcatenateAssign => Some(Operator::Math(Math::Concatenate)),
     }
 }
 
@@ -340,11 +342,14 @@ pub(crate) fn compile_load_env(
             .into_spanned(span),
         )?,
         [PathMember::Int { span, .. }, ..] => {
-            return Err(CompileError::AccessEnvByInt { span: *span })
+            return Err(CompileError::AccessEnvByInt { span: *span });
         }
-        [PathMember::String {
-            val: key, optional, ..
-        }, tail @ ..] => {
+        [
+            PathMember::String {
+                val: key, optional, ..
+            },
+            tail @ ..,
+        ] => {
             let key = builder.data(key)?;
 
             builder.push(if *optional {

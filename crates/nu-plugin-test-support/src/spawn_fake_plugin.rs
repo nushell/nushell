@@ -1,10 +1,10 @@
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 use nu_plugin::Plugin;
 use nu_plugin_core::{InterfaceManager, PluginRead, PluginWrite};
 use nu_plugin_engine::{PluginInterfaceManager, PluginSource};
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{shell_error::io::IoError, PluginIdentity, ShellError};
+use nu_protocol::{PluginIdentity, ShellError, shell_error::io::IoError};
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
 
@@ -66,7 +66,7 @@ pub(crate) fn spawn_fake_plugin(
         .spawn(move || manager.consume_all(output_read).expect("Plugin read error"))
         .map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 format!("Could not spawn fake plugin interface reader ({name})"),
                 nu_protocol::location!(),
             )
@@ -87,7 +87,7 @@ pub(crate) fn spawn_fake_plugin(
         })
         .map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 format!("Could not spawn fake plugin runner ({name})"),
                 nu_protocol::location!(),
             )

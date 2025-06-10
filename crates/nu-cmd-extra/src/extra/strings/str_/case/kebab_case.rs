@@ -3,9 +3,9 @@ use heck::ToKebabCase;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrKebabCase;
 
-impl Command for SubCommand {
+impl Command for StrKebabCase {
     fn name(&self) -> &str {
         "str kebab-case"
     }
@@ -25,7 +25,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, convert strings at the given cell paths",
+                "For a data structure input, convert strings at the given cell paths.",
             )
             .category(Category::Strings)
     }
@@ -90,6 +90,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrKebabCase {})
     }
 }

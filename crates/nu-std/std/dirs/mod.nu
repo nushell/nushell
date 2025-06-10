@@ -17,8 +17,16 @@
 # This situation could arise if we started with [/a, /b, /c], then
 # we changed directories from /b to /var/tmp.
 export-env {
-    $env.DIRS_POSITION = 0
-    $env.DIRS_LIST = [($env.PWD | path expand)]
+    $env.ENV_CONVERSIONS.DIRS_LIST = {
+        from_string: {|| split row (char esep)}
+        to_string: {|| str join (char esep)}
+    }
+    $env.ENV_CONVERSIONS.DIRS_POSITION = {
+        from_string: {|| into int}
+        to_string: {|| into string}
+    }
+    $env.DIRS_POSITION = $env.DIRS_POSITION? | default (0)
+    $env.DIRS_LIST = $env.DIRS_LIST? | default [($env.PWD | path expand)]
 }
 
 # Add one or more directories to the list.

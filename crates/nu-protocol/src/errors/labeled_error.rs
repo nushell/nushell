@@ -1,4 +1,4 @@
-use super::ShellError;
+use super::{ShellError, shell_error::io::IoError};
 use crate::Span;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -143,11 +143,11 @@ impl LabeledError {
     /// [`ShellError`] implements `miette::Diagnostic`:
     ///
     /// ```rust
-    /// # use nu_protocol::{ShellError, LabeledError, shell_error::io::IoError, Span};
+    /// # use nu_protocol::{ShellError, LabeledError, shell_error::{self, io::IoError}, Span};
     /// #
     /// let error = LabeledError::from_diagnostic(
     ///     &ShellError::Io(IoError::new_with_additional_context(
-    ///         std::io::ErrorKind::Other,
+    ///         shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
     ///         Span::test_data(),
     ///         None,
     ///         "some error"
@@ -244,6 +244,12 @@ impl Diagnostic for LabeledError {
 
 impl From<ShellError> for LabeledError {
     fn from(err: ShellError) -> Self {
+        LabeledError::from_diagnostic(&err)
+    }
+}
+
+impl From<IoError> for LabeledError {
+    fn from(err: IoError) -> Self {
         LabeledError::from_diagnostic(&err)
     }
 }

@@ -1,7 +1,7 @@
 mod window_cursor;
 mod window_cursor_2d;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 pub use window_cursor::WindowCursor;
 pub use window_cursor_2d::{CursorMoveHandler, Position, WindowCursor2D};
 

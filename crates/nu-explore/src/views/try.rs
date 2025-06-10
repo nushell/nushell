@@ -1,14 +1,14 @@
-use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
+use super::{Layout, Orientation, View, ViewConfig, record::RecordView, util::nu_style_to_tui};
 use crate::{
     explore::ExploreConfig,
     nu_common::{collect_pipeline, run_command_with_value},
-    pager::{report::Report, Frame, Transition, ViewInfo},
+    pager::{Frame, Transition, ViewInfo, report::Report},
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PipelineData, Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::{
     layout::Rect,
@@ -109,7 +109,7 @@ impl View for TryView {
             let cur_w = area.x + 1 + 1 + 1 + max_cmd_len;
             let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
             if cur_w < cur_w_max {
-                f.set_cursor(area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1);
+                f.set_cursor_position((area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1));
             }
         }
 
@@ -238,7 +238,7 @@ impl View for TryView {
     }
 
     fn show_data(&mut self, i: usize) -> bool {
-        self.table.as_mut().map_or(false, |v| v.show_data(i))
+        self.table.as_mut().is_some_and(|v| v.show_data(i))
     }
 }
 

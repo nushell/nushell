@@ -8,49 +8,41 @@ def "nu-complete threads" [] {
     seq 1 (sys cpu | length)
 }
 
-# Here we store the map of annotations internal names and the annotation actually used during test creation
-# The reason we do that is to allow annotations to be easily renamed without modifying rest of the code
-# Functions with no annotations or with annotations not on the list are rejected during module evaluation
-# test and test-skip annotations may be used multiple times throughout the module as the function names are stored in a list
-# Other annotations should only be used once within a module file
-# If you find yourself in need of multiple before- or after- functions it's a sign your test suite probably needs redesign
-def valid-annotations [] {
-    {
-        "#[test]": "test",
-        "#[ignore]": "test-skip",
-        "#[before-each]": "before-each"
-        "#[before-all]": "before-all"
-        "#[after-each]": "after-each"
-        "#[after-all]": "after-all"
-    }
+# Here we store the map of annotations' internal names along with the annotation actually
+# used during test creation. We do this to allow annotations to be easily renamed without
+# modifying rest of the code.
+# Functions with no annotations or with annotations not on the list are rejected during module evaluation.
+#
+# `test` and `test-skip` annotations may be used multiple times throughout the module as the function names
+# are stored in a list.
+#
+# Other annotations should only be used once within a module file.
+#
+# If you find yourself in need of multiple `before-*` or `after-*` functions, it's a sign your test suite
+# probably needs redesign.
+const valid_annotations = {
+    "test": "test",
+    "ignore": "test-skip",
+    "before-each": "before-each"
+    "before-all": "before-all"
+    "after-each": "after-each"
+    "after-all": "after-all"
 }
 
-# Returns a table containing the list of function names together with their annotations (comments above the declaration)
+# Returns a table containing the list of command names along with their attributes. 
 def get-annotated [
     file: path
 ]: nothing -> table<function_name: string, annotation: string> {
-    let raw_file = (
-        open $file
-        | lines
-        | enumerate
-        | flatten
-    )
-
-    $raw_file
-    | where item starts-with def and index > 0
-    | insert annotation {|x|
-        $raw_file
-        | get ($x.index - 1)
-        | get item
-        | str trim
-    }
-    | where annotation in (valid-annotations|columns)
-    | reject index
-    | update item {
-        split column --collapse-empty ' '
-        | get column2.0
-    }
-    | rename function_name
+    ^$nu.current-exe --no-config-file -c $'
+        source `($file)`
+        scope commands
+        | select name attributes
+        | where attributes != []
+        | to nuon
+    '
+    | from nuon
+    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | rename function_name annotation
 }
 
 # Takes table of function names and their annotations such as the one returned by get-annotated
@@ -72,10 +64,6 @@ def create-test-record []: nothing -> record<before-each: string, after-each: st
 
     let test_record = (
         $input
-        | update annotation {|x|
-            valid-annotations
-            | get $x.annotation
-        }
         | group-by --to-table annotation
         | update items {|x|
             $x.items.function_name
@@ -144,6 +132,7 @@ def show-pretty-test [indent: int = 4] {
 # * Modified file is removed
 def run-test [
     test: record
+    plugins: list<string>
 ] {
     let test_file_name = (random chars --length 10)
     let test_function_name = (random chars --length 10)
@@ -167,8 +156,9 @@ export def ($test_function_name) [] {
     | str join (char lsep)
     | save $rendered_module_path
 
+    let plugins = $plugins | to json -r
     let result = (
-        ^$nu.current-exe --no-config-file -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
+        ^$nu.current-exe --no-config-file --plugins $plugins -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
         | complete
     )
 
@@ -187,6 +177,7 @@ export def ($test_function_name) [] {
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
     threads: int
+    plugins: list<string>
 ]: nothing -> table<file: path, name: string, test: string, result: string> {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
@@ -195,7 +186,7 @@ def run-tests-for-module [
                 before-each: 'let context = {}',
                 after-each: '',
                 test: $module.before-all
-            }
+            } $plugins
             | if $in.exit_code == 0 {
                 $in.stdout
             } else {
@@ -245,7 +236,7 @@ def run-tests-for-module [
             log debug $"Global context is ($global_context)"
 
             $test|insert result {|x|
-                run-test $test
+                run-test $test $plugins
                 | if $in.exit_code == 0 {
                     'pass'
                 } else {
@@ -265,7 +256,7 @@ def run-tests-for-module [
                 before-each: $"let context = ($global_context)",
                 after-each: '',
                 test: $module.after-all
-        }
+        } $plugins
     }
     return $tests
 }
@@ -290,6 +281,7 @@ export def run-tests [
     --exclude-module: string,             # Pattern to use to exclude test modules. Default: No modules are excluded
     --list,                               # list the selected tests without running them.
     --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
+    --plugins: list<string>,              # Plugins to load while running tests.
 ] {
     let available_threads = (sys cpu | length)
 
@@ -341,20 +333,20 @@ export def run-tests [
                 commands: (get-annotated $row.name)
             }
         }
-        | filter {|x| ($x.commands|length) > 0}
+        | where {|x| ($x.commands|length) > 0}
         | upsert commands {|module|
             $module.commands
             | create-test-record
         }
         | flatten
-        | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
-        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
-        | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
+        | where {|x| ($x.test|length) > 0}
+        | where {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | where {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
+        | where {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
-            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
+            | where {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | where {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {
@@ -368,7 +360,7 @@ export def run-tests [
     let results = (
         $modules
         | par-each  --threads $threads {|module|
-            run-tests-for-module $module $threads
+            run-tests-for-module $module $threads ($plugins | default [])
         }
         | flatten
     )

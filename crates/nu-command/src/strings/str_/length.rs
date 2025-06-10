@@ -1,5 +1,5 @@
 use crate::{grapheme_flags, grapheme_flags_const};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -16,9 +16,9 @@ impl CmdArgument for Arguments {
 }
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct StrLength;
 
-impl Command for SubCommand {
+impl Command for StrLength {
     fn name(&self) -> &str {
         "str length"
     }
@@ -177,6 +177,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(StrLength {})
     }
 }

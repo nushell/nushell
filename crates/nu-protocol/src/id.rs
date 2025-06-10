@@ -37,6 +37,10 @@ where
     }
 }
 
+impl<M> Id<M, usize> {
+    pub const ZERO: Self = Self::new(0);
+}
+
 impl<M, V> Debug for Id<M, V>
 where
     V: Display,
@@ -94,6 +98,8 @@ pub mod marker {
     pub struct Span;
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Reg;
+    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct Job;
 }
 
 pub type VarId = Id<marker::Var>;
@@ -104,6 +110,7 @@ pub type OverlayId = Id<marker::Overlay>;
 pub type FileId = Id<marker::File>;
 pub type VirtualPathId = Id<marker::VirtualPath>;
 pub type SpanId = Id<marker::Span>;
+pub type JobId = Id<marker::Job>;
 
 /// An ID for an [IR](crate::ir) register.
 ///
@@ -111,6 +118,12 @@ pub type SpanId = Id<marker::Span>;
 ///
 /// Note: `%0` is allocated with the block input at the beginning of a compiled block.
 pub type RegId = Id<marker::Reg, u32>;
+
+impl Display for JobId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
 
 impl Display for RegId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

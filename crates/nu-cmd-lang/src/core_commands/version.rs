@@ -161,11 +161,7 @@ fn push_version_numbers(record: &mut Record, head: Span) {
 }
 
 fn global_allocator() -> &'static str {
-    if cfg!(feature = "mimalloc") {
-        "mimalloc"
-    } else {
-        "standard"
-    }
+    "standard"
 }
 
 fn features_enabled() -> Vec<String> {

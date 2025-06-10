@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
 #[test]
@@ -13,7 +13,10 @@ fn type_in_list_of_this_type() -> TestResult {
 
 #[test]
 fn type_in_list_of_non_this_type() -> TestResult {
-    fail_test(r#"'hello' in [41 42 43]"#, "is not supported")
+    fail_test(
+        r#"'hello' in [41 42 43]"#,
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]
@@ -40,7 +43,10 @@ fn date_minus_duration() -> TestResult {
 
 #[test]
 fn duration_minus_date_not_supported() -> TestResult {
-    fail_test("2day - 2023-04-22", "doesn't support these values")
+    fail_test(
+        "2day - 2023-04-22",
+        "nu::parser::operator_incompatible_types",
+    )
 }
 
 #[test]
@@ -123,7 +129,7 @@ fn record_subtyping_allows_record_after_general_command() -> TestResult {
 fn record_subtyping_allows_general_inner() -> TestResult {
     run_test(
         "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
-       "",
+        "",
     )
 }
 

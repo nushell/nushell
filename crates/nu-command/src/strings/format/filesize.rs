@@ -1,9 +1,11 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, FilesizeUnit};
+use nu_protocol::{
+    FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS, engine::StateWorkingSet,
+};
 
 struct Arguments {
-    format: FilesizeUnit,
+    unit: FilesizeUnit,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -61,10 +63,10 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format = parse_filesize_unit(call.req::<Spanned<String>>(engine_state, stack, 0)?)?;
+        let unit = parse_filesize_unit(call.req::<Spanned<String>>(engine_state, stack, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments { format, cell_paths };
+        let arg = Arguments { unit, cell_paths };
         operate(
             format_value_impl,
             arg,
@@ -80,10 +82,10 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
+        let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments { format, cell_paths };
+        let arg = Arguments { unit, cell_paths };
         operate(
             format_value_impl,
             arg,
@@ -115,11 +117,8 @@ impl Command for FormatFilesize {
 }
 
 fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellError> {
-    format.item.parse().map_err(|_| ShellError::InvalidValue {
-        valid:
-            "'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'"
-                .into(),
-        actual: format.item,
+    format.item.parse().map_err(|_| ShellError::InvalidUnit {
+        supported_units: SUPPORTED_FILESIZE_UNITS.join(", "),
         span: format.span,
     })
 }
@@ -127,7 +126,11 @@ fn parse_filesize_unit(format: Spanned<String>) -> Result<FilesizeUnit, ShellErr
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     let value_span = val.span();
     match val {
-        Value::Filesize { val, .. } => Value::string(val.display(arg.format).to_string(), span),
+        Value::Filesize { val, .. } => FilesizeFormatter::new()
+            .unit(arg.unit)
+            .format(*val)
+            .to_string()
+            .into_value(span),
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

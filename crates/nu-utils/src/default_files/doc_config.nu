@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.102.1"
+# version = "0.104.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -97,6 +97,8 @@ $env.config.edit_mode = "emacs"
 # Tip: Set to "editor" to use the default editor on Unix platforms using
 #      the Alternatives system or equivalent
 $env.config.buffer_editor = "editor"
+# To set arguments for the editor, a list can be used:
+$env.config.buffer_editor = ["emacsclient", "-s", "light", "-t"]
 
 # cursor_shape_* (string)
 # -----------------------
@@ -113,12 +115,13 @@ $env.config.cursor_shape.vi_normal = "underscore"  # Cursor shape in normal vi m
 # $env.config.completions.*
 # Apply to the Nushell completion system
 
-# algorithm (string): Either "prefix" or "fuzzy"
+# algorithm (string): "prefix", "substring" or "fuzzy"
 $env.config.completions.algorithm = "prefix"
 
 # sort (string): One of "smart" or "alphabetical"
 # In "smart" mode sort order is based on the "algorithm" setting.
 # When using the "prefix" algorithm, results are alphabetically sorted.
+# When using the "substring" algorithm, results are alphabetically sorted.
 # When using the "fuzzy" algorithm, results are sorted based on their fuzzy score.
 $env.config.completions.sort = "smart"
 
@@ -199,11 +202,13 @@ $env.config.shell_integration.osc2 = true
 # osc7 (bool):
 # Nushell will report the current directory to the terminal using OSC 7. This is useful when
 # spawning new tabs in the same directory.
+# This is disabled by default on Windows in favor of the `osc9_9` option.
 $env.config.shell_integration.osc7 = true
 
 # osc9_9 (bool):
 # Enables/Disables OSC 9;9 support, originally a ConEmu terminal feature. This is an
 # alternative to OSC 7 which also communicates the current path to the terminal.
+# This is enabled by default on Windows as it is used by the Windows Terminal.
 $env.config.shell_integration.osc9_9 = false
 
 # osc8 (bool):
@@ -233,7 +238,7 @@ $env.config.shell_integration.osc633 = true
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
 # This sequence is commonly used to keep cursor key modes in sync between the local
-# terminal and a remove SSH host.
+# terminal and a remote SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
@@ -293,10 +298,11 @@ $env.config.display_errors.termination_signal = true
 $env.config.footer_mode = 25
 
 # table.*
-# table_mode (string):
+# mode (string):
+# Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# or "basic_compact"
+# "basic_compact" or "single"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 
@@ -351,6 +357,9 @@ $env.config.table.abbreviated_row_count = null
 # false: Always apply `footer_mode` rules to the parent table
 $env.config.table.footer_inheritance = false
 
+# missing_value_symbol (string): The symbol shown for missing values
+$env.config.table.missing_value_symbol = "❎"
+
 # ----------------
 # Datetime Display
 # ----------------
@@ -379,9 +388,14 @@ $env.config.datetime_format.normal = "%m/%d/%y %I:%M:%S%p"
 # Otherwise, setting this to one of the filesize units will use that particular unit when displaying all file sizes.
 $env.config.filesize.unit = 'metric'
 
+# filesize.show_unit (bool):
+# Whether to show or hide the file size unit. Useful if `$env.config.filesize.unit` is set to a fixed unit,
+# and you don't want that same unit repeated over and over again in which case you can set this to `false`.
+$env.config.filesize.show_unit = true
+
 # filesize.precision (int or nothing):
 # The number of digits to display after the decimal point for file sizes.
-# When set to `null`, all digits after the decimal point will be displayed.
+# When set to `null`, all digits after the decimal point, if any, will be displayed.
 $env.config.filesize.precision = 1
 
 # ---------------------
@@ -784,6 +798,13 @@ $env.config.color_config.empty
 # whitespace, that whitespace will be displayed using this style.
 # Use { attr: n } to disable.
 $env.config.color_config.leading_trailing_space_bg = { bg: 'red' }
+
+# banner_foreground: The default text style for the Welcome Banner displayed at startup
+$env.config.color_config.banner_foreground = "attr_normal"
+
+# banner_highlight1 and banner_highlight2: Colors for highlighted text in the Welcome Banner
+$env.config.color_config.banner_highlight1 = "green"
+$env.config.color_config.banner_highlight2 = "purple"
 
 # ------------------------
 # `explore` command colors

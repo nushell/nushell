@@ -1,7 +1,10 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{
+    NuGlob,
+    shell_error::{self, io::IoError},
+};
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
@@ -92,9 +95,9 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
         let update = if call.has_flag(engine_state, stack, "update")? {
-            UpdateMode::ReplaceIfOlder
+            UpdateMode::IfOlder
         } else {
-            UpdateMode::ReplaceAll
+            UpdateMode::All
         };
 
         #[allow(deprecated)]
@@ -134,12 +137,12 @@ impl Command for UMv {
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
             let exp_files: Vec<Result<PathBuf, ShellError>> =
-                nu_engine::glob_from(&p, &cwd, call.head, None)
+                nu_engine::glob_from(&p, &cwd, call.head, None, engine_state.signals().clone())
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::Io(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::FileNotFound,
                     p.span,
                     PathBuf::from(p.item.to_string()),
                 )));
@@ -183,7 +186,7 @@ impl Command for UMv {
             progress_bar: progress,
             verbose,
             suffix: String::from("~"),
-            backup: BackupMode::NoBackup,
+            backup: BackupMode::None,
             update,
             target_dir: None,
             no_target_dir: false,

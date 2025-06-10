@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
-use nu_utils::filesystem::{have_permission, PermissionResult};
+use nu_utils::filesystem::{PermissionResult, have_permission};
 
 #[derive(Clone)]
 pub struct Cd;
@@ -77,7 +77,9 @@ impl Command for Cd {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
                                 return Err(shell_error::io::IoError::new(
-                                    shell_error::io::ErrorKind::NotADirectory,
+                                    shell_error::io::ErrorKind::from_std(
+                                        std::io::ErrorKind::NotADirectory,
+                                    ),
                                     v.span,
                                     None,
                                 )
@@ -86,7 +88,7 @@ impl Command for Cd {
                             path
                         } else {
                             return Err(shell_error::io::IoError::new(
-                                std::io::ErrorKind::NotFound,
+                                ErrorKind::DirectoryNotFound,
                                 v.span,
                                 PathBuf::from(path_no_whitespace),
                             )
@@ -96,7 +98,7 @@ impl Command for Cd {
                         let path = nu_path::expand_path_with(path_no_whitespace, &cwd, true);
                         if !path.exists() {
                             return Err(shell_error::io::IoError::new(
-                                std::io::ErrorKind::NotFound,
+                                ErrorKind::DirectoryNotFound,
                                 v.span,
                                 PathBuf::from(path_no_whitespace),
                             )
@@ -104,7 +106,9 @@ impl Command for Cd {
                         };
                         if !path.is_dir() {
                             return Err(shell_error::io::IoError::new(
-                                shell_error::io::ErrorKind::NotADirectory,
+                                shell_error::io::ErrorKind::from_std(
+                                    std::io::ErrorKind::NotADirectory,
+                                ),
                                 v.span,
                                 path,
                             )
@@ -130,9 +134,12 @@ impl Command for Cd {
                 stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(_) => {
-                Err(IoError::new(std::io::ErrorKind::PermissionDenied, call.head, path).into())
-            }
+            PermissionResult::PermissionDenied => Err(IoError::new(
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
+                call.head,
+                path,
+            )
+            .into()),
         }
     }
 

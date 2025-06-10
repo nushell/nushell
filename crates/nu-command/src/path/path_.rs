@@ -1,9 +1,9 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
-pub struct PathCommand;
+pub struct Path;
 
-impl Command for PathCommand {
+impl Command for Path {
     fn name(&self) -> &str {
         "path"
     }

@@ -1,5 +1,6 @@
 use crate::{
     ast::Block,
+    cli_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
         description::{build_desc, Doccomments},
@@ -8,20 +9,24 @@ use crate::{
     },
     eval_const::create_nu_constant,
     shell_error::io::IoError,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
-    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
-    VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
+    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
+    VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
 use nu_utils::IgnoreCaseExt;
+use reedline::ReedlineEvent;
+use std::sync::mpsc::Sender;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc::channel,
+        mpsc::Sender,
         Arc, Mutex, MutexGuard, PoisonError,
     },
 };
@@ -30,6 +35,8 @@ type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 #[cfg(feature = "plugin")]
 use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
+
+use super::{CurrentJob, Jobs, Mail, Mailbox, ThreadJob};
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -112,6 +119,22 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+    pub report_log: Arc<Mutex<ReportLog>>,
+
+    pub jobs: Arc<Mutex<Jobs>>,
+
+    // The job being executed with this engine state, or None if main thread
+    pub current_job: CurrentJob,
+
+    pub root_job_sender: Sender<Mail>,
+
+    // When there are background jobs running, the interactive behavior of `exit` changes depending on
+    // the value of this flag:
+    // - if this is false, then a warning about running jobs is shown and `exit` enables this flag
+    // - if this is true, then `exit` will `std::process::exit`
+    //
+    // This ensures that running exit twice will terminate the program correctly
+    pub exit_warning_given: Arc<AtomicBool>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -127,6 +150,8 @@ pub const UNKNOWN_SPAN_ID: SpanId = SpanId::new(0);
 
 impl EngineState {
     pub fn new() -> Self {
+        let (send, recv) = channel::<Mail>();
+
         Self {
             files: vec![],
             virtual_paths: vec![],
@@ -182,6 +207,15 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
             immediately_execute: Arc::new(Mutex::new(false)),
+            report_log: Arc::default(),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
+            current_job: CurrentJob {
+                id: JobId::new(0),
+                background_thread_job: None,
+                mailbox: Arc::new(Mutex::new(Mailbox::new(recv))),
+            },
+            root_job_sender: send,
+            exit_warning_given: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -326,7 +360,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
+            IoError::new_internal(err, "Could not set current dir", crate::location!())
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -339,13 +373,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    pub fn has_overlay(&self, name: &[u8]) -> bool {
-        self.scope
-            .overlays
-            .iter()
-            .any(|(overlay_name, _)| name == overlay_name)
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -385,7 +412,7 @@ impl EngineState {
     }
 
     /// Translate overlay IDs from other to IDs in self
-    pub fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
+    fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
@@ -493,10 +520,7 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(
-        &self,
-        updated_items: Vec<PluginRegistryItem>,
-    ) -> Result<(), ShellError> {
+    fn update_plugin_file(&self, updated_items: Vec<PluginRegistryItem>) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
         use std::fs::File;
 
@@ -519,7 +543,7 @@ impl EngineState {
                     Ok(PluginRegistryFile::default())
                 } else {
                     Err(ShellError::Io(IoError::new_internal_with_path(
-                        err.kind(),
+                        err,
                         "Failed to open plugin file",
                         crate::location!(),
                         PathBuf::from(plugin_path),
@@ -536,7 +560,7 @@ impl EngineState {
         // Write it to the same path
         let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
             IoError::new_internal_with_path(
-                err.kind(),
+                err,
                 "Failed to write plugin file",
                 crate::location!(),
                 PathBuf::from(plugin_path),
@@ -715,18 +739,19 @@ impl EngineState {
         &self,
         mut predicate: impl FnMut(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
+    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
-            for decl in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl.1) && predicate(decl.0) {
-                    let command = self.get_decl(*decl.1);
+            for (name, decl_id) in &overlay_frame.decls {
+                if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
+                    let command = self.get_decl(*decl_id);
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
                     output.push((
-                        decl.0.clone(),
+                        *decl_id,
+                        name.clone(),
                         Some(command.description().to_string()),
                         command.command_type(),
                     ));
@@ -1038,6 +1063,9 @@ impl EngineState {
                 cursor_pos: 0,
             }));
         }
+        if Mutex::is_poisoned(&self.jobs) {
+            self.jobs = Arc::new(Mutex::new(Jobs::default()));
+        }
         if Mutex::is_poisoned(&self.regex_cache) {
             self.regex_cache = Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
@@ -1057,6 +1085,16 @@ impl EngineState {
             .iter()
             .position(|sp| sp == &span)
             .map(SpanId::new)
+    }
+
+    // Determines whether the current state is being held by a background job
+    pub fn is_background_job(&self) -> bool {
+        self.current_job.background_thread_job.is_some()
+    }
+
+    // Gets the thread job entry
+    pub fn current_thread_job(&self) -> Option<&ThreadJob> {
+        self.current_job.background_thread_job.as_ref()
     }
 }
 

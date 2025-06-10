@@ -1,4 +1,5 @@
 mod alias;
+mod attr;
 mod break_;
 mod collect;
 mod const_;
@@ -35,6 +36,7 @@ mod version;
 mod while_;
 
 pub use alias::Alias;
+pub use attr::*;
 pub use break_::Break;
 pub use collect::Collect;
 pub use const_::Const;

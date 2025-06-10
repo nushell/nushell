@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    shell_error::{self, io::IoError},
     HistoryFileFormat,
+    shell_error::{self, io::IoError},
 };
 
 use reedline::{
@@ -21,12 +21,12 @@ impl Command for HistoryImport {
     }
 
     fn description(&self) -> &str {
-        "Import command line history"
+        "Import command line history."
     }
 
     fn extra_description(&self) -> &str {
         r#"Can import history from input, either successive command lines or more detailed records. If providing records, available fields are:
-    command_line, id, start_timestamp, hostname, cwd, duration, exit_status.
+    command, start_timestamp, hostname, cwd, duration, exit_status.
 
 If no input is provided, will import all history items from existing history in the other format: if current history is stored in sqlite, it will store it in plain text and vice versa.
 
@@ -48,8 +48,7 @@ Note that history item IDs are ignored when importing from file."#
         vec![
             Example {
                 example: "history import",
-                description:
-                    "Append all items from history in the other format to the current history",
+                description: "Append all items from history in the other format to the current history",
                 result: None,
             },
             Example {
@@ -198,7 +197,7 @@ fn item_from_record(mut rec: Record, span: Span) -> Result<HistoryItem, ShellErr
             return Err(ShellError::TypeMismatch {
                 err_message: format!("missing column: {}", fields::COMMAND_LINE),
                 span,
-            })
+            });
         }
     };
 
@@ -283,22 +282,22 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
                 PathBuf::from(path),
                 "history path exists but is not a file",
             )
-            .into())
+            .into());
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => {
             return Err(IoError::new_internal(
-                e.kind(),
+                e,
                 "Could not get metadata",
                 nu_protocol::location!(),
             )
-            .into())
+            .into());
         }
     }
     let bak_path = find_backup_path(path, span)?;
     std::fs::copy(path, &bak_path).map_err(|err| {
         IoError::new_internal(
-            err.kind(),
+            err.not_found_as(NotFound::File),
             "Could not copy backup",
             nu_protocol::location!(),
         )

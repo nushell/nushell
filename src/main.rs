@@ -1,4 +1,5 @@
 mod command;
+mod command_context;
 mod config_files;
 mod ide;
 mod logger;
@@ -8,42 +9,27 @@ mod signals;
 mod terminal;
 mod test_bins;
 
-#[cfg(feature = "mimalloc")]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::{trace, Level};
+use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_engine::convert_env_values;
+use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    record, report_shell_error, ByteStream, Config, IntoValue, PipelineData, ShellError, Span,
-    Spanned, Type, Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    engine::Stack, record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{path::PathBuf, str::FromStr, sync::Arc};
-
-fn get_engine_state() -> EngineState {
-    let engine_state = nu_cmd_lang::create_default_context();
-    #[cfg(feature = "plugin")]
-    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
-    let engine_state = nu_command::add_shell_command_context(engine_state);
-    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
-    let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
-}
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -76,7 +62,7 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let mut engine_state = get_engine_state();
+    let mut engine_state = command_context::get_engine_state();
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
@@ -95,6 +81,9 @@ fn main() -> Result<()> {
 
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state);
+
+    #[cfg(feature = "rustls-tls")]
+    nu_command::tls::CRYPTO_PROVIDER.default();
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -181,9 +170,10 @@ fn main() -> Result<()> {
     );
     working_set.set_variable_const_val(
         var_id,
-        Value::test_list(vec![Value::test_string(
-            default_nu_plugin_dirs_path.to_string_lossy(),
-        )]),
+        Value::test_list(vec![
+            Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+            Value::test_string(current_exe_directory().to_string_lossy()),
+        ]),
     );
     engine_state.merge_delta(working_set.render())?;
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
@@ -419,7 +409,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
+        use nu_protocol::{ErrSpan, PluginIdentity, RegisteredPlugin, engine::StateWorkingSet};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -430,7 +420,7 @@ fn main() -> Result<()> {
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new(
-                        err.kind(),
+                        err,
                         plugin_filename.span,
                         PathBuf::from(&plugin_filename.item),
                     )
@@ -489,6 +479,8 @@ fn main() -> Result<()> {
             input,
             entire_start_time,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
@@ -499,6 +491,8 @@ fn main() -> Result<()> {
             args_to_script,
             input,
         );
+
+        cleanup_exit(0, &engine_state, 0);
     } else {
         // Environment variables that apply only when in REPL
         engine_state.add_env_var("PROMPT_INDICATOR".to_string(), Value::test_string("> "));
@@ -534,7 +528,9 @@ fn main() -> Result<()> {
             stack,
             parsed_nu_cli_args,
             entire_start_time,
-        )?
+        )?;
+
+        cleanup_exit(0, &engine_state, 0);
     }
 
     Ok(())

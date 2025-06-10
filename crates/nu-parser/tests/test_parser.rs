@@ -1,109 +1,12 @@
 use nu_parser::*;
 use nu_protocol::{
+    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
-    engine::{Call, Command, EngineState, Stack, StateWorkingSet},
-    Category, DeclId, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
 };
 use rstest::rstest;
 
-#[cfg(test)]
-#[derive(Clone)]
-pub struct Let;
-
-#[cfg(test)]
-impl Command for Let {
-    fn name(&self) -> &str {
-        "let"
-    }
-
-    fn description(&self) -> &str {
-        "Create a variable and give it a value."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("let")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
-
-#[cfg(test)]
-#[derive(Clone)]
-pub struct Mut;
-
-#[cfg(test)]
-impl Command for Mut {
-    fn name(&self) -> &str {
-        "mut"
-    }
-
-    fn description(&self) -> &str {
-        "Mock mut command."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("mut")
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
-            .required(
-                "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
-            )
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
-
-#[derive(Clone)]
-pub struct ToCustom;
-
-impl Command for ToCustom {
-    fn name(&self) -> &str {
-        "to-custom"
-    }
-
-    fn description(&self) -> &str {
-        "Mock converter command."
-    }
-
-    fn signature(&self) -> nu_protocol::Signature {
-        Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("custom".into()))
-            .category(Category::Custom("custom".into()))
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        todo!()
-    }
-}
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -756,6 +659,161 @@ pub fn parse_call_missing_req_flag() {
         working_set.parse_errors.first(),
         Some(ParseError::MissingRequiredFlag(..))
     ));
+}
+
+#[test]
+pub fn parse_attribute_block_check_spans() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let source = br#"
+    @foo a 1 2
+    @bar b 3 4
+    echo baz
+    "#;
+    let block = parse(&mut working_set, None, source, true);
+
+    // There SHOULD be errors here, we're using nonexistent commands
+    assert!(!working_set.parse_errors.is_empty());
+
+    assert_eq!(block.len(), 1);
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::AttributeBlock(ab) = &element.expr.expr else {
+        panic!("Couldn't parse attribute block");
+    };
+
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[0].expr.span),
+        b"foo a 1 2"
+    );
+    assert_eq!(
+        working_set.get_span_contents(ab.attributes[1].expr.span),
+        b"bar b 3 4"
+    );
+    assert_eq!(working_set.get_span_contents(ab.item.span), b"echo baz");
+}
+
+#[test]
+pub fn parse_attributes_check_values() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    @echo "hello world"
+    @echo 42
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_str(), Ok("hello world"));
+
+    let (name, val) = &attributes[1];
+    assert_eq!(name, "echo");
+    assert_eq!(val.as_int(), Ok(42));
+}
+
+#[test]
+pub fn parse_attributes_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = attr echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let decl_id = working_set.find_decl(b"foo").unwrap();
+    let cmd = working_set.get_decl(decl_id);
+    let attributes = cmd.attributes();
+
+    let (name, val) = &attributes[0];
+    assert_eq!(name, "test");
+    assert!(val.is_nothing());
+}
+
+#[test]
+pub fn parse_attributes_external_alias() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = br#"
+    alias "attr test" = ^echo
+
+    @test null
+    def foo [] {}
+    "#;
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+
+    let ParseError::LabeledError(shell_error, parse_error, _span) = &working_set.parse_errors[0]
+    else {
+        panic!("Expected LabeledError");
+    };
+
+    assert!(shell_error.contains("nu::shell::not_a_const_command"));
+    assert!(parse_error.contains("Encountered error during parse-time evaluation"));
+}
+
+#[test]
+pub fn parse_if_in_const_expression() {
+    // https://github.com/nushell/nushell/issues/15321
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Const));
+    working_set.add_decl(Box::new(Def));
+    working_set.add_decl(Box::new(IfMocked));
+
+    let source = b"const foo = if t";
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+    let ParseError::MissingPositional(error, _, _) = &working_set.parse_errors[0] else {
+        panic!("Expected MissingPositional");
+    };
+
+    assert!(error.contains("cond"));
+
+    working_set.parse_errors = Vec::new();
+    let source = b"def a [n= (if ]";
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(!working_set.parse_errors.is_empty());
+    let ParseError::UnexpectedEof(error, _) = &working_set.parse_errors[0] else {
+        panic!("Expected UnexpectedEof");
+    };
+
+    assert!(error.contains(")"));
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
@@ -1519,6 +1577,78 @@ mod string {
         }
 
         #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"\"\" ++ (1 + 3)foo(7 - 5)bar",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
+                    Expr::StringInterpolation(expressions) => {
+                        expressions.iter().map(|e| &e.expr).collect()
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 4);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("foo".to_string()));
+            assert!(matches!(subexprs[2], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[3], &Expr::String("bar".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr_external_arg() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(&mut working_set, None, b"^echo ($nu.home-path)/path", true);
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::ExternalCall(_, args) => match &args[0] {
+                    ExternalArgument::Regular(expression) => match &expression.expr {
+                        Expr::StringInterpolation(expressions) => {
+                            expressions.iter().map(|e| &e.expr).collect()
+                        }
+                        _ => panic!("Expected an `ExternalArgument::Regular`"),
+                    },
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("/path".to_string()));
+        }
+
+        #[test]
         pub fn parse_nested_expressions() {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1908,17 +2038,10 @@ mod range {
 
         let _ = parse(&mut working_set, None, code.as_bytes(), true);
 
-        assert!(
-            working_set.parse_errors.len() == 1,
-            "Errors: {:?}",
-            working_set.parse_errors
-        );
-        let err = &working_set.parse_errors[0].to_string();
-        assert!(
-            err.contains("range is not supported"),
-            "Expected unsupported operation error, got {}",
-            err
-        );
+        assert!(matches!(
+            &working_set.parse_errors[..],
+            [ParseError::OperatorUnsupportedType { .. }]
+        ),);
     }
 
     #[test]
@@ -1943,10 +2066,123 @@ mod range {
 }
 
 #[cfg(test)]
-mod input_types {
+mod mock {
     use super::*;
-    use nu_protocol::{ast::Argument, engine::Call, Category, PipelineData, ShellError, Type};
+    use nu_engine::CallExt;
+    use nu_protocol::{
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
+    };
 
+    #[derive(Clone)]
+    pub struct Const;
+
+    impl Command for Const {
+        fn name(&self) -> &str {
+            "const"
+        }
+
+        fn description(&self) -> &str {
+            "Create a parse-time constant."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("const")
+                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .allow_variants_without_examples(true)
+                .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "Equals sign followed by constant value.",
+                )
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+
+        fn run_const(
+            &self,
+            _working_set: &StateWorkingSet,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            Ok(PipelineData::empty())
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Let;
+
+    impl Command for Let {
+        fn name(&self) -> &str {
+            "let"
+        }
+
+        fn description(&self) -> &str {
+            "Create a variable and give it a value."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("let")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Mut;
+
+    impl Command for Mut {
+        fn name(&self) -> &str {
+            "mut"
+        }
+
+        fn description(&self) -> &str {
+            "Mock mut command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("mut")
+                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    "equals sign followed by value",
+                )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
     #[derive(Clone)]
     pub struct LsTest;
 
@@ -2003,6 +2239,87 @@ mod input_types {
             _input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
             todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Alias;
+
+    impl Command for Alias {
+        fn name(&self) -> &str {
+            "alias"
+        }
+
+        fn description(&self) -> &str {
+            "Mock alias command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("alias")
+                .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+                .required("name", SyntaxShape::String, "Name of the alias.")
+                .required(
+                    "initial_value",
+                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
+                    "Equals sign followed by value.",
+                )
+                .category(Category::Core)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AttrEcho;
+
+    impl Command for AttrEcho {
+        fn name(&self) -> &str {
+            "attr echo"
+        }
+
+        fn signature(&self) -> Signature {
+            Signature::build("attr echo").required(
+                "value",
+                SyntaxShape::Any,
+                "Value to store as an attribute",
+            )
+        }
+
+        fn description(&self) -> &str {
+            "Add an arbitrary value as an attribute to a command"
+        }
+
+        fn run(
+            &self,
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req(engine_state, stack, 0)?;
+            Ok(value.into_pipeline_data())
+        }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let value: Value = call.req_const(working_set, 0)?;
+            Ok(value.into_pipeline_data())
         }
     }
 
@@ -2254,7 +2571,27 @@ mod input_types {
         ) -> Result<PipelineData, ShellError> {
             todo!()
         }
+
+        fn is_const(&self) -> bool {
+            true
+        }
+
+        fn run_const(
+            &self,
+            _working_set: &StateWorkingSet,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            panic!("Should not be called!")
+        }
     }
+}
+
+#[cfg(test)]
+mod input_types {
+    use super::*;
+    use mock::*;
+    use nu_protocol::ast::Argument;
 
     fn add_declarations(engine_state: &mut EngineState) {
         let delta = {
@@ -2270,6 +2607,7 @@ mod input_types {
             working_set.add_decl(Box::new(Collect));
             working_set.add_decl(Box::new(WithColumn));
             working_set.add_decl(Box::new(IfMocked));
+            working_set.add_decl(Box::new(Mut));
 
             working_set.render()
         };
@@ -2399,6 +2737,44 @@ mod input_types {
     }
 
     #[test]
+    fn comments_within_blocks_test() {
+        // https://github.com/nushell/nushell/issues/15305
+        let mut engine_state = EngineState::new();
+        add_declarations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let input = "def dummy []: int -> int { $in }";
+        parse(&mut working_set, None, input.as_bytes(), true);
+
+        for prefix in ["let ", "mut ", "mut foo = 1; $"] {
+            let input = format!(
+                r#"{}foo = 1 |
+                # comment
+                dummy"#,
+                prefix
+            );
+            let block = parse(&mut working_set, None, input.as_bytes(), true);
+            let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
+            let block_expr = match last_expr {
+                Expr::Call(call) => {
+                    assert_eq!(call.arguments.len(), 2);
+                    call.arguments[1].expr().unwrap()
+                }
+                Expr::BinaryOp(_, _, rhs) => rhs.as_ref(),
+                _ => panic!("Unexpected expression: {:?}", last_expr),
+            };
+            let block_id = match block_expr.expr {
+                Expr::Block(block_id) | Expr::Subexpression(block_id) => block_id,
+                _ => panic!("Unexpected expression: {:?}", block_expr),
+            };
+            let rhs_expr = working_set.get_block(block_id);
+            assert_eq!(rhs_expr.pipelines.len(), 1);
+            assert_eq!(rhs_expr.pipelines[0].elements.len(), 2);
+            assert!(working_set.parse_errors.is_empty());
+        }
+    }
+
+    #[test]
     fn operations_within_blocks_test() {
         let mut engine_state = EngineState::new();
         add_declarations(&mut engine_state);
@@ -2417,6 +2793,26 @@ mod input_types {
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
+        }
+    }
+
+    #[test]
+    fn closure_in_block_position_errors_correctly() {
+        let mut engine_state = EngineState::new();
+        add_declarations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let inputs = [r#"if true { || print hi }"#, r#"if true { |x| $x }"#];
+
+        for input in inputs {
+            parse(&mut working_set, None, input.as_bytes(), true);
+            assert!(
+                matches!(
+                    working_set.parse_errors.first(),
+                    Some(ParseError::Mismatch(_, _, _))
+                ),
+                "testing: {input}"
+            );
         }
     }
 
@@ -2447,8 +2843,7 @@ mod input_types {
             .unwrap()
             .expr;
         let Expr::Call(call) = &element.expr else {
-            eprintln!("{:?}", element.expr);
-            panic!("Expected Expr::Call");
+            panic!("Expected Expr::Call, but found {:?}", element.expr);
         };
         let Expr::Keyword(else_kwd) = &call
             .arguments
@@ -2642,5 +3037,17 @@ mod record {
             },
             _ => panic!("Expected full cell path"),
         }
+    }
+
+    /// Regression test for https://github.com/nushell/nushell/issues/15243
+    #[test]
+    fn record_terminate_loop() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, b"{a:b}/", false);
+        assert_eq!(
+            working_set.parse_errors.first().map(|e| e.to_string()),
+            Some("Invalid characters after closing delimiter".to_string())
+        );
     }
 }

@@ -11,9 +11,9 @@ struct Arguments {
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathType;
 
-impl Command for SubCommand {
+impl Command for PathType {
     fn name(&self) -> &str {
         "path type"
     }
@@ -108,7 +108,7 @@ fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     match path.symlink_metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
-        Err(err) => Value::error(IoError::new(err.kind(), span, None).into(), span),
+        Err(err) => Value::error(IoError::new(err, span, None).into(), span),
     }
 }
 
@@ -147,6 +147,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathType {})
     }
 }

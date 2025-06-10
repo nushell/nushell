@@ -1,16 +1,16 @@
 use super::{
-    colored_text_widget::ColoredTextWidget, cursor::CursorMoveHandler, cursor::WindowCursor2D,
-    Layout, View, ViewConfig,
+    Layout, View, ViewConfig, colored_text_widget::ColoredTextWidget, cursor::CursorMoveHandler,
+    cursor::WindowCursor2D,
 };
 use crate::{
     nu_common::{NuSpan, NuText},
-    pager::{report::Report, Frame, StatusTopOrEnd, Transition, ViewInfo},
+    pager::{Frame, StatusTopOrEnd, Transition, ViewInfo, report::Report},
 };
 use crossterm::event::KeyEvent;
 use nu_color_config::TextStyle;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
 use std::cmp::max;

@@ -159,7 +159,7 @@ impl Command for DropNth {
                                 head,
                                 engine_state.signals().clone(),
                                 metadata,
-                            ))
+                            ));
                     }
                 };
 

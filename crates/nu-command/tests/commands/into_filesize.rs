@@ -128,3 +128,10 @@ fn wrong_positive_str() {
 
     assert!(actual.err.contains("can't convert string to filesize"));
 }
+
+#[test]
+fn invalid_str() {
+    let actual = nu!("'42.0 42.0 kB' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}

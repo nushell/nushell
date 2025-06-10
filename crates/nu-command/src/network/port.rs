@@ -4,9 +4,9 @@ use nu_protocol::shell_error::io::IoError;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct Port;
 
-impl Command for SubCommand {
+impl Command for Port {
     fn name(&self) -> &str {
         "port"
     }
@@ -132,7 +132,7 @@ fn get_free_port(
             }
 
             Err(IoError::new_with_additional_context(
-                last_err.expect("range not empty, validated before").kind(),
+                last_err.expect("range not empty, validated before"),
                 range_span,
                 None,
                 "Every port has been tried, but no valid one was found",

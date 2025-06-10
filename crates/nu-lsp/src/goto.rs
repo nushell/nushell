@@ -1,9 +1,47 @@
-use crate::{Id, LanguageServer};
-use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse};
-use nu_protocol::engine::StateWorkingSet;
+use std::path::Path;
+
+use crate::{Id, LanguageServer, path_to_uri, span_to_range};
+use lsp_textdocument::FullTextDocument;
+use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse, Location};
 use nu_protocol::Span;
+use nu_protocol::engine::{CachedFile, StateWorkingSet};
 
 impl LanguageServer {
+    fn get_location_by_span<'a>(
+        &self,
+        files: impl Iterator<Item = &'a CachedFile>,
+        span: &Span,
+    ) -> Option<Location> {
+        for cached_file in files.into_iter() {
+            if cached_file.covered_span.contains(span.start) {
+                let path = Path::new(&*cached_file.name);
+                if !path.is_file() {
+                    return None;
+                }
+                let target_uri = path_to_uri(path);
+                if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, file, cached_file.covered_span.start),
+                    });
+                } else {
+                    // in case where the document is not opened yet,
+                    // typically included by the `use/source` command
+                    let temp_doc = FullTextDocument::new(
+                        "nu".to_string(),
+                        0,
+                        String::from_utf8_lossy(cached_file.content.as_ref()).to_string(),
+                    );
+                    return Some(Location {
+                        uri: target_uri,
+                        range: span_to_range(span, &temp_doc, cached_file.covered_span.start),
+                    });
+                }
+            }
+        }
+        None
+    }
+
     pub(crate) fn find_definition_span_by_id(
         working_set: &StateWorkingSet,
         id: &Id,
@@ -13,11 +51,11 @@ impl LanguageServer {
                 let block_id = working_set.get_decl(*decl_id).block_id()?;
                 working_set.get_block(block_id).span
             }
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(*var_id);
                 Some(var.declaration_span)
             }
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let module = working_set.get_module(*module_id);
                 module.span
             }
@@ -25,8 +63,8 @@ impl LanguageServer {
                 let var = working_set.get_variable(*var_id);
                 Some(
                     var.const_val
-                        .clone()
-                        .and_then(|val| val.follow_cell_path(cell_path, false).ok())
+                        .as_ref()
+                        .and_then(|val| val.follow_cell_path(cell_path).ok())
                         .map(|val| val.span())
                         .unwrap_or(var.declaration_span),
                 )
@@ -39,13 +77,12 @@ impl LanguageServer {
         &mut self,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
-        let mut engine_state = self.new_engine_state();
-
         let path_uri = params
             .text_document_position_params
             .text_document
             .uri
             .to_owned();
+        let mut engine_state = self.new_engine_state(Some(&path_uri));
         let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,
@@ -68,9 +105,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{GotoDefinition, Request},
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
+        request::{GotoDefinition, Request},
     };
     use nu_test_support::fs::{fixtures, root};
 
@@ -105,19 +142,19 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
         let script = path_to_uri(&none_existent_path);
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 0, 0);
+        let resp = send_goto_definition_request(&client_connection, script, 0, 0);
 
         assert_json_eq!(result_from_message(resp), serde_json::json!(null));
     }
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -142,23 +179,23 @@ mod tests {
 
     #[test]
     fn goto_definition_of_cell_path() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
-        script.push("cell_path.nu");
+        script.push("use.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 7);
+        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 7);
         assert_json_eq!(
             result_from_message(resp).pointer("/range/start").unwrap(),
             serde_json::json!({ "line": 1, "character": 10 })
         );
 
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 4, 9);
+        let resp = send_goto_definition_request(&client_connection, script, 2, 9);
         assert_json_eq!(
             result_from_message(resp).pointer("/range/start").unwrap(),
             serde_json::json!({ "line": 1, "character": 17 })
@@ -167,7 +204,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -192,7 +229,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_unicode() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -217,7 +254,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -242,7 +279,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_else_block() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -267,7 +304,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_match_guard() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -292,7 +329,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable_in_each() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -317,7 +354,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -342,7 +379,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_another_file() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -367,7 +404,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_hide() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -392,7 +429,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_module_in_overlay() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -414,7 +451,7 @@ mod tests {
             serde_json::json!({ "line": 0, "character": 0 })
         );
 
-        let resp = send_goto_definition_request(&client_connection, script.clone(), 2, 30);
+        let resp = send_goto_definition_request(&client_connection, script, 2, 30);
         assert_json_eq!(
             result_from_message(resp).pointer("/range/start").unwrap(),
             serde_json::json!({ "line": 0, "character": 0 })

@@ -1,15 +1,15 @@
 use crate::network::http::client::{
-    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request, RedirectMode, RequestFlags,
+    RedirectMode, RequestFlags, http_client, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
 use super::client::HttpBody;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpOptions;
 
-impl Command for SubCommand {
+impl Command for HttpOptions {
     fn name(&self) -> &str {
         "http options"
     }
@@ -96,12 +96,12 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom header",
-                example: "http options --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Get options from example.com, with custom header using a record",
+                example: "http options --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom headers",
+                description: "Get options from example.com, with custom headers using a list",
                 example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
@@ -197,6 +197,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpOptions {})
     }
 }

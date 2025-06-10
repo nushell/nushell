@@ -78,9 +78,9 @@ fn run_interactive_stderr(xdg_config_home: impl AsRef<Path>) -> String {
         .output()
         .expect("Should have outputted");
 
-    return String::from_utf8_lossy(&child_output.stderr)
+    String::from_utf8_lossy(&child_output.stderr)
         .trim()
-        .to_string();
+        .to_string()
 }
 
 fn test_config_path_helper(

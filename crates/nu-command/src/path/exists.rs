@@ -13,9 +13,9 @@ struct Arguments {
 impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct PathExists;
 
-impl Command for SubCommand {
+impl Command for PathExists {
     fn name(&self) -> &str {
         "path exists"
     }
@@ -153,7 +153,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     Value::bool(
         match exists {
             Ok(exists) => exists,
-            Err(err) => return Value::error(IoError::new(err.kind(), span, path).into(), span),
+            Err(err) => return Value::error(IoError::new(err, span, path).into(), span),
         },
         span,
     )
@@ -167,6 +167,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(PathExists {})
     }
 }

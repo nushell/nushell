@@ -245,6 +245,13 @@ fn match_with_guard_no_expr_after_if() {
 }
 
 #[test]
+fn match_with_or_missing_expr() {
+    let actual = nu!("match $in { 1 | }");
+
+    assert!(actual.err.contains("expected pattern"));
+}
+
+#[test]
 fn match_with_comment_1() {
     Playground::setup("match_with_comment", |dirs, _| {
         let data = r#"

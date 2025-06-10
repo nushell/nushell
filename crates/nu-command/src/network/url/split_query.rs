@@ -3,9 +3,9 @@ use nu_engine::command_prelude::*;
 use super::query::query_string_to_table;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct UrlSplitQuery;
 
-impl Command for SubCommand {
+impl Command for UrlSplitQuery {
     fn name(&self) -> &str {
         "url split-query"
     }
@@ -33,25 +33,25 @@ impl Command for SubCommand {
                 description: "Outputs a table representing the contents of this query string",
                 example: r#""mode=normal&userid=31415" | url split-query"#,
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("mode"),
                         "value" => Value::test_string("normal"),
                     }),
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("userid"),
                         "value" => Value::test_string("31415"),
-                    })
+                    }),
                 ])),
             },
             Example {
                 description: "Outputs a table representing the contents of this query string, url-decoding the values",
                 example: r#""a=AT%26T&b=AT+T" | url split-query"#,
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("a"),
                         "value" => Value::test_string("AT&T"),
                     }),
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("b"),
                         "value" => Value::test_string("AT T"),
                     }),
@@ -61,15 +61,15 @@ impl Command for SubCommand {
                 description: "Outputs a table representing the contents of this query string",
                 example: r#""a=one&a=two&b=three" | url split-query"#,
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("a"),
                         "value" => Value::test_string("one"),
                     }),
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("a"),
                         "value" => Value::test_string("two"),
                     }),
-                    Value::test_record(record!{
+                    Value::test_record(record! {
                         "key" => Value::test_string("b"),
                         "value" => Value::test_string("three"),
                     }),
@@ -101,6 +101,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(UrlSplitQuery {})
     }
 }

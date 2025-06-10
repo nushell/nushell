@@ -108,7 +108,7 @@ fn literal_closure() {
 
 #[test]
 fn literal_closure_to_nuon() {
-    test_eval("{||} | to nuon --serialize", Eq("{||}"))
+    test_eval("{||} | to nuon --serialize", Eq("\"{||}\""))
 }
 
 #[test]

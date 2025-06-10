@@ -101,7 +101,7 @@ impl Command for ToHtml {
             .named(
                 "theme",
                 SyntaxShape::String,
-                "the name of the theme to use (github, blulocolight, ...)",
+                "the name of the theme to use (github, blulocolight, ...); case-insensitive",
                 Some('t'),
             )
             .switch(
@@ -163,8 +163,15 @@ fn get_theme_from_asset_file(
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
-        None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
+        None => {
+            return Ok(convert_html_theme_to_hash_map(
+                is_dark,
+                &HtmlTheme::default(),
+            ));
+        }
     };
+
+    let theme_span = theme.map(|s| s.span).unwrap_or(Span::unknown());
 
     // 228 themes come from
     // https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/windowsterminal
@@ -175,8 +182,17 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .into_iter()
-        .find(|n| n.name.eq_ignore_case(theme_name)) // case insensitive search
-        .unwrap_or_default();
+        .find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
+
+    let th = match th {
+        Some(t) => t,
+        None => {
+            return Err(ShellError::TypeMismatch {
+                err_message: format!("Unknown HTML theme '{}'", theme_name),
+                span: theme_span,
+            });
+        }
+    };
 
     Ok(convert_html_theme_to_hash_map(is_dark, &th))
 }
@@ -257,18 +273,20 @@ fn to_html(
         None => head,
     };
 
-    let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
-    let color_hm = match color_hm {
+    let color_hm = match get_theme_from_asset_file(dark, theme.as_ref()) {
         Ok(c) => c,
-        _ => {
-            return Err(ShellError::GenericError {
-                error: "Error finding theme name".into(),
-                msg: "Error finding theme name".into(),
-                span: Some(theme_span),
-                help: None,
-                inner: vec![],
-            })
-        }
+        Err(e) => match e {
+            ShellError::TypeMismatch {
+                err_message,
+                span: _,
+            } => {
+                return Err(ShellError::TypeMismatch {
+                    err_message,
+                    span: theme_span,
+                });
+            }
+            _ => return Err(e),
+        },
     };
 
     // change the color of the page
@@ -702,5 +720,91 @@ mod tests {
         use crate::test_examples;
 
         test_examples(ToHtml {})
+    }
+
+    #[test]
+    fn get_theme_from_asset_file_returns_default() {
+        let result = super::get_theme_from_asset_file(false, None);
+
+        assert!(result.is_ok(), "Expected Ok result for None theme");
+
+        let theme_map = result.unwrap();
+
+        assert_eq!(
+            theme_map.get("background").map(String::as_str),
+            Some("white"),
+            "Expected default background color to be white"
+        );
+
+        assert_eq!(
+            theme_map.get("foreground").map(String::as_str),
+            Some("black"),
+            "Expected default foreground color to be black"
+        );
+
+        assert!(
+            theme_map.contains_key("red"),
+            "Expected default theme to have a 'red' color"
+        );
+
+        assert!(
+            theme_map.contains_key("bold_green"),
+            "Expected default theme to have a 'bold_green' color"
+        );
+    }
+
+    #[test]
+    fn returns_a_valid_theme() {
+        let theme_name = "Dracula".to_string().into_spanned(Span::new(0, 7));
+        let result = super::get_theme_from_asset_file(false, Some(&theme_name));
+
+        assert!(result.is_ok(), "Expected Ok result for valid theme");
+        let theme_map = result.unwrap();
+        let required_keys = [
+            "background",
+            "foreground",
+            "red",
+            "green",
+            "blue",
+            "bold_red",
+            "bold_green",
+            "bold_blue",
+        ];
+
+        for key in required_keys {
+            assert!(
+                theme_map.contains_key(key),
+                "Expected theme to contain key '{}'",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn fails_with_unknown_theme_name() {
+        let result = super::get_theme_from_asset_file(
+            false,
+            Some(&"doesnt-exist".to_string().into_spanned(Span::new(0, 13))),
+        );
+
+        assert!(result.is_err(), "Expected error for invalid theme name");
+
+        if let Err(err) = result {
+            assert!(
+                matches!(err, ShellError::TypeMismatch { .. }),
+                "Expected TypeMismatch error, got: {:?}",
+                err
+            );
+
+            if let ShellError::TypeMismatch { err_message, span } = err {
+                assert!(
+                    err_message.contains("doesnt-exist"),
+                    "Error message should mention theme name, got: {}",
+                    err_message
+                );
+                assert_eq!(span.start, 0);
+                assert_eq!(span.end, 13);
+            }
+        }
     }
 }

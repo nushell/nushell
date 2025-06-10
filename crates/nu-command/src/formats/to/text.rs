@@ -1,8 +1,7 @@
+use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    format_duration, shell_error::io::IoError, ByteStream, Config, PipelineMetadata,
-};
+use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -50,7 +49,6 @@ impl Command for ToText {
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let input = input.try_expand_range()?;
-        let config = stack.get_config(engine_state);
 
         match input {
             PipelineData::Empty => Ok(Value::string(String::new(), head)
@@ -62,8 +60,7 @@ impl Command for ToText {
                         Value::Record { val, .. } => !val.is_empty(),
                         _ => false,
                     };
-                let mut str =
-                    local_into_string(engine_state, value, LINE_ENDING, &config, serialize_types);
+                let mut str = local_into_string(engine_state, value, LINE_ENDING, serialize_types);
                 if add_trailing {
                     str.push_str(LINE_ENDING);
                 }
@@ -98,7 +95,6 @@ impl Command for ToText {
                                 &engine_state_clone,
                                 val,
                                 LINE_ENDING,
-                                &config,
                                 serialize_types,
                             );
                             write!(buf, "{str}").map_err(&from_io_error)?;
@@ -113,7 +109,6 @@ impl Command for ToText {
                                 &engine_state_clone,
                                 val,
                                 LINE_ENDING,
-                                &config,
                                 serialize_types,
                             );
                             str.push_str(LINE_ENDING);
@@ -163,7 +158,6 @@ fn local_into_string(
     engine_state: &EngineState,
     value: Value,
     separator: &str,
-    config: &Config,
     serialize_types: bool,
 ) -> String {
     let span = value.span();
@@ -171,17 +165,27 @@ fn local_into_string(
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => val.to_string(),
-        Value::Filesize { val, .. } => config.filesize.display(val).to_string(),
+        Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
-            format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))
+            format!(
+                "{} ({})",
+                {
+                    if val.year() >= 0 {
+                        val.to_rfc2822()
+                    } else {
+                        val.to_rfc3339()
+                    }
+                },
+                HumanTime::from(val)
+            )
         }
         Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val,
         Value::Glob { val, .. } => val,
         Value::List { vals: val, .. } => val
             .into_iter()
-            .map(|x| local_into_string(engine_state, x, ", ", config, serialize_types))
+            .map(|x| local_into_string(engine_state, x, ", ", serialize_types))
             .collect::<Vec<_>>()
             .join(separator),
         Value::Record { val, .. } => val
@@ -191,7 +195,7 @@ fn local_into_string(
                 format!(
                     "{}: {}",
                     x,
-                    local_into_string(engine_state, y, ", ", config, serialize_types)
+                    local_into_string(engine_state, y, ", ", serialize_types)
                 )
             })
             .collect::<Vec<_>>()
@@ -221,7 +225,7 @@ fn local_into_string(
         // that critical here
         Value::Custom { val, .. } => val
             .to_base_value(span)
-            .map(|val| local_into_string(engine_state, val, separator, config, serialize_types))
+            .map(|val| local_into_string(engine_state, val, separator, serialize_types))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),
     }
 }

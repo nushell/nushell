@@ -28,7 +28,7 @@ impl Command for PluginRm {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name, or filename, of the plugin to remove",
+                "The name, or filename, of the plugin to remove.",
             )
             .category(Category::Plugin)
     }

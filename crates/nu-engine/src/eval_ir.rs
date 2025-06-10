@@ -1,7 +1,10 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
+    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{
@@ -9,14 +12,11 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
 /// Evaluate the compiled representation of a [`Block`].
@@ -678,7 +678,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span, true)?;
+                let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
@@ -694,9 +694,8 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
-                let value = value.follow_cell_path(&path.members, true)?;
-                ctx.put_reg(*dst, value.into_pipeline_data());
+                let value = value.follow_cell_path(&path.members)?;
+                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
                 Err(*error)
@@ -857,7 +856,7 @@ fn literal_value(
             let captures = block
                 .captures
                 .iter()
-                .map(|var_id| get_var(ctx, *var_id, span).map(|val| (*var_id, val)))
+                .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
                 .collect::<Result<Vec<_>, ShellError>>()?;
             Value::closure(
                 Closure {
@@ -970,19 +969,19 @@ fn binary_op(
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
-            Math::Plus => lhs_val.add(op_span, &rhs_val, span)?,
-            Math::Concat => lhs_val.concat(op_span, &rhs_val, span)?,
-            Math::Minus => lhs_val.sub(op_span, &rhs_val, span)?,
+            Math::Add => lhs_val.add(op_span, &rhs_val, span)?,
+            Math::Subtract => lhs_val.sub(op_span, &rhs_val, span)?,
             Math::Multiply => lhs_val.mul(op_span, &rhs_val, span)?,
             Math::Divide => lhs_val.div(op_span, &rhs_val, span)?,
+            Math::FloorDivide => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Modulo => lhs_val.modulo(op_span, &rhs_val, span)?,
-            Math::FloorDivision => lhs_val.floor_div(op_span, &rhs_val, span)?,
             Math::Pow => lhs_val.pow(op_span, &rhs_val, span)?,
+            Math::Concatenate => lhs_val.concat(op_span, &rhs_val, span)?,
         },
         Operator::Boolean(bl) => match bl {
-            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
             Boolean::Or => lhs_val.or(op_span, &rhs_val, span)?,
             Boolean::Xor => lhs_val.xor(op_span, &rhs_val, span)?,
+            Boolean::And => lhs_val.and(op_span, &rhs_val, span)?,
         },
         Operator::Bits(bit) => match bit {
             Bits::BitOr => lhs_val.bit_or(op_span, &rhs_val, span)?,
@@ -995,7 +994,7 @@ fn binary_op(
             return Err(ShellError::IrEvalError {
                 msg: "can't eval assignment with the `binary-op` instruction".into(),
                 span: Some(span),
-            })
+            });
         }
     };
 
@@ -1023,63 +1022,68 @@ fn eval_call<D: DebugContext>(
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
-    check_input_types(&input, decl.signature(), head)?;
-
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result;
+    let result = (|| {
+        if let Some(block_id) = decl.block_id() {
+            // If the decl is a custom command
+            let block = engine_state.get_block(block_id);
 
-    if let Some(block_id) = decl.block_id() {
-        // If the decl is a custom command
-        let block = engine_state.get_block(block_id);
+            // check types after acquiring block to avoid unnecessarily cloning Signature
+            check_input_types(&input, &block.signature, head)?;
 
-        // Set up a callee stack with the captures and move arguments from the stack into variables
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+            // Set up a callee stack with the captures and move arguments from the stack into variables
+            let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        gather_arguments(
-            engine_state,
-            block,
-            &mut caller_stack,
-            &mut callee_stack,
-            *args_base,
-            args_len,
-            head,
-        )?;
+            gather_arguments(
+                engine_state,
+                block,
+                &mut caller_stack,
+                &mut callee_stack,
+                *args_base,
+                args_len,
+                head,
+            )?;
 
-        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
-        // recoverable in Rust.
-        callee_stack.recursion_count += 1;
+            // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+            // recoverable in Rust.
+            callee_stack.recursion_count += 1;
 
-        result = eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+            let result =
+                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
 
-        // Move environment variables back into the caller stack scope if requested to do so
-        if block.redirect_env {
-            redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            // Move environment variables back into the caller stack scope if requested to do so
+            if block.redirect_env {
+                redirect_env(engine_state, &mut caller_stack, &callee_stack);
+            }
+
+            result
+        } else {
+            check_input_types(&input, &decl.signature(), head)?;
+            // FIXME: precalculate this and save it somewhere
+            let span = Span::merge_many(
+                std::iter::once(head).chain(
+                    caller_stack
+                        .arguments
+                        .get_args(*args_base, args_len)
+                        .iter()
+                        .flat_map(|arg| arg.span()),
+                ),
+            );
+
+            let call = Call {
+                decl_id,
+                head,
+                span,
+                args_base: *args_base,
+                args_len,
+            };
+
+            // Run the call
+            decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
         }
-    } else {
-        // FIXME: precalculate this and save it somewhere
-        let span = Span::merge_many(
-            std::iter::once(head).chain(
-                caller_stack
-                    .arguments
-                    .get_args(*args_base, args_len)
-                    .iter()
-                    .flat_map(|arg| arg.span()),
-            ),
-        );
-
-        let call = Call {
-            decl_id,
-            head,
-            span,
-            args_base: *args_base,
-            args_len,
-        };
-
-        // Run the call
-        result = decl.run(engine_state, &mut caller_stack, &(&call).into(), input);
-    };
+    })();
 
     drop(caller_stack);
 
@@ -1277,10 +1281,10 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 /// Type check pipeline input against command's input types
 fn check_input_types(
     input: &PipelineData,
-    signature: Signature,
+    signature: &Signature,
     head: Span,
 ) -> Result<(), ShellError> {
-    let io_types = signature.input_output_types;
+    let io_types = &signature.input_output_types;
 
     // If a command doesn't have any input/output types, then treat command input type as any
     if io_types.is_empty() {
@@ -1318,7 +1322,7 @@ fn check_input_types(
             return Err(ShellError::NushellFailed {
                 msg: "Command input type strings is empty, despite being non-zero earlier"
                     .to_string(),
-            })
+            });
         }
         1 => input_types.swap_remove(0),
         2 => input_types.join(" and "),
@@ -1525,7 +1529,7 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     let file = options
         .create(true)
         .open(&path_expanded)
-        .map_err(|err| IoError::new(err.kind(), path.span(), path_expanded))?;
+        .map_err(|err| IoError::new(err, path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 

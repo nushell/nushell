@@ -108,10 +108,15 @@ pub fn compact(
                                         return false;
                                     }
                                     if compact_empties {
-                                        if let Value::String { val, .. } = x {
-                                            if val.is_empty() {
-                                                return false;
-                                            }
+                                        // check if the value is one of the empty value
+                                        if match x {
+                                            Value::String { val, .. } => val.is_empty(),
+                                            Value::Record { val, .. } => val.is_empty(),
+                                            Value::List { vals, .. } => vals.is_empty(),
+                                            _ => false,
+                                        } {
+                                            // one of the empty value found so skip now
+                                            return false;
                                         }
                                     }
                                 }

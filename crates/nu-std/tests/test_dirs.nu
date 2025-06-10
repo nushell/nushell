@@ -1,3 +1,4 @@
+use std/testing *
 use std/assert
 use std/log
 
@@ -5,7 +6,7 @@ use std/log
 # Each 'use' for that module in the test script will execute the def --env block.
 # PWD at the time of the `use` will be what the export def --env block will see.
 
-#[before-each]
+@before-each
 def before-each [] {
     # need some directories to play with
     let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
@@ -17,7 +18,7 @@ def before-each [] {
     {base_path: $base_path, path_a: $path_a, path_b: $path_b}
 }
 
-#[after-each]
+@after-each
 def after-each [] {
     let base_path = $in.base_path
     cd $base_path
@@ -36,7 +37,7 @@ def cur_ring_check [expect_dir:string, expect_position: int scenario:string] {
     assert equal $expect_position $env.DIRS_POSITION $"position in ring after ($scenario)"
 }
 
-#[test]
+@test
 def dirs_command [] {
     # careful with order of these statements!
     # must capture value of $in before executing `use`s
@@ -45,6 +46,8 @@ def dirs_command [] {
     # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
+    # hide existing variables to prevent the state from outside affecting the tests
+    hide-env -i DIRS_LIST DIRS_POSITION
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
     # the def --env gets messed up
     use std/dirs
@@ -87,7 +90,7 @@ def dirs_command [] {
     assert equal $env.PWD $c.base_path "drop changes PWD (regression test for #9449)"
 }
 
-#[test]
+@test
 def dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
@@ -95,6 +98,7 @@ def dirs_next [] {
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
     cur_dir_check $c.base_path "use module test setup"
 
@@ -109,13 +113,14 @@ def dirs_next [] {
 
 }
 
-#[test]
+@test
 def dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
     # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     cur_dir_check $c.base_path "use module test setup"
@@ -134,10 +139,12 @@ def dirs_cd [] {
     assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
 }
 
-#[test]
+@test
 def dirs_goto_bug10696 [] {
     let $c = $in
     cd $c.base_path
+
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     dirs add $c.path_a
@@ -148,10 +155,12 @@ def dirs_goto_bug10696 [] {
     assert equal $env.PWD $c.path_b "goto other, then goto to come back returns to same directory"
 }
 
-#[test]
+@test
 def dirs_goto [] {
     let $c = $in
     cd $c.base_path
+
+    hide-env -i DIRS_LIST DIRS_POSITION
     use std/dirs
 
     # check that goto can move *from* any position in the ring *to* any other position (correctly)

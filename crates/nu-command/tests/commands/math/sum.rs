@@ -81,3 +81,10 @@ fn const_sum() {
     let actual = nu!("const SUM = [1 3] | math sum; $SUM");
     assert_eq!(actual.out, "4");
 }
+
+#[test]
+fn cannot_sum_infinite_range() {
+    let actual = nu!("0.. | math sum");
+
+    assert!(actual.err.contains("nu::shell::incorrect_value"));
+}

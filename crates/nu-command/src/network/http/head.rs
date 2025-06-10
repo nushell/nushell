@@ -8,9 +8,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpHead;
 
-impl Command for SubCommand {
+impl Command for HttpHead {
     fn name(&self) -> &str {
         "http head"
     }
@@ -97,9 +97,13 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header",
-                example:
-                    "http head --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Get headers from example.com, with custom header using a record",
+                example: "http head --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get headers from example.com, with custom header using a list",
+                example: "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
         ]
@@ -175,6 +179,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpHead {})
     }
 }

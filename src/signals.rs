@@ -1,7 +1,7 @@
-use nu_protocol::{engine::EngineState, Handlers, SignalAction, Signals};
+use nu_protocol::{Handlers, SignalAction, Signals, engine::EngineState};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {

@@ -1,16 +1,16 @@
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, RequestFlags,
+    RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
 use super::client::HttpBody;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct HttpGet;
 
-impl Command for SubCommand {
+impl Command for HttpGet {
     fn name(&self) -> &str {
         "http get"
     }
@@ -115,12 +115,12 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom header",
-                example: "http get --headers [my-header-key my-header-value] https://www.example.com",
+                description: "Get content from example.com, with custom header using a record",
+                example: "http get --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom headers",
+                description: "Get content from example.com, with custom headers using a list",
                 example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
@@ -216,6 +216,6 @@ mod tests {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(HttpGet {})
     }
 }

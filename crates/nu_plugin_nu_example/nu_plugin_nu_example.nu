@@ -6,7 +6,7 @@
 # it also allows us to test the plugin interface with something manually implemented in a scripting
 # language without adding any extra dependencies to our tests.
 
-const NUSHELL_VERSION = "0.102.1"
+const NUSHELL_VERSION = "0.104.2"
 const PLUGIN_VERSION = "0.1.1" # bump if you change commands!
 
 def main [--stdio] {
@@ -125,7 +125,7 @@ def process_call [
   # Use this information to implement your plugin logic
 
   # Print the call to stderr, in raw nuon and as a table
-  $plugin_call | to nuon --raw | print -e
+  $plugin_call | to nuon | print -e
   $plugin_call | table -e | print -e
 
   # Get the span from the call

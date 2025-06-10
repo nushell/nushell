@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
@@ -721,6 +721,42 @@ fn overlay_keep_pwd() {
 }
 
 #[test]
+fn overlay_reactivate_with_nufile_should_not_change_pwd() {
+    let inp = &[
+        "overlay use spam.nu",
+        "cd ..",
+        "overlay hide --keep-env [ PWD ] spam",
+        "cd samples",
+        "overlay use spam.nu",
+        "$env.PWD | path basename",
+    ];
+
+    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
+    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "samples");
+    assert_eq!(actual_repl.out, "samples");
+}
+
+#[test]
+fn overlay_reactivate_with_module_name_should_change_pwd() {
+    let inp = &[
+        "overlay use spam.nu",
+        "cd ..",
+        "overlay hide --keep-env [ PWD ] spam",
+        "cd samples",
+        "overlay use spam",
+        "$env.PWD | path basename",
+    ];
+
+    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
+    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "overlays");
+    assert_eq!(actual_repl.out, "overlays");
+}
+
+#[test]
 fn overlay_wrong_rename_type() {
     let inp = &["module spam {}", "overlay use spam as { echo foo }"];
 
@@ -1342,6 +1378,23 @@ fn alias_overlay_new() {
 }
 
 #[test]
+fn overlay_new_with_reload() {
+    let inp = &[
+        "overlay new spam",
+        "$env.foo = 'bar'",
+        "overlay hide spam",
+        "overlay new spam -r",
+        "'foo' in $env",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual.out, "false");
+    assert_eq!(actual_repl.out, "false");
+}
+
+#[test]
 fn overlay_use_module_dir() {
     let import = "overlay use samples/spam";
 
@@ -1407,4 +1460,51 @@ fn overlay_help_no_error() {
     assert!(actual.err.is_empty());
     let actual = nu!("overlay use -h");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn test_overlay_use_with_printing_file_pwd() {
+    Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.FILE_PWD
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "overlay use foo"
+        );
+
+        assert_eq!(actual.out, dirs.test().join("foo").to_string_lossy());
+    });
+}
+
+#[test]
+fn test_overlay_use_with_printing_current_file() {
+    Playground::setup("use_with_printing_current_file", |dirs, nu| {
+        let file = dirs.test().join("foo").join("mod.nu");
+        nu.mkdir("foo").with_files(&[FileWithContent(
+            file.as_os_str().to_str().unwrap(),
+            r#"
+                export-env {
+                    print $env.CURRENT_FILE
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "overlay use foo"
+        );
+
+        assert_eq!(
+            actual.out,
+            dirs.test().join("foo").join("mod.nu").to_string_lossy()
+        );
+    });
 }

@@ -1,4 +1,4 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
@@ -54,7 +54,7 @@ impl Command for StorImport {
                 return Err(ShellError::MissingParameter {
                     param_name: "please supply a file name with the --file-name parameter".into(),
                     span,
-                })
+                });
             }
         };
 

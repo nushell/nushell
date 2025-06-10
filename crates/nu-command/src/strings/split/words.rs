@@ -5,9 +5,9 @@ use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct SplitWords;
 
-impl Command for SubCommand {
+impl Command for SplitWords {
     fn name(&self) -> &str {
         "split words"
     }
@@ -75,8 +75,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "Split the string's words, of at least 3 characters, into separate rows",
+                description: "Split the string's words, of at least 3 characters, into separate rows",
                 example: "'hello to the world' | split words --min-word-length 3",
                 result: Some(Value::list(
                     vec![
@@ -88,8 +87,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "A real-world example of splitting words",
+                description: "A real-world example of splitting words",
                 example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
                 result: None,
             },
@@ -226,8 +224,9 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
                 Value::list(words, v_span)
             } else {
                 Value::error(
-                    ShellError::PipelineMismatch {
+                    ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string".into(),
+                        wrong_type: v.get_type().to_string(),
                         dst_span: span,
                         src_span: v_span,
                     },
@@ -420,7 +419,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(SplitWords {})
     }
     #[test]
     fn mixed_letter_number() {

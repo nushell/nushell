@@ -1,4 +1,4 @@
-use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -20,7 +20,7 @@ impl Command for FormatNumber {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["display", "render", "format"]
+        vec!["display", "render", "fmt"]
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -2,9 +2,10 @@ use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
+    PipelineData, ShellError, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_shell_error, PipelineData, ShellError, Value,
+    report_parse_error, report_shell_error,
 };
 use nu_std::load_standard_library;
 use std::{

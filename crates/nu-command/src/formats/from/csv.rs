@@ -1,4 +1,4 @@
-use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
+use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -77,32 +77,28 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_int(1),
-                        "ColB" => Value::test_int(2),
-                    })],
-                ))
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_int(1),
+                    "ColB" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Convert comma-separated data to a table, allowing variable number of columns per row",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
-                result: Some(Value::test_list (
-                    vec![
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(1),
-                            "ColB" => Value::test_int(2),
-                        }),
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(3),
-                            "ColB" => Value::test_int(4),
-                            "column2" => Value::test_int(5),
-                        }),
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(6),
-                        }),
-                    ],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(1),
+                        "ColB" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(3),
+                        "ColB" => Value::test_int(4),
+                        "column2" => Value::test_int(5),
+                    }),
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(6),
+                    }),
+                ])),
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",

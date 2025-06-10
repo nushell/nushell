@@ -1,7 +1,7 @@
 use crate::completions::CompletionOptions;
 use nu_protocol::{
+    DeclId, Span,
     engine::{Stack, StateWorkingSet},
-    Span,
 };
 use reedline::Suggestion;
 
@@ -12,10 +12,9 @@ pub trait Completer {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
 }
@@ -29,9 +28,15 @@ pub struct SemanticSuggestion {
 // TODO: think about name: maybe suggestion context?
 #[derive(Clone, Debug, PartialEq)]
 pub enum SuggestionKind {
-    Command(nu_protocol::engine::CommandType),
-    Type(nu_protocol::Type),
+    Command(nu_protocol::engine::CommandType, Option<DeclId>),
+    Value(nu_protocol::Type),
+    CellPath,
+    Directory,
+    File,
+    Flag,
     Module,
+    Operator,
+    Variable,
 }
 
 impl From<Suggestion> for SemanticSuggestion {

@@ -26,8 +26,54 @@ impl Command for ToYaml {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Outputs an YAML string representing the contents of this table",
+            description: "Outputs a YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yaml"#,
+            result: Some(Value::test_string("- foo: '1'\n  bar: '2'\n")),
+        }]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let input = input.try_expand_range()?;
+
+        to_yaml(engine_state, input, head, serialize_types)
+    }
+}
+
+#[derive(Clone)]
+pub struct ToYml;
+
+impl Command for ToYml {
+    fn name(&self) -> &str {
+        "to yml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to yml")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "serialize",
+                "serialize nushell types that cannot be deserialized",
+                Some('s'),
+            )
+            .category(Category::Formats)
+    }
+
+    fn description(&self) -> &str {
+        "Convert table into .yaml/.yml text."
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Outputs a YAML string representing the contents of this table",
+            example: r#"[[foo bar]; ["1" "2"]] | to yml"#,
             result: Some(Value::test_string("- foo: '1'\n  bar: '2'\n")),
         }]
     }

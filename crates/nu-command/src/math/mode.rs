@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Clone)]
-pub struct SubCommand;
+pub struct MathMode;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 enum NumberTypes {
@@ -28,7 +28,7 @@ impl HashableType {
     }
 }
 
-impl Command for SubCommand {
+impl Command for MathMode {
     fn name(&self) -> &str {
         "math mode"
     }
@@ -110,30 +110,13 @@ impl Command for SubCommand {
     }
 }
 
-pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellError> {
-    if let Some(Err(values)) = values
-        .windows(2)
-        .map(|elem| {
-            if elem[0].partial_cmp(&elem[1]).is_none() {
-                return Err(ShellError::OperatorMismatch {
-                    op_span: head,
-                    lhs_ty: elem[0].get_type().to_string(),
-                    lhs_span: elem[0].span(),
-                    rhs_ty: elem[1].get_type().to_string(),
-                    rhs_span: elem[1].span(),
-                });
-            }
-            Ok(elem[0].partial_cmp(&elem[1]).unwrap_or(Ordering::Equal))
-        })
-        .find(|elem| elem.is_err())
-    {
-        return Err(values);
-    }
+pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
     // But f64 doesn't implement Hash, so we get the binary representation to use as
     // key in the HashMap
     let hashable_values = values
         .iter()
+        .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
         .map(|val| match val {
             Value::Int { val, .. } => Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Int)),
             Value::Duration { val, .. } => {
@@ -147,11 +130,11 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
                 NumberTypes::Filesize,
             )),
             Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput {
+            _ => Err(ShellError::UnsupportedInput {
                 msg: "Unable to give a result with this input".to_string(),
                 input: "value originates from here".into(),
                 msg_span: head,
-                input_span: other.span(),
+                input_span: span,
             }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
@@ -200,6 +183,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(SubCommand {})
+        test_examples(MathMode {})
     }
 }

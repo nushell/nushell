@@ -1,9 +1,9 @@
 use crate::{
-    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
+    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
 };
 
-use crate::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
+use crate::values::{NuDataFrame, NuExpression, utils::DEFAULT_ROWS};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -72,6 +72,7 @@ impl PluginCommand for LastDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {
@@ -88,6 +89,7 @@ impl PluginCommand for LastDF {
                     .map_err(LabeledError::from)
             }
         }
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -111,8 +113,8 @@ fn command_lazy(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<u32> = call.opt(0)?;
-    let rows = rows.unwrap_or(DEFAULT_ROWS as u32);
+    let rows: Option<u64> = call.opt(0)?;
+    let rows = rows.unwrap_or(DEFAULT_ROWS as u64);
 
     let res: NuLazyFrame = lazy.to_polars().tail(rows).into();
 

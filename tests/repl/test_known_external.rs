@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
 use std::process::Command;
 
 // cargo version prints a string of the form:

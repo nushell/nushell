@@ -1,6 +1,6 @@
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{shell_error::io::IoError, NuGlob, ShellError, Span, Spanned};
+use nu_protocol::{NuGlob, ShellError, Signals, Span, Spanned, shell_error::io::IoError};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -19,6 +19,7 @@ pub fn glob_from(
     cwd: &Path,
     span: Span,
     options: Option<MatchOptions>,
+    signals: Signals,
 ) -> Result<
     (
         Option<PathBuf>,
@@ -80,7 +81,7 @@ pub fn glob_from(
                 }
                 Ok(p) => p,
                 Err(err) => {
-                    return Err(IoError::new(err.kind(), pattern_span, path).into());
+                    return Err(IoError::new(err, pattern_span, path).into());
                 }
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
@@ -90,7 +91,7 @@ pub fn glob_from(
     let pattern = pattern.to_string_lossy().to_string();
     let glob_options = options.unwrap_or_default();
 
-    let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|e| {
+    let glob = nu_glob::glob_with(&pattern, glob_options, signals).map_err(|e| {
         nu_protocol::ShellError::GenericError {
             error: "Error extracting glob pattern".into(),
             msg: e.to_string(),

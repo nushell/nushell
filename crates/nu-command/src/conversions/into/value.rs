@@ -208,7 +208,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         }
     } else if DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(
@@ -219,7 +219,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         Ok(Value::date(dt, span))
     } else if DATETIME_YMD_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(
@@ -230,7 +230,7 @@ fn process_cell(val: Value, display_as_filesizes: bool, span: Span) -> Result<Va
         Ok(Value::date(dt, span))
     } else if DATETIME_YMDZ_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "date".to_string(),
+            to_type: "datetime".to_string(),
             from_type: "string".to_string(),
             span,
             help: Some(format!(
@@ -436,60 +436,92 @@ mod test {
     #[test]
     fn test_datetime_ymdz_pattern() {
         assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00Z").unwrap());
-        assert!(DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789Z")
-            .unwrap());
-        assert!(DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00+01:00")
-            .unwrap());
-        assert!(DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789+01:00")
-            .unwrap());
-        assert!(DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00-01:00")
-            .unwrap());
-        assert!(DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789-01:00")
-            .unwrap());
+        assert!(
+            DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789Z")
+                .unwrap()
+        );
+        assert!(
+            DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00+01:00")
+                .unwrap()
+        );
+        assert!(
+            DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789+01:00")
+                .unwrap()
+        );
+        assert!(
+            DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00-01:00")
+                .unwrap()
+        );
+        assert!(
+            DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789-01:00")
+                .unwrap()
+        );
         assert!(DATETIME_YMDZ_RE.is_match("'2022-01-01T00:00:00Z'").unwrap());
 
         assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00").unwrap());
         assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.").unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789")
-            .unwrap());
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789")
+                .unwrap()
+        );
         assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00+01").unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00+01:0")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00+1:00")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789+01")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789+01:0")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789+1:00")
-            .unwrap());
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00+01:0")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00+1:00")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789+01")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789+01:0")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789+1:00")
+                .unwrap()
+        );
         assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00-01").unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00-01:0")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00-1:00")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789-01")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789-01:0")
-            .unwrap());
-        assert!(!DATETIME_YMDZ_RE
-            .is_match("2022-01-01T00:00:00.123456789-1:00")
-            .unwrap());
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00-01:0")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00-1:00")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789-01")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789-01:0")
+                .unwrap()
+        );
+        assert!(
+            !DATETIME_YMDZ_RE
+                .is_match("2022-01-01T00:00:00.123456789-1:00")
+                .unwrap()
+        );
     }
 
     #[test]
@@ -497,9 +529,11 @@ mod test {
         assert!(DATETIME_YMD_RE.is_match("2022-01-01").unwrap());
         assert!(DATETIME_YMD_RE.is_match("2022/01/01").unwrap());
         assert!(DATETIME_YMD_RE.is_match("2022-01-01T00:00:00").unwrap());
-        assert!(DATETIME_YMD_RE
-            .is_match("2022-01-01T00:00:00.000000000")
-            .unwrap());
+        assert!(
+            DATETIME_YMD_RE
+                .is_match("2022-01-01T00:00:00.000000000")
+                .unwrap()
+        );
         assert!(DATETIME_YMD_RE.is_match("'2022-01-01'").unwrap());
 
         // The regex isn't this specific, but it would be nice if it were
@@ -508,9 +542,11 @@ mod test {
         // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T24:00:00").unwrap());
         // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T00:60:00").unwrap());
         // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T00:00:60").unwrap());
-        assert!(!DATETIME_YMD_RE
-            .is_match("2022-01-01T00:00:00.0000000000")
-            .unwrap());
+        assert!(
+            !DATETIME_YMD_RE
+                .is_match("2022-01-01T00:00:00.0000000000")
+                .unwrap()
+        );
     }
 
     #[test]

@@ -1,13 +1,13 @@
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
     InlayHint, InlayHintKind, InlayHintLabel, InlayHintParams, InlayHintTooltip, MarkupContent,
     MarkupKind, Position, Range,
 };
 use nu_protocol::{
+    Type,
     ast::{Argument, Block, Expr, Expression, Operator, Traverse},
     engine::StateWorkingSet,
-    Type,
 };
 use std::sync::Arc;
 
@@ -26,14 +26,9 @@ fn extract_inlay_hints_from_expression(
     working_set: &StateWorkingSet,
     offset: &usize,
     file: &FullTextDocument,
-) -> Option<Vec<InlayHint>> {
-    let closure = |e| extract_inlay_hints_from_expression(e, working_set, offset, file);
+) -> Vec<InlayHint> {
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
-            let mut hints: Vec<InlayHint> = [lhs, op, rhs]
-                .into_iter()
-                .flat_map(|e| e.flat_map(working_set, &closure))
-                .collect();
             if let Expr::Operator(Operator::Assignment(_)) = op.expr {
                 let position = span_to_range(&lhs.span, file, *offset).end;
                 let type_rhs = type_short_name(&rhs.ty);
@@ -43,7 +38,7 @@ fn extract_inlay_hints_from_expression(
                     (_, "any") => type_lhs,
                     _ => type_lhs,
                 };
-                hints.push(InlayHint {
+                vec![InlayHint {
                     kind: Some(InlayHintKind::TYPE),
                     label: InlayHintLabel::String(format!(": {}", type_string)),
                     position,
@@ -52,9 +47,10 @@ fn extract_inlay_hints_from_expression(
                     data: None,
                     padding_left: None,
                     padding_right: None,
-                })
+                }]
+            } else {
+                vec![]
             }
-            Some(hints)
         }
         Expr::VarDecl(var_id) => {
             let position = span_to_range(&expr.span, file, *offset).end;
@@ -69,27 +65,30 @@ fn extract_inlay_hints_from_expression(
                 }))
                 .contains(':')
             {
-                return Some(Vec::new());
+                return vec![];
             }
             let var = working_set.get_variable(*var_id);
             let type_string = type_short_name(&var.ty);
-            Some(vec![
-                (InlayHint {
-                    kind: Some(InlayHintKind::TYPE),
-                    label: InlayHintLabel::String(format!(": {}", type_string)),
-                    position,
-                    text_edits: None,
-                    tooltip: None,
-                    data: None,
-                    padding_left: None,
-                    padding_right: None,
-                }),
-            ])
+            vec![InlayHint {
+                kind: Some(InlayHintKind::TYPE),
+                label: InlayHintLabel::String(format!(": {}", type_string)),
+                position,
+                text_edits: None,
+                tooltip: None,
+                data: None,
+                padding_left: None,
+                padding_right: None,
+            }]
         }
         Expr::Call(call) => {
             let decl = working_set.get_decl(call.decl_id);
             // skip those defined outside of the project
-            working_set.get_block(decl.block_id()?).span?;
+            let Some(block_id) = decl.block_id() else {
+                return vec![];
+            };
+            if working_set.get_block(block_id).span.is_none() {
+                return vec![];
+            };
             let signatures = decl.signature();
             let signatures = [
                 signatures.required_positional,
@@ -102,17 +101,11 @@ fn extract_inlay_hints_from_expression(
             for arg in arguments {
                 match arg {
                     // skip the rest when spread/unknown arguments encountered
-                    Argument::Spread(expr) | Argument::Unknown(expr) => {
-                        hints.extend(expr.flat_map(working_set, &closure));
+                    Argument::Spread(_) | Argument::Unknown(_) => {
                         sig_idx = signatures.len();
                         continue;
                     }
-                    // skip current for flags
-                    Argument::Named((_, _, Some(expr))) => {
-                        hints.extend(expr.flat_map(working_set, &closure));
-                        continue;
-                    }
-                    Argument::Positional(expr) => {
+                    Argument::Positional(_) => {
                         if let Some(sig) = signatures.get(sig_idx) {
                             sig_idx += 1;
                             let position = span_to_range(&arg.span(), file, *offset).start;
@@ -130,22 +123,22 @@ fn extract_inlay_hints_from_expression(
                                 padding_right: None,
                             });
                         }
-                        hints.extend(expr.flat_map(working_set, &closure));
                     }
+                    // skip current for flags
                     _ => {
                         continue;
                     }
                 }
             }
-            Some(hints)
+            hints
         }
-        _ => None,
+        _ => vec![],
     }
 }
 
 impl LanguageServer {
     pub(crate) fn get_inlay_hints(&mut self, params: &InlayHintParams) -> Option<Vec<InlayHint>> {
-        Some(self.inlay_hints.get(&params.text_document.uri)?.clone())
+        self.inlay_hints.get(&params.text_document.uri).cloned()
     }
 
     pub(crate) fn extract_inlay_hints(
@@ -154,13 +147,13 @@ impl LanguageServer {
         offset: usize,
         file: &FullTextDocument,
     ) -> Vec<InlayHint> {
-        block.flat_map(working_set, &|e| {
-            extract_inlay_hints_from_expression(e, working_set, &offset, file)
-        })
+        let closure = |e| extract_inlay_hints_from_expression(e, working_set, &offset, file);
+        let mut results = Vec::new();
+        block.flat_map(working_set, &closure, &mut results);
+        results
     }
 }
 
-/// TODO: test for files loaded as user config
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
@@ -168,8 +161,8 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{InlayHintRequest, Request},
         InlayHintParams, Position, Range, TextDocumentIdentifier, Uri, WorkDoneProgressParams,
+        request::{InlayHintRequest, Request},
     };
     use nu_test_support::fs::fixtures;
 
@@ -205,7 +198,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_variable_type() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -214,7 +207,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -232,7 +225,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_assignment_type() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -241,7 +234,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -260,7 +253,7 @@ mod tests {
 
     #[test]
     fn inlay_hint_parameter_names() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -269,7 +262,7 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
 
         assert_json_eq!(
             result_from_message(resp),
@@ -316,6 +309,36 @@ mod tests {
                     "kind": 2,
                     "tooltip": { "kind": "markdown", "value": "`any: `" }
                 }
+            ])
+        );
+    }
+
+    #[test]
+    /// https://github.com/nushell/nushell/pull/15071
+    fn inlay_hint_for_nu_script_loaded_on_init() {
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hints");
+        script.push("type.nu");
+        let script_path_str = script.to_str();
+        let script = path_to_uri(&script);
+
+        let config = format!("source {}", script_path_str.unwrap());
+        let (client_connection, _recv) = initialize_language_server(Some(&config), None);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_inlay_hint_request(&client_connection, script);
+
+        assert_json_eq!(
+            result_from_message(resp),
+            serde_json::json!([
+                { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
+                { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
+                { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
+                { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
+                { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
+                { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
+                { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
             ])
         );
     }

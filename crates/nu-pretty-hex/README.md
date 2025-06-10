@@ -1,6 +1,6 @@
 # nu-pretty-hex
 
-An update of prett-hex to make it prettier
+An update of pretty-hex to make it prettier
 
 [![crates.io](https://img.shields.io/crates/v/pretty-hex.svg)](https://crates.io/crates/pretty-hex)
 [![docs.rs](https://docs.rs/pretty-hex/badge.svg)](https://docs.rs/pretty-hex)

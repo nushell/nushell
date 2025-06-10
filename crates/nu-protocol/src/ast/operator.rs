@@ -1,67 +1,233 @@
-use crate::{ShellError, Span};
-
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-
 use super::{Expr, Expression};
+use crate::{ShellError, Span};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use strum_macros::{EnumIter, EnumMessage};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Comparison {
+    #[strum(message = "Equal to")]
     Equal,
+    #[strum(message = "Not equal to")]
     NotEqual,
+    #[strum(message = "Less than")]
     LessThan,
+    #[strum(message = "Greater than")]
     GreaterThan,
+    #[strum(message = "Less than or equal to")]
     LessThanOrEqual,
+    #[strum(message = "Greater than or equal to")]
     GreaterThanOrEqual,
+    #[strum(message = "Contains regex match")]
     RegexMatch,
+    #[strum(message = "Does not contain regex match")]
     NotRegexMatch,
+    #[strum(message = "Is a member of (doesn't use regex)")]
     In,
+    #[strum(message = "Is not a member of (doesn't use regex)")]
     NotIn,
+    #[strum(message = "Contains a value of (doesn't use regex)")]
     Has,
+    #[strum(message = "Does not contain a value of (doesn't use regex)")]
     NotHas,
+    #[strum(message = "Starts with")]
     StartsWith,
+    #[strum(message = "Ends with")]
     EndsWith,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl Comparison {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Equal => "==",
+            Self::NotEqual => "!=",
+            Self::LessThan => "<",
+            Self::GreaterThan => ">",
+            Self::LessThanOrEqual => "<=",
+            Self::GreaterThanOrEqual => ">=",
+            Self::RegexMatch => "=~",
+            Self::NotRegexMatch => "!~",
+            Self::In => "in",
+            Self::NotIn => "not-in",
+            Self::Has => "has",
+            Self::NotHas => "not-has",
+            Self::StartsWith => "starts-with",
+            Self::EndsWith => "ends-with",
+        }
+    }
+}
+
+impl AsRef<str> for Comparison {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for Comparison {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Math {
-    Plus,
-    Concat,
-    Minus,
+    #[strum(message = "Add (Plus)")]
+    Add,
+    #[strum(message = "Subtract (Minus)")]
+    Subtract,
+    #[strum(message = "Multiply")]
     Multiply,
+    #[strum(message = "Divide")]
     Divide,
+    #[strum(message = "Floor division")]
+    FloorDivide,
+    #[strum(message = "Floor division remainder (Modulo)")]
     Modulo,
-    FloorDivision,
+    #[strum(message = "Power of")]
     Pow,
+    #[strum(message = "Concatenates two lists, two strings, or two binary values")]
+    Concatenate,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl Math {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Add => "+",
+            Self::Subtract => "-",
+            Self::Multiply => "*",
+            Self::Divide => "/",
+            Self::FloorDivide => "//",
+            Self::Modulo => "mod",
+            Self::Pow => "**",
+            Self::Concatenate => "++",
+        }
+    }
+}
+
+impl AsRef<str> for Math {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for Math {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Boolean {
-    And,
+    #[strum(message = "Logical OR (short-circuiting)")]
     Or,
+    #[strum(message = "Logical XOR")]
     Xor,
+    #[strum(message = "Logical AND (short-circuiting)")]
+    And,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl Boolean {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Or => "or",
+            Self::Xor => "xor",
+            Self::And => "and",
+        }
+    }
+}
+
+impl AsRef<str> for Boolean {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for Boolean {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
 pub enum Bits {
+    #[strum(message = "Bitwise OR")]
     BitOr,
+    #[strum(message = "Bitwise exclusive OR")]
     BitXor,
+    #[strum(message = "Bitwise AND")]
     BitAnd,
+    #[strum(message = "Bitwise shift left")]
     ShiftLeft,
+    #[strum(message = "Bitwise shift right")]
     ShiftRight,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Assignment {
-    Assign,
-    PlusAssign,
-    ConcatAssign,
-    MinusAssign,
-    MultiplyAssign,
-    DivideAssign,
+impl AsRef<str> for Bits {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+impl Bits {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BitOr => "bit-or",
+            Self::BitXor => "bit-xor",
+            Self::BitAnd => "bit-and",
+            Self::ShiftLeft => "bit-shl",
+            Self::ShiftRight => "bit-shr",
+        }
+    }
+}
+
+impl fmt::Display for Bits {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, EnumMessage)]
+pub enum Assignment {
+    #[strum(message = "Assigns a value to a variable.")]
+    Assign,
+    #[strum(message = "Adds a value to a variable.")]
+    AddAssign,
+    #[strum(message = "Subtracts a value from a variable.")]
+    SubtractAssign,
+    #[strum(message = "Multiplies a variable by a value")]
+    MultiplyAssign,
+    #[strum(message = "Divides a variable by a value.")]
+    DivideAssign,
+    #[strum(message = "Concatenates a variable with a list, string or binary.")]
+    ConcatenateAssign,
+}
+
+impl AsRef<str> for Assignment {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Assignment {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Assign => "=",
+            Self::AddAssign => "+=",
+            Self::SubtractAssign => "-=",
+            Self::MultiplyAssign => "*=",
+            Self::DivideAssign => "/=",
+            Self::ConcatenateAssign => "++=",
+        }
+    }
+}
+
+impl fmt::Display for Assignment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Operator {
     Comparison(Comparison),
     Math(Math),
@@ -71,14 +237,24 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn precedence(&self) -> u8 {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Comparison(comparison) => comparison.as_str(),
+            Self::Math(math) => math.as_str(),
+            Self::Boolean(boolean) => boolean.as_str(),
+            Self::Bits(bits) => bits.as_str(),
+            Self::Assignment(assignment) => assignment.as_str(),
+        }
+    }
+
+    pub const fn precedence(&self) -> u8 {
         match self {
             Self::Math(Math::Pow) => 100,
             Self::Math(Math::Multiply)
             | Self::Math(Math::Divide)
             | Self::Math(Math::Modulo)
-            | Self::Math(Math::FloorDivision) => 95,
-            Self::Math(Math::Plus) | Self::Math(Math::Minus) => 90,
+            | Self::Math(Math::FloorDivide) => 95,
+            Self::Math(Math::Add) | Self::Math(Math::Subtract) => 90,
             Self::Bits(Bits::ShiftLeft) | Self::Bits(Bits::ShiftRight) => 85,
             Self::Comparison(Comparison::NotRegexMatch)
             | Self::Comparison(Comparison::RegexMatch)
@@ -94,7 +270,7 @@ impl Operator {
             | Self::Comparison(Comparison::NotIn)
             | Self::Comparison(Comparison::Has)
             | Self::Comparison(Comparison::NotHas)
-            | Self::Math(Math::Concat) => 80,
+            | Self::Math(Math::Concatenate) => 80,
             Self::Bits(Bits::BitAnd) => 75,
             Self::Bits(Bits::BitXor) => 70,
             Self::Bits(Bits::BitOr) => 60,
@@ -106,50 +282,13 @@ impl Operator {
     }
 }
 
-impl Display for Operator {
+impl fmt::Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Operator::Assignment(Assignment::Assign) => write!(f, "="),
-            Operator::Assignment(Assignment::PlusAssign) => write!(f, "+="),
-            Operator::Assignment(Assignment::ConcatAssign) => write!(f, "++="),
-            Operator::Assignment(Assignment::MinusAssign) => write!(f, "-="),
-            Operator::Assignment(Assignment::MultiplyAssign) => write!(f, "*="),
-            Operator::Assignment(Assignment::DivideAssign) => write!(f, "/="),
-            Operator::Comparison(Comparison::Equal) => write!(f, "=="),
-            Operator::Comparison(Comparison::NotEqual) => write!(f, "!="),
-            Operator::Comparison(Comparison::LessThan) => write!(f, "<"),
-            Operator::Comparison(Comparison::GreaterThan) => write!(f, ">"),
-            Operator::Comparison(Comparison::RegexMatch) => write!(f, "=~ or like"),
-            Operator::Comparison(Comparison::NotRegexMatch) => write!(f, "!~ or not-like"),
-            Operator::Comparison(Comparison::LessThanOrEqual) => write!(f, "<="),
-            Operator::Comparison(Comparison::GreaterThanOrEqual) => write!(f, ">="),
-            Operator::Comparison(Comparison::StartsWith) => write!(f, "starts-with"),
-            Operator::Comparison(Comparison::EndsWith) => write!(f, "ends-with"),
-            Operator::Comparison(Comparison::In) => write!(f, "in"),
-            Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
-            Operator::Comparison(Comparison::Has) => write!(f, "has"),
-            Operator::Comparison(Comparison::NotHas) => write!(f, "not-has"),
-            Operator::Math(Math::Plus) => write!(f, "+"),
-            Operator::Math(Math::Concat) => write!(f, "++"),
-            Operator::Math(Math::Minus) => write!(f, "-"),
-            Operator::Math(Math::Multiply) => write!(f, "*"),
-            Operator::Math(Math::Divide) => write!(f, "/"),
-            Operator::Math(Math::Modulo) => write!(f, "mod"),
-            Operator::Math(Math::FloorDivision) => write!(f, "//"),
-            Operator::Math(Math::Pow) => write!(f, "**"),
-            Operator::Boolean(Boolean::And) => write!(f, "and"),
-            Operator::Boolean(Boolean::Or) => write!(f, "or"),
-            Operator::Boolean(Boolean::Xor) => write!(f, "xor"),
-            Operator::Bits(Bits::BitOr) => write!(f, "bit-or"),
-            Operator::Bits(Bits::BitXor) => write!(f, "bit-xor"),
-            Operator::Bits(Bits::BitAnd) => write!(f, "bit-and"),
-            Operator::Bits(Bits::ShiftLeft) => write!(f, "bit-shl"),
-            Operator::Bits(Bits::ShiftRight) => write!(f, "bit-shr"),
-        }
+        f.write_str(self.as_str())
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumIter)]
 pub enum RangeInclusion {
     Inclusive,
     RightExclusive,
@@ -162,7 +301,7 @@ pub struct RangeOperator {
     pub next_op_span: Span,
 }
 
-impl Display for RangeOperator {
+impl fmt::Display for RangeOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.inclusion {
             RangeInclusion::Inclusive => write!(f, ".."),
@@ -176,7 +315,7 @@ pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
         Expression {
             expr: Expr::Operator(operator),
             ..
-        } => Ok(operator.clone()),
+        } => Ok(*operator),
         Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
             op_token: format!("{expr:?}"),
             span: *span,

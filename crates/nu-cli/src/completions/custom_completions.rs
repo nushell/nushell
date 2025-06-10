@@ -1,30 +1,31 @@
 use crate::completions::{
-    completer::map_value_completions, Completer, CompletionOptions, SemanticSuggestion,
+    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
+    completer::map_value_completions,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
+    DeclId, PipelineData, Span, Type, Value,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
-    engine::{Stack, StateWorkingSet},
-    DeclId, PipelineData, Span, Type, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use std::collections::HashMap;
 
 use super::completion_options::NuMatcher;
 
 pub struct CustomCompletion<T: Completer> {
-    stack: Stack,
     decl_id: DeclId,
     line: String,
+    line_pos: usize,
     fallback: T,
 }
 
 impl<T: Completer> CustomCompletion<T> {
-    pub fn new(stack: Stack, decl_id: DeclId, line: String, fallback: T) -> Self {
+    pub fn new(decl_id: DeclId, line: String, line_pos: usize, fallback: T) -> Self {
         Self {
-            stack,
             decl_id,
             line,
+            line_pos,
             fallback,
         }
     }
@@ -35,38 +36,44 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         &mut self,
         working_set: &StateWorkingSet,
         stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        pos: usize,
         orig_options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        // Line position
-        let line_pos = pos - offset;
-
         // Call custom declaration
-        let result = eval_call::<WithoutDebug>(
-            working_set.permanent_state,
-            &mut self.stack,
-            &Call {
-                decl_id: self.decl_id,
-                head: span,
-                arguments: vec![
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::String(self.line.clone()),
-                        Span::unknown(),
-                        Type::String,
-                    )),
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::Int(line_pos as i64),
-                        Span::unknown(),
-                        Type::Int,
-                    )),
-                ],
-                parser_info: HashMap::new(),
-            },
-            PipelineData::empty(),
-        );
+        let mut stack_mut = stack.clone();
+        let mut eval = |engine_state: &EngineState| {
+            eval_call::<WithoutDebug>(
+                engine_state,
+                &mut stack_mut,
+                &Call {
+                    decl_id: self.decl_id,
+                    head: span,
+                    arguments: vec![
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::String(self.line.clone()),
+                            Span::unknown(),
+                            Type::String,
+                        )),
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::Int(self.line_pos as i64),
+                            Span::unknown(),
+                            Type::Int,
+                        )),
+                    ],
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::empty(),
+            )
+        };
+        let result = if self.decl_id.get() < working_set.permanent_state.num_decls() {
+            eval(working_set.permanent_state)
+        } else {
+            let mut engine_state = working_set.permanent_state.clone();
+            let _ = engine_state.merge_delta(working_set.delta.clone());
+            eval(&engine_state)
+        };
 
         let mut completion_options = orig_options.clone();
         let mut should_sort = true;
@@ -96,10 +103,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         {
                             completion_options.case_sensitive = case_sensitive;
                         }
-                        if let Some(positional) =
-                            options.get("positional").and_then(|val| val.as_bool().ok())
-                        {
-                            completion_options.positional = positional;
+                        let positional =
+                            options.get("positional").and_then(|val| val.as_bool().ok());
+                        if positional.is_some() {
+                            log::warn!(
+                                "Use of the positional option is deprecated. Use the substring match algorithm instead."
+                            );
                         }
                         if let Some(algorithm) = options
                             .get("completion_algorithm")
@@ -107,6 +116,11 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             .and_then(|option| option.try_into().ok())
                         {
                             completion_options.match_algorithm = algorithm;
+                            if let Some(false) = positional {
+                                if completion_options.match_algorithm == MatchAlgorithm::Prefix {
+                                    completion_options.match_algorithm = MatchAlgorithm::Substring
+                                }
+                            }
                         }
                     }
 
@@ -120,7 +134,6 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         prefix,
                         span,
                         offset,
-                        pos,
                         orig_options,
                     );
                 }
@@ -138,7 +151,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(prefix), completion_options);
+        let mut matcher = NuMatcher::new(prefix, &completion_options);
 
         if should_sort {
             for sugg in suggestions {

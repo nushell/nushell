@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl Command for EachWhile {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .category(Category::Filters)
     }

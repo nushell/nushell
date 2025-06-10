@@ -1,4 +1,4 @@
-use std log warning
+use std/log warning
 
 print '-------------------------------------------------------------------'
 print 'Building nushell (nu) and all the plugins'

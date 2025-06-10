@@ -6,6 +6,7 @@ use crate::engine::Closure;
 pub enum CompletionAlgorithm {
     #[default]
     Prefix,
+    Substring,
     Fuzzy,
 }
 
@@ -15,8 +16,9 @@ impl FromStr for CompletionAlgorithm {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "prefix" => Ok(Self::Prefix),
+            "substring" => Ok(Self::Substring),
             "fuzzy" => Ok(Self::Fuzzy),
-            _ => Err("'prefix' or 'fuzzy'"),
+            _ => Err("'prefix' or 'fuzzy' or 'substring'"),
         }
     }
 }

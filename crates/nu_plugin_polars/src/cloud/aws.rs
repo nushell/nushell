@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use aws_config::{BehaviorVersion, SdkConfig};
-use aws_credential_types::{provider::ProvideCredentials, Credentials};
+use aws_credential_types::{Credentials, provider::ProvideCredentials};
 use nu_protocol::ShellError;
 use object_store::aws::AmazonS3ConfigKey;
 use polars_io::cloud::CloudOptions;

@@ -355,6 +355,7 @@ export def build [
         nu_plugin_inc,
         nu_plugin_gstat,
         nu_plugin_query,
+        nu_plugin_polars,
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
@@ -393,6 +394,7 @@ export def install [
         nu_plugin_inc,
         nu_plugin_gstat,
         nu_plugin_query,
+        nu_plugin_polars,
         nu_plugin_example,
         nu_plugin_custom_values,
         nu_plugin_formats,
@@ -628,9 +630,9 @@ export def "build wasm" [] {
         print $'(char nl)Building ($crate) for wasm'
         print '----------------------------'
         (
-            ^cargo build 
-                -p $crate 
-                --target wasm32-unknown-unknown 
+            ^cargo build
+                -p $crate
+                --target wasm32-unknown-unknown
                 --no-default-features
         )
     }
@@ -646,9 +648,9 @@ export def "clippy wasm" [] {
         print $'(char nl)Checking ($crate) for wasm'
         print '----------------------------'
         (
-            ^cargo clippy 
-                -p $crate 
-                --target wasm32-unknown-unknown 
+            ^cargo clippy
+                -p $crate
+                --target wasm32-unknown-unknown
                 --no-default-features
                 --
                 -D warnings

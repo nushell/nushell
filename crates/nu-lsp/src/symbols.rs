@@ -1,12 +1,12 @@
-use crate::{path_to_uri, span_to_range, uri_to_path, Id, LanguageServer};
+use crate::{Id, LanguageServer, path_to_uri, span_to_range, uri_to_path};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
     DocumentSymbolParams, DocumentSymbolResponse, Location, Range, SymbolInformation, SymbolKind,
     Uri, WorkspaceSymbolParams, WorkspaceSymbolResponse,
 };
 use nu_protocol::{
-    engine::{CachedFile, EngineState, StateWorkingSet},
     DeclId, ModuleId, Span, VarId,
+    engine::{CachedFile, EngineState, StateWorkingSet},
 };
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
@@ -110,7 +110,7 @@ impl SymbolCache {
                     range: span_to_range(&span, doc, doc_span.start),
                 })
             }
-            Id::Variable(var_id) => {
+            Id::Variable(var_id, _) => {
                 let var = working_set.get_variable(var_id);
                 let span = var.declaration_span;
                 if !doc_span.contains(span.start) || span.end == span.start {
@@ -124,7 +124,7 @@ impl SymbolCache {
                     range,
                 })
             }
-            Id::Module(module_id) => {
+            Id::Module(module_id, _) => {
                 let module = working_set.get_module(module_id);
                 let span = module.span?;
                 if !doc_span.contains(span.start) {
@@ -157,7 +157,7 @@ impl SymbolCache {
             .chain((0..working_set.num_vars()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Variable(VarId::new(id)),
+                    Id::Variable(VarId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -165,7 +165,7 @@ impl SymbolCache {
             .chain((0..working_set.num_modules()).filter_map(|id| {
                 Self::get_symbol_by_id(
                     working_set,
-                    Id::Module(ModuleId::new(id)),
+                    Id::Module(ModuleId::new(id), [].into()),
                     doc,
                     &cached_file.covered_span,
                 )
@@ -236,7 +236,7 @@ impl SymbolCache {
             self.cache
                 .get(uri)?
                 .iter()
-                .map(|s| s.clone().to_symbol_information(uri))
+                .map(|s| s.to_symbol_information(uri))
                 .collect(),
         )
     }
@@ -250,7 +250,7 @@ impl SymbolCache {
         );
         self.cache
             .iter()
-            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.clone().to_symbol_information(uri)))
+            .flat_map(|(uri, symbols)| symbols.iter().map(|s| s.to_symbol_information(uri)))
             .filter_map(|s| {
                 let mut buf = Vec::new();
                 let name = Utf32Str::new(&s.name, &mut buf);
@@ -270,13 +270,13 @@ impl LanguageServer {
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
-        let engine_state = self.new_engine_state();
         let uri = params.text_document.uri.to_owned();
+        let engine_state = self.new_engine_state(Some(&uri));
         let docs = self.docs.lock().ok()?;
         self.symbol_cache.update(&uri, &engine_state, &docs);
-        Some(DocumentSymbolResponse::Flat(
-            self.symbol_cache.get_symbols_by_uri(&uri)?,
-        ))
+        self.symbol_cache
+            .get_symbols_by_uri(&uri)
+            .map(DocumentSymbolResponse::Flat)
     }
 
     pub(crate) fn workspace_symbol(
@@ -284,7 +284,7 @@ impl LanguageServer {
         params: &WorkspaceSymbolParams,
     ) -> Option<WorkspaceSymbolResponse> {
         if self.symbol_cache.any_dirty() {
-            let engine_state = self.new_engine_state();
+            let engine_state = self.new_engine_state(None);
             let docs = self.docs.lock().ok()?;
             self.symbol_cache.update_all(&engine_state, &docs);
         }
@@ -302,9 +302,9 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
-        request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
         DocumentSymbolParams, PartialResultParams, TextDocumentIdentifier, Uri,
         WorkDoneProgressParams, WorkspaceSymbolParams,
+        request::{DocumentSymbolRequest, Request, WorkspaceSymbolRequest},
     };
     use nu_test_support::fs::fixtures;
 
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     // for variable `$in/$it`, should not appear in symbols
     fn document_symbol_special_variables() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -361,14 +361,14 @@ mod tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_document_symbol_request(&client_connection, script.clone());
+        let resp = send_document_symbol_request(&client_connection, script);
 
         assert_json_eq!(result_from_message(resp), serde_json::json!([]));
     }
 
     #[test]
     fn document_symbol_basic() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn document_symbol_update() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_current() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -470,7 +470,7 @@ mod tests {
         script.push("bar.nu");
         let script_bar = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script_foo.clone());
+        open_unchecked(&client_connection, script_foo);
         open_unchecked(&client_connection, script_bar.clone());
         let resp = send_workspace_symbol_request(&client_connection, "br".to_string());
 
@@ -516,7 +516,7 @@ mod tests {
 
     #[test]
     fn workspace_symbol_other() {
-        let (client_connection, _recv) = initialize_language_server(None);
+        let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -531,7 +531,7 @@ mod tests {
         let script_bar = path_to_uri(&script);
 
         open_unchecked(&client_connection, script_foo.clone());
-        open_unchecked(&client_connection, script_bar.clone());
+        open_unchecked(&client_connection, script_bar);
         let resp = send_workspace_symbol_request(&client_connection, "foo".to_string());
 
         assert_json_eq!(

@@ -1,4 +1,4 @@
-# std.nu, `used` to load all standard library components
+# std.nu, `use`d to load all standard library components
 
 # Top-level commands: ellie, repeat, null-device, and "path add"
 export use std/util *
@@ -15,6 +15,7 @@ export module std/log
 export module std/math
 export module std/xml
 export module std/config
+export module std/testing
 
 # Load main dirs command and all subcommands
 export use std/dirs main

@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, shell_error::io::IoError, ShellError, Signals, Span, Value};
+use nu_protocol::{ShellError, Signals, Span, Value, record, shell_error::io::IoError};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ impl FileInfo {
                     long,
                 })
             }
-            Err(e) => Err(IoError::new(e.kind(), tag, path).into()),
+            Err(e) => Err(IoError::new(e, tag, path).into()),
         }
     }
 }
@@ -159,14 +159,11 @@ impl DirInfo {
 
     fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {
         let f = f.into();
-        let include = params
-            .exclude
-            .as_ref()
-            .map_or(true, |x| !x.matches_path(&f));
+        let include = params.exclude.as_ref().is_none_or(|x| !x.matches_path(&f));
         if include {
             match FileInfo::new(f, params.deref, self.tag, self.long) {
                 Ok(file) => {
-                    let inc = params.min.map_or(true, |s| file.size >= s);
+                    let inc = params.min.is_none_or(|s| file.size >= s);
                     if inc {
                         self.size += file.size;
                         self.blocks += file.blocks.unwrap_or(0);

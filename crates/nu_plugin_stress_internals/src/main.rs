@@ -5,10 +5,10 @@ use std::{
 };
 
 use interprocess::local_socket::{
-    self, traits::Stream, GenericFilePath, GenericNamespaced, ToFsName, ToNsName,
+    self, GenericFilePath, GenericNamespaced, ToFsName, ToNsName, traits::Stream,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Debug)]
 struct Options {

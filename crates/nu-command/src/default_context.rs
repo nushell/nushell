@@ -70,7 +70,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ParEach,
             ChunkBy,
             Prepend,
-            Range,
             Reduce,
             Reject,
             Rename,
@@ -153,6 +152,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Ast,
             Debug,
+            DebugEnv,
             DebugInfo,
             DebugProfile,
             Explain,
@@ -273,6 +273,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Date
         bind_command! {
             Date,
+            DateFromHuman,
             DateHumanize,
             DateListTimezones,
             DateNow,
@@ -314,6 +315,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Where,
             ToXml,
             ToYaml,
+            ToYml,
         };
 
         // Viewers
@@ -448,7 +450,25 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Experimental
         bind_command! {
             IsAdmin,
+            JobSpawn,
+            JobList,
+            JobKill,
+            JobId,
+            JobTag,
+            Job,
         };
+
+        #[cfg(not(target_family = "wasm"))]
+        bind_command! {
+            JobSend,
+            JobRecv,
+            JobFlush,
+        }
+
+        #[cfg(all(unix, feature = "os"))]
+        bind_command! {
+            JobUnfreeze,
+        }
 
         // Removed
         bind_command! {

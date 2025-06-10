@@ -1,6 +1,5 @@
 mod and;
 mod bits_;
-mod into;
 mod not;
 mod or;
 mod rotate_left;
@@ -11,7 +10,6 @@ mod xor;
 
 pub use and::BitsAnd;
 pub use bits_::Bits;
-pub use into::BitsInto;
 pub use not::BitsNot;
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;
@@ -137,7 +135,7 @@ where
                 (min, max) => (rhs, lhs, max, min),
             };
 
-            let pad = iter::repeat(0).take(max_len - min_len);
+            let pad = iter::repeat_n(0, max_len - min_len);
 
             let mut a;
             let mut b;
@@ -161,9 +159,10 @@ where
         }
         (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
             Value::error(
-                ShellError::PipelineMismatch {
+                ShellError::OnlySupportsThisInputType {
                     exp_input_type: "input, and argument, to be both int or both binary"
                         .to_string(),
+                    wrong_type: "int and binary".to_string(),
                     dst_span: rhs.span(),
                     src_span: span,
                 },

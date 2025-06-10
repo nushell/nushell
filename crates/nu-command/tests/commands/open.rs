@@ -251,12 +251,14 @@ fn errors_if_file_not_found() {
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
 
-    assert!(actual.err.contains("nu::shell::io::not_found"));
-    assert!(actual.err.contains(
-        &PathBuf::from_iter(["tests", "fixtures", "formats", "i_dont_exist.txt"])
-            .display()
-            .to_string()
-    ));
+    assert!(actual.err.contains("nu::shell::io::file_not_found"));
+    assert!(
+        actual.err.contains(
+            &PathBuf::from_iter(["tests", "fixtures", "formats", "i_dont_exist.txt"])
+                .display()
+                .to_string()
+        )
+    );
 }
 
 #[test]
@@ -298,6 +300,20 @@ fn test_open_block_command() {
     );
 
     assert_eq!(actual.out, "abcd")
+}
+
+#[test]
+fn test_open_with_converter_flags() {
+    // https://github.com/nushell/nushell/issues/13722
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"
+            def "from blockcommandparser" [ --flag ] { if $flag { "yes" } else { "no" } }
+            open sample.blockcommandparser
+        "#
+    );
+
+    assert_eq!(actual.out, "no")
 }
 
 #[test]

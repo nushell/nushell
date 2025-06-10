@@ -1,6 +1,7 @@
+use std/testing *
 use std/util *
 
-#[test]
+@test
 def path_add [] {
     use std/assert
 
@@ -38,13 +39,19 @@ def path_add [] {
         path add $target_paths
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
+        load-env {$path_name: []}
+        path add {}
+        assert equal (get_path) ([])
+
+        assert error {|| path add 1 }
+
         load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
         path add "~/foo"
         assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
 }
 
-#[test]
+@test
 def path_add_expand [] {
     use std/assert
 
@@ -70,7 +77,7 @@ def path_add_expand [] {
     rm $real_dir $link_dir
 }
 
-#[test]
+@test
 def repeat_things [] {
     use std/assert
     assert error { "foo" | repeat -1 }

@@ -1,6 +1,7 @@
+use std/testing *
 use std/assert
 
-#[test]
+@test
 def std_pre_import [] {
   # These commands shouldn't exist without an import
   assert length (scope commands | where name == "path add") 0

@@ -1,27 +1,25 @@
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     Span, VarId,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
 use super::completion_options::NuMatcher;
 
-pub struct VariableCompletion {}
+pub struct VariableCompletion;
 
 impl Completer for VariableCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        prefix: &[u8],
+        prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
-        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(prefix);
-        let mut matcher = NuMatcher::new(prefix_str, options.clone());
+        let mut matcher = NuMatcher::new(prefix, options);
         let current_span = reedline::Span {
             start: span.start - offset,
             end: span.end - offset,
@@ -34,10 +32,10 @@ impl Completer for VariableCompletion {
                 suggestion: Suggestion {
                     value: builtin.to_string(),
                     span: current_span,
+                    description: Some("reserved".into()),
                     ..Suggestion::default()
                 },
-                // TODO is there a way to get the VarId to get the type???
-                kind: None,
+                kind: Some(SuggestionKind::Variable),
             });
         }
 
@@ -46,11 +44,10 @@ impl Completer for VariableCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(name).to_string(),
                     span: current_span,
+                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
                     ..Suggestion::default()
                 },
-                kind: Some(SuggestionKind::Type(
-                    working_set.get_variable(*var_id).ty.clone(),
-                )),
+                kind: Some(SuggestionKind::Variable),
             })
         };
 

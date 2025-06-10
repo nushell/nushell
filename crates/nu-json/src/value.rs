@@ -1,5 +1,5 @@
 #[cfg(not(feature = "preserve_order"))]
-use std::collections::{btree_map, BTreeMap};
+use std::collections::{BTreeMap, btree_map};
 
 #[cfg(feature = "preserve_order")]
 use linked_hash_map::LinkedHashMap;
@@ -437,7 +437,7 @@ impl io::Write for WriterFormatter<'_, '_> {
         fn io_error<E>(_: E) -> io::Error {
             // Value does not matter because fmt::Debug and fmt::Display impls
             // below just map it to fmt::Error
-            io::Error::new(io::ErrorKind::Other, "fmt error")
+            io::Error::other("fmt error")
         }
         let s = str::from_utf8(buf).map_err(io_error)?;
         self.inner.write_str(s).map_err(io_error)?;
@@ -924,7 +924,7 @@ impl<'de> de::Deserializer<'de> for Value {
                 return Err(de::Error::invalid_type(
                     val.as_unexpected(),
                     &"string or map",
-                ))
+                ));
             }
         };
 
