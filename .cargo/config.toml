@@ -31,9 +31,3 @@ rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-stati
 # We can guarantee that this target will always run on a CPU with _at least_
 # these capabilities, so let's optimize for them
 rustflags = ["-Ctarget-cpu=apple-m1"]
-
-# This is required for uutils/coreutils version 0.1.0 and later
-# It looks like this is what they use to name their executable
-# https://github.com/uutils/coreutils/blob/61bd11a55118458704c4cbbf4e628cd657238d3e/src/uucore/src/lib/lib.rs#L201-L218
-[env]
-PROJECT_NAME_FOR_VERSION_STRING = "nushell"
