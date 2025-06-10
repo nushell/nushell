@@ -6,12 +6,12 @@ use crate::prompt_update::{
     VSCODE_PRE_EXECUTION_MARKER,
 };
 use crate::{
-    NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
-    reedline_config::{KeybindingsMode, add_menus, create_keybindings},
+    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
     util::eval_source,
+    NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -25,13 +25,13 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error;
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{
-    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error,
+    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_utils::{
-    filesystem::{PermissionResult, have_permission},
+    filesystem::{have_permission, PermissionResult},
     perf,
 };
 use reedline::{
@@ -43,7 +43,7 @@ use std::{
     collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{catch_unwind, AssertUnwindSafe},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -267,7 +267,6 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
-    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -425,9 +424,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
             report_shell_error(engine_state, &e);
-            let line_editor = Reedline::create();
-            engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
-            line_editor
+            Reedline::create()
         });
 
     perf!("reedline adding menus", start_time, use_color);
@@ -1450,7 +1447,6 @@ fn are_session_ids_in_sync() {
     let history = engine_state.history_config().unwrap();
     let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
-    engine_state.reedline_event_sender = Some(line_editor.reedline_event_sender.clone());
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
         engine_state,
@@ -1467,7 +1463,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{ReplOperation, do_auto_cd, escape_special_vscode_bytes, parse_operation};
+    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;

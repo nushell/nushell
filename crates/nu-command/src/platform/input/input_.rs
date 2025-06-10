@@ -2,7 +2,7 @@ use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
-use reedline::{FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal};
+use reedline::{FileBackedHistory, History, HistoryItem, Reedline, Signal, HISTORY_SIZE};
 
 #[derive(Clone)]
 pub struct Input;
@@ -174,7 +174,7 @@ impl Command for Input {
 
         let mut buf = String::new();
 
-        match line_editor.read_line(&prompt) {
+        match line_editor.read_line(&prompt, false) {
             Ok(Signal::Success(buffer)) => {
                 buf.push_str(&buffer);
             }

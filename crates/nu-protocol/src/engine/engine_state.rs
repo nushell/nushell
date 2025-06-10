@@ -17,8 +17,6 @@ use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
 use nu_utils::IgnoreCaseExt;
-use reedline::ReedlineEvent;
-use std::sync::mpsc::Sender;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,

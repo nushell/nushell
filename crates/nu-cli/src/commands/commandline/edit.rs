@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use reedline::ReedlineEvent;
 
 #[derive(Clone)]
 pub struct CommandlineEdit;
