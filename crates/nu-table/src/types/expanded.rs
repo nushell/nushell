@@ -293,8 +293,18 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             check_value(item)?;
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
-            let cell = expand_entry_with_header(item, &header, inner_cfg);
-            let value_width = string_width(&cell.text); // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
+            let mut cell = expand_entry_with_header(item, &header, inner_cfg);
+            let mut value_width = string_width(&cell.text); // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
+            if value_width > available {
+                // NOTE:
+                // most likely it was emojie which we are not sure about what to do
+                // so we truncate it just in case
+                //
+                // most likely width is 1
+
+                cell.text = String::from("\u{FFFD}");
+                value_width = 1;
+            }
 
             column_width = max(column_width, value_width);
 
