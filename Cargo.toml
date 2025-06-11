@@ -163,7 +163,7 @@ syn = "2.0"
 sysinfo = "0.33"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.20"
-titlecase = "3.5"
+titlecase = "3.6"
 toml = "0.8"
 trash = "5.2"
 update-informer = { version = "1.2.0", default-features = false, features = ["github", "ureq"] }
