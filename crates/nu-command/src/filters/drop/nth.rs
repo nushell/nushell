@@ -99,20 +99,16 @@ impl Command for DropNth {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.metadata().as_ref().cloned();
 
-        // Accept all arguments (int or range) from position 0 onwards
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
 
         if args.is_empty() {
-            return Err(ShellError::MissingParameter {
-                param_name: "row number or row range".to_string(),
-                span: head,
-            });
+            return Ok(input);
         }
 
-        // Accumulate all rows to drop
         let mut rows_to_drop = vec![];
+        let mut min_unbounded_start: Option<usize> = None;
 
         for value in args {
             if let Ok(i) = value.as_int() {
@@ -138,40 +134,55 @@ impl Command for DropNth {
                             });
                         }
 
-                        let end = match range.end() {
-                            Bound::Included(end) => end,
-                            Bound::Excluded(end) => end - 1,
-                            Bound::Unbounded => {
-                                let start = range.start() as usize;
-                                return Ok(input
-                                    .into_iter()
-                                    .take(start)
-                                    .into_pipeline_data_with_metadata(
-                                        head,
-                                        engine_state.signals().clone(),
-                                        metadata,
-                                    ));
+                        match range.end() {
+                            Bound::Included(end) => {
+                                if end < start {
+                                    return Err(ShellError::UnsupportedInput {
+                                    msg: "The upper bound must be greater than or equal to the lower bound".into(),
+                                    input: "value originates from here".into(),
+                                    msg_span: head,
+                                    input_span: value.span(),
+                                });
+                                }
+
+                                let end = if let PipelineData::Value(Value::List { vals, .. }, _) =
+                                    &input
+                                {
+                                    end.min((vals.len() as i64) - 1)
+                                } else {
+                                    end
+                                };
+
+                                rows_to_drop.extend((start as usize)..=(end as usize));
                             }
-                        };
+                            Bound::Excluded(end) => {
+                                if end <= start {
+                                    return Err(ShellError::UnsupportedInput {
+                                        msg: "The upper bound must be greater than the lower bound"
+                                            .into(),
+                                        input: "value originates from here".into(),
+                                        msg_span: head,
+                                        input_span: value.span(),
+                                    });
+                                }
 
-                        if end < start {
-                            return Err(ShellError::UnsupportedInput {
-                                msg:
-                                    "The upper bound needs to be equal or larger to the lower bound"
-                                        .into(),
-                                input: "value originates from here".into(),
-                                msg_span: head,
-                                input_span: value.span(),
-                            });
+                                let end = if let PipelineData::Value(Value::List { vals, .. }, _) =
+                                    &input
+                                {
+                                    (end - 1).min((vals.len() as i64) - 1)
+                                } else {
+                                    end - 1
+                                };
+
+                                rows_to_drop.extend((start as usize)..=(end as usize));
+                            }
+                            Bound::Unbounded => {
+                                let start_usize = start as usize;
+                                min_unbounded_start = Some(
+                                    min_unbounded_start.map_or(start_usize, |s| s.min(start_usize)),
+                                );
+                            }
                         }
-
-                        let end = if let PipelineData::Value(Value::List { vals, .. }, _) = &input {
-                            end.min((vals.len() as i64) - 1)
-                        } else {
-                            end
-                        };
-
-                        rows_to_drop.extend((start as usize)..=(end as usize));
                     }
                     Range::FloatRange(_) => {
                         return Err(ShellError::UnsupportedInput {
@@ -193,12 +204,29 @@ impl Command for DropNth {
         rows_to_drop.sort_unstable();
         rows_to_drop.dedup();
 
+        let input = if let Some(cutoff) = min_unbounded_start {
+            input
+                .into_iter()
+                .take(cutoff)
+                .into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.signals().clone(),
+                    metadata.clone(),
+                )
+        } else {
+            input
+        };
+
         Ok(DropNthIterator {
             input: input.into_iter(),
             rows: rows_to_drop,
             current: 0,
         }
-        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+        .into_pipeline_data_with_metadata(
+            head,
+            engine_state.signals().clone(),
+            metadata.clone(),
+        ))
     }
 }
 
