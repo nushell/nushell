@@ -703,19 +703,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bigdecimal"
-version = "0.4.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a22f228ab7a1b23027ccc6c350b72868017af7ea8356fbdf19f8d991c690013"
-dependencies = [
- "autocfg",
- "libm",
- "num-bigint",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -733,7 +720,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "regex",
@@ -996,9 +983,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.41"
+version = "0.4.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
+checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -1007,7 +994,7 @@ dependencies = [
  "pure-rust-locales",
  "serde",
  "wasm-bindgen",
- "windows-link",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -1950,51 +1937,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluent"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8137a6d5a2c50d6b0ebfcb9aaa91a28154e0a70605f112d30cb0cd4a78670477"
-dependencies = [
- "fluent-bundle",
- "unic-langid",
-]
-
-[[package]]
-name = "fluent-bundle"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01203cb8918f5711e73891b347816d932046f95f54207710bda99beaeb423bf4"
-dependencies = [
- "fluent-langneg",
- "fluent-syntax",
- "intl-memoizer",
- "intl_pluralrules",
- "rustc-hash 2.1.0",
- "self_cell",
- "smallvec",
- "unic-langid",
-]
-
-[[package]]
-name = "fluent-langneg"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c4ad0989667548f06ccd0e306ed56b61bd4d35458d54df5ec7587c0e8ed5e94"
-dependencies = [
- "unic-langid",
-]
-
-[[package]]
-name = "fluent-syntax"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54f0d287c53ffd184d04d8677f590f4ac5379785529e5e08b1c8083acdd5c198"
-dependencies = [
- "memchr",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "fluent-uri"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2678,7 +2620,7 @@ dependencies = [
  "displaydoc",
  "yoke",
  "zerofrom",
- "zerovec 0.10.4",
+ "zerovec",
 ]
 
 [[package]]
@@ -2689,9 +2631,9 @@ checksum = "13acbb8371917fc971be86fc8057c41a64b521c184808a698c02acc242dbf637"
 dependencies = [
  "displaydoc",
  "litemap",
- "tinystr 0.7.6",
+ "tinystr",
  "writeable",
- "zerovec 0.10.4",
+ "zerovec",
 ]
 
 [[package]]
@@ -2704,8 +2646,8 @@ dependencies = [
  "icu_locid",
  "icu_locid_transform_data",
  "icu_provider",
- "tinystr 0.7.6",
- "zerovec 0.10.4",
+ "tinystr",
+ "zerovec",
 ]
 
 [[package]]
@@ -2729,7 +2671,7 @@ dependencies = [
  "utf16_iter",
  "utf8_iter",
  "write16",
- "zerovec 0.10.4",
+ "zerovec",
 ]
 
 [[package]]
@@ -2749,8 +2691,8 @@ dependencies = [
  "icu_locid_transform",
  "icu_properties_data",
  "icu_provider",
- "tinystr 0.7.6",
- "zerovec 0.10.4",
+ "tinystr",
+ "zerovec",
 ]
 
 [[package]]
@@ -2769,11 +2711,11 @@ dependencies = [
  "icu_locid",
  "icu_provider_macros",
  "stable_deref_trait",
- "tinystr 0.7.6",
+ "tinystr",
  "writeable",
  "yoke",
  "zerofrom",
- "zerovec 0.10.4",
+ "zerovec",
 ]
 
 [[package]]
@@ -2888,25 +2830,6 @@ dependencies = [
  "recvmsg",
  "widestring",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "intl-memoizer"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "310da2e345f5eb861e7a07ee182262e94975051db9e4223e909ba90f392f163f"
-dependencies = [
- "type-map",
- "unic-langid",
-]
-
-[[package]]
-name = "intl_pluralrules"
-version = "7.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "078ea7b7c29a2b4df841a7f6ac8775ff6074020c6776d48491ce2268e068f972"
-dependencies = [
- "unic-langid",
 ]
 
 [[package]]
@@ -3058,9 +2981,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.172"
+version = "0.2.168"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
+checksum = "5aaeb2981e0606ca11d79718f8bb01164f1d6ed75080182d3abf017e6d244b6d"
 
 [[package]]
 name = "libflate"
@@ -3553,18 +3476,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.30.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
-dependencies = [
- "bitflags 2.6.0",
- "cfg-if",
- "cfg_aliases 0.2.1",
- "libc",
-]
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3635,7 +3546,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "assert_cmd",
  "crossterm",
@@ -3689,7 +3600,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "chrono",
  "crossterm",
@@ -3726,7 +3637,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "indexmap",
  "miette",
@@ -3738,7 +3649,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -3764,7 +3675,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "itertools 0.14.0",
  "miette",
@@ -3780,7 +3691,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "itertools 0.14.0",
  "nu-engine",
@@ -3791,7 +3702,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -3803,7 +3714,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
@@ -3920,7 +3831,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -3931,7 +3842,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "log",
  "nu-glob",
@@ -3942,7 +3853,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "ansi-str 0.8.0",
  "anyhow",
@@ -3966,14 +3877,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -3986,7 +3897,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -4013,7 +3924,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -4030,7 +3941,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "dirs",
  "omnipath",
@@ -4040,7 +3951,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "log",
  "nix 0.29.0",
@@ -4056,7 +3967,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "interprocess",
  "log",
@@ -4070,7 +3981,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -4086,7 +3997,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -4098,7 +4009,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -4116,7 +4027,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -4125,7 +4036,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "brotli",
  "bytes",
@@ -4167,7 +4078,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "log",
  "miette",
@@ -4178,7 +4089,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "chrono",
  "itertools 0.14.0",
@@ -4196,7 +4107,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -4209,7 +4120,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.0",
@@ -4217,7 +4128,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-glob",
  "nu-path",
@@ -4229,7 +4140,7 @@ dependencies = [
 
 [[package]]
 name = "nu-utils"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "crossterm",
  "crossterm_winapi",
@@ -4258,7 +4169,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -4268,7 +4179,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -4283,7 +4194,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -4292,7 +4203,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -4301,7 +4212,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
@@ -4340,7 +4251,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -4355,7 +4266,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -4479,7 +4390,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nuon"
-version = "0.104.2"
+version = "0.105.1"
 dependencies = [
  "chrono",
  "nu-engine",
@@ -4821,9 +4732,9 @@ dependencies = [
 
 [[package]]
 name = "parse_datetime"
-version = "0.9.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd3830b49ee3a0dcc8fdfadc68c6354c97d00101ac1cac5b2eee25d35c42066"
+checksum = "4bffd1156cebf13f681d7769924d3edfb9d9d71ba206a8d8e8e7eb9df4f4b1e7"
 dependencies = [
  "chrono",
  "nom 8.0.0",
@@ -6699,12 +6610,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "self_cell"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f7d95a54511e0c7be3f51e8867aa8cf35148d7b9445d44de2f943e2b206e749"
-
-[[package]]
 name = "semver"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7446,17 +7351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9117f5d4db391c1cf6927e7bea3db74b9a1c1add8f7eda9ffd5364f40f57b82f"
 dependencies = [
  "displaydoc",
- "zerovec 0.10.4",
-]
-
-[[package]]
-name = "tinystr"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d4f6d1145dcb577acf783d4e601bc1d76a13337bb54e6233add580b07344c8b"
-dependencies = [
- "displaydoc",
- "zerovec 0.11.2",
+ "zerovec",
 ]
 
 [[package]]
@@ -7671,15 +7566,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "type-map"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb30dbbd9036155e74adad6812e9898d03ec374946234fbcebd5dfc7b9187b90"
-dependencies = [
- "rustc-hash 2.1.0",
-]
-
-[[package]]
 name = "typed-arena"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7760,24 +7646,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec9a46c2549e35c054e0ffe281a3a6ec0007793db4df106604d37ed3f4d73d1c"
 dependencies = [
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "unic-langid"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a28ba52c9b05311f4f6e62d5d9d46f094bd6e84cb8df7b3ef952748d752a7d05"
-dependencies = [
- "unic-langid-impl",
-]
-
-[[package]]
-name = "unic-langid-impl"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce1bf08044d4b7a94028c93786f8566047edc11110595914de93362559bc658"
-dependencies = [
- "tinystr 0.8.1",
 ]
 
 [[package]]
@@ -7941,15 +7809,14 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uu_cp"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f03348f1609e6646274195ba7674c20ce3ff18a358649516fdbb4ad2645df41"
+checksum = "bf2f3906b7896f79519055d36760095577373e40ec244f46b259f502a4a91147"
 dependencies = [
  "clap",
  "filetime",
  "indicatif",
  "libc",
- "linux-raw-sys 0.9.4",
  "quick-error 2.0.1",
  "uucore",
  "walkdir",
@@ -7958,9 +7825,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3f88c0d90729946efdd5e28bff263da25b08c632aecee8b5797059a23374525"
+checksum = "5be556a5d852f55b92bba460d7a97030a340ba4a3f4c510a8d0a893bfaf48356"
 dependencies = [
  "clap",
  "uucore",
@@ -7968,9 +7835,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a13a85cf62ae1292d5cfc21de90a33bb853ade4151ead38e022ce8b610d3ee5"
+checksum = "5305fcf4f7f480e7438e19ff433ae60dea886bd528f87543029eb6b95d351afc"
 dependencies = [
  "clap",
  "rand 0.9.0",
@@ -7981,9 +7848,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a627a8ca00422f5341ca89d4c1fd352622cdab7dd4070a675616474ee37b351"
+checksum = "3be214b96554e4f7aa079b26c86c3ecf1b9ea15023ca2ec62d608273d12c7049"
 dependencies = [
  "clap",
  "fs_extra",
@@ -7996,9 +7863,9 @@ dependencies = [
 
 [[package]]
 name = "uu_touch"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60e075c2a3644470352ec759be520febb1efb5fb8e448f05a0d2045d469f0e7b"
+checksum = "1e58581a0245de8e3ef75b115ab29592cfb60d4851149d4951604601d14ea420"
 dependencies = [
  "chrono",
  "clap",
@@ -8011,9 +7878,9 @@ dependencies = [
 
 [[package]]
 name = "uu_uname"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "419f77c20ae220ee3fdf663de0600f954b5cc4f8b23e442192be73a1b45cfd03"
+checksum = "324d96a21da91a81be334206ab65aad16d164d34cddeb640e1c56cd8d1854dd4"
 dependencies = [
  "clap",
  "platform-info",
@@ -8022,34 +7889,32 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "083f92042620f07043a400e6192ddfcacdaee30ba9903f4cb86c9df11c625cc6"
+checksum = "bee254de8b172a5978f12fe6cd9d4f2b60ea9ef1e37f0cb53bfee2c993b3e96a"
 dependencies = [
  "clap",
+ "libc",
  "uucore",
  "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "uucore"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9032bf981784f22fcc5ddc7e74b7cf3bae3d5f44a48d2054138ed38068b9f4e0"
+checksum = "71f4e82877d06de779c611a3d54720f56f1e68b228fb30a5b6c66ef07e68263d"
 dependencies = [
- "bigdecimal",
+ "chrono",
+ "chrono-tz",
  "clap",
  "dunce",
- "fluent",
- "fluent-bundle",
  "glob",
+ "iana-time-zone",
  "libc",
- "nix 0.30.1",
- "num-traits",
+ "nix 0.29.0",
  "number_prefix",
  "os_display",
- "thiserror 2.0.12",
- "unic-langid",
  "uucore_procs",
  "walkdir",
  "wild",
@@ -8060,9 +7925,9 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c933945fdac5b7779eae1fc746146e61f5b0298deb6ede002ce0b6e93e1b3bfc"
+checksum = "c72435859e812e602e225dea48d014abb6b1072220a8d44f2fe0565553b1f7e4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8071,9 +7936,9 @@ dependencies = [
 
 [[package]]
 name = "uuhelp_parser"
-version = "0.1.0"
+version = "0.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beda381dd5c7927f8682f50b055b0903bb694ba5a4b27fad1b4934bc4fbf7b8d"
+checksum = "0bb6d972f580f8223cb7052d8580aea2b7061e368cf476de32ea9457b19459ed"
 
 [[package]]
 name = "uuid"
@@ -8584,12 +8449,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-link"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76840935b766e1b0a05c0066835fb9ec80071d4c09a16f6bd5f7e655e3c14c38"
-
-[[package]]
 name = "windows-registry"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9010,15 +8869,6 @@ dependencies = [
  "yoke",
  "zerofrom",
  "zerovec-derive",
-]
-
-[[package]]
-name = "zerovec"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a05eb080e015ba39cc9e23bbe5e7fb04d5fb040350f99f34e338d5fdd294428"
-dependencies = [
- "zerofrom",
 ]
 
 [[package]]

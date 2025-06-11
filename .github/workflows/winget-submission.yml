@@ -10,6 +10,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
 jobs:
 
   winget:
@@ -25,5 +30,5 @@ jobs:
           installers-regex: 'msvc\.msi$'
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.NUSHELL_PAT }}
           fork-user: nushell
