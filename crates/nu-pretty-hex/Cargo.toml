@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-pretty-hex"
 edition = "2024"
 license = "MIT"
 name = "nu-pretty-hex"
-version = "0.105.1"
+version = "0.105.2"
 
 [lib]
 doctest = false
