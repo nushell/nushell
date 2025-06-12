@@ -7,7 +7,7 @@ use crate::{ShellError, Span, Type, Value, ast::Operator};
 pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Custom `Clone` implementation
     ///
-    /// This can reemit a `Value::CustomValue(Self, span)` or materialize another representation
+    /// This can reemit a `Value::Custom(Self, span)` or materialize another representation
     /// if necessary.
     fn clone_value(&self, span: Span) -> Value;
 
