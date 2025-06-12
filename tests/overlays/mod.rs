@@ -857,6 +857,36 @@ fn overlay_hide_renamed_overlay() {
 }
 
 #[test]
+fn overlay_hide_restore_hidden_env() {
+    let inp = &[
+        "$env.foo = 'bar'",
+        "overlay new aa",
+        "hide-env foo",
+        "overlay hide aa",
+        "$env.foo",
+    ];
+
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[test]
+fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() {
+    let inp = &[
+        "overlay new aa",
+        "$env.foo = 'bar'",
+        "hide-env foo", // hide the env in overlay `aa`
+        "overlay hide aa",
+        "'foo' in $env",
+    ];
+
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual_repl.out, "false");
+}
+
+#[test]
 fn overlay_hide_and_add_renamed_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
