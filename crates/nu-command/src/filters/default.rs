@@ -279,11 +279,10 @@ impl DefaultValue {
     }
 
     /// Used when we know the value won't need to be cached to allow streaming.
-    /// Does not update internal state!
-    fn single_run_pipeline_data(&mut self) -> Result<PipelineData, ShellError> {
+    fn single_run_pipeline_data(self) -> Result<PipelineData, ShellError> {
         match self {
-            DefaultValue::Uncalculated(closure) => closure.item.run_with_input(PipelineData::Empty),
-            DefaultValue::Calculated(val) => Ok(val.clone().into_pipeline_data()),
+            DefaultValue::Uncalculated(mut closure) => closure.item.run_with_input(PipelineData::Empty),
+            DefaultValue::Calculated(val) => Ok(val.into_pipeline_data()),
         }
     }
 }
