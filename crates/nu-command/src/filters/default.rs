@@ -282,10 +282,8 @@ impl DefaultValue {
     /// Does not update internal state!
     fn single_run_pipeline_data(&mut self) -> Result<PipelineData, ShellError> {
         match self {
-            DefaultValue::Uncalculated(closure) => {
-                closure.item.run_with_input(PipelineData::Empty)
-            }
-            DefaultValue::Calculated(val) => Ok(val.clone().into_pipeline_data())
+            DefaultValue::Uncalculated(closure) => closure.item.run_with_input(PipelineData::Empty),
+            DefaultValue::Calculated(val) => Ok(val.clone().into_pipeline_data()),
         }
     }
 }
