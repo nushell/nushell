@@ -140,7 +140,7 @@ getrandom = "0.2" # pick same version that rand requires
 rand_chacha = "0.9"
 ratatui = "0.29"
 rayon = "1.10"
-reedline = "0.40.0"
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 rmp = "0.8"
 rmp-serde = "1.3"
 roxmltree = "0.20"

@@ -174,7 +174,7 @@ impl Command for Input {
 
         let mut buf = String::new();
 
-        match line_editor.read_line(&prompt) {
+        match line_editor.read_line(&prompt, false) {
             Ok(Signal::Success(buffer)) => {
                 buf.push_str(&buffer);
             }

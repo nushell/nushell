@@ -21,6 +21,7 @@ nu-glob = { path = "../nu-glob", version = "0.105.1" }
 nu-path = { path = "../nu-path", version = "0.105.1" }
 nu-system = { path = "../nu-system", version = "0.105.1" }
 nu-derive-value = { path = "../nu-derive-value", version = "0.105.1" }
+reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
 
 brotli = { workspace = true, optional = true }
 bytes = { workspace = true }

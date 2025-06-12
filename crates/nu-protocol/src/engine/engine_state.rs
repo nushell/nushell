@@ -100,6 +100,7 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
+    pub immediately_execute: Arc<Mutex<bool>>,
     pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
@@ -203,6 +204,7 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
+            immediately_execute: Arc::new(Mutex::new(false)),
             report_log: Arc::default(),
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
