@@ -243,6 +243,29 @@ fn test_alternate_config_path() {
 }
 
 #[test]
+fn use_last_config_path() {
+    let config_file = "crates/nu-utils/src/default_files/scaffold_config.nu";
+    let env_file = "crates/nu-utils/src/default_files/scaffold_env.nu";
+
+    let cwd = std::env::current_dir().expect("Could not get current working directory");
+
+    let config_path =
+        nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
+    let actual = nu!(
+        cwd: &cwd,
+        format!("nu --config non-existing-path --config another-random-path.nu --config {config_path:?} -c '$nu.config-path'")
+    );
+    assert_eq!(actual.out, config_path.to_string_lossy().to_string());
+
+    let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
+    let actual = nu!(
+        cwd: &cwd,
+        format!("nu --env-config non-existing-path --env-config {env_path:?} -c '$nu.env-path'")
+    );
+    assert_eq!(actual.out, env_path.to_string_lossy().to_string());
+}
+
+#[test]
 fn test_xdg_config_empty() {
     Playground::setup("xdg_config_empty", |_, playground| {
         playground.with_env("XDG_CONFIG_HOME", "");
