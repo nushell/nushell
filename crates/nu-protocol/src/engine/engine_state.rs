@@ -1,17 +1,17 @@
 use crate::{
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
+    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
+    VarId, VirtualPathId,
     ast::Block,
     cli_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        description::{build_desc, Doccomments},
-        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
-        Variable, Visibility, DEFAULT_OVERLAY_NAME,
+        CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
+        Stack, StateDelta, Variable, Visibility,
+        description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
     shell_error::io::IoError,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
-    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
-    VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -22,10 +22,10 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc::channel,
-        mpsc::Sender,
         Arc, Mutex, MutexGuard, PoisonError,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc::Sender,
+        mpsc::channel,
     },
 };
 
@@ -1115,7 +1115,7 @@ impl Default for EngineState {
 #[cfg(test)]
 mod engine_state_tests {
     use crate::engine::StateWorkingSet;
-    use std::str::{from_utf8, Utf8Error};
+    use std::str::{Utf8Error, from_utf8};
 
     use super::*;
 
@@ -1222,10 +1222,10 @@ mod test_cwd {
     //! PWD should NOT point to non-existent entities in the filesystem.
 
     use crate::{
-        engine::{EngineState, Stack},
         Value,
+        engine::{EngineState, Stack},
     };
-    use nu_path::{assert_path_eq, AbsolutePath, Path};
+    use nu_path::{AbsolutePath, Path, assert_path_eq};
     use tempfile::{NamedTempFile, TempDir};
 
     /// Creates a symlink. Works on both Unix and Windows.
