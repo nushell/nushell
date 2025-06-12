@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
+    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -268,6 +268,28 @@ pub fn parse_int_with_underscores() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
     assert_eq!(element.expr.expr, Expr::Int(420692023));
+}
+
+#[test]
+pub fn parse_filesize() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"95307.27MiB", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(99_936_915_947));
+    assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
 }
 
 #[test]
