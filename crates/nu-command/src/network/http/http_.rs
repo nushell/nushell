@@ -123,4 +123,24 @@ impl Command for Http {
             .into_pipeline_data()),
         }
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Get content from example.com with default verb",
+                example: "http https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Post content to example.com with default verb",
+                example: "http https://www.example.com 'body'",
+                result: None,
+            },
+            Example {
+                description: "Get content from example.com with explicit verb",
+                example: "http get https://www.example.com",
+                result: None,
+            },
+        ]
+    }
 }
