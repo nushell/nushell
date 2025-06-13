@@ -1,6 +1,6 @@
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject},
 };
 
 use crate::values::{NuDataFrame, NuExpression, utils::DEFAULT_ROWS};
@@ -9,6 +9,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use polars::df;
 
 #[derive(Clone)]
 pub struct LastDF;
@@ -62,6 +63,24 @@ impl PluginCommand for LastDF {
                 example: "polars col a | polars last",
                 result: None,
             },
+            Example {
+                description: "Aggregate the last values in the group.",
+                example: "[[a b c d]; [1 0.5 true Apple] [2 0.5 true Orange] [2 4 true Apple] [3 10 false Apple] [4 13 false Banana] [5 14 true Banana]] | polars into-df -s {a: u8, b: f32, c: bool, d: str} | polars group-by d | polars last | polars sort-by [a] | polars collect",
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!(
+                            "d" => &["Orange", "Apple", "Banana"],
+                            "a" => &[2, 3, 5],
+                            "b" => &[0.50, 10.0, 14.0],
+                            "c" => &[true, false, true],
+
+                        )
+                        .expect("dataframe creation should succeed"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -80,6 +99,9 @@ impl PluginCommand for LastDF {
             }
             PolarsPluginObject::NuLazyFrame(lazy) => {
                 command_lazy(plugin, engine, call, lazy).map_err(|e| e.into())
+            }
+            PolarsPluginObject::NuLazyGroupBy(groupby) => {
+                command_groupby(plugin, engine, call, groupby).map_err(|e| e.into())
             }
             _ => {
                 let expr = NuExpression::try_from_value(plugin, &value)?;
@@ -117,6 +139,20 @@ fn command_lazy(
     let rows = rows.unwrap_or(DEFAULT_ROWS as u64);
 
     let res: NuLazyFrame = lazy.to_polars().tail(rows).into();
+
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_groupby(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    groupby: NuLazyGroupBy,
+) -> Result<PipelineData, ShellError> {
+    let rows: Option<usize> = call.opt(0)?;
+    let rows = rows.unwrap_or(1);
+    let res = groupby.to_polars().tail(Some(rows));
+    let res: NuLazyFrame = res.into();
 
     res.to_pipeline_data(plugin, engine, call.head)
 }
