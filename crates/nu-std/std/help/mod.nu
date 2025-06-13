@@ -784,7 +784,12 @@ def external-commands [
 ] {
     let target_command = $command | str join " "
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-    ^($env.NU_HELPER? | default "man") $target_command
+    if $env.NU_HELPER? == "--help" {
+        run-external $target_command "--help"
+    } else {
+        ^($env.NU_HELPER? | default "man") $target_command
+    }
+
 }
 
 # Show help on commands.
