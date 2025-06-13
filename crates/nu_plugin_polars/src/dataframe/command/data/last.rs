@@ -3,13 +3,15 @@ use crate::{
     values::{Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject},
 };
 
-use crate::values::{NuDataFrame, NuExpression, utils::DEFAULT_ROWS};
+use crate::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
 use polars::df;
+
+const DEFAULT_ROWS: usize = 1;
 
 #[derive(Clone)]
 pub struct LastDF;
@@ -150,7 +152,7 @@ fn command_groupby(
     groupby: NuLazyGroupBy,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.opt(0)?;
-    let rows = rows.unwrap_or(1);
+    let rows = rows.unwrap_or(DEFAULT_ROWS);
     let res = groupby.to_polars().tail(Some(rows));
     let res: NuLazyFrame = res.into();
 
