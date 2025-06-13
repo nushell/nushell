@@ -423,12 +423,8 @@ fn prepare_path(
 }
 
 fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
-    let file: Result<File, nu_protocol::shell_error::io::ErrorKind> = match (append, path.exists())
-    {
-        (true, true) => std::fs::OpenOptions::new()
-            .append(true)
-            .open(path)
-            .map_err(|err| err.into()),
+    let file: std::io::Result<File> = match (append, path.exists()) {
+        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
@@ -438,18 +434,35 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
                     deprecated,
                     reason = "we don't get a IsADirectory error, so we need to provide it"
                 )]
-                Err(nu_protocol::shell_error::io::ErrorKind::from_std(
-                    std::io::ErrorKind::IsADirectory,
-                ))
+                Err(std::io::ErrorKind::IsADirectory.into())
             } else {
-                std::fs::File::create(path).map_err(|err| err.into())
+                std::fs::File::create(path)
             }
             #[cfg(not(target_os = "windows"))]
-            std::fs::File::create(path).map_err(|err| err.into())
+            std::fs::File::create(path)
         }
     };
 
-    file.map_err(|err_kind| ShellError::Io(IoError::new(err_kind, span, PathBuf::from(path))))
+    match file {
+        Ok(file) => Ok(file),
+        Err(err) => {
+            // In caase of NotFound, search for the missing parent directory.
+            // This also presents a TOCTOU (or TOUTOC, technically?)
+            if err.kind() == std::io::ErrorKind::NotFound {
+                if let Some(missing_component) =
+                    path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
+                {
+                    return Err(ShellError::Io(IoError::new(
+                        ErrorKind::DirectoryNotFound,
+                        span,
+                        PathBuf::from(missing_component),
+                    )));
+                }
+            }
+
+            Err(ShellError::Io(IoError::new(err, span, PathBuf::from(path))))
+        }
+    }
 }
 
 /// Get output file and optional stderr file
