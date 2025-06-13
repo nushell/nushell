@@ -83,7 +83,6 @@ impl Command for Http {
                 "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
                 Some('R')
             )
-            .filter()
             .category(Category::Network)
     }
 
