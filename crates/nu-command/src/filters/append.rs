@@ -32,7 +32,22 @@ only unwrap the outer list, and leave the variable's contents untouched."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["add", "concatenate"]
+        vec![
+            "add",
+            "concatenate",
+            "push",
+            "push_back",
+            "emplace_back",
+            "list.append",
+            "set.add",
+            "conj",
+            "into",
+            "concat",
+            "concatMap",
+            "++",
+            "merge",
+            "combine",
+        ]
     }
 
     fn examples(&self) -> Vec<Example> {
