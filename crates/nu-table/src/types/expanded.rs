@@ -298,8 +298,18 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
             let cell = expand_entry_with_header(item, &header, inner_cfg);
             // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
-            let value = NuTable::create(cell.text);
-            let value_width = value.width();
+            let mut value = NuTable::create(cell.text);
+            let mut value_width = value.width();
+            if value_width > available {
+                // NOTE:
+                // most likely it was emojie which we are not sure about what to do
+                // so we truncate it just in case
+                //
+                // most likely width is 1
+
+                value = NuTable::create(String::from("\u{FFFD}"));
+                value_width = 1;
+            }
 
             column_width = max(column_width, value_width);
 
