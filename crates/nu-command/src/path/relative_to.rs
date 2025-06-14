@@ -57,9 +57,12 @@ path."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments {
-            path: call.req(engine_state, stack, 0)?,
-        };
+        let mut path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        // If the path is ".", replace it with the current working directory
+        if path_arg.item == "." {
+            path_arg.item = engine_state.cwd(Some(stack))?.display().to_string();
+        }
+        let args = Arguments { path: path_arg };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -78,9 +81,12 @@ path."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments {
-            path: call.req_const(working_set, 0)?,
-        };
+        let mut path_arg: Spanned<String> = call.req_const(working_set, 0)?;
+        // If the path is ".", replace it with the current working directory
+        if path_arg.item == "." {
+            path_arg.item = working_set.permanent().cwd(None)?.display().to_string();
+        }
+        let args = Arguments { path: path_arg };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
