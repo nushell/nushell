@@ -133,6 +133,7 @@ impl GStat {
                 "tag" => Value::string(tag, span),
                 "branch" => Value::string(stats.branch, span),
                 "remote" => Value::string(stats.remote, span),
+                "state" => Value::string(stats.state, span),
             },
             span,
         ))
@@ -160,6 +161,7 @@ impl GStat {
                 "tag" => Value::string("no_tag", span),
                 "branch" => Value::string("no_branch", span),
                 "remote" => Value::string("no_remote", span),
+                "state" => Value::string("no_state", span),
             },
             span,
         )
@@ -206,6 +208,10 @@ pub struct Stats {
     pub branch: String,
     /// The of the upstream branch
     pub remote: String,
+
+    /// State of the repository (Clean, Merge, Rebase, etc.)
+    /// See all states at https://docs.rs/git2/latest/git2/enum.RepositoryState.html
+    pub state: String,
 }
 
 impl Stats {
@@ -214,6 +220,7 @@ impl Stats {
         let mut st: Stats = Default::default();
 
         st.read_branch(repo);
+        st.state = format!("{:?}", repo.state());
 
         let mut opts = git2::StatusOptions::new();
 
