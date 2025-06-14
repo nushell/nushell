@@ -244,3 +244,9 @@ fn return_closure_value() {
     let actual = nu!(r#"null | default { {||} }"#);
     assert!(actual.out.starts_with("closure"));
 }
+
+#[test]
+fn lazy_output_streams() {
+    let actual = nu!(r#"default { nu --testbin cococo 'hello' } | describe"#);
+    assert!(actual.out.contains("byte stream"));
+}
