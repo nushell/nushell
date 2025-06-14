@@ -1981,7 +1981,7 @@ impl Value {
     /// as it will point into unknown source when used in errors.
     ///
     /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
-    /// except for `Value::CustomValue`.
+    /// except for `Value::Custom`.
     pub fn test_values() -> Vec<Value> {
         vec![
             Value::test_bool(false),
