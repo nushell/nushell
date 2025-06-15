@@ -111,6 +111,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
                 FlatShape::DateTime => add_colored_token(&shape.1, next_token),
                 FlatShape::List
+                | FlatShape::Set
                 | FlatShape::Table
                 | FlatShape::Record
                 | FlatShape::Block
@@ -502,6 +503,25 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     list.iter().find_map(|item| {
+                        find_matching_block_end_in_expr(
+                            line,
+                            working_set,
+                            item.expr(),
+                            global_span_offset,
+                            global_cursor_offset,
+                        )
+                    })
+                }
+            }
+            Expr::Set(set) => {
+                if expr_last == global_cursor_offset {
+                    // cursor is at list end
+                    Some(expr_first)
+                } else if expr_first == global_cursor_offset {
+                    // cursor is at list start
+                    Some(expr_last)
+                } else {
+                    set.iter().find_map(|item| {
                         find_matching_block_end_in_expr(
                             line,
                             working_set,

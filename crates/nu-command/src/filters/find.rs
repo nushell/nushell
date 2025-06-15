@@ -521,6 +521,7 @@ fn value_should_be_printed(pattern: &MatchPattern, value: &Value, config: &Confi
         }
         Value::Glob { .. }
         | Value::List { .. }
+        | Value::Set { .. }
         | Value::CellPath { .. }
         | Value::Record { .. }
         | Value::Custom { .. } => string_should_be_printed(pattern, &lower_value),

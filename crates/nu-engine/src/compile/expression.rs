@@ -5,7 +5,7 @@ use super::{
 
 use nu_protocol::{
     ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
-    ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
+    ast::{CellPath, Expr, Expression, ListItem, RecordItem, SetItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
 };
@@ -249,6 +249,44 @@ pub(crate) fn compile_expression(
                                 items: reg,
                             }
                             .into_spanned(*spread_span),
+                        )?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        Expr::Set(items) => {
+            // Guess capacity based on items (does not consider spread as more than 1)
+            lit(
+                builder,
+                Literal::Set {
+                    capacity: items.len(),
+                },
+            )?;
+            for item in items {
+                // Compile the expression of the item / spread
+                let reg = builder.next_register()?;
+                let expr = match item {
+                    SetItem::Item(expr) => expr,
+                };
+                compile_expression(
+                    working_set,
+                    builder,
+                    expr,
+                    RedirectModes::value(expr.span),
+                    None,
+                    reg,
+                )?;
+
+                match item {
+                    SetItem::Item(_) => {
+                        // Add each item using list-push
+                        builder.push(
+                            Instruction::SetAdd {
+                                src_dst: out_reg,
+                                item: reg,
+                            }
+                            .into_spanned(expr.span),
                         )?;
                     }
                 }

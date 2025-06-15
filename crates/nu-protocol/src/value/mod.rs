@@ -10,6 +10,7 @@ mod test_derive;
 
 pub mod format;
 pub mod record;
+pub mod set;
 pub use custom_value::CustomValue;
 pub use duration::*;
 pub use filesize::*;
@@ -18,6 +19,8 @@ pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
+pub use set::CustomSet;
+use set::SetType;
 
 use crate::{
     BlockId, Config, ShellError, Signals, Span, Type,
@@ -117,6 +120,13 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    Set {
+        vals: Box<CustomSet>,
+        /// note: spans are being refactored out of Value
+        /// please use .span() instead of matching this span value
+        #[serde(rename = "span")]
+        internal_span: Span,
+    },
     List {
         vals: Vec<Value>,
         /// note: spans are being refactored out of Value
@@ -209,6 +219,13 @@ impl Clone for Value {
             },
             Value::Record { val, internal_span } => Value::Record {
                 val: val.clone(),
+                internal_span: *internal_span,
+            },
+            Value::Set {
+                vals,
+                internal_span,
+            } => Value::Set {
+                vals: vals.clone(),
                 internal_span: *internal_span,
             },
             Value::List {
@@ -565,6 +582,15 @@ impl Value {
         }
     }
 
+    /// Unwraps the inner set `Set` or returns an error if this `Value` is not a set
+    pub fn into_set(self) -> Result<Box<CustomSet>, ShellError> {
+        if let Value::Set { vals, .. } = self {
+            Ok(vals)
+        } else {
+            self.cant_convert_to("list")
+        }
+    }
+
     /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
@@ -729,6 +755,7 @@ impl Value {
             | Value::String { internal_span, .. }
             | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
+            | Value::Set { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Closure { internal_span, .. }
             | Value::Nothing { internal_span, .. }
@@ -752,6 +779,7 @@ impl Value {
             | Value::String { internal_span, .. }
             | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
+            | Value::Set { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Closure { internal_span, .. }
             | Value::Nothing { internal_span, .. }
@@ -782,6 +810,22 @@ impl Value {
             Value::Glob { .. } => Type::Glob,
             Value::Record { val, .. } => {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
+            }
+            Value::Set { vals, .. } => {
+                let first = vals
+                    .as_ref()
+                    .into_iter()
+                    .next()
+                    .map(SetType::from_value)
+                    .unwrap_or(SetType::Nothing);
+                match vals
+                    .as_ref()
+                    .into_iter()
+                    .all(|t| SetType::from_value(t) == first)
+                {
+                    true => Type::Set(Box::new(SetType::Any)),
+                    false => Type::Set(Box::new(SetType::Any)),
+                }
             }
             Value::List { vals, .. } => {
                 let mut ty = None;
@@ -864,6 +908,10 @@ impl Value {
 
             // matching composite types
             (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
+            (Value::Set { vals, .. }, Type::Set(inner)) => vals
+                .as_ref()
+                .into_iter()
+                .all(|val| val.is_subtype_of(inner)),
             (Value::List { vals, .. }, Type::List(inner)) => {
                 vals.iter().all(|val| val.is_subtype_of(inner))
             }
@@ -873,7 +921,13 @@ impl Value {
             (Value::Custom { val, .. }, Type::Custom(inner)) => val.type_name() == **inner,
 
             // non-matching composite types
-            (Value::Record { .. } | Value::List { .. } | Value::Custom { .. }, _) => false,
+            (
+                Value::Record { .. }
+                | Value::Set { .. }
+                | Value::List { .. }
+                | Value::Custom { .. },
+                _,
+            ) => false,
         }
     }
 
@@ -959,9 +1013,18 @@ impl Value {
             Value::Range { val, .. } => val.to_string(),
             Value::String { val, .. } => val.clone(),
             Value::Glob { val, .. } => val.clone(),
-            Value::List { vals: val, .. } => format!(
+            Value::Set { vals, .. } => format!(
+                // TODO : change print characters
+                "<{}>",
+                vals.as_ref()
+                    .into_iter()
+                    .map(|x| x.to_value().to_expanded_string(", ", config))
+                    .collect::<Vec<_>>()
+                    .join(separator)
+            ),
+            Value::List { vals, .. } => format!(
                 "[{}]",
-                val.iter()
+                vals.iter()
                     .map(|x| x.to_expanded_string(", ", config))
                     .collect::<Vec<_>>()
                     .join(separator)
@@ -1034,6 +1097,7 @@ impl Value {
     /// This functions behaves like [`to_expanded_string`](Self::to_expanded_string)
     /// and will recurse into records and lists.
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
+        // TODO : how to get the set ?
         match self {
             // give special treatment to the simple types to make them parsable
             Value::String { val, .. } => format!("'{}'", val),
@@ -1695,6 +1759,10 @@ impl Value {
                 .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
+            Value::Set { vals, .. } => vals
+                .as_ref()
+                .into_iter()
+                .try_for_each(|list_value| list_value.to_value().recurse_mut(f)),
             Value::List { vals, .. } => vals
                 .iter_mut()
                 .try_for_each(|list_value| list_value.recurse_mut(f)),
@@ -1832,6 +1900,13 @@ impl Value {
         }
     }
 
+    pub fn set(vals: Vec<Value>, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::Set {
+            vals: Box::new(CustomSet::new(vals)?),
+            internal_span: span,
+        })
+    }
+
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
         Value::List {
             vals,
@@ -1943,6 +2018,12 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
+    pub fn test_set(vals: Vec<Value>) -> Result<Value, ShellError> {
+        Value::set(vals, Span::test_data())
+    }
+
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_list(vals: Vec<Value>) -> Value {
         Value::list(vals, Span::test_data())
     }
@@ -1997,6 +2078,7 @@ impl Value {
             Value::test_float(0.0),
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
+            Value::test_set(Vec::new()).unwrap(),
             Value::test_list(Vec::new()),
             Value::test_closure(Closure {
                 block_id: BlockId::new(0),
@@ -2232,6 +2314,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2251,6 +2334,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2270,6 +2354,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2289,6 +2374,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2308,6 +2394,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2327,6 +2414,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2346,6 +2434,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2365,6 +2454,7 @@ impl PartialOrd for Value {
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2384,6 +2474,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
+                Value::Set { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2429,6 +2520,28 @@ impl PartialOrd for Value {
                     // that the shorter sequence is less than the longer one
                     lhs.len().partial_cmp(&rhs.len())
                 }
+                Value::Set { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::Custom { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+            },
+            (Value::Set { vals: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::String { .. } => Some(Ordering::Greater),
+                Value::Glob { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::Record { .. } => Some(Ordering::Greater),
+                // As it doens't make sense to compare set, we simply compare their size
+                Value::Set { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::List { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2448,6 +2561,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2467,6 +2581,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2486,6 +2601,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
@@ -2505,6 +2621,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
@@ -2524,6 +2641,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
@@ -2544,6 +2662,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
+                Value::Set { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
