@@ -259,8 +259,8 @@ tempfile = { workspace = true }
 [features]
 plugin = [
   # crates
-  "nu-cmd-plugin",
-  "nu-plugin-engine",
+  "dep:nu-cmd-plugin",
+  "dep:nu-plugin-engine",
 
   # features
   "nu-cli/plugin",

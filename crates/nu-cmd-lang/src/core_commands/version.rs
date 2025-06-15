@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use shadow_rs::shadow;
@@ -7,7 +8,9 @@ use shadow_rs::shadow;
 shadow!(build);
 
 #[derive(Clone)]
-pub struct Version;
+pub struct Version {
+    pub features: Vec<String>,
+}
 
 impl Command for Version {
     fn name(&self) -> &str {
@@ -36,7 +39,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(engine_state, call.head)
+        version(engine_state, call.head, &self.features)
     }
 
     fn run_const(
@@ -45,7 +48,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(working_set.permanent(), call.head)
+        version(working_set.permanent(), call.head, &self.features)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -63,7 +66,11 @@ fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
     }
 }
 
-pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
+pub fn version(
+    engine_state: &EngineState,
+    span: Span,
+    features: &[String],
+) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version
     // - major
@@ -113,7 +120,13 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 
     record.push(
         "features",
-        Value::string(features_enabled().join(", "), span),
+        Value::string(
+            features
+                .iter()
+                .filter(|f| !f.starts_with("dep:"))
+                .join(", "),
+            span,
+        ),
     );
 
     #[cfg(not(feature = "plugin"))]
@@ -164,42 +177,12 @@ fn global_allocator() -> &'static str {
     "standard"
 }
 
-fn features_enabled() -> Vec<String> {
-    let mut names = vec!["default".to_string()];
-
-    // NOTE: There should be another way to know features on.
-
-    #[cfg(feature = "trash-support")]
-    {
-        names.push("trash".to_string());
-    }
-
-    #[cfg(feature = "sqlite")]
-    {
-        names.push("sqlite".to_string());
-    }
-
-    #[cfg(feature = "static-link-openssl")]
-    {
-        names.push("static-link-openssl".to_string());
-    }
-
-    #[cfg(feature = "system-clipboard")]
-    {
-        names.push("system-clipboard".to_string());
-    }
-
-    names.sort();
-
-    names
-}
-
 #[cfg(test)]
 mod test {
     #[test]
     fn test_examples() {
         use super::Version;
         use crate::test_examples;
-        test_examples(Version {})
+        test_examples(Version { features: vec![] })
     }
 }
