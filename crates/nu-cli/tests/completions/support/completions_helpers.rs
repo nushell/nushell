@@ -1,3 +1,4 @@
+use nu_cmd_lang::DefaultContextInit;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, PathBuf};
@@ -11,7 +12,9 @@ use reedline::Suggestion;
 use std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
-    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context(
+        DefaultContextInit::test(),
+    ))
 }
 
 pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, EngineState, Stack) {

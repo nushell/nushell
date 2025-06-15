@@ -500,6 +500,7 @@ mod tests {
         ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
         WorkDoneProgressParams, WorkspaceFolder, request, request::Request,
     };
+    use nu_cmd_lang::DefaultContextInit;
     use nu_test_support::fs::fixtures;
 
     fn send_reference_request(
@@ -1139,7 +1140,7 @@ mod tests {
         let mut script_path = fixtures();
         script_path.push("lsp");
         script_path.push("workspace");
-        let mut engine_state = nu_cmd_lang::create_default_context();
+        let mut engine_state = nu_cmd_lang::create_default_context(DefaultContextInit::test());
         engine_state.add_env_var(
             "PWD".into(),
             nu_protocol::Value::test_string(script_path.to_str().unwrap()),

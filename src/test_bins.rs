@@ -222,11 +222,8 @@ fn outcome_ok(msg: String) -> ! {
 
 /// Generate a minimal engine state with just `nu-cmd-lang`, `nu-command`, and `nu-cli` commands.
 fn get_engine_state() -> EngineState {
-    let features = env!("NU_FEATURES")
-        .split(",")
-        .map(ToString::to_string)
-        .collect();
-    let engine_state = nu_cmd_lang::create_default_context(DefaultContextInit { features });
+    let cargo_features = env!("NU_FEATURES").split(",").collect();
+    let engine_state = nu_cmd_lang::create_default_context(DefaultContextInit { cargo_features });
     let engine_state = nu_command::add_shell_command_context(engine_state);
     nu_cli::add_cli_context(engine_state)
 }

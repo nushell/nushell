@@ -9,7 +9,7 @@ shadow!(build);
 
 #[derive(Clone)]
 pub struct Version {
-    pub features: Vec<String>,
+    pub features: Vec<&'static str>,
 }
 
 impl Command for Version {
@@ -69,7 +69,7 @@ fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
 pub fn version(
     engine_state: &EngineState,
     span: Span,
-    features: &[String],
+    features: &[&str],
 ) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version

@@ -800,12 +800,15 @@ pub fn map_value_completions<'a>(
 
 #[cfg(test)]
 mod completer_tests {
+    use nu_cmd_lang::DefaultContextInit;
+
     use super::*;
 
     #[test]
     fn test_completion_helper() {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut engine_state = nu_command::add_shell_command_context(
+            nu_cmd_lang::create_default_context(DefaultContextInit::test()),
+        );
 
         // Custom additions
         let delta = {
