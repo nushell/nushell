@@ -537,6 +537,39 @@ fn parent_redirection_doesnt_affect_save() {
 }
 
 #[test]
+fn save_missing_parent_dir() {
+    Playground::setup("save_test_24", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"'hello' | save save_test_24/foobar/hello.txt"#,
+        );
+
+        assert!(actual.err.contains("nu::shell::io::directory_not_found"));
+        assert!(actual.err.contains("foobar' does not exist"));
+    })
+}
+
+#[test]
+fn save_missing_ancestor_dir() {
+    Playground::setup("save_test_24", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        std::fs::create_dir(dirs.test().join("foo"))
+            .expect("should have been able to create subdir for test");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"'hello' | save save_test_24/foo/bar/baz/hello.txt"#,
+        );
+
+        assert!(actual.err.contains("nu::shell::io::directory_not_found"));
+        assert!(actual.err.contains("bar' does not exist"));
+    })
+}
+
+#[test]
 fn force_save_to_dir() {
     let actual = nu!(cwd: "crates/nu-command/tests/commands", r#"
         "aaa" | save -f ..
