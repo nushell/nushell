@@ -7,7 +7,7 @@ use nu_parser::*;
 use nu_protocol::engine::StateWorkingSet;
 
 fuzz_target!(|data: &[u8]| {
-    let engine_state = create_default_context();
+    let engine_state = create_default_context(DefaultContextInit::test());
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let _block = parse(&mut working_set, None, &data, true);
