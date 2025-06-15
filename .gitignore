@@ -32,6 +32,9 @@ unstable_cargo_features.txt
 # Helix configuration folder
 .helix/*
 .helix
+wix/bin/
+wix/obj/
+wix/nu/
 
 # Coverage tools
 lcov.info
