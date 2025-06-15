@@ -213,7 +213,7 @@ fn default(
         || (default_when_empty
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
-        default_value.pipeline_data()
+        default_value.single_run_pipeline_data()
     } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
         let PipelineData::ListStream(ls, metadata) = input else {
             unreachable!()
@@ -221,7 +221,7 @@ fn default(
         let span = ls.span();
         let mut stream = ls.into_inner().peekable();
         if stream.peek().is_none() {
-            return default_value.pipeline_data();
+            return default_value.single_run_pipeline_data();
         }
 
         // stream's internal state already preserves the original signals config, so if this
@@ -278,8 +278,14 @@ impl DefaultValue {
         }
     }
 
-    fn pipeline_data(&mut self) -> Result<PipelineData, ShellError> {
-        self.value().map(|x| x.into_pipeline_data())
+    /// Used when we know the value won't need to be cached to allow streaming.
+    fn single_run_pipeline_data(self) -> Result<PipelineData, ShellError> {
+        match self {
+            DefaultValue::Uncalculated(mut closure) => {
+                closure.item.run_with_input(PipelineData::Empty)
+            }
+            DefaultValue::Calculated(val) => Ok(val.into_pipeline_data()),
+        }
     }
 }
 
