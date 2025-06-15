@@ -53,6 +53,6 @@ impl Completer for FlagCompletion {
             }
             add_suggestion(format!("--{}", named.long), named.desc.clone());
         }
-        matcher.results()
+        matcher.suggestion_results()
     }
 }
