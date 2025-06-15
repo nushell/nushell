@@ -47,6 +47,12 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             "++",
             "merge",
             "combine",
+            "Append",
+            "-Append",
+            "insert",
+            "prepend",
+            "put",
+            "emplace",
         ]
     }
 
