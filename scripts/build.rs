@@ -7,6 +7,7 @@ fn main() {
 
     #[cfg(windows)]
     {
+        println!("cargo:rerun-if-changed=assets/nu_logo.ico");
         let mut res = winresource::WindowsResource::new();
         res.set("ProductName", "Nushell");
         res.set("FileDescription", "Nushell");
