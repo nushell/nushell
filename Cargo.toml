@@ -264,7 +264,6 @@ plugin = [
 
   # features
   "nu-cli/plugin",
-  "nu-cmd-lang/plugin",
   "nu-command/plugin",
   "nu-engine/plugin",
   "nu-engine/plugin",
@@ -286,21 +285,20 @@ stable = ["default"]
 
 # Enable to statically link OpenSSL (perl is required, to build OpenSSL https://docs.rs/openssl/latest/openssl/);
 # otherwise the system version will be used. Not enabled by default because it takes a while to build
-static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
+static-link-openssl = ["dep:openssl"]
 
 # Optional system clipboard support in `reedline`, this behavior has problematic compatibility with some systems.
 # Missing X server/ Wayland can cause issues
 system-clipboard = [
   "reedline/system_clipboard",
   "nu-cli/system-clipboard",
-  "nu-cmd-lang/system-clipboard",
 ]
 
 # Stable (Default)
-trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
+trash-support = ["nu-command/trash-support"]
 
 # SQLite commands for nushell
-sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite", "nu-std/sqlite"]
+sqlite = ["nu-command/sqlite", "nu-std/sqlite"]
 
 [profile.release]
 opt-level = "s"     # Optimize for size
