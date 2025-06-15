@@ -23,6 +23,8 @@ pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     /// List destructuring
     List(Vec<MatchPattern>),
+    /// Set destructuring
+    Set(Vec<MatchPattern>),
     /// Matching against a literal (from expression result)
     // TODO: it would be nice if this didn't depend on AST
     // maybe const evaluation can get us to a Value instead?
@@ -53,6 +55,11 @@ impl Pattern {
                 }
             }
             Pattern::List(items) => {
+                for item in items {
+                    output.append(&mut item.variables());
+                }
+            }
+            Pattern::Set(items) => {
                 for item in items {
                     output.append(&mut item.variables());
                 }

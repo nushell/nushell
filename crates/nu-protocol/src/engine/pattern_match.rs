@@ -94,6 +94,7 @@ impl Matcher for Pattern {
                 }
                 _ => false,
             },
+            Pattern::Set(items) => todo!(),
             Pattern::Expression(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {

@@ -188,6 +188,9 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::ListSpread { src_dst, items } => {
                 write!(f, "{:WIDTH$} {src_dst}, {items}", "list-spread")
             }
+            Instruction::SetAdd { src_dst, item } => {
+                write!(f, "{:WIDTH$} {src_dst}, {item}", "set-add")
+            }
             Instruction::RecordInsert { src_dst, key, val } => {
                 write!(f, "{:WIDTH$} {src_dst}, {key}, {val}", "record-insert")
             }
@@ -357,6 +360,7 @@ impl fmt::Display for FmtLiteral<'_> {
                 inclusion,
             } => write!(f, "range({start}, {step}, {end}, {inclusion:?})"),
             Literal::List { capacity } => write!(f, "list(capacity = {capacity})"),
+            Literal::Set { capacity } => write!(f, "set(capacity = {capacity})"),
             Literal::Record { capacity } => write!(f, "record(capacity = {capacity})"),
             Literal::Filepath { val, no_expand } => write!(
                 f,
@@ -418,6 +422,20 @@ impl fmt::Display for FmtPattern<'_> {
                     )?;
                 }
                 f.write_str("]")
+            }
+            Pattern::Set(bindings) => {
+                f.write_str("<")?;
+                for pattern in bindings {
+                    write!(
+                        f,
+                        "{}",
+                        FmtPattern {
+                            engine_state: self.engine_state,
+                            pattern: &pattern.pattern
+                        }
+                    )?;
+                }
+                f.write_str(">")
             }
             Pattern::Expression(expr) => {
                 let string =

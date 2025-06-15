@@ -178,6 +178,7 @@ impl BlockBuilder {
                         | Literal::Closure(_)
                         | Literal::RowCondition(_)
                         | Literal::List { capacity: _ }
+                        | Literal::Set { capacity: _ }
                         | Literal::Record { capacity: _ }
                         | Literal::Filepath {
                             val: _,
@@ -243,6 +244,7 @@ impl BlockBuilder {
             Instruction::ListSpread { src_dst, items } => {
                 allocate(&[*src_dst, *items], &[*src_dst])
             }
+            Instruction::SetAdd { src_dst, item } => allocate(&[*src_dst, *item], &[*src_dst]),
             Instruction::RecordInsert { src_dst, key, val } => {
                 allocate(&[*src_dst, *key, *val], &[*src_dst])
             }

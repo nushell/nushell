@@ -304,6 +304,16 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 }
                 write!(f, "]")
             }
+            Value::Set { vals, .. } => {
+                write!(f, "<")?;
+                for (i, value) in vals.as_ref().into_iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:?}", DebuggableValue(&value.to_value()))?;
+                }
+                write!(f, ">")
+            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({:?})", val)
             }

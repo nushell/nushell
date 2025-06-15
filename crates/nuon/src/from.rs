@@ -230,6 +230,12 @@ fn convert_to_value(
 
             Ok(Value::list(output, span))
         }
+        Expr::Set(vals) => Value::set(
+            vals.into_iter()
+                .map(|v| convert_to_value(v.expr().to_owned(), span, original_text))
+                .collect::<Result<Vec<_>, ShellError>>()?,
+            span,
+        ),
         Expr::MatchBlock(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

@@ -1,4 +1,4 @@
-use crate::{DeclId, Type};
+use crate::{DeclId, Type, set::SetType};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -78,6 +78,9 @@ pub enum SyntaxShape {
 
     /// A specific match to a word or symbol
     Keyword(Vec<u8>, Box<SyntaxShape>),
+
+    // A set of unique and unordered values
+    Set(Box<SyntaxShape>),
 
     /// A list is allowed, eg `[first second]`
     List(Box<SyntaxShape>),
@@ -161,6 +164,10 @@ impl SyntaxShape {
             SyntaxShape::Error => Type::Error,
             SyntaxShape::ImportPattern => Type::Any,
             SyntaxShape::Int => Type::Int,
+            SyntaxShape::Set(x) => {
+                let contents = x.to_type();
+                Type::Set(Box::new(SetType::from_type(contents)))
+            }
             SyntaxShape::List(x) => {
                 let contents = x.to_type();
                 Type::List(Box::new(contents))
@@ -220,6 +227,7 @@ impl Display for SyntaxShape {
                 }
             }
             SyntaxShape::Binary => write!(f, "binary"),
+            SyntaxShape::Set(x) => write!(f, "set<{x}>"),
             SyntaxShape::List(x) => write!(f, "list<{x}>"),
             SyntaxShape::Table(columns) => {
                 if columns.is_empty() {
