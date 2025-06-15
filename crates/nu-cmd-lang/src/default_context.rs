@@ -1,7 +1,19 @@
 use crate::*;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-pub fn create_default_context() -> EngineState {
+pub struct DefaultContextInit {
+    pub cargo_features: Vec<&'static str>,
+}
+
+impl DefaultContextInit {
+    pub fn test() -> Self {
+        Self {
+            cargo_features: vec![],
+        }
+    }
+}
+
+pub fn create_default_context(init: DefaultContextInit) -> EngineState {
     let mut engine_state = EngineState::new();
 
     let delta = {
@@ -62,7 +74,7 @@ pub fn create_default_context() -> EngineState {
             ScopeVariables,
             Try,
             Use,
-            Version,
+            Version {features: init.cargo_features},
             While,
         };
 

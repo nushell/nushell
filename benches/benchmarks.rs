@@ -1,4 +1,5 @@
 use nu_cli::{eval_source, evaluate_commands};
+use nu_cmd_lang::DefaultContextInit;
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
@@ -16,7 +17,8 @@ use std::{
 use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
 
 fn load_bench_commands() -> EngineState {
-    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+    let init = DefaultContextInit::test();
+    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context(init))
 }
 
 fn setup_engine() -> EngineState {

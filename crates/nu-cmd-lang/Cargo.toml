@@ -43,8 +43,3 @@ plugin = [
   "nu-protocol/plugin",
   "os",
 ]
-
-trash-support = []
-sqlite = []
-static-link-openssl = []
-system-clipboard = []

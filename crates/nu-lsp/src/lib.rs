@@ -452,6 +452,7 @@ mod tests {
         },
         request::{HoverRequest, Initialize, Request, Shutdown},
     };
+    use nu_cmd_lang::DefaultContextInit;
     use nu_protocol::{PipelineData, ShellError, Value, debugger::WithoutDebug, engine::Stack};
     use nu_std::load_standard_library;
     use std::sync::mpsc::{self, Receiver};
@@ -466,7 +467,7 @@ mod tests {
         nu_config_code: Option<&str>,
         params: Option<serde_json::Value>,
     ) -> (Connection, Receiver<Result<()>>) {
-        let engine_state = nu_cmd_lang::create_default_context();
+        let engine_state = nu_cmd_lang::create_default_context(DefaultContextInit::test());
         let mut engine_state = nu_command::add_shell_command_context(engine_state);
         engine_state.generate_nu_constant();
         assert!(load_standard_library(&mut engine_state).is_ok());
