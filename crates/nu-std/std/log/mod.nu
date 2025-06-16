@@ -156,11 +156,7 @@ def handle-log [
     format_string: string,
     short: bool
 ] {
-    let log_format = if ($format_string | is-empty) {
-        $env.NU_LOG_FORMAT? | default $LOG_FORMATS.log
-    } else {
-        $format_string
-    }
+    let log_format = $format_string | default -e $env.NU_LOG_FORMAT? | default $LOG_FORMATS.log
 
     let prefix = if $short {
         $formatting.short_prefix
