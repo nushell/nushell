@@ -293,3 +293,20 @@ fn find_with_string_search_with_special_char_6() {
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
+
+#[test]
+fn find_in_nested_list_dont_match_bracket() {
+    let actual = nu!(r#"[ [foo bar] [foo baz] ] | find "[" | to json -r"#);
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
+fn find_and_highlight_in_nested_list() {
+    let actual = nu!(r#"[ [foo bar] [foo baz] ] | find "foo" | to json -r"#);
+
+    assert_eq!(
+        actual.out,
+        r#"[["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","bar"],["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","baz"]]"#
+    );
+}
