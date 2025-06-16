@@ -12,7 +12,7 @@ module std-clip {
 use std-clip
 
 # Copy input to system clipboard
-@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.105.0 --remove 0.107.0
+@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.106.0 --remove 0.108.0
 @example "Copy a string to the clipboard" {
   "Hello" | clip copy
 }
@@ -23,7 +23,7 @@ export def copy [
 }
 
 # Paste contents of system clipboard
-@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.105.0 --remove 0.107.0
+@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.106.0 --remove 0.108.0
 @example "Paste a string from the clipboard" {
   clip paste
 } --result "Hello"
@@ -32,7 +32,7 @@ export def paste []: [nothing -> string] {
 }
 
 # Add a prefix to each line of the content to be copied
-@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.105.0 --remove 0.107.0
+@deprecated "The clip module has been moved to std. Please use the std version instead of the std-rfc version." --since 0.106.0 --remove 0.108.0
 @example "Format output for Nushell doc" {
   [1 2 3] | clip prefix '# => '
 } --result "# => ╭───┬───╮
