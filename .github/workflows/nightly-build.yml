@@ -12,6 +12,7 @@ on:
   push:
     branches:
       - nightly   # Just for test purpose only with the nightly repo
+      - feature/loong64-musl
   # This schedule will run only from the default branch
   schedule:
     - cron: '15 0 * * *' # run at 00:15 AM UTC

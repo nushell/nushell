@@ -105,7 +105,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             tar -xf loongarch64-linux-musl-cross.tgz
             $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/loongarch64-linux-musl-cross/bin')
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_MUSL_LINKER = "loongarch64-linux-musl-gcc"
-            cargo-build-nu
+            cargo build --release --all --target $target --features=plugin,trash-support,sqlite,rustls-tls,static-link-openssl
         }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
