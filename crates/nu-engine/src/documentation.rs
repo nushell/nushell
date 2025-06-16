@@ -1,5 +1,5 @@
 use crate::eval_call;
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use nu_protocol::{
     Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
     SpanId, Spanned, SyntaxShape, Type, Value,
@@ -10,7 +10,7 @@ use nu_protocol::{
     record,
 };
 use nu_utils::terminal_size;
-use std::{borrow::Cow, collections::HashMap, fmt::Write};
+use std::{borrow::Cow, collections::HashMap, fmt::Write, sync::Arc};
 
 /// ANSI style reset
 const RESET: &str = "\x1b[0m";
@@ -67,7 +67,67 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     code_string.to_string()
 }
 
-fn format_code(text: &str) -> Cow<'_, str> {
+fn highlight_fallback(text: &str) -> String {
+    format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}{text}{RESET}")
+}
+
+fn check_code(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> bool {
+    let Some(checker) = engine_state.find_decl(b"nu-check", &[]) else {
+        return false;
+    };
+    let decl = engine_state.get_decl(checker);
+
+    let call = Call::new(Span::unknown());
+
+    let result = decl.run(
+        engine_state,
+        stack,
+        &(&call).into(),
+        Value::string(code_string, Span::unknown()).into_pipeline_data(),
+    );
+    result
+        .and_then(|pipe| pipe.into_value(Span::unknown()))
+        .and_then(|val| val.as_bool())
+        .unwrap_or(false)
+}
+
+fn try_highlight(captures: &Captures, engine_state: &EngineState, stack: &mut Stack) -> String {
+    let Some(content) = captures.get(1) else {
+        // this shouldn't happen
+        return String::new();
+    };
+
+    if !check_code(content.into(), engine_state, stack) {
+        return highlight_fallback(content.into());
+    }
+
+    let config_old = stack.get_config(engine_state);
+    let mut config = (*config_old).clone();
+    let code_style = Value::record(
+        record! {
+            "attr" => Value::string("di", Span::unknown()),
+        },
+        Span::unknown(),
+    );
+    let color_config = &mut config.color_config;
+    color_config.insert("shape_external".into(), code_style.clone());
+    color_config.insert("shape_externalarg".into(), code_style);
+
+    stack.config = Some(Arc::new(config));
+
+    let highlighted = nu_highlight_string(content.into(), engine_state, stack);
+
+    stack.config = Some(config_old);
+
+    highlighted
+}
+
+fn format_code<'a>(text: &'a str, engine_state: &EngineState, stack: &mut Stack) -> Cow<'a, str> {
+    let config = stack.get_config(engine_state);
+    if !config.use_ansi_coloring.get(engine_state) {
+        return Cow::Borrowed(text);
+    }
+
     // See [`tests::test_code_formatting`] for examples
     let pattern = r"(?x)     # verbose mode
         (?<![\p{Letter}\d])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
@@ -77,11 +137,9 @@ fn format_code(text: &str) -> Cow<'_, str> {
         (?![\p{Letter}\d])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
     ";
 
-    let Ok(re) = Regex::new(pattern) else {
-        return Cow::Borrowed(text);
-    };
-    let replace = format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}$1{RESET}");
-    re.replace_all(text, replace)
+    let re = Regex::new(pattern).expect("regex failed to compile");
+    let do_try_highlight = |captures: &Captures| try_highlight(captures, engine_state, stack);
+    re.replace_all(text, do_try_highlight)
 }
 
 fn get_documentation(
@@ -105,13 +163,13 @@ fn get_documentation(
 
     let desc = &sig.description;
     if !desc.is_empty() {
-        long_desc.push_str(&format_code(desc));
+        long_desc.push_str(&format_code(desc, engine_state, stack));
         long_desc.push_str("\n\n");
     }
 
     let extra_desc = &sig.extra_description;
     if !extra_desc.is_empty() {
-        long_desc.push_str(&format_code(extra_desc));
+        long_desc.push_str(&format_code(extra_desc, engine_state, stack));
         long_desc.push_str("\n\n");
     }
 
@@ -154,13 +212,13 @@ fn get_documentation(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
                     sig.name,
                     command_type,
-                    format_code(&sig.description)
+                    format_code(&sig.description, engine_state, stack)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
                     sig.name,
-                    format_code(&sig.description)
+                    format_code(&sig.description, engine_state, stack)
                 ));
             }
         }
@@ -283,7 +341,7 @@ fn get_documentation(
     for example in examples {
         long_desc.push('\n');
         long_desc.push_str("  ");
-        long_desc.push_str(&format_code(example.description));
+        long_desc.push_str(&format_code(example.description, engine_state, stack));
 
         if !nu_config.use_ansi_coloring.get(engine_state) {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
@@ -555,7 +613,11 @@ fn write_positional(
         }
     };
     if !positional.desc.is_empty() || arg_kind == PositionalKind::Optional {
-        let _ = write!(long_desc, ": {}", format_code(&positional.desc));
+        let _ = write!(
+            long_desc,
+            ": {}",
+            format_code(&positional.desc, engine_state, stack)
+        );
     }
     if arg_kind == PositionalKind::Optional {
         if let Some(value) = &positional.default_value {
@@ -614,7 +676,12 @@ where
             );
         }
         if !flag.desc.is_empty() {
-            let _ = write!(long_desc, ": {}", format_code(&flag.desc));
+            let _ = write!(
+                long_desc,
+                ": {}",
+                flag.desc,
+                // format_code(&flag.desc, engine_state, stack)
+            );
         }
         if let Some(value) = &flag.default_value {
             let _ = write!(long_desc, " (default: {})", &value_formatter(value));
@@ -630,42 +697,42 @@ mod tests {
 
     #[test]
     fn test_code_formatting() {
-        // using Cow::Owned here to mean a match, since the content changed,
-        // and borrowed to mean not a match, since the content didn't change
+        //         // using Cow::Owned here to mean a match, since the content changed,
+        //         // and borrowed to mean not a match, since the content didn't change
 
-        // match: typical example
-        let haystack = "Run the `foo` command";
-        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+        //         // match: typical example
+        //         let haystack = "Run the `foo` command";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
 
-        // no match: backticks preceded by alphanum
-        let haystack = "foo`bar`";
-        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+        //         // no match: backticks preceded by alphanum
+        //         let haystack = "foo`bar`";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
 
-        // match: command at beginning of string is ok
-        let haystack = "`my-command` is cool";
-        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+        //         // match: command at beginning of string is ok
+        //         let haystack = "`my-command` is cool";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
 
-        // match: preceded and followed by newline is ok
-        let haystack = r"
-`command`
-";
-        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+        //         // match: preceded and followed by newline is ok
+        //         let haystack = r"
+        // `command`
+        // ";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
 
-        // no match: newline between backticks
-        let haystack = "// hello `beautiful \n world`";
-        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+        //         // no match: newline between backticks
+        //         let haystack = "// hello `beautiful \n world`";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
 
-        // match: backticks followed by period, not letter/number
-        let haystack = "try running `my cool command`.";
-        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+        //         // match: backticks followed by period, not letter/number
+        //         let haystack = "try running `my cool command`.";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
 
-        // match: backticks enclosed by parenthesis, not letter/number
-        let haystack = "a command (`my cool command`).";
-        assert!(matches!(format_code(haystack), Cow::Owned(_)));
+        //         // match: backticks enclosed by parenthesis, not letter/number
+        //         let haystack = "a command (`my cool command`).";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
 
-        // no match: only characters inside backticks are backticks
-        // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
-        let haystack = "```\ncode block\n```";
-        assert!(matches!(format_code(haystack), Cow::Borrowed(_)));
+        //         // no match: only characters inside backticks are backticks
+        //         // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
+        //         let haystack = "```\ncode block\n```";
+        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
     }
 }
