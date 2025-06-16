@@ -1,0 +1,25 @@
+name: Comment on changes to the config
+on:
+  pull_request_target:
+    paths:
+      - 'crates/nu-protocol/src/config/**'
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check if there is already a bot comment
+      uses: peter-evans/find-comment@v3
+      id: fc
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: Hey, just a bot checking in!
+    - name: Create comment if there is not
+      if: steps.fc.outputs.comment-id == ''
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        body: |
+          Hey, just a bot checking in! You edited files related to the configuration.
+          If you changed any of the default values or added a new config option, don't forget to update the [`doc_config.nu`](https://github.com/nushell/nushell/blob/main/crates/nu-utils/src/default_files/doc_config.nu) which documents the options for our users including the defaults provided by the Rust implementation.
+          If you didn't make a change here, you can just ignore me.
