@@ -38,9 +38,14 @@ const LOG_SHORT_PREFIX = {
 
 export def log-short-prefix [] {$LOG_SHORT_PREFIX}
 
+const LOG_FORMATS = {
+    log: "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    date: "%Y-%m-%dT%H:%M:%S%.3f"
+}
+
 export-env {
-    $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
-    $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT? | default "%Y-%m-%dT%H:%M:%S%.3f"
+    $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default $LOG_FORMATS.log
+    $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT? | default $LOG_FORMATS.date
 }
 
 const LOG_TYPES = {
@@ -142,7 +147,7 @@ def current-log-level [] {
 }
 
 def now [] {
-    date now | format date $env.NU_LOG_DATE_FORMAT
+    date now | format date ($env.NU_LOG_DATE_FORMAT? | default $LOG_FORMATS.date)
 }
 
 def handle-log [
@@ -151,11 +156,7 @@ def handle-log [
     format_string: string,
     short: bool
 ] {
-    let log_format = if ($format_string | is-empty) {
-        $env.NU_LOG_FORMAT
-    } else {
-        $format_string
-    }
+    let log_format = $format_string | default -e $env.NU_LOG_FORMAT? | default $LOG_FORMATS.log
 
     let prefix = if $short {
         $formatting.short_prefix
