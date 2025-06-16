@@ -70,7 +70,7 @@ pub use empty::empty;
 pub use enumerate::Enumerate;
 pub use every::Every;
 pub use filter::Filter;
-pub use find::Find;
+pub use find::{Find, find_internal};
 pub use first::First;
 pub use flatten::Flatten;
 pub use get::Get;

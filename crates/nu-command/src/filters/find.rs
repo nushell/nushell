@@ -574,6 +574,46 @@ fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineDa
     }
 }
 
+/// function for using find from other commands
+pub fn find_internal(
+    input: PipelineData,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    search_term: &str,
+    columns_to_search: &[&str],
+    highlight: bool,
+) -> Result<PipelineData, ShellError> {
+    let span = input.span().unwrap_or(Span::unknown());
+
+    let style_computer = StyleComputer::from_config(engine_state, stack);
+    let string_style = style_computer.compute("string", &Value::string("search result", span));
+    let highlight_style =
+        style_computer.compute("search_result", &Value::string("search result", span));
+
+    let regex_str = format!("(?i){}", escape(search_term));
+
+    let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
+        err_message: format!("invalid regex: {e}"),
+        span: Span::unknown(),
+    })?;
+
+    let pattern = MatchPattern {
+        regex,
+        lower_terms: vec![search_term.to_lowercase()],
+        highlight,
+        invert: false,
+        string_style,
+        highlight_style,
+    };
+
+    let columns_to_search = columns_to_search
+        .iter()
+        .map(|str| String::from(*str))
+        .collect();
+
+    find_in_pipelinedata(pattern, columns_to_search, engine_state, stack, input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
