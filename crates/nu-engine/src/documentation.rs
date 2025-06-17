@@ -155,7 +155,14 @@ fn highlight_capture_group(
     stack.config = Some(Arc::new(config));
 
     // Highlight and reject invalid syntax
-    let highlighted = try_nu_highlight(content.into(), true, engine_state, stack);
+    let highlighted = try_nu_highlight(content.into(), true, engine_state, stack)
+        // Make highlighted string italic
+        .map(|text| {
+            // replace resets with reset + italic, so the whole string is actually italicized
+            let text = text.replace(RESET, &format!("{RESET}{DEFAULT_ITALIC}"));
+            // start italicized, and also undo the final reset -> reset+italic
+            format!("{DEFAULT_ITALIC}{text}{RESET}")
+        });
 
     // Restore original config
     stack.config = Some(config_old);
