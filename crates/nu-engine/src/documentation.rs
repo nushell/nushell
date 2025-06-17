@@ -1,8 +1,8 @@
 use crate::eval_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
-    Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature, Span,
-    SpanId, Spanned, SyntaxShape, Type, Value,
+    Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span, SpanId,
+    Spanned, SyntaxShape, Type, Value,
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::CommandType,
@@ -32,17 +32,55 @@ pub fn get_full_help(
     // execution.
     let stack = &mut stack.start_collect_value();
 
-    let signature = engine_state
+    let nu_config = stack.get_config(engine_state);
+
+    let sig = engine_state
         .get_signature(command)
         .update_from_command(command);
 
-    get_documentation(
-        &signature,
-        &command.examples(),
-        engine_state,
-        stack,
-        command.is_keyword(),
-    )
+    // Create ansi colors
+    let mut help_style = HelpStyle::default();
+    help_style.update_from_config(engine_state, &nu_config);
+
+    let mut long_desc = String::new();
+
+    let desc = &sig.description;
+    if !desc.is_empty() {
+        long_desc.push_str(&highlight_code(desc, engine_state, stack));
+        long_desc.push_str("\n\n");
+    }
+
+    let extra_desc = &sig.extra_description;
+    if !extra_desc.is_empty() {
+        long_desc.push_str(&highlight_code(extra_desc, engine_state, stack));
+        long_desc.push_str("\n\n");
+    }
+
+    match command.command_type() {
+        CommandType::Alias => get_alias_documentation(
+            &mut long_desc,
+            command,
+            &sig,
+            &help_style,
+            engine_state,
+            stack,
+        ),
+        _ => get_command_documentation(
+            &mut long_desc,
+            command,
+            &sig,
+            &nu_config,
+            &help_style,
+            engine_state,
+            stack,
+        ),
+    };
+
+    if !nu_config.use_ansi_coloring.get(engine_state) {
+        nu_utils::strip_ansi_string_likely(long_desc)
+    } else {
+        long_desc
+    }
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available
@@ -110,6 +148,7 @@ fn highlight_capture_group(
     );
     let color_config = &mut config.color_config;
     color_config.insert("shape_external".into(), code_style.clone());
+    color_config.insert("shape_external_resolved".into(), code_style.clone());
     color_config.insert("shape_externalarg".into(), code_style);
 
     // Apply config with external argument style
@@ -158,36 +197,51 @@ fn highlight_code<'a>(
     re.replace_all(text, do_try_highlight)
 }
 
-fn get_documentation(
+fn get_alias_documentation(
+    long_desc: &mut String,
+    command: &dyn Command,
     sig: &Signature,
-    examples: &[Example],
+    help_style: &HelpStyle,
     engine_state: &EngineState,
     stack: &mut Stack,
-    is_parser_keyword: bool,
-) -> String {
-    let nu_config = stack.get_config(engine_state);
+) {
+    let help_section_name = &help_style.section_name;
+    let help_subcolor_one = &help_style.subcolor_one;
 
-    // Create ansi colors
-    let mut help_style = HelpStyle::default();
-    help_style.update_from_config(engine_state, &nu_config);
+    let alias_name = &sig.name;
+
+    long_desc.push_str(&format!(
+        "{help_section_name}Alias{RESET}: {help_subcolor_one}{alias_name}{RESET}"
+    ));
+    long_desc.push_str("\n\n");
+
+    let Some(alias) = command.as_alias() else {
+        // this is already checked in `help alias`, but just omit the expansion if this is somehow not actually an alias
+        return;
+    };
+
+    let alias_expansion =
+        String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
+
+    long_desc.push_str(&format!(
+        "{help_section_name}Expansion{RESET}:\n  {}",
+        nu_highlight_string(&alias_expansion, engine_state, stack)
+    ));
+}
+
+fn get_command_documentation(
+    long_desc: &mut String,
+    command: &dyn Command,
+    sig: &Signature,
+    nu_config: &Config,
+    help_style: &HelpStyle,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) {
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
 
     let cmd_name = &sig.name;
-
-    let mut long_desc = String::new();
-
-    let desc = &sig.description;
-    if !desc.is_empty() {
-        long_desc.push_str(&highlight_code(desc, engine_state, stack));
-        long_desc.push_str("\n\n");
-    }
-
-    let extra_desc = &sig.extra_description;
-    if !extra_desc.is_empty() {
-        long_desc.push_str(&highlight_code(extra_desc, engine_state, stack));
-        long_desc.push_str("\n\n");
-    }
 
     if !sig.search_terms.is_empty() {
         let _ = write!(
@@ -267,7 +321,7 @@ fn get_documentation(
         let _ = write!(long_desc, "\n{help_section_name}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
             write_positional(
-                &mut long_desc,
+                long_desc,
                 positional,
                 PositionalKind::Required,
                 &help_style,
@@ -278,7 +332,7 @@ fn get_documentation(
         }
         for positional in &sig.optional_positional {
             write_positional(
-                &mut long_desc,
+                long_desc,
                 positional,
                 PositionalKind::Optional,
                 &help_style,
@@ -290,7 +344,7 @@ fn get_documentation(
 
         if let Some(rest_positional) = &sig.rest_positional {
             write_positional(
-                &mut long_desc,
+                long_desc,
                 rest_positional,
                 PositionalKind::Rest,
                 &help_style,
@@ -309,7 +363,7 @@ fn get_documentation(
         }
     }
 
-    if !is_parser_keyword && !sig.input_output_types.is_empty() {
+    if !command.is_keyword() && !sig.input_output_types.is_empty() {
         if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
             let span = Span::unknown();
@@ -356,6 +410,8 @@ fn get_documentation(
             }
         }
     }
+
+    let examples = command.examples();
 
     if !examples.is_empty() {
         let _ = write!(long_desc, "\n{help_section_name}Examples{RESET}:");
@@ -436,12 +492,6 @@ fn get_documentation(
     }
 
     long_desc.push('\n');
-
-    if !nu_config.use_ansi_coloring.get(engine_state) {
-        nu_utils::strip_ansi_string_likely(long_desc)
-    } else {
-        long_desc
-    }
 }
 
 fn update_ansi_from_config(
