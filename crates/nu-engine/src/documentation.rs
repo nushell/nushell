@@ -86,8 +86,8 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
         .unwrap_or_else(|| code_string.to_string())
 }
 
-/// Apply code highlighting to a string within backticks
-fn apply_code_highlight(
+/// Apply code highlighting to code in a capture group
+fn highlight_capture_group(
     captures: &Captures,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -156,7 +156,7 @@ fn highlight_code<'a>(
 
     let re = Regex::new(pattern).expect("regex failed to compile");
     let do_try_highlight =
-        |captures: &Captures| apply_code_highlight(captures, engine_state, stack);
+        |captures: &Captures| highlight_capture_group(captures, engine_state, stack);
     re.replace_all(text, do_try_highlight)
 }
 
@@ -250,8 +250,15 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(sig, &help_style, |v| {
-            nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack)
+        long_desc.push_str(&get_flags_section(sig, &help_style, |v| match v {
+            FormatterValue::DefaultValue(value) => nu_highlight_string(
+                &value.to_parsable_string(", ", &nu_config),
+                engine_state,
+                stack,
+            ),
+            FormatterValue::CodeString(text) => {
+                highlight_code(text, engine_state, stack).to_string()
+            }
         }))
     }
 
@@ -655,13 +662,25 @@ fn write_positional(
     long_desc.push('\n');
 }
 
+/// Helper for `get_flags_section`
+///
+/// The formatter with access to nu-highlight must be passed to `get_flags_section`, but it's not possible
+/// to pass separate closures since they both need `&mut Stack`, so this enum lets us differentiate between
+/// default values to be formatted and strings which might contain code in backticks to be highlighted.
+pub enum FormatterValue<'a> {
+    /// Default value to be styled
+    DefaultValue(&'a Value),
+    /// String which might have code in backticks to be highlighted
+    CodeString(&'a str),
+}
+
 pub fn get_flags_section<F>(
     signature: &Signature,
     help_style: &HelpStyle,
-    mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
+    mut formatter: F, // format default Value or text with code (because some calls cant access config or nu-highlight)
 ) -> String
 where
-    F: FnMut(&nu_protocol::Value) -> String,
+    F: FnMut(FormatterValue) -> String,
 {
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
@@ -697,12 +716,15 @@ where
             let _ = write!(
                 long_desc,
                 ": {}",
-                flag.desc,
-                // format_code(&flag.desc, engine_state, stack)
+                &formatter(FormatterValue::CodeString(&flag.desc))
             );
         }
         if let Some(value) = &flag.default_value {
-            let _ = write!(long_desc, " (default: {})", &value_formatter(value));
+            let _ = write!(
+                long_desc,
+                " (default: {})",
+                &formatter(FormatterValue::DefaultValue(value))
+            );
         }
         long_desc.push('\n');
     }
@@ -715,42 +737,69 @@ mod tests {
 
     #[test]
     fn test_code_formatting() {
-        //         // using Cow::Owned here to mean a match, since the content changed,
-        //         // and borrowed to mean not a match, since the content didn't change
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
 
-        //         // match: typical example
-        //         let haystack = "Run the `foo` command";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
+        // using Cow::Owned here to mean a match, since the content changed,
+        // and borrowed to mean not a match, since the content didn't change
 
-        //         // no match: backticks preceded by alphanum
-        //         let haystack = "foo`bar`";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
+        // match: typical example
+        let haystack = "Run the `foo` command";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Owned(_)
+        ));
 
-        //         // match: command at beginning of string is ok
-        //         let haystack = "`my-command` is cool";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
+        // no match: backticks preceded by alphanum
+        let haystack = "foo`bar`";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Borrowed(_)
+        ));
 
-        //         // match: preceded and followed by newline is ok
-        //         let haystack = r"
-        // `command`
-        // ";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
+        // match: command at beginning of string is ok
+        let haystack = "`my-command` is cool";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Owned(_)
+        ));
 
-        //         // no match: newline between backticks
-        //         let haystack = "// hello `beautiful \n world`";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
+        // match: preceded and followed by newline is ok
+        let haystack = r"
+        `command`
+        ";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Owned(_)
+        ));
 
-        //         // match: backticks followed by period, not letter/number
-        //         let haystack = "try running `my cool command`.";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
+        // no match: newline between backticks
+        let haystack = "// hello `beautiful \n world`";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Borrowed(_)
+        ));
 
-        //         // match: backticks enclosed by parenthesis, not letter/number
-        //         let haystack = "a command (`my cool command`).";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Owned(_)));
+        // match: backticks followed by period, not letter/number
+        let haystack = "try running `my cool command`.";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Owned(_)
+        ));
 
-        //         // no match: only characters inside backticks are backticks
-        //         // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
-        //         let haystack = "```\ncode block\n```";
-        //         assert!(matches!(format_code(haystack, engine_state, stack), Cow::Borrowed(_)));
+        // match: backticks enclosed by parenthesis, not letter/number
+        let haystack = "a command (`my cool command`).";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Owned(_)
+        ));
+
+        // no match: only characters inside backticks are backticks
+        // (the regex sees two backtick pairs with a single backtick inside, which doesn't qualify)
+        let haystack = "```\ncode block\n```";
+        assert!(matches!(
+            highlight_code(haystack, &engine_state, &mut stack),
+            Cow::Borrowed(_)
+        ));
     }
 }
