@@ -52,7 +52,7 @@ fn try_nu_highlight(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[])?;
+    let highlighter = engine_state.find_decl(b"nu-highlight", &[])?;
 
     let decl = engine_state.get_decl(highlighter);
     let mut call = Call::new(Span::unknown());
