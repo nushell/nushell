@@ -768,6 +768,18 @@ impl EngineState {
         &[0u8; 0]
     }
 
+    /// If the span's content starts with the given prefix, return a new subspan
+    /// corresponding to this prefix.
+    pub fn get_prefix_span(&self, span: Span, prefix: &[u8]) -> Option<Span> {
+        let contents = self.get_span_contents(span);
+
+        if contents.starts_with(prefix) {
+            span.subspan(0, prefix.len())
+        } else {
+            None
+        }
+    }
+
     /// Get the global config from the engine state.
     ///
     /// Use [`Stack::get_config()`] instead whenever the `Stack` is available, as it takes into

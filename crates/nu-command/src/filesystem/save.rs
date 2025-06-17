@@ -91,7 +91,8 @@ impl Command for Save {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
-                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (file, stderr_file) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
 
                 let size = stream.known_size();
                 let signals = engine_state.signals();
@@ -201,7 +202,8 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(&from_io_error)?;
@@ -226,7 +228,8 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
 
                 file.write_all(&bytes).map_err(&from_io_error)?;
                 file.flush().map_err(&from_io_error)?;
@@ -422,7 +425,12 @@ fn prepare_path(
     }
 }
 
-fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
+fn open_file(
+    engine_state: &EngineState,
+    path: &Path,
+    span: Span,
+    append: bool,
+) -> Result<File, ShellError> {
     let file: std::io::Result<File> = match (append, path.exists()) {
         (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => {
@@ -454,7 +462,9 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
                 {
                     return Err(ShellError::Io(IoError::new(
                         ErrorKind::DirectoryNotFound,
-                        span,
+                        engine_state
+                            .get_prefix_span(span, missing_component.as_os_str().as_encoded_bytes())
+                            .unwrap_or(span),
                         PathBuf::from(missing_component),
                     )));
                 }
@@ -467,6 +477,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
 
 /// Get output file and optional stderr file
 fn get_files(
+    engine_state: &EngineState,
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
@@ -480,7 +491,7 @@ fn get_files(
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(path, path_span, append)?;
+    let file = open_file(engine_state, path, path_span, append)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
@@ -493,7 +504,7 @@ fn get_files(
                     inner: vec![],
                 })
             } else {
-                open_file(stderr_path, stderr_path_span, append)
+                open_file(engine_state, stderr_path, stderr_path_span, append)
             }
         })
         .transpose()?;
