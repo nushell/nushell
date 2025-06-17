@@ -19,7 +19,7 @@ impl Command for NuHighlight {
             .switch(
                 "reject-garbage",
                 "Return an error if invalid syntax (garbage) was encountered",
-                None,
+                Some('r'),
             )
             .input_output_types(vec![(Type::String, Type::String)])
     }
