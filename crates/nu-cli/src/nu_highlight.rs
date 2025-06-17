@@ -60,7 +60,7 @@ impl Command for NuHighlight {
                                 src: line,
                                 error: "encountered invalid syntax while highlighting".into(),
                                 msg: "invalid syntax".into(),
-                                span: span,
+                                span,
                             };
                             return Value::error(error, head);
                         }

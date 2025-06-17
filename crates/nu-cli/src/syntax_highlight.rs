@@ -40,9 +40,9 @@ pub(crate) fn highlight_syntax(
 ) -> HighlightResult {
     trace!("highlighting: {}", line);
 
-    let config = stack.get_config(&engine_state);
+    let config = stack.get_config(engine_state);
     let highlight_resolved_externals = config.highlight_resolved_externals;
-    let mut working_set = StateWorkingSet::new(&engine_state);
+    let mut working_set = StateWorkingSet::new(engine_state);
     let block = parse(&mut working_set, None, line.as_bytes(), false);
     let (shapes, global_span_offset) = {
         let mut shapes = flatten_block(&working_set, &block);
@@ -55,9 +55,9 @@ pub(crate) fn highlight_syntax(
                         working_set.get_span_contents(Span::new(span.start, span.end));
 
                     let str_word = String::from_utf8_lossy(str_contents).to_string();
-                    let paths = env::path_str(&engine_state, &stack, *span).ok();
+                    let paths = env::path_str(engine_state, stack, *span).ok();
                     #[allow(deprecated)]
-                    let res = if let Ok(cwd) = env::current_dir_str(&engine_state, &stack) {
+                    let res = if let Ok(cwd) = env::current_dir_str(engine_state, stack) {
                         which::which_in(str_word, paths.as_ref(), cwd).ok()
                     } else {
                         which::which_in_global(str_word, paths.as_ref())
