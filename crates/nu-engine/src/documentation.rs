@@ -302,9 +302,9 @@ fn get_command_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(sig, &help_style, |v| match v {
+        long_desc.push_str(&get_flags_section(sig, help_style, |v| match v {
             FormatterValue::DefaultValue(value) => nu_highlight_string(
-                &value.to_parsable_string(", ", &nu_config),
+                &value.to_parsable_string(", ", nu_config),
                 engine_state,
                 stack,
             ),
@@ -324,8 +324,8 @@ fn get_command_documentation(
                 long_desc,
                 positional,
                 PositionalKind::Required,
-                &help_style,
-                &nu_config,
+                help_style,
+                nu_config,
                 engine_state,
                 stack,
             );
@@ -335,8 +335,8 @@ fn get_command_documentation(
                 long_desc,
                 positional,
                 PositionalKind::Optional,
-                &help_style,
-                &nu_config,
+                help_style,
+                nu_config,
                 engine_state,
                 stack,
             );
@@ -347,8 +347,8 @@ fn get_command_documentation(
                 long_desc,
                 rest_positional,
                 PositionalKind::Rest,
-                &help_style,
-                &nu_config,
+                help_style,
+                nu_config,
                 engine_state,
                 stack,
             );
@@ -483,7 +483,7 @@ fn get_command_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.to_expanded_string("", &nu_config)
+                    item.to_expanded_string("", nu_config)
                         .replace('\n', "\n  ")
                         .trim()
                 );
