@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{PipelineIterator, Range};
+use std::collections::VecDeque;
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -99,110 +100,14 @@ impl Command for DropNth {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata().as_ref().cloned();
+        let metadata = input.metadata();
 
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
-
         if args.is_empty() {
             return Ok(input);
         }
 
-        let mut rows_to_drop = vec![];
-        let mut min_unbounded_start: Option<usize> = None;
-
-        for value in args {
-            if let Ok(i) = value.as_int() {
-                if i < 0 {
-                    return Err(ShellError::UnsupportedInput {
-                        msg: "drop nth accepts only positive ints".into(),
-                        input: "value originates from here".into(),
-                        msg_span: head,
-                        input_span: value.span(),
-                    });
-                }
-                rows_to_drop.push(i as usize);
-            } else if let Ok(range) = value.as_range() {
-                match range {
-                    Range::IntRange(range) => {
-                        let start = range.start();
-                        if start < 0 {
-                            return Err(ShellError::UnsupportedInput {
-                                msg: "drop nth accepts only positive ints".into(),
-                                input: "value originates from here".into(),
-                                msg_span: head,
-                                input_span: value.span(),
-                            });
-                        }
-
-                        match range.end() {
-                            Bound::Included(end) => {
-                                if end < start {
-                                    return Err(ShellError::UnsupportedInput {
-                                    msg: "The upper bound must be greater than or equal to the lower bound".into(),
-                                    input: "value originates from here".into(),
-                                    msg_span: head,
-                                    input_span: value.span(),
-                                });
-                                }
-
-                                let end = if let PipelineData::Value(Value::List { vals, .. }, _) =
-                                    &input
-                                {
-                                    end.min((vals.len() as i64) - 1)
-                                } else {
-                                    end
-                                };
-
-                                rows_to_drop.extend((start as usize)..=(end as usize));
-                            }
-                            Bound::Excluded(end) => {
-                                if end <= start {
-                                    return Err(ShellError::UnsupportedInput {
-                                        msg: "The upper bound must be greater than the lower bound"
-                                            .into(),
-                                        input: "value originates from here".into(),
-                                        msg_span: head,
-                                        input_span: value.span(),
-                                    });
-                                }
-
-                                let end = if let PipelineData::Value(Value::List { vals, .. }, _) =
-                                    &input
-                                {
-                                    (end - 1).min((vals.len() as i64) - 1)
-                                } else {
-                                    end - 1
-                                };
-
-                                rows_to_drop.extend((start as usize)..=(end as usize));
-                            }
-                            Bound::Unbounded => {
-                                let start_usize = start as usize;
-                                min_unbounded_start = Some(
-                                    min_unbounded_start.map_or(start_usize, |s| s.min(start_usize)),
-                                );
-                            }
-                        }
-                    }
-                    Range::FloatRange(_) => {
-                        return Err(ShellError::UnsupportedInput {
-                            msg: "float range not supported".into(),
-                            input: "value originates from here".into(),
-                            msg_span: head,
-                            input_span: value.span(),
-                        });
-                    }
-                }
-            } else {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "Expected int or range".into(),
-                    span: value.span(),
-                });
-            }
-        }
-
-        rows_to_drop.sort_unstable();
-        rows_to_drop.dedup();
+        let (rows_to_drop, min_unbounded_start) = get_rows_to_drop(&args, head)?;
 
         let input = if let Some(cutoff) = min_unbounded_start {
             input
@@ -219,15 +124,97 @@ impl Command for DropNth {
 
         Ok(DropNthIterator {
             input: input.into_iter(),
-            rows: rows_to_drop,
+            rows: rows_to_drop.into(),
             current: 0,
         }
-        .into_pipeline_data_with_metadata(
-            head,
-            engine_state.signals().clone(),
-            metadata.clone(),
-        ))
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
+}
+
+fn get_rows_to_drop(
+    args: &[Value],
+    head: Span,
+) -> Result<(VecDeque<usize>, Option<usize>), ShellError> {
+    let mut rows_to_drop = Vec::new();
+    let mut min_unbounded_start: Option<usize> = None;
+
+    for value in args {
+        if let Ok(i) = value.as_int() {
+            if i < 0 {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "drop nth accepts only positive ints".into(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: value.span(),
+                });
+            }
+            rows_to_drop.push(i as usize);
+        } else if let Ok(range) = value.as_range() {
+            match range {
+                Range::IntRange(range) => {
+                    let start = range.start();
+                    if start < 0 {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "drop nth accepts only positive ints".into(),
+                            input: "value originates from here".into(),
+                            msg_span: head,
+                            input_span: value.span(),
+                        });
+                    }
+
+                    match range.end() {
+                        Bound::Included(end) => {
+                            if end < start {
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "The upper bound must be greater than or equal to the lower bound".into(),
+                                    input: "value originates from here".into(),
+                                    msg_span: head,
+                                    input_span: value.span(),
+                                });
+                            }
+                            rows_to_drop.extend((start as usize)..=(end as usize));
+                        }
+                        Bound::Excluded(end) => {
+                            if end <= start {
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "The upper bound must be greater than the lower bound"
+                                        .into(),
+                                    input: "value originates from here".into(),
+                                    msg_span: head,
+                                    input_span: value.span(),
+                                });
+                            }
+                            rows_to_drop.extend((start as usize)..(end as usize));
+                        }
+                        Bound::Unbounded => {
+                            let start_usize = start as usize;
+                            min_unbounded_start = Some(
+                                min_unbounded_start.map_or(start_usize, |s| s.min(start_usize)),
+                            );
+                        }
+                    }
+                }
+                Range::FloatRange(_) => {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "float range not supported".into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: value.span(),
+                    });
+                }
+            }
+        } else {
+            return Err(ShellError::TypeMismatch {
+                err_message: "Expected int or range".into(),
+                span: value.span(),
+            });
+        }
+    }
+
+    rows_to_drop.sort_unstable();
+    rows_to_drop.dedup();
+
+    Ok((VecDeque::from(rows_to_drop), min_unbounded_start))
 }
 
 struct DropNthIterator {
