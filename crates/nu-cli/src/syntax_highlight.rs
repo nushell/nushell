@@ -17,7 +17,7 @@ pub struct NuHighlighter {
 }
 
 impl Highlighter for NuHighlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+    fn highlight(&self, line: &str, cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
         let config = self.stack.get_config(&self.engine_state);
@@ -58,7 +58,7 @@ impl Highlighter for NuHighlighter {
         let mut output = StyledText::default();
         let mut last_seen_span = global_span_offset;
 
-        let global_cursor_offset = _cursor + global_span_offset;
+        let global_cursor_offset = cursor + global_span_offset;
         let matching_brackets_pos = find_matching_brackets(
             line,
             &working_set,

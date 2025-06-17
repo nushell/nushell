@@ -142,7 +142,7 @@ fn into_binary(
     }
 }
 
-fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     let value = match input {
         Value::Binary { .. } => input.clone(),
         Value::Int { val, .. } => Value::binary(val.to_ne_bytes().to_vec(), span),
@@ -168,7 +168,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         ),
     };
 
-    if _args.compact {
+    if args.compact {
         let val_span = value.span();
         if let Value::Binary { val, .. } = value {
             let val = if cfg!(target_endian = "little") {
