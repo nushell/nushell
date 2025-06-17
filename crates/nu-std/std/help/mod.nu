@@ -812,6 +812,11 @@ def pretty-cmd [] {
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
+# If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
+# (default: man) and "word" will be passed as the first argument.
+# Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
+# an external and pass `--help` as the last argument (this could cause unintended
+# behaviour if it doesn't support the flag, use it carefully).
 #
 # Examples:
 #   show help for single command, alias, or module
