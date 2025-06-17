@@ -46,63 +46,64 @@ pub fn get_full_help(
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available
-fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
-    if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
-        let decl = engine_state.get_decl(highlighter);
-
-        let call = Call::new(Span::unknown());
-
-        if let Ok(output) = decl.run(
-            engine_state,
-            stack,
-            &(&call).into(),
-            Value::string(code_string, Span::unknown()).into_pipeline_data(),
-        ) {
-            let result = output.into_value(Span::unknown());
-            if let Ok(s) = result.and_then(Value::coerce_into_string) {
-                return s; // successfully highlighted string
-            }
-        }
-    }
-    code_string.to_string()
-}
-
-fn highlight_fallback(text: &str) -> String {
-    format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}{text}{RESET}")
-}
-
-fn check_code(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> bool {
-    let Some(checker) = engine_state.find_decl(b"nu-check", &[]) else {
-        return false;
+fn try_nu_highlight(
+    code_string: &str,
+    reject_garbage: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Option<String> {
+    let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) else {
+        return None;
     };
-    let decl = engine_state.get_decl(checker);
 
-    let call = Call::new(Span::unknown());
+    let decl = engine_state.get_decl(highlighter);
+    let mut call = Call::new(Span::unknown());
+    if reject_garbage {
+        call.add_named((
+            Spanned {
+                item: "reject-garbage".into(),
+                span: Span::unknown(),
+            },
+            None,
+            None,
+        ));
+    }
 
-    let result = decl.run(
+    decl.run(
         engine_state,
         stack,
         &(&call).into(),
         Value::string(code_string, Span::unknown()).into_pipeline_data(),
-    );
-    result
-        .and_then(|pipe| pipe.into_value(Span::unknown()))
-        .and_then(|val| val.as_bool())
-        .unwrap_or(false)
+    )
+    .and_then(|pipe| pipe.into_value(Span::unknown()))
+    .and_then(|val| val.coerce_into_string())
+    .ok()
 }
 
-fn try_highlight(captures: &Captures, engine_state: &EngineState, stack: &mut Stack) -> String {
+/// Syntax highlight code using the `nu-highlight` command if available, falling back to the given string
+fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
+    try_nu_highlight(code_string, false, engine_state, stack)
+        .unwrap_or_else(|| code_string.to_string())
+}
+
+/// Apply code highlighting to a string within backticks
+fn apply_code_highlight(
+    captures: &Captures,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> String {
     let Some(content) = captures.get(1) else {
         // this shouldn't happen
         return String::new();
     };
 
-    if !check_code(content.into(), engine_state, stack) {
-        return highlight_fallback(content.into());
-    }
-
+    // Save current color config
     let config_old = stack.get_config(engine_state);
     let mut config = (*config_old).clone();
+
+    // Style externals and external arguments with fallback style,
+    // so nu-highlight styles code which is technically valid syntax,
+    // but not an internal command is highlighted with the fallback style
     let code_style = Value::record(
         record! {
             "attr" => Value::string("di", Span::unknown()),
@@ -113,16 +114,32 @@ fn try_highlight(captures: &Captures, engine_state: &EngineState, stack: &mut St
     color_config.insert("shape_external".into(), code_style.clone());
     color_config.insert("shape_externalarg".into(), code_style);
 
+    // Apply config with external argument style
     stack.config = Some(Arc::new(config));
 
-    let highlighted = nu_highlight_string(content.into(), engine_state, stack);
+    // Highlight and reject invalid syntax
+    let highlighted = try_nu_highlight(content.into(), true, engine_state, stack);
 
+    // Restore original config
     stack.config = Some(config_old);
 
-    highlighted
+    // Use fallback style if highlight failed/syntax was invalid
+    highlighted.unwrap_or_else(|| highlight_fallback(content.into()))
 }
 
-fn format_code<'a>(text: &'a str, engine_state: &EngineState, stack: &mut Stack) -> Cow<'a, str> {
+/// Apply fallback code style
+fn highlight_fallback(text: &str) -> String {
+    format!("{DEFAULT_DIMMED}{DEFAULT_ITALIC}{text}{RESET}")
+}
+
+/// Highlight code within backticks
+///
+/// Will attempt to use nu-highlight, falling back to dimmed and italic on invalid syntax
+fn highlight_code<'a>(
+    text: &'a str,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Cow<'a, str> {
     let config = stack.get_config(engine_state);
     if !config.use_ansi_coloring.get(engine_state) {
         return Cow::Borrowed(text);
@@ -138,7 +155,8 @@ fn format_code<'a>(text: &'a str, engine_state: &EngineState, stack: &mut Stack)
     ";
 
     let re = Regex::new(pattern).expect("regex failed to compile");
-    let do_try_highlight = |captures: &Captures| try_highlight(captures, engine_state, stack);
+    let do_try_highlight =
+        |captures: &Captures| apply_code_highlight(captures, engine_state, stack);
     re.replace_all(text, do_try_highlight)
 }
 
@@ -163,13 +181,13 @@ fn get_documentation(
 
     let desc = &sig.description;
     if !desc.is_empty() {
-        long_desc.push_str(&format_code(desc, engine_state, stack));
+        long_desc.push_str(&highlight_code(desc, engine_state, stack));
         long_desc.push_str("\n\n");
     }
 
     let extra_desc = &sig.extra_description;
     if !extra_desc.is_empty() {
-        long_desc.push_str(&format_code(extra_desc, engine_state, stack));
+        long_desc.push_str(&highlight_code(extra_desc, engine_state, stack));
         long_desc.push_str("\n\n");
     }
 
@@ -212,13 +230,13 @@ fn get_documentation(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
                     sig.name,
                     command_type,
-                    format_code(&sig.description, engine_state, stack)
+                    highlight_code(&sig.description, engine_state, stack)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
                     sig.name,
-                    format_code(&sig.description, engine_state, stack)
+                    highlight_code(&sig.description, engine_state, stack)
                 ));
             }
         }
@@ -341,7 +359,7 @@ fn get_documentation(
     for example in examples {
         long_desc.push('\n');
         long_desc.push_str("  ");
-        long_desc.push_str(&format_code(example.description, engine_state, stack));
+        long_desc.push_str(&highlight_code(example.description, engine_state, stack));
 
         if !nu_config.use_ansi_coloring.get(engine_state) {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
@@ -616,7 +634,7 @@ fn write_positional(
         let _ = write!(
             long_desc,
             ": {}",
-            format_code(&positional.desc, engine_state, stack)
+            highlight_code(&positional.desc, engine_state, stack)
         );
     }
     if arg_kind == PositionalKind::Optional {
