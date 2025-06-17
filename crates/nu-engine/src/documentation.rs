@@ -731,12 +731,19 @@ where
 
 #[cfg(test)]
 mod tests {
+    use nu_protocol::UseAnsiColoring;
+
     use super::*;
 
     #[test]
     fn test_code_formatting() {
-        let engine_state = EngineState::new();
+        let mut engine_state = EngineState::new();
         let mut stack = Stack::new();
+
+        // force coloring on for test
+        let mut config = (*engine_state.config).clone();
+        config.use_ansi_coloring = UseAnsiColoring::True;
+        engine_state.config = Arc::new(config);
 
         // using Cow::Owned here to mean a match, since the content changed,
         // and borrowed to mean not a match, since the content didn't change
