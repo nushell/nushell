@@ -103,7 +103,7 @@ pub fn help_aliases(
 
         let alias = engine_state.get_decl(alias);
 
-        if let None = alias.as_alias() {
+        if alias.as_alias().is_none() {
             return Err(ShellError::AliasNotFound {
                 span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
