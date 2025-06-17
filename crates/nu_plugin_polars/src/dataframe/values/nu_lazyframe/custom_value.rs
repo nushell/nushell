@@ -2,12 +2,13 @@ use std::cmp::Ordering;
 
 use nu_plugin::EngineInterface;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
+use polars::prelude::{col, nth};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     Cacheable, PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame, PolarsPluginCustomValue},
+    values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginCustomValue},
 };
 
 use super::NuLazyFrame;
@@ -100,25 +101,22 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
     fn custom_value_follow_path_int(
         &self,
         plugin: &PolarsPlugin,
-        _engine: &EngineInterface,
+        engine: &EngineInterface,
         _self_span: Span,
         index: nu_protocol::Spanned<usize>,
     ) -> Result<Value, ShellError> {
-        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
-        eager.get_value(index.item, index.span)
+        let expr = NuExpression::from(nth(index.item as i64));
+        expr.cache_and_to_value(plugin, engine, index.span)
     }
 
     fn custom_value_follow_path_string(
         &self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
-        self_span: Span,
+        _self_span: Span,
         column_name: nu_protocol::Spanned<String>,
     ) -> Result<Value, ShellError> {
-        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
-        let column = eager.column(&column_name.item, self_span)?;
-        Ok(column
-            .cache(plugin, engine, self_span)?
-            .into_value(self_span))
+        let expr = NuExpression::from(col(column_name.item));
+        expr.cache_and_to_value(plugin, engine, column_name.span)
     }
 }

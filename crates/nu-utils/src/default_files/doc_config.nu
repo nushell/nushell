@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.104.2"
+# version = "0.105.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -202,12 +202,12 @@ $env.config.shell_integration.osc2 = true
 # osc7 (bool):
 # Nushell will report the current directory to the terminal using OSC 7. This is useful when
 # spawning new tabs in the same directory.
-$env.config.shell_integration.osc7 = true
+$env.config.shell_integration.osc7 = ($nu.os-info.name != windows)
 
 # osc9_9 (bool):
 # Enables/Disables OSC 9;9 support, originally a ConEmu terminal feature. This is an
 # alternative to OSC 7 which also communicates the current path to the terminal.
-$env.config.shell_integration.osc9_9 = false
+$env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # osc8 (bool):
 # When true, the `ls` command will generate clickable links that can be launched in another
@@ -236,7 +236,7 @@ $env.config.shell_integration.osc633 = true
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
 # This sequence is commonly used to keep cursor key modes in sync between the local
-# terminal and a remove SSH host.
+# terminal and a remote SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):

@@ -1981,7 +1981,7 @@ impl Value {
     /// as it will point into unknown source when used in errors.
     ///
     /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
-    /// except for `Value::CustomValue`.
+    /// except for `Value::Custom`.
     pub fn test_values() -> Vec<Value> {
         vec![
             Value::test_bool(false),
@@ -4078,7 +4078,7 @@ fn operator_type_error(
     }
 }
 
-fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
     let now = Local::now().with_timezone(val.offset());
     let delta = *val - now;
     match delta.num_nanoseconds() {

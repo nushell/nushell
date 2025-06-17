@@ -671,10 +671,10 @@ fn test_expand_big_0() {
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────╮",
             "│                  │ ╭───────────────┬───────────────────────────────────────╮ │",
-            "│ package          │ │               │ ╭───┬───────────────────────────────╮ │ │",
-            "│                  │ │ authors       │ │ 0 │ The Nushell Project           │ │ │",
-            "│                  │ │               │ │   │ Developers                    │ │ │",
-            "│                  │ │               │ ╰───┴───────────────────────────────╯ │ │",
+            "│ package          │ │               │ ╭───┬──────────────────────╮          │ │",
+            "│                  │ │ authors       │ │ 0 │ The Nushell Project  │          │ │",
+            "│                  │ │               │ │   │ Developers           │          │ │",
+            "│                  │ │               │ ╰───┴──────────────────────╯          │ │",
             "│                  │ │ default-run   │ nu                                    │ │",
             "│                  │ │ description   │ A new type of shell                   │ │",
             "│                  │ │ documentation │ https://www.nushell.sh/book/          │ │",
@@ -851,6 +851,8 @@ fn test_expand_big_0() {
             "│                  │ ╰───┴────────────┴─────────╯                              │",
             "╰──────────────────┴───────────────────────────────────────────────────────────╯",
         ]);
+
+        _print_lines(&actual.out, 80);
 
         assert_eq!(actual.out, expected);
 
@@ -1045,6 +1047,8 @@ fn test_expand_big_0() {
             "╰──────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────╯",
         ]);
 
+        _print_lines(&actual.out, 120);
+
         assert_eq!(actual.out, expected);
 
         let actual = nu!(
@@ -1188,19 +1192,19 @@ fn test_expand_big_0() {
             "│                  │ │ time          │ 0.3.12            │ │",
             "│                  │ ╰───────────────┴───────────────────╯ │",
             "│ target           │ {record 3 fields}                     │",
-            "│                  │ ╭───────────────────┬───────────────╮ │",
-            "│ dev-dependencies │ │ nu-test-support   │ {record 2     │ │",
-            "│                  │ │                   │ fields}       │ │",
-            "│                  │ │ tempfile          │ 3.2.0         │ │",
-            "│                  │ │ assert_cmd        │ 2.0.2         │ │",
-            "│                  │ │ criterion         │ 0.4           │ │",
-            "│                  │ │ pretty_assertions │ 1.0.0         │ │",
-            "│                  │ │ serial_test       │ 0.10.0        │ │",
-            "│                  │ │ hamcrest2         │ 0.3.0         │ │",
-            "│                  │ │ rstest            │ {record 2     │ │",
-            "│                  │ │                   │ fields}       │ │",
-            "│                  │ │ itertools         │ 0.10.3        │ │",
-            "│                  │ ╰───────────────────┴───────────────╯ │",
+            "│                  │ ╭─────────────────────┬─────────────╮ │",
+            "│ dev-dependencies │ │ nu-test-support     │ {record 2   │ │",
+            "│                  │ │                     │ fields}     │ │",
+            "│                  │ │ tempfile            │ 3.2.0       │ │",
+            "│                  │ │ assert_cmd          │ 2.0.2       │ │",
+            "│                  │ │ criterion           │ 0.4         │ │",
+            "│                  │ │ pretty_assertions   │ 1.0.0       │ │",
+            "│                  │ │ serial_test         │ 0.10.0      │ │",
+            "│                  │ │ hamcrest2           │ 0.3.0       │ │",
+            "│                  │ │ rstest              │ {record 2   │ │",
+            "│                  │ │                     │ fields}     │ │",
+            "│                  │ │ itertools           │ 0.10.3      │ │",
+            "│                  │ ╰─────────────────────┴─────────────╯ │",
             "│                  │ ╭─────────────────────┬─────────────╮ │",
             "│ features         │ │                     │ ╭───┬─────╮ │ │",
             "│                  │ │ plugin              │ │ 0 │ nu- │ │ │",
@@ -2624,11 +2628,10 @@ fn test_collapse_big_0() {
             "│                  ├───────────────┼──────────┬───────────┬────────────────────┤",
             "│                  │ metadata      │ binstall │ pkg-url   │ { repo }/releases/ │",
             "│                  │               │          │           │ download/{ v       │",
-            "│                  │               │          │           │ ersion             │",
-            "│                  │               │          │           │  }/{ name }-{ vers │",
-            "│                  │               │          │           │ ion }-             │",
-            "│                  │               │          │           │ { target }.{       │",
-            "│                  │               │          │           │  archive-format }  │",
+            "│                  │               │          │           │ ersion }/{ name }- │",
+            "│                  │               │          │           │ { version }-       │",
+            "│                  │               │          │           │ { target }.{ archi │",
+            "│                  │               │          │           │ ve-format }        │",
             "│                  │               │          ├───────────┼────────────────────┤",
             "│                  │               │          │ pkg-fmt   │ tgz                │",
             "│                  │               │          ├───────────┼────────────────────┤",
