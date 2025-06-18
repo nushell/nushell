@@ -124,7 +124,7 @@ impl Command for DropNth {
 
         Ok(DropNthIterator {
             input: input.into_iter(),
-            rows: rows_to_drop.into(),
+            rows: VecDeque::from(rows_to_drop),
             current: 0,
         }
         .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
@@ -219,7 +219,7 @@ fn get_rows_to_drop(
 
 struct DropNthIterator {
     input: PipelineIterator,
-    rows: Vec<usize>,
+    rows: VecDeque<usize>,
     current: usize,
 }
 
@@ -228,9 +228,9 @@ impl Iterator for DropNthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.first() {
+            if let Some(row) = self.rows.front() {
                 if self.current == *row {
-                    self.rows.remove(0);
+                    self.rows.pop_front();
                     self.current += 1;
                     let _ = self.input.next();
                     continue;
