@@ -70,7 +70,10 @@ $env.config.history.isolation = true
 # Miscellaneous Settings
 # ----------------------
 
-# show_banner (bool): Enable or disable the welcome banner at startup
+# show_banner (bool|string): Enable or disable the welcome banner at startup
+# true | "full": show the full banner
+# "short": just show the start-up time
+# false | "none": don't show a banner
 $env.config.show_banner = true
 
 # rm.always_trash (bool):
