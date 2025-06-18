@@ -460,10 +460,16 @@ fn open_file(
                 if let Some(missing_component) =
                     path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
                 {
+                    let components_to_remove = path
+                        .strip_prefix(missing_component)
+                        .expect("Stripping ancestor from a path should never fail")
+                        .as_os_str()
+                        .as_encoded_bytes();
+
                     return Err(ShellError::Io(IoError::new(
                         ErrorKind::DirectoryNotFound,
                         engine_state
-                            .get_prefix_span(span, missing_component.as_os_str().as_encoded_bytes())
+                            .span_strip_postfix(span, components_to_remove)
                             .unwrap_or(span),
                         PathBuf::from(missing_component),
                     )));

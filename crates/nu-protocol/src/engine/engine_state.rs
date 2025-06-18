@@ -780,6 +780,18 @@ impl EngineState {
         }
     }
 
+    /// If the span's content ends with the given postfix, return a new subspan
+    /// corresponding to the rest of the span.
+    pub fn span_strip_postfix(&self, span: Span, postfix: &[u8]) -> Option<Span> {
+        let contents = self.get_span_contents(span);
+
+        if contents.ends_with(postfix) {
+            span.subspan(0, span.len() - postfix.len())
+        } else {
+            None
+        }
+    }
+
     /// Get the global config from the engine state.
     ///
     /// Use [`Stack::get_config()`] instead whenever the `Stack` is available, as it takes into
