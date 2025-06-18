@@ -124,7 +124,7 @@ impl Command for DropNth {
 
         Ok(DropNthIterator {
             input: input.into_iter(),
-            rows: VecDeque::from(rows_to_drop),
+            rows: rows_to_drop,
             current: 0,
         }
         .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
