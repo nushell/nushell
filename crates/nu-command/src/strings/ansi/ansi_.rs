@@ -909,7 +909,7 @@ fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::ansi::ansi_::Ansi;
+    use crate::strings::ansi::ansi_::Ansi;
 
     #[test]
     fn examples_work_as_expected() {
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn no_duplicate_short_names() {
-        use crate::platform::ansi::ansi_::CODE_LIST;
+        use crate::strings::ansi::ansi_::CODE_LIST;
         use std::collections::HashSet;
 
         let mut seen = HashSet::new();
@@ -943,7 +943,7 @@ mod tests {
 
     #[test]
     fn no_duplicate_long_names() {
-        use crate::platform::ansi::ansi_::CODE_LIST;
+        use crate::strings::ansi::ansi_::CODE_LIST;
         use std::collections::HashSet;
 
         let mut seen = HashSet::new();
