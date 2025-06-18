@@ -3,6 +3,8 @@ use std::sync::Arc;
 use nu_engine::command_prelude::*;
 use reedline::{Highlighter, StyledText};
 
+use crate::syntax_highlight::highlight_syntax;
+
 #[derive(Clone)]
 pub struct NuHighlight;
 
@@ -14,6 +16,11 @@ impl Command for NuHighlight {
     fn signature(&self) -> Signature {
         Signature::build("nu-highlight")
             .category(Category::Strings)
+            .switch(
+                "reject-garbage",
+                "Return an error if invalid syntax (garbage) was encountered",
+                Some('r'),
+            )
             .input_output_types(vec![(Type::String, Type::String)])
     }
 
@@ -32,19 +39,33 @@ impl Command for NuHighlight {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let reject_garbage = call.has_flag(engine_state, stack, "reject-garbage")?;
         let head = call.head;
 
         let signals = engine_state.signals();
 
-        let highlighter = crate::NuHighlighter {
-            engine_state: Arc::new(engine_state.clone()),
-            stack: Arc::new(stack.clone()),
-        };
+        let engine_state = Arc::new(engine_state.clone());
+        let stack = Arc::new(stack.clone());
 
         input.map(
             move |x| match x.coerce_into_string() {
                 Ok(line) => {
-                    let highlights = highlighter.highlight(&line, line.len());
+                    let result = highlight_syntax(&engine_state, &stack, &line, line.len());
+
+                    let highlights = match (reject_garbage, result.found_garbage) {
+                        (false, _) => result.text,
+                        (true, None) => result.text,
+                        (true, Some(span)) => {
+                            let error = ShellError::OutsideSpannedLabeledError {
+                                src: line,
+                                error: "encountered invalid syntax while highlighting".into(),
+                                msg: "invalid syntax".into(),
+                                span,
+                            };
+                            return Value::error(error, head);
+                        }
+                    };
+
                     Value::string(highlights.render_simple(), head)
                 }
                 Err(err) => Value::error(err, head),
