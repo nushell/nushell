@@ -789,7 +789,6 @@ def external-commands [
     } else {
         ^($env.NU_HELPER? | default "man") $target_command
     }
-
 }
 
 # Show help on commands.
