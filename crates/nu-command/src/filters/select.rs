@@ -128,7 +128,7 @@ produce a table, a list will produce a list, and a record will produce a record.
             since: Some("0.106.0".into()),
             expected_removal: None,
             help: Some(
-                "This flag has been renamed to `--optional` to better reflect it's behavior."
+                "This flag has been renamed to `--optional (-o)` to better reflect it's behavior."
                     .into(),
             ),
         }]

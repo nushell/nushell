@@ -164,7 +164,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 report_mode: ReportMode::FirstUse,
                 since: Some("0.106.0".into()),
                 expected_removal: None,
-                help: Some("This flag has been renamed to `--optional` to better reflect it's behavior.".into())
+                help: Some("This flag has been renamed to `--optional (-o)` to better reflect it's behavior.".into())
             }
         ]
     }
