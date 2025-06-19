@@ -165,13 +165,16 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
-        error: "Error with regular expression".into(),
-        msg: e.to_string(),
-        span: Some(pattern_span),
-        help: None,
-        inner: vec![],
-    })?;
+    let regex = RegexBuilder::new(&item_to_parse)
+        .backtrack_limit(backtrack_limit)
+        .build()
+        .map_err(|e| ShellError::GenericError {
+            error: "Error with regular expression".into(),
+            msg: e.to_string(),
+            span: Some(pattern_span),
+            help: None,
+            inner: vec![],
+        })?;
 
     let columns = regex
         .capture_names()
