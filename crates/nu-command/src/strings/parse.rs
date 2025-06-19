@@ -1,4 +1,4 @@
-use fancy_regex::{Captures, Regex};
+use fancy_regex::{Captures, Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
@@ -31,7 +31,12 @@ impl Command for Parse {
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
-            .named("backtrack", SyntaxShape::Int, "set max backtrack limit for regex", Some('b'))
+            .named(
+                "backtrack",
+                SyntaxShape::Int,
+                "set max backtrack limit for regex",
+                Some('b'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
@@ -113,7 +118,10 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let regex: bool = call.has_flag(engine_state, stack, "regex")?;
-        operate(engine_state, pattern, regex, call, input)
+        let backtrack_limit: usize = call
+            .get_flag(engine_state, stack, "backtrack")?
+            .unwrap_or(1_000_000); // 1_000_000 is fancy_regex default
+        operate(engine_state, pattern, regex, backtrack_limit, call, input)
     }
 
     fn run_const(
@@ -124,7 +132,17 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req_const(working_set, 0)?;
         let regex: bool = call.has_flag_const(working_set, "regex")?;
-        operate(working_set.permanent(), pattern, regex, call, input)
+        let backtrack_limit: usize = call
+            .get_flag_const(working_set, "backtrack")?
+            .unwrap_or(1_000_000);
+        operate(
+            working_set.permanent(),
+            pattern,
+            regex,
+            backtrack_limit,
+            call,
+            input,
+        )
     }
 }
 
@@ -132,6 +150,7 @@ fn operate(
     engine_state: &EngineState,
     pattern: Spanned<String>,
     regex: bool,
+    backtrack_limit: usize,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
