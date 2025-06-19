@@ -7,6 +7,40 @@ use shadow_rs::shadow;
 
 shadow!(build);
 
+/// Static container for the cargo features used by the `version` command.
+///
+/// This `OnceLock` holds the features from `nu`. 
+/// When you build `nu_cmd_lang`, Cargo doesn't pass along the same features that `nu` itself uses. 
+/// By setting this static before calling `version`, you make it show `nu`'s features instead
+/// of `nu_cmd_lang`'s.
+///
+/// Embedders can set this to any feature list they need, but in most cases you'll probably want to 
+/// pass the cargo features of your host binary.
+///
+/// # How to get cargo features in your build script
+///
+/// In your binary's build script:
+/// ```rust,ignore
+/// // Re-export CARGO_CFG_FEATURE to the main binary.
+/// // It holds all the features that cargo sets for your binary as a comma-separated list.
+/// println!(
+///     "cargo:rustc-env=NU_FEATURES={}",
+///     std::env::var("CARGO_CFG_FEATURE").expect("set by cargo")
+/// );
+/// ```
+///
+/// Then, before you call `version`:
+/// ```rust,ignore
+/// // This uses static strings, but since we're using `Cow`, you can also pass owned strings.
+/// let features = env!("NU_FEATURES")
+///     .split(',')
+///     .map(Cow::Borrowed)
+///     .collect();
+///
+/// nu_cmd_lang::VERSION_NU_FEATURES
+///     .set(features)
+///     .expect("couldn't set VERSION_NU_FEATURES");
+/// ```
 pub static VERSION_NU_FEATURES: OnceLock<Vec<Cow<'static, str>>> = OnceLock::new();
 
 #[derive(Clone)]
