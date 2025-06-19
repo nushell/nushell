@@ -113,7 +113,7 @@ impl Command for Reject {
             since: Some("0.106.0".into()),
             expected_removal: None,
             help: Some(
-                "This flag has been renamed to `--optional (-o)` to better reflect it's behavior."
+                "This flag has been renamed to `--optional (-o)` to better reflect its behavior."
                     .into(),
             ),
         }]
