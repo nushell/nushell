@@ -1,14 +1,12 @@
 use nu_protocol::{Span, engine::StateWorkingSet};
 use quickcheck_macros::quickcheck;
 
-use crate::DefaultContextInit;
-
 #[quickcheck]
 fn quickcheck_parse(data: String) -> bool {
     let (tokens, err) = nu_parser::lex(data.as_bytes(), 0, b"", b"", true);
 
     if err.is_none() {
-        let context = crate::create_default_context(DefaultContextInit::test());
+        let context = crate::create_default_context();
         {
             let mut working_set = StateWorkingSet::new(&context);
             let _ = working_set.add_file("quickcheck".into(), data.as_bytes());

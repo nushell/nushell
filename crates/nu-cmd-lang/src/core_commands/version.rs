@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{borrow::Cow, sync::OnceLock};
 
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
@@ -7,10 +7,10 @@ use shadow_rs::shadow;
 
 shadow!(build);
 
+pub static VERSION_NU_FEATURES: OnceLock<Vec<Cow<'static, str>>> = OnceLock::new();
+
 #[derive(Clone)]
-pub struct Version {
-    pub features: Vec<&'static str>,
-}
+pub struct Version;
 
 impl Command for Version {
     fn name(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(engine_state, call.head, &self.features)
+        version(engine_state, call.head)
     }
 
     fn run_const(
@@ -48,7 +48,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(working_set.permanent(), call.head, &self.features)
+        version(working_set.permanent(), call.head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -66,11 +66,7 @@ fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
     }
 }
 
-pub fn version(
-    engine_state: &EngineState,
-    span: Span,
-    features: &[&str],
-) -> Result<PipelineData, ShellError> {
+pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version
     // - major
@@ -121,7 +117,11 @@ pub fn version(
     record.push(
         "features",
         Value::string(
-            features
+            VERSION_NU_FEATURES
+                .get()
+                .as_ref()
+                .map(|v| v.as_slice())
+                .unwrap_or_default()
                 .iter()
                 .filter(|f| !f.starts_with("dep:"))
                 .join(", "),
@@ -183,6 +183,6 @@ mod test {
     fn test_examples() {
         use super::Version;
         use crate::test_examples;
-        test_examples(Version { features: vec![] })
+        test_examples(Version)
     }
 }

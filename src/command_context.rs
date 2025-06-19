@@ -1,9 +1,7 @@
-use nu_cmd_lang::DefaultContextInit;
 use nu_protocol::engine::EngineState;
 
 pub(crate) fn get_engine_state() -> EngineState {
-    let cargo_features = env!("NU_FEATURES").split(",").collect();
-    let engine_state = nu_cmd_lang::create_default_context(DefaultContextInit { cargo_features });
+    let engine_state = nu_cmd_lang::create_default_context();
     #[cfg(feature = "plugin")]
     let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);

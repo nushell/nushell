@@ -134,7 +134,6 @@ impl Completer for NuHelpCompleter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_cmd_lang::DefaultContextInit;
     use rstest::rstest;
 
     #[rstest]
@@ -148,9 +147,8 @@ mod test {
         #[case] end: usize,
         #[case] expected: &[&str],
     ) {
-        let engine_state = nu_command::add_shell_command_context(
-            nu_cmd_lang::create_default_context(DefaultContextInit::test()),
-        );
+        let engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
         let config = engine_state.get_config().clone();
         let mut completer = NuHelpCompleter::new(engine_state.into(), config);
         let suggestions = completer.complete(line, end);

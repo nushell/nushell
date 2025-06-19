@@ -1,5 +1,4 @@
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
-use nu_cmd_lang::DefaultContextInit;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -222,8 +221,7 @@ fn outcome_ok(msg: String) -> ! {
 
 /// Generate a minimal engine state with just `nu-cmd-lang`, `nu-command`, and `nu-cli` commands.
 fn get_engine_state() -> EngineState {
-    let cargo_features = env!("NU_FEATURES").split(",").collect();
-    let engine_state = nu_cmd_lang::create_default_context(DefaultContextInit { cargo_features });
+    let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
     nu_cli::add_cli_context(engine_state)
 }
