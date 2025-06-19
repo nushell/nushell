@@ -102,6 +102,14 @@ impl Command for Parse {
                     "capture0" => Value::test_string("b"),
                 })])),
             },
+            Example {
+                description: "Parse a string with a manually set fancy-regex backtrack limit",
+                example: "\"hi there\" | parse --backtrack 1500000 \"{foo} {bar}\"",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "foo" => Value::test_string("hi"),
+                    "bar" => Value::test_string("there"),
+                })])),
+            },
         ]
     }
 
