@@ -10,6 +10,7 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
+    num::NonZeroUsize,
     path::PathBuf,
     str::FromStr,
 };
@@ -261,6 +262,33 @@ impl FromValue for i64 {
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Int
+    }
+}
+
+impl FromValue for NonZeroUsize {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        let v_ty = v.get_type();
+
+        match v {
+            Value::Int { val, .. } => {
+                NonZeroUsize::new(val as usize).ok_or_else(|| ShellError::IncorrectValue {
+                    msg: "use a value other than 0".into(),
+                    val_span: span,
+                    call_span: span,
+                })
+            }
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v_ty.to_string(),
+                span,
+                help: Some("expected a non-zero positive integer".into()),
             }),
         }
     }
