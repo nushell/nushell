@@ -41,8 +41,13 @@ If multiple cell paths are given, this will produce a list of values."#
             )
             .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
-                "ignore-errors",
+                "optional",
                 "ignore missing data (make all cell path members optional)",
+                Some('o'),
+            )
+            .switch(
+                "ignore-errors",
+                "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
             )
             .switch(
@@ -131,13 +136,14 @@ If multiple cell paths are given, this will produce a list of values."#
     ) -> Result<PipelineData, ShellError> {
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?
+            || call.has_flag(engine_state, stack, "ignore-errors")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
-            ignore_errors,
+            optional,
             engine_state.signals().clone(),
             call.head,
         )
@@ -152,6 +158,13 @@ If multiple cell paths are given, this will produce a list of values."#
                 since: Some("0.105.0".into()),
                 expected_removal: None,
                 help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
+            },
+            DeprecationEntry {
+                ty: DeprecationType::Flag("ignore-errors".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.106.0".into()),
+                expected_removal: None,
+                help: Some("This flag has been renamed to `--optional` to better reflect it's behavior.".into())
             }
         ]
     }
@@ -161,11 +174,11 @@ fn action(
     input: PipelineData,
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
-    ignore_errors: bool,
+    optional: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if ignore_errors {
+    if optional {
         cell_path.make_optional();
         for path in &mut rest {
             path.make_optional();
