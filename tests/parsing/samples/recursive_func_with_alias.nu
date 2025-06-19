@@ -10,7 +10,7 @@ export def "update" [
     let input = $in
     match ($input | describe | str replace --regex '<.*' '') {
         record => {
-            if ($input | get -i $field) != null {
+            if ($input | get -o $field) != null {
                 $input | orig update $field $value
             } else { $input }
         }
