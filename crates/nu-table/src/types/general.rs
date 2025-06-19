@@ -46,7 +46,6 @@ fn get_key_style(topts: &TableOpts<'_>) -> TextStyle {
 
 fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
     let mut table = NuTable::new(record.len(), 2);
-    // table.set_index_style(TextStyle::default_field());
     table.set_index_style(get_key_style(&opts));
     table.set_indent(opts.config.table.padding);
 
