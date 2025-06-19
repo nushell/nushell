@@ -31,6 +31,7 @@ impl Command for Parse {
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .named("backtrack", SyntaxShape::Int, "set max backtrack limit for regex", Some('b'))
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
