@@ -34,7 +34,7 @@ impl Command for Parse {
             .named(
                 "backtrack",
                 SyntaxShape::Int,
-                "set max backtrack limit for regex",
+                "set the max backtrack limit for regex",
                 Some('b'),
             )
             .allow_variants_without_examples(true)
