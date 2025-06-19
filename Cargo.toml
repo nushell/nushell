@@ -269,6 +269,7 @@ plugin = [
 
   # features
   "nu-cli/plugin",
+  "nu-cmd-lang/plugin",
   "nu-command/plugin",
   "nu-engine/plugin",
   "nu-engine/plugin",
