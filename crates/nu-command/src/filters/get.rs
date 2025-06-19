@@ -187,7 +187,7 @@ fn action(
 
     match input {
         PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
-        // Allow chaining of get -i
+        // Allow chaining of get -o
         PipelineData::Value(val @ Value::Nothing { .. }, ..) if !optional => {
             return Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "table or record".into(),

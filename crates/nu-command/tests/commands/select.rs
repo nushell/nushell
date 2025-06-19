@@ -236,7 +236,7 @@ fn select_repeated_column() {
 fn ignore_errors_works() {
     let actual = nu!(r#"
         let path = "foo";
-        [{}] | select -i $path | to nuon
+        [{}] | select -o $path | to nuon
         "#);
 
     assert_eq!(actual.out, "[[foo]; [null]]");

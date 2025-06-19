@@ -196,14 +196,14 @@ fn get_does_not_delve_too_deep_in_nested_lists() {
 
 #[test]
 fn ignore_errors_works() {
-    let actual = nu!(r#" let path = "foo"; {} | get -i $path | to nuon "#);
+    let actual = nu!(r#" let path = "foo"; {} | get -o $path | to nuon "#);
 
     assert_eq!(actual.out, "null");
 }
 
 #[test]
 fn ignore_multiple() {
-    let actual = nu!(r#"[[a];[b]] | get -i c d | to nuon"#);
+    let actual = nu!(r#"[[a];[b]] | get -o c d | to nuon"#);
 
     assert_eq!(actual.out, "[[null], [null]]");
 }
