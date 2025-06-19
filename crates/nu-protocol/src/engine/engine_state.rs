@@ -768,25 +768,25 @@ impl EngineState {
         &[0u8; 0]
     }
 
-    /// If the span's content starts with the given prefix, return a new subspan
-    /// corresponding to this prefix.
-    pub fn get_prefix_span(&self, span: Span, prefix: &[u8]) -> Option<Span> {
+    /// If the span's content starts with the given prefix, return two subspans
+    /// corresponding to this prefix, and the rest of the content.
+    pub fn span_match_prefix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
         let contents = self.get_span_contents(span);
 
         if contents.starts_with(prefix) {
-            span.subspan(0, prefix.len())
+            span.split_at(prefix.len())
         } else {
             None
         }
     }
 
-    /// If the span's content ends with the given postfix, return a new subspan
-    /// corresponding to the rest of the span.
-    pub fn span_strip_postfix(&self, span: Span, postfix: &[u8]) -> Option<Span> {
+    /// If the span's content ends with the given postfix, return two subspans
+    /// corresponding to the rest of the content, and this postfix.
+    pub fn span_match_postfix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
         let contents = self.get_span_contents(span);
 
-        if contents.ends_with(postfix) {
-            span.subspan(0, span.len() - postfix.len())
+        if contents.ends_with(prefix) {
+            span.split_at(span.len() - prefix.len())
         } else {
             None
         }

@@ -460,6 +460,8 @@ fn open_file(
                 if let Some(missing_component) =
                     path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
                 {
+                    // By looking at the postfix to remove, rather than the prefix
+                    // to keep, we are able to handle relative paths too.
                     let components_to_remove = path
                         .strip_prefix(missing_component)
                         .expect("Stripping ancestor from a path should never fail")
@@ -469,7 +471,8 @@ fn open_file(
                     return Err(ShellError::Io(IoError::new(
                         ErrorKind::DirectoryNotFound,
                         engine_state
-                            .span_strip_postfix(span, components_to_remove)
+                            .span_match_postfix(span, components_to_remove)
+                            .map(|(pre, _post)| pre)
                             .unwrap_or(span),
                         PathBuf::from(missing_component),
                     )));

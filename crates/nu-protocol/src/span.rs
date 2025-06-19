@@ -159,6 +159,18 @@ impl Span {
         }
     }
 
+    /// Return two spans that split the ['Span'] at the given position.
+    pub fn split_at(&self, offset: usize) -> Option<(Self, Self)> {
+        if offset < self.len() {
+            Some((
+                Self::new(self.start, self.start + offset),
+                Self::new(self.start + offset, self.end),
+            ))
+        } else {
+            None
+        }
+    }
+
     pub fn contains(&self, pos: usize) -> bool {
         self.start <= pos && pos < self.end
     }
