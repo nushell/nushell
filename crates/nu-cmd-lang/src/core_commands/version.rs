@@ -9,12 +9,12 @@ shadow!(build);
 
 /// Static container for the cargo features used by the `version` command.
 ///
-/// This `OnceLock` holds the features from `nu`. 
-/// When you build `nu_cmd_lang`, Cargo doesn't pass along the same features that `nu` itself uses. 
+/// This `OnceLock` holds the features from `nu`.
+/// When you build `nu_cmd_lang`, Cargo doesn't pass along the same features that `nu` itself uses.
 /// By setting this static before calling `version`, you make it show `nu`'s features instead
 /// of `nu_cmd_lang`'s.
 ///
-/// Embedders can set this to any feature list they need, but in most cases you'll probably want to 
+/// Embedders can set this to any feature list they need, but in most cases you'll probably want to
 /// pass the cargo features of your host binary.
 ///
 /// # How to get cargo features in your build script
