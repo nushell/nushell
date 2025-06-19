@@ -22,6 +22,12 @@ impl SimplePluginCommand for QueryXml {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("query", SyntaxShape::String, "xpath query")
+            .named(
+                "namespaces",
+                SyntaxShape::Record(vec![]),
+                "map of prefixes to namespace URIs",
+                Some('n'),
+            )
             .category(Category::Filters)
     }
 
@@ -33,8 +39,9 @@ impl SimplePluginCommand for QueryXml {
         input: &Value,
     ) -> Result<Value, LabeledError> {
         let query: Option<Spanned<String>> = call.opt(0)?;
+        let namespaces: Option<Record> = call.get_flag::<Record>("namespaces")?;
 
-        execute_xpath_query(call, input, query)
+        execute_xpath_query(call, input, query, namespaces)
     }
 }
 
@@ -42,6 +49,7 @@ pub fn execute_xpath_query(
     call: &EvaluatedCall,
     input: &Value,
     query: Option<Spanned<String>>,
+    namespaces: Option<Record>,
 ) -> Result<Value, LabeledError> {
     let (query_string, span) = match &query {
         Some(v) => (&v.item, v.span),
@@ -65,7 +73,11 @@ pub fn execute_xpath_query(
     let package = package.expect("invalid xml document");
 
     let document = package.as_document();
-    let context = Context::new();
+    let mut context = Context::new();
+
+    for (prefix, uri) in namespaces.unwrap_or_default().into_iter() {
+        context.set_namespace(prefix.as_str(), uri.into_string()?.as_str());
+    }
 
     // leaving this here for augmentation at some point
     // build_variables(&arguments, &mut context);
@@ -152,7 +164,8 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//a/*[posit..." => Value::test_float(1.0),
@@ -181,7 +194,8 @@ mod tests {
             span: Span::test_data(),
         };
 
-        let actual = query(&call, &text, Some(spanned_str)).expect("test should not fail");
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
         let expected = Value::list(
             vec![Value::test_record(record! {
                 "count(//*[contain..." => Value::test_float(1.0),
@@ -189,6 +203,44 @@ mod tests {
             Span::test_data(),
         );
 
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn namespaces_are_used() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        // document uses `dp` ("document prefix") as a prefix
+        let text = Value::string(
+            r#"<?xml version="1.0" encoding="UTF-8"?><a xmlns:dp="http://example.com/ns"><dp:b>yay</dp:b></a>"#,
+            Span::test_data(),
+        );
+
+        // but query uses `qp` ("query prefix") as a prefix
+        let namespaces = record! {
+            "qp" => Value::string("http://example.com/ns", Span::test_data()),
+        };
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "//qp:b/text()".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual =
+            query(&call, &text, Some(spanned_str), Some(namespaces)).expect("test should not fail");
+
+        let expected = Value::list(
+            vec![Value::test_record(record! {
+                "//qp:b/text()" => Value::string("yay", Span::test_data()),
+            })],
+            Span::test_data(),
+        );
+
+        // and yet it should work regardless
         assert_eq!(actual, expected);
     }
 }
