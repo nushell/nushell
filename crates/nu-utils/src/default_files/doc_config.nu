@@ -303,7 +303,7 @@ $env.config.footer_mode = 25
 # Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# "basic_compact" or "single"
+# "basic_compact", "single", or "double"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 
