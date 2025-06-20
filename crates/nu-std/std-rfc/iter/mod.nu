@@ -173,6 +173,17 @@ export def recurse [
     | if not $depth_first { flatten } else { }
 }
 
+# Helper for `only` errors
+def only-error [msg: string, meta: record, label: string]: nothing -> error {
+  error make {
+    msg: $msg,
+    label: {
+      text: $label,
+      span: $meta.span,
+    }
+  }
+}
+
 # Get the only element of a list or table, ensuring it exists and there are no extra elements.
 #
 # Similar to `first` with no arguments, but errors if there are no additional
@@ -203,8 +214,8 @@ export def only [
   let pipe = {in: $in, meta: (metadata $in)}
   let path = [0 $cell_path] | cell-path-join
   match ($pipe.in | length) {
-      0 => (error "expected non-empty table/list" $pipe.meta "empty")
-      1 => ($pipe.in | get $path)
-      _ => (error "expected only one element in table/list" $pipe.meta "has more than one element")
+    0 => (only-error "expected non-empty table/list" $pipe.meta "empty")
+    1 => ($pipe.in | get $path)
+    _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
   }
 }
