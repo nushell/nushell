@@ -87,10 +87,9 @@ impl Command for Metadata {
                         .into_pipeline_data(),
                 )
             }
-            None => Ok(
-                Value::record(build_metadata_record(input.metadata().as_ref(), head), head)
-                    .into_pipeline_data(),
-            ),
+            None => {
+                Ok(Value::record(build_metadata_record(&input, head), head).into_pipeline_data())
+            }
         }
     }
 
@@ -116,19 +115,7 @@ fn build_metadata_record_value(
     head: Span,
 ) -> Value {
     let mut record = Record::new();
-
-    let span = arg.span();
-    record.push(
-        "span",
-        Value::record(
-            record! {
-                "start" => Value::int(span.start as i64,span),
-                "end" => Value::int(span.end as i64, span),
-            },
-            head,
-        ),
-    );
-
+    record.push("span", arg.span().into_value(head));
     Value::record(extend_record_with_metadata(record, metadata, head), head)
 }
 
