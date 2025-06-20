@@ -172,3 +172,39 @@ export def recurse [
     generate $fn [{path: ($.), item: ($in) }]
     | if not $depth_first { flatten } else { }
 }
+
+# Get the only element of a list or table, ensuring it exists and there are no extra elements.
+#
+# Similar to `first` with no arguments, but errors if there are no additional
+# items when there should only be one item. This can help avoid issues when more
+# than one row than expected matches some criteria.
+#
+# This command is useful when chained with `where` to ensure that only one row
+# meets the given condition.
+#
+# If a cell path is provided as an argument, it will be accessed after the first
+# element. For example, `only foo` is roughly equivalent to `get 0.foo`, with
+# the guarantee that there are no additional elements.
+#
+# Note that this command currently collects streams.
+@search-terms "first" "single"
+@example "Get the only item in a list, ensuring it exists and there's no additional items" --result 5 {
+  [5] | only
+}
+@example "Get the `name` column of the only row in a table" --result "foo" {
+  [{name: foo, id: 5}] | only name
+}
+@example "Get the modification time of the file named foo.txt" {
+  ls | where name == "foo.txt" | only modified
+}
+export def only [
+  cell_path?: cell-path # The cell path to access within the only element.
+]: [table -> any, list -> any] {
+  let pipe = {in: $in, meta: (metadata $in)}
+  let path = [0 $cell_path] | cell-path-join
+  match ($pipe.in | length) {
+      0 => (error "expected non-empty table/list" $pipe.meta "empty")
+      1 => ($pipe.in | get $path)
+      _ => (error "expected only one element in table/list" $pipe.meta "has more than one element")
+  }
+}
