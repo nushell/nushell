@@ -101,7 +101,7 @@ fn division_of_ints() {
         "#
     ));
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual.out, "2.0");
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn floor_division_of_floats() {
         "#
     ));
 
-    assert_eq!(actual.out, "-2");
+    assert_eq!(actual.out, "-2.0");
 }
 
 #[test]

@@ -69,7 +69,7 @@ fn mut_multiply_assign() {
 fn mut_divide_assign() {
     let actual = nu!("mut y = 8; $y /= 2; $y");
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "4.0");
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn mut_path_upsert_list() {
 fn mut_path_operator_assign() {
     let actual = nu!("mut a = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
 
-    assert_eq!(actual.out, "5");
+    assert_eq!(actual.out, "5.0");
 }
 
 #[test]
