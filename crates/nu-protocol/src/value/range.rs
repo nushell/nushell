@@ -307,10 +307,8 @@ mod int_range {
 }
 
 mod float_range {
-    use crate::{
-        IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion,
-        format::ObviousFloat,
-    };
+    use crate::{IntRange, Range, ShellError, Signals, Span, Value, ast::RangeInclusion};
+    use nu_utils::ObviousFloat;
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
