@@ -2,6 +2,7 @@ use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
+use nu_utils::ObviousFloat;
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -164,7 +165,7 @@ fn local_into_string(
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
+        Value::Float { val, .. } => ObviousFloat(val).to_string(),
         Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
