@@ -1,3 +1,4 @@
+use super::helpers::split_str;
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
@@ -193,15 +194,16 @@ fn split_column(
     })?;
 
     input.flat_map(
-        move |x| {
-            split_column_helper(
-                &x,
-                &regex,
-                &args.rest,
-                args.collapse_empty,
-                args.max_split,
-                name_span,
-            )
+        move |x| match split_column_helper(
+            &x,
+            &regex,
+            &args.rest,
+            args.collapse_empty,
+            args.max_split,
+            name_span,
+        ) {
+            Ok(v) => v,
+            Err(err) => vec![Value::error(err, x.span())],
         },
         engine_state.signals(),
     )
@@ -209,63 +211,46 @@ fn split_column(
 
 fn split_column_helper(
     v: &Value,
-    separator: &Regex,
+    regex: &Regex,
     rest: &[Spanned<String>],
     collapse_empty: bool,
     max_split: Option<usize>,
     head: Span,
-) -> Vec<Value> {
-    if let Ok(s) = v.coerce_str() {
-        let split_result: Vec<_> = match max_split {
-            Some(max_split) => separator
-                .splitn(&s, max_split)
-                .filter_map(|x| x.ok())
-                .filter(|x| !(collapse_empty && x.is_empty()))
-                .collect(),
-            None => separator
-                .split(&s)
-                .filter_map(|x| x.ok())
-                .filter(|x| !(collapse_empty && x.is_empty()))
-                .collect(),
-        };
-        let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
-
-        // If they didn't provide column names, make up our own
-        let mut record = Record::new();
-        if positional.is_empty() {
-            let mut gen_columns = vec![];
-            for i in 0..split_result.len() {
-                gen_columns.push(format!("column{}", i + 1));
-            }
-
-            for (&k, v) in split_result.iter().zip(&gen_columns) {
-                record.push(v, Value::string(k, head));
-            }
-        } else {
-            for (&k, v) in split_result.iter().zip(&positional) {
-                record.push(v, Value::string(k, head));
+) -> Result<Vec<Value>, ShellError> {
+    let s = v.coerce_str().map_err(|_| match v {
+        Value::Error { error, .. } => *error.clone(),
+        v => {
+            let span = v.span();
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: v.get_type().to_string(),
+                dst_span: head,
+                src_span: span,
             }
         }
-        vec![Value::record(record, head)]
+    })?;
+
+    let split_result = split_str(&s, regex, max_split, collapse_empty, head)?;
+
+    let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+
+    // If they didn't provide column names, make up our own
+    let mut record = Record::new();
+    if positional.is_empty() {
+        let mut gen_columns = vec![];
+        for i in 0..split_result.len() {
+            gen_columns.push(format!("column{}", i + 1));
+        }
+
+        for (v, k) in split_result.into_iter().zip(&gen_columns) {
+            record.push(k, v);
+        }
     } else {
-        match v {
-            Value::Error { error, .. } => {
-                vec![Value::error(*error.clone(), head)]
-            }
-            v => {
-                let span = v.span();
-                vec![Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string".into(),
-                        wrong_type: v.get_type().to_string(),
-                        dst_span: head,
-                        src_span: span,
-                    },
-                    span,
-                )]
-            }
+        for (v, k) in split_result.into_iter().zip(&positional) {
+            record.push(k, v);
         }
     }
+    Ok(vec![Value::record(record, head)])
 }
 
 #[cfg(test)]
