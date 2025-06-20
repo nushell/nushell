@@ -6,11 +6,10 @@ pub struct ObviousFloat(pub f64);
 impl Display for ObviousFloat {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let val = self.0;
-        // This serialises these as 'nan', 'inf' and '-inf', respectively.
-        if val.round() == val && val.is_finite() {
-            write!(f, "{}.0", val)
+        if val.fract() == 0.0 {
+            write!(f, "{val:.1}")
         } else {
-            write!(f, "{}", val)
+            Display::fmt(&val, f)
         }
     }
 }
