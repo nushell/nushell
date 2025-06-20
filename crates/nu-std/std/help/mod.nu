@@ -759,9 +759,13 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " "
+    let target_command = $command | str join " " | str replace "^" ""
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-    ^($env.NU_HELPER? | default "man") $target_command
+    if $env.NU_HELPER? == "--help" {
+        run-external ($target_command | split row " ") "--help"
+    } else {
+        ^($env.NU_HELPER? | default "man") $target_command
+    }
 }
 
 # Show help on commands.
@@ -784,6 +788,11 @@ def pretty-cmd [] {
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
+# If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
+# (default: man) and "word" will be passed as the first argument.
+# Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
+# an external and pass `--help` as the last argument (this could cause unintended
+# behaviour if it doesn't support the flag, use it carefully).
 #
 # Examples:
 #   show help for single command, alias, or module
