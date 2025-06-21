@@ -45,6 +45,7 @@ impl Completer for DirectoryCompletion {
                     start: x.span.start - offset,
                     end: x.span.end - offset,
                 },
+                match_indices: x.match_indices,
                 ..Suggestion::default()
             },
             kind: Some(SuggestionKind::Directory),

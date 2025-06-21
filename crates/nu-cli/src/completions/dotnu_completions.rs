@@ -137,6 +137,7 @@ impl Completer for DotNuCompletion {
                             path,
                             style: None,
                             is_dir: true,
+                            match_indices: None,
                         },
                     );
                 }
@@ -156,11 +157,15 @@ impl Completer for DotNuCompletion {
                             span,
                             style: None,
                             is_dir: matches!(sub_vp, VirtualPath::Dir(_)),
+                            match_indices: None,
                         },
                     );
                 }
             }
-            completions.extend(matcher.results());
+            for (mut sugg, inds) in matcher.results() {
+                sugg.match_indices = inds;
+                completions.push(sugg);
+            }
         }
 
         completions
@@ -199,6 +204,7 @@ impl Completer for DotNuCompletion {
                         style: x.style,
                         span: reedline::Span { start, end },
                         append_whitespace,
+                        match_indices: x.match_indices,
                         ..Suggestion::default()
                     },
                     kind: Some(SuggestionKind::Module),

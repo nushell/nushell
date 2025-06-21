@@ -38,7 +38,7 @@ fn complete_rec(
     want_directory: bool,
     isdir: bool,
     enable_exact_match: bool,
-) -> Vec<PathBuiltFromString> {
+) -> Vec<(PathBuiltFromString, Option<Vec<usize>>)> {
     let has_more = !partial.is_empty() && (partial.len() > 1 || isdir);
 
     if let Some((&base, rest)) = partial.split_first() {
@@ -124,7 +124,7 @@ fn complete_rec(
 
     if has_more {
         let mut completions = vec![];
-        for built in matcher.results() {
+        for (built, _) in matcher.results() {
             completions.extend(complete_rec(
                 &partial[1..],
                 &[built],
@@ -182,6 +182,7 @@ pub struct FileSuggestion {
     pub path: String,
     pub style: Option<Style>,
     pub is_dir: bool,
+    pub match_indices: Option<Vec<usize>>,
 }
 
 /// # Parameters
@@ -281,7 +282,7 @@ pub fn complete_item(
         options.match_algorithm == MatchAlgorithm::Prefix,
     )
     .into_iter()
-    .map(|mut p| {
+    .map(|(mut p, match_indices)| {
         if should_collapse_dots {
             p = collapse_ndots(p);
         }
@@ -299,6 +300,7 @@ pub fn complete_item(
             path: escape_path(path),
             style,
             is_dir,
+            match_indices,
         }
     })
     .collect()
