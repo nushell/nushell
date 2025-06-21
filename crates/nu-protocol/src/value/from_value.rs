@@ -271,32 +271,38 @@ impl FromValue for i64 {
     }
 }
 
-impl FromValue for NonZeroUsize {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        let span = v.span();
-        let v_ty = v.get_type();
+// Implement FromValue for specific NonZero integer types using a macro.
+//
+// ⚠️ Note: We intentionally do *not* implement a blanket `impl<T: FromValue> FromValue for NonZero<T>`.
+// While that would be more generic and ergonomic, it is currently not possible in stable Rust because:
+//
+// - `std::num::NonZero<T>::new` requires `T: ZeroablePrimitive`, an unstable trait internal to the standard library.
+// - This trait is not nameable or implementable outside of `std`, so we cannot satisfy the required trait bounds.
+//
+// As a result, we use this macro to implement FromValue for each concrete NonZero type explicitly.
+// This keeps the implementation clean, DRY, and extensible.
 
-        match v {
-            Value::Int { val, .. } => {
-                NonZeroUsize::new(val as usize).ok_or_else(|| ShellError::IncorrectValue {
+macro_rules! impl_from_value_for_nonzero {
+    ($nonzero:ty, $base:ty) => {
+        impl FromValue for $nonzero {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
+                let span = v.span();
+                let val = <$base>::from_value(v)?;
+                <$nonzero>::new(val).ok_or_else(|| ShellError::IncorrectValue {
                     msg: "use a value other than 0".into(),
                     val_span: span,
                     call_span: span,
                 })
             }
-            _ => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v_ty.to_string(),
-                span,
-                help: Some("expected a non-zero positive integer".into()),
-            }),
-        }
-    }
 
-    fn expected_type() -> Type {
-        Type::Int
-    }
+            fn expected_type() -> Type {
+                Type::Int
+            }
+        }
+    };
 }
+
+impl_from_value_for_nonzero!(NonZeroUsize, usize);
 
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
