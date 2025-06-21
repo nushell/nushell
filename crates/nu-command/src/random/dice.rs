@@ -1,6 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
 use rand::random_range;
+use std::num::NonZeroUsize;
 
 #[derive(Clone)]
 pub struct RandomDice;
@@ -70,8 +71,16 @@ fn dice(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
 
-    let dice: usize = call.get_flag(engine_state, stack, "dice")?.unwrap_or(1);
-    let sides: usize = call.get_flag(engine_state, stack, "sides")?.unwrap_or(6);
+    let sides: NonZeroUsize = call
+        .get_flag(engine_state, stack, "sides")?
+        .unwrap_or_else(|| NonZeroUsize::new(6).expect("default sides must be non-zero"));
+
+    let dice: NonZeroUsize = call
+        .get_flag(engine_state, stack, "dice")?
+        .unwrap_or_else(|| NonZeroUsize::new(1).expect("default dice count must be non-zero"));
+
+    let sides = sides.get();
+    let dice = dice.get();
 
     let iter = (0..dice).map(move |_| Value::int(random_range(1..sides + 1) as i64, span));
 
