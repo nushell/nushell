@@ -69,3 +69,35 @@ impl Debug for ExperimentalOption {
         debug_struct.finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assert_identifiers_are_valid() {
+        for option in ALL {
+            let identifier = option.identifier();
+            assert!(!identifier.is_empty());
+            
+            let mut chars = identifier.chars();
+            let first = chars.next().expect("not empty");
+            assert!(first.is_alphabetic());
+            assert!(first.is_lowercase());
+
+            for char in chars {
+                assert!(char.is_alphanumeric());
+                if char.is_alphabetic() {
+                    assert!(char.is_lowercase());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn assert_description_not_empty() {
+        for option in ALL {
+            assert!(!option.description().is_empty());
+        }
+    }
+}
