@@ -2,13 +2,15 @@ use crate::*;
 
 /// Example experimental option.
 ///
-/// This is an example how experimental options should be implemented and documented.
-/// Just from reading the documentation about this static value should make it clear what
-/// experimental feature is supposed to do and it should be used in the rest of our codebase.
+/// This shows how experimental options should be implemented and documented.
+/// Reading this static's documentation alone should clearly explain what the
+/// option changes and how it interacts with the rest of the codebase.
+///
+/// Use this pattern when adding real experimental options.
 pub static EXAMPLE: ExperimentalOption = ExperimentalOption::new(&Example);
 
-// We don't need to document this type as it is not public.
-// Only the static should be documented, but extensively.
+// No documentation needed here since this type isn't public.
+// The static above provides all necessary details.
 struct Example;
 
 impl ExperimentalOptionMarker for Example {

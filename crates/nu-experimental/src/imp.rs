@@ -49,8 +49,8 @@ impl ExperimentalOption {
             .copied()
             .unwrap_or_else(|| match self.marker.stability() {
                 Stability::Unstable => false,
-                Stability::Stable => false,
-                Stability::StableDefault => true,
+                Stability::StableOptIn => false,
+                Stability::StableOptOut => true,
                 Stability::Deprecated => false,
             })
     }
@@ -79,7 +79,7 @@ mod tests {
         for option in ALL {
             let identifier = option.identifier();
             assert!(!identifier.is_empty());
-            
+
             let mut chars = identifier.chars();
             let first = chars.next().expect("not empty");
             assert!(first.is_alphabetic());
