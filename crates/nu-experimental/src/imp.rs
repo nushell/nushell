@@ -22,6 +22,9 @@ impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
 }
 
 impl ExperimentalOption {
+    /// Construct a new `ExperimentalOption`.
+    /// 
+    /// This should only be used to define a single static for a marker.
     pub(crate) const fn new(
         marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync),
     ) -> Self {

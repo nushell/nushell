@@ -14,6 +14,11 @@ pub use options::*;
 /// You can find all options in the statics of [`nu_experimental`](crate).
 /// Everything there, except [`ALL`], is a toggleable option.
 /// `ALL` gives a full list and can be used to check which options are set.
+/// 
+/// The [`Debug`](std::fmt::Debug) implementation shows the option's identifier, stability, and 
+/// current value.
+/// To also include the description in the output, use the 
+/// [plus sign](std::fmt::Formatter::sign_plus), e.g. `format!("{OPTION:+#?}")`.
 pub struct ExperimentalOption {
     value: OnceLock<bool>,
     marker: &'static (dyn imp::DynExperimentalOptionMarker + Send + Sync),
