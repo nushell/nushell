@@ -91,7 +91,8 @@ impl Command for Save {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
-                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (file, stderr_file) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
 
                 let size = stream.known_size();
                 let signals = engine_state.signals();
@@ -201,7 +202,8 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(&from_io_error)?;
@@ -226,7 +228,8 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) =
+                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
 
                 file.write_all(&bytes).map_err(&from_io_error)?;
                 file.flush().map_err(&from_io_error)?;
@@ -422,13 +425,14 @@ fn prepare_path(
     }
 }
 
-fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
-    let file: Result<File, nu_protocol::shell_error::io::ErrorKind> = match (append, path.exists())
-    {
-        (true, true) => std::fs::OpenOptions::new()
-            .append(true)
-            .open(path)
-            .map_err(|err| err.into()),
+fn open_file(
+    engine_state: &EngineState,
+    path: &Path,
+    span: Span,
+    append: bool,
+) -> Result<File, ShellError> {
+    let file: std::io::Result<File> = match (append, path.exists()) {
+        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
@@ -438,22 +442,51 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
                     deprecated,
                     reason = "we don't get a IsADirectory error, so we need to provide it"
                 )]
-                Err(nu_protocol::shell_error::io::ErrorKind::from_std(
-                    std::io::ErrorKind::IsADirectory,
-                ))
+                Err(std::io::ErrorKind::IsADirectory.into())
             } else {
-                std::fs::File::create(path).map_err(|err| err.into())
+                std::fs::File::create(path)
             }
             #[cfg(not(target_os = "windows"))]
-            std::fs::File::create(path).map_err(|err| err.into())
+            std::fs::File::create(path)
         }
     };
 
-    file.map_err(|err_kind| ShellError::Io(IoError::new(err_kind, span, PathBuf::from(path))))
+    match file {
+        Ok(file) => Ok(file),
+        Err(err) => {
+            // In caase of NotFound, search for the missing parent directory.
+            // This also presents a TOCTOU (or TOUTOC, technically?)
+            if err.kind() == std::io::ErrorKind::NotFound {
+                if let Some(missing_component) =
+                    path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
+                {
+                    // By looking at the postfix to remove, rather than the prefix
+                    // to keep, we are able to handle relative paths too.
+                    let components_to_remove = path
+                        .strip_prefix(missing_component)
+                        .expect("Stripping ancestor from a path should never fail")
+                        .as_os_str()
+                        .as_encoded_bytes();
+
+                    return Err(ShellError::Io(IoError::new(
+                        ErrorKind::DirectoryNotFound,
+                        engine_state
+                            .span_match_postfix(span, components_to_remove)
+                            .map(|(pre, _post)| pre)
+                            .unwrap_or(span),
+                        PathBuf::from(missing_component),
+                    )));
+                }
+            }
+
+            Err(ShellError::Io(IoError::new(err, span, PathBuf::from(path))))
+        }
+    }
 }
 
 /// Get output file and optional stderr file
 fn get_files(
+    engine_state: &EngineState,
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
@@ -467,7 +500,7 @@ fn get_files(
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(path, path_span, append)?;
+    let file = open_file(engine_state, path, path_span, append)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
@@ -480,7 +513,7 @@ fn get_files(
                     inner: vec![],
                 })
             } else {
-                open_file(stderr_path, stderr_path_span, append)
+                open_file(engine_state, stderr_path, stderr_path_span, append)
             }
         })
         .transpose()?;
