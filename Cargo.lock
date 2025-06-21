@@ -3835,6 +3835,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-experimental"
+version = "0.105.2"
+
+[[package]]
 name = "nu-explore"
 version = "0.105.2"
 dependencies = [
