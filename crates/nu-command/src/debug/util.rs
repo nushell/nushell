@@ -1,4 +1,4 @@
-use nu_protocol::{DataSource, PipelineMetadata, Record, Span, Value};
+use nu_protocol::{DataSource, IntoValue, PipelineData, PipelineMetadata, Record, Span, Value};
 
 pub fn extend_record_with_metadata(
     mut record: Record,
@@ -29,6 +29,10 @@ pub fn extend_record_with_metadata(
     record
 }
 
-pub fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Record {
-    extend_record_with_metadata(Record::new(), metadata, head)
+pub fn build_metadata_record(pipeline: &PipelineData, head: Span) -> Record {
+    let mut record = Record::new();
+    if let Some(span) = pipeline.span() {
+        record.insert("span", span.into_value(head));
+    }
+    extend_record_with_metadata(record, pipeline.metadata().as_ref(), head)
 }
