@@ -31,7 +31,7 @@ fn adds_row_data_if_column_missing() {
 
 #[test]
 fn default_after_empty_filter() {
-    let actual = nu!("[a b] | where $it == 'c' | get -i 0 | default 'd'");
+    let actual = nu!("[a b] | where $it == 'c' | get -o 0 | default 'd'");
 
     assert_eq!(actual.out, "d");
 }

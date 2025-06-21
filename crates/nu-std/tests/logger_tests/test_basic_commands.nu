@@ -11,7 +11,7 @@ def run [
     } else {
         ^$nu.current-exe --no-config-file --commands $'use std; use std/log; NU_LOG_LEVEL=($system_level) log ($message_level) "test message"'
     }
-    | complete | get --ignore-errors stderr
+    | complete | get --optional stderr
 }
 
 def "assert no message" [
