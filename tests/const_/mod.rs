@@ -147,7 +147,7 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[rstest]
 #[case(&["const x = 1 + 2", "$x"], "3")]
 #[case(&["const x = 1 * 2", "$x"], "2")]
-#[case(&["const x = 4 / 2", "$x"], "2")]
+#[case(&["const x = 4 / 2", "$x"], "2.0")]
 #[case(&["const x = 4 mod 3", "$x"], "1")]
 #[case(&["const x = 5.0 / 2.0", "$x"], "2.5")]
 #[case(&[r#"const x = "a" + "b" "#, "$x"], "ab")]

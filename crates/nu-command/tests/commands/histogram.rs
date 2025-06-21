@@ -80,7 +80,7 @@ fn count() {
         "
     ));
 
-    let bit_json = r#"[  {    "bit": 1,    "count": 3,    "quantile": 0.5,    "percentage": "50.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 1,    "percentage": "100.00%"  }]"#;
+    let bit_json = r#"[  {    "bit": 1,    "count": 3,    "quantile": 0.5,    "percentage": "50.00%"  },  {    "bit": 0,    "count": 6,    "quantile": 1.0,    "percentage": "100.00%"  }]"#;
 
     assert_eq!(actual.out, bit_json);
 }

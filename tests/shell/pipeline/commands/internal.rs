@@ -759,7 +759,7 @@ fn range_with_mixed_types() {
         echo 1..10.5 | math sum
         ");
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual.out, "55.0");
 }
 
 #[test]
@@ -802,7 +802,7 @@ fn exclusive_range_with_mixed_types() {
         echo 1..<10.5 | math sum
         ");
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual.out, "55.0");
 }
 
 #[test]

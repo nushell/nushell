@@ -1,8 +1,7 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
-use nu_protocol::format::ObviousFloat;
 use nu_protocol::{Range, ShellError, Span, Value, engine::EngineState};
-use nu_utils::{escape_quote_string, needs_quoting};
+use nu_utils::{ObviousFloat, escape_quote_string, needs_quoting};
 
 /// control the way Nushell [`Value`] is converted to NUON data
 pub enum ToStyle {

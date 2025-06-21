@@ -9,7 +9,7 @@
   rem2: "// test"
   rem3: "/* test */"
   num1: 0
-  num2: 0
+  num2: 0.0
   num3: 2
   true1: true
   true2: true

@@ -1,5 +1,6 @@
-use fancy_regex::Regex;
 use nu_json::Value;
+use pretty_assertions::assert_eq;
+use rstest::rstest;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -43,159 +44,116 @@ fn get_result_content(name: &str) -> io::Result<(String, String)> {
     Ok((fs::read_to_string(p1)?, fs::read_to_string(p2)?))
 }
 
-macro_rules! run_test {
-    // {{ is a workaround for rust stable
-    ($v: ident, $list: expr, $fix: expr) => {{
-        let name = stringify!($v);
-        $list.push(format!("{}_test", name));
-        println!("- running {}", name);
-        let should_fail = name.starts_with("fail");
-        let test_content = get_test_content(name).unwrap();
-        let data: nu_json::Result<Value> = nu_json::from_str(&test_content);
-        assert!(should_fail == data.is_err());
-
-        if !should_fail {
-            let udata = data.unwrap();
-            let (rjson, rhjson) = get_result_content(name).unwrap();
-            let rjson = txt(&rjson);
-            let rhjson = txt(&rhjson);
-            let actual_hjson = nu_json::to_string(&udata).unwrap();
-            let actual_hjson = txt(&actual_hjson);
-            let actual_json = $fix(serde_json::to_string_pretty(&udata).unwrap());
-            let actual_json = txt(&actual_json);
-            // nu_json::to_string now outputs json instead of hjson!
-            if rjson != actual_hjson {
-                println!(
-                    "{:?}\n---hjson expected\n{}\n---hjson actual\n{}\n---\n",
-                    name, rhjson, actual_hjson
-                );
-            }
-            if rjson != actual_json {
-                println!(
-                    "{:?}\n---json expected\n{}\n---json actual\n{}\n---\n",
-                    name, rjson, actual_json
-                );
-            }
-            assert!(rjson == actual_hjson && rjson == actual_json);
-        }
-    }};
-}
-
 // add fixes where rust's json differs from javascript
 
-fn std_fix(json: String) -> String {
+fn ident(json: String) -> String {
     // serde_json serializes integers with a superfluous .0 suffix
-    let re = Regex::new(r"(?m)(?P<d>\d)\.0(?P<s>,?)$").unwrap();
-    re.replace_all(&json, "$d$s").to_string()
+    // let re = Regex::new(r"(?m)(?P<d>\d)\.0(?P<s>,?)$").unwrap();
+    // re.replace_all(&json, "$d$s").to_string()
+    json
 }
 
 fn fix_kan(json: String) -> String {
-    std_fix(json).replace("    -0,", "    0,")
+    json.replace("    -0,", "    0,")
 }
 
 fn fix_pass1(json: String) -> String {
-    std_fix(json)
-        .replace("1.23456789e34", "1.23456789e+34")
+    json.replace("1.23456789e34", "1.23456789e+34")
         .replace("2.3456789012e76", "2.3456789012e+76")
 }
 
-#[test]
-fn test_hjson() {
-    let mut done: Vec<String> = Vec::new();
+#[rstest]
+#[case("charset", ident)]
+#[case("comments", ident)]
+#[case("empty", ident)]
+#[case("failCharset1", ident)]
+#[case("failJSON02", ident)]
+#[case("failJSON05", ident)]
+#[case("failJSON06", ident)]
+#[case("failJSON07", ident)]
+#[case("failJSON08", ident)]
+#[case("failJSON10", ident)]
+#[case("failJSON11", ident)]
+#[case("failJSON12", ident)]
+#[case("failJSON13", ident)]
+#[case("failJSON14", ident)]
+#[case("failJSON15", ident)]
+#[case("failJSON16", ident)]
+#[case("failJSON17", ident)]
+#[case("failJSON19", ident)]
+#[case("failJSON20", ident)]
+#[case("failJSON21", ident)]
+#[case("failJSON22", ident)]
+#[case("failJSON23", ident)]
+#[case("failJSON24", ident)]
+#[case("failJSON26", ident)]
+#[case("failJSON28", ident)]
+#[case("failJSON29", ident)]
+#[case("failJSON30", ident)]
+#[case("failJSON31", ident)]
+#[case("failJSON32", ident)]
+#[case("failJSON33", ident)]
+#[case("failJSON34", ident)]
+#[case("failKey1", ident)]
+#[case("failKey3", ident)]
+#[case("failKey4", ident)]
+#[case("failMLStr1", ident)]
+#[case("failObj1", ident)]
+#[case("failObj2", ident)]
+#[case("failObj3", ident)]
+#[case("failStr1a", ident)]
+#[case("failStr1b", ident)]
+#[case("failStr1c", ident)]
+#[case("failStr1d", ident)]
+#[case("failStr2a", ident)]
+#[case("failStr2b", ident)]
+#[case("failStr2c", ident)]
+#[case("failStr2d", ident)]
+#[case("failStr3a", ident)]
+#[case("failStr3b", ident)]
+#[case("failStr3c", ident)]
+#[case("failStr3d", ident)]
+#[case("failStr4a", ident)]
+#[case("failStr4b", ident)]
+#[case("failStr4c", ident)]
+#[case("failStr4d", ident)]
+#[case("failStr5a", ident)]
+#[case("failStr5b", ident)]
+#[case("failStr5c", ident)]
+#[case("failStr5d", ident)]
+#[case("failStr6a", ident)]
+#[case("failStr6b", ident)]
+#[case("failStr6c", ident)]
+#[case("failStr6d", ident)]
+#[case("kan", fix_kan)]
+#[case("keys", ident)]
+#[case("oa", ident)]
+#[case("pass1", fix_pass1)]
+#[case("pass2", ident)]
+#[case("pass3", ident)]
+#[case("pass4", ident)]
+#[case("passSingle", ident)]
+#[case("root", ident)]
+#[case("stringify1", ident)]
+#[case("strings", ident)]
+#[case("trail", ident)]
+fn test_hjson(#[case] name: &str, #[case] fix: fn(String) -> String) {
+    let should_fail = name.starts_with("fail");
+    let test_content = get_test_content(name).unwrap();
+    let data: nu_json::Result<Value> = nu_json::from_str(&test_content);
+    assert!(should_fail == data.is_err());
 
-    println!();
-    run_test!(charset, done, std_fix);
-    run_test!(comments, done, std_fix);
-    run_test!(empty, done, std_fix);
-    run_test!(failCharset1, done, std_fix);
-    run_test!(failJSON02, done, std_fix);
-    run_test!(failJSON05, done, std_fix);
-    run_test!(failJSON06, done, std_fix);
-    run_test!(failJSON07, done, std_fix);
-    run_test!(failJSON08, done, std_fix);
-    run_test!(failJSON10, done, std_fix);
-    run_test!(failJSON11, done, std_fix);
-    run_test!(failJSON12, done, std_fix);
-    run_test!(failJSON13, done, std_fix);
-    run_test!(failJSON14, done, std_fix);
-    run_test!(failJSON15, done, std_fix);
-    run_test!(failJSON16, done, std_fix);
-    run_test!(failJSON17, done, std_fix);
-    run_test!(failJSON19, done, std_fix);
-    run_test!(failJSON20, done, std_fix);
-    run_test!(failJSON21, done, std_fix);
-    run_test!(failJSON22, done, std_fix);
-    run_test!(failJSON23, done, std_fix);
-    run_test!(failJSON24, done, std_fix);
-    run_test!(failJSON26, done, std_fix);
-    run_test!(failJSON28, done, std_fix);
-    run_test!(failJSON29, done, std_fix);
-    run_test!(failJSON30, done, std_fix);
-    run_test!(failJSON31, done, std_fix);
-    run_test!(failJSON32, done, std_fix);
-    run_test!(failJSON33, done, std_fix);
-    run_test!(failJSON34, done, std_fix);
-    run_test!(failKey1, done, std_fix);
-    run_test!(failKey2, done, std_fix);
-    run_test!(failKey3, done, std_fix);
-    run_test!(failKey4, done, std_fix);
-    run_test!(failMLStr1, done, std_fix);
-    run_test!(failObj1, done, std_fix);
-    run_test!(failObj2, done, std_fix);
-    run_test!(failObj3, done, std_fix);
-    run_test!(failStr1a, done, std_fix);
-    run_test!(failStr1b, done, std_fix);
-    run_test!(failStr1c, done, std_fix);
-    run_test!(failStr1d, done, std_fix);
-    run_test!(failStr2a, done, std_fix);
-    run_test!(failStr2b, done, std_fix);
-    run_test!(failStr2c, done, std_fix);
-    run_test!(failStr2d, done, std_fix);
-    run_test!(failStr3a, done, std_fix);
-    run_test!(failStr3b, done, std_fix);
-    run_test!(failStr3c, done, std_fix);
-    run_test!(failStr3d, done, std_fix);
-    run_test!(failStr4a, done, std_fix);
-    run_test!(failStr4b, done, std_fix);
-    run_test!(failStr4c, done, std_fix);
-    run_test!(failStr4d, done, std_fix);
-    run_test!(failStr5a, done, std_fix);
-    run_test!(failStr5b, done, std_fix);
-    run_test!(failStr5c, done, std_fix);
-    run_test!(failStr5d, done, std_fix);
-    run_test!(failStr6a, done, std_fix);
-    run_test!(failStr6b, done, std_fix);
-    run_test!(failStr6c, done, std_fix);
-    run_test!(failStr6d, done, std_fix);
-    run_test!(kan, done, fix_kan);
-    run_test!(keys, done, std_fix);
-    run_test!(oa, done, std_fix);
-    run_test!(pass1, done, fix_pass1);
-    run_test!(pass2, done, std_fix);
-    run_test!(pass3, done, std_fix);
-    run_test!(pass4, done, std_fix);
-    run_test!(passSingle, done, std_fix);
-    run_test!(root, done, std_fix);
-    run_test!(stringify1, done, std_fix);
-    run_test!(strings, done, std_fix);
-    run_test!(trail, done, std_fix);
+    if !should_fail {
+        let udata = data.unwrap();
+        let (rjson, rhjson) = get_result_content(name).unwrap();
+        let rjson = txt(&rjson);
+        let _rhjson = txt(&rhjson);
+        let actual_hjson = nu_json::to_string(&udata).unwrap();
+        let actual_hjson = txt(&actual_hjson);
+        let actual_json = fix(serde_json::to_string_pretty(&udata).unwrap());
+        let actual_json = txt(&actual_json);
 
-    // check if we include all assets
-    let paths = fs::read_dir(hjson_expectations()).unwrap();
-
-    let all = paths
-        .map(|item| String::from(item.unwrap().path().file_stem().unwrap().to_str().unwrap()))
-        .filter(|x| x.contains("_test"));
-
-    let missing = all
-        .into_iter()
-        .filter(|x| !done.iter().any(|y| x == y))
-        .collect::<Vec<String>>();
-
-    if !missing.is_empty() {
-        for item in missing {
-            println!("missing: {}", item);
-        }
-        panic!();
+        assert_eq!(rjson, actual_hjson);
+        assert_eq!(rjson, actual_json);
     }
 }

@@ -18,14 +18,14 @@ fn can_round_very_large_numbers_with_precision() {
 fn can_round_integer_with_negative_precision() {
     let actual = nu!("123 | math round --precision -1");
 
-    assert_eq!(actual.out, "120")
+    assert_eq!(actual.out, "120.0")
 }
 
 #[test]
 fn can_round_float_with_negative_precision() {
     let actual = nu!("123.3 | math round --precision -1");
 
-    assert_eq!(actual.out, "120")
+    assert_eq!(actual.out, "120.0")
 }
 
 #[test]

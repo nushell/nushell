@@ -18,6 +18,17 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
 }
 
 #[test]
+fn table_to_json_float_doesnt_become_int() {
+    let actual = nu!(pipeline(
+        r#"
+            [[a]; [1.0]] | to json | from json | get 0.a | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "float")
+}
+
+#[test]
 fn from_json_text_to_table() {
     Playground::setup("filter_from_json_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(

@@ -79,6 +79,17 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
 }
 
 #[test]
+fn table_to_tsv_float_doesnt_become_int() {
+    let actual = nu!(pipeline(
+        r#"
+            [[a]; [1.0]] | to tsv | from tsv | get 0.a | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "float")
+}
+
+#[test]
 fn from_tsv_text_to_table() {
     Playground::setup("filter_from_tsv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(

@@ -68,7 +68,7 @@ fn ordered_params() {
 
         assert_eq!(
             results.out,
-            "nimurod-20-6-1-2024-03-23 00:15:24-03:00-72400000-1000000--[104, 101, 108, 108, 111]_\
+            "nimurod-20-6.0-1-2024-03-23 00:15:24-03:00-72400000-1000000--[104, 101, 108, 108, 111]_\
             string-int-float-int-string-int-int-nothing-binary"
         );
     });
@@ -108,7 +108,7 @@ fn named_params() {
 
         assert_eq!(
             results.out,
-            "nimurod-20-6-1-2024-03-23 00:15:24-03:00-72400000-1000000--[104, 101, 108, 108, 111]_\
+            "nimurod-20-6.0-1-2024-03-23 00:15:24-03:00-72400000-1000000--[104, 101, 108, 108, 111]_\
             string-int-float-int-string-int-int-nothing-binary"
         );
     });
