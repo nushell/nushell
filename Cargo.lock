@@ -3664,6 +3664,7 @@ dependencies = [
  "miette",
  "nu-cmd-base",
  "nu-engine",
+ "nu-experimental",
  "nu-parser",
  "nu-protocol",
  "nu-utils",
