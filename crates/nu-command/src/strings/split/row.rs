@@ -1,4 +1,4 @@
-use super::helpers::split_str;
+use super::helpers::{SplitWhere, split_str};
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
@@ -28,10 +28,16 @@ impl Command for SplitRow {
             .named(
                 "number",
                 SyntaxShape::Int,
-                "Split into maximum number of items",
+                "SplitWhere into maximum number of items",
                 Some('n'),
             )
             .switch("regex", "use regex syntax for separator", Some('r'))
+            .named(
+                "split",
+                SyntaxShape::String,
+                "Whether to split lists before, after, or on (default) the separator",
+                None,
+            )
             .category(Category::Strings)
     }
 
@@ -114,11 +120,14 @@ impl Command for SplitRow {
         let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
         let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
+        let split: Option<SplitWhere> = call.get_flag(engine_state, stack, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
 
         let args = Arguments {
             separator,
             max_split,
             has_regex,
+            split,
         };
         split_row(engine_state, call, input, args)
     }
@@ -132,11 +141,14 @@ impl Command for SplitRow {
         let separator: Spanned<String> = call.req_const(working_set, 0)?;
         let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
         let has_regex = call.has_flag_const(working_set, "regex")?;
+        let split: Option<SplitWhere> = call.get_flag_const(working_set, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
 
         let args = Arguments {
             separator,
             max_split,
             has_regex,
+            split,
         };
         split_row(working_set.permanent(), call, input, args)
     }
@@ -146,6 +158,7 @@ struct Arguments {
     has_regex: bool,
     separator: Spanned<String>,
     max_split: Option<usize>,
+    split: SplitWhere,
 }
 
 fn split_row(
@@ -169,7 +182,7 @@ fn split_row(
         inner: vec![],
     })?;
     input.flat_map(
-        move |x| match split_row_helper(&x, &regex, args.max_split, name_span) {
+        move |x| match split_row_helper(&x, &regex, args.max_split, args.split, name_span) {
             Ok(v) => v,
             Err(err) => vec![Value::error(err, x.span())],
         },
@@ -181,6 +194,7 @@ fn split_row_helper(
     v: &Value,
     regex: &Regex,
     max_split: Option<usize>,
+    split: SplitWhere,
     name: Span,
 ) -> Result<Vec<Value>, ShellError> {
     match v {
@@ -189,7 +203,7 @@ fn split_row_helper(
             let v_span = v.span();
 
             if let Ok(s) = v.coerce_str() {
-                split_str(&s, regex, max_split, false, v_span)
+                split_str(&s, regex, max_split, false, split, v_span)
             } else {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string".into(),
