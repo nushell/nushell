@@ -11,12 +11,15 @@ impl Command for DebugExperimentalOptions {
 
     fn signature(&self) -> Signature {
         Signature::new(self.name())
-            .input_output_type(Type::Nothing, Type::Table(Box::from([
-                (String::from("identifier"), Type::String),
-                (String::from("enabled"), Type::Bool),
-                (String::from("stability"), Type::String),
-                (String::from("description"), Type::String),
-            ])))
+            .input_output_type(
+                Type::Nothing,
+                Type::Table(Box::from([
+                    (String::from("identifier"), Type::String),
+                    (String::from("enabled"), Type::Bool),
+                    (String::from("stability"), Type::String),
+                    (String::from("description"), Type::String),
+                ])),
+            )
             .add_help()
             .category(Category::Debug)
     }
@@ -33,20 +36,29 @@ impl Command for DebugExperimentalOptions {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Ok(PipelineData::Value(
-            Value::list(nu_experimental::ALL.iter().map(|option| {
-                Value::record(nu_protocol::record!{
-                    "identifier" => Value::string(option.identifier(), call.head),
-                    "enabled" => Value::bool(option.get(), call.head),
-                    "stability" => Value::string(match option.stability() {
-                        Stability::Unstable => "unstable",
-                        Stability::StableOptIn => "stable-opt-in",
-                        Stability::StableOptOut => "stable-opt-out",
-                        Stability::Deprecated => "deprecated"
-                    }, call.head),
-                    "description" => Value::string(option.description(), call.head),
-                }, call.head)
-            }).collect(), call.head),
-            None
+            Value::list(
+                nu_experimental::ALL
+                    .iter()
+                    .map(|option| {
+                        Value::record(
+                            nu_protocol::record! {
+                                "identifier" => Value::string(option.identifier(), call.head),
+                                "enabled" => Value::bool(option.get(), call.head),
+                                "stability" => Value::string(match option.stability() {
+                                    Stability::Unstable => "unstable",
+                                    Stability::StableOptIn => "stable-opt-in",
+                                    Stability::StableOptOut => "stable-opt-out",
+                                    Stability::Deprecated => "deprecated"
+                                }, call.head),
+                                "description" => Value::string(option.description(), call.head),
+                            },
+                            call.head,
+                        )
+                    })
+                    .collect(),
+                call.head,
+            ),
+            None,
         ))
     }
 }

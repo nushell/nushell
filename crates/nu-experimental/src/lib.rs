@@ -2,11 +2,12 @@
 //!
 //! This crate defines all experimental options used in Nushell.
 //!
-//! An [`ExperimentalOption`] is basically a fancy global boolean. It should be set very early during
-//! initialization and lets us switch between old and new behavior for parts of the system.
+//! An [`ExperimentalOption`] is basically a fancy global boolean.
+//! It should be set very early during initialization and lets us switch between old and new
+//! behavior for parts of the system.
 //!
-//! The goal is to have a consistent way to handle experimental flags across the codebase, and
-//! to make it easy to find all available options.
+//! The goal is to have a consistent way to handle experimental flags across the codebase, and to
+//! make it easy to find all available options.
 //!
 //! # Usage
 //!
@@ -150,7 +151,7 @@ impl ExperimentalOption {
     /// Unsets an experimental option, resetting it to an uninitialized state.
     ///
     /// # Safety
-    /// Like [`set`](Self::set), this method is unsafe to highlight that experimental options should 
+    /// Like [`set`](Self::set), this method is unsafe to highlight that experimental options should
     /// remain stable during runtime.
     /// Only unset options in controlled, initialization contexts to avoid unpredictable behavior.
     pub unsafe fn unset(&self) {

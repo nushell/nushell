@@ -3,7 +3,7 @@ use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
 use thiserror::Error;
 
 /// Environment variable used to load experimental options from.
-/// 
+///
 /// May be used like this: `NU_EXPERIMENTAL_OPTIONS=example nu`.
 pub const ENV: &str = "NU_EXPERIMENTAL_OPTIONS";
 
@@ -17,7 +17,7 @@ pub enum ParseWarning {
     /// The assignment wasn't valid. Only `true` or `false` is accepted.
     #[error("Invalid assignment for `{identifier}`, expected `true` or `false`, got `{1}`", identifier = .0.identifier())]
     InvalidAssignment(&'static ExperimentalOption, String),
-    
+
     /// This experimental option is deprecated and will be removed in the future.
     #[error("The experimental option `{identifier}` is deprecated and will be removed in a future release", identifier = .0.identifier())]
     Deprecated(&'static ExperimentalOption),
