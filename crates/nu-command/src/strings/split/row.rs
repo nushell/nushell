@@ -104,6 +104,26 @@ impl Command for SplitRow {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Split into rows, keeping the delimiter as part of the output",
+                example: r#""7 oranges 3 bananas 5 green apples" | split row -r '\d' --split before --collapse-empty"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("7 oranges "),
+                    Value::test_string("3 bananas "),
+                    Value::test_string("5 green apples"),
+                ])),
+            },
+            Example {
+                description: "Split into 5 rows, collapsing the empty rows and not counting them",
+                example: r#""first|second||fourth|fifth|sixth|seventh" | split row "|" --number 5 --collapse-empty"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("first"),
+                    Value::test_string("second"),
+                    Value::test_string("fourth"),
+                    Value::test_string("fifth"),
+                    Value::test_string("sixth|seventh"),
+                ])),
+            },
         ]
     }
 

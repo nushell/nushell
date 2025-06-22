@@ -117,6 +117,15 @@ impl Command for SplitColumn {
                     }),
                 ])),
             },
+            Example {
+                description: "Split into columns, keeping the delimiter as part of the column",
+                example: r#""7 oranges 3 bananas 5 green apples" | split column -r '\d' --split before --collapse-empty"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "column1" => Value::test_string("7 oranges "),
+                    "column2" => Value::test_string("3 bananas "),
+                    "column3" => Value::test_string("5 green apples"),
+                })])),
+            },
         ]
     }
 
