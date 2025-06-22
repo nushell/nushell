@@ -3547,6 +3547,7 @@ dependencies = [
  "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
+ "nu-experimental",
  "nu-explore",
  "nu-lsp",
  "nu-parser",

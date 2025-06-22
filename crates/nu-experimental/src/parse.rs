@@ -4,6 +4,7 @@ use crate::{ALL, ExperimentalOption, Stability};
 
 pub const ENV: &str = "NU_EXPERIMENTS";
 
+#[derive(Debug)]
 pub enum ParseWarning {
     Unknown(String),
     InvalidAssignment(&'static ExperimentalOption, String),

@@ -204,11 +204,12 @@ workspace = true
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.105.2" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.105.2" }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.105.2" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.105.2" }
 nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.105.2", optional = true }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.105.2" }
 nu-command = { path = "./crates/nu-command", version = "0.105.2", default-features = false, features = ["os"] }
 nu-engine = { path = "./crates/nu-engine", version = "0.105.2" }
+nu-experimental = { path = "./crates/nu-experimental", version = "0.105.2" }
 nu-explore = { path = "./crates/nu-explore", version = "0.105.2" }
 nu-lsp = { path = "./crates/nu-lsp/", version = "0.105.2" }
 nu-parser = { path = "./crates/nu-parser", version = "0.105.2" }
