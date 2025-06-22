@@ -1,8 +1,8 @@
 use crate::{ALL, ExperimentalOption, Stability};
-use std::{borrow::Cow, env, sync::atomic::Ordering};
+use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
 use thiserror::Error;
 
-pub const ENV: &str = "NU_EXPERIMENTS";
+pub const ENV: &str = "NU_EXPERIMENTAL_OPTIONS";
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ParseWarning {
@@ -47,15 +47,25 @@ pub fn parse_iter<'i, Ctx>(
     warnings
 }
 
-pub fn parse_env() -> Vec<(ParseWarning, ())> {
+pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
     let Ok(env) = env::var(ENV) else {
         return vec![];
     };
 
-    parse_iter(env.split(",").map(|entry| {
+    let mut entries = Vec::new();
+    let mut start = 0;
+    for (idx, c) in env.char_indices() {
+        if c == ',' {
+            entries.push((&env[start..idx], start..idx));
+            start = idx + 1;
+        }
+    }
+    entries.push((&env[start..], start..env.len()));
+
+    parse_iter(entries.into_iter().map(|(entry, span)| {
         entry
             .split_once("=")
-            .map(|(key, val)| (key.into(), Some(val.into()), ()))
-            .unwrap_or((entry.into(), None, ()))
+            .map(|(key, val)| (key.into(), Some(val.into()), span.clone()))
+            .unwrap_or((entry.into(), None, span))
     }))
 }

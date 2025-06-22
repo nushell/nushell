@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use itertools::Itertools;
 
 use nu_experimental::ParseWarning;
@@ -12,23 +14,32 @@ use crate::command::NushellCliArgs;
 // 2. See if we should have any and disable all of them if not
 // 3. Parse CLI arguments, if explicitly mentioned, let's enable them
 pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
-    for env_warning in nu_experimental::parse_env() {
-        // TODO: print warnings for env here
-        // let code = experimental_warning_code(&env_warning);
-        // println!("{:?}", miette::miette!(
-        //     severity = miette::Severity::Warning,
-        //     code = code,
-        //     help = format!("this occurred on the environment variable {}", nu_experimental::ENV),
-        //     "{}", env_warning,
-        // ));
+    let working_set = StateWorkingSet::new(&engine_state);
+
+    let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
+    let env_offset = format!("{}=", nu_experimental::ENV).len();
+    for (env_warning, span) in nu_experimental::parse_env() {
+        let span_offset = (span.start + env_offset)..(span.end + env_offset);
+        let mut diagnostic = miette::diagnostic!(
+            severity = miette::Severity::Warning,
+            code = code(&env_warning),
+            labels = vec![miette::LabeledSpan::new_with_span(None, span_offset)],
+            "{}",
+            env_warning,
+        );
+        if let Some(help) = help(&env_warning) {
+            diagnostic = diagnostic.with_help(help);
+        }
+
+        let error = miette::Error::from(diagnostic).with_source_code(format!(
+            "{}={}",
+            nu_experimental::ENV,
+            env_content
+        ));
+        report_experimental_option_warning(&working_set, error.borrow());
     }
 
-    if has_script
-        || cli_args.commands.is_some()
-        || cli_args.execute.is_some()
-        || cli_args.no_config_file.is_some()
-        || cli_args.login_shell.is_some()
-    {
+    if should_disable_experimental_options(has_script, cli_args) {
         for option in nu_experimental::ALL {
             // SAFETY:
             // The `set` method for experimental option is marked unsafe to warn consumers that
@@ -49,7 +60,6 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
                 .unwrap_or((entry.item.clone().into(), None, entry))
         }))
     {
-        let working_set = StateWorkingSet::new(&engine_state);
         let diagnostic = miette::diagnostic!(
             severity = miette::Severity::Warning,
             code = code(&cli_arg_warning),
@@ -64,6 +74,14 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
             None => report_experimental_option_warning(&working_set, &diagnostic),
         }
     }
+}
+
+fn should_disable_experimental_options(has_script: bool, cli_args: &NushellCliArgs) -> bool {
+    has_script
+        || cli_args.commands.is_some()
+        || cli_args.execute.is_some()
+        || cli_args.no_config_file.is_some()
+        || cli_args.login_shell.is_some()
 }
 
 fn code(warning: &ParseWarning) -> &'static str {
