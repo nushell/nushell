@@ -1,4 +1,4 @@
-use fancy_regex::{Captures, Regex, RegexBuilder};
+use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
@@ -38,6 +38,18 @@ impl Command for Parse {
                 Some('b'),
             )
             .allow_variants_without_examples(true)
+            .named(
+                "before",
+                SyntaxShape::String,
+                "add a column with the given name for the unmatched text before each match",
+                None,
+            )
+            .named(
+                "after",
+                SyntaxShape::String,
+                "add a column with the given name for the unmatched text after each match",
+                None,
+            )
             .category(Category::Strings)
     }
 
@@ -129,7 +141,18 @@ impl Command for Parse {
         let backtrack_limit: usize = call
             .get_flag(engine_state, stack, "backtrack")?
             .unwrap_or(1_000_000); // 1_000_000 is fancy_regex default
-        operate(engine_state, pattern, regex, backtrack_limit, call, input)
+        let before = call.get_flag(engine_state, stack, "before")?;
+        let after = call.get_flag(engine_state, stack, "after")?;
+        operate(
+            engine_state,
+            pattern,
+            regex,
+            backtrack_limit,
+            before,
+            after,
+            call,
+            input,
+        )
     }
 
     fn run_const(
@@ -143,22 +166,29 @@ impl Command for Parse {
         let backtrack_limit: usize = call
             .get_flag_const(working_set, "backtrack")?
             .unwrap_or(1_000_000);
+        let before = call.get_flag_const(working_set, "before")?;
+        let after = call.get_flag_const(working_set, "after")?;
         operate(
             working_set.permanent(),
             pattern,
             regex,
             backtrack_limit,
+            before,
+            after,
             call,
             input,
         )
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn operate(
     engine_state: &EngineState,
     pattern: Spanned<String>,
     regex: bool,
     backtrack_limit: usize,
+    before: Option<String>,
+    after: Option<String>,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -198,11 +228,16 @@ fn operate(
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(value, ..) => match value {
             Value::String { val, .. } => {
-                let captures = regex
-                    .captures_iter(&val)
-                    .map(|captures| captures_to_value(captures, &columns, head))
-                    .collect::<Result<_, _>>()?;
-
+                let captures: Vec<Value> = ParseIter::new(
+                    regex,
+                    [Ok(val)].into_iter(),
+                    head,
+                    engine_state.signals().clone(),
+                    columns,
+                    before,
+                    after,
+                )
+                .collect();
                 Ok(Value::list(captures, head).into_pipeline_data())
             }
             Value::List { vals, .. } => {
@@ -217,15 +252,15 @@ fn operate(
                             src_span: span,
                         })
                 });
-
-                let iter = ParseIter {
-                    captures: VecDeque::new(),
+                let iter = ParseIter::new(
                     regex,
-                    columns,
                     iter,
-                    span: head,
-                    signals: engine_state.signals().clone(),
-                };
+                    head,
+                    engine_state.signals().clone(),
+                    columns,
+                    before,
+                    after,
+                );
 
                 Ok(ListStream::new(iter, head, Signals::empty()).into())
             }
@@ -247,26 +282,34 @@ fn operate(
                     })
                 });
 
-                ParseIter {
-                    captures: VecDeque::new(),
+                ParseIter::new(
                     regex,
-                    columns,
                     iter,
-                    span: head,
-                    signals: engine_state.signals().clone(),
-                }
+                    head,
+                    engine_state.signals().clone(),
+                    columns,
+                    before,
+                    after,
+                )
             })
             .into()),
         PipelineData::ByteStream(stream, ..) => {
             if let Some(lines) = stream.lines() {
-                let iter = ParseIter {
-                    captures: VecDeque::new(),
+                let iter = ParseIter::new(
                     regex,
+                    lines.map(|line_res| {
+                        // The lines iterator will remove the newline characters. Put them back in.
+                        line_res.map(|mut line| {
+                            line.push('\n');
+                            line
+                        })
+                    }),
+                    head,
+                    engine_state.signals().clone(),
                     columns,
-                    iter: lines,
-                    span: head,
-                    signals: engine_state.signals().clone(),
-                };
+                    before,
+                    after,
+                );
 
                 Ok(ListStream::new(iter, head, Signals::empty()).into())
             } else {
@@ -338,21 +381,124 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
 }
 
 struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
-    captures: VecDeque<Value>,
     regex: Regex,
-    columns: Vec<String>,
     iter: I,
+    columns: Vec<String>,
+    before: Option<String>,
+    after: Option<String>,
     span: Span,
     signals: Signals,
+
+    captures: VecDeque<Value>,
+    last_capture: Option<Record>,
+    buffer: String,
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
-    fn populate_captures(&mut self, str: &str) -> Result<(), ShellError> {
-        for captures in self.regex.captures_iter(str) {
-            self.captures
-                .push_back(captures_to_value(captures, &self.columns, self.span)?);
+    fn new(
+        regex: Regex,
+        iter: I,
+        span: Span,
+        signals: Signals,
+        columns: Vec<String>,
+        before: Option<String>,
+        after: Option<String>,
+    ) -> Self {
+        let captures = VecDeque::new();
+        let last_capture = None;
+        let buffer = String::new();
+
+        Self {
+            regex,
+            iter,
+            columns,
+            before,
+            after,
+            span,
+            signals,
+            captures,
+            last_capture,
+            buffer,
         }
-        Ok(())
+    }
+
+    fn try_next(&mut self) -> Result<Option<Value>, ShellError> {
+        loop {
+            if self.signals.interrupted() {
+                return Ok(None);
+            }
+
+            if let Some(val) = self.captures.pop_front() {
+                return Ok(Some(val));
+            }
+
+            let next_s = match self.iter.next() {
+                Some(res) => res?,
+                None => break,
+            };
+
+            let mut idx = 0;
+            let prev_len = self.buffer.len();
+            self.buffer.push_str(&next_s);
+
+            for captures in self.regex.captures_iter(&next_s) {
+                let captures = captures.map_err(|err| self.convert_regex_error(err))?;
+
+                let Some(m) = captures.get(0) else {
+                    return Err(ShellError::NushellFailed {
+                        msg: "capture.get(0) should always return the full regex match".to_string(),
+                    });
+                };
+
+                // trim the newlines at the end of the captured text
+                let text_before = trim_newline(&self.buffer[idx..(m.start() + prev_len)]);
+
+                let mut record = Record::new();
+
+                if let Some(column_name) = &self.before {
+                    record.push(column_name, Value::string(text_before, self.span));
+                }
+
+                self.columns
+                    .iter()
+                    .zip(captures.iter().skip(1))
+                    .for_each(|(column, match_)| {
+                        let match_str = match_.map(|m| m.as_str()).unwrap_or("");
+                        record.push(column.clone(), Value::string(match_str, self.span))
+                    });
+
+                if let Some(mut last_record) = self.last_capture.take() {
+                    if let Some(column_name) = &self.after {
+                        last_record.push(column_name, Value::string(text_before, self.span));
+                    }
+
+                    self.captures
+                        .push_back(Value::record(last_record, self.span));
+                }
+                self.last_capture = Some(record);
+                idx = m.end() + prev_len;
+            }
+            self.buffer = self.buffer.split_off(idx);
+        }
+        Ok(self.last_capture.take().map(|mut last_record| {
+            if let Some(column_name) = &self.after {
+                last_record.push(
+                    column_name,
+                    Value::string(trim_newline(&self.buffer), self.span),
+                );
+            }
+            Value::record(last_record, self.span)
+        }))
+    }
+
+    fn convert_regex_error(&self, err: fancy_regex::Error) -> ShellError {
+        ShellError::GenericError {
+            error: "Error with regular expression captures".into(),
+            msg: err.to_string(),
+            span: Some(self.span),
+            help: None,
+            inner: vec![],
+        }
     }
 }
 
@@ -360,50 +506,19 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Value> {
-        loop {
-            if self.signals.interrupted() {
-                return None;
-            }
-
-            if let Some(val) = self.captures.pop_front() {
-                return Some(val);
-            }
-
-            let result = self
-                .iter
-                .next()?
-                .and_then(|str| self.populate_captures(&str));
-
-            if let Err(err) = result {
-                return Some(Value::error(err, self.span));
-            }
+        match self.try_next() {
+            Ok(res) => res,
+            Err(err) => Some(Value::error(err, self.span)),
         }
     }
 }
 
-fn captures_to_value(
-    captures: Result<Captures, fancy_regex::Error>,
-    columns: &[String],
-    span: Span,
-) -> Result<Value, ShellError> {
-    let captures = captures.map_err(|err| ShellError::GenericError {
-        error: "Error with regular expression captures".into(),
-        msg: err.to_string(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    })?;
-
-    let record = columns
-        .iter()
-        .zip(captures.iter().skip(1))
-        .map(|(column, match_)| {
-            let match_str = match_.map(|m| m.as_str()).unwrap_or("");
-            (column.clone(), Value::string(match_str, span))
-        })
-        .collect();
-
-    Ok(Value::record(record, span))
+fn trim_newline(s: &str) -> &str {
+    if let Some('\n') = s.chars().last() {
+        &s[0..(s.len() - 1)]
+    } else {
+        s
+    }
 }
 
 #[cfg(test)]
