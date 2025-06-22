@@ -59,7 +59,7 @@ mod tests {
     fn assert_identifiers_are_unique() {
         let list: Vec<_> = ALL.iter().map(|opt| opt.identifier()).collect();
         let set: HashSet<_> = HashSet::from_iter(&list);
-        assert_eq!(list.iter().count(), set.iter().count());
+        assert_eq!(list.len(), set.len());
     }
 
     #[test]

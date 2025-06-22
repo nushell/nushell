@@ -14,7 +14,7 @@ use crate::command::NushellCliArgs;
 // 2. See if we should have any and disable all of them if not
 // 3. Parse CLI arguments, if explicitly mentioned, let's enable them
 pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
-    let working_set = StateWorkingSet::new(&engine_state);
+    let working_set = StateWorkingSet::new(engine_state);
 
     let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
     let env_offset = format!("{}=", nu_experimental::ENV).len();
