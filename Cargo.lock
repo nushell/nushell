@@ -3745,6 +3745,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
+ "nu-experimental",
  "nu-glob",
  "nu-json",
  "nu-parser",
