@@ -47,11 +47,20 @@ pub use example::EXAMPLE;
 ///
 /// Use this to show users every experimental option, including their descriptions,
 /// identifiers, and current state.
-pub static ALL: &'static [&ExperimentalOption] = &[&EXAMPLE];
+pub static ALL: &[&ExperimentalOption] = &[&EXAMPLE];
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
+
+    #[test]
+    fn assert_identifiers_are_unique() {
+        let list: Vec<_> = ALL.iter().map(|opt| opt.identifier()).collect();
+        let set: HashSet<_> = HashSet::from_iter(&list);
+        assert_eq!(list.iter().count(), set.iter().count());
+    }
 
     #[test]
     fn assert_identifiers_are_valid() {

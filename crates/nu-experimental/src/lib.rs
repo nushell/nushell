@@ -1,7 +1,12 @@
-use std::{fmt::Debug, sync::OnceLock};
+use crate::util::AtomicMaybe;
+use std::{fmt::Debug, sync::atomic::Ordering};
 
 mod options;
+mod parse;
+mod util;
+
 pub use options::*;
+pub use parse::*;
 
 /// Where an experimental option sits in its life-cycle.
 ///
@@ -39,7 +44,7 @@ pub enum Stability {
 /// To also include the description in the output, use the
 /// [plus sign](std::fmt::Formatter::sign_plus), e.g. `format!("{OPTION:+#?}")`.
 pub struct ExperimentalOption {
-    value: OnceLock<bool>,
+    value: AtomicMaybe,
     marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync),
 }
 
@@ -51,7 +56,7 @@ impl ExperimentalOption {
         marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync),
     ) -> Self {
         Self {
-            value: OnceLock::new(),
+            value: AtomicMaybe::new(None),
             marker,
         }
     }
@@ -70,14 +75,21 @@ impl ExperimentalOption {
 
     pub fn get(&self) -> bool {
         self.value
-            .get()
-            .copied()
+            .load(Ordering::Relaxed)
             .unwrap_or_else(|| match self.marker.stability() {
                 Stability::Unstable => false,
                 Stability::StableOptIn => false,
                 Stability::StableOptOut => true,
                 Stability::Deprecated => false,
             })
+    }
+
+    pub fn set(&self, value: bool) {
+        self.value.store(value, Ordering::Relaxed);
+    }
+
+    pub fn unset(&self) {
+        self.value.store(None, Ordering::Relaxed);
     }
 }
 
@@ -86,7 +98,7 @@ impl Debug for ExperimentalOption {
         let add_description = f.sign_plus();
         let mut debug_struct = f.debug_struct("ExperimentalOption");
         debug_struct.field("identifier", &self.identifier());
-        debug_struct.field("value", &self.value.get());
+        debug_struct.field("value", &self.get());
         debug_struct.field("stability", &self.stability());
         if add_description {
             debug_struct.field("description", &self.description());
