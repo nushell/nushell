@@ -1,3 +1,54 @@
+//! Experimental Options for the Nu codebase.
+//!
+//! This crate defines all experimental options used in Nushell.
+//!
+//! An [`ExperimentalOption`] is basically a fancy global boolean. It should be set very early during
+//! initialization and lets us switch between old and new behavior for parts of the system.
+//!
+//! The goal is to have a consistent way to handle experimental flags across the codebase, and
+//! to make it easy to find all available options.
+//!
+//! # Usage
+//!
+//! Using an option is simple:
+//!
+//! ```rust
+//! if nu_experimental::EXAMPLE.get() {
+//!     // new behavior
+//! } else {
+//!     // old behavior
+//! }
+//! ```
+//!
+//! # Adding New Options
+//!
+//! 1. Create a new module in `options.rs`.
+//! 2. Define a marker struct and implement `ExperimentalOptionMarker` for it.
+//! 3. Add a new static using `ExperimentalOption::new`.
+//! 4. Add the static to [`ALL`].
+//!
+//! That's it. See [`EXAMPLE`] in `options/example.rs` for a complete example.
+//!
+//! # For Users
+//!
+//! Users can view enabled options using either `version` or `debug experimental-options`.
+//!
+//! To enable or disable options, use either the `NU_EXPERIMENTAL_OPTIONS` environment variable
+//! (see [`ENV`]), or pass them via CLI using `--experimental-options`, e.g.:
+//!
+//! ```sh
+//! nu --experimental-options=[example]
+//! ```
+//!
+//! # For Embedders
+//!
+//! If you're embedding Nushell, prefer using [`parse_env`] or [`parse_iter`] to load options.
+//!
+//! `parse_iter` is useful if you want to feed in values from other sources.
+//! Since options are expected to stay stable during runtime, make sure to do this early.
+//!
+//! You can also call [`ExperimentalOption::set`] manually, but be careful with that.
+
 use crate::util::AtomicMaybe;
 use std::{fmt::Debug, sync::atomic::Ordering};
 
@@ -99,8 +150,8 @@ impl ExperimentalOption {
     /// Unsets an experimental option, resetting it to an uninitialized state.
     ///
     /// # Safety
-    /// Like [`set`], this method is unsafe to highlight that experimental options should remain
-    /// stable during runtime.
+    /// Like [`set`](Self::set), this method is unsafe to highlight that experimental options should 
+    /// remain stable during runtime.
     /// Only unset options in controlled, initialization contexts to avoid unpredictable behavior.
     pub unsafe fn unset(&self) {
         self.value.store(None, Ordering::Relaxed);
