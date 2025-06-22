@@ -1,6 +1,7 @@
 mod command;
 mod command_context;
 mod config_files;
+mod experimental_options;
 mod ide;
 mod logger;
 mod run;
@@ -201,19 +202,7 @@ fn main() -> Result<()> {
             std::process::exit(1)
         });
 
-    let nu_experimental_parse_warnings = nu_experimental::parse_env().into_iter().chain(
-        nu_experimental::parse_iter(parsed_nu_cli_args.experimental_options.iter().flatten().map(
-            |entry| {
-                entry.item
-                    .split_once("=")
-                    .map(|(key, val)| (key.into(), Some(val.into())))
-                    .unwrap_or((entry.item.clone().into(), None))
-            },
-        )),
-    );
-
-    // TODO: print these warnings
-    dbg!(nu_experimental_parse_warnings.collect::<Vec<_>>());
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()

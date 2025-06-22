@@ -6,3 +6,6 @@ license = "MIT"
 name = "nu-experimental"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-experimental"
 version = "0.105.2"
+
+[dependencies]
+thiserror.workspace = true

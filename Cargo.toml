@@ -164,6 +164,7 @@ syn = "2.0"
 sysinfo = "0.33"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.20"
+thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.8"
 trash = "5.2"
@@ -224,6 +225,7 @@ reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 crossterm = { workspace = true }
 ctrlc = { workspace = true }
 dirs = { workspace = true }
+itertools = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 multipart-rs = { workspace = true }

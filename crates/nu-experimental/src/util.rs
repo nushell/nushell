@@ -37,4 +37,8 @@ impl AtomicMaybe {
             _ => unreachable!("inner atomic is not exposed and can only set 0 to 2"),
         }
     }
+
+    pub fn as_ptr(&self) -> *mut u8 {
+        self.0.as_ptr()
+    }
 }

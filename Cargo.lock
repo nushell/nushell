@@ -3536,6 +3536,7 @@ dependencies = [
  "ctrlc",
  "dirs",
  "fancy-regex",
+ "itertools 0.14.0",
  "log",
  "miette",
  "multipart-rs",
@@ -3839,6 +3840,9 @@ dependencies = [
 [[package]]
 name = "nu-experimental"
 version = "0.105.2"
+dependencies = [
+ "thiserror 2.0.12",
+]
 
 [[package]]
 name = "nu-explore"

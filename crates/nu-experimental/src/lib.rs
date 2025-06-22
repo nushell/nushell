@@ -84,11 +84,25 @@ impl ExperimentalOption {
             })
     }
 
-    pub fn set(&self, value: bool) {
+    /// Sets the state of an experimental option.
+    ///
+    /// # Safety
+    /// This method is unsafe to emphasize that experimental options are not designed to change
+    /// dynamically at runtime.
+    /// Changing their state at arbitrary points can lead to inconsistent behavior.
+    /// You should set experimental options only during initialization, before the application fully
+    /// starts.
+    pub unsafe fn set(&self, value: bool) {
         self.value.store(value, Ordering::Relaxed);
     }
 
-    pub fn unset(&self) {
+    /// Unsets an experimental option, resetting it to an uninitialized state.
+    ///
+    /// # Safety
+    /// Like [`set`], this method is unsafe to highlight that experimental options should remain
+    /// stable during runtime.
+    /// Only unset options in controlled, initialization contexts to avoid unpredictable behavior.
+    pub unsafe fn unset(&self) {
         self.value.store(None, Ordering::Relaxed);
     }
 }
@@ -106,6 +120,15 @@ impl Debug for ExperimentalOption {
         debug_struct.finish()
     }
 }
+
+impl PartialEq for ExperimentalOption {
+    fn eq(&self, other: &Self) -> bool {
+        // if both underlying atomics point to the same value, we talk about the same option
+        self.value.as_ptr() == other.value.as_ptr()
+    }
+}
+
+impl Eq for ExperimentalOption {}
 
 pub(crate) trait DynExperimentalOptionMarker {
     fn identifier(&self) -> &'static str;
