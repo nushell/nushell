@@ -7,8 +7,6 @@ name: Create Release Draft
 on:
   workflow_dispatch:
   push:
-    branches:
-      - feature/loong64-musl
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
       - '!*nightly*'  # Don't trigger release for nightly tags
