@@ -10,7 +10,10 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
-    num::NonZeroUsize,
+    num::{
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
+        NonZeroU64, NonZeroUsize,
+    },
     path::PathBuf,
     str::FromStr,
 };
@@ -271,16 +274,10 @@ impl FromValue for i64 {
     }
 }
 
-// Implement FromValue for specific NonZero integer types using a macro.
 //
-// ⚠️ Note: We intentionally do *not* implement a blanket `impl<T: FromValue> FromValue for NonZero<T>`.
-// While that would be more generic and ergonomic, it is currently not possible in stable Rust because:
+// We can not use impl<T: FromValue> FromValue for NonZero<T> as NonZero requires an unstable trait
+// As a result, we use this macro to implement FromValue for each NonZero type.
 //
-// - `std::num::NonZero<T>::new` requires `T: ZeroablePrimitive`, an unstable trait internal to the standard library.
-// - This trait is not nameable or implementable outside of `std`, so we cannot satisfy the required trait bounds.
-//
-// As a result, we use this macro to implement FromValue for each concrete NonZero type explicitly.
-// This keeps the implementation clean, DRY, and extensible.
 
 macro_rules! impl_from_value_for_nonzero {
     ($nonzero:ty, $base:ty) => {
@@ -302,7 +299,16 @@ macro_rules! impl_from_value_for_nonzero {
     };
 }
 
+impl_from_value_for_nonzero!(NonZeroU16, u16);
+impl_from_value_for_nonzero!(NonZeroU32, u32);
+impl_from_value_for_nonzero!(NonZeroU64, u64);
 impl_from_value_for_nonzero!(NonZeroUsize, usize);
+
+impl_from_value_for_nonzero!(NonZeroI8, i8);
+impl_from_value_for_nonzero!(NonZeroI16, i16);
+impl_from_value_for_nonzero!(NonZeroI32, i32);
+impl_from_value_for_nonzero!(NonZeroI64, i64);
+impl_from_value_for_nonzero!(NonZeroIsize, isize);
 
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
