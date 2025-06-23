@@ -10,6 +10,10 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
+    num::{
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
+        NonZeroU64, NonZeroUsize,
+    },
     path::PathBuf,
     str::FromStr,
 };
@@ -269,6 +273,42 @@ impl FromValue for i64 {
         Type::Int
     }
 }
+
+//
+// We can not use impl<T: FromValue> FromValue for NonZero<T> as NonZero requires an unstable trait
+// As a result, we use this macro to implement FromValue for each NonZero type.
+//
+
+macro_rules! impl_from_value_for_nonzero {
+    ($nonzero:ty, $base:ty) => {
+        impl FromValue for $nonzero {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
+                let span = v.span();
+                let val = <$base>::from_value(v)?;
+                <$nonzero>::new(val).ok_or_else(|| ShellError::IncorrectValue {
+                    msg: "use a value other than 0".into(),
+                    val_span: span,
+                    call_span: span,
+                })
+            }
+
+            fn expected_type() -> Type {
+                Type::Int
+            }
+        }
+    };
+}
+
+impl_from_value_for_nonzero!(NonZeroU16, u16);
+impl_from_value_for_nonzero!(NonZeroU32, u32);
+impl_from_value_for_nonzero!(NonZeroU64, u64);
+impl_from_value_for_nonzero!(NonZeroUsize, usize);
+
+impl_from_value_for_nonzero!(NonZeroI8, i8);
+impl_from_value_for_nonzero!(NonZeroI16, i16);
+impl_from_value_for_nonzero!(NonZeroI32, i32);
+impl_from_value_for_nonzero!(NonZeroI64, i64);
+impl_from_value_for_nonzero!(NonZeroIsize, isize);
 
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
