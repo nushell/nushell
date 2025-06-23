@@ -198,7 +198,8 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
 # the guarantee that there are no additional elements.
 #
 # Note that this command currently collects streams.
-@search-terms "first" "single"
+@search-terms first single
+@category filters
 @example "Get the only item in a list, ensuring it exists and there's no additional items" --result 5 {
   [5] | only
 }
