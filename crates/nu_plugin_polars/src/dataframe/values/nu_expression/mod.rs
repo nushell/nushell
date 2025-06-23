@@ -365,10 +365,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 span,
             ))
         }
-        Expr::RenameAlias { expr, function } => Ok(Value::record(
+        Expr::RenameAlias { expr, .. } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
-                "function" => Value::string(format!("{function:?}"), span),
             },
             span,
         )),
@@ -377,6 +376,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             function,
             output_type,
             options,
+            fmt_str,
         } => {
             let input: Result<Vec<Value>, ShellError> =
                 input.iter().map(|e| expr_to_value(e, span)).collect();
@@ -386,22 +386,18 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                     "function" => Value::string(format!("{function:?}"), span),
                     "output_type" => Value::string(format!("{output_type:?}"), span),
                     "options" => Value::string(format!("{options:?}"), span),
+                    "fmt_str" => Value::string(format!("{fmt_str:?}"), span),
                 },
                 span,
             ))
         }
-        Expr::Function {
-            input,
-            function,
-            options,
-        } => {
+        Expr::Function { input, function } => {
             let input: Result<Vec<Value>, ShellError> =
                 input.iter().map(|e| expr_to_value(e, span)).collect();
             Ok(Value::record(
                 record! {
                     "input" => Value::list(input?, span),
                     "function" => Value::string(format!("{function:?}"), span),
-                    "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
             ))
@@ -452,13 +448,19 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
+            msg: "Expressions of type Selector to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
             input_span: Span::unknown(),
         }),
         Expr::IndexColumn(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type IndexColumn to Nu Values is not yet supported".to_string(),
+            msg: "Expressions of type IndexColumn to Nu Value is not yet supported".to_string(),
+            input: format!("Expression is {expr:?}"),
+            msg_span: span,
+            input_span: Span::unknown(),
+        }),
+        Expr::Eval { .. } => Err(ShellError::UnsupportedInput {
+            msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
             input_span: Span::unknown(),
