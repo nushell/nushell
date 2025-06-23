@@ -186,7 +186,7 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
 
 # Get the only element of a list or table, ensuring it exists and there are no extra elements.
 #
-# Similar to `first` with no arguments, but errors if there are no additional
+# Similar to `first` with no arguments, but errors if there are additional
 # items when there should only be one item. This can help avoid issues when more
 # than one row than expected matches some criteria.
 #
