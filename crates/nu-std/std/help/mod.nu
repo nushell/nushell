@@ -571,6 +571,7 @@ def build-command-page [command: record] {
       {
         "Creates scope" : $command.creates_scope,
         "Is built-in" : ($command.type == "built-in"),
+        "Is const" : $command.is_const,
         "Is a subcommand" : $command.is_sub,
         "Is a part of a plugin": ($command.type == "plugin"),
         "Is a custom command": ($command.type == "custom"),
