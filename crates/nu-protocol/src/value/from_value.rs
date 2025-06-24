@@ -1,5 +1,5 @@
 use crate::{
-    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
+    FromValueError, NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
     ast::{CellPath, PathMember},
     casing::Casing,
     engine::Closure,
@@ -124,7 +124,7 @@ pub trait FromValue: Sized {
     ///
     /// This method retrieves a value similarly to how strings are parsed using [`FromStr`].
     /// The operation might fail if the `Value` contains unexpected types or structures.
-    fn from_value(v: Value) -> Result<Self, ShellError>;
+    fn from_value(v: Value) -> Result<Self, FromValueError>;
 
     /// Expected `Value` type.
     ///

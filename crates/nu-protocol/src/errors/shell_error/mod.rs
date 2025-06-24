@@ -1501,6 +1501,56 @@ impl<'de> Deserialize<'de> for ShellError {
     }
 }
 
+#[derive(Debug)]
+pub enum FromValueError {
+    TypeMismatch { expected: Type, actual: Type },
+    MissingField(String),
+    Custom(String),
+}
+
+impl std::fmt::Display for FromValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TypeMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "Type mismatch: expected {:?}, got {:?}",
+                    expected, actual
+                )
+            }
+            Self::MissingField(field) => write!(f, "Missing field: {}", field),
+            Self::Custom(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for FromValueError {}
+
+impl FromValueError {
+    pub fn to_shell_error(&self, span: Span) -> ShellError {
+        match self {
+            FromValueError::TypeMismatch { expected, actual } => ShellError::TypeMismatch {
+                err_message: format!("Type mismatch: expected {:?}, got {:?}", expected, actual),
+                span,
+            },
+            FromValueError::MissingField(field) => ShellError::TypeMismatch {
+                err_message: format!("Missing field: {}", field),
+                span,
+            },
+            FromValueError::Custom(msg) => ShellError::TypeMismatch {
+                err_message: msg.clone(),
+                span,
+            },
+        }
+    }
+}
+
+impl From<FromValueError> for ShellError {
+    fn from(err: FromValueError) -> Self {
+        err.to_shell_error(Span::unknown())
+    }
+}
+
 #[test]
 fn shell_error_serialize_roundtrip() {
     // Ensure that we can serialize and deserialize `ShellError`, and check that it basically would

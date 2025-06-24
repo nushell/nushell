@@ -16,4 +16,5 @@ pub use config_error::ConfigError;
 pub use labeled_error::{ErrorLabel, LabeledError};
 pub use parse_error::{DidYouMean, ParseError};
 pub use parse_warning::ParseWarning;
+pub use shell_error::FromValueError;
 pub use shell_error::ShellError;
