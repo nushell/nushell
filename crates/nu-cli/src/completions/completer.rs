@@ -466,6 +466,14 @@ impl NuCompleter {
                                 return suggestions;
                             }
                         }
+                        // for external path arguments with spaces, please check issue #15790
+                        if suggestions.is_empty() {
+                            let (new_span, prefix) =
+                                strip_placeholder_if_any(working_set, &span, strip);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
+                            suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
+                            return suggestions;
+                        }
                         break;
                     }
                 }

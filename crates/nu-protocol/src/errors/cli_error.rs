@@ -63,7 +63,7 @@ fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bo
     }
 }
 
-pub fn format_shell_error(working_set: &StateWorkingSet, error: &ShellError) -> String {
+pub fn format_cli_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) -> String {
     format!("Error: {:?}", CliError(error, working_set))
 }
 

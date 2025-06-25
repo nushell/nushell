@@ -127,6 +127,7 @@ jobs:
         - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
         - loongarch64-unknown-linux-gnu
+        - loongarch64-unknown-linux-musl
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
@@ -151,6 +152,8 @@ jobs:
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-22.04
         - target: loongarch64-unknown-linux-gnu
+          os: ubuntu-22.04
+        - target: loongarch64-unknown-linux-musl
           os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
@@ -179,6 +182,7 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
+        cache: false
         rustflags: ''
 
     - name: Setup Nushell

@@ -1,4 +1,4 @@
-use fancy_regex::{Captures, Regex};
+use fancy_regex::{Captures, Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
@@ -31,6 +31,12 @@ impl Command for Parse {
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .named(
+                "backtrack",
+                SyntaxShape::Int,
+                "set the max backtrack limit for regex",
+                Some('b'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
@@ -96,6 +102,14 @@ impl Command for Parse {
                     "capture0" => Value::test_string("b"),
                 })])),
             },
+            Example {
+                description: "Parse a string with a manually set fancy-regex backtrack limit",
+                example: "\"hi there\" | parse --backtrack 1500000 \"{foo} {bar}\"",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "foo" => Value::test_string("hi"),
+                    "bar" => Value::test_string("there"),
+                })])),
+            },
         ]
     }
 
@@ -112,7 +126,10 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let regex: bool = call.has_flag(engine_state, stack, "regex")?;
-        operate(engine_state, pattern, regex, call, input)
+        let backtrack_limit: usize = call
+            .get_flag(engine_state, stack, "backtrack")?
+            .unwrap_or(1_000_000); // 1_000_000 is fancy_regex default
+        operate(engine_state, pattern, regex, backtrack_limit, call, input)
     }
 
     fn run_const(
@@ -123,7 +140,17 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req_const(working_set, 0)?;
         let regex: bool = call.has_flag_const(working_set, "regex")?;
-        operate(working_set.permanent(), pattern, regex, call, input)
+        let backtrack_limit: usize = call
+            .get_flag_const(working_set, "backtrack")?
+            .unwrap_or(1_000_000);
+        operate(
+            working_set.permanent(),
+            pattern,
+            regex,
+            backtrack_limit,
+            call,
+            input,
+        )
     }
 }
 
@@ -131,6 +158,7 @@ fn operate(
     engine_state: &EngineState,
     pattern: Spanned<String>,
     regex: bool,
+    backtrack_limit: usize,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -145,13 +173,16 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
-        error: "Error with regular expression".into(),
-        msg: e.to_string(),
-        span: Some(pattern_span),
-        help: None,
-        inner: vec![],
-    })?;
+    let regex = RegexBuilder::new(&item_to_parse)
+        .backtrack_limit(backtrack_limit)
+        .build()
+        .map_err(|e| ShellError::GenericError {
+            error: "Error with regular expression".into(),
+            msg: e.to_string(),
+            span: Some(pattern_span),
+            help: None,
+            inner: vec![],
+        })?;
 
     let columns = regex
         .capture_names()

@@ -166,6 +166,15 @@ impl TableTheme {
         Self::new(Style::sharp(), full)
     }
 
+    pub fn double() -> TableTheme {
+        let hline = HorizontalLine::inherit(Style::extended());
+        let theme = Style::extended()
+            .remove_horizontal()
+            .horizontals([(1, hline)]);
+
+        Self::new(theme, Style::extended())
+    }
+
     pub fn none() -> TableTheme {
         Self::new(Style::blank(), Style::blank())
     }

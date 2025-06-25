@@ -70,7 +70,10 @@ $env.config.history.isolation = true
 # Miscellaneous Settings
 # ----------------------
 
-# show_banner (bool): Enable or disable the welcome banner at startup
+# show_banner (bool|string): Enable or disable the welcome banner at startup
+# true | "full": show the full banner
+# "short": just show the start-up time
+# false | "none": don't show a banner
 $env.config.show_banner = true
 
 # rm.always_trash (bool):
@@ -300,7 +303,7 @@ $env.config.footer_mode = 25
 # Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# "basic_compact" or "single"
+# "basic_compact", "single", or "double"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 

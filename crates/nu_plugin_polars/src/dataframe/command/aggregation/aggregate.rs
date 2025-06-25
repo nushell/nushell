@@ -202,7 +202,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::SubPlan(_, _)
         | Expr::IndexColumn(_)
         | Expr::Selector(_)
-        | Expr::Field(_) => None,
+        | Expr::Field(_)
+        | Expr::Eval { .. } => None,
     }
 }
 

@@ -188,6 +188,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Strings
         bind_command! {
+            Ansi,
+            AnsiLink,
+            AnsiStrip,
             Char,
             Decode,
             Encode,
@@ -250,9 +253,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         #[cfg(feature = "os")]
         bind_command! {
-            Ansi,
-            AnsiLink,
-            AnsiStrip,
             Clear,
             Du,
             Input,

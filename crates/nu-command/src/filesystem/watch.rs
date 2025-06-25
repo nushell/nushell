@@ -8,7 +8,7 @@ use notify_debouncer_full::{
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
-    format_shell_error,
+    format_cli_error,
     shell_error::io::IoError,
 };
 use std::{
@@ -208,7 +208,7 @@ impl Command for Watch {
                     }
                     Err(err) => {
                         let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_shell_error(&working_set, &err));
+                        eprintln!("{}", format_cli_error(&working_set, &err));
                     }
                 }
             }
