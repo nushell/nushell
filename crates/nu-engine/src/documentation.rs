@@ -156,12 +156,13 @@ fn highlight_capture_group(
 
     // Highlight and reject invalid syntax
     let highlighted = try_nu_highlight(content.into(), true, engine_state, stack)
-        // Make highlighted string italic
+        // // Make highlighted string italic
         .map(|text| {
-            // replace resets with reset + italic, so the whole string is actually italicized
-            let text = text.replace(RESET, &format!("{RESET}{DEFAULT_ITALIC}"));
-            // start italicized, and also undo the final reset -> reset+italic
-            format!("{DEFAULT_ITALIC}{text}{RESET}")
+            let resets = text.match_indices(RESET).count();
+            // replace resets with reset + italic, so the whole string is italicized, excluding the final reset
+            let text = text.replacen(RESET, &format!("{RESET}{DEFAULT_ITALIC}"), resets - 1);
+            // start italicized
+            format!("{DEFAULT_ITALIC}{text}")
         });
 
     // Restore original config
