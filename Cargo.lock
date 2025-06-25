@@ -4272,6 +4272,7 @@ dependencies = [
  "lean_string",
  "log",
  "lscolors",
+ "memchr",
  "nix 0.29.0",
  "num-format",
  "serde",

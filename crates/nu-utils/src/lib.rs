@@ -8,6 +8,7 @@ pub mod float;
 pub mod locale;
 mod quoting;
 mod shared_cow;
+mod split_read;
 pub mod strings;
 pub mod utils;
 
@@ -27,6 +28,7 @@ pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;
 pub use quoting::{escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
+pub use split_read::SplitRead;
 
 #[cfg(unix)]
 pub use filesystem::users;
