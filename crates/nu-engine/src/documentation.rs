@@ -10,7 +10,12 @@ use nu_protocol::{
     record,
 };
 use nu_utils::terminal_size;
-use std::{borrow::Cow, collections::HashMap, fmt::Write, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt::Write,
+    sync::{Arc, LazyLock},
+};
 
 /// ANSI style reset
 const RESET: &str = "\x1b[0m";
@@ -191,18 +196,18 @@ fn highlight_code<'a>(
     }
 
     // See [`tests::test_code_formatting`] for examples
-    let pattern = r"(?x)     # verbose mode
+    static PATTERN: &str = r"(?x)     # verbose mode
         (?<![\p{Letter}\d])    # negative look-behind for alphanumeric: ensure backticks are not directly preceded by letter/number.
         `
         ([^`\n]+?)           # capture characters inside backticks, excluding backticks and newlines. ungreedy.
         `
         (?![\p{Letter}\d])     # negative look-ahead for alphanumeric: ensure backticks are not directly followed by letter/number.
     ";
+    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(PATTERN).expect("valid regex"));
 
-    let re = Regex::new(pattern).expect("regex failed to compile");
     let do_try_highlight =
         |captures: &Captures| highlight_capture_group(captures, engine_state, stack);
-    re.replace_all(text, do_try_highlight)
+    RE.replace_all(text, do_try_highlight)
 }
 
 fn get_alias_documentation(
