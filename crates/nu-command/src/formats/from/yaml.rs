@@ -244,6 +244,7 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
 
 #[cfg(test)]
 mod test {
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -410,6 +411,7 @@ mod test {
             working_set.add_decl(Box::new(FromYaml {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -418,7 +420,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --datasource-ls | from yaml | metadata | $in"#;
+        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --datasource-ls | from yaml | metadata | reject span"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
