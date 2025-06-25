@@ -56,8 +56,7 @@ pub(crate) fn highlight_syntax(
 
                     let str_word = String::from_utf8_lossy(str_contents).to_string();
                     let paths = env::path_str(engine_state, stack, *span).ok();
-                    #[allow(deprecated)]
-                    let res = if let Ok(cwd) = env::current_dir_str(engine_state, stack) {
+                    let res = if let Ok(cwd) = engine_state.cwd(Some(stack)) {
                         which::which_in(str_word, paths.as_ref(), cwd).ok()
                     } else {
                         which::which_in_global(str_word, paths.as_ref())
