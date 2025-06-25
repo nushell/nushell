@@ -21,7 +21,7 @@ use nu_protocol::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
@@ -4118,77 +4118,44 @@ pub fn find_in_dirs(
             return None;
         }
 
-        // Look up relative path from NU_LIB_DIRS
-        dirs_var_name
-            .as_ref()
-            .and_then(|dirs_var_name| find_dirs_var(working_set, dirs_var_name))
-            .map(|var_id| working_set.get_variable(var_id))?
-            .const_val
-            .as_ref()?
-            .as_list()
-            .ok()?
-            .iter()
-            .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.to_path().ok()?;
-                let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
-                canonicalize_with(filename, dir_abs).ok()
-            })
-            .find(Option::is_some)
-            .flatten()
-            .map(ParserPath::RealPath)
-    }
-
-    // TODO: remove (see #8310)
-    // Same as find_in_dirs_with_id but using $env.NU_LIB_DIRS instead of constant
-    pub fn find_in_dirs_old(
-        filename: &str,
-        working_set: &StateWorkingSet,
-        cwd: &str,
-        dirs_env: Option<&str>,
-    ) -> Option<PathBuf> {
-        // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = working_set
-            .files
-            .current_working_directory()
-            .unwrap_or(Path::new(cwd));
-
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
-            Some(p)
-        } else {
-            let path = Path::new(filename);
-
-            if path.is_relative() {
-                if let Some(lib_dirs) =
-                    dirs_env.and_then(|dirs_env| working_set.get_env_var(dirs_env))
-                {
-                    if let Ok(dirs) = lib_dirs.as_list() {
-                        for lib_dir in dirs {
-                            if let Ok(dir) = lib_dir.to_path() {
-                                // make sure the dir is absolute path
-                                if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
-                                    if let Ok(path) = canonicalize_with(filename, dir_abs) {
-                                        return Some(path);
-                                    }
-                                }
-                            }
+        let try_dirs = |dirs: &[Value]| -> Option<ParserPath> {
+            for lib_dir in dirs {
+                if let Ok(dir) = lib_dir.to_path() {
+                    if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
+                        if let Ok(path) = canonicalize_with(filename, dir_abs) {
+                            return Some(ParserPath::RealPath(path));
                         }
-
-                        None
-                    } else {
-                        None
                     }
-                } else {
-                    None
                 }
-            } else {
-                None
+            }
+            None
+        };
+
+        if let Some(dirs_var_name) = dirs_var_name {
+            // Try const var
+            if let Some(var_id) = find_dirs_var(working_set, dirs_var_name) {
+                if let Some(val) = working_set.get_variable(var_id).const_val.as_ref() {
+                    if let Ok(dirs) = val.as_list() {
+                        if let Some(path) = try_dirs(dirs) {
+                            return Some(path);
+                        }
+                    }
+                }
+            }
+
+            // Fallback: try $env.NU_LIB_DIRS
+            if let Some(env_val) = working_set.get_env_var(dirs_var_name) {
+                if let Ok(dirs) = env_val.as_list() {
+                    if let Some(path) = try_dirs(dirs) {
+                        return Some(path);
+                    }
+                }
             }
         }
+        None
     }
 
-    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name).or_else(|| {
-        find_in_dirs_old(filename, working_set, cwd, dirs_var_name).map(ParserPath::RealPath)
-    })
+    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
 }
 
 fn detect_params_in_name(
