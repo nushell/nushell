@@ -79,15 +79,13 @@ impl Command for MetadataSet {
             },
             Example {
                 description: "Set the metadata of a file path",
-                example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates' | metadata",
+                example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
                 result: None,
             },
             Example {
                 description: "Set the metadata of a file path",
-                example: "'crates' | metadata set --content-type text/plain | metadata",
-                result: Some(Value::test_record(record! {
-                    "content_type" => Value::test_string("text/plain"),
-                })),
+                example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
+                result: Some(Value::test_string("text/plain")),
             },
         ]
     }
