@@ -122,6 +122,38 @@ impl Command for Parse {
                     "bar" => Value::test_string("there"),
                 })])),
             },
+            Example {
+                description: "Parse a string and collect the text after each match",
+                example: r#""1) first entry 2) second entry \n(multiline) 3) final entry" | parse -r '(?P<number>\d)\) ' --after "content""#,
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "number" => Value::test_string("1"),
+                        "content" => Value::test_string("first entry "),
+                    }),
+                    Value::test_record(record! {
+                        "number" => Value::test_string("2"),
+                        "content" => Value::test_string("second entry \n(multiline) "),
+                    }),
+                    Value::test_record(record! {
+                        "number" => Value::test_string("3"),
+                        "content" => Value::test_string("final entry"),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Parse a string and collect the text before each match",
+                example: r#"'some text (page 7) some more text (page 12)' | parse -r ' \(page (?P<page>.+?)\);? ?' --before "text""#,
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "text" => Value::test_string("some text"),
+                        "page" => Value::test_string("7"),
+                    }),
+                    Value::test_record(record! {
+                        "text" => Value::test_string("some more text"),
+                        "page" => Value::test_string("12"),
+                    }),
+                ])),
+            },
         ]
     }
 
