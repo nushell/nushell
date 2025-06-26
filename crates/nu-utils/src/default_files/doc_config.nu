@@ -371,6 +371,8 @@ $env.config.table.missing_value_symbol = "❎"
 # datetime_format.table (string or nothing):
 # The format string (or `null`) that will be used to display a datetime value when it appears in a
 # structured value such as a table, list, or record.
+# Check https://docs.rs/chrono/latest/chrono/format/strftime/index.html to see the supported
+# datetime escape sequences
 $env.config.datetime_format.table = null
 
 # datetime_format.normal (string or nothing):
