@@ -371,7 +371,7 @@ $env.config.table.missing_value_symbol = "❎"
 # datetime_format.table (string or nothing):
 # The format string (or `null`) that will be used to display a datetime value when it appears in a
 # structured value such as a table, list, or record.
-# Execute `into datetime --list` to get a list of supported datetime escape sequences.
+# Execute `into datetime --list` to get a list of supported datetime specifiers.
 $env.config.datetime_format.table = null
 
 # datetime_format.normal (string or nothing):
