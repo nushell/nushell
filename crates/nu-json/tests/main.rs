@@ -5,43 +5,83 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-fn txt(text: &str) -> String {
-    let out = String::from_utf8_lossy(text.as_bytes());
+fn txt(text: String) -> String {
+    let out = text;
 
     #[cfg(windows)]
     {
-        out.replace("\r\n", "").replace('\n', "")
+        out.replace(['\r', '\n'].as_slice(), "")
     }
 
     #[cfg(not(windows))]
     {
-        out.to_string()
+        out
     }
 }
 
-fn hjson_expectations() -> PathBuf {
-    nu_test_support::fs::assets().join("nu_json").into()
+// This test will fail if/when `nu_test_support::fs::assets()`'s return value changes.
+#[rstest]
+fn assert_rstest_finds_assets(
+    #[base_dir = "../../tests/assets"]
+    #[files("nu_json")]
+    rstest_supplied: PathBuf,
+) {
+    assert_eq!(
+        rstest_supplied,
+        nu_test_support::fs::assets().join("nu_json")
+    );
 }
 
-fn get_test_content(name: &str) -> io::Result<String> {
-    let expectations = hjson_expectations();
-
-    let mut p = format!("{}/{}_test.hjson", expectations.display(), name);
-
-    if !Path::new(&p).exists() {
-        p = format!("{}/{}_test.json", expectations.display(), name);
-    }
-
-    fs::read_to_string(&p)
+#[rstest]
+fn test_hjson_fails(
+    #[base_dir = "../../tests/assets/nu_json"]
+    #[files("fail*_test.*")]
+    file: PathBuf,
+) {
+    let contents = fs::read_to_string(file).unwrap();
+    let data: nu_json::Result<Value> = nu_json::from_str(&contents);
+    assert!(data.is_err());
 }
 
-fn get_result_content(name: &str) -> io::Result<(String, String)> {
-    let expectations = hjson_expectations();
+#[rstest]
+fn test_hjson(
+    #[base_dir = "../../tests/assets/nu_json"]
+    #[files("*_test.*")]
+    #[exclude("fail*")]
+    test_file: PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let name = test_file
+        .file_stem()
+        .and_then(|x| x.to_str())
+        .and_then(|x| x.strip_suffix("_test"))
+        .unwrap();
 
-    let p1 = format!("{}/{}_result.json", expectations.display(), name);
-    let p2 = format!("{}/{}_result.hjson", expectations.display(), name);
+    let data: Value = nu_json::from_str(fs::read_to_string(&test_file)?.as_str())?;
 
-    Ok((fs::read_to_string(p1)?, fs::read_to_string(p2)?))
+    let r_json = get_content(get_result_path(&test_file, "json").as_deref().unwrap())?;
+    // let r_hjson = get_content(get_result_path(&test_file, "hjson").as_deref().unwrap())?;
+    let r_hjson = r_json.as_str();
+
+    let actual_json = serde_json::to_string_pretty(&data).map(get_fix(name))?;
+    let actual_hjson = nu_json::to_string(&data).map(txt)?;
+
+    assert_eq!(r_json, actual_json);
+    assert_eq!(r_hjson, actual_hjson);
+
+    Ok(())
+}
+
+fn get_result_path(test_file: &Path, ext: &str) -> Option<PathBuf> {
+    let name = test_file
+        .file_stem()
+        .and_then(|x| x.to_str())
+        .and_then(|x| x.strip_suffix("_test"))?;
+
+    Some(test_file.with_file_name(format!("{name}_result.{ext}")))
+}
+
+fn get_content(file: &Path) -> io::Result<String> {
+    fs::read_to_string(file).map(txt)
 }
 
 // add fixes where rust's json differs from javascript
@@ -59,104 +99,5 @@ fn get_fix(s: &str) -> fn(String) -> String {
         "kan" => remove_negative_zero,
         "pass1" => positive_exp_add_sign,
         _ => std::convert::identity,
-    }
-}
-
-#[rstest]
-#[case("charset")]
-#[case("comments")]
-#[case("empty")]
-#[case("failCharset1")]
-#[case("failJSON02")]
-#[case("failJSON05")]
-#[case("failJSON06")]
-#[case("failJSON07")]
-#[case("failJSON08")]
-#[case("failJSON10")]
-#[case("failJSON11")]
-#[case("failJSON12")]
-#[case("failJSON13")]
-#[case("failJSON14")]
-#[case("failJSON15")]
-#[case("failJSON16")]
-#[case("failJSON17")]
-#[case("failJSON19")]
-#[case("failJSON20")]
-#[case("failJSON21")]
-#[case("failJSON22")]
-#[case("failJSON23")]
-#[case("failJSON24")]
-#[case("failJSON26")]
-#[case("failJSON28")]
-#[case("failJSON29")]
-#[case("failJSON30")]
-#[case("failJSON31")]
-#[case("failJSON32")]
-#[case("failJSON33")]
-#[case("failJSON34")]
-#[case("failKey1")]
-#[case("failKey3")]
-#[case("failKey4")]
-#[case("failMLStr1")]
-#[case("failObj1")]
-#[case("failObj2")]
-#[case("failObj3")]
-#[case("failStr1a")]
-#[case("failStr1b")]
-#[case("failStr1c")]
-#[case("failStr1d")]
-#[case("failStr2a")]
-#[case("failStr2b")]
-#[case("failStr2c")]
-#[case("failStr2d")]
-#[case("failStr3a")]
-#[case("failStr3b")]
-#[case("failStr3c")]
-#[case("failStr3d")]
-#[case("failStr4a")]
-#[case("failStr4b")]
-#[case("failStr4c")]
-#[case("failStr4d")]
-#[case("failStr5a")]
-#[case("failStr5b")]
-#[case("failStr5c")]
-#[case("failStr5d")]
-#[case("failStr6a")]
-#[case("failStr6b")]
-#[case("failStr6c")]
-#[case("failStr6d")]
-#[case("kan")]
-#[case("keys")]
-#[case("oa")]
-#[case("pass1")]
-#[case("pass2")]
-#[case("pass3")]
-#[case("pass4")]
-#[case("passSingle")]
-#[case("root")]
-#[case("stringify1")]
-#[case("strings")]
-#[case("trail")]
-fn test_hjson(#[case] name: &str) {
-    let should_fail = name.starts_with("fail");
-    let test_content = get_test_content(name).unwrap();
-    let data: nu_json::Result<Value> = nu_json::from_str(&test_content);
-    assert!(should_fail == data.is_err());
-
-    if !should_fail {
-        let udata = data.unwrap();
-        let (rjson, _rhjson) = get_result_content(name).unwrap();
-        let rjson = txt(&rjson);
-        // let rhjson = txt(&rhjson);
-
-        let actual_hjson = nu_json::to_string(&udata).as_deref().map(txt).unwrap();
-        let actual_json = serde_json::to_string_pretty(&udata)
-            .map(get_fix(name))
-            .as_deref()
-            .map(txt)
-            .unwrap();
-
-        assert_eq!(rjson, actual_hjson);
-        assert_eq!(rjson, actual_json);
     }
 }
