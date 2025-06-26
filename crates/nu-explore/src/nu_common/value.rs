@@ -184,5 +184,5 @@ pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
 }
 
 fn unknown_error_value() -> Value {
-    Value::string(String::from("❎"), NuSpan::unknown())
+    Value::string(String::from("❌"), NuSpan::unknown())
 }

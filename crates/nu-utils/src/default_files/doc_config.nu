@@ -359,7 +359,7 @@ $env.config.table.abbreviated_row_count = null
 $env.config.table.footer_inheritance = false
 
 # missing_value_symbol (string): The symbol shown for missing values
-$env.config.table.missing_value_symbol = "❎"
+$env.config.table.missing_value_symbol = "❌"
 
 # ----------------
 # Datetime Display
@@ -791,7 +791,7 @@ $env.config.color_config.separator
 # row_index: The `#` or `index` column of a table or list
 $env.config.color_config.row_index
 
-# empty: This style is applied to empty/missing values in a table. However, since the ❎
+# empty: This style is applied to empty/missing values in a table. However, since the ❌
 # emoji is used for this purpose, there is limited styling that can be applied.
 $env.config.color_config.empty
 

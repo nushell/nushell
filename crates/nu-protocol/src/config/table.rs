@@ -382,7 +382,7 @@ impl Default for TableConfig {
             padding: TableIndent::default(),
             abbreviated_row_count: None,
             footer_inheritance: false,
-            missing_value_symbol: "❎".into(),
+            missing_value_symbol: "❌".into(),
         }
     }
 }
