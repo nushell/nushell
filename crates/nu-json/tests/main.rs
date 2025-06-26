@@ -45,99 +45,99 @@ fn get_result_content(name: &str) -> io::Result<(String, String)> {
 }
 
 // add fixes where rust's json differs from javascript
+fn get_fix(s: &str) -> fn(String) -> String {
+    fn remove_negative_zero(json: String) -> String {
+        json.replace("    -0,", "    0,")
+    }
 
-fn ident(json: String) -> String {
-    // serde_json serializes integers with a superfluous .0 suffix
-    // let re = Regex::new(r"(?m)(?P<d>\d)\.0(?P<s>,?)$").unwrap();
-    // re.replace_all(&json, "$d$s").to_string()
-    json
-}
+    fn positive_exp_add_sign(json: String) -> String {
+        json.replace("1.23456789e34", "1.23456789e+34")
+            .replace("2.3456789012e76", "2.3456789012e+76")
+    }
 
-fn fix_kan(json: String) -> String {
-    json.replace("    -0,", "    0,")
-}
-
-fn fix_pass1(json: String) -> String {
-    json.replace("1.23456789e34", "1.23456789e+34")
-        .replace("2.3456789012e76", "2.3456789012e+76")
+    match s {
+        "kan" => remove_negative_zero,
+        "pass1" => positive_exp_add_sign,
+        _ => std::convert::identity,
+    }
 }
 
 #[rstest]
-#[case("charset", ident)]
-#[case("comments", ident)]
-#[case("empty", ident)]
-#[case("failCharset1", ident)]
-#[case("failJSON02", ident)]
-#[case("failJSON05", ident)]
-#[case("failJSON06", ident)]
-#[case("failJSON07", ident)]
-#[case("failJSON08", ident)]
-#[case("failJSON10", ident)]
-#[case("failJSON11", ident)]
-#[case("failJSON12", ident)]
-#[case("failJSON13", ident)]
-#[case("failJSON14", ident)]
-#[case("failJSON15", ident)]
-#[case("failJSON16", ident)]
-#[case("failJSON17", ident)]
-#[case("failJSON19", ident)]
-#[case("failJSON20", ident)]
-#[case("failJSON21", ident)]
-#[case("failJSON22", ident)]
-#[case("failJSON23", ident)]
-#[case("failJSON24", ident)]
-#[case("failJSON26", ident)]
-#[case("failJSON28", ident)]
-#[case("failJSON29", ident)]
-#[case("failJSON30", ident)]
-#[case("failJSON31", ident)]
-#[case("failJSON32", ident)]
-#[case("failJSON33", ident)]
-#[case("failJSON34", ident)]
-#[case("failKey1", ident)]
-#[case("failKey3", ident)]
-#[case("failKey4", ident)]
-#[case("failMLStr1", ident)]
-#[case("failObj1", ident)]
-#[case("failObj2", ident)]
-#[case("failObj3", ident)]
-#[case("failStr1a", ident)]
-#[case("failStr1b", ident)]
-#[case("failStr1c", ident)]
-#[case("failStr1d", ident)]
-#[case("failStr2a", ident)]
-#[case("failStr2b", ident)]
-#[case("failStr2c", ident)]
-#[case("failStr2d", ident)]
-#[case("failStr3a", ident)]
-#[case("failStr3b", ident)]
-#[case("failStr3c", ident)]
-#[case("failStr3d", ident)]
-#[case("failStr4a", ident)]
-#[case("failStr4b", ident)]
-#[case("failStr4c", ident)]
-#[case("failStr4d", ident)]
-#[case("failStr5a", ident)]
-#[case("failStr5b", ident)]
-#[case("failStr5c", ident)]
-#[case("failStr5d", ident)]
-#[case("failStr6a", ident)]
-#[case("failStr6b", ident)]
-#[case("failStr6c", ident)]
-#[case("failStr6d", ident)]
-#[case("kan", fix_kan)]
-#[case("keys", ident)]
-#[case("oa", ident)]
-#[case("pass1", fix_pass1)]
-#[case("pass2", ident)]
-#[case("pass3", ident)]
-#[case("pass4", ident)]
-#[case("passSingle", ident)]
-#[case("root", ident)]
-#[case("stringify1", ident)]
-#[case("strings", ident)]
-#[case("trail", ident)]
-fn test_hjson(#[case] name: &str, #[case] fix: fn(String) -> String) {
+#[case("charset")]
+#[case("comments")]
+#[case("empty")]
+#[case("failCharset1")]
+#[case("failJSON02")]
+#[case("failJSON05")]
+#[case("failJSON06")]
+#[case("failJSON07")]
+#[case("failJSON08")]
+#[case("failJSON10")]
+#[case("failJSON11")]
+#[case("failJSON12")]
+#[case("failJSON13")]
+#[case("failJSON14")]
+#[case("failJSON15")]
+#[case("failJSON16")]
+#[case("failJSON17")]
+#[case("failJSON19")]
+#[case("failJSON20")]
+#[case("failJSON21")]
+#[case("failJSON22")]
+#[case("failJSON23")]
+#[case("failJSON24")]
+#[case("failJSON26")]
+#[case("failJSON28")]
+#[case("failJSON29")]
+#[case("failJSON30")]
+#[case("failJSON31")]
+#[case("failJSON32")]
+#[case("failJSON33")]
+#[case("failJSON34")]
+#[case("failKey1")]
+#[case("failKey3")]
+#[case("failKey4")]
+#[case("failMLStr1")]
+#[case("failObj1")]
+#[case("failObj2")]
+#[case("failObj3")]
+#[case("failStr1a")]
+#[case("failStr1b")]
+#[case("failStr1c")]
+#[case("failStr1d")]
+#[case("failStr2a")]
+#[case("failStr2b")]
+#[case("failStr2c")]
+#[case("failStr2d")]
+#[case("failStr3a")]
+#[case("failStr3b")]
+#[case("failStr3c")]
+#[case("failStr3d")]
+#[case("failStr4a")]
+#[case("failStr4b")]
+#[case("failStr4c")]
+#[case("failStr4d")]
+#[case("failStr5a")]
+#[case("failStr5b")]
+#[case("failStr5c")]
+#[case("failStr5d")]
+#[case("failStr6a")]
+#[case("failStr6b")]
+#[case("failStr6c")]
+#[case("failStr6d")]
+#[case("kan")]
+#[case("keys")]
+#[case("oa")]
+#[case("pass1")]
+#[case("pass2")]
+#[case("pass3")]
+#[case("pass4")]
+#[case("passSingle")]
+#[case("root")]
+#[case("stringify1")]
+#[case("strings")]
+#[case("trail")]
+fn test_hjson(#[case] name: &str) {
     let should_fail = name.starts_with("fail");
     let test_content = get_test_content(name).unwrap();
     let data: nu_json::Result<Value> = nu_json::from_str(&test_content);
@@ -145,13 +145,16 @@ fn test_hjson(#[case] name: &str, #[case] fix: fn(String) -> String) {
 
     if !should_fail {
         let udata = data.unwrap();
-        let (rjson, rhjson) = get_result_content(name).unwrap();
+        let (rjson, _rhjson) = get_result_content(name).unwrap();
         let rjson = txt(&rjson);
-        let _rhjson = txt(&rhjson);
-        let actual_hjson = nu_json::to_string(&udata).unwrap();
-        let actual_hjson = txt(&actual_hjson);
-        let actual_json = fix(serde_json::to_string_pretty(&udata).unwrap());
-        let actual_json = txt(&actual_json);
+        // let rhjson = txt(&rhjson);
+
+        let actual_hjson = nu_json::to_string(&udata).as_deref().map(txt).unwrap();
+        let actual_json = serde_json::to_string_pretty(&udata)
+            .map(get_fix(name))
+            .as_deref()
+            .map(txt)
+            .unwrap();
 
         assert_eq!(rjson, actual_hjson);
         assert_eq!(rjson, actual_json);
