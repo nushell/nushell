@@ -63,7 +63,17 @@ impl Command for MetadataSet {
         match (ds_fp, ds_ls) {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
             (None, true) => metadata.data_source = DataSource::Ls,
-            (Some(_), true) => (), // TODO: error here
+            (Some(_), true) => {
+                return Err(ShellError::GenericError {
+                    error: "Conflicting flags".into(),
+                    msg:
+                        "Cannot use both --datasource-filepath and --datasource-ls at the same time"
+                            .into(),
+                    span: Some(head),
+                    help: Some("Use only one of the two flags".into()),
+                    inner: vec![],
+                });
+            }
             (None, false) => (),
         }
 
