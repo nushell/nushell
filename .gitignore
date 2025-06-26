@@ -40,6 +40,9 @@ wix/nu/
 lcov.info
 tarpaulin-report.html
 
+# benchmarking
+/tango
+
 # Visual Studio
 .vs/*
 *.rsproj
