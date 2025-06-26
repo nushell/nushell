@@ -3868,7 +3868,10 @@ dependencies = [
  "linked-hash-map",
  "nu-path",
  "nu-test-support",
+ "nu-utils",
  "num-traits",
+ "pretty_assertions",
+ "rstest",
  "serde",
  "serde_json",
 ]
