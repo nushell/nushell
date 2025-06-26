@@ -21,11 +21,7 @@ fn txt(text: String) -> String {
 
 // This test will fail if/when `nu_test_support::fs::assets()`'s return value changes.
 #[rstest]
-fn assert_rstest_finds_assets(
-    #[base_dir = "../../tests/assets"]
-    #[files("nu_json")]
-    rstest_supplied: PathBuf,
-) {
+fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json")] rstest_supplied: PathBuf) {
     assert_eq!(
         rstest_supplied,
         nu_test_support::fs::assets().join("nu_json")
@@ -33,11 +29,7 @@ fn assert_rstest_finds_assets(
 }
 
 #[rstest]
-fn test_hjson_fails(
-    #[base_dir = "../../tests/assets/nu_json"]
-    #[files("fail*_test.*")]
-    file: PathBuf,
-) {
+fn test_hjson_fails(#[files("../../tests/assets/nu_json/fail*_test.*")] file: PathBuf) {
     let contents = fs::read_to_string(file).unwrap();
     let data: nu_json::Result<Value> = nu_json::from_str(&contents);
     assert!(data.is_err());
@@ -45,8 +37,7 @@ fn test_hjson_fails(
 
 #[rstest]
 fn test_hjson(
-    #[base_dir = "../../tests/assets/nu_json"]
-    #[files("*_test.*")]
+    #[files("../../tests/assets/nu_json/*_test.*")]
     #[exclude("fail*")]
     test_file: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
