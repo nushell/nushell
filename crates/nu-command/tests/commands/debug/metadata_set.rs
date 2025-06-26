@@ -10,11 +10,8 @@ fn errors_on_conflicting_metadata_flags() {
         "#
     ));
 
-    assert!(
-        actual
-            .err
-            .contains("Cannot use both --datasource-filepath and --datasource-ls")
-    );
+    assert!(actual.err.contains("cannot use `--datasource-filepath`"));
+    assert!(actual.err.contains("with `--datasource-ls`"));
 }
 
 #[test]
@@ -22,9 +19,25 @@ fn works_with_datasource_filepath() {
     let actual = nu!(
         cwd: ".", pipeline(
         r#"
-        echo "foo" | metadata set --datasource-filepath foo.txt
+        echo "foo"
+        | metadata set --datasource-filepath foo.txt
+        | metadata get
         "#
     ));
 
-    assert!(actual.out.contains("foo"));
+    assert!(actual.out.contains("foo.txt"));
+}
+
+#[test]
+fn works_with_datasource_ls() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo "foo"
+        | metadata set --datasource-ls
+        | metadata get
+        "#
+    ));
+
+    assert!(actual.out.contains("ls"));
 }

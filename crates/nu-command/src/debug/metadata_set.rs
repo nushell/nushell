@@ -64,14 +64,15 @@ impl Command for MetadataSet {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
             (None, true) => metadata.data_source = DataSource::Ls,
             (Some(_), true) => {
-                return Err(ShellError::GenericError {
-                    error: "Conflicting flags".into(),
-                    msg:
-                        "Cannot use both --datasource-filepath and --datasource-ls at the same time"
-                            .into(),
-                    span: Some(head),
-                    help: Some("Use only one of the two flags".into()),
-                    inner: vec![],
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "cannot use `--datasource-filepath`".into(),
+                    left_span: call
+                        .get_flag_span(stack, "datasource-filepath")
+                        .expect("has flag"),
+                    right_message: "with `--datasource-ls`".into(),
+                    right_span: call
+                        .get_flag_span(stack, "datasource-ls")
+                        .expect("has flag"),
                 });
             }
             (None, false) => (),
