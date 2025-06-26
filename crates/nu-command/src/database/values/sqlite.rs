@@ -173,7 +173,7 @@ impl SQLiteDatabase {
         filename: String,
     ) -> Result<(), SqliteError> {
         //vacuum main into 'c:\\temp\\foo.db'
-        conn.execute(&format!("vacuum main into '{}'", filename), [])?;
+        conn.execute(&format!("vacuum main into '{filename}'"), [])?;
 
         Ok(())
     }

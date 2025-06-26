@@ -556,7 +556,7 @@ impl BlockBuilder {
                 );
                 instruction.set_branch_target(target_index).map_err(|_| {
                     CompileError::SetBranchTargetOfNonBranchInstruction {
-                        instruction: format!("{:?}", instruction),
+                        instruction: format!("{instruction:?}"),
                         span: *span,
                     }
                 })?;

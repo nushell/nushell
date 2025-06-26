@@ -212,7 +212,7 @@ impl From<ReadError> for ShellError {
             },
             ReadError::TypeMismatch(marker, span) => ShellError::GenericError {
                 error: "Invalid marker while reading MessagePack data".into(),
-                msg: format!("unexpected {:?} in data", marker),
+                msg: format!("unexpected {marker:?} in data"),
                 span: Some(span),
                 help: None,
                 inner: vec![],

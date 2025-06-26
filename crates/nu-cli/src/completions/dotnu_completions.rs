@@ -129,7 +129,7 @@ impl Completer for DotNuCompletion {
                     .take_while(|c| "`'\"".contains(*c))
                     .collect::<String>();
                 for path in ["std", "std-rfc"] {
-                    let path = format!("{}{}", surround_prefix, path);
+                    let path = format!("{surround_prefix}{path}");
                     matcher.add(
                         path.clone(),
                         FileSuggestion {
@@ -146,7 +146,7 @@ impl Completer for DotNuCompletion {
                 for sub_vp_id in sub_paths {
                     let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
                     let path = path
-                        .strip_prefix(&format!("{}/", base_dir))
+                        .strip_prefix(&format!("{base_dir}/"))
                         .unwrap_or(path)
                         .to_string();
                     matcher.add(

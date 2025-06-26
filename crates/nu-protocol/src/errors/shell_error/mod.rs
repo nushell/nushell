@@ -1511,15 +1511,15 @@ fn shell_error_serialize_roundtrip() {
         from_type: "Bar".into(),
         help: Some("this is a test".into()),
     };
-    println!("orig_error = {:#?}", original_error);
+    println!("orig_error = {original_error:#?}");
 
     let serialized =
         serde_json::to_string_pretty(&original_error).expect("serde_json::to_string_pretty failed");
-    println!("serialized = {}", serialized);
+    println!("serialized = {serialized}");
 
     let deserialized: ShellError =
         serde_json::from_str(&serialized).expect("serde_json::from_str failed");
-    println!("deserialized = {:#?}", deserialized);
+    println!("deserialized = {deserialized:#?}");
 
     // We don't expect the deserialized error to be the same as the original error, but its miette
     // properties should be comparable

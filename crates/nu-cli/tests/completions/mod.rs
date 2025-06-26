@@ -125,7 +125,7 @@ fn custom_completer_with_options(
         global_opts,
         completions
             .iter()
-            .map(|comp| format!("'{}'", comp))
+            .map(|comp| format!("'{comp}'"))
             .collect::<Vec<_>>()
             .join(", "),
         completer_opts,

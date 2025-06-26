@@ -334,7 +334,7 @@ fn closure_variable_warning(
                 Cow::Owned(s) if s.deref() == "$carapace_completer" => {
                     carapace_suggestion.to_string()
                 }
-                _ => format!("change this to {{ {} }}", span_contents).to_string(),
+                _ => format!("change this to {{ {span_contents} }}").to_string(),
             };
 
             report_shell_warning(

@@ -210,8 +210,7 @@ impl Job {
                     from_type: "record".into(),
                     span: entry_span,
                     help: Some(format!(
-                        "Invalid column \"{}\" in xml entry. Only \"{}\", \"{}\" and \"{}\" are permitted",
-                        bad_column, COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME
+                        "Invalid column \"{bad_column}\" in xml entry. Only \"{COLUMN_TAG_NAME}\", \"{COLUMN_ATTRS_NAME}\" and \"{COLUMN_CONTENT_NAME}\" are permitted"
                     )),
                 });
             }
@@ -399,7 +398,7 @@ impl Job {
             });
         }
 
-        let content_text = format!("{} {}", tag, content);
+        let content_text = format!("{tag} {content}");
         // PI content must NOT be escaped
         // https://www.w3.org/TR/xml/#sec-pi
         let pi_content = BytesPI::new(content_text.as_str());
@@ -428,8 +427,7 @@ impl Job {
                 from_type: Type::record().to_string(),
                 span: tag_span,
                 help: Some(format!(
-                    "Incorrect tag name {}, tag name can not start with ! or ?",
-                    tag
+                    "Incorrect tag name {tag}, tag name can not start with ! or ?"
                 )),
             });
         }

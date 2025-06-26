@@ -925,7 +925,7 @@ impl Value {
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
-            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
+            Err(_) => formatter_buf = format!("Invalid format string {formatter}"),
         }
         formatter_buf
     }
@@ -1036,7 +1036,7 @@ impl Value {
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
-            Value::String { val, .. } => format!("'{}'", val),
+            Value::String { val, .. } => format!("'{val}'"),
             // recurse back into this function for recursive formatting
             Value::List { vals: val, .. } => format!(
                 "[{}]",

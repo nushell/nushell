@@ -64,14 +64,14 @@ pub(crate) fn datetime_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
 pub fn timezone_from_str(zone_str: &str, span: Option<Span>) -> Result<TimeZone, ShellError> {
     TimeZone::opt_try_new(Some(PlSmallStr::from_str(zone_str)))
         .map_err(|e| ShellError::GenericError {
-            error: format!("Invalid timezone: {} : {}", zone_str, e),
+            error: format!("Invalid timezone: {zone_str} : {e}"),
             msg: "".into(),
             span,
             help: None,
             inner: vec![],
         })?
         .ok_or(ShellError::GenericError {
-            error: format!("Invalid timezone {}", zone_str),
+            error: format!("Invalid timezone {zone_str}"),
             msg: "".into(),
             span,
             help: None,

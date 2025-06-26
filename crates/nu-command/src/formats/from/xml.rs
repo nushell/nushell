@@ -252,7 +252,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             pos,
         ),
         roxmltree::Error::UnknownNamespace(prefix, pos) => {
-            make_xml_error_spanned(format!("Unknown prefix {}", prefix), source, pos)
+            make_xml_error_spanned(format!("Unknown prefix {prefix}"), source, pos)
         }
         roxmltree::Error::UnexpectedCloseTag(expected, actual, pos) => make_xml_error_spanned(
             format!("Unexpected close tag {actual}, expected {expected}"),

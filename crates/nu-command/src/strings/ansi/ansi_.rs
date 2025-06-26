@@ -936,8 +936,7 @@ mod tests {
 
         assert!(
             duplicates.is_empty(),
-            "Duplicate short_names found: {:?}",
-            duplicates
+            "Duplicate short_names found: {duplicates:?}"
         );
     }
 
@@ -958,8 +957,7 @@ mod tests {
 
         assert!(
             duplicates.is_empty(),
-            "Duplicate long_names found: {:?}",
-            duplicates
+            "Duplicate long_names found: {duplicates:?}"
         );
     }
 }

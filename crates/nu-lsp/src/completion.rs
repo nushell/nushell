@@ -84,7 +84,7 @@ impl LanguageServer {
                     idx += 1;
                     match &arg.shape {
                         SyntaxShape::Block | SyntaxShape::MatchBlock => {
-                            format!("{{ ${{{}:{}}} }}", idx, text)
+                            format!("{{ ${{{idx}:{text}}} }}")
                         }
                         SyntaxShape::Keyword(kwd, _) => {
                             // NOTE: If optional, the keyword should also be in a placeholder so that it can be removed easily.
@@ -103,7 +103,7 @@ impl LanguageServer {
                                 format!("{} ${{{}:{}}}", String::from_utf8_lossy(kwd), idx, text)
                             }
                         }
-                        _ => format!("${{{}:{}}}", idx, text),
+                        _ => format!("${{{idx}:{text}}}"),
                     }
                 };
 

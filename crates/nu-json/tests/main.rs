@@ -194,7 +194,7 @@ fn test_hjson() {
 
     if !missing.is_empty() {
         for item in missing {
-            println!("missing: {}", item);
+            println!("missing: {item}");
         }
         panic!();
     }

@@ -1261,10 +1261,7 @@ pub(crate) fn handle_engine_call(
 
     let context = context.ok_or_else(|| ShellError::GenericError {
         error: "A plugin execution context is required for this engine call".into(),
-        msg: format!(
-            "attempted to call {} outside of a command invocation",
-            call_name
-        ),
+        msg: format!("attempted to call {call_name} outside of a command invocation"),
         span: None,
         help: Some("this is probably a bug with the plugin".into()),
         inner: vec![],

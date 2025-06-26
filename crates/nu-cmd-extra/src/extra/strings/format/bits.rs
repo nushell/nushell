@@ -161,28 +161,28 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i16() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i32() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else {
         let bytes = num.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     }
@@ -193,7 +193,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
             for ch in val {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }
@@ -204,7 +204,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             let raw_bytes = val.as_bytes();
             let mut raw_string = "".to_string();
             for ch in raw_bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }

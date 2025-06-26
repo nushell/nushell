@@ -1008,10 +1008,7 @@ impl EngineState {
         cwd.into_os_string()
             .into_string()
             .map_err(|err| ShellError::NonUtf8Custom {
-                msg: format!(
-                    "The current working directory is not a valid utf-8 string: {:?}",
-                    err
-                ),
+                msg: format!("The current working directory is not a valid utf-8 string: {err:?}"),
                 span: Span::unknown(),
             })
     }

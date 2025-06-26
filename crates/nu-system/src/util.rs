@@ -39,7 +39,7 @@ pub fn build_kill_command(
     } else {
         let mut cmd = CommandSys::new("kill");
         if let Some(signal_value) = signal {
-            cmd.arg(format!("-{}", signal_value));
+            cmd.arg(format!("-{signal_value}"));
         } else if force {
             cmd.arg("-9");
         }

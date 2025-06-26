@@ -80,9 +80,9 @@ pub fn http_parse_url(
 ) -> Result<(String, Url), ShellError> {
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
-        requested_url = format!("http://localhost{}", requested_url);
+        requested_url = format!("http://localhost{requested_url}");
     } else if !requested_url.contains("://") {
-        requested_url = format!("http://{}", requested_url);
+        requested_url = format!("http://{requested_url}");
     }
 
     let url = match url::Url::parse(&requested_url) {
@@ -382,8 +382,7 @@ fn send_multipart_request(
                         "Content-Type: application/octet-stream".to_string(),
                         "Content-Transfer-Encoding: binary".to_string(),
                         format!(
-                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
-                            col, col
+                            "Content-Disposition: form-data; name=\"{col}\"; filename=\"{col}\""
                         ),
                         format!("Content-Length: {}", val.len()),
                     ];
@@ -391,7 +390,7 @@ fn send_multipart_request(
                         .add(&mut Cursor::new(val), &headers.join("\r\n"))
                         .map_err(err)?;
                 } else {
-                    let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                    let headers = format!(r#"Content-Disposition: form-data; name="{col}""#);
                     builder
                         .add(val.coerce_into_string()?.as_bytes(), &headers)
                         .map_err(err)?;
@@ -400,7 +399,7 @@ fn send_multipart_request(
             builder.finish();
 
             let (boundary, data) = (builder.boundary, builder.data);
-            let content_type = format!("multipart/form-data; boundary={}", boundary);
+            let content_type = format!("multipart/form-data; boundary={boundary}");
 
             move || req.set("Content-Type", &content_type).send_bytes(&data)
         }
@@ -703,26 +702,23 @@ fn transform_response_using_content_type(
         .expect("Failed to parse content type, and failed to default to text/plain");
 
     let ext = match (content_type.type_(), content_type.subtype()) {
-        (mime::TEXT, mime::PLAIN) => {
-            let path_extension = url::Url::parse(requested_url)
-                .map_err(|err| {
-                    LabeledError::new(err.to_string())
-                        .with_help("cannot parse")
-                        .with_label(
-                            format!("Cannot parse URL: {requested_url}"),
-                            Span::unknown(),
-                        )
-                })?
-                .path_segments()
-                .and_then(|mut segments| segments.next_back())
-                .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                .and_then(|name| {
-                    PathBuf::from(name)
-                        .extension()
-                        .map(|name| name.to_string_lossy().to_string())
-                });
-            path_extension
-        }
+        (mime::TEXT, mime::PLAIN) => url::Url::parse(requested_url)
+            .map_err(|err| {
+                LabeledError::new(err.to_string())
+                    .with_help("cannot parse")
+                    .with_label(
+                        format!("Cannot parse URL: {requested_url}"),
+                        Span::unknown(),
+                    )
+            })?
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .and_then(|name| if name.is_empty() { None } else { Some(name) })
+            .and_then(|name| {
+                PathBuf::from(name)
+                    .extension()
+                    .map(|name| name.to_string_lossy().to_string())
+            }),
         _ => Some(content_type.subtype().to_string()),
     };
 

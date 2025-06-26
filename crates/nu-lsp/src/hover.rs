@@ -165,9 +165,9 @@ impl LanguageServer {
                         .map(|val| {
                             let ty = val.get_type();
                             if let Ok(s) = val.coerce_str() {
-                                format!("```\n{}\n```\n---\n{}", ty, s)
+                                format!("```\n{ty}\n```\n---\n{s}")
                             } else {
-                                format!("```\n{}\n```", ty)
+                                format!("```\n{ty}\n```")
                             }
                         })
                         .unwrap_or("`unknown`".into()),
@@ -186,7 +186,7 @@ impl LanguageServer {
                     .join("\n");
                 markdown_hover(description)
             }
-            Id::Value(t) => markdown_hover(format!("`{}`", t)),
+            Id::Value(t) => markdown_hover(format!("`{t}`")),
             Id::External(cmd) => {
                 let command_output = if cfg!(windows) {
                     std::process::Command::new("powershell.exe")

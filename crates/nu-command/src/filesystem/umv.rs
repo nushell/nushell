@@ -195,8 +195,8 @@ impl Command for UMv {
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
-                error: format!("{}", error),
-                msg: format!("{}", error),
+                error: format!("{error}"),
+                msg: format!("{error}"),
                 span: None,
                 help: None,
                 inner: Vec::new(),

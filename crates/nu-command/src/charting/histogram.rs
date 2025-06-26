@@ -89,7 +89,7 @@ impl Command for Histogram {
                             "frequency-column-name can't be {}",
                             forbidden_column_names
                                 .iter()
-                                .map(|val| format!("'{}'", val))
+                                .map(|val| format!("'{val}'"))
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         ),

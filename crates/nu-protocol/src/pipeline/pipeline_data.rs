@@ -773,7 +773,7 @@ where
     T: AsRef<[u8]>,
 {
     let io_error_map = |err: std::io::Error, location: Location| {
-        let context = format!("Writing to {} failed", destination_name);
+        let context = format!("Writing to {destination_name} failed");
         match span {
             None => IoError::new_internal(err, context, location),
             Some(span) if span == Span::unknown() => IoError::new_internal(err, context, location),

@@ -8,9 +8,9 @@ impl Display for ObviousFloat {
         let val = self.0;
         // This serialises these as 'nan', 'inf' and '-inf', respectively.
         if val.round() == val && val.is_finite() {
-            write!(f, "{}.0", val)
+            write!(f, "{val}.0")
         } else {
-            write!(f, "{}", val)
+            write!(f, "{val}")
         }
     }
 }

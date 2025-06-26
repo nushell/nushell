@@ -239,7 +239,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
 
                 match byte {
                     // Escape bytes below 0x20
-                    b if b < 0x20 => format!("\\x{:02X}", byte).into_bytes(),
+                    b if b < 0x20 => format!("\\x{byte:02X}").into_bytes(),
                     // Escape semicolon as \x3B
                     b';' => "\\x3B".to_string().into_bytes(),
                     // Escape backslash as \\
@@ -1097,8 +1097,7 @@ fn run_shell_integration_osc633(
             // If we're in vscode, run their specific ansi escape sequence.
             // This is helpful for ctrl+g to change directories in the terminal.
             run_ansi_sequence(&format!(
-                "{}{}{}",
-                VSCODE_CWD_PROPERTY_MARKER_PREFIX, path, VSCODE_CWD_PROPERTY_MARKER_SUFFIX
+                "{VSCODE_CWD_PROPERTY_MARKER_PREFIX}{path}{VSCODE_CWD_PROPERTY_MARKER_SUFFIX}"
             ));
 
             perf!(
@@ -1114,10 +1113,7 @@ fn run_shell_integration_osc633(
 
             //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
             run_ansi_sequence(&format!(
-                "{}{}{}",
-                VSCODE_COMMANDLINE_MARKER_PREFIX,
-                replaced_cmd_text,
-                VSCODE_COMMANDLINE_MARKER_SUFFIX
+                "{VSCODE_COMMANDLINE_MARKER_PREFIX}{replaced_cmd_text}{VSCODE_COMMANDLINE_MARKER_SUFFIX}"
             ));
         }
     }
@@ -1493,7 +1489,7 @@ mod test_auto_cd {
         // Parse the input. It must be an auto-cd operation.
         let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
         let ReplOperation::AutoCd { cwd, target, span } = op else {
-            panic!("'{}' was not parsed into an auto-cd operation", input)
+            panic!("'{input}' was not parsed into an auto-cd operation")
         };
 
         // Perform the auto-cd operation.

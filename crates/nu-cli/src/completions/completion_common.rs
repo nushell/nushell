@@ -314,7 +314,7 @@ pub fn escape_path(path: String) -> String {
         if path.contains('\'') {
             // decide to use double quotes
             // Path as Debug will do the escaping for `"`, `\`
-            format!("{:?}", path)
+            format!("{path:?}")
         } else {
             format!("'{path}'")
         }

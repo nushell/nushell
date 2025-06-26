@@ -176,7 +176,7 @@ impl NuCompleter {
             &mut working_set,
             Some("completer"),
             // Add a placeholder `a` to the end
-            format!("{}a", line).as_bytes(),
+            format!("{line}a").as_bytes(),
             false,
         );
         self.fetch_completions_by_block(block, &working_set, pos, offset, line, true)
@@ -850,7 +850,7 @@ mod completer_tests {
         for (line, has_result, begins_with, expected_values) in dataset {
             let result = completer.fetch_completions_at(line, line.len());
             // Test whether the result is empty or not
-            assert_eq!(!result.is_empty(), has_result, "line: {}", line);
+            assert_eq!(!result.is_empty(), has_result, "line: {line}");
 
             // Test whether the result begins with the expected value
             result
@@ -865,8 +865,7 @@ mod completer_tests {
                     .filter(|x| *x)
                     .count(),
                 expected_values.len(),
-                "line: {}",
-                line
+                "line: {line}"
             );
         }
     }

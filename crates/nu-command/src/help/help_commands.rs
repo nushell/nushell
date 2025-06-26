@@ -144,7 +144,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
             for named_param in &sig.named {
                 let name = if let Some(short) = named_param.short {
                     if named_param.long.is_empty() {
-                        format!("-{}", short)
+                        format!("-{short}")
                     } else {
                         format!("--{}(-{})", named_param.long, short)
                     }

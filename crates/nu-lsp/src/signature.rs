@@ -61,13 +61,13 @@ pub(crate) fn doc_for_arg(
         if let SyntaxShape::Keyword(_, inner_shape) = shape {
             shape = *inner_shape;
         }
-        text.push_str(&format!(": `<{}>`", shape));
+        text.push_str(&format!(": `<{shape}>`"));
     }
     if !(desc.is_empty() && default_value.is_none()) || optional {
         text.push_str(" -")
     };
     if !desc.is_empty() {
-        text.push_str(&format!(" {}", desc));
+        text.push_str(&format!(" {desc}"));
     };
     if let Some(value) = default_value.as_ref().and_then(|v| v.coerce_str().ok()) {
         text.push_str(&format!(
