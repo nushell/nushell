@@ -10,7 +10,7 @@ fn txt(text: String) -> String {
 
     #[cfg(windows)]
     {
-        out.replace(['\r', '\n'].as_slice(), "")
+        out.replace("\r\n", "\n")
     }
 
     #[cfg(not(windows))]
