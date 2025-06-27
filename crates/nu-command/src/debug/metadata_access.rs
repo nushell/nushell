@@ -58,7 +58,7 @@ impl Command for MetadataAccess {
             example: r#"{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}"#,
             result: Some(Value::test_record(record! {
                 "in" => Value::test_string(r#"{"foo":"bar"}"#),
-                "content_type" => Value::test_string(r#"application/json"#)
+                "content" => Value::test_string(r#"application/json"#)
             })),
         }]
     }

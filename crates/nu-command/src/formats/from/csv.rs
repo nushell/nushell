@@ -231,7 +231,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span"#;
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

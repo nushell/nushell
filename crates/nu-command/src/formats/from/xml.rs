@@ -554,7 +554,7 @@ mod tests {
         let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
 <note>
   <remember>Event</remember>
-</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | reject span"#;
+</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

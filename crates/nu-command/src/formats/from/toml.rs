@@ -355,7 +355,7 @@ mod tests {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | reject span"#;
+        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

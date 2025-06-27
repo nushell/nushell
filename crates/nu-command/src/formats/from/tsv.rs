@@ -190,7 +190,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a\tb\n1\t2" | metadata set --content-type 'text/tab-separated-values' --datasource-ls | from tsv | metadata | reject span"#;
+        let cmd = r#""a\tb\n1\t2" | metadata set --content-type 'text/tab-separated-values' --datasource-ls | from tsv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
