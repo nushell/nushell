@@ -44,15 +44,16 @@ impl Command for Metadata {
         let head = call.head;
 
         let has_input = !matches!(input, PipelineData::Empty);
-        let has_argument = arg.is_some();
 
-        if has_input && has_argument {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "pipeline input was provided".into(),
-                left_span: head,
-                right_message: "but a positional metadata expression was also given".into(),
-                right_span: arg.unwrap().span,
-            });
+        if let Some(arg_expr) = arg {
+            if has_input {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "pipeline input was provided".into(),
+                    left_span: head,
+                    right_message: "but a positional metadata expression was also given".into(),
+                    right_span: arg_expr.span,
+                });
+            }
         }
 
         if has_input {
