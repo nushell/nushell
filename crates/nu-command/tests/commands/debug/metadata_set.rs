@@ -21,7 +21,7 @@ fn works_with_datasource_filepath() {
         r#"
         echo "foo"
         | metadata set --datasource-filepath foo.txt
-        | metadata get
+        | metadata
         "#
     ));
 
@@ -35,7 +35,7 @@ fn works_with_datasource_ls() {
         r#"
         echo "foo"
         | metadata set --datasource-ls
-        | metadata get
+        | metadata
         "#
     ));
 
