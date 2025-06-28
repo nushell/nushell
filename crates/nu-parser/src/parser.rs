@@ -1050,8 +1050,8 @@ pub fn parse_internal_call(
 
         if !flags_ended {
             if parse_flag_terminator(working_set, spans, spans_idx) {
-                // Pass it along for `extern` commands
-                if is_known_external {
+                // Pass it along for `extern` and `def --wrapped` commands
+                if is_known_external || signature.allows_unknown_args {
                     call.add_positional(Expression::new(
                         working_set,
                         Expr::String("--".into()),
