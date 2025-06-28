@@ -711,6 +711,23 @@ fn parse_short_flags(
     }
 }
 
+fn parse_flag_terminator(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    spans_idx: usize,
+) -> bool {
+    let arg_span = spans[spans_idx];
+
+    let arg_contents = working_set.get_span_contents(arg_span);
+
+    let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) else {
+        working_set.error(ParseError::NonUtf8(arg_span));
+        return false;
+    };
+
+    arg_contents_uft8_ref == "--"
+}
+
 fn first_kw_idx(
     working_set: &StateWorkingSet,
     signature: &Signature,
@@ -970,6 +987,7 @@ pub fn parse_internal_call(
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
+    let is_known_external = decl.is_known_external();
 
     let deprecation = decl.deprecation_info();
 
@@ -1023,131 +1041,151 @@ pub fn parse_internal_call(
         working_set.enter_scope();
     }
 
+    let mut flags_ended = false;
+
     while spans_idx < spans.len() {
         let arg_span = spans[spans_idx];
 
         let starting_error_count = working_set.parse_errors.len();
-        // Check if we're on a long flag, if so, parse
-        let (long_name, arg) = parse_long_flag(working_set, spans, &mut spans_idx, &signature);
 
-        if let Some(long_name) = long_name {
-            // We found a long flag, like --bar
-            if working_set.parse_errors[starting_error_count..]
-                .iter()
-                .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                && signature.allows_unknown_args
-            {
-                working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_unknown_arg(working_set, arg_span, &signature);
-
-                call.add_unknown(arg);
-            } else {
-                call.add_named((long_name, None, arg));
+        if !flags_ended {
+            if parse_flag_terminator(working_set, spans, spans_idx) {
+                // Pass it along for `extern` commands
+                if is_known_external {
+                    call.add_positional(Expression::new(
+                        working_set,
+                        Expr::String("--".into()),
+                        spans[spans_idx],
+                        Type::String,
+                    ));
+                }
+                flags_ended = true;
+                spans_idx += 1;
+                continue;
             }
 
-            spans_idx += 1;
-            continue;
-        }
+            // Check if we're on a long flag, if so, parse
+            let (long_name, arg) = parse_long_flag(working_set, spans, &mut spans_idx, &signature);
 
-        let starting_error_count = working_set.parse_errors.len();
+            if let Some(long_name) = long_name {
+                // We found a long flag, like --bar
+                if working_set.parse_errors[starting_error_count..]
+                    .iter()
+                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
+                    && signature.allows_unknown_args
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
-        // Check if we're on a short flag or group of short flags, if so, parse
-        let short_flags = parse_short_flags(
-            working_set,
-            spans,
-            &mut spans_idx,
-            positional_idx,
-            &signature,
-        );
+                    call.add_unknown(arg);
+                } else {
+                    call.add_named((long_name, None, arg));
+                }
 
-        if let Some(mut short_flags) = short_flags {
-            if short_flags.is_empty() {
-                // workaround for completions (PR #6067)
-                short_flags.push(Flag {
-                    long: "".to_string(),
-                    short: Some('a'),
-                    arg: None,
-                    required: false,
-                    desc: "".to_string(),
-                    var_id: None,
-                    default_value: None,
-                })
+                spans_idx += 1;
+                continue;
             }
 
-            if working_set.parse_errors[starting_error_count..]
-                .iter()
-                .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                && signature.allows_unknown_args
-            {
-                working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_unknown_arg(working_set, arg_span, &signature);
+            let starting_error_count = working_set.parse_errors.len();
 
-                call.add_unknown(arg);
-            } else {
-                for flag in short_flags {
-                    let _ = working_set.add_span(spans[spans_idx]);
+            // Check if we're on a short flag or group of short flags, if so, parse
+            let short_flags = parse_short_flags(
+                working_set,
+                spans,
+                &mut spans_idx,
+                positional_idx,
+                &signature,
+            );
 
-                    if let Some(arg_shape) = flag.arg {
-                        if let Some(arg) = spans.get(spans_idx + 1) {
-                            let arg = parse_value(working_set, *arg, &arg_shape);
-                            let (arg_name, val_expression) = ensure_flag_arg_type(
-                                working_set,
-                                flag.long.clone(),
-                                arg.clone(),
-                                &arg_shape,
-                                spans[spans_idx],
-                            );
+            if let Some(mut short_flags) = short_flags {
+                if short_flags.is_empty() {
+                    // workaround for completions (PR #6067)
+                    short_flags.push(Flag {
+                        long: "".to_string(),
+                        short: Some('a'),
+                        arg: None,
+                        required: false,
+                        desc: "".to_string(),
+                        var_id: None,
+                        default_value: None,
+                    })
+                }
 
-                            if flag.long.is_empty() {
-                                if let Some(short) = flag.short {
-                                    call.add_named((
-                                        arg_name,
-                                        Some(Spanned {
-                                            item: short.to_string(),
-                                            span: spans[spans_idx],
-                                        }),
-                                        Some(val_expression),
-                                    ));
+                if working_set.parse_errors[starting_error_count..]
+                    .iter()
+                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
+                    && signature.allows_unknown_args
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    let arg = parse_unknown_arg(working_set, arg_span, &signature);
+
+                    call.add_unknown(arg);
+                } else {
+                    for flag in short_flags {
+                        let _ = working_set.add_span(spans[spans_idx]);
+
+                        if let Some(arg_shape) = flag.arg {
+                            if let Some(arg) = spans.get(spans_idx + 1) {
+                                let arg = parse_value(working_set, *arg, &arg_shape);
+                                let (arg_name, val_expression) = ensure_flag_arg_type(
+                                    working_set,
+                                    flag.long.clone(),
+                                    arg.clone(),
+                                    &arg_shape,
+                                    spans[spans_idx],
+                                );
+
+                                if flag.long.is_empty() {
+                                    if let Some(short) = flag.short {
+                                        call.add_named((
+                                            arg_name,
+                                            Some(Spanned {
+                                                item: short.to_string(),
+                                                span: spans[spans_idx],
+                                            }),
+                                            Some(val_expression),
+                                        ));
+                                    }
+                                } else {
+                                    call.add_named((arg_name, None, Some(val_expression)));
                                 }
+                                spans_idx += 1;
                             } else {
-                                call.add_named((arg_name, None, Some(val_expression)));
+                                working_set.error(ParseError::MissingFlagParam(
+                                    arg_shape.to_string(),
+                                    arg_span,
+                                ))
                             }
-                            spans_idx += 1;
+                        } else if flag.long.is_empty() {
+                            if let Some(short) = flag.short {
+                                call.add_named((
+                                    Spanned {
+                                        item: String::new(),
+                                        span: spans[spans_idx],
+                                    },
+                                    Some(Spanned {
+                                        item: short.to_string(),
+                                        span: spans[spans_idx],
+                                    }),
+                                    None,
+                                ));
+                            }
                         } else {
-                            working_set.error(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        }
-                    } else if flag.long.is_empty() {
-                        if let Some(short) = flag.short {
                             call.add_named((
                                 Spanned {
-                                    item: String::new(),
+                                    item: flag.long.clone(),
                                     span: spans[spans_idx],
                                 },
-                                Some(Spanned {
-                                    item: short.to_string(),
-                                    span: spans[spans_idx],
-                                }),
+                                None,
                                 None,
                             ));
                         }
-                    } else {
-                        call.add_named((
-                            Spanned {
-                                item: flag.long.clone(),
-                                span: spans[spans_idx],
-                            },
-                            None,
-                            None,
-                        ));
                     }
                 }
-            }
 
-            spans_idx += 1;
-            continue;
+                spans_idx += 1;
+                continue;
+            }
         }
 
         {
