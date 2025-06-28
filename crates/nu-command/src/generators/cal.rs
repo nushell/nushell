@@ -361,14 +361,15 @@ fn add_month_to_table(
             total_start_offset = days_of_the_week
                 .iter()
                 .position(|&d| d == first_day_name)
-                .unwrap() as u32;
+                .expect("first day name must be present in days_of_the_week after rotation")
+                as u32;
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid".to_string(),
                 span: week_start_day.span,
             });
         }
-    };
+    }
 
     let mut calendar_days: Vec<Option<i64>> = vec![];
 
