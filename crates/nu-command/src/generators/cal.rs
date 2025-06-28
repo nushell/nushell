@@ -356,7 +356,8 @@ fn add_month_to_table(
         {
             days_of_the_week.rotate_left(position);
             // Calculate offset so the first day of the month appears in the correct column
-            let offset = (7 + month_helper.day_number_of_week_month_starts_on as i32 - position as i32) % 7;
+            let offset =
+                (7 + month_helper.day_number_of_week_month_starts_on as i32 - position as i32) % 7;
             total_start_offset = offset as u32;
         } else {
             return Err(ShellError::TypeMismatch {
