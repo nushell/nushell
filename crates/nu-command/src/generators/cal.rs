@@ -490,3 +490,11 @@ mod test {
         test_examples(Cal {})
     }
 }
+
+#[allow(dead_code)]
+fn get_invalid_year_shell_error(head: Span) -> ShellError {
+    ShellError::TypeMismatch {
+        err_message: "The year is invalid".to_string(),
+        span: head,
+    }
+}
