@@ -124,7 +124,7 @@ pub trait FromValue: Sized {
     ///
     /// This method retrieves a value similarly to how strings are parsed using [`FromStr`].
     /// The operation might fail if the `Value` contains unexpected types or structures.
-    fn from_value(v: Value) -> Result<Self, FromValueError>;
+    fn from_value(v: Value) -> Result<Self, ShellError>;
 
     /// Expected `Value` type.
     ///
@@ -260,12 +260,11 @@ impl FromValue for i64 {
         match v {
             Value::Int { val, .. } => Ok(val),
             Value::Duration { val, .. } => Ok(val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+            v => Err(FromValueError::TypeMismatch {
+                expected: Self::expected_type(),
+                actual: v.get_type(),
+            }
+            .to_shell_error(v.span())),
         }
     }
 
