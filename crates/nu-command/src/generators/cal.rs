@@ -178,6 +178,79 @@ fn get_invalid_year_shell_error(head: Span) -> ShellError {
     }
 }
 
+#[derive(PartialEq)]
+enum CalendarType {
+    Julian,
+    Gregorian,
+}
+
+fn get_calendar_type(year: i32, month: u32, day: u32) -> CalendarType {
+    // The British Empire adopted the Gregorian calendar in September 1752
+    // September 2, 1752 (Julian) was followed by September 14, 1752 (Gregorian)
+    if year < 1752 {
+        CalendarType::Julian
+    } else if year == 1752 {
+        if month < 9 {
+            CalendarType::Julian
+        } else if month > 9 {
+            CalendarType::Gregorian
+        } else {
+            // month == 9
+            if day <= 2 {
+                CalendarType::Julian
+            } else if day >= 14 {
+                CalendarType::Gregorian
+            } else {
+                // Days 3-13 do not exist in the British calendar
+                // We'll treat them as Gregorian for safety, but they should not appear
+                CalendarType::Gregorian
+            }
+        }
+    } else {
+        CalendarType::Gregorian
+    }
+}
+
+fn is_julian_leap_year(year: i32) -> bool {
+    year % 4 == 0
+}
+
+fn is_gregorian_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn julian_weekday(year: i32, month: u32, day: u32) -> u32 {
+    // Julian calendar weekday algorithm
+    // Returns 0 for Sunday through 6 for Saturday
+    let a = (14 - month as i32) / 12;
+    let y = year - a;
+    let m = month as i32 + 12 * a - 2;
+
+    let w = (day as i32 + ((31 * m) / 12) + y + (y / 4)) % 7;
+    w as u32
+}
+
+fn gregorian_weekday(year: i32, month: u32, day: u32) -> u32 {
+    // Zeller's congruence for Gregorian calendar
+    // Returns 0 for Sunday through 6 for Saturday
+    let adjusted_year = if month <= 2 { year - 1 } else { year };
+    let adjusted_month = if month <= 2 { month + 12 } else { month };
+
+    let k = day as i32;
+    let j = adjusted_year / 100;
+    let h = adjusted_year % 100;
+
+    let w = (k + ((13 * (adjusted_month as i32 + 1)) / 5) + h + (h / 4) + (j / 4) - (2 * j)) % 7;
+    ((w + 7) % 7) as u32
+}
+
+fn get_weekday(year: i32, month: u32, day: u32) -> u32 {
+    match get_calendar_type(year, month, day) {
+        CalendarType::Julian => julian_weekday(year, month, day),
+        CalendarType::Gregorian => gregorian_weekday(year, month, day),
+    }
+}
+
 struct MonthHelper {
     selected_year: i32,
     selected_month: u32,
@@ -188,39 +261,40 @@ struct MonthHelper {
 }
 
 impl MonthHelper {
-    pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ()> {
-        let naive_date = NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-        let number_of_days_in_month =
-            MonthHelper::calculate_number_of_days_in_month(selected_year, selected_month)?;
+    pub fn new(selected_year: i32, selected_month: u32) -> Result<MonthHelper, ShellError> {
+        if !matches!(selected_month, 1..=12) {
+            return Err(ShellError::TypeMismatch {
+                err_message: format!("Invalid month: {selected_month}"),
+                span: Span::unknown(),
+            });
+        }
+
+        // Special case: September 1752 calendar reform (only days 1-2, 14-30 exist)
+        let number_of_days_in_month = if selected_year == 1752 && selected_month == 9 {
+            19
+        } else {
+            match get_calendar_type(selected_year, selected_month, 1) {
+                CalendarType::Julian => get_julian_days_in_month(selected_month, selected_year),
+                CalendarType::Gregorian => {
+                    get_gregorian_days_in_month(selected_month, selected_year)
+                }
+            }
+        };
+
+        let day_number_of_week_month_starts_on = get_weekday(selected_year, selected_month, 1);
+        let quarter_number = ((selected_month - 1) / 3) + 1;
+        let month_name = NaiveDate::from_ymd_opt(selected_year, selected_month, 1)
+            .map(|d| d.format("%B").to_string().to_ascii_lowercase())
+            .unwrap_or_else(|| "invalid".to_string());
 
         Ok(MonthHelper {
             selected_year,
             selected_month,
-            day_number_of_week_month_starts_on: naive_date.weekday().num_days_from_sunday(),
+            day_number_of_week_month_starts_on,
             number_of_days_in_month,
-            quarter_number: ((selected_month - 1) / 3) + 1,
-            month_name: naive_date.format("%B").to_string().to_ascii_lowercase(),
+            quarter_number,
+            month_name,
         })
-    }
-
-    fn calculate_number_of_days_in_month(
-        mut selected_year: i32,
-        mut selected_month: u32,
-    ) -> Result<u32, ()> {
-        // Chrono does not provide a method to output the amount of days in a month
-        // This is a workaround taken from the example code from the Chrono docs here:
-        // https://docs.rs/chrono/0.3.0/chrono/naive/date/struct.NaiveDate.html#example-30
-        if selected_month == 12 {
-            selected_year += 1;
-            selected_month = 1;
-        } else {
-            selected_month += 1;
-        };
-
-        let next_month_naive_date =
-            NaiveDate::from_ymd_opt(selected_year, selected_month, 1).ok_or(())?;
-
-        Ok(next_month_naive_date.pred_opt().unwrap_or_default().day())
     }
 }
 
@@ -279,51 +353,54 @@ fn add_month_to_table(
     current_day_option: Option<u32>,
     style_computer: &StyleComputer,
 ) -> Result<(), ShellError> {
-    let month_helper_result = MonthHelper::new(selected_year, current_month);
-
-    let full_year_value: &Option<Spanned<i64>> = &arguments.full_year;
-
-    let month_helper = match month_helper_result {
-        Ok(month_helper) => month_helper,
-        Err(()) => match full_year_value {
-            Some(x) => return Err(get_invalid_year_shell_error(x.span)),
-            None => {
-                return Err(ShellError::UnknownOperator {
-                    op_token: "Issue parsing command, invalid command".to_string(),
-                    span: tag,
-                });
-            }
-        },
-    };
+    let month_helper = MonthHelper::new(selected_year, current_month)?;
 
     let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
     let mut total_start_offset: u32 = month_helper.day_number_of_week_month_starts_on;
 
+    // Handle --week-start flag
     if let Some(week_start_day) = &arguments.week_start {
         if let Some(position) = days_of_the_week
             .iter()
             .position(|day| *day == week_start_day.item)
         {
             days_of_the_week.rotate_left(position);
-            total_start_offset += (days_of_the_week.len() - position) as u32;
-            total_start_offset %= days_of_the_week.len() as u32;
+            total_start_offset = (total_start_offset + 7 - position as u32) % 7;
         } else {
             return Err(ShellError::TypeMismatch {
-                err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
+                err_message: "The specified week start day is invalid".to_string(),
                 span: week_start_day.span,
             });
         }
     };
 
-    let mut day_number: u32 = 1;
-    let day_limit: u32 = total_start_offset + month_helper.number_of_days_in_month;
+    let mut calendar_days: Vec<Option<i64>> = vec![];
+
+    // 1. Fill in blank days at the start of the month
+    for _ in 0..total_start_offset {
+        calendar_days.push(None);
+    }
+
+    // 2. Fill in the actual days for the month
+    if month_helper.selected_year == 1752 && month_helper.selected_month == 9 {
+        // Special case logic for the Gregorian cutover - days 1-2 then 14-30
+        calendar_days.push(Some(1));
+        calendar_days.push(Some(2));
+        // Skip days 3-13 (inclusive) due to calendar reform
+        (14..=30).for_each(|day| calendar_days.push(Some(day as i64)));
+    } else {
+        // Logic for a normal month
+        (1..=month_helper.number_of_days_in_month)
+            .for_each(|day| calendar_days.push(Some(day as i64)));
+    }
 
     let should_show_year_column = arguments.year;
     let should_show_quarter_column = arguments.quarter;
     let should_show_month_column = arguments.month;
     let should_show_month_names = arguments.month_names;
 
-    while day_number <= day_limit {
+    // 3. Create weekly records from the flat list of days
+    for week_chunk in calendar_days.chunks(7) {
         let mut record = Record::new();
 
         if should_show_year_column {
@@ -332,60 +409,84 @@ fn add_month_to_table(
                 Value::int(month_helper.selected_year as i64, tag),
             );
         }
-
         if should_show_quarter_column {
             record.insert(
                 "quarter".to_string(),
                 Value::int(month_helper.quarter_number as i64, tag),
             );
         }
-
         if should_show_month_column || should_show_month_names {
             let month_value = if should_show_month_names {
                 Value::string(month_helper.month_name.clone(), tag)
             } else {
                 Value::int(month_helper.selected_month as i64, tag)
             };
-
             record.insert("month".to_string(), month_value);
         }
 
-        for day in &days_of_the_week {
-            let should_add_day_number_to_table =
-                (day_number > total_start_offset) && (day_number <= day_limit);
-
-            let mut value = Value::nothing(tag);
-
-            if should_add_day_number_to_table {
-                let adjusted_day_number = day_number - total_start_offset;
-
-                value = Value::int(adjusted_day_number as i64, tag);
-
-                if let Some(current_day) = current_day_option {
-                    if current_day == adjusted_day_number {
-                        // This colors the current day
-                        let header_style =
-                            style_computer.compute("header", &Value::nothing(Span::unknown()));
-
-                        value = Value::string(
-                            header_style
-                                .paint(adjusted_day_number.to_string())
-                                .to_string(),
-                            tag,
-                        );
+        for (i, day_val_opt) in week_chunk.iter().enumerate() {
+            let day_name = days_of_the_week[i];
+            let value = match day_val_opt {
+                Some(day_val) => {
+                    // Color the current day if it matches
+                    if let Some(current_day) = current_day_option {
+                        if current_day as i64 == *day_val {
+                            let header_style =
+                                style_computer.compute("header", &Value::nothing(Span::unknown()));
+                            Value::string(header_style.paint(day_val.to_string()).to_string(), tag)
+                        } else {
+                            Value::int(*day_val, tag)
+                        }
+                    } else {
+                        Value::int(*day_val, tag)
                     }
                 }
-            }
-
-            record.insert((*day).to_string(), value);
-
-            day_number += 1;
+                None => Value::nothing(tag),
+            };
+            record.insert(day_name.to_string(), value);
         }
 
-        calendar_vec_deque.push_back(Value::record(record, tag))
+        // If the chunk is smaller than 7, fill the rest with null
+        if week_chunk.len() < 7 {
+            for i in week_chunk.len()..7 {
+                record.insert(days_of_the_week[i].to_string(), Value::nothing(tag));
+            }
+        }
+
+        calendar_vec_deque.push_back(Value::record(record, tag));
     }
 
     Ok(())
+}
+
+fn get_julian_days_in_month(month: u32, year: i32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_julian_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0,
+    }
+}
+
+fn get_gregorian_days_in_month(month: u32, year: i32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_gregorian_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0,
+    }
 }
 
 #[cfg(test)]

@@ -67,7 +67,7 @@ fn cal_sees_pipeline_year() {
         "#
     ));
 
-    assert_eq!(actual.out, "[null,3,10,17]");
+    assert_eq!(actual.out, "[null,4,11,18]");
 }
 
 // Tests against default string output
@@ -102,4 +102,99 @@ fn cal_week_start_string() {
     ));
 
     assert_eq!(actual.out, "sa");
+}
+
+#[test]
+fn cal_september_1752_cutover() {
+    let actual = nu!(r#"
+        cal --as-table -m --full-year 1752 | where month == 9 | to json -r
+        "#);
+    let weeks: Vec<serde_json::Value> = serde_json::from_str(&actual.out).unwrap();
+    let mut days = vec![];
+    for week in weeks {
+        for day in &["su", "mo", "tu", "we", "th", "fr", "sa"] {
+            if let Some(val) = week.get(*day) {
+                if let Some(n) = val.as_i64() {
+                    days.push(n);
+                }
+            }
+        }
+    }
+    // Days 3-13 should not be present
+    for missing in 3..=13 {
+        assert!(
+            !days.contains(&missing),
+            "September 1752 should not contain day {}",
+            missing
+        );
+    }
+    // Days 1, 2, 14, 15, ... should be present
+    assert!(days.contains(&1), "Should contain day 1");
+    assert!(days.contains(&2), "Should contain day 2");
+    assert!(days.contains(&14), "Should contain day 14");
+    assert!(days.contains(&30), "Should contain day 30");
+}
+
+#[test]
+fn cal_jan_1_1_weekday_julian() {
+    let actual = nu!(r#"
+    cal --as-table -m --full-year 1 | where month == 1 | first | to json -r
+    "#);
+    let week: serde_json::Value = serde_json::from_str(&actual.out).unwrap();
+    // Find which column has 1
+    let mut found = None;
+    for day in &["su", "mo", "tu", "we", "th", "fr", "sa"] {
+        if let Some(val) = week.get(*day) {
+            if val.as_i64() == Some(1) {
+                found = Some(*day);
+                break;
+            }
+        }
+    }
+    assert_eq!(
+        found,
+        Some("sa"),
+        "Jan 1, 1 AD should be a Saturday in Julian calendar"
+    );
+}
+
+#[test]
+fn cal_feb_29_1900_not_leap_gregorian() {
+    let actual = nu!(r#"
+        cal --as-table -m --full-year 1900 | where month == 2 | to json -r
+    "#);
+    let weeks: Vec<serde_json::Value> = serde_json::from_str(&actual.out).unwrap();
+    let mut days = vec![];
+    for week in weeks {
+        for day in &["su", "mo", "tu", "we", "th", "fr", "sa"] {
+            if let Some(val) = week.get(*day) {
+                if let Some(n) = val.as_i64() {
+                    days.push(n);
+                }
+            }
+        }
+    }
+    assert!(
+        !days.contains(&29),
+        "February 1900 should not have a 29th day in Gregorian calendar"
+    );
+}
+
+#[test]
+fn cal_feb_29_1600_is_leap_julian() {
+    let actual = nu!(r#"
+        cal --as-table -m --full-year 1600 | where month == 2 | to json -r
+    "#);
+    let weeks: Vec<serde_json::Value> = serde_json::from_str(&actual.out).unwrap();
+    let mut days = vec![];
+    for week in weeks {
+        for day in &["su", "mo", "tu", "we", "th", "fr", "sa"] {
+            if let Some(val) = week.get(*day) {
+                if let Some(n) = val.as_i64() {
+                    days.push(n);
+                }
+            }
+        }
+    }
+    assert!(days.contains(&29), "February 1600 should have a 29th day");
 }
