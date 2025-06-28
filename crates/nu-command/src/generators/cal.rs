@@ -171,13 +171,6 @@ pub fn cal(
     }
 }
 
-fn get_invalid_year_shell_error(head: Span) -> ShellError {
-    ShellError::TypeMismatch {
-        err_message: "The year is invalid".to_string(),
-        span: head,
-    }
-}
-
 #[derive(PartialEq)]
 enum CalendarType {
     Julian,
@@ -187,27 +180,24 @@ enum CalendarType {
 fn get_calendar_type(year: i32, month: u32, day: u32) -> CalendarType {
     // The British Empire adopted the Gregorian calendar in September 1752
     // September 2, 1752 (Julian) was followed by September 14, 1752 (Gregorian)
-    if year < 1752 {
-        CalendarType::Julian
-    } else if year == 1752 {
-        if month < 9 {
-            CalendarType::Julian
-        } else if month > 9 {
-            CalendarType::Gregorian
-        } else {
-            // month == 9
-            if day <= 2 {
-                CalendarType::Julian
-            } else if day >= 14 {
-                CalendarType::Gregorian
-            } else {
-                // Days 3-13 do not exist in the British calendar
-                // We'll treat them as Gregorian for safety, but they should not appear
-                CalendarType::Gregorian
+    match year.cmp(&1752) {
+        std::cmp::Ordering::Less => CalendarType::Julian,
+        std::cmp::Ordering::Greater => CalendarType::Gregorian,
+        std::cmp::Ordering::Equal => match month.cmp(&9) {
+            std::cmp::Ordering::Less => CalendarType::Julian,
+            std::cmp::Ordering::Greater => CalendarType::Gregorian,
+            std::cmp::Ordering::Equal => {
+                if day <= 2 {
+                    CalendarType::Julian
+                } else if day >= 14 {
+                    CalendarType::Gregorian
+                } else {
+                    // Days 3-13 do not exist in the British calendar
+                    // We'll treat them as Gregorian for safety, but they should not appear
+                    CalendarType::Gregorian
+                }
             }
-        }
-    } else {
-        CalendarType::Gregorian
+        },
     }
 }
 
@@ -448,8 +438,8 @@ fn add_month_to_table(
 
         // If the chunk is smaller than 7, fill the rest with null
         if week_chunk.len() < 7 {
-            for i in week_chunk.len()..7 {
-                record.insert(days_of_the_week[i].to_string(), Value::nothing(tag));
+            for day_name in days_of_the_week.iter().skip(week_chunk.len()) {
+                record.insert((*day_name).to_string(), Value::nothing(tag));
             }
         }
 
