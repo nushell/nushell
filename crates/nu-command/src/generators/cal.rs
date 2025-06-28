@@ -355,14 +355,9 @@ fn add_month_to_table(
             .position(|day| *day == week_start_day.item)
         {
             days_of_the_week.rotate_left(position);
-            // Recompute the offset: what is the index of the first day in the rotated week?
-            let weekday_of_first = month_helper.day_number_of_week_month_starts_on as usize;
-            let first_day_name = ["su", "mo", "tu", "we", "th", "fr", "sa"][weekday_of_first];
-            total_start_offset = days_of_the_week
-                .iter()
-                .position(|&d| d == first_day_name)
-                .expect("first day name must be present in days_of_the_week after rotation")
-                as u32;
+            // Calculate offset so the first day of the month appears in the correct column
+            let offset = (7 + month_helper.day_number_of_week_month_starts_on as i32 - position as i32) % 7;
+            total_start_offset = offset as u32;
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid".to_string(),
