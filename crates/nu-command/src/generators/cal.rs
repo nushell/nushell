@@ -355,7 +355,13 @@ fn add_month_to_table(
             .position(|day| *day == week_start_day.item)
         {
             days_of_the_week.rotate_left(position);
-            total_start_offset = (total_start_offset + 7 - position as u32) % 7;
+            // Recompute the offset: what is the index of the first day in the rotated week?
+            let weekday_of_first = month_helper.day_number_of_week_month_starts_on as usize;
+            let first_day_name = ["su", "mo", "tu", "we", "th", "fr", "sa"][weekday_of_first];
+            total_start_offset = days_of_the_week
+                .iter()
+                .position(|&d| d == first_day_name)
+                .unwrap() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
                 err_message: "The specified week start day is invalid".to_string(),
@@ -374,14 +380,18 @@ fn add_month_to_table(
     // 2. Fill in the actual days for the month
     if month_helper.selected_year == 1752 && month_helper.selected_month == 9 {
         // Special case logic for the Gregorian cutover - days 1-2 then 14-30
+        // The first day of the month is 1, so we need to start at the correct offset
+        // Fill nulls up to the weekday of the 1st, then push 1 and 2, then nulls for skipped days, then 14-30
+        // Already handled by the offset logic above
         calendar_days.push(Some(1));
         calendar_days.push(Some(2));
         // Skip days 3-13 (inclusive) due to calendar reform
         (14..=30).for_each(|day| calendar_days.push(Some(day as i64)));
     } else {
         // Logic for a normal month
-        (1..=month_helper.number_of_days_in_month)
-            .for_each(|day| calendar_days.push(Some(day as i64)));
+        for day in 1..=month_helper.number_of_days_in_month {
+            calendar_days.push(Some(day as i64));
+        }
     }
 
     let should_show_year_column = arguments.year;
