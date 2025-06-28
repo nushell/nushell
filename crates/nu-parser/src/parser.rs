@@ -2801,13 +2801,24 @@ pub fn parse_unit_value<'res>(
             None => number_part,
         };
 
-        // Convert all durations to nanoseconds to not lose precision
-        let num = match unit_to_ns_factor(&unit) {
+        // Convert all durations to nanoseconds, and filesizes to bytes,
+        // to minimize loss of precision
+        let factor = match ty {
+            Type::Filesize => unit_to_byte_factor(&unit),
+            Type::Duration => unit_to_ns_factor(&unit),
+            _ => None,
+        };
+
+        let num = match factor {
             Some(factor) => {
-                let num_ns = num_float * factor;
-                if i64::MIN as f64 <= num_ns && num_ns <= i64::MAX as f64 {
-                    unit = Unit::Nanosecond;
-                    num_ns as i64
+                let num_base = num_float * factor;
+                if i64::MIN as f64 <= num_base && num_base <= i64::MAX as f64 {
+                    unit = if ty == Type::Filesize {
+                        Unit::Filesize(FilesizeUnit::B)
+                    } else {
+                        Unit::Nanosecond
+                    };
+                    num_base as i64
                 } else {
                     // not safe to convert, because of the overflow
                     num_float as i64
@@ -2930,6 +2941,27 @@ fn unit_to_ns_factor(unit: &Unit) -> Option<f64> {
         Unit::Hour => Some(60.0 * 60.0 * 1_000_000_000.0),
         Unit::Day => Some(24.0 * 60.0 * 60.0 * 1_000_000_000.0),
         Unit::Week => Some(7.0 * 24.0 * 60.0 * 60.0 * 1_000_000_000.0),
+        _ => None,
+    }
+}
+
+fn unit_to_byte_factor(unit: &Unit) -> Option<f64> {
+    match unit {
+        Unit::Filesize(FilesizeUnit::B) => Some(1.0),
+        Unit::Filesize(FilesizeUnit::KB) => Some(1_000.0),
+        Unit::Filesize(FilesizeUnit::MB) => Some(1_000_000.0),
+        Unit::Filesize(FilesizeUnit::GB) => Some(1_000_000_000.0),
+        Unit::Filesize(FilesizeUnit::TB) => Some(1_000_000_000_000.0),
+        Unit::Filesize(FilesizeUnit::PB) => Some(1_000_000_000_000_000.0),
+        Unit::Filesize(FilesizeUnit::EB) => Some(1_000_000_000_000_000_000.0),
+        Unit::Filesize(FilesizeUnit::KiB) => Some(1024.0),
+        Unit::Filesize(FilesizeUnit::MiB) => Some(1024.0 * 1024.0),
+        Unit::Filesize(FilesizeUnit::GiB) => Some(1024.0 * 1024.0 * 1024.0),
+        Unit::Filesize(FilesizeUnit::TiB) => Some(1024.0 * 1024.0 * 1024.0 * 1024.0),
+        Unit::Filesize(FilesizeUnit::PiB) => Some(1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0),
+        Unit::Filesize(FilesizeUnit::EiB) => {
+            Some(1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0)
+        }
         _ => None,
     }
 }

@@ -152,7 +152,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -169,7 +169,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -186,22 +186,22 @@ impl Command for Table {
             },
             Example {
                 description: "Change the table theme to the specified theme for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
                 result: None,
             },
             Example {
                 description: "Force showing of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
                 result: None,
             },
             Example {
                 description: "Set the starting number of the #/index column to 100 for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },
             Example {
                 description: "Force hiding of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
         ]
@@ -1056,7 +1056,28 @@ fn render_path_name(
         && has_metadata
         && config.shell_integration.osc8;
 
-    let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
+    // If there is no style at all set it to use 'default' foreground and background
+    // colors. This prevents it being colored in tabled as string colors.
+    // To test this:
+    //   $env.LS_COLORS = 'fi=0'
+    //   $env.config.color_config.string = 'red'
+    // if a regular file without an extension is the color 'default' then it's working
+    // if a regular file without an extension is the color 'red' then it's not working
+    let ansi_style = style
+        .map(Style::to_nu_ansi_term_style)
+        .unwrap_or(nu_ansi_term::Style {
+            foreground: Some(nu_ansi_term::Color::Default),
+            background: Some(nu_ansi_term::Color::Default),
+            is_bold: false,
+            is_dimmed: false,
+            is_italic: false,
+            is_underline: false,
+            is_blink: false,
+            is_reverse: false,
+            is_hidden: false,
+            is_strikethrough: false,
+            prefix_with_reset: false,
+        });
 
     let full_path = PathBuf::from(stripped_path.as_ref())
         .canonicalize()
@@ -1164,6 +1185,7 @@ fn supported_table_modes() -> Vec<Value> {
         Value::test_string("ascii_rounded"),
         Value::test_string("basic_compact"),
         Value::test_string("single"),
+        Value::test_string("double"),
     ]
 }
 

@@ -58,7 +58,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: nightly
+        version: 0.105.1
 
     - name: Release MSI Packages
       id: nu

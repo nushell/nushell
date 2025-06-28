@@ -6,6 +6,8 @@ use std::fmt::{Display, LowerExp};
 use std::io;
 use std::num::FpCategory;
 
+use nu_utils::ObviousFloat;
+
 use super::error::{Error, ErrorCode, Result};
 use serde::ser;
 
@@ -868,7 +870,7 @@ where
 {
     match value.classify() {
         FpCategory::Nan | FpCategory::Infinite => wr.write_all(b"null")?,
-        _ => wr.write_all(fmt_small(value).as_bytes())?,
+        _ => wr.write_all(fmt_small(ObviousFloat(value as f64)).as_bytes())?,
     }
 
     Ok(())
@@ -880,7 +882,7 @@ where
 {
     match value.classify() {
         FpCategory::Nan | FpCategory::Infinite => wr.write_all(b"null")?,
-        _ => wr.write_all(fmt_small(value).as_bytes())?,
+        _ => wr.write_all(fmt_small(ObviousFloat(value)).as_bytes())?,
     }
 
     Ok(())

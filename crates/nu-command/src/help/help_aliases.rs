@@ -1,6 +1,5 @@
-use crate::help::highlight_search_in_table;
-use nu_color_config::StyleComputer;
-use nu_engine::{command_prelude::*, scope::ScopeData};
+use crate::filters::find_internal;
+use nu_engine::{command_prelude::*, get_full_help, scope::ScopeData};
 
 #[derive(Clone)]
 pub struct HelpAliases;
@@ -72,31 +71,20 @@ pub fn help_aliases(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    // 🚩The following two-lines are copied from filters/find.rs:
-    let style_computer = StyleComputer::from_config(engine_state, stack);
-    // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
-    let string_style = style_computer.compute("string", &Value::string("search result", head));
-    let highlight_style =
-        style_computer.compute("search_result", &Value::string("search result", head));
-
     if let Some(f) = find {
         let all_cmds_vec = build_help_aliases(engine_state, stack, head);
-        let found_cmds_vec = highlight_search_in_table(
+        return find_internal(
             all_cmds_vec,
+            engine_state,
+            stack,
             &f.item,
             &["name", "description"],
-            &string_style,
-            &highlight_style,
-        )?;
-
-        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
+            true,
+        );
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_aliases(engine_state, stack, head);
-        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
+        Ok(build_help_aliases(engine_state, stack, head))
     } else {
         let mut name = String::new();
 
@@ -113,50 +101,25 @@ pub fn help_aliases(
             });
         };
 
-        let Some(alias) = engine_state.get_decl(alias).as_alias() else {
+        let alias = engine_state.get_decl(alias);
+
+        if alias.as_alias().is_none() {
             return Err(ShellError::AliasNotFound {
                 span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
         };
 
-        let alias_expansion =
-            String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-        let description = alias.description();
-        let extra_desc = alias.extra_description();
+        let help = get_full_help(alias, engine_state, stack);
 
-        // TODO: merge this into documentation.rs at some point
-        const G: &str = "\x1b[32m"; // green
-        const C: &str = "\x1b[36m"; // cyan
-        const RESET: &str = "\x1b[0m"; // reset
-
-        let mut long_desc = String::new();
-
-        long_desc.push_str(description);
-        long_desc.push_str("\n\n");
-
-        if !extra_desc.is_empty() {
-            long_desc.push_str(extra_desc);
-            long_desc.push_str("\n\n");
-        }
-
-        long_desc.push_str(&format!("{G}Alias{RESET}: {C}{name}{RESET}"));
-        long_desc.push_str("\n\n");
-        long_desc.push_str(&format!("{G}Expansion{RESET}:\n  {alias_expansion}"));
-
-        let config = stack.get_config(engine_state);
-        if !config.use_ansi_coloring.get(engine_state) {
-            long_desc = nu_utils::strip_ansi_string_likely(long_desc);
-        }
-
-        Ok(Value::string(long_desc, call.head).into_pipeline_data())
+        Ok(Value::string(help, call.head).into_pipeline_data())
     }
 }
 
-fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> PipelineData {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_decls();
 
-    scope_data.collect_aliases(span)
+    Value::list(scope_data.collect_aliases(span), span).into_pipeline_data()
 }
 
 #[cfg(test)]

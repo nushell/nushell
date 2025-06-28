@@ -3,6 +3,7 @@ use std::cmp::max;
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
 use nu_protocol::{Config, Record, ShellError, Span, Value};
+use tabled::grid::records::vec_records::Cell;
 
 use crate::{
     NuTable, TableOpts, TableOutput,
@@ -186,13 +187,14 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .and_then(|val| val.get(INDEX_COLUMN_NAME))
                 .map(|value| value.to_expanded_string("", cfg.opts.config))
                 .unwrap_or_else(|| index.to_string());
-            let index_width = string_width(&index_value);
+            let index_value = NuTable::create(index_value);
+            let index_width = index_value.width();
             if available_width <= index_width + extra_width + pad_width {
                 // NOTE: we don't wanna wrap index; so we return
                 return Ok(None);
             }
 
-            table.insert((row, 0), index_value);
+            table.insert_value((row, 0), index_value);
 
             index_column_width = max(index_column_width, index_width);
         }
@@ -241,9 +243,10 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .and_then(|val| val.get(INDEX_COLUMN_NAME))
                 .map(|value| value.to_expanded_string("", cfg.opts.config))
                 .unwrap_or_else(|| index.to_string());
-            let index_width = string_width(&index_value);
+            let index_value = NuTable::create(index_value);
+            let index_width = index_value.width();
 
-            table.insert((row + 1, 0), index_value);
+            table.insert_value((row + 1, 0), index_value);
             index_column_width = max(index_column_width, index_width);
         }
 
@@ -294,11 +297,23 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
             let inner_cfg = cfg_expand_reset_table(cfg.clone(), available);
             let cell = expand_entry_with_header(item, &header, inner_cfg);
-            let value_width = string_width(&cell.text); // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
+            // TODO: optimize cause when we expand we alrready know the width (most of the time or all)
+            let mut value = NuTable::create(cell.text);
+            let mut value_width = value.width();
+            if value_width > available {
+                // NOTE:
+                // most likely it was emojie which we are not sure about what to do
+                // so we truncate it just in case
+                //
+                // most likely width is 1
+
+                value = NuTable::create(String::from("\u{FFFD}"));
+                value_width = 1;
+            }
 
             column_width = max(column_width, value_width);
 
-            table.insert((row + 1, column), cell.text);
+            table.insert_value((row + 1, column), value);
             table.insert_style((row + 1, column), cell.style);
 
             total_column_rows = total_column_rows.saturating_add(cell.size);

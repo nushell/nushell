@@ -22,8 +22,8 @@ use nu_color_config::StyleComputer;
 use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
-use nu_protocol::shell_error;
 use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{BannerKind, shell_error};
 use nu_protocol::{
     HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
@@ -145,8 +145,8 @@ pub fn evaluate_repl(
 
     if load_std_lib.is_none() {
         match engine_state.get_config().show_banner {
-            Value::Bool { val: false, .. } => {}
-            Value::String { ref val, .. } if val == "short" => {
+            BannerKind::None => {}
+            BannerKind::Short => {
                 eval_source(
                     engine_state,
                     &mut unique_stack,
@@ -156,7 +156,7 @@ pub fn evaluate_repl(
                     false,
                 );
             }
-            _ => {
+            BannerKind::Full => {
                 eval_source(
                     engine_state,
                     &mut unique_stack,

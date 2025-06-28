@@ -40,9 +40,13 @@ fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, 
     Ok(table)
 }
 
+fn get_key_style(topts: &TableOpts<'_>) -> TextStyle {
+    get_header_style(&topts.style_computer).alignment(nu_color_config::Alignment::Left)
+}
+
 fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
     let mut table = NuTable::new(record.len(), 2);
-    table.set_index_style(TextStyle::default_field());
+    table.set_index_style(get_key_style(&opts));
     table.set_indent(opts.config.table.padding);
 
     for (i, (key, value)) in record.into_iter().enumerate() {

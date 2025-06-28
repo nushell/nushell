@@ -99,6 +99,14 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
             cargo-build-nu
         }
+        'loongarch64-unknown-linux-musl' => {
+            print $"(ansi g)Downloading LoongArch64 musl cross-compilation toolchain...(ansi reset)"
+            aria2c -q https://github.com/LoongsonLab/oscomp-toolchains-for-oskernel/releases/download/loongarch64-linux-musl-cross-gcc-13.2.0/loongarch64-linux-musl-cross.tgz
+            tar -xf loongarch64-linux-musl-cross.tgz
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/loongarch64-linux-musl-cross/bin')
+            $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_MUSL_LINKER = "loongarch64-linux-musl-gcc"
+            cargo-build-nu
+        }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
