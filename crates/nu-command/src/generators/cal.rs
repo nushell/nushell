@@ -490,6 +490,14 @@ fn get_gregorian_days_in_month(month: u32, year: i32) -> u32 {
     }
 }
 
+#[allow(dead_code)]
+fn get_invalid_year_shell_error(head: Span) -> ShellError {
+    ShellError::TypeMismatch {
+        err_message: "The year is invalid".to_string(),
+        span: head,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -499,13 +507,5 @@ mod test {
         use crate::test_examples;
 
         test_examples(Cal {})
-    }
-}
-
-#[allow(dead_code)]
-fn get_invalid_year_shell_error(head: Span) -> ShellError {
-    ShellError::TypeMismatch {
-        err_message: "The year is invalid".to_string(),
-        span: head,
     }
 }
