@@ -370,6 +370,7 @@ fn make_xml_error_spanned(msg: impl Into<String>, src: String, pos: TextPos) -> 
 mod tests {
     use crate::Metadata;
     use crate::MetadataSet;
+    use crate::Reject;
 
     use super::*;
 
@@ -541,6 +542,7 @@ mod tests {
             working_set.add_decl(Box::new(FromXml {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -552,7 +554,7 @@ mod tests {
         let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
 <note>
   <remember>Event</remember>
-</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | $in"#;
+</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

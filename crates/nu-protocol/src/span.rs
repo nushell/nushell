@@ -1,5 +1,5 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
-use crate::SpanId;
+use crate::{IntoValue, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -274,6 +274,16 @@ impl Span {
             .into_iter()
             .reduce(Self::merge)
             .unwrap_or(Self::unknown())
+    }
+}
+
+impl IntoValue for Span {
+    fn into_value(self, span: Span) -> Value {
+        let record = record! {
+            "start" => Value::int(self.start as i64, self),
+            "end" => Value::int(self.end as i64, self),
+        };
+        record.into_value(span)
     }
 }
 

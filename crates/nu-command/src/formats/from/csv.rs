@@ -203,6 +203,7 @@ mod test {
 
     use super::*;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     #[test]
@@ -221,6 +222,7 @@ mod test {
             working_set.add_decl(Box::new(FromCsv {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -229,7 +231,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | $in"#;
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
