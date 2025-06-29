@@ -90,20 +90,28 @@ fn code(warning: &ParseWarning) -> &'static str {
         nu_experimental::ParseWarning::InvalidAssignment(_, _) => {
             "nu::experimental_option::invalid_assignment"
         }
-        nu_experimental::ParseWarning::Deprecated(_) => "nu::experimental_option::deprecated",
+        nu_experimental::ParseWarning::DeprecatedDefault(_) => {
+            "nu::experimental_option::deprecated_default"
+        }
+        nu_experimental::ParseWarning::DeprecatedDiscard(_) => {
+            "nu::experimental_option::deprecated_discard"
+        }
     }
 }
 
 fn help(warning: &ParseWarning) -> Option<String> {
     match warning {
         ParseWarning::Unknown(_) => Some(format!(
-            "known experimental options are: {}",
+            "Known experimental options are: {}",
             nu_experimental::ALL
                 .iter()
                 .map(|option| option.identifier())
                 .join(", ")
         )),
         ParseWarning::InvalidAssignment(_, _) => None,
-        ParseWarning::Deprecated(_) => None,
+        ParseWarning::DeprecatedDiscard(_) => None,
+        ParseWarning::DeprecatedDefault(_) => {
+            Some(String::from("You can safely remove this option now."))
+        }
     }
 }

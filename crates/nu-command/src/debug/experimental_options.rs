@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_experimental::Stability;
+use nu_experimental::Status;
 
 #[derive(Clone)]
 pub struct DebugExperimentalOptions;
@@ -16,7 +16,7 @@ impl Command for DebugExperimentalOptions {
                 Type::Table(Box::from([
                     (String::from("identifier"), Type::String),
                     (String::from("enabled"), Type::Bool),
-                    (String::from("stability"), Type::String),
+                    (String::from("status"), Type::String),
                     (String::from("description"), Type::String),
                 ])),
             )
@@ -44,11 +44,11 @@ impl Command for DebugExperimentalOptions {
                             nu_protocol::record! {
                                 "identifier" => Value::string(option.identifier(), call.head),
                                 "enabled" => Value::bool(option.get(), call.head),
-                                "stability" => Value::string(match option.stability() {
-                                    Stability::Unstable => "unstable",
-                                    Stability::StableOptIn => "stable-opt-in",
-                                    Stability::StableOptOut => "stable-opt-out",
-                                    Stability::Deprecated => "deprecated"
+                                "status" => Value::string(match option.status() {
+                                    Status::OptIn => "opt-in",
+                                    Status::OptOut => "opt-out",
+                                    Status::DeprecatedDiscard => "deprecated-discard",
+                                    Status::DeprecatedDefault => "deprecated-default"
                                 }, call.head),
                                 "description" => Value::string(option.description(), call.head),
                             },

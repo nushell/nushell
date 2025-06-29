@@ -1,4 +1,4 @@
-use crate::{ALL, ExperimentalOption, Stability};
+use crate::{ALL, ExperimentalOption, Status};
 use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
 use thiserror::Error;
 
@@ -18,9 +18,13 @@ pub enum ParseWarning {
     #[error("Invalid assignment for `{identifier}`, expected `true` or `false`, got `{1}`", identifier = .0.identifier())]
     InvalidAssignment(&'static ExperimentalOption, String),
 
+    /// This experimental option is deprecated as this is now the default behavior.
+    #[error("The experimental option `{identifier}` is deprecated as this is now the default behavior.", identifier = .0.identifier())]
+    DeprecatedDefault(&'static ExperimentalOption),
+
     /// This experimental option is deprecated and will be removed in the future.
     #[error("The experimental option `{identifier}` is deprecated and will be removed in a future release", identifier = .0.identifier())]
-    Deprecated(&'static ExperimentalOption),
+    DeprecatedDiscard(&'static ExperimentalOption),
 }
 
 /// Parse and activate experimental options.
@@ -41,9 +45,16 @@ pub fn parse_iter<'i, Ctx>(
     'entries: for (key, val, ctx) in iter {
         for option in ALL {
             if option.identifier() == key.trim() {
-                if option.stability() == Stability::Deprecated {
-                    warnings.push((ParseWarning::Deprecated(option), ctx));
-                    continue 'entries;
+                match option.status() {
+                    Status::DeprecatedDiscard => {
+                        warnings.push((ParseWarning::DeprecatedDiscard(option), ctx));
+                        continue 'entries;
+                    }
+                    Status::DeprecatedDefault => {
+                        warnings.push((ParseWarning::DeprecatedDefault(option), ctx));
+                        continue 'entries;
+                    }
+                    _ => {}
                 }
 
                 let val = match val.as_ref().map(|s| s.trim()) {

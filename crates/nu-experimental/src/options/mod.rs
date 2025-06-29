@@ -13,7 +13,7 @@ mod example;
 /// It provides all necessary information about an experimental feature directly in code,
 /// without needing external documentation.
 ///
-/// The `STABILITY` field is especially important as it controls whether the feature is enabled
+/// The `STATUS` field is especially important as it controls whether the feature is enabled
 /// by default and how users should interpret its reliability.
 pub(crate) trait ExperimentalOptionMarker {
     /// Unique identifier for this experimental option.
@@ -28,12 +28,13 @@ pub(crate) trait ExperimentalOptionMarker {
     /// Displayed to users in help messages or summaries without needing to visit external docs.
     const DESCRIPTION: &'static str;
 
-    /// Indicates how stable or experimental this option is.
+    /// Indicates the status of an experimental status.
     ///
-    /// Options marked [`Stability::StableOptOut`] are on by default.
-    /// User-facing commands may use this stability information to clarify risk,
-    /// particularly highlighting [`Stability::Unstable`] options.
-    const STABILITY: Stability;
+    /// Options marked [`Status::OptIn`] are disabled by default while options marked with
+    /// [`Status::OptOut`] are enabled by default.
+    /// Experimental options that stabilize should be marked as [`Status::DeprecatedDefault`] while
+    /// options that will be removed should be [`Status::DeprecatedDiscard`].
+    const STATUS: Status;
 }
 
 // Export only the static values.

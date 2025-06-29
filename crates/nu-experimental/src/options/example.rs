@@ -16,5 +16,5 @@ struct Example;
 impl ExperimentalOptionMarker for Example {
     const IDENTIFIER: &'static str = "example";
     const DESCRIPTION: &'static str = "This is an example of an experimental option.";
-    const STABILITY: Stability = Stability::Unstable;
+    const STATUS: Status = Status::DeprecatedDiscard;
 }

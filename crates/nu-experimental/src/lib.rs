@@ -60,26 +60,26 @@ mod util;
 pub use options::*;
 pub use parse::*;
 
-/// Where an experimental option sits in its life-cycle.
+/// The status of an experimental option.
 ///
-/// This shows how stable an experimental option is.
-/// Highly unstable options should be marked as `Unstable`.
-/// If the API is unlikely to change but still not quite right, use `StableOptIn`.
-/// If the option seems correct, mark it as `StableOptOut` so all users get it by default.
-/// That's usually the last step before full stabilization.
+/// An option can either be disabled by default ([`OptIn`](Self::OptIn)) or enabled by default
+/// ([`OptOut`](Self::OptOut)), depending on its expected stability.
 ///
-/// If we plan to remove an option, mark it as `Deprecated`.
-/// It will trigger a warning when used.
+/// Experimental options can be deprecated in two ways:
+/// - If the feature becomes default behavior, it's marked as
+///   [`DeprecatedDefault`](Self::DeprecatedDefault).
+/// - If the feature is being fully removed, it's marked as
+///   [`DeprecatedDiscard`](Self::DeprecatedDiscard) and triggers a warning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stability {
-    /// Likely to change, disabled by default.
-    Unstable,
-    /// Final API, disabled by default.
-    StableOptIn,
-    /// Final API, enabled by default.
-    StableOptOut,
-    /// Deprecated, will be removed and prints a warning.
-    Deprecated,
+pub enum Status {
+    /// Disabled by default.
+    OptIn,
+    /// Enabled by default.
+    OptOut,
+    /// Deprecated as an experimental option; now default behavior.
+    DeprecatedDefault,
+    /// Deprecated; the feature will be removed and triggers a warning.
+    DeprecatedDiscard,
 }
 
 /// Experimental option (aka feature flag).
@@ -121,18 +121,18 @@ impl ExperimentalOption {
         self.marker.description()
     }
 
-    pub fn stability(&self) -> Stability {
-        self.marker.stability()
+    pub fn status(&self) -> Status {
+        self.marker.status()
     }
 
     pub fn get(&self) -> bool {
         self.value
             .load(Ordering::Relaxed)
-            .unwrap_or_else(|| match self.marker.stability() {
-                Stability::Unstable => false,
-                Stability::StableOptIn => false,
-                Stability::StableOptOut => true,
-                Stability::Deprecated => false,
+            .unwrap_or_else(|| match self.marker.status() {
+                Status::OptIn => false,
+                Status::OptOut => true,
+                Status::DeprecatedDiscard => false,
+                Status::DeprecatedDefault => false,
             })
     }
 
@@ -165,7 +165,7 @@ impl Debug for ExperimentalOption {
         let mut debug_struct = f.debug_struct("ExperimentalOption");
         debug_struct.field("identifier", &self.identifier());
         debug_struct.field("value", &self.get());
-        debug_struct.field("stability", &self.stability());
+        debug_struct.field("stability", &self.status());
         if add_description {
             debug_struct.field("description", &self.description());
         }
@@ -185,7 +185,7 @@ impl Eq for ExperimentalOption {}
 pub(crate) trait DynExperimentalOptionMarker {
     fn identifier(&self) -> &'static str;
     fn description(&self) -> &'static str;
-    fn stability(&self) -> Stability;
+    fn status(&self) -> Status;
 }
 
 impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
@@ -197,7 +197,7 @@ impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
         M::DESCRIPTION
     }
 
-    fn stability(&self) -> Stability {
-        M::STABILITY
+    fn status(&self) -> Status {
+        M::STATUS
     }
 }
