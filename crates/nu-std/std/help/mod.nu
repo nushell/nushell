@@ -639,7 +639,7 @@ def build-command-page [command: record] {
                         $" - ($flag.description)"
                     }),
                     (if ($flag.parameter_default | is-empty) { "" } else {
-                        $" \(default: ($flag.parameter_default)\)"
+                        $" \(default: ($flag.parameter_default | if ($in | describe -d).type == string { debug -v } else {})\)"
                     }),
                 ] | str join ""
             } | str join "\n")
