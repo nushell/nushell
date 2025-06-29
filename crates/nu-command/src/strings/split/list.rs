@@ -1,6 +1,7 @@
+use super::helpers::SplitWhere;
 use fancy_regex::Regex;
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{FromValue, Signals};
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -181,8 +182,8 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
         let separator: Value = call.req(engine_state, stack, 0)?;
-        let split: Option<Split> = call.get_flag(engine_state, stack, "split")?;
-        let split = split.unwrap_or(Split::On);
+        let split: Option<SplitWhere> = call.get_flag(engine_state, stack, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
         let matcher = match separator {
             Value::Closure { val, .. } => {
                 Matcher::from_closure(ClosureEval::new(engine_state, stack, *val))
@@ -200,8 +201,8 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let has_regex = call.has_flag_const(working_set, "regex")?;
         let separator: Value = call.req_const(working_set, 0)?;
-        let split: Option<Split> = call.get_flag_const(working_set, "split")?;
-        let split = split.unwrap_or(Split::On);
+        let split: Option<SplitWhere> = call.get_flag_const(working_set, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
         let matcher = Matcher::new(has_regex, separator)?;
         split_list(working_set.permanent(), call, input, matcher, split)
     }
@@ -211,29 +212,6 @@ enum Matcher {
     Regex(Regex),
     Direct(Value),
     Closure(ClosureEval),
-}
-
-enum Split {
-    On,
-    Before,
-    After,
-}
-
-impl FromValue for Split {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        let span = v.span();
-        let s = <String>::from_value(v)?;
-        match s.as_str() {
-            "on" => Ok(Split::On),
-            "before" => Ok(Split::Before),
-            "after" => Ok(Split::After),
-            _ => Err(ShellError::InvalidValue {
-                valid: "one of: on, before, after".into(),
-                actual: s,
-                span,
-            }),
-        }
-    }
 }
 
 impl Matcher {
@@ -284,7 +262,7 @@ fn split_list(
     call: &Call,
     input: PipelineData,
     mut matcher: Matcher,
-    split: Split,
+    split: SplitWhere,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     Ok(SplitList::new(
@@ -302,7 +280,7 @@ struct SplitList<I, T, F> {
     closure: F,
     done: bool,
     signals: Signals,
-    split: Split,
+    split: SplitWhere,
     last_item: Option<T>,
 }
 
@@ -311,7 +289,7 @@ where
     I: Iterator<Item = T>,
     F: FnMut(&I::Item) -> bool,
 {
-    fn new(iterator: I, signals: Signals, split: Split, closure: F) -> Self {
+    fn new(iterator: I, signals: Signals, split: SplitWhere, closure: F) -> Self {
         Self {
             iterator,
             closure,
@@ -357,11 +335,11 @@ where
                 Some(value) => {
                     if (self.closure)(&value) {
                         match self.split {
-                            Split::On => {}
-                            Split::Before => {
+                            SplitWhere::On => {}
+                            SplitWhere::Before => {
                                 self.last_item = Some(value);
                             }
-                            Split::After => {
+                            SplitWhere::After => {
                                 items.push(value);
                             }
                         }
