@@ -211,7 +211,7 @@ fn parse_closure_result(
                         } else {
                             let error = ShellError::GenericError {
                                 error: "Invalid block return".into(),
-                                msg: format!("Unexpected record key '{}'", k),
+                                msg: format!("Unexpected record key '{k}'"),
                                 span: Some(span),
                                 help: None,
                                 inner: vec![],

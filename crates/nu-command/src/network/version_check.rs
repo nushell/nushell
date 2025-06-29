@@ -64,7 +64,7 @@ impl Registry for NuShellNightly {
             tag_name: String,
         }
 
-        let url = format!("https://api.github.com/repos/{}/releases", pkg);
+        let url = format!("https://api.github.com/repos/{pkg}/releases");
         let versions = http_client
             .add_header("Accept", "application/vnd.github.v3+json")
             .add_header("User-Agent", "update-informer")
@@ -128,7 +128,7 @@ pub fn check_for_latest_nushell_version() -> Value {
 
         if let Ok(Some(new_version)) = informer.check_version() {
             rec.push("current", Value::test_bool(false));
-            rec.push("latest", Value::test_string(format!("{}", new_version)));
+            rec.push("latest", Value::test_string(format!("{new_version}")));
             Value::test_record(rec)
         } else {
             rec.push("current", Value::test_bool(true));
@@ -148,7 +148,7 @@ pub fn check_for_latest_nushell_version() -> Value {
 
         if let Ok(Some(new_version)) = informer.check_version() {
             rec.push("current", Value::test_bool(false));
-            rec.push("latest", Value::test_string(format!("{}", new_version)));
+            rec.push("latest", Value::test_string(format!("{new_version}")));
             Value::test_record(rec)
         } else {
             rec.push("current", Value::test_bool(true));

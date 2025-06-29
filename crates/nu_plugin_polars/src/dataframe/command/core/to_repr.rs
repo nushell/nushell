@@ -97,7 +97,7 @@ fn dataframe_command(
     input: Value,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
-    let value = Value::string(format!("{}", df), call.head);
+    let value = Value::string(format!("{df}"), call.head);
     Ok(PipelineData::Value(value, None))
 }
 

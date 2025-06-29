@@ -321,7 +321,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         out.into_owned()
     };
 
-    println!("=== stderr\n{}", err);
+    println!("=== stderr\n{err}");
 
     Outcome::new(out, err.into_owned(), output.status)
 }
@@ -397,7 +397,7 @@ where
         .spawn()
     {
         Ok(child) => child,
-        Err(why) => panic!("Can't run test {}", why),
+        Err(why) => panic!("Can't run test {why}"),
     };
 
     let output = process
@@ -407,7 +407,7 @@ where
     let out = collapse_output(&String::from_utf8_lossy(&output.stdout));
     let err = String::from_utf8_lossy(&output.stderr);
 
-    println!("=== stderr\n{}", err);
+    println!("=== stderr\n{err}");
 
     Outcome::new(out, err.into_owned(), output.status)
 }

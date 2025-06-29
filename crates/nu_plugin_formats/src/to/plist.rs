@@ -42,14 +42,14 @@ impl SimplePluginCommand for IntoPlist {
         let mut out = Vec::new();
         if call.has_flag("binary")? {
             plist::to_writer_binary(&mut out, &plist_val)
-                .map_err(|e| build_label_error(format!("{}", e), input.span()))?;
+                .map_err(|e| build_label_error(format!("{e}"), input.span()))?;
             Ok(NuValue::binary(out, input.span()))
         } else {
             plist::to_writer_xml(&mut out, &plist_val)
-                .map_err(|e| build_label_error(format!("{}", e), input.span()))?;
+                .map_err(|e| build_label_error(format!("{e}"), input.span()))?;
             Ok(NuValue::string(
                 String::from_utf8(out)
-                    .map_err(|e| build_label_error(format!("{}", e), input.span()))?,
+                    .map_err(|e| build_label_error(format!("{e}"), input.span()))?,
                 input.span(),
             ))
         }
@@ -77,7 +77,7 @@ fn convert_nu_value(nu_val: &NuValue) -> Result<PlistValue, LabeledError> {
         NuValue::Date { val, .. } => Ok(PlistValue::Date(SystemTime::from(val.to_owned()).into())),
         NuValue::Filesize { val, .. } => Ok(PlistValue::Integer(val.get().into())),
         _ => Err(build_label_error(
-            format!("{:?} is not convertible", nu_val),
+            format!("{nu_val:?} is not convertible"),
             span,
         )),
     }

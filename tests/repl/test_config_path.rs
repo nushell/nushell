@@ -297,8 +297,7 @@ fn test_xdg_config_bad() {
             let stderr = run_interactive_stderr(xdg_config_home);
             assert!(
                 stderr.contains("xdg_config_home_invalid"),
-                "stderr was {}",
-                stderr
+                "stderr was {stderr}"
             );
         }
     });
@@ -316,8 +315,7 @@ fn test_xdg_config_symlink() {
         let stderr = run_interactive_stderr(playground.cwd().join(config_link));
         assert!(
             !stderr.contains("xdg_config_home_invalid"),
-            "stderr was {}",
-            stderr
+            "stderr was {stderr}"
         );
     });
 }

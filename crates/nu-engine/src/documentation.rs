@@ -754,7 +754,7 @@ where
         long_desc.push_str("  ");
         // Short flag shown before long flag
         if let Some(short) = flag.short {
-            let _ = write!(long_desc, "{help_subcolor_one}-{}{RESET}", short);
+            let _ = write!(long_desc, "{help_subcolor_one}-{short}{RESET}");
             if !flag.long.is_empty() {
                 let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
             }

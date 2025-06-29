@@ -1359,13 +1359,13 @@ mod test {
     fn test_range_pattern() {
         let pat = Pattern::new("a[0-9]b").unwrap();
         for i in 0..10 {
-            assert!(pat.matches(&format!("a{}b", i)), "a{i}b =~ a[0-9]b");
+            assert!(pat.matches(&format!("a{i}b")), "a{i}b =~ a[0-9]b");
         }
         assert!(!pat.matches("a_b"));
 
         let pat = Pattern::new("a[!0-9]b").unwrap();
         for i in 0..10 {
-            assert!(!pat.matches(&format!("a{}b", i)));
+            assert!(!pat.matches(&format!("a{i}b")));
         }
         assert!(pat.matches("a_b"));
 

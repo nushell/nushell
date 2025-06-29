@@ -83,16 +83,13 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
         ),
         (("[{a: 1}]", "[{a: 1 b: 1}]", "a"), "[[a, b]; [1, 1]]"),
     ] {
-        let expr = format!("{} | join {} {} {} | to nuon", left, right, join_type, on);
+        let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
         let actual = nu!(expr).out;
         assert_eq!(actual, expected);
 
         // Test again with streaming input (using `each` to convert the input into a ListStream)
         let to_list_stream = "each { |i| $i } | ";
-        let expr = format!(
-            "{} | {} join {} {} {} | to nuon",
-            left, to_list_stream, right, join_type, on
-        );
+        let expr = format!("{left} | {to_list_stream} join {right} {join_type} {on} | to nuon");
         let actual = nu!(expr).out;
         assert_eq!(actual, expected);
     }
@@ -244,16 +241,14 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
     ] {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
-                let expr = format!("{} | join {} {} {} | to nuon", left, right, join_type, on);
+                let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
 
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
-                let expr = format!(
-                    "{} | {} join {} {} {} | to nuon",
-                    left, to_list_stream, right, join_type, on
-                );
+                let expr =
+                    format!("{left} | {to_list_stream} join {right} {join_type} {on} | to nuon");
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
             }
@@ -384,18 +379,15 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
     ] {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
-                let expr = format!(
-                    "{} | join {} {} {} {} | to nuon",
-                    left, right, join_type, left_on, right_on
-                );
+                let expr =
+                    format!("{left} | join {right} {join_type} {left_on} {right_on} | to nuon");
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
 
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr = format!(
-                    "{} | {} join {} {} {} {} | to nuon",
-                    left, to_list_stream, right, join_type, left_on, right_on
+                    "{left} | {to_list_stream} join {right} {join_type} {left_on} {right_on} | to nuon"
                 );
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
@@ -413,7 +405,7 @@ fn test_alternative_table_syntax() {
         (("[[a]; [1]]", "[{a: 1}]", "a"), "[[a]; [1]]"),
         (("[[a]; [1]]", "[[a]; [1]]", "a"), "[[a]; [1]]"),
     ] {
-        let expr = format!("{} | join {} {} {} | to nuon", left, right, join_type, on);
+        let expr = format!("{left} | join {right} {join_type} {on} | to nuon");
         let actual = nu!(&expr).out;
         assert_eq!(actual, expected, "Expression was {}", &expr);
     }

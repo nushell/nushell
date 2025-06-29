@@ -246,7 +246,7 @@ fn table(
         escaped_rows.push(escaped_row);
     }
 
-    let output_string = if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
+    if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
         && escaped_rows.is_empty()
     {
         String::from("")
@@ -260,9 +260,7 @@ fn table(
         )
         .trim()
         .to_string()
-    };
-
-    output_string
+    }
 }
 
 pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {

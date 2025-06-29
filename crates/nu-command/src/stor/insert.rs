@@ -164,7 +164,7 @@ fn process(
     }
     let new_table_name = table_name.unwrap_or("table".into());
 
-    let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
+    let mut create_stmt = format!("INSERT INTO {new_table_name} (");
     let mut column_placeholders: Vec<String> = Vec::new();
 
     let cols = record.columns();

@@ -208,7 +208,7 @@ impl EventTypeFilter {
 
     fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
         ShellError::UnsupportedInput {
-            msg: format!("{} is not a valid event type", val),
+            msg: format!("{val} is not a valid event type"),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: val_span,

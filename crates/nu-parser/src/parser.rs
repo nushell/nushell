@@ -1688,7 +1688,7 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
             Expression::new(working_set, Expr::Int(num), span, Type::Int)
         } else {
             working_set.error(ParseError::InvalidLiteral(
-                format!("invalid digits for radix {}", radix),
+                format!("invalid digits for radix {radix}"),
                 "int".into(),
                 span,
             ));
@@ -3387,10 +3387,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     "list"
                 };
                 working_set.error(ParseError::WrongImportPattern(
-                    format!(
-                        "{} member can be only at the end of an import pattern",
-                        what
-                    ),
+                    format!("{what} member can be only at the end of an import pattern"),
                     prev_span,
                 ));
                 return Expression::new(
@@ -6116,7 +6113,7 @@ fn check_record_key_or_value(
                 let colon_position = i + string_value.span.start;
                 ParseError::InvalidLiteral(
                     "colon".to_string(),
-                    format!("bare word specifying record {}", position),
+                    format!("bare word specifying record {position}"),
                     Span::new(colon_position, colon_position + 1),
                 )
             })

@@ -18,7 +18,7 @@ pub fn cleanup_exit<T>(tag: T, engine_state: &EngineState, exit_code: i32) -> T 
     {
         let job_count = jobs.iter().count();
 
-        println!("There are still background jobs running ({}).", job_count);
+        println!("There are still background jobs running ({job_count}).");
 
         println!("Running `exit` a second time will kill all of them.");
 

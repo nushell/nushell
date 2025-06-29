@@ -167,7 +167,7 @@ fn parse_aligned_columns<'a>(
         let headers: Vec<(String, usize)> = indices
             .iter()
             .enumerate()
-            .map(|(i, position)| (format!("column{}", i), *position))
+            .map(|(i, position)| (format!("column{i}"), *position))
             .collect();
 
         construct(ls.iter().map(|s| s.to_owned()), headers)

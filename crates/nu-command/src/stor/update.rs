@@ -164,7 +164,7 @@ fn process(
     }
     let new_table_name = table_name.unwrap_or("table".into());
     if let Ok(conn) = db.open_connection() {
-        let mut update_stmt = format!("UPDATE {} ", new_table_name);
+        let mut update_stmt = format!("UPDATE {new_table_name} ");
 
         update_stmt.push_str("SET ");
         let mut placeholders: Vec<String> = Vec::new();

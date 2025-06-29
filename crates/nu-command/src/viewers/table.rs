@@ -379,7 +379,7 @@ fn get_theme_flag(
                 to_type: String::from("theme"),
                 from_type: String::from("string"),
                 span: call.span(),
-                help: Some(format!("{}, but found '{}'.", err, theme)),
+                help: Some(format!("{err}, but found '{theme}'.")),
             })
         })
         .transpose()
@@ -1117,7 +1117,7 @@ fn create_empty_placeholder(
         return String::new();
     }
 
-    let cell = format!("empty {}", value_type_name);
+    let cell = format!("empty {value_type_name}");
     let mut table = NuTable::new(1, 1);
     table.insert((0, 0), cell);
     table.set_data_style(TextStyle::default().dimmed());
@@ -1156,7 +1156,7 @@ fn convert_table_to_output(
             } else {
                 // assume this failed because the table was too wide
                 // TODO: more robust error classification
-                format!("Couldn't fit table into {} columns!", term_width)
+                format!("Couldn't fit table into {term_width} columns!")
             };
 
             Some(Ok(msg.as_bytes().to_vec()))

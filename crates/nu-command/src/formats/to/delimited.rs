@@ -50,7 +50,7 @@ fn make_unsupported_input_error(
 ) -> ShellError {
     ShellError::UnsupportedInput {
         msg: "expected table or record".to_string(),
-        input: format!("input type: {}", r#type),
+        input: format!("input type: {type}"),
         msg_span: head,
         input_span: span,
     }

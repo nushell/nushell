@@ -368,8 +368,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 if !ALLOWED_SIGNS.contains(&val.as_str()) {
                     let allowed_signs = ALLOWED_SIGNS.join(", ");
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign. Allowed signs are {}", allowed_signs)
-                            .to_string(),
+                        msg: format!("Invalid sign. Allowed signs are {allowed_signs}").to_string(),
                         val_span: sign.span(),
                         call_span: head,
                     });

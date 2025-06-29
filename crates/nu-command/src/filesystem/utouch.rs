@@ -220,7 +220,7 @@ impl Command for UTouch {
                     inner: Vec::new(),
                 },
                 TouchError::InvalidDateFormat(date) => ShellError::IncorrectValue {
-                    msg: format!("Invalid date: {}", date),
+                    msg: format!("Invalid date: {date}"),
                     val_span: date_span.expect("touch should've been given a date"),
                     call_span: call.head,
                 },

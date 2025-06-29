@@ -272,8 +272,8 @@ impl Command for UCp {
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: format!("{}", error),
-                        msg: format!("{}", error),
+                        error: format!("{error}"),
+                        msg: format!("{error}"),
                         span: None,
                         help: None,
                         inner: vec![],
@@ -373,7 +373,7 @@ fn parse_and_set_attribute(
                 "xattr" => &mut attribute.xattr,
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
-                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        msg: format!("--preserve flag got an unexpected attribute \"{val}\""),
                         span: value.span(),
                     });
                 }

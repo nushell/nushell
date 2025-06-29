@@ -158,27 +158,26 @@ fn convert_yaml_value_to_nu_value(
         }
         serde_yaml::Value::Tagged(t) => {
             let tag = &t.tag;
-            let value = match &t.value {
+
+            match &t.value {
                 serde_yaml::Value::String(s) => {
-                    let val = format!("{} {}", tag, s).trim().to_string();
+                    let val = format!("{tag} {s}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Number(n) => {
-                    let val = format!("{} {}", tag, n).trim().to_string();
+                    let val = format!("{tag} {n}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Bool(b) => {
-                    let val = format!("{} {}", tag, b).trim().to_string();
+                    let val = format!("{tag} {b}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Null => {
-                    let val = format!("{}", tag).trim().to_string();
+                    let val = format!("{tag}").trim().to_string();
                     Value::string(val, span)
                 }
                 v => convert_yaml_value_to_nu_value(v, span, val_span)?,
-            };
-
-            value
+            }
         }
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),

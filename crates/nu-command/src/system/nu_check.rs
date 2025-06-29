@@ -106,7 +106,7 @@ impl Command for NuCheck {
                         Err(err) => return Err(err),
                     };
 
-                    let result = if as_module || path.is_dir() {
+                    if as_module || path.is_dir() {
                         parse_file_or_dir_module(
                             path.to_string_lossy().as_bytes(),
                             &mut working_set,
@@ -120,9 +120,7 @@ impl Command for NuCheck {
                         working_set.files = FileStack::with_file(path.clone());
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                         // The working set is not merged, so no need to pop the file from the stack.
-                    };
-
-                    result
+                    }
                 } else {
                     Err(ShellError::GenericError {
                         error: "Failed to execute command".into(),

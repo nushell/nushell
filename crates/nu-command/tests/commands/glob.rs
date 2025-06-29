@@ -170,7 +170,7 @@ fn glob_files_in_parent(
         let expected = expected
             .join(" ")
             .replace('/', std::path::MAIN_SEPARATOR_STR);
-        assert_eq!(actual.out, expected, "\n  test: {}", tag);
+        assert_eq!(actual.out, expected, "\n  test: {tag}");
     });
 }
 

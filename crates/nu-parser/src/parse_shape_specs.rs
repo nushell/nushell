@@ -37,7 +37,7 @@ pub fn parse_shape_name(
     span: Span,
     use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
-    let result = match bytes {
+    match bytes {
         b"any" => SyntaxShape::Any,
         b"binary" => SyntaxShape::Binary,
         b"block" => {
@@ -106,20 +106,18 @@ pub fn parse_shape_name(
                 }
 
                 if let Some(decl_id) = working_set.find_decl(cmd_name) {
-                    return SyntaxShape::CompleterWrapper(Box::new(shape), decl_id);
+                    SyntaxShape::CompleterWrapper(Box::new(shape), decl_id)
                 } else {
                     working_set.error(ParseError::UnknownCommand(cmd_span));
-                    return shape;
+                    shape
                 }
             } else {
                 //TODO: Handle error case for unknown shapes
                 working_set.error(ParseError::UnknownType(span));
-                return SyntaxShape::Any;
+                SyntaxShape::Any
             }
         }
-    };
-
-    result
+    }
 }
 
 fn parse_generic_shape(

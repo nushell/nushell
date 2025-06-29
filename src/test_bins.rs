@@ -360,7 +360,7 @@ pub fn input_bytes_length() {
     let stdin = io::stdin();
     let count = stdin.lock().bytes().count();
 
-    println!("{}", count);
+    println!("{count}");
 }
 
 fn args() -> Vec<String> {

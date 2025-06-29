@@ -373,9 +373,9 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
 
 fn usize_to_hex(n: usize, width: usize) -> String {
     if width == 0 {
-        format!("{:x}", n)
+        format!("{n:x}")
     } else {
-        format!("{:0>width$x}", n, width = width)
+        format!("{n:0>width$x}")
     }
 }
 

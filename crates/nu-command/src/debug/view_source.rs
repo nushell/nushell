@@ -126,10 +126,10 @@ impl Command for ViewSource {
                                 }
                                 let _ = write!(&mut final_contents, "--{}", n.long);
                                 if let Some(short) = n.short {
-                                    let _ = write!(&mut final_contents, "(-{})", short);
+                                    let _ = write!(&mut final_contents, "(-{short})");
                                 }
                                 if let Some(arg) = &n.arg {
-                                    let _ = write!(&mut final_contents, ": {}", arg);
+                                    let _ = write!(&mut final_contents, ": {arg}");
                                 }
                                 final_contents.push(' ');
                             }
@@ -146,7 +146,7 @@ impl Command for ViewSource {
                                 let mut c = 0;
                                 for (insig, outsig) in type_signatures {
                                     c += 1;
-                                    let s = format!("{} -> {}", insig, outsig);
+                                    let s = format!("{insig} -> {outsig}");
                                     final_contents.push_str(&s);
                                     if c != len {
                                         final_contents.push_str(", ")

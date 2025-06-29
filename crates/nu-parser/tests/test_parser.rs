@@ -24,7 +24,7 @@ fn test_int(
 
     if let Some(err_pat) = expected_err {
         if let Some(parse_err) = err {
-            let act_err = format!("{:?}", parse_err);
+            let act_err = format!("{parse_err:?}");
             assert!(
                 act_err.contains(err_pat),
                 "{test_tag}: expected err to contain {err_pat}, but actual error was {act_err}"
@@ -2770,10 +2770,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{}foo = 1 |
+                r#"{prefix}foo = 1 |
                 # comment
-                dummy"#,
-                prefix
+                dummy"#
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2783,11 +2782,11 @@ mod input_types {
                     call.arguments[1].expr().unwrap()
                 }
                 Expr::BinaryOp(_, _, rhs) => rhs.as_ref(),
-                _ => panic!("Unexpected expression: {:?}", last_expr),
+                _ => panic!("Unexpected expression: {last_expr:?}"),
             };
             let block_id = match block_expr.expr {
                 Expr::Block(block_id) | Expr::Subexpression(block_id) => block_id,
-                _ => panic!("Unexpected expression: {:?}", block_expr),
+                _ => panic!("Unexpected expression: {block_expr:?}"),
             };
             let rhs_expr = working_set.get_block(block_id);
             assert_eq!(rhs_expr.pipelines.len(), 1);

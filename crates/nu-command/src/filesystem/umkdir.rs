@@ -77,8 +77,8 @@ impl Command for UMkdir {
         for dir in directories {
             if let Err(error) = mkdir(&dir, IS_RECURSIVE, get_mode(), is_verbose) {
                 return Err(ShellError::GenericError {
-                    error: format!("{}", error),
-                    msg: format!("{}", error),
+                    error: format!("{error}"),
+                    msg: format!("{error}"),
                     span: None,
                     help: None,
                     inner: vec![],

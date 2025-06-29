@@ -188,7 +188,7 @@ fn get_theme_from_asset_file(
         Some(t) => t,
         None => {
             return Err(ShellError::TypeMismatch {
-                err_message: format!("Unknown HTML theme '{}'", theme_name),
+                err_message: format!("Unknown HTML theme '{theme_name}'"),
                 span: theme_span,
             });
         }
@@ -774,8 +774,7 @@ mod tests {
         for key in required_keys {
             assert!(
                 theme_map.contains_key(key),
-                "Expected theme to contain key '{}'",
-                key
+                "Expected theme to contain key '{key}'"
             );
         }
     }
@@ -792,15 +791,13 @@ mod tests {
         if let Err(err) = result {
             assert!(
                 matches!(err, ShellError::TypeMismatch { .. }),
-                "Expected TypeMismatch error, got: {:?}",
-                err
+                "Expected TypeMismatch error, got: {err:?}"
             );
 
             if let ShellError::TypeMismatch { err_message, span } = err {
                 assert!(
                     err_message.contains("doesnt-exist"),
-                    "Error message should mention theme name, got: {}",
-                    err_message
+                    "Error message should mention theme name, got: {err_message}"
                 );
                 assert_eq!(span.start, 0);
                 assert_eq!(span.end, 13);

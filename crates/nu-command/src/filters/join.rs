@@ -379,10 +379,7 @@ fn merge_records(left: &Record, right: &Record, shared_key: Option<&str>) -> Rec
         let k_shared = shared_key == Some(k.as_str());
         // Do not output shared join key twice
         if !(k_seen && k_shared) {
-            record.push(
-                if k_seen { format!("{}_", k) } else { k.clone() },
-                v.clone(),
-            );
+            record.push(if k_seen { format!("{k}_") } else { k.clone() }, v.clone());
         }
     }
     record

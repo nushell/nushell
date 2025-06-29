@@ -678,7 +678,7 @@ fn parse_value_from_record_as_u32(
         Value::Int { val, .. } => {
             if *val < 0 || *val > u32::MAX as i64 {
                 return Err(ShellError::IncorrectValue {
-                    msg: format!("incorrect value for {}", col),
+                    msg: format!("incorrect value for {col}"),
                     val_span: *head,
                     call_span: *span,
                 });

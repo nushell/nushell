@@ -2160,12 +2160,10 @@ fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) ->
         return true;
     }
 
-    let private_submodule_changed = module
+    module
         .imported_modules
         .iter()
-        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id));
-
-    private_submodule_changed
+        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id))
 }
 
 /// Parse a module from a file.
@@ -4052,7 +4050,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
-        .find_variable(format!("${}", var_name).as_bytes())
+        .find_variable(format!("${var_name}").as_bytes())
         .filter(|var_id| working_set.get_variable(*var_id).const_val.is_some())
 }
 

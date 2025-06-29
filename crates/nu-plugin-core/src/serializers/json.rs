@@ -122,8 +122,7 @@ mod tests {
         let string = std::str::from_utf8(&out).expect("utf-8 error");
         assert!(
             string.ends_with('\n'),
-            "doesn't end with newline: {:?}",
-            string
+            "doesn't end with newline: {string:?}"
         );
     }
 
