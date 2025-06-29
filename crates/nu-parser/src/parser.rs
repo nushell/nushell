@@ -1050,6 +1050,23 @@ pub fn parse_internal_call(
 
         if !flags_ended {
             if parse_flag_terminator(working_set, spans, spans_idx) {
+                let call_pos = call.positional_len();
+                let req_pos = signature.required_positional.len();
+                let opt_pos = signature.optional_positional.len();
+
+                // skip over remainin positional parameters straight to ...rest
+                // fill optional positional parameters with null
+                let args_to_fill = (req_pos + opt_pos) as isize - call_pos as isize;
+                for _ in 0..args_to_fill {
+                    call.add_positional(Expression::new(
+                        working_set,
+                        Expr::Nothing,
+                        Span::unknown(),
+                        Type::Nothing,
+                    ));
+                    positional_idx += 1;
+                }
+
                 // Pass it along for `extern` and `def --wrapped` commands
                 if is_known_external || signature.allows_unknown_args {
                     call.add_positional(Expression::new(
@@ -1059,8 +1076,10 @@ pub fn parse_internal_call(
                         Type::String,
                     ));
                 }
+
                 flags_ended = true;
                 spans_idx += 1;
+
                 continue;
             }
 
