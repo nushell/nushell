@@ -140,6 +140,15 @@ impl Span {
         self.start <= span.start && span.end <= self.end && span.end != 0
     }
 
+    /// Point to the space just before this span, useful for missing values
+    pub fn before(&self) -> Self {
+        let pos = self.start.saturating_sub(1);
+        Self {
+            start: pos,
+            end: pos,
+        }
+    }
+
     /// Point to the space just past this span, useful for missing values
     pub fn past(&self) -> Self {
         Self {

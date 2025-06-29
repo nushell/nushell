@@ -711,13 +711,7 @@ fn parse_short_flags(
     }
 }
 
-fn parse_flag_terminator(
-    working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    spans_idx: usize,
-) -> bool {
-    let arg_span = spans[spans_idx];
-
+fn parse_flag_terminator(working_set: &mut StateWorkingSet, arg_span: Span) -> bool {
     let arg_contents = working_set.get_span_contents(arg_span);
 
     let Ok(arg_contents_uft8_ref) = str::from_utf8(arg_contents) else {
@@ -1049,7 +1043,7 @@ pub fn parse_internal_call(
         let starting_error_count = working_set.parse_errors.len();
 
         if !flags_ended {
-            if parse_flag_terminator(working_set, spans, spans_idx) {
+            if parse_flag_terminator(working_set, arg_span) {
                 let call_pos = call.positional_len();
                 let req_pos = signature.required_positional.len();
                 let opt_pos = signature.optional_positional.len();
@@ -1057,7 +1051,7 @@ pub fn parse_internal_call(
                 if call_pos < req_pos {
                     working_set.error(ParseError::MissingPositional(
                         signature.required_positional[positional_idx].name.clone(),
-                        Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                        arg_span.before(),
                         signature.call_signature(),
                     ));
                 }
@@ -1067,11 +1061,12 @@ pub fn parse_internal_call(
                 // skip this for `extern` commands
                 if !is_known_external {
                     let args_to_fill = (req_pos + opt_pos) as isize - call_pos as isize;
+                    let span = arg_span.before();
                     for _ in 0..args_to_fill {
                         call.add_positional(Expression::new(
                             working_set,
                             Expr::Nothing,
-                            Span::unknown(),
+                            span,
                             Type::Nothing,
                         ));
                         positional_idx += 1;
