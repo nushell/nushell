@@ -43,6 +43,27 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
+        let has_input = !matches!(input, PipelineData::Empty);
+
+        if let Some(arg_expr) = arg {
+            if has_input {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "pipeline input was provided".into(),
+                    left_span: head,
+                    right_message: "but a positional metadata expression was also given".into(),
+                    right_span: arg_expr.span,
+                });
+            }
+        }
+
+        if has_input {
+            return Ok(Value::record(
+                extend_record_with_metadata(Record::new(), input.metadata().as_ref(), call.head),
+                call.head,
+            )
+            .into_pipeline_data());
+        }
+
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
@@ -56,7 +77,6 @@ impl Command for Metadata {
                             ..
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
-
                             Ok(build_metadata_record_value(
                                 &origin,
                                 input.metadata().as_ref(),
