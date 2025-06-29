@@ -1054,6 +1054,14 @@ pub fn parse_internal_call(
                 let req_pos = signature.required_positional.len();
                 let opt_pos = signature.optional_positional.len();
 
+                if call_pos < req_pos {
+                    working_set.error(ParseError::MissingPositional(
+                        signature.required_positional[positional_idx].name.clone(),
+                        Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                        signature.call_signature(),
+                    ));
+                }
+
                 // skip over remainin positional parameters straight to ...rest
                 // fill optional positional parameters with null
                 let args_to_fill = (req_pos + opt_pos) as isize - call_pos as isize;
