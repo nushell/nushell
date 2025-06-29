@@ -1064,15 +1064,18 @@ pub fn parse_internal_call(
 
                 // skip over remainin positional parameters straight to ...rest
                 // fill optional positional parameters with null
-                let args_to_fill = (req_pos + opt_pos) as isize - call_pos as isize;
-                for _ in 0..args_to_fill {
-                    call.add_positional(Expression::new(
-                        working_set,
-                        Expr::Nothing,
-                        Span::unknown(),
-                        Type::Nothing,
-                    ));
-                    positional_idx += 1;
+                // skip this for `extern` commands
+                if !is_known_external {
+                    let args_to_fill = (req_pos + opt_pos) as isize - call_pos as isize;
+                    for _ in 0..args_to_fill {
+                        call.add_positional(Expression::new(
+                            working_set,
+                            Expr::Nothing,
+                            Span::unknown(),
+                            Type::Nothing,
+                        ));
+                        positional_idx += 1;
+                    }
                 }
 
                 // Pass it along for `extern` and `def --wrapped` commands
