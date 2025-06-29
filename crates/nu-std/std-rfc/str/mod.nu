@@ -129,3 +129,48 @@ export def unindent [
     $text
     | str replace -r --all $"\(?m\)^($indent_chars)" ''
 }
+
+alias "str align" = align
+
+# Aligns each line in the input string to have the target in the same column through padding
+@example "Create alias for each subcommand and align them" { scope commands | where name starts-with split | get name | each {|x| $'export alias "($x | str replace split sp)" = ($x)'} | str align '=' } --result r#'export alias "sp"           = split
+export alias "sp cell-path" = split cell-path
+export alias "sp chars"     = split chars
+export alias "sp column"    = split column
+export alias "sp list"      = split list
+export alias "sp row"       = split row
+export alias "sp words"     = split words
+export alias "sp-files"     = split-files'#
+export def align [
+    target:string       # substring to align
+    --char (-c) = " "   # character to use for padding
+    --range (-r): range # the range of lines to align
+]: [string -> string, list<string> -> string] {
+    let $input = $in | to text | lines
+
+    let $indexes = (
+        $input
+        | enumerate
+        | each {|x|
+            if $x.index in ($range | default 0..) {
+                $x.item | str index-of $target
+            } else {
+                -1
+            }
+        }
+    )
+    let $max = $indexes | math max
+
+    $input
+    | zip $indexes
+    | each {|x|
+        # Fold adding a `$char` at the index until they are in the same column
+        # If the substring is not in the line, the index is -1 and it is left as it is
+        seq 1 (if $x.1 == -1 { 0 } else { $max - $x.1 })
+        | reduce -f ($x.0 | split chars) {|_, acc|
+            $acc | insert $x.1 $char
+        }
+        | str join
+    }
+    | str join (char nl)
+}
