@@ -161,8 +161,7 @@ fn helper(
 
     let response = send_request(
         engine_state,
-        request,
-        HttpBody::None,
+        super::client::GenericRequestBuilder::WithoutBody(request),
         None,
         call.head,
         signals,
