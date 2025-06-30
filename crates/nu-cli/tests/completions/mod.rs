@@ -309,10 +309,10 @@ fn custom_arguments_and_subcommands() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both subcommand and directory completions
     let expected = [
-        "foo test bar".into(),
         folder("test_a"),
         file("test_a_symlink"),
         folder("test_b"),
+        "foo test bar".into(),
     ];
     match_suggestions_by_string(&expected, &suggestions);
 }
@@ -330,7 +330,7 @@ fn custom_flags_and_subcommands() {
     let completion_str = "foo --test";
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both flag and directory completions
-    let expected: Vec<_> = vec!["foo --test bar", "--test"];
+    let expected: Vec<_> = vec!["--test", "foo --test bar"];
     match_suggestions(&expected, &suggestions);
 }
 
