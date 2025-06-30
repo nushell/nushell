@@ -811,6 +811,7 @@ fn request_handle_response_content(
                 "headers" => Value::record(headers, span),
                 "body" => body,
                 "status" => Value::int(response_status as i64, span),
+                "urls" => Value::list(vec![Value::string(requested_url.to_string(), span)], span)
             },
             span,
         );
