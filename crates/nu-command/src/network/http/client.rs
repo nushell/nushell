@@ -811,7 +811,7 @@ fn request_handle_response_content(
         if resulting_url != requested_url {
             urls.push(Value::string(resulting_url.to_string(), span));
         }
-        
+
         let body = consume_response_body(resp)?.into_value(span)?;
 
         let full_response = Value::record(
