@@ -11,7 +11,7 @@ use rustls::{
     crypto::CryptoProvider,
     pki_types::{CertificateDer, ServerName, UnixTime},
 };
-use ureq::TlsConnector;
+use ureq::unversioned::transport::{Connector, RustlsConnector, TcpConnector};
 
 // TODO: replace all these generic errors with proper errors
 
@@ -170,7 +170,7 @@ static ROOT_CERT_STORE: LazyLock<Result<Arc<RootCertStore>, ShellError>> = LazyL
 });
 
 #[doc = include_str!("./tls.rustdoc.md")]
-pub fn tls(allow_insecure: bool) -> Result<impl TlsConnector, ShellError> {
+pub fn tls(allow_insecure: bool) -> Result<impl Connector, ShellError> {
     let crypto_provider = CRYPTO_PROVIDER.get()?;
 
     let make_protocol_versions_error = |err: rustls::Error| ShellError::GenericError {
@@ -180,22 +180,29 @@ pub fn tls(allow_insecure: bool) -> Result<impl TlsConnector, ShellError> {
         help: None,
         inner: vec![],
     };
-
-    let client_config = match allow_insecure {
-        false => rustls::ClientConfig::builder_with_provider(crypto_provider)
-            .with_safe_default_protocol_versions()
-            .map_err(make_protocol_versions_error)?
-            .with_root_certificates(ROOT_CERT_STORE.deref().clone()?)
-            .with_no_client_auth(),
-        true => rustls::ClientConfig::builder_with_provider(crypto_provider)
-            .with_safe_default_protocol_versions()
-            .map_err(make_protocol_versions_error)?
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(UnsecureServerCertVerifier))
-            .with_no_client_auth(),
+    // FIXME(ureq)
+    let connector = match allow_insecure {
+        true => todo!("FIXME(ureq)"),
+        false => ().chain(TcpConnector::default()).chain(RustlsConnector::default()),
     };
 
-    Ok(Arc::new(client_config))
+    Ok(connector)
+
+    // let client_config = match allow_insecure {
+    //     false => rustls::ClientConfig::builder_with_provider(crypto_provider)
+    //         .with_safe_default_protocol_versions()
+    //         .map_err(make_protocol_versions_error)?
+    //         .with_root_certificates(ROOT_CERT_STORE.deref().clone()?)
+    //         .with_no_client_auth(),
+    //     true => rustls::ClientConfig::builder_with_provider(crypto_provider)
+    //         .with_safe_default_protocol_versions()
+    //         .map_err(make_protocol_versions_error)?
+    //         .dangerous()
+    //         .with_custom_certificate_verifier(Arc::new(UnsecureServerCertVerifier))
+    //         .with_no_client_auth(),
+    // };
+
+    // Ok(Arc::new(client_config))
 }
 
 #[derive(Debug)]
