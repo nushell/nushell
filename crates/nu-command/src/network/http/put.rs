@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, check_response_redirection, extract_request_headers, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
@@ -219,10 +219,13 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
+    // FIXME(ureq): this ignores the late-set headers,
+    //              request needs to be fully built before extracting the headers
+    let request_headers = extract_request_headers(&request);
+
     let response = send_request(
         engine_state,
-        request.clone(),
-        args.data,
+        super::client::GenericRequestBuilder::WithBody(request, args.data),
         args.content_type,
         call.head,
         engine_state.signals(),
@@ -242,7 +245,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
-        request,
+        request_headers.unwrap_or_default(),
     )
 }
 
