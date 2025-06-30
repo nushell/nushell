@@ -133,14 +133,11 @@ export def unindent [
 alias "str align" = align
 
 # Aligns each line in the input string to have the target in the same column through padding
-@example "Create alias for each subcommand and align them" { scope commands | where name starts-with split | get name | each {|x| $'export alias "($x | str replace split sp)" = ($x)'} | str align '=' } --result r#'export alias "sp"           = split
-export alias "sp cell-path" = split cell-path
-export alias "sp chars"     = split chars
-export alias "sp column"    = split column
-export alias "sp list"      = split list
-export alias "sp row"       = split row
-export alias "sp words"     = split words
-export alias "sp-files"     = split-files'#
+@example "Align variable assignments" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' } --result r#'one   = 1
+two   = 2
+three = 3
+four  = 4
+five  = 5'#
 export def align [
     target:string       # substring to align
     --char (-c) = " "   # character to use for padding
