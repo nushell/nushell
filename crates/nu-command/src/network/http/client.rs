@@ -804,6 +804,14 @@ fn request_handle_response_content(
             "response" => response_headers_value,
         };
 
+        let mut urls = Vec::with_capacity(2);
+        // FIXME: this distinguishes between `http://example.com` and `http://example.com/`
+        urls.push(Value::string(requested_url.to_string(), span));
+        let resulting_url = resp.get_url();
+        if resulting_url != requested_url {
+            urls.push(Value::string(resulting_url.to_string(), span));
+        }
+        
         let body = consume_response_body(resp)?.into_value(span)?;
 
         let full_response = Value::record(
@@ -811,7 +819,7 @@ fn request_handle_response_content(
                 "headers" => Value::record(headers, span),
                 "body" => body,
                 "status" => Value::int(response_status as i64, span),
-                "urls" => Value::list(vec![Value::string(requested_url.to_string(), span)], span)
+                "urls" => Value::list(urls, span)
             },
             span,
         );
