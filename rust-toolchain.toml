@@ -14,6 +14,4 @@ profile = "default"
 # so that we give repo maintainers and package managers a chance to update to a more
 # recent version of rust. However, if there is a "cool new feature" that we want to
 # use in nushell, we may opt to use the bleeding edge stable version of rust.
-# I believe rust is on a 6 week release cycle and nushell is on a 4 week release cycle.
-# So, every two nushell releases, this version number should be bumped by one.
-channel = "1.85.1"
+channel = "1.86.0"
