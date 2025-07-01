@@ -20,6 +20,7 @@ nu-glob = { path = "../nu-glob", version = "0.105.2" }
 nu-utils = { path = "../nu-utils", version = "0.105.2", default-features = false }
 fancy-regex = { workspace = true }
 log = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
 default = ["os"]

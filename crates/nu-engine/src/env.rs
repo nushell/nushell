@@ -13,6 +13,7 @@ use std::{
 };
 
 pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+pub const JSON_ENV_VAR_PREFIX: &str = "NU_JSON_SERIALIZED:";
 
 enum ConversionError {
     ShellError(ShellError),
@@ -78,23 +79,35 @@ pub fn convert_env_values(
     let env_vars = engine_state.render_env_vars();
 
     for (name, val) in env_vars {
-        if let Value::String { .. } = val {
-            // Only run from_string on string values
-            match get_converted_value(engine_state, stack, name, val, "from_string") {
-                Ok(v) => {
-                    let _ = new_scope.insert(name.to_string(), v);
-                }
-                Err(ConversionError::ShellError(e)) => error = error.or(Some(e)),
-                Err(ConversionError::CellPathError) => {
-                    let _ = new_scope.insert(name.to_string(), val.clone());
+        match val {
+            Value::String {
+                val: string_val,
+                internal_span: _,
+            } if string_val.starts_with(JSON_ENV_VAR_PREFIX) => {
+                let json_content = &string_val[JSON_ENV_VAR_PREFIX.len()..];
+                // Fall back to the original string value on error
+                let deserialized_val =
+                    serde_json::from_str::<Value>(json_content).unwrap_or_else(|_| val.clone());
+                let _ = new_scope.insert(name.to_string(), deserialized_val);
+            }
+            Value::String { .. } => {
+                // Handle normal string environment variables
+                match get_converted_value(engine_state, stack, name, &val, "from_string") {
+                    Ok(v) => {
+                        let _ = new_scope.insert(name.to_string(), v);
+                    }
+                    Err(ConversionError::ShellError(e)) => error = error.or(Some(e)),
+                    Err(ConversionError::CellPathError) => {
+                        let _ = new_scope.insert(name.to_string(), val.clone());
+                    }
                 }
             }
-        } else {
             // Skip values that are already converted (not a string)
-            let _ = new_scope.insert(name.to_string(), val.clone());
+            _ => {
+                new_scope.insert(name.to_string(), val.clone());
+            }
         }
     }
-
     error = error.or_else(|| ensure_path(engine_state, stack));
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
@@ -130,42 +143,55 @@ pub fn env_to_string(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Result<String, ShellError> {
+    // exit early if result is not Err(ConversionError::CellPathError)
+    // and string coersion does not work
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        Ok(v) => Ok(v.coerce_into_string()?),
-        Err(ConversionError::ShellError(e)) => Err(e),
-        Err(ConversionError::CellPathError) => match value.coerce_string() {
-            Ok(s) => Ok(s),
-            Err(_) => {
-                if env_name.to_lowercase() == "path" {
-                    // Try to convert PATH/Path list to a string
-                    match value {
-                        Value::List { vals, .. } => {
-                            let paths: Vec<String> = vals
-                                .iter()
-                                .filter_map(|v| v.coerce_str().ok())
-                                .map(|s| nu_path::expand_tilde(&*s).to_string_lossy().into_owned())
-                                .collect();
+        Ok(v) => return Ok(v.coerce_into_string()?),
+        Err(ConversionError::ShellError(e)) => return Err(e),
+        Err(ConversionError::CellPathError) => {
+            if let Ok(s) = value.coerce_string() {
+                return Ok(s);
+            }
+        }
+    }
 
-                            std::env::join_paths(paths.iter().map(AsRef::<str>::as_ref))
-                                .map(|p| p.to_string_lossy().to_string())
-                                .map_err(|_| ShellError::EnvVarNotAString {
-                                    envvar_name: env_name.to_string(),
-                                    span: value.span(),
-                                })
-                        }
-                        _ => Err(ShellError::EnvVarNotAString {
-                            envvar_name: env_name.to_string(),
-                            span: value.span(),
-                        }),
-                    }
-                } else {
-                    Err(ShellError::EnvVarNotAString {
+    match env_name.to_uppercase().as_str() {
+        // Do an uppsercase conversion since `ENV_CONVERSIONS` is uppercase
+        "PATH" => {
+            // Try to convert PATH/Path list to a string
+            if let Value::List { vals, .. } = value {
+                let paths: Vec<String> = vals
+                    .iter()
+                    .filter_map(|v| v.coerce_str().ok())
+                    .map(|s| nu_path::expand_tilde(&*s).to_string_lossy().into_owned())
+                    .collect();
+
+                return std::env::join_paths(paths.iter().map(AsRef::<str>::as_ref))
+                    .map(|p| p.to_string_lossy().to_string())
+                    .map_err(|_| ShellError::EnvVarNotAString {
                         envvar_name: env_name.to_string(),
                         span: value.span(),
-                    })
-                }
+                    });
             }
-        },
+            return Err(ShellError::EnvVarNotAString {
+                envvar_name: env_name.to_string(),
+                span: value.span(),
+            });
+        }
+        // Don't serialize `ENV_CONVERSIONS` to avoid infinite recursion
+        ENV_CONVERSIONS => Err(ShellError::EnvVarNotAString {
+            envvar_name: env_name.to_string(),
+            span: value.span(),
+        }),
+        _ => {
+            // For complex values (records, lists), use a simple JSON serialization
+            serde_json::to_string(&value)
+                .map(|json_str| format!("{JSON_ENV_VAR_PREFIX}{json_str}"))
+                .map_err(|_| ShellError::EnvVarNotAString {
+                    envvar_name: env_name.to_string(),
+                    span: value.span(),
+                })
+        }
     }
 }
 

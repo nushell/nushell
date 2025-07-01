@@ -3827,6 +3827,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "serde_json",
 ]
 
 [[package]]
