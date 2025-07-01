@@ -829,7 +829,7 @@ fn let_variable_record_to_table_conversion() -> TestResult {
 #[test]
 fn let_variable_record_to_table_key_mismatch() -> TestResult {
     // This conversion should fail due to a key mismatch
-    fail_test(r#"let x: table<b: int> = ({a: 1} | to nuon | from nuon); $x | describe"#, "expected table<b: int>, found table<a: int")
+    fail_test(r#"let x: table<b: int> = ({a: 1} | to nuon | from nuon); $x | describe"#, "can't convert table<a: int> to table<b: int>")
 }
 
 #[test]
