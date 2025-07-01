@@ -42,38 +42,37 @@ pub fn parse_iter<'i, Ctx>(
     iter: impl Iterator<Item = (Cow<'i, str>, Option<Cow<'i, str>>, Ctx)>,
 ) -> Vec<(ParseWarning, Ctx)> {
     let mut warnings = Vec::new();
-    'entries: for (key, val, ctx) in iter {
-        for option in ALL {
-            if option.identifier() == key.trim() {
-                match option.status() {
-                    Status::DeprecatedDiscard => {
-                        warnings.push((ParseWarning::DeprecatedDiscard(option), ctx));
-                        continue 'entries;
-                    }
-                    Status::DeprecatedDefault => {
-                        warnings.push((ParseWarning::DeprecatedDefault(option), ctx));
-                        continue 'entries;
-                    }
-                    _ => {}
-                }
+    for (key, val, ctx) in iter {
+        let Some(option) = ALL.iter().find(|option| option.identifier() == key.trim()) else {
+            warnings.push((ParseWarning::Unknown(key.to_string()), ctx));
+            continue;
+        };
 
-                let val = match val.as_ref().map(|s| s.trim()) {
-                    None => true,
-                    Some("true") => true,
-                    Some("false") => false,
-                    Some(s) => {
-                        warnings.push((ParseWarning::InvalidAssignment(option, s.to_owned()), ctx));
-                        continue 'entries;
-                    }
-                };
-
-                option.value.store(val, Ordering::Relaxed);
-                continue 'entries;
+        match option.status() {
+            Status::DeprecatedDiscard => {
+                warnings.push((ParseWarning::DeprecatedDiscard(option), ctx));
+                continue;
             }
+            Status::DeprecatedDefault => {
+                warnings.push((ParseWarning::DeprecatedDefault(option), ctx));
+                continue;
+            }
+            _ => {}
         }
 
-        warnings.push((ParseWarning::Unknown(key.to_string()), ctx));
+        let val = match val.as_deref().map(str::trim) {
+            None => true,
+            Some("true") => true,
+            Some("false") => false,
+            Some(s) => {
+                warnings.push((ParseWarning::InvalidAssignment(option, s.to_owned()), ctx));
+                continue;
+            }
+        };
+
+        option.value.store(val, Ordering::Relaxed);
     }
+
 
     warnings
 }

@@ -16,38 +16,29 @@ use crate::command::NushellCliArgs;
 pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: bool) {
     let working_set = StateWorkingSet::new(engine_state);
 
-    let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
-    let env_offset = format!("{}=", nu_experimental::ENV).len();
-    for (env_warning, span) in nu_experimental::parse_env() {
-        let span_offset = (span.start + env_offset)..(span.end + env_offset);
-        let mut diagnostic = miette::diagnostic!(
-            severity = miette::Severity::Warning,
-            code = code(&env_warning),
-            labels = vec![miette::LabeledSpan::new_with_span(None, span_offset)],
-            "{}",
-            env_warning,
-        );
-        if let Some(help) = help(&env_warning) {
-            diagnostic = diagnostic.with_help(help);
-        }
+    if !should_disable_experimental_options(has_script, cli_args) {
+        let env_content = std::env::var(nu_experimental::ENV).unwrap_or_default();
+        let env_offset = format!("{}=", nu_experimental::ENV).len();
 
-        let error = miette::Error::from(diagnostic).with_source_code(format!(
-            "{}={}",
-            nu_experimental::ENV,
-            env_content
-        ));
-        report_experimental_option_warning(&working_set, error.borrow());
-    }
-
-    if should_disable_experimental_options(has_script, cli_args) {
-        for option in nu_experimental::ALL {
-            // SAFETY:
-            // The `set` method for experimental option is marked unsafe to warn consumers that
-            // changing these values at runtime it risky.
-            // At this point we're still in the initialization phase, so this should be fine.
-            unsafe {
-                option.set(false);
+        for (env_warning, span) in nu_experimental::parse_env() {
+            let span_offset = (span.start + env_offset)..(span.end + env_offset);
+            let mut diagnostic = miette::diagnostic!(
+                severity = miette::Severity::Warning,
+                code = code(&env_warning),
+                labels = vec![miette::LabeledSpan::new_with_span(None, span_offset)],
+                "{}",
+                env_warning,
+            );
+            if let Some(help) = help(&env_warning) {
+                diagnostic = diagnostic.with_help(help);
             }
+
+            let error = miette::Error::from(diagnostic).with_source_code(format!(
+                "{}={}",
+                nu_experimental::ENV,
+                env_content
+            ));
+            report_experimental_option_warning(&working_set, error.borrow());
         }
     }
 
