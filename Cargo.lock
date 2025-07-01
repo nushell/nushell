@@ -3541,6 +3541,7 @@ dependencies = [
  "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
+ "nu-experimental",
  "nu-explore",
  "nu-lsp",
  "nu-parser",
@@ -3658,6 +3659,7 @@ dependencies = [
  "miette",
  "nu-cmd-base",
  "nu-engine",
+ "nu-experimental",
  "nu-parser",
  "nu-protocol",
  "nu-utils",
@@ -3736,6 +3738,7 @@ dependencies = [
  "nu-cmd-lang",
  "nu-color-config",
  "nu-engine",
+ "nu-experimental",
  "nu-glob",
  "nu-json",
  "nu-parser",
@@ -3827,6 +3830,14 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+]
+
+[[package]]
+name = "nu-experimental"
+version = "0.105.2"
+dependencies = [
+ "itertools 0.14.0",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

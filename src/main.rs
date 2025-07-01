@@ -1,6 +1,7 @@
 mod command;
 mod command_context;
 mod config_files;
+mod experimental_options;
 mod ide;
 mod logger;
 mod run;
@@ -200,6 +201,8 @@ fn main() -> Result<()> {
             report_shell_error(&engine_state, &err);
             std::process::exit(1)
         });
+
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()

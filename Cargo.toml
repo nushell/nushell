@@ -24,36 +24,37 @@ pkg-fmt = "zip"
 
 [workspace]
 members = [
+  "crates/nu_plugin_custom_values",
+  "crates/nu_plugin_example",
+  "crates/nu_plugin_formats",
+  "crates/nu_plugin_gstat",
+  "crates/nu_plugin_inc",
+  "crates/nu_plugin_polars",
+  "crates/nu_plugin_query",
+  "crates/nu_plugin_stress_internals",
   "crates/nu-cli",
-  "crates/nu-engine",
-  "crates/nu-parser",
-  "crates/nu-system",
   "crates/nu-cmd-base",
   "crates/nu-cmd-extra",
   "crates/nu-cmd-lang",
   "crates/nu-cmd-plugin",
-  "crates/nu-command",
   "crates/nu-color-config",
+  "crates/nu-command",
+  "crates/nu-derive-value",
+  "crates/nu-engine",
+  "crates/nu-experimental",
   "crates/nu-explore",
   "crates/nu-json",
   "crates/nu-lsp",
-  "crates/nu-pretty-hex",
-  "crates/nu-protocol",
-  "crates/nu-derive-value",
-  "crates/nu-plugin",
+  "crates/nu-parser",
   "crates/nu-plugin-core",
   "crates/nu-plugin-engine",
   "crates/nu-plugin-protocol",
   "crates/nu-plugin-test-support",
-  "crates/nu_plugin_inc",
-  "crates/nu_plugin_gstat",
-  "crates/nu_plugin_example",
-  "crates/nu_plugin_query",
-  "crates/nu_plugin_custom_values",
-  "crates/nu_plugin_formats",
-  "crates/nu_plugin_polars",
-  "crates/nu_plugin_stress_internals",
+  "crates/nu-plugin",
+  "crates/nu-pretty-hex",
+  "crates/nu-protocol",
   "crates/nu-std",
+  "crates/nu-system",
   "crates/nu-table",
   "crates/nu-term-grid",
   "crates/nu-test-support",
@@ -163,6 +164,7 @@ syn = "2.0"
 sysinfo = "0.33"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.20"
+thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.8"
 trash = "5.2"
@@ -203,11 +205,12 @@ workspace = true
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.105.2" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.105.2" }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.105.2" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.105.2" }
 nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.105.2", optional = true }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.105.2" }
 nu-command = { path = "./crates/nu-command", version = "0.105.2", default-features = false, features = ["os"] }
 nu-engine = { path = "./crates/nu-engine", version = "0.105.2" }
+nu-experimental = { path = "./crates/nu-experimental", version = "0.105.2" }
 nu-explore = { path = "./crates/nu-explore", version = "0.105.2" }
 nu-lsp = { path = "./crates/nu-lsp/", version = "0.105.2" }
 nu-parser = { path = "./crates/nu-parser", version = "0.105.2" }
