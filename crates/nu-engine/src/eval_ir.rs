@@ -352,7 +352,10 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::StoreVariable { var_id, src } => {
             let value = ctx.collect_reg(*src, *span)?;
-            ctx.stack.add_var(*var_id, value);
+            // Perform runtime type checking and conversion for variable assignment
+            let variable = ctx.engine_state.get_var(*var_id);
+            let converted_value = convert_value_for_assignment(value, &variable.ty)?;
+            ctx.stack.add_var(*var_id, converted_value);
             Ok(Continue)
         }
         Instruction::DropVariable { var_id } => {

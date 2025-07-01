@@ -815,6 +815,24 @@ fn let_variable_type_mismatch() -> TestResult {
 }
 
 #[test]
+fn let_variable_type_any_accepts_compatible_types() -> TestResult {
+    // Type::Any should be accepted by compatible types (record can convert to table)
+    run_test(r#"let x: table = ({a: 1} | into record | to nuon | from nuon); $x | describe"#, "table<a: int>")
+}
+
+#[test]
+fn let_variable_record_to_table_conversion() -> TestResult {
+    // Records from Type::Any sources should be convertible to tables when field types match
+    run_test(r#"let x: table<a: int> = ({a: 1} | to nuon | from nuon); $x | describe"#, "table<a: int>")
+}
+
+#[test]
+fn let_variable_record_to_table_key_mismatch() -> TestResult {
+    // This conversion should fail due to a key mismatch
+    fail_test(r#"let x: table<b: int> = ({a: 1} | to nuon | from nuon); $x | describe"#, "expected table<b: int>, found table<a: int")
+}
+
+#[test]
 fn let_variable_disallows_completer() -> TestResult {
     fail_test(
         r#"let x: int@completer = 42"#,

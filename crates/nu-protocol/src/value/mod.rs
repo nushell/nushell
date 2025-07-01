@@ -863,6 +863,7 @@ impl Value {
 
             // matching composite types
             (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
+            (val @ Value::Record { .. }, Type::Table(inner)) => record_compatible(val, inner),
             (Value::List { vals, .. }, Type::List(inner)) => {
                 vals.iter().all(|val| val.is_subtype_of(inner))
             }

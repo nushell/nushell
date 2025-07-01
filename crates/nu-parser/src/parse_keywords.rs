@@ -42,6 +42,7 @@ use crate::{
     unescape_unquote_string,
 };
 
+
 /// These parser keywords can be aliased
 pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"if",
@@ -3366,7 +3367,19 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        // When RHS returns Type::Any, check if the explicit type is "generic enough"
+                        // to accept any value. Specific types with constraints (like table<a: string>)
+                        // should not accept Type::Any at parse time.
+                        let compatible = if matches!(rhs_type, Type::Any) {
+                            // For Type::Any, defer all type checking to runtime.
+                            // This allows the runtime to perform actual compatibility validation
+                            // when the real data is available.
+                            true
+                        } else {
+                            type_compatible(explicit_type, &rhs_type)
+                        };
+                        
+                        if !compatible {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
@@ -3484,7 +3497,19 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        // When RHS returns Type::Any, check if the explicit type is "generic enough"
+                        // to accept any value. Specific types with constraints (like table<a: string>)
+                        // should not accept Type::Any at parse time.
+                        let compatible = if matches!(rhs_type, Type::Any) {
+                            // For Type::Any, defer all type checking to runtime.
+                            // This allows the runtime to perform actual compatibility validation
+                            // when the real data is available.
+                            true
+                        } else {
+                            type_compatible(explicit_type, &rhs_type)
+                        };
+                        
+                        if !compatible {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
@@ -3649,7 +3674,19 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        // When RHS returns Type::Any, check if the explicit type is "generic enough"
+                        // to accept any value. Specific types with constraints (like table<a: string>)
+                        // should not accept Type::Any at parse time.
+                        let compatible = if matches!(rhs_type, Type::Any) {
+                            // For Type::Any, defer all type checking to runtime.
+                            // This allows the runtime to perform actual compatibility validation
+                            // when the real data is available.
+                            true
+                        } else {
+                            type_compatible(explicit_type, &rhs_type)
+                        };
+                        
+                        if !compatible {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
