@@ -106,7 +106,7 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
 
 impl ParseWarning {
     /// A code to represent the variant.
-    /// 
+    ///
     /// This may be used with crates like [`miette`](https://docs.rs/miette) to provide error codes.
     pub fn code(&self) -> &'static str {
         match self {
@@ -118,8 +118,8 @@ impl ParseWarning {
     }
 
     /// Provide some help depending on the variant.
-    /// 
-    /// This may be used with crates like [`miette`](https://docs.rs/miette) to provide a help 
+    ///
+    /// This may be used with crates like [`miette`](https://docs.rs/miette) to provide a help
     /// message.
     pub fn help(&self) -> Option<String> {
         match self {
