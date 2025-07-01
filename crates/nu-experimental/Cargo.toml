@@ -8,4 +8,5 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-experimenta
 version = "0.105.2"
 
 [dependencies]
+itertools.workspace = true
 thiserror.workspace = true

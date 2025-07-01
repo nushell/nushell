@@ -1,4 +1,5 @@
 use crate::{ALL, ExperimentalOption, Status};
+use itertools::Itertools;
 use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
 use thiserror::Error;
 
@@ -73,7 +74,6 @@ pub fn parse_iter<'i, Ctx>(
         option.value.store(val, Ordering::Relaxed);
     }
 
-
     warnings
 }
 
@@ -102,4 +102,36 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
             .map(|(key, val)| (key.into(), Some(val.into()), span.clone()))
             .unwrap_or((entry.into(), None, span))
     }))
+}
+
+impl ParseWarning {
+    /// A code to represent the variant.
+    /// 
+    /// This may be used with crates like [`miette`](https://docs.rs/miette) to provide error codes.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Unknown(_) => "nu::experimental_option::unknown",
+            Self::InvalidAssignment(_, _) => "nu::experimental_option::invalid_assignment",
+            Self::DeprecatedDefault(_) => "nu::experimental_option::deprecated_default",
+            Self::DeprecatedDiscard(_) => "nu::experimental_option::deprecated_discard",
+        }
+    }
+
+    /// Provide some help depending on the variant.
+    /// 
+    /// This may be used with crates like [`miette`](https://docs.rs/miette) to provide a help 
+    /// message.
+    pub fn help(&self) -> Option<String> {
+        match self {
+            Self::Unknown(_) => Some(format!(
+                "Known experimental options are: {}",
+                ALL.iter().map(|option| option.identifier()).join(", ")
+            )),
+            Self::InvalidAssignment(_, _) => None,
+            Self::DeprecatedDiscard(_) => None,
+            Self::DeprecatedDefault(_) => {
+                Some(String::from("You can safely remove this option now."))
+            }
+        }
+    }
 }
