@@ -63,7 +63,18 @@ impl Command for MetadataSet {
         match (ds_fp, ds_ls) {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
             (None, true) => metadata.data_source = DataSource::Ls,
-            (Some(_), true) => (), // TODO: error here
+            (Some(_), true) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "cannot use `--datasource-filepath`".into(),
+                    left_span: call
+                        .get_flag_span(stack, "datasource-filepath")
+                        .expect("has flag"),
+                    right_message: "with `--datasource-ls`".into(),
+                    right_span: call
+                        .get_flag_span(stack, "datasource-ls")
+                        .expect("has flag"),
+                });
+            }
             (None, false) => (),
         }
 
