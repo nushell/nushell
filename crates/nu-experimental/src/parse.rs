@@ -39,7 +39,7 @@ pub enum ParseWarning {
 /// - a context value, which is returned with any warning
 ///
 /// This way you don't need to manually track which input caused which warning.
-pub fn parse_iter<'i, Ctx>(
+pub fn parse_iter<'i, Ctx: Clone>(
     iter: impl Iterator<Item = (Cow<'i, str>, Option<Cow<'i, str>>, Ctx)>,
 ) -> Vec<(ParseWarning, Ctx)> {
     let mut warnings = Vec::new();
@@ -51,12 +51,10 @@ pub fn parse_iter<'i, Ctx>(
 
         match option.status() {
             Status::DeprecatedDiscard => {
-                warnings.push((ParseWarning::DeprecatedDiscard(option), ctx));
-                continue;
+                warnings.push((ParseWarning::DeprecatedDiscard(option), ctx.clone()));
             }
             Status::DeprecatedDefault => {
-                warnings.push((ParseWarning::DeprecatedDefault(option), ctx));
-                continue;
+                warnings.push((ParseWarning::DeprecatedDefault(option), ctx.clone()));
             }
             _ => {}
         }
