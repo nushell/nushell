@@ -81,8 +81,7 @@ pub fn convert_env_values(
     for (name, val) in env_vars {
         match val {
             Value::String {
-                val: string_val,
-                internal_span: _,
+                val: string_val, ..
             } if string_val.starts_with(JSON_ENV_VAR_PREFIX) => {
                 let json_content = &string_val[JSON_ENV_VAR_PREFIX.len()..];
                 // Fall back to the original string value on error
