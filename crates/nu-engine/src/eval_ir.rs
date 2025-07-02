@@ -1276,19 +1276,15 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 /// Type check and convert value for assignment.
 /// Performs implicit conversions like record to table when appropriate.
 fn convert_value_for_assignment(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
-    if let Value::Error { error, .. } = val {
-        return Err(*error);
-    }
-
-    if val.is_subtype_of(target_ty) {
-        Ok(val) // No conversion needed, but compatible
-    } else {
-        Err(ShellError::CantConvert {
+    match val {
+        Value::Error { error, .. } => Err(*error),
+        _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
+        _ => Err(ShellError::CantConvert {
             to_type: target_ty.to_string(),
             from_type: val.get_type().to_string(),
             span: val.span(),
             help: None,
-        })
+        }),
     }
 }
 
