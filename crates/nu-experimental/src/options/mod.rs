@@ -6,6 +6,7 @@
 use crate::*;
 
 mod example;
+mod reorder_cell_paths;
 
 /// Marker trait for defining experimental options.
 ///
@@ -40,6 +41,7 @@ pub(crate) trait ExperimentalOptionMarker {
 // Export only the static values.
 // The marker structs are not relevant and needlessly clutter the generated docs.
 pub use example::EXAMPLE;
+pub use reorder_cell_paths::REORDER_CELL_PATHS;
 
 // Include all experimental option statics in here.
 // This will test them and add them to the parsing list.
@@ -48,7 +50,7 @@ pub use example::EXAMPLE;
 ///
 /// Use this to show users every experimental option, including their descriptions,
 /// identifiers, and current state.
-pub static ALL: &[&ExperimentalOption] = &[&EXAMPLE];
+pub static ALL: &[&ExperimentalOption] = &[&EXAMPLE, &REORDER_CELL_PATHS];
 
 #[cfg(test)]
 mod tests {
