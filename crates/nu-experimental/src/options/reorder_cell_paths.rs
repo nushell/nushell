@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Reorder cell-path members in [Value::follow_cell_path] to decrease memory usage.
+/// Reorder cell-path members in `Value::follow_cell_path` to decrease memory usage.
 ///
 /// - Accessing a field in a record is cheap, just a simple search and you get a reference to the
 ///   value.
