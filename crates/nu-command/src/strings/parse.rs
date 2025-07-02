@@ -78,12 +78,12 @@ impl Command for Parse {
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "capture0" => Value::test_string(""),
+                        "capture0" => Value::test_nothing(),
                         "capture1" => Value::test_string("foo"),
                     }),
                     Value::test_record(record! {
                         "capture0" => Value::test_string("bar"),
-                        "capture1" => Value::test_string(""),
+                        "capture1" => Value::test_nothing(),
                     }),
                 ])),
             },
@@ -398,8 +398,10 @@ fn captures_to_value(
         .iter()
         .zip(captures.iter().skip(1))
         .map(|(column, match_)| {
-            let match_str = match_.map(|m| m.as_str()).unwrap_or("");
-            (column.clone(), Value::string(match_str, span))
+            let match_value = match_
+                .map(|m| Value::string(m.as_str(), span))
+                .unwrap_or(Value::nothing(span));
+            (column.clone(), match_value)
         })
         .collect();
 
