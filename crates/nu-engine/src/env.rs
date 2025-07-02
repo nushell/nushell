@@ -87,17 +87,17 @@ pub fn convert_env_values(
                 // Fall back to the original string value on error
                 let deserialized_val =
                     serde_json::from_str::<Value>(json_content).unwrap_or_else(|_| val.clone());
-                let _ = new_scope.insert(name.to_string(), deserialized_val);
+                new_scope.insert(name.to_string(), deserialized_val);
             }
             Value::String { .. } => {
                 // Handle normal string environment variables
                 match get_converted_value(engine_state, stack, name, val, "from_string") {
                     Ok(v) => {
-                        let _ = new_scope.insert(name.to_string(), v);
+                        new_scope.insert(name.to_string(), v);
                     }
                     Err(ConversionError::ShellError(e)) => error = error.or(Some(e)),
                     Err(ConversionError::CellPathError) => {
-                        let _ = new_scope.insert(name.to_string(), val.clone());
+                        new_scope.insert(name.to_string(), val.clone());
                     }
                 }
             }
