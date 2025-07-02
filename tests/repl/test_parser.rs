@@ -833,6 +833,14 @@ fn let_variable_table_runtime_mismatch() -> TestResult {
 }
 
 #[test]
+fn mut_variable_table_runtime_mismatch() -> TestResult {
+    fail_test(
+        r#"mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]"#,
+        "can't convert table<a: int> to table<b: int>",
+    )
+}
+
+#[test]
 fn let_variable_record_runtime_cast() -> TestResult {
     // Records from Type::Any sources should be convertible to tables when field types match
     run_test(
