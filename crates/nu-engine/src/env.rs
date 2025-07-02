@@ -91,7 +91,7 @@ pub fn convert_env_values(
             }
             Value::String { .. } => {
                 // Handle normal string environment variables
-                match get_converted_value(engine_state, stack, name, &val, "from_string") {
+                match get_converted_value(engine_state, stack, name, val, "from_string") {
                     Ok(v) => {
                         let _ = new_scope.insert(name.to_string(), v);
                     }
@@ -145,7 +145,7 @@ pub fn env_to_string(
     // exit early if result is not Err(ConversionError::CellPathError)
     // and string coersion does not work
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
-        Ok(v) => return Ok(v.coerce_into_string()?),
+        Ok(v) => return v.coerce_into_string(),
         Err(ConversionError::ShellError(e)) => return Err(e),
         Err(ConversionError::CellPathError) => {
             if let Ok(s) = value.coerce_string() {
@@ -172,10 +172,10 @@ pub fn env_to_string(
                         span: value.span(),
                     });
             }
-            return Err(ShellError::EnvVarNotAString {
+            Err(ShellError::EnvVarNotAString {
                 envvar_name: env_name.to_string(),
                 span: value.span(),
-            });
+            })
         }
         // Don't serialize `ENV_CONVERSIONS` to avoid infinite recursion
         ENV_CONVERSIONS => Err(ShellError::EnvVarNotAString {
