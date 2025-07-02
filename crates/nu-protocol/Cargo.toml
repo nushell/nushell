@@ -21,6 +21,7 @@ nu-glob = { path = "../nu-glob", version = "0.105.2" }
 nu-path = { path = "../nu-path", version = "0.105.2" }
 nu-system = { path = "../nu-system", version = "0.105.2" }
 nu-utils = { path = "../nu-utils", version = "0.105.2", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.105.2" }
 
 brotli = { workspace = true, optional = true }
 bytes = { workspace = true }

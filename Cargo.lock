@@ -4045,6 +4045,7 @@ dependencies = [
  "miette",
  "nix 0.29.0",
  "nu-derive-value",
+ "nu-experimental",
  "nu-glob",
  "nu-path",
  "nu-system",
