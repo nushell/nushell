@@ -398,8 +398,10 @@ fn captures_to_value(
         .iter()
         .zip(captures.iter().skip(1))
         .map(|(column, match_)| {
-            let match_str = match_.map(|m| m.as_str()).unwrap_or("");
-            (column.clone(), Value::string(match_str, span))
+            let match_value = match_
+                .map(|m| Value::string(m.as_str(), span))
+                .unwrap_or(Value::nothing(span));
+            (column.clone(), match_value)
         })
         .collect();
 
