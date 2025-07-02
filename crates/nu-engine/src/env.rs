@@ -143,7 +143,7 @@ pub fn env_to_string(
     stack: &Stack,
 ) -> Result<String, ShellError> {
     // exit early if result is not Err(ConversionError::CellPathError)
-    // and string coersion does not work
+    // and string coercion does not work
     match get_converted_value(engine_state, stack, env_name, value, "to_string") {
         Ok(v) => return v.coerce_into_string(),
         Err(ConversionError::ShellError(e)) => return Err(e),
