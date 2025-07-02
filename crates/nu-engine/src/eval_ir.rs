@@ -1280,26 +1280,7 @@ fn convert_value_for_assignment(val: Value, target_ty: &Type) -> Result<Value, S
         return Err(*error);
     }
 
-    // Check if we need to perform implicit conversion for Record -> Table or Table -> Record
-    if matches!((&val, target_ty), (Value::Record { .. }, Type::Table(_))) {
-        // Convert record to table by wrapping it in a list
-        let span = val.span();
-        let table_value = Value::list(vec![val], span);
-
-        // Verify the conversion is valid
-        if table_value.is_subtype_of(target_ty) {
-            Ok(table_value)
-        } else {
-            // Create error with proper type information
-            let from_type = table_value.get_type().to_string();
-            Err(ShellError::CantConvert {
-                to_type: target_ty.to_string(),
-                from_type,
-                span,
-                help: None,
-            })
-        }
-    } else if val.is_subtype_of(target_ty) {
+    if val.is_subtype_of(target_ty) {
         Ok(val) // No conversion needed, but compatible
     } else {
         Err(ShellError::CantConvert {
