@@ -78,12 +78,12 @@ impl Command for Parse {
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "capture0" => Value::test_string(""),
+                        "capture0" => Value::test_nothing(),
                         "capture1" => Value::test_string("foo"),
                     }),
                     Value::test_record(record! {
                         "capture0" => Value::test_string("bar"),
-                        "capture1" => Value::test_string(""),
+                        "capture1" => Value::test_nothing(),
                     }),
                 ])),
             },
