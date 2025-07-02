@@ -75,7 +75,7 @@ mod tests {
             assert!(first.is_lowercase());
 
             for char in chars {
-                assert!(char.is_alphanumeric());
+                assert!(char.is_alphanumeric() || char == '-');
                 if char.is_alphabetic() {
                     assert!(char.is_lowercase());
                 }
