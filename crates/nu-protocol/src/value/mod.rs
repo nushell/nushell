@@ -1111,7 +1111,55 @@ impl Value {
         let mut store: Value = Value::test_nothing();
         let mut current: MultiLife<'out, '_, Value> = MultiLife::Out(self);
 
-        for member in cell_path {
+        let reorder_cell_paths = nu_experimental::REORDER_CELL_PATHS.get();
+
+        let mut members: Vec<_> = if reorder_cell_paths {
+            cell_path.iter().map(Some).collect()
+        } else {
+            Vec::new()
+        };
+        let mut members = members.as_mut_slice();
+        let mut cell_path = cell_path;
+
+        loop {
+            let member = if reorder_cell_paths {
+                // Skip any None values at the start.
+                while let Some(None) = members.first() {
+                    members = &mut members[1..];
+                }
+
+                if members.is_empty() {
+                    break;
+                }
+
+                // Reorder cell-path member access by prioritizing Int members to avoid cloning unless
+                // necessary
+                let member = if let Value::List { .. } = &*current {
+                    // If the value is a list, try to find an Int member
+                    members
+                        .iter_mut()
+                        .find(|x| matches!(x, Some(PathMember::Int { .. })))
+                        // And take it from the list of members
+                        .and_then(Option::take)
+                } else {
+                    None
+                };
+
+                let Some(member) = member.or_else(|| members.first_mut().and_then(Option::take))
+                else {
+                    break;
+                };
+                member
+            } else {
+                match cell_path {
+                    [first, rest @ ..] => {
+                        cell_path = rest;
+                        first
+                    }
+                    _ => break,
+                }
+            };
+
             current = match current {
                 MultiLife::Out(current) => match get_value_member(current, member)? {
                     ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
