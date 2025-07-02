@@ -1274,7 +1274,6 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 }
 
 /// Type check and convert value for assignment.
-/// Performs implicit conversions like record to table when appropriate.
 fn convert_value_for_assignment(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error),
