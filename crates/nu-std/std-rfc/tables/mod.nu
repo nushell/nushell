@@ -178,7 +178,7 @@ export def "reject slices" [ ...slices ] {
 
 # Select one or more columns by their indices
 @example "Select column [0, 10, 11, 12]" {
-    ls -l | select column-slices 0 10..12 | first 3
+    ls -l | select column-slices 0 10..12 | take 3
 } --result [
     [name, created, accessed, modified];
     ["CITATION.cff", 2024-11-09T21:58:12+03:00, 2025-02-09T17:58:12+03:00, 2024-11-09T21:58:12+03:00],
@@ -194,7 +194,7 @@ export def "select column-slices" [
 
 # Reject one or more columns by their indices
 @example "Reject columns [0, 4, 5]" {
-    ls | reject column-slices 0 4 5 | first 3
+    ls | reject column-slices 0 4 5 | take 3
 }
 export def "reject column-slices" [
     ...slices
