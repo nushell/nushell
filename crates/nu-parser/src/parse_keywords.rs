@@ -3367,13 +3367,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        // For RHS Type::Any, defer all type checking to runtime.
-                        // This allows the runtime to perform actual compatibility validation
-                        // when the real data is available.
-                        let compatible = matches!(rhs_type, Type::Any)
-                            || type_compatible(explicit_type, &rhs_type);
-
-                        if !compatible {
+                        if !type_compatible(explicit_type, &rhs_type) {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
@@ -3656,11 +3650,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        // see `parse_let`
-                        let compatible = matches!(rhs_type, Type::Any)
-                            || type_compatible(explicit_type, &rhs_type);
-
-                        if !compatible {
+                        if !type_compatible(explicit_type, &rhs_type) {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
