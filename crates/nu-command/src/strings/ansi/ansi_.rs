@@ -447,16 +447,15 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
 
     // Reset SGR (Select Graphic Rendition) codes...
     AnsiCode{ short_name: Some("rst"), long_name: "reset", code: "\x1b[0m".to_owned()},
-    AnsiCode{ short_name: Some("_"), long_name: "reset_all", code: "\x1b[0m".to_owned()},
-    AnsiCode{ short_name: Some("_bo"), long_name: "_bold", code: "\x1b[22m".to_owned()},
-    AnsiCode{ short_name: Some("_d"), long_name: "_dimmed", code: "\x1b[22m".to_owned()},
-    AnsiCode{ short_name: Some("_i"), long_name: "_italic", code: "\x1b[23m".to_owned()},
-    AnsiCode{ short_name: Some("_u"), long_name: "_underline", code: "\x1b[24m".to_owned()},
-    AnsiCode{ short_name: Some("_bl"), long_name: "_blink", code: "\x1b[25m".to_owned()},
+    AnsiCode{ short_name: Some("rst_bo"), long_name: "reset_bold", code: "\x1b[22m".to_owned()},
+    AnsiCode{ short_name: Some("rst_d"), long_name: "reset_dimmed", code: "\x1b[22m".to_owned()},
+    AnsiCode{ short_name: Some("rst_i"), long_name: "reset_italic", code: "\x1b[23m".to_owned()},
+    AnsiCode{ short_name: Some("rst_u"), long_name: "reset_underline", code: "\x1b[24m".to_owned()},
+    AnsiCode{ short_name: Some("rst_bl"), long_name: "reset_blink", code: "\x1b[25m".to_owned()},
     // NB. SGR 26 was reserved in the spec but never used
-    AnsiCode{ short_name: Some("_re"), long_name: "_reverse", code: "\x1b[27m".to_owned()},
-    AnsiCode{ short_name: Some("_h"), long_name: "_hidden", code: "\x1b[28m".to_owned()},
-    AnsiCode{ short_name: Some("_s"), long_name: "_strike", code: "\x1b[29m".to_owned()},
+    AnsiCode{ short_name: Some("rst_re"), long_name: "reset_reverse", code: "\x1b[27m".to_owned()},
+    AnsiCode{ short_name: Some("rst_h"), long_name: "reset_hidden", code: "\x1b[28m".to_owned()},
+    AnsiCode{ short_name: Some("rst_s"), long_name: "reset_strike", code: "\x1b[29m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -596,7 +595,7 @@ Escape sequences style attributes:
 ╭────┬────┬──────────────┬─────────────────────────────────────────╮
 │  # │ id │ abbreviation │         description                     │
 ├────┼────┼──────────────┼─────────────────────────────────────────┤
-│  0 │  0 │ _            │ reset / normal display                  │
+│  0 │  0 │ rst          │ reset / normal display                  │
 │  1 │  1 │ bo           │ bold on                                 │
 │  2 │  2 │ d            │ dimmed on                               │
 │  3 │  3 │ i            │ italic on (non-mono font)               │
@@ -606,15 +605,15 @@ Escape sequences style attributes:
 │  7 │  7 │ r            │ reverse video on                        │
 │  8 │  8 │ h            │ hidden (invisible) on                   │
 │  9 │  9 │ s            │ strike-through on                       │
-│ 10 │ 21 │ _bo          │ bold or dimmed off                      │
+│ 10 │ 21 │ rst_bo       │ bold or dimmed off                      │
 │ 11 │ 22 │ du           │ double underline (not widely supported) │
-│ 12 │ 23 │ _i           │ italic off (non-mono font)              │
-│ 13 │ 24 │ _u           │ underline off                           │
-│ 14 │ 25 │ _bl          │ blink off                               │
+│ 12 │ 23 │ rst_i        │ italic off (non-mono font)              │
+│ 13 │ 24 │ rst_u        │ underline off                           │
+│ 14 │ 25 │ rst_bl       │ blink off                               │
 │ 15 │ 26 │              │ <reserved>                              │
-│ 16 │ 27 │ _r           │ reverse video off                       │
-│ 17 │ 28 │ _h           │ hidden (invisible) off                  │
-│ 18 │ 29 │ _s           │ strike-through off                      │
+│ 16 │ 27 │ rst_r        │ reverse video off                       │
+│ 17 │ 28 │ rst_h        │ hidden (invisible) off                  │
+│ 18 │ 29 │ rst_s        │ strike-through off                      │
 ╰────┴────┴──────────────┴─────────────────────────────────────────╯
 
 Operating system commands:
@@ -653,14 +652,14 @@ Operating system commands:
             },
             Example {
                 description: "The same example as above with short names",
-                example: r#"$'(ansi rb)Hello(ansi _) (ansi gd)Nu(ansi _) (ansi pi)World(ansi _)'"#,
+                example: r#"$'(ansi rb)Hello(ansi rst) (ansi gd)Nu(ansi rst) (ansi pi)World(ansi rst)'"#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
                 description: "Avoid resetting color when setting/resetting different style codes",
-                example: r#"$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi _bo) or (ansi d)DIMMED(ansi _d) or (ansi i)ITALICS(ansi _i) or (ansi u)UNDERLINE(ansi _u) or (ansi re)REVERSE(ansi _re) or (ansi h)HIDDEN(ansi _h) or (ansi s)STRIKE(ansi _s) then (ansi _)reset everything'"#,
+                example: r#"$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi rst_bo) or (ansi d)DIMMED(ansi rst_d) or (ansi i)ITALICS(ansi rst_i) or (ansi u)UNDERLINE(ansi rst_u) or (ansi re)REVERSE(ansi rst_re) or (ansi h)HIDDEN(ansi rst_h) or (ansi s)STRIKE(ansi rst_s) then (ansi rst)reset everything'"#,
                 result: Some(Value::test_string(
                     "Set color to \u{1b}[32mGREEN then style to \u{1b}[1mBOLD\u{1b}[22m or \u{1b}[2mDIMMED\u{1b}[22m or \u{1b}[3mITALICS\u{1b}[23m or \u{1b}[4mUNDERLINE\u{1b}[24m or \u{1b}[7mREVERSE\u{1b}[27m or \u{1b}[8mHIDDEN\u{1b}[28m or \u{1b}[9mSTRIKE\u{1b}[29m then \u{1b}[0mreset everything",
                 )),
