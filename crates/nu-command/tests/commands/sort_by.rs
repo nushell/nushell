@@ -8,12 +8,15 @@ fn by_column() {
             open cargo_sample.toml --raw
             | lines
             | skip 1
-            | first 4
-            | split column "="
+            | take 4
+            | each { split column "=" }
+            | flatten
+            | where column1 != null
             | sort-by column1
             | skip 1
-            | first
+            | take 1
             | get column1
+            | get 0
             | str trim
         "#
     ));
@@ -29,11 +32,13 @@ fn by_invalid_column() {
             open cargo_sample.toml --raw
             | lines
             | skip 1
-            | first 4
-            | split column "="
+            | take 4
+            | each { split column "=" }
+            | flatten
+            | where column1 != null
             | sort-by ColumnThatDoesNotExist
             | skip 1
-            | first
+            | take 1 
             | get column1
             | str trim
         "#

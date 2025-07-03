@@ -162,7 +162,7 @@ fn generate_with_input_is_streaming() {
         1..10
         | each {|x| print -en $x; $x}
         | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum}}
-        | first 5
+        | take 5
         | to nuon
         "#
     ));

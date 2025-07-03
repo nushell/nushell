@@ -91,7 +91,7 @@ fn binary_operator_comparisons() {
         "
             open sample.db
             | get ints
-            | first 4
+            | take 4
             | where z > 4200
             | get z.0
         "
@@ -104,7 +104,7 @@ fn binary_operator_comparisons() {
         "
             open sample.db
             | get ints
-            | first 4
+            | take 4
             | where z >= 4253
             | get z.0
         "
@@ -117,7 +117,7 @@ fn binary_operator_comparisons() {
         "
             open sample.db
             | get ints
-            | first 4
+            | take 4
             | where z < 10
             | get z.0
         "
@@ -130,7 +130,7 @@ fn binary_operator_comparisons() {
         "
             open sample.db
             | get ints
-            | first 4
+            | take 4
             | where z <= 1
             | get z.0
         "
@@ -144,7 +144,7 @@ fn binary_operator_comparisons() {
             open sample.db
             | get ints
             | where z != 1
-            | first
+            | first 
             | get z
         "
     ));

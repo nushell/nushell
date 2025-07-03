@@ -63,7 +63,7 @@ fn cal_week_day_start_mo() {
 fn cal_sees_pipeline_year() {
     let actual = nu!(pipeline(
         r#"
-        cal --as-table --full-year 1020 | get mo | first 4 | to json -r
+        cal --as-table --full-year 1020 | get mo | take 4 | to json -r
         "#
     ));
 

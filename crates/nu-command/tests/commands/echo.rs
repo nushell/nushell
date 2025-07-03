@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn echo_range_is_lazy() {
-    let actual = nu!("echo 1..10000000000 | first 3 | to json --raw");
+    let actual = nu!("echo 1..10000000000 | take 3 | to json --raw");
 
     assert_eq!(actual.out, "[1,2,3]");
 }

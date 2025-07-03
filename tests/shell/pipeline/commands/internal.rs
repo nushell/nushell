@@ -738,7 +738,7 @@ fn exclusive_range_with_open_left() {
 #[test]
 fn range_with_open_right() {
     let actual = nu!("
-        echo 5.. | first 10 | math sum
+        echo 5.. | take 10 | math sum
         ");
 
     assert_eq!(actual.out, "95");
@@ -747,7 +747,7 @@ fn range_with_open_right() {
 #[test]
 fn exclusive_range_with_open_right() {
     let actual = nu!("
-        echo 5..< | first 10 | math sum
+        echo 5..< | take 10 | math sum
         ");
 
     assert_eq!(actual.out, "95");

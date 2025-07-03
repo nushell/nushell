@@ -19,20 +19,15 @@ impl Command for First {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Binary, Type::Binary),
+                (Type::Binary, Type::Int),
                 (Type::Range, Type::Any),
             ])
-            .optional(
-                "rows",
-                SyntaxShape::Int,
-                "Starting from the front, the number of rows to return.",
-            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
+        "Return the first element of the input. For multiple rows, use `take`."
     }
 
     fn run(
@@ -53,17 +48,9 @@ impl Command for First {
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Return the first 2 items of a list/table",
-                example: "[1 2 3] | first 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
-            },
-            Example {
-                description: "Return the first 2 bytes of a binary value",
-                example: "0x[01 23 45] | first 2",
-                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
+                description: "Return the first byte of a binary value",
+                example: "0x[01 23 45] | first",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Return the first item of a range",
@@ -75,34 +62,18 @@ impl Command for First {
 }
 
 fn first_helper(
-    engine_state: &EngineState,
+    _engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
 
-    // FIXME: for backwards compatibility reasons, if `rows` is not specified we
-    // return a single element and otherwise we return a single list. We should probably
-    // remove `rows` so that `first` always returns a single element; getting a list of
-    // the first N elements is covered by `take`
-    let return_single_element = rows.is_none();
-    let rows = if let Some(rows) = rows {
-        if rows.item < 0 {
-            return Err(ShellError::NeedsPositiveValue { span: rows.span });
-        } else {
-            rows.item as usize
-        }
-    } else {
-        1
-    };
-
-    let metadata = input.metadata();
-
-    // early exit for `first 0`
-    if rows == 0 {
-        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
+    if call.has_positional_args(stack, 0) {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "The 'first' command no longer takes an argument. Use 'take' to get multiple elements.".into(),
+            span: call.head,
+        });
     }
 
     match input {
@@ -110,43 +81,25 @@ fn first_helper(
             let span = val.span();
             match val {
                 Value::List { mut vals, .. } => {
-                    if return_single_element {
-                        if let Some(val) = vals.first_mut() {
-                            Ok(std::mem::take(val).into_pipeline_data())
-                        } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
-                        }
+                    if let Some(val) = vals.first_mut() {
+                        Ok(std::mem::take(val).into_pipeline_data())
                     } else {
-                        vals.truncate(rows);
-                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 }
-                Value::Binary { mut val, .. } => {
-                    if return_single_element {
-                        if let Some(&val) = val.first() {
-                            Ok(Value::int(val.into(), span).into_pipeline_data())
-                        } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
-                        }
+                Value::Binary { val, .. } => {
+                    if let Some(&byte) = val.first() {
+                        Ok(Value::int(byte.into(), span).into_pipeline_data())
                     } else {
-                        val.truncate(rows);
-                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(metadata))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 }
                 Value::Range { val, .. } => {
                     let mut iter = val.into_range_iter(span, Signals::empty());
-                    if return_single_element {
-                        if let Some(v) = iter.next() {
-                            Ok(v.into_pipeline_data())
-                        } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
-                        }
+                    if let Some(v) = iter.next() {
+                        Ok(v.into_pipeline_data())
                     } else {
-                        Ok(iter.take(rows).into_pipeline_data_with_metadata(
-                            span,
-                            engine_state.signals().clone(),
-                            metadata,
-                        ))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -159,47 +112,26 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(stream, metadata) => {
-            if return_single_element {
-                if let Some(v) = stream.into_iter().next() {
-                    Ok(v.into_pipeline_data())
-                } else {
-                    Err(ShellError::AccessEmptyContent { span: head })
-                }
+        PipelineData::ListStream(stream, _metadata) => {
+            if let Some(v) = stream.into_iter().next() {
+                Ok(v.into_pipeline_data())
             } else {
-                Ok(PipelineData::ListStream(
-                    stream.modify(|iter| iter.take(rows)),
-                    metadata,
-                ))
+                Err(ShellError::AccessEmptyContent { span: head })
             }
         }
-        PipelineData::ByteStream(stream, metadata) => {
+        PipelineData::ByteStream(stream, _metadata) => {
             if stream.type_().is_binary_coercible() {
                 let span = stream.span();
                 if let Some(mut reader) = stream.reader() {
-                    if return_single_element {
-                        // Take a single byte
-                        let mut byte = [0u8];
-                        if reader
-                            .read(&mut byte)
-                            .map_err(|err| IoError::new(err, span, None))?
-                            > 0
-                        {
-                            Ok(Value::int(byte[0] as i64, head).into_pipeline_data())
-                        } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
-                        }
+                    let mut byte = [0u8];
+                    if reader
+                        .read(&mut byte)
+                        .map_err(|err| IoError::new(err, span, None))?
+                        > 0
+                    {
+                        Ok(Value::int(byte[0] as i64, head).into_pipeline_data())
                     } else {
-                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
-                        Ok(PipelineData::ByteStream(
-                            ByteStream::read(
-                                reader.take(rows as u64),
-                                head,
-                                Signals::empty(),
-                                ByteStreamType::Binary,
-                            ),
-                            metadata,
-                        ))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 } else {
                     Ok(PipelineData::Empty)
