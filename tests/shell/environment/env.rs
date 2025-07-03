@@ -307,21 +307,27 @@ fn env_var_propagation_to_subshell_complex_types() {
     // serialized and propagated to subshells instead of being silently dropped
     let actual = nu!(r#"
         $env.TEST_LIST = ["item1", "item2"]
-        $env.TEST_RECORD = {key: "value"}
-        
+        $env.TEST_RECORD = {key: "value1"}
+        $env.TEST_TABLE = [$env.TEST_RECORD, {key: "value2"}]
+
         ^$nu.current-exe --no-config-file --commands '
             print $env.TEST_LIST.0
             print $env.TEST_RECORD.key
+            print $env.TEST_TABLE.1
         '
     "#);
 
     // The fix is working - both complex environment variables are now propagated
     assert!(
         actual.out.contains("item1"),
-        "List environment variable should be propagated"
+        "$env.TEST_LIST missing in propagation"
     );
     assert!(
-        actual.out.contains("value"),
-        "Record environment variable should be propagated"
+        actual.out.contains("value1"),
+        "$env.TEST_RECORD missing in propagation"
+    );
+    assert!(
+        actual.out.contains("value2"),
+        "$env.TEST_TABLE missing in propagation"
     );
 }
