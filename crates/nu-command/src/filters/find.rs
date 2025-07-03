@@ -47,7 +47,7 @@ impl Command for Find {
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "column names to be searched (with rest parameter, not regex yet)",
+                "column names to be searched",
                 Some('c'),
             )
             .switch(

@@ -304,8 +304,18 @@ export def "check pr" [
 }
 
 # run Nushell from source with a right indicator
-export def run [] {
+export def run [
+    --experimental-options: oneof<list<string>, string> # enable or disable experimental options
+] {
+    let experimental_options_arg = $experimental_options 
+        | default [] 
+        | [$in] 
+        | flatten 
+        | str join "," 
+        | $"[($in)]"
+ 
     ^cargo run -- ...[
+        --experimental-options $experimental_options_arg
         -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
     ]
 }

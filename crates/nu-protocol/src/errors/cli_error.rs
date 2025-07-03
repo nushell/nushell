@@ -93,6 +93,13 @@ pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError)
     report_error(working_set, error);
 }
 
+pub fn report_experimental_option_warning(
+    working_set: &StateWorkingSet,
+    warning: &dyn miette::Diagnostic,
+) {
+    report_warning(working_set, warning);
+}
+
 fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     eprintln!("Error: {:?}", CliError(error, working_set));
     // reset vt processing, aka ansi because illbehaved externals can break it

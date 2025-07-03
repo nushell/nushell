@@ -188,6 +188,17 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         );
     }
 
+    record.push(
+        "experimental_options",
+        Value::string(
+            nu_experimental::ALL
+                .iter()
+                .map(|option| format!("{}={}", option.identifier(), option.get()))
+                .join(", "),
+            span,
+        ),
+    );
+
     Ok(Value::record(record, span).into_pipeline_data())
 }
 
