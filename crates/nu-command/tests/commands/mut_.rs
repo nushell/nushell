@@ -67,7 +67,7 @@ fn mut_multiply_assign() {
 
 #[test]
 fn mut_divide_assign() {
-    let actual = nu!("mut y = 8; $y /= 2; $y");
+    let actual = nu!("mut y: number = 8; $y /= 2; $y");
 
     assert_eq!(actual.out, "4.0");
 }
