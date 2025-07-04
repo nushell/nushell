@@ -105,3 +105,16 @@ fn do_not_show_hidden_commands() {
     let length: i32 = actual.out.parse().unwrap();
     assert_eq!(length, 0);
 }
+
+#[test]
+fn which_accepts_spread_list() {
+    let actual = nu!(
+        cwd: ".",  // or any valid path
+        r#"
+        let apps = [ls]; 
+        $apps | which ...$in | get command.0
+        "#
+    );
+
+    assert_eq!(actual.out, "ls");
+}

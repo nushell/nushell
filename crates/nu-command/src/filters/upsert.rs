@@ -1,4 +1,6 @@
-use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use std::borrow::Cow;
+
+use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
@@ -319,15 +321,19 @@ fn upsert_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
-    let value_at_path = value.clone().follow_cell_path(cell_path, false);
+    let value_at_path = value.follow_cell_path(cell_path);
 
     let arg = if first_path_member_int {
-        value_at_path.clone().unwrap_or(Value::nothing(span))
+        value_at_path
+            .as_deref()
+            .cloned()
+            .unwrap_or(Value::nothing(span))
     } else {
         value.clone()
     };
 
     let input = value_at_path
+        .map(Cow::into_owned)
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
@@ -346,15 +352,19 @@ fn upsert_single_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
-    let value_at_path = value.clone().follow_cell_path(cell_path, false);
+    let value_at_path = value.follow_cell_path(cell_path);
 
     let arg = if first_path_member_int {
-        value_at_path.clone().unwrap_or(Value::nothing(span))
+        value_at_path
+            .as_deref()
+            .cloned()
+            .unwrap_or(Value::nothing(span))
     } else {
         value.clone()
     };
 
     let input = value_at_path
+        .map(Cow::into_owned)
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 

@@ -9,15 +9,15 @@ use std::{
     thread,
 };
 
-use nu_engine::documentation::{get_flags_section, HelpStyle};
+use nu_engine::documentation::{FormatterValue, HelpStyle, get_flags_section};
 use nu_plugin_core::{
     ClientCommunicationIo, CommunicationMode, InterfaceManager, PluginEncoder, PluginRead,
     PluginWrite,
 };
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata,
-    ShellError, Spanned, Value,
+    CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Spanned,
+    Value, ast::Operator,
 };
 use thiserror::Error;
 
@@ -26,7 +26,7 @@ use self::{command::render_examples, interface::ReceivedPluginCall};
 mod command;
 mod interface;
 
-pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
+pub use command::{PluginCommand, SimplePluginCommand, create_plugin_signature};
 pub use interface::{EngineInterface, EngineInterfaceManager};
 
 /// This should be larger than the largest commonly sent message to avoid excessive fragmentation.
@@ -663,7 +663,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
         .as_ref()
         .map(|stem| stem.to_string_lossy().into_owned())
         .unwrap_or_else(|| "(unknown)".into());
-    println!("Plugin file path: {}", plugin_name);
+    println!("Plugin file path: {plugin_name}");
 
     let mut help = String::new();
     let help_style = HelpStyle::default();
@@ -684,7 +684,10 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(&signature, &help_style, |v| format!("{:#?}", v));
+                let flags = get_flags_section(&signature, &help_style, |v| match v {
+                    FormatterValue::DefaultValue(value) => format!("{value:#?}"),
+                    FormatterValue::CodeString(text) => text.to_string(),
+                });
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))

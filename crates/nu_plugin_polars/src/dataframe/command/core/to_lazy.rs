@@ -1,11 +1,11 @@
-use crate::{dataframe::values::NuSchema, values::CustomValueSupport, Cacheable, PolarsPlugin};
+use crate::{Cacheable, PolarsPlugin, dataframe::values::NuSchema, values::CustomValueSupport};
 
 use crate::values::{NuDataFrame, NuLazyFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    record,
 };
 use polars::prelude::NamedFrom;
 use polars::series::Series;
@@ -46,15 +46,21 @@ impl PluginCommand for ToLazyFrame {
             Example {
                 description: "Takes a table, creates a lazyframe, assigns column 'b' type str, displays the schema",
                 example: "[[a b];[1 2] [3 4]] | polars into-lazy --schema {b: str} | polars schema",
-                result: Some(Value::test_record(record! {"b" => Value::test_string("str")})),
+                result: Some(Value::test_record(
+                    record! {"b" => Value::test_string("str")},
+                )),
             },
             Example {
                 description: "Use a predefined schama",
                 example: r#"let schema = {a: str, b: str}; [[a b]; [1 "foo"] [2 "bar"]] | polars into-lazy -s $schema"#,
-                result: Some(NuDataFrame::try_from_series_vec(vec![
-                        Series::new("a".into(), ["1", "2"]),
-                        Series::new("b".into(), ["foo", "bar"]),
-                    ], Span::test_data())
+                result: Some(
+                    NuDataFrame::try_from_series_vec(
+                        vec![
+                            Series::new("a".into(), ["1", "2"]),
+                            Series::new("b".into(), ["foo", "bar"]),
+                        ],
+                        Span::test_data(),
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -69,6 +75,7 @@ impl PluginCommand for ToLazyFrame {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let maybe_schema = call
             .get_flag("schema")?
             .map(|schema| NuSchema::try_from_value(plugin, &schema))
@@ -82,6 +89,7 @@ impl PluginCommand for ToLazyFrame {
             lazy.cache(plugin, engine, call.head)?.into_value(call.head),
             None,
         ))
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

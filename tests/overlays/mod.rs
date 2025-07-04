@@ -721,6 +721,42 @@ fn overlay_keep_pwd() {
 }
 
 #[test]
+fn overlay_reactivate_with_nufile_should_not_change_pwd() {
+    let inp = &[
+        "overlay use spam.nu",
+        "cd ..",
+        "overlay hide --keep-env [ PWD ] spam",
+        "cd samples",
+        "overlay use spam.nu",
+        "$env.PWD | path basename",
+    ];
+
+    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
+    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "samples");
+    assert_eq!(actual_repl.out, "samples");
+}
+
+#[test]
+fn overlay_reactivate_with_module_name_should_change_pwd() {
+    let inp = &[
+        "overlay use spam.nu",
+        "cd ..",
+        "overlay hide --keep-env [ PWD ] spam",
+        "cd samples",
+        "overlay use spam",
+        "$env.PWD | path basename",
+    ];
+
+    let actual = nu!(cwd: "tests/overlays/samples", &inp.join("; "));
+    let actual_repl = nu!(cwd: "tests/overlays/samples", nu_repl_code(inp));
+
+    assert_eq!(actual.out, "overlays");
+    assert_eq!(actual_repl.out, "overlays");
+}
+
+#[test]
 fn overlay_wrong_rename_type() {
     let inp = &["module spam {}", "overlay use spam as { echo foo }"];
 
@@ -818,6 +854,36 @@ fn overlay_hide_renamed_overlay() {
 
     assert!(actual.err.contains("external_command"));
     assert!(actual_repl.err.contains("external_command"));
+}
+
+#[test]
+fn overlay_hide_restore_hidden_env() {
+    let inp = &[
+        "$env.foo = 'bar'",
+        "overlay new aa",
+        "hide-env foo",
+        "overlay hide aa",
+        "$env.foo",
+    ];
+
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual_repl.out, "bar");
+}
+
+#[test]
+fn overlay_hide_dont_restore_hidden_env_which_is_introduce_currently() {
+    let inp = &[
+        "overlay new aa",
+        "$env.foo = 'bar'",
+        "hide-env foo", // hide the env in overlay `aa`
+        "overlay hide aa",
+        "'foo' in $env",
+    ];
+
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual_repl.out, "false");
 }
 
 #[test]
@@ -1339,6 +1405,23 @@ fn alias_overlay_new() {
 
     assert_eq!(actual.out, "eggs");
     assert_eq!(actual_repl.out, "eggs");
+}
+
+#[test]
+fn overlay_new_with_reload() {
+    let inp = &[
+        "overlay new spam",
+        "$env.foo = 'bar'",
+        "overlay hide spam",
+        "overlay new spam -r",
+        "'foo' in $env",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual.out, "false");
+    assert_eq!(actual_repl.out, "false");
 }
 
 #[test]

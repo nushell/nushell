@@ -2,8 +2,8 @@ use nu_plugin::PluginCommand;
 use nu_protocol::{Category, Example, ShellError, Signature, Span, Type, Value};
 
 use crate::{
-    values::{CustomValueSupport, NuDataType},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataType},
 };
 
 pub struct ToDataType;

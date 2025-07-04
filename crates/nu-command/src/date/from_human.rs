@@ -1,5 +1,5 @@
 use chrono::{Local, TimeZone};
-use human_date_parser::{from_human_time, ParseResult};
+use human_date_parser::{ParseResult, from_human_time};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -99,7 +99,7 @@ fn helper(value: Value, head: Span) -> Value {
                     src_span: span,
                 },
                 span,
-            )
+            );
         }
     };
 

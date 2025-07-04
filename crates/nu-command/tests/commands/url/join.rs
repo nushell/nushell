@@ -154,12 +154,16 @@ fn url_join_with_different_query_and_params() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Mismatch, query string from params is: ?par_1=aaab&par_2=bbb"));
-    assert!(actual
-        .err
-        .contains("instead query is: ?par_1=aaa&par_2=bbb"));
+    assert!(
+        actual
+            .err
+            .contains("Mismatch, query string from params is: ?par_1=aaab&par_2=bbb")
+    );
+    assert!(
+        actual
+            .err
+            .contains("instead query is: ?par_1=aaa&par_2=bbb")
+    );
 
     let actual = nu!(pipeline(
         r#"
@@ -178,12 +182,16 @@ fn url_join_with_different_query_and_params() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Mismatch, query param is: par_1=aaa&par_2=bbb"));
-    assert!(actual
-        .err
-        .contains("instead query string from params is: ?par_1=aaab&par_2=bbb"));
+    assert!(
+        actual
+            .err
+            .contains("Mismatch, query param is: par_1=aaa&par_2=bbb")
+    );
+    assert!(
+        actual
+            .err
+            .contains("instead query string from params is: ?par_1=aaab&par_2=bbb")
+    );
 }
 
 #[test]
@@ -201,9 +209,11 @@ fn url_join_with_invalid_params() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Key params has to be a record or a table"));
+    assert!(
+        actual
+            .err
+            .contains("Key params has to be a record or a table")
+    );
 }
 
 #[test]
@@ -245,9 +255,11 @@ fn url_join_with_invalid_port() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Port parameter should represent an unsigned int"));
+    assert!(
+        actual
+            .err
+            .contains("Port parameter should represent an unsigned int")
+    );
 
     let actual = nu!(pipeline(
         r#"
@@ -259,9 +271,11 @@ fn url_join_with_invalid_port() {
             "#
     ));
 
-    assert!(actual
-        .err
-        .contains("Port parameter should be an unsigned int or a string representing it"));
+    assert!(
+        actual
+            .err
+            .contains("Port parameter should be an unsigned int or a string representing it")
+    );
 }
 
 #[test]
@@ -421,7 +435,9 @@ fn url_join_with_params_invalid_table() {
     ));
 
     assert!(actual.err.contains("expected a table"));
-    assert!(actual
-        .err
-        .contains("not a table, contains non-record values"));
+    assert!(
+        actual
+            .err
+            .contains("not a table, contains non-record values")
+    );
 }

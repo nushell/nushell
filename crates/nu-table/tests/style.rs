@@ -1,6 +1,6 @@
 mod common;
 
-use common::{create_row as row, TestCase};
+use common::{TestCase, create_row as row};
 use nu_table::{NuTable, TableTheme as theme};
 use tabled::grid::records::vec_records::Text;
 
@@ -449,6 +449,98 @@ fn test_with_love() {
     );
 
     assert_eq!(create_table_with_size(vec![], true, theme::with_love()), "");
+}
+
+#[test]
+fn test_single() {
+    assert_eq!(
+        create_table(vec![row(4); 3], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         ├───┼───┼───┼───┤\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         ├───┼───┼───┼───┤\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], true, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], false, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], false, theme::single()),
+        "┌───┬───┬───┬───┐\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         │ 0 │ 1 │ 2 │ 3 │\n\
+         └───┴───┴───┴───┘"
+    );
+
+    assert_eq!(create_table_with_size(vec![], true, theme::single()), "");
+}
+
+#[test]
+fn test_double() {
+    assert_eq!(
+        create_table(vec![row(4); 3], true, theme::double()),
+        "╔═══╦═══╦═══╦═══╗\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╠═══╬═══╬═══╬═══╣\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╚═══╩═══╩═══╩═══╝"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], true, theme::double()),
+        "╔═══╦═══╦═══╦═══╗\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╠═══╬═══╬═══╬═══╣\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╚═══╩═══╩═══╩═══╝"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], true, theme::double()),
+        "╔═══╦═══╦═══╦═══╗\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╚═══╩═══╩═══╩═══╝"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], false, theme::double()),
+        "╔═══╦═══╦═══╦═══╗\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╚═══╩═══╩═══╩═══╝"
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], false, theme::double()),
+        "╔═══╦═══╦═══╦═══╗\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ║ 0 ║ 1 ║ 2 ║ 3 ║\n\
+         ╚═══╩═══╩═══╩═══╝"
+    );
+
+    assert_eq!(create_table_with_size(vec![], true, theme::double()), "");
 }
 
 fn create_table(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {

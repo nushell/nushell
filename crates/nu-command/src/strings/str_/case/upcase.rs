@@ -116,7 +116,7 @@ fn action(input: &Value, head: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::{action, StrUpcase};
+    use super::{StrUpcase, action};
 
     #[test]
     fn test_examples() {

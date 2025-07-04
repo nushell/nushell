@@ -1,22 +1,24 @@
 pub mod support;
 
 use std::{
-    fs::{read_dir, FileType, ReadDir},
-    path::{PathBuf, MAIN_SEPARATOR},
+    fs::{FileType, ReadDir, read_dir},
+    path::{MAIN_SEPARATOR, PathBuf},
     sync::Arc,
 };
 
 use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_path::expand_tilde;
-use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, Config, PipelineData};
+use nu_path::{AbsolutePathBuf, expand_tilde};
+use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
 use nu_std::load_standard_library;
+use nu_test_support::fs;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
-        new_dotnu_engine, new_external_engine, new_partial_engine, new_quote_engine,
+        new_dotnu_engine, new_engine_helper, new_external_engine, new_partial_engine,
+        new_quote_engine,
     },
     file, folder, match_suggestions, match_suggestions_by_string, new_engine,
 };
@@ -123,7 +125,7 @@ fn custom_completer_with_options(
         global_opts,
         completions
             .iter()
-            .map(|comp| format!("'{}'", comp))
+            .map(|comp| format!("'{comp}'"))
             .collect::<Vec<_>>()
             .join(", "),
         completer_opts,
@@ -716,6 +718,16 @@ fn external_completer_fallback() {
     let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
     let suggestions = run_external_completion(block, input);
     match_suggestions_by_string(&expected, &suggestions);
+
+    // issue #15790
+    let input = "foo `dir with space/`";
+    let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
+    let suggestions = run_external_completion_within_pwd(
+        block,
+        input,
+        fs::fixtures().join("external_completions"),
+    );
+    match_suggestions(&expected, &suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`
@@ -1579,16 +1591,25 @@ fn attribute_completions() {
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
+    // Compile a list of built-in attribute names (without the "attr " prefix)
+    let attribute_names: Vec<String> = engine
+        .get_signatures_and_declids(false)
+        .into_iter()
+        .map(|(sig, _)| sig.name)
+        .filter(|name| name.starts_with("attr "))
+        .map(|name| name[5..].to_string())
+        .collect();
+
+    // Make sure we actually found some attributes so the test is valid
+    assert!(attribute_names.contains(&String::from("example")));
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("@", 1);
 
-    // Only checking for the builtins and not the std attributes
-    let expected: Vec<_> = vec!["category", "example", "search-terms"];
-
     // Match results
-    match_suggestions(&expected, &suggestions);
+    match_suggestions_by_string(&attribute_names, &suggestions);
 }
 
 #[test]
@@ -2006,6 +2027,35 @@ fn table_cell_path_completions() {
 }
 
 #[test]
+fn quoted_cell_path_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"let foo = {'foo bar':1 'foo\\"bar"': 1 '.': 1 '|': 1 1: 1 "": 1}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected: Vec<_> = vec![
+        "\"\"",
+        "\".\"",
+        "\"1\"",
+        "\"foo bar\"",
+        "\"foo\\\\\\\\\\\"bar\\\"\"",
+        "\"|\"",
+    ];
+    let completion_str = "$foo.";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let expected: Vec<_> = vec!["\"foo bar\"", "\"foo\\\\\\\\\\\"bar\\\"\""];
+    let completion_str = "$foo.`foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "$foo.foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 
@@ -2065,11 +2115,15 @@ fn alias_of_another_alias() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
-fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+fn run_external_completion_within_pwd(
+    completer: &str,
+    input: &str,
+    pwd: AbsolutePathBuf,
+) -> Vec<Suggestion> {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
-    let (_, _, mut engine_state, mut stack) = new_engine();
+    let (_, _, mut engine_state, mut stack) = new_engine_helper(pwd);
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = parse(&mut working_set, None, completer.as_bytes(), false);
@@ -2091,6 +2145,10 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));
 
     completer.complete(input, input.len())
+}
+
+fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+    run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
 }
 
 #[test]
@@ -2315,6 +2373,32 @@ fn exact_match() {
     let target_dir = format!("open {}", file(dir.join("partial")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
     assert!(suggestions.len() > 1);
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+#[test]
+fn exact_match_case_insensitive() {
+    use nu_test_support::playground::Playground;
+    use support::completions_helpers::new_engine_helper;
+
+    Playground::setup("exact_match_case_insensitive", |dirs, playground| {
+        playground.mkdir("AA/foo");
+        playground.mkdir("aa/foo");
+        playground.mkdir("aaa/foo");
+
+        let (dir, _, engine, stack) = new_engine_helper(dirs.test().into());
+        let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+        let target = format!("open {}", folder(dir.join("aa")));
+        match_suggestions(
+            &vec![
+                folder(dir.join("AA").join("foo")).as_str(),
+                folder(dir.join("aa").join("foo")).as_str(),
+                folder(dir.join("aaa").join("foo")).as_str(),
+            ],
+            &completer.complete(&target, target.len()),
+        );
+    });
 }
 
 #[ignore = "was reverted, still needs fixing"]

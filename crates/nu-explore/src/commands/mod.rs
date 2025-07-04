@@ -3,8 +3,8 @@ use crate::views::ViewConfig;
 use super::pager::{Pager, Transition};
 use anyhow::Result;
 use nu_protocol::{
-    engine::{EngineState, Stack},
     Value,
+    engine::{EngineState, Stack},
 };
 
 mod expand;
@@ -18,8 +18,8 @@ pub use expand::ExpandCmd;
 pub use help::HelpCmd;
 pub use nu::NuCmd;
 pub use quit::QuitCmd;
-pub use r#try::TryCmd;
 pub use table::TableCmd;
+pub use r#try::TryCmd;
 
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;

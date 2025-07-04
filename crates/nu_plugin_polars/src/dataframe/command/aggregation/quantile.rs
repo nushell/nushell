@@ -1,16 +1,16 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
     values::{
-        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
+        CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
     },
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{lit, QuantileMethod};
+use polars::prelude::{QuantileMethod, lit};
 
 #[derive(Clone)]
 pub struct LazyQuantile;
@@ -99,6 +99,7 @@ impl PluginCommand for LazyQuantile {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
         let quantile: f64 = call.req(0)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
@@ -123,6 +124,7 @@ impl PluginCommand for LazyQuantile {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

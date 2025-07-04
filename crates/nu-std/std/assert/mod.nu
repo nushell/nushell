@@ -96,8 +96,8 @@ export def equal [left: any, right: any, message?: string] {
         }
         text: (
             "These are not equal.\n"
-         + $"        Left  : '($left | to nuon --raw)'\n"
-         + $"        Right : '($right | to nuon --raw)'"
+         + $"        Left  : '($left | to nuon)'\n"
+         + $"        Right : '($right | to nuon)'"
         )
     }
 }
@@ -114,7 +114,7 @@ export def "not equal" [left: any, right: any, message?: string] {
             start: (metadata $left).span.start
             end: (metadata $right).span.end
         }
-        text: $"These are both '($left | to nuon --raw)'."
+        text: $"These are both '($left | to nuon)'."
     }
 }
 
@@ -210,7 +210,7 @@ export def length [left: list, right: int, message?: string] {
         }
         text: (
             "This does not have the correct length:\n"
-         + $"        value    : ($left | to nuon --raw)\n"
+         + $"        value    : ($left | to nuon)\n"
          + $"        length   : ($left | core length)\n"
          + $"        expected : ($right)"
         )
@@ -231,7 +231,7 @@ export def "str contains" [left: string, right: string, message?: string] {
         }
         text: (
             $"This does not contain '($right)'.\n"
-          + $"        value: ($left | to nuon --raw)"
+          + $"        value: ($left | to nuon)"
         )
     }
 }

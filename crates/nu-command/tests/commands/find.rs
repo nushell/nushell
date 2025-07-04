@@ -17,7 +17,10 @@ fn find_with_list_search_with_char() {
     let actual = nu!("[moe larry curly] | find l | to json -r");
     let actual_no_highlight = nu!("[moe larry curly] | find --no-highlight l | to json -r");
 
-    assert_eq!(actual.out, "[\"\\u001b[37m\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37marry\\u001b[0m\",\"\\u001b[37mcur\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37my\\u001b[0m\"]");
+    assert_eq!(
+        actual.out,
+        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37marry\\u001b[0m\",\"\\u001b[37mcur\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37my\\u001b[0m\"]"
+    );
     assert_eq!(actual_no_highlight.out, "[\"larry\",\"curly\"]");
 }
 
@@ -25,8 +28,9 @@ fn find_with_list_search_with_char() {
 fn find_with_bytestream_search_with_char() {
     let actual =
         nu!("\"ABC\" | save foo.txt; let res = open foo.txt | find abc; rm foo.txt; $res | get 0");
-    let actual_no_highlight =
-        nu!("\"ABC\" | save foo.txt; let res = open foo.txt | find --no-highlight abc; rm foo.txt; $res | get 0");
+    let actual_no_highlight = nu!(
+        "\"ABC\" | save foo.txt; let res = open foo.txt | find --no-highlight abc; rm foo.txt; $res | get 0"
+    );
 
     assert_eq!(
         actual.out,
@@ -88,7 +92,10 @@ fn find_with_filepath_search_with_multiple_patterns() {
         r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find --no-highlight arep ami | to json -r"#
     );
 
-    assert_eq!(actual.out, "[\"\\u001b[37m\\u001b[0m\\u001b[41;37mami\\u001b[0m\\u001b[37mgos.txt\\u001b[0m\",\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]");
+    assert_eq!(
+        actual.out,
+        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37mami\\u001b[0m\\u001b[37mgos.txt\\u001b[0m\",\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]"
+    );
     assert_eq!(actual_no_highlight.out, "[\"amigos.txt\",\"arepas.clu\"]");
 }
 
@@ -111,7 +118,10 @@ fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
         "[[name nickname]; [Maurice moe] [Laurence larry]] | find --no-highlight --regex ce | get name | to json -r"
     );
 
-    assert_eq!(actual.out, r#"["Maurice","Laurence"]"#);
+    assert_eq!(
+        actual.out,
+        r#"["\u001b[37mMauri\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m","\u001b[37mLauren\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m"]"#
+    );
     assert_eq!(actual_no_highlight.out, r#"["Maurice","Laurence"]"#);
 }
 
@@ -158,8 +168,12 @@ fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
 
 #[test]
 fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
-    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find Maurice");
-    let actual_no_highlight = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find --no-highlight Maurice");
+    let actual = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find Maurice"
+    );
+    let actual_no_highlight = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find --no-highlight Maurice"
+    );
 
     println!("{:?}", actual.out);
     assert!(actual.out.contains("moe"));
@@ -174,8 +188,12 @@ fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
 
 #[test]
 fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
-    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find moe William");
-    let actual_no_highlight = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find --no-highlight moe William");
+    let actual = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find moe William"
+    );
+    let actual_no_highlight = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find --no-highlight moe William"
+    );
 
     println!("{:?}", actual.out);
     assert!(actual.out.contains("moe"));
@@ -274,4 +292,21 @@ fn find_with_string_search_with_special_char_6() {
         "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
+}
+
+#[test]
+fn find_in_nested_list_dont_match_bracket() {
+    let actual = nu!(r#"[ [foo bar] [foo baz] ] | find "[" | to json -r"#);
+
+    assert_eq!(actual.out, "[]");
+}
+
+#[test]
+fn find_and_highlight_in_nested_list() {
+    let actual = nu!(r#"[ [foo bar] [foo baz] ] | find "foo" | to json -r"#);
+
+    assert_eq!(
+        actual.out,
+        r#"[["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","bar"],["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","baz"]]"#
+    );
 }

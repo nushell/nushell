@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 
 use crate::Comparator;
 
@@ -164,7 +164,14 @@ impl Command for Sort {
                 if let Type::Table(cols) = r#type {
                     let columns: Vec<Comparator> = cols
                         .iter()
-                        .map(|col| vec![PathMember::string(col.0.clone(), false, Span::unknown())])
+                        .map(|col| {
+                            vec![PathMember::string(
+                                col.0.clone(),
+                                false,
+                                Casing::Sensitive,
+                                Span::unknown(),
+                            )]
+                        })
                         .map(|members| CellPath { members })
                         .map(Comparator::CellPath)
                         .collect();
@@ -182,7 +189,7 @@ impl Command for Sort {
             Value::Nothing { .. } => {
                 return Err(ShellError::PipelineEmpty {
                     dst_span: value.span(),
-                })
+                });
             }
             ref other => {
                 return Err(ShellError::OnlySupportsThisInputType {
@@ -190,7 +197,7 @@ impl Command for Sort {
                     wrong_type: other.get_type().to_string(),
                     dst_span: call.head,
                     src_span: value.span(),
-                })
+                });
             }
         };
         Ok(sorted.into_pipeline_data_with_metadata(metadata))

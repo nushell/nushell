@@ -35,6 +35,11 @@ impl Command for Glob {
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
             )
+            .switch(
+                "follow-symlinks",
+                "Whether to follow symbolic links to their targets",
+                Some('l'),
+            )
             .named(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -65,14 +70,12 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders that begin with uppercase C or lowercase c",
+                description: "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -111,6 +114,11 @@ impl Command for Glob {
                 example: r#"glob **/* --exclude [**/target/** **/.git/** */]"#,
                 result: None,
             },
+            Example {
+                description: "Search for files following symbolic links to their targets",
+                example: r#"glob "**/*.txt" --follow-symlinks"#,
+                result: None,
+            },
         ]
     }
 
@@ -132,6 +140,7 @@ impl Command for Glob {
         let no_dirs = call.has_flag(engine_state, stack, "no-dir")?;
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
+        let follow_symlinks = call.has_flag(engine_state, stack, "follow-symlinks")?;
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -158,6 +167,10 @@ impl Command for Glob {
                     call_span: glob_span,
                 }),
             };
+
+        // paths starting with drive letters must be escaped on Windows
+        #[cfg(windows)]
+        let glob_pattern = patch_windows_glob_pattern(glob_pattern, glob_span)?;
 
         if glob_pattern.is_empty() {
             return Err(ShellError::GenericError {
@@ -190,7 +203,7 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
         };
 
@@ -209,8 +222,13 @@ impl Command for Glob {
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
-                })
+                });
             }
+        };
+
+        let link_behavior = match follow_symlinks {
+            true => wax::LinkBehavior::ReadTarget,
+            false => wax::LinkBehavior::ReadFile,
         };
 
         let result = if !not_patterns.is_empty() {
@@ -220,7 +238,7 @@ impl Command for Glob {
                     path,
                     WalkBehavior {
                         depth: folder_depth,
-                        ..Default::default()
+                        link: link_behavior,
                     },
                 )
                 .into_owned()
@@ -247,7 +265,7 @@ impl Command for Glob {
                     path,
                     WalkBehavior {
                         depth: folder_depth,
-                        ..Default::default()
+                        link: link_behavior,
                     },
                 )
                 .into_owned()
@@ -263,6 +281,26 @@ impl Command for Glob {
         };
 
         Ok(result.into_pipeline_data(span, engine_state.signals().clone()))
+    }
+}
+
+#[cfg(windows)]
+fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<String, ShellError> {
+    let mut chars = glob_pattern.chars();
+    match (chars.next(), chars.next(), chars.next()) {
+        (Some(drive), Some(':'), Some('/' | '\\')) if drive.is_ascii_alphabetic() => {
+            Ok(format!("{drive}\\:/{}", chars.as_str()))
+        }
+        (Some(drive), Some(':'), Some(_)) if drive.is_ascii_alphabetic() => {
+            Err(ShellError::GenericError {
+                error: "invalid Windows path format".into(),
+                msg: "Windows paths with drive letters must include a path separator (/) after the colon".into(),
+                span: Some(glob_span),
+                help: Some("use format like 'C:/' instead of 'C:'".into()),
+                inner: vec![],
+            })
+        }
+        _ => Ok(glob_pattern),
     }
 }
 
@@ -310,4 +348,54 @@ fn glob_to_value(
     });
 
     ListStream::new(result, span, signals.clone())
+}
+
+#[cfg(windows)]
+#[cfg(test)]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn glob_pattern_with_drive_letter() {
+        let pattern = "D:/*.mp4".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "Z:/**/*.md".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "C:/nested/**/escaped/path/<[_a-zA-Z\\-]>.md".to_string();
+        let result = patch_windows_glob_pattern(pattern, Span::test_data()).unwrap();
+        assert!(dbg!(WaxGlob::new(&result)).is_ok());
+    }
+
+    #[test]
+    fn glob_pattern_without_drive_letter() {
+        let pattern = "/usr/bin/*.sh".to_string();
+        let result = patch_windows_glob_pattern(pattern.clone(), Span::test_data()).unwrap();
+        assert_eq!(result, pattern);
+        assert!(WaxGlob::new(&result).is_ok());
+
+        let pattern = "a".to_string();
+        let result = patch_windows_glob_pattern(pattern.clone(), Span::test_data()).unwrap();
+        assert_eq!(result, pattern);
+        assert!(WaxGlob::new(&result).is_ok());
+    }
+
+    #[test]
+    fn invalid_path_format() {
+        let invalid = "C:lol".to_string();
+        let result = patch_windows_glob_pattern(invalid, Span::test_data());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unpatched_patterns() {
+        let unpatched = "C:/Users/*.txt".to_string();
+        assert!(WaxGlob::new(&unpatched).is_err());
+
+        let patched = patch_windows_glob_pattern(unpatched, Span::test_data()).unwrap();
+        assert!(WaxGlob::new(&patched).is_ok());
+    }
 }

@@ -135,8 +135,7 @@ fn uuid(
         _ => {
             return Err(ShellError::IncorrectValue {
                 msg: format!(
-                    "Unsupported UUID version: {}. Supported versions are 1, 3, 4, 5, and 7.",
-                    version
+                    "Unsupported UUID version: {version}. Supported versions are 1, 3, 4, 5, and 7."
                 ),
                 val_span: span,
                 call_span: span,
@@ -190,8 +189,7 @@ fn validate_flags(
             if v != 4 && v != 7 {
                 return Err(ShellError::IncorrectValue {
                     msg: format!(
-                        "Unsupported UUID version: {}. Supported versions are 1, 3, 4, 5, and 7.",
-                        v
+                        "Unsupported UUID version: {v}. Supported versions are 1, 3, 4, 5, and 7."
                     ),
                     val_span: span,
                     call_span: span,
@@ -202,7 +200,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: format!("version {} uuid does not take mac as a parameter", v),
+                    msg: format!("version {v} uuid does not take mac as a parameter"),
                     span,
                 });
             }
@@ -211,7 +209,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: format!("version {} uuid does not take namespace as a parameter", v),
+                    msg: format!("version {v} uuid does not take namespace as a parameter"),
                     span,
                 });
             }
@@ -220,7 +218,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: format!("version {} uuid does not take name as a parameter", v),
+                    msg: format!("version {v} uuid does not take name as a parameter"),
                     span,
                 });
             }

@@ -1,5 +1,5 @@
-use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
-use nu_protocol::engine::{Closure, CommandType};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Try;
@@ -42,36 +42,17 @@ impl Command for Try {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let try_block = call
-            .positional_nth(0)
-            .expect("checked through parser")
-            .as_block()
-            .expect("internal error: missing block");
-
-        let catch_block: Option<Closure> = call.opt(engine_state, stack, 1)?;
-
-        let try_block = engine_state.get_block(try_block);
-        let eval_block = get_eval_block(engine_state);
-
-        let result = eval_block(engine_state, stack, try_block, input)
-            .and_then(|pipeline| pipeline.drain_to_out_dests(engine_state, stack));
-
-        match result {
-            Err(err) => run_catch(err, head, catch_block, engine_state, stack, eval_block),
-            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
-                run_catch(*error, head, catch_block, engine_state, stack, eval_block)
-            }
-            Ok(pipeline) => Ok(pipeline),
-        }
+        eprintln!(
+            "Tried to execute 'run' for the 'try' command: this code path should never be reached in IR mode"
+        );
+        unreachable!();
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,52 +73,6 @@ impl Command for Try {
                 result: None,
             },
         ]
-    }
-}
-
-fn run_catch(
-    error: ShellError,
-    span: Span,
-    catch: Option<Closure>,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    eval_block: EvalBlockFn,
-) -> Result<PipelineData, ShellError> {
-    let error = intercept_block_control(error)?;
-
-    if let Some(catch) = catch {
-        stack.set_last_error(&error);
-        let error = error.into_value(&StateWorkingSet::new(engine_state), span);
-        let block = engine_state.get_block(catch.block_id);
-        // Put the error value in the positional closure var
-        if let Some(var) = block.signature.get_positional(0) {
-            if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, error.clone());
-            }
-        }
-
-        eval_block(
-            engine_state,
-            stack,
-            block,
-            // Make the error accessible with $in, too
-            error.into_pipeline_data(),
-        )
-    } else {
-        Ok(PipelineData::empty())
-    }
-}
-
-/// The flow control commands `break`/`continue`/`return` emit their own [`ShellError`] variants
-/// We need to ignore those in `try` and bubble them through
-///
-/// `Err` when flow control to bubble up with `?`
-fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
-    match error {
-        ShellError::Break { .. } => Err(error),
-        ShellError::Continue { .. } => Err(error),
-        ShellError::Return { .. } => Err(error),
-        _ => Ok(error),
     }
 }
 

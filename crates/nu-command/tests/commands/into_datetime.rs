@@ -3,6 +3,13 @@ use nu_test_support::nu;
 // Tests happy paths
 
 #[test]
+fn into_datetime_from_record_cell_path() {
+    let actual = nu!(r#"{d: '2021'} | into datetime d"#);
+
+    assert!(actual.out.contains("years ago"));
+}
+
+#[test]
 fn into_datetime_from_record() {
     let actual = nu!(
         r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'} | into datetime | into record"#
@@ -56,9 +63,11 @@ fn into_datetime_table_column() {
 fn into_datetime_from_record_fails_with_wrong_type() {
     let actual = nu!(r#"{year: '2023'} | into datetime"#);
 
-    assert!(actual
-        .err
-        .contains("nu::shell::only_supports_this_input_type"));
+    assert!(
+        actual
+            .err
+            .contains("nu::shell::only_supports_this_input_type")
+    );
 }
 
 #[test]

@@ -1,7 +1,8 @@
 use crate::{
-    ast::{CellPath, PathMember},
-    engine::Closure,
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
+    ast::{CellPath, PathMember},
+    casing::Casing,
+    engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -9,6 +10,10 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
+    num::{
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
+        NonZeroU64, NonZeroUsize,
+    },
     path::PathBuf,
     str::FromStr,
 };
@@ -26,6 +31,8 @@ use std::{
 /// - If `#[nu_value(rename_all = "...")]` is applied on the container (struct) the key of the
 ///   field will be case-converted accordingly.
 /// - If neither attribute is applied, the field name is used as is.
+/// - If `#[nu_value(default)]` is applied to a field, the field type's [`Default`] implementation
+///   will be used if the corresponding record field is missing
 ///
 /// Supported case conversions include those provided by [`heck`], such as
 /// "snake_case", "kebab-case", "PascalCase", and others.
@@ -266,6 +273,42 @@ impl FromValue for i64 {
         Type::Int
     }
 }
+
+//
+// We can not use impl<T: FromValue> FromValue for NonZero<T> as NonZero requires an unstable trait
+// As a result, we use this macro to implement FromValue for each NonZero type.
+//
+
+macro_rules! impl_from_value_for_nonzero {
+    ($nonzero:ty, $base:ty) => {
+        impl FromValue for $nonzero {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
+                let span = v.span();
+                let val = <$base>::from_value(v)?;
+                <$nonzero>::new(val).ok_or_else(|| ShellError::IncorrectValue {
+                    msg: "use a value other than 0".into(),
+                    val_span: span,
+                    call_span: span,
+                })
+            }
+
+            fn expected_type() -> Type {
+                Type::Int
+            }
+        }
+    };
+}
+
+impl_from_value_for_nonzero!(NonZeroU16, u16);
+impl_from_value_for_nonzero!(NonZeroU32, u32);
+impl_from_value_for_nonzero!(NonZeroU64, u64);
+impl_from_value_for_nonzero!(NonZeroUsize, usize);
+
+impl_from_value_for_nonzero!(NonZeroI8, i8);
+impl_from_value_for_nonzero!(NonZeroI16, i16);
+impl_from_value_for_nonzero!(NonZeroI32, i32);
+impl_from_value_for_nonzero!(NonZeroI64, i64);
+impl_from_value_for_nonzero!(NonZeroIsize, isize);
 
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
@@ -585,6 +628,7 @@ impl FromValue for CellPath {
                     val,
                     span,
                     optional: false,
+                    casing: Casing::Sensitive,
                 }],
             }),
             Value::Int { val, .. } => {
@@ -771,7 +815,7 @@ fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Spa
 
 #[cfg(test)]
 mod tests {
-    use crate::{engine::Closure, FromValue, IntoValue, Record, Span, Type, Value};
+    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
     use std::ops::Deref;
 
     #[test]

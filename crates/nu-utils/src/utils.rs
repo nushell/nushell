@@ -77,12 +77,11 @@ where
     T: AsRef<[u8]>,
 {
     let stderr = std::io::stderr();
-    let ret = match stderr.lock().write_all(output.as_ref()) {
+
+    match stderr.lock().write_all(output.as_ref()) {
         Ok(_) => Ok(stderr.lock().flush()?),
         Err(err) => Err(err),
-    };
-
-    ret
+    }
 }
 
 // See default_files/README.md for a description of these files

@@ -5,10 +5,11 @@ use crate::{
 use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
+use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::{
+    PipelineData, Spanned,
     engine::{EngineState, Stack},
-    report_shell_error, PipelineData, Spanned,
+    report_shell_error,
 };
 use nu_utils::perf;
 

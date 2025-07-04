@@ -1,7 +1,7 @@
 use crate::PersistentPlugin;
 use nu_protocol::{PluginGcConfig, RegisteredPlugin};
 use std::{
-    sync::{mpsc, Arc, Weak},
+    sync::{Arc, Weak, mpsc},
     thread,
     time::{Duration, Instant},
 };

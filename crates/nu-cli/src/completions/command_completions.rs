@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 use crate::{
-    completions::{Completer, CompletionOptions},
     SuggestionKind,
+    completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    engine::{CommandType, Stack, StateWorkingSet},
     Span,
+    engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
-use super::{completion_options::NuMatcher, SemanticSuggestion};
+use super::{SemanticSuggestion, completion_options::NuMatcher};
 
 pub struct CommandCompletion {
     /// Whether to include internal commands
@@ -52,7 +52,7 @@ impl CommandCompletion {
                                 continue;
                             };
                             let value = if matched_internal(&name) {
-                                format!("^{}", name)
+                                format!("^{name}")
                             } else {
                                 name.clone()
                             };
@@ -75,7 +75,10 @@ impl CommandCompletion {
                                             append_whitespace: true,
                                             ..Default::default()
                                         },
-                                        kind: Some(SuggestionKind::Command(CommandType::External)),
+                                        kind: Some(SuggestionKind::Command(
+                                            CommandType::External,
+                                            None,
+                                        )),
                                     },
                                 );
                             }
@@ -112,7 +115,7 @@ impl Completer for CommandCompletion {
                 },
                 true,
             );
-            for (name, description, typ) in filtered_commands {
+            for (decl_id, name, description, typ) in filtered_commands {
                 let name = String::from_utf8_lossy(&name);
                 internal_suggs.insert(
                     name.to_string(),
@@ -124,7 +127,7 @@ impl Completer for CommandCompletion {
                             append_whitespace: true,
                             ..Suggestion::default()
                         },
-                        kind: Some(SuggestionKind::Command(typ)),
+                        kind: Some(SuggestionKind::Command(typ, Some(decl_id))),
                     },
                 );
             }

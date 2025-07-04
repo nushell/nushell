@@ -4,8 +4,8 @@ use nu_protocol::{
 };
 
 use crate::{
-    values::{cant_convert_err, CustomValueSupport, NuLazyFrame, PolarsPluginType},
     PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginType, cant_convert_err},
 };
 
 use crate::values::NuDataFrame;
@@ -34,8 +34,7 @@ impl PluginCommand for ToRepr {
         vec![
             Example {
                 description: "Shows dataframe in repr format",
-                example:
-                    "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)
@@ -53,8 +52,7 @@ shape: (2, 2)
             },
             Example {
                 description: "Shows lazy dataframe in repr format",
-                example:
-                    "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-lazy | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-lazy | polars into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)
@@ -99,7 +97,7 @@ fn dataframe_command(
     input: Value,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
-    let value = Value::string(format!("{}", df), call.head);
+    let value = Value::string(format!("{df}"), call.head);
     Ok(PipelineData::Value(value, None))
 }
 

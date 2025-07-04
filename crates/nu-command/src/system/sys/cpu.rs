@@ -1,6 +1,6 @@
 use super::trim_cstyle_null;
 use nu_engine::command_prelude::*;
-use sysinfo::{CpuRefreshKind, System, MINIMUM_CPU_UPDATE_INTERVAL};
+use sysinfo::{CpuRefreshKind, MINIMUM_CPU_UPDATE_INTERVAL, System};
 
 #[derive(Clone)]
 pub struct SysCpu;

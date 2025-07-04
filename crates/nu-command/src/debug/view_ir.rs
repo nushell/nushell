@@ -119,7 +119,7 @@ the declaration may not be in scope.
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected closure, string, or int".into(),
                     span: call.head,
-                })
+                });
             }
         };
 

@@ -1,9 +1,9 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, IntoPipelineData, LabeledError, PipelineData, Signature, Value,
+    Category, Example, IntoPipelineData, LabeledError, PipelineData, Signature, Value, record,
 };
 
-use crate::{values::PolarsPluginObject, PolarsPlugin};
+use crate::{PolarsPlugin, values::PolarsPluginObject};
 
 #[derive(Clone)]
 pub struct ListDF;

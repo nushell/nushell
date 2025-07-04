@@ -68,16 +68,40 @@ impl Command for HelpOperators {
         ]
         .into_iter()
         .map(|op| {
-            Value::record(
-                record! {
-                    "type" => Value::string(op_type(&op), head),
-                    "operator" => Value::string(op.to_string(), head),
-                    "name" => Value::string(name(&op), head),
-                    "description" => Value::string(description(&op), head),
-                    "precedence" => Value::int(op.precedence().into(), head),
-                },
-                head,
-            )
+            if op == Operator::Comparison(Comparison::RegexMatch) {
+                Value::record(
+                    record! {
+                        "type" => Value::string(op_type(&op), head),
+                        "operator" => Value::string("=~, like", head),
+                        "name" => Value::string(name(&op), head),
+                        "description" => Value::string(description(&op), head),
+                        "precedence" => Value::int(op.precedence().into(), head),
+                    },
+                    head,
+                )
+            } else if op == Operator::Comparison(Comparison::NotRegexMatch) {
+                Value::record(
+                    record! {
+                        "type" => Value::string(op_type(&op), head),
+                        "operator" => Value::string("!~, not-like", head),
+                        "name" => Value::string(name(&op), head),
+                        "description" => Value::string(description(&op), head),
+                        "precedence" => Value::int(op.precedence().into(), head),
+                    },
+                    head,
+                )
+            } else {
+                Value::record(
+                    record! {
+                        "type" => Value::string(op_type(&op), head),
+                        "operator" => Value::string(op.to_string(), head),
+                        "name" => Value::string(name(&op), head),
+                        "description" => Value::string(description(&op), head),
+                        "precedence" => Value::int(op.precedence().into(), head),
+                    },
+                    head,
+                )
+            }
         })
         .collect::<Vec<_>>();
 

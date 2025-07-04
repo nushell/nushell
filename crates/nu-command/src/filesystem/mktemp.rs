@@ -112,8 +112,8 @@ impl Command for Mktemp {
                 .map_err(|_| ShellError::NonUtf8 { span })?,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: format!("{}", e),
-                    msg: format!("{}", e),
+                    error: format!("{e}"),
+                    msg: format!("{e}"),
                     span: None,
                     help: None,
                     inner: vec![],

@@ -1,5 +1,4 @@
-use crate::help::highlight_search_in_table;
-use nu_color_config::StyleComputer;
+use crate::filters::find_internal;
 use nu_engine::{command_prelude::*, scope::ScopeData};
 use nu_protocol::DeclId;
 
@@ -79,31 +78,20 @@ pub fn help_modules(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    // 🚩The following two-lines are copied from filters/find.rs:
-    let style_computer = StyleComputer::from_config(engine_state, stack);
-    // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
-    let string_style = style_computer.compute("string", &Value::string("search result", head));
-    let highlight_style =
-        style_computer.compute("search_result", &Value::string("search result", head));
-
     if let Some(f) = find {
         let all_cmds_vec = build_help_modules(engine_state, stack, head);
-        let found_cmds_vec = highlight_search_in_table(
+        return find_internal(
             all_cmds_vec,
+            engine_state,
+            stack,
             &f.item,
             &["name", "description"],
-            &string_style,
-            &highlight_style,
-        )?;
-
-        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
+            true,
+        );
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_modules(engine_state, stack, head);
-        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
+        Ok(build_help_modules(engine_state, stack, head))
     } else {
         let mut name = String::new();
 
@@ -239,11 +227,11 @@ pub fn help_modules(
     }
 }
 
-fn build_help_modules(engine_state: &EngineState, stack: &Stack, span: Span) -> Vec<Value> {
+fn build_help_modules(engine_state: &EngineState, stack: &Stack, span: Span) -> PipelineData {
     let mut scope_data = ScopeData::new(engine_state, stack);
     scope_data.populate_modules();
 
-    scope_data.collect_modules(span)
+    Value::list(scope_data.collect_modules(span), span).into_pipeline_data()
 }
 
 #[cfg(test)]

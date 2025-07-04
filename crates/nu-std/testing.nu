@@ -37,11 +37,16 @@ def get-annotated [
         source `($file)`
         scope commands
         | select name attributes
-        | where attributes != []
         | to nuon
     '
     | from nuon
-    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | each {|e|
+        # filter commands with test attributes, and map attributes to annotation name
+        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -i $x }
+        if ($test_attributes | is-not-empty) {
+          $e | update attributes $test_attributes.0
+        }
+      }
     | rename function_name annotation
 }
 
@@ -132,6 +137,7 @@ def show-pretty-test [indent: int = 4] {
 # * Modified file is removed
 def run-test [
     test: record
+    plugins: list<string>
 ] {
     let test_file_name = (random chars --length 10)
     let test_function_name = (random chars --length 10)
@@ -155,8 +161,9 @@ export def ($test_function_name) [] {
     | str join (char lsep)
     | save $rendered_module_path
 
+    let plugins = $plugins | to json -r
     let result = (
-        ^$nu.current-exe --no-config-file -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
+        ^$nu.current-exe --no-config-file --plugins $plugins -c $"use ($rendered_module_path) *; ($test_function_name)|to nuon"
         | complete
     )
 
@@ -175,6 +182,7 @@ export def ($test_function_name) [] {
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
     threads: int
+    plugins: list<string>
 ]: nothing -> table<file: path, name: string, test: string, result: string> {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
@@ -183,7 +191,7 @@ def run-tests-for-module [
                 before-each: 'let context = {}',
                 after-each: '',
                 test: $module.before-all
-            }
+            } $plugins
             | if $in.exit_code == 0 {
                 $in.stdout
             } else {
@@ -233,7 +241,7 @@ def run-tests-for-module [
             log debug $"Global context is ($global_context)"
 
             $test|insert result {|x|
-                run-test $test
+                run-test $test $plugins
                 | if $in.exit_code == 0 {
                     'pass'
                 } else {
@@ -253,7 +261,7 @@ def run-tests-for-module [
                 before-each: $"let context = ($global_context)",
                 after-each: '',
                 test: $module.after-all
-        }
+        } $plugins
     }
     return $tests
 }
@@ -278,6 +286,7 @@ export def run-tests [
     --exclude-module: string,             # Pattern to use to exclude test modules. Default: No modules are excluded
     --list,                               # list the selected tests without running them.
     --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
+    --plugins: list<string>,              # Plugins to load while running tests.
 ] {
     let available_threads = (sys cpu | length)
 
@@ -329,20 +338,20 @@ export def run-tests [
                 commands: (get-annotated $row.name)
             }
         }
-        | filter {|x| ($x.commands|length) > 0}
+        | where {|x| ($x.commands|length) > 0}
         | upsert commands {|module|
             $module.commands
             | create-test-record
         }
         | flatten
-        | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
-        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
-        | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
+        | where {|x| ($x.test|length) > 0}
+        | where {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | where {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
+        | where {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
-            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
+            | where {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | where {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {
@@ -356,7 +365,7 @@ export def run-tests [
     let results = (
         $modules
         | par-each  --threads $threads {|module|
-            run-tests-for-module $module $threads
+            run-tests-for-module $module $threads ($plugins | default [])
         }
         | flatten
     )

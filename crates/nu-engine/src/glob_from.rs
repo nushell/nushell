@@ -1,6 +1,6 @@
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{shell_error::io::IoError, NuGlob, ShellError, Signals, Span, Spanned};
+use nu_protocol::{NuGlob, ShellError, Signals, Span, Spanned, shell_error::io::IoError};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -81,7 +81,7 @@ pub fn glob_from(
                 }
                 Ok(p) => p,
                 Err(err) => {
-                    return Err(IoError::new(err.kind(), pattern_span, path).into());
+                    return Err(IoError::new(err, pattern_span, path).into());
                 }
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)

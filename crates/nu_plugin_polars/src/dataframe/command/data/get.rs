@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
+    PolarsPlugin, dataframe::values::utils::convert_columns_string, values::CustomValueSupport,
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -59,7 +59,10 @@ impl PluginCommand for GetDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

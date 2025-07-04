@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_parser::{flatten_block, parse};
 use nu_protocol::{engine::StateWorkingSet, record};
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 
 #[derive(Clone)]
 pub struct Ast;
@@ -52,8 +52,7 @@ impl Command for Ast {
                 result: None,
             },
             Example {
-                description:
-                    "Print the ast of a pipeline with an error, as json, in a nushell table",
+                description: "Print the ast of a pipeline with an error, as json, in a nushell table",
                 example: "ast 'for x in 1..10 { echo $x ' --json | get block | from json",
                 result: None,
             },
@@ -288,15 +287,15 @@ impl Command for Ast {
 
 fn json_merge(a: &mut JsonValue, b: &JsonValue) {
     match (a, b) {
-        (JsonValue::Object(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Object(a), JsonValue::Object(b)) => {
             for (k, v) in b {
                 json_merge(a.entry(k).or_insert(JsonValue::Null), v);
             }
         }
-        (JsonValue::Array(ref mut a), JsonValue::Array(b)) => {
+        (JsonValue::Array(a), JsonValue::Array(b)) => {
             a.extend(b.clone());
         }
-        (JsonValue::Array(ref mut a), JsonValue::Object(b)) => {
+        (JsonValue::Array(a), JsonValue::Object(b)) => {
             a.extend([JsonValue::Object(b.clone())]);
         }
         (a, b) => {

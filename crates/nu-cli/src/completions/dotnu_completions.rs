@@ -1,17 +1,18 @@
 use crate::completions::{
-    completion_common::{surround_remove, FileSuggestion},
+    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    completion_common::{FileSuggestion, surround_remove},
     completion_options::NuMatcher,
-    file_path_completion, Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    file_path_completion,
 };
 use nu_path::expand_tilde;
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet, VirtualPath},
     Span,
+    engine::{Stack, StateWorkingSet, VirtualPath},
 };
 use reedline::Suggestion;
 use std::{
     collections::HashSet,
-    path::{is_separator, PathBuf, MAIN_SEPARATOR_STR},
+    path::{MAIN_SEPARATOR_STR, PathBuf, is_separator},
 };
 
 pub struct DotNuCompletion {
@@ -128,7 +129,7 @@ impl Completer for DotNuCompletion {
                     .take_while(|c| "`'\"".contains(*c))
                     .collect::<String>();
                 for path in ["std", "std-rfc"] {
-                    let path = format!("{}{}", surround_prefix, path);
+                    let path = format!("{surround_prefix}{path}");
                     matcher.add(
                         path.clone(),
                         FileSuggestion {
@@ -145,7 +146,7 @@ impl Completer for DotNuCompletion {
                 for sub_vp_id in sub_paths {
                     let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
                     let path = path
-                        .strip_prefix(&format!("{}/", base_dir))
+                        .strip_prefix(&format!("{base_dir}/"))
                         .unwrap_or(path)
                         .to_string();
                     matcher.add(

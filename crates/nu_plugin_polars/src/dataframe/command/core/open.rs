@@ -1,16 +1,17 @@
 use crate::{
+    EngineWrapper, PolarsPlugin,
     command::core::resource::Resource,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
-    EngineWrapper, PolarsPlugin,
 };
 use log::debug;
 use nu_utils::perf;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    shell_error::io::IoError, Category, Example, LabeledError, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    shell_error::{self, io::IoError},
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -23,7 +24,7 @@ use polars::{
     },
 };
 
-use polars_io::{avro::AvroReader, csv::read::CsvReadOptions, HiveOptions};
+use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -130,8 +131,8 @@ impl PluginCommand for OpenDataFrame {
         plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
-        _input: nu_protocol::PipelineData,
-    ) -> Result<nu_protocol::PipelineData, LabeledError> {
+        _input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
         command(plugin, engine, call).map_err(|e| e.into())
     }
 }
@@ -165,6 +166,11 @@ fn command(
 
     let hive_options = build_hive_options(plugin, call)?;
 
+    let uri = spanned_file.item.clone();
+    let data_source = DataSource::FilePath(uri.into());
+
+    let metadata = PipelineMetadata::default().with_data_source(data_source);
+
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Csv | PolarsFileType::Tsv => {
@@ -193,13 +199,13 @@ fn command(
             )),
         },
         None => Err(ShellError::Io(IoError::new_with_additional_context(
-            std::io::ErrorKind::NotFound,
+            shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
             spanned_file.span,
             PathBuf::from(spanned_file.item),
             "File without extension",
         ))),
     }
-    .map(|value| PipelineData::Value(value, None))
+    .map(|value| PipelineData::Value(value, Some(metadata)))
 }
 
 fn from_parquet(

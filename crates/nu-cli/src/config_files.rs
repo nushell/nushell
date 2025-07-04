@@ -2,10 +2,11 @@ use crate::util::eval_source;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 #[cfg(feature = "plugin")]
-use nu_protocol::{engine::StateWorkingSet, ParseError, PluginRegistryFile, Spanned};
+use nu_protocol::{ParseError, PluginRegistryFile, Spanned, engine::StateWorkingSet};
 use nu_protocol::{
+    PipelineData,
     engine::{EngineState, Stack},
-    report_shell_error, PipelineData,
+    report_shell_error,
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
@@ -18,7 +19,7 @@ const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spanned<String>>) {
-    use nu_protocol::{shell_error::io::IoError, ShellError};
+    use nu_protocol::{ShellError, shell_error::io::IoError};
     use std::path::Path;
 
     let span = plugin_file.as_ref().map(|s| s.span);
@@ -79,7 +80,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                     report_shell_error(
                         engine_state,
                         &ShellError::Io(IoError::new_internal_with_path(
-                            err.kind(),
+                            err,
                             "Could not open plugin registry file",
                             nu_protocol::location!(),
                             plugin_path,
@@ -230,8 +231,8 @@ pub fn eval_config_contents(
 #[cfg(feature = "plugin")]
 pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     use nu_protocol::{
-        shell_error::io::IoError, PluginExample, PluginIdentity, PluginRegistryItem,
-        PluginRegistryItemData, PluginSignature, ShellError,
+        PluginExample, PluginIdentity, PluginRegistryItem, PluginRegistryItemData, PluginSignature,
+        ShellError, shell_error::io::IoError,
     };
     use std::collections::BTreeMap;
 
@@ -322,7 +323,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     if let Err(err) = std::fs::File::create(&new_plugin_file_path)
         .map_err(|err| {
             IoError::new_internal_with_path(
-                err.kind(),
+                err,
                 "Could not create new plugin file",
                 nu_protocol::location!(),
                 new_plugin_file_path.clone(),

@@ -1,23 +1,23 @@
 use crate::{
     exportable::Exportable,
     parse_block,
-    parser::{parse_attribute, parse_redirection, redirecting_builtin_error},
+    parser::{compile_block, parse_attribute, parse_redirection, redirecting_builtin_error},
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
+    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
+    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -30,16 +30,16 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    is_math_expression_like,
+    Token, TokenContents, is_math_expression_like,
     known_external::KnownExternal,
     lex,
-    lite_parser::{lite_parse, LiteCommand},
+    lite_parser::{LiteCommand, lite_parse},
     parser::{
-        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string, parse_value,
-        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        ParsedInternalCall, check_call, garbage, garbage_pipeline, parse, parse_call,
+        parse_expression, parse_full_signature, parse_import_pattern, parse_internal_call,
+        parse_string, parse_value, parse_var_with_opt_type, trim_quotes,
     },
-    unescape_unquote_string, Token, TokenContents,
+    unescape_unquote_string,
 };
 
 /// These parser keywords can be aliased
@@ -521,9 +521,6 @@ fn parse_def_inner(
 
     let (desc, extra_desc) = working_set.build_desc(&lite_command.comments);
 
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
-
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
     // Note: "export def" is treated the same as "def"
@@ -724,8 +721,6 @@ fn parse_def_inner(
         }
 
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-            let declaration = working_set.get_decl_mut(decl_id);
-
             signature.name.clone_from(&name);
             if !has_wrapped {
                 *signature = signature.add_help();
@@ -733,8 +728,11 @@ fn parse_def_inner(
             signature.description = desc;
             signature.extra_description = extra_desc;
             signature.allows_unknown_args = has_wrapped;
-            signature.search_terms = search_terms;
-            signature.category = category_from_string(&category);
+
+            let (attribute_vals, examples) =
+                handle_special_attributes(attributes, working_set, &mut signature);
+
+            let declaration = working_set.get_decl_mut(decl_id);
 
             *declaration = signature
                 .clone()
@@ -787,9 +785,6 @@ fn parse_extern_inner(
     let concat_span = Span::concat(spans);
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
-
-    let (attribute_vals, examples, search_terms, category) =
-        handle_special_attributes(attributes, working_set);
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -876,8 +871,6 @@ fn parse_extern_inner(
             }
 
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
-                let declaration = working_set.get_decl_mut(decl_id);
-
                 let external_name = if let Some(mod_name) = module_name {
                     if name.as_bytes() == b"main" {
                         String::from_utf8_lossy(mod_name).to_string()
@@ -891,9 +884,12 @@ fn parse_extern_inner(
                 signature.name = external_name;
                 signature.description = description;
                 signature.extra_description = extra_description;
-                signature.search_terms = search_terms;
                 signature.allows_unknown_args = true;
-                signature.category = category_from_string(&category);
+
+                let (attribute_vals, examples) =
+                    handle_special_attributes(attributes, working_set, &mut signature);
+
+                let declaration = working_set.get_decl_mut(decl_id);
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
@@ -950,16 +946,11 @@ fn parse_extern_inner(
     Expression::new(working_set, Expr::Call(call), call_span, Type::Any)
 }
 
-#[allow(clippy::type_complexity)]
 fn handle_special_attributes(
     attributes: Vec<(String, Value)>,
     working_set: &mut StateWorkingSet<'_>,
-) -> (
-    Vec<(String, Value)>,
-    Vec<CustomExample>,
-    Vec<String>,
-    String,
-) {
+    signature: &mut Signature,
+) -> (Vec<(String, Value)>, Vec<CustomExample>) {
     let mut attribute_vals = vec![];
     let mut examples = vec![];
     let mut search_terms = vec![];
@@ -1016,7 +1007,11 @@ fn handle_special_attributes(
             }
         }
     }
-    (attribute_vals, examples, search_terms, category)
+
+    signature.search_terms = search_terms;
+    signature.category = category_from_string(&category);
+
+    (attribute_vals, examples)
 }
 
 fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
@@ -2165,12 +2160,10 @@ fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) ->
         return true;
     }
 
-    let private_submodule_changed = module
+    module
         .imported_modules
         .iter()
-        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id));
-
-    private_submodule_changed
+        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id))
 }
 
 /// Parse a module from a file.
@@ -3805,12 +3798,16 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
-                        let block = parse(
+                        let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
+                        if block.ir_block.is_none() {
+                            let block_mut = Arc::make_mut(&mut block);
+                            compile_block(working_set, block_mut);
+                        }
 
                         // Remove the file from the stack of files being processed.
                         working_set.files.pop();
@@ -4053,7 +4050,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
-        .find_variable(format!("${}", var_name).as_bytes())
+        .find_variable(format!("${var_name}").as_bytes())
         .filter(|var_id| working_set.get_variable(*var_id).const_val.is_some())
 }
 
@@ -4206,12 +4203,14 @@ fn detect_params_in_name(
             .find_position(|c| **c == delim)
             .unwrap_or((name.len(), &b' '));
         let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
-        let error = ParseError::LabeledErrorWithHelp{
+        let error = ParseError::LabeledErrorWithHelp {
             error: "no space between name and parameters".into(),
             label: "expected space".into(),
-            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            help: format!(
+                "consider adding a space between the `{decl_name}` command's name and its parameters"
+            ),
             span: param_span,
-            };
+        };
         Some(error)
     };
 

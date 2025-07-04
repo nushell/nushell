@@ -6,7 +6,7 @@ use super::{
     MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{
-    ast::ImportPattern, engine::StateWorkingSet, BlockId, ModuleId, OutDest, Signature, Span, VarId,
+    BlockId, ModuleId, OutDest, Signature, Span, VarId, ast::ImportPattern, engine::StateWorkingSet,
 };
 
 /// An [`Expression`] AST node

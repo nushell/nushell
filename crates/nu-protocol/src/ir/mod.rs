@@ -1,7 +1,7 @@
 use crate::{
+    BlockId, DeclId, Filesize, RegId, Span, Value, VarId,
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
-    BlockId, DeclId, Filesize, RegId, Span, Value, VarId,
 };
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};

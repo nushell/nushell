@@ -38,9 +38,11 @@ fn table_to_csv_text() {
             "#
         ));
 
-        assert!(actual
-            .out
-            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(
+            actual
+                .out
+                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
+        );
     })
 }
 
@@ -68,10 +70,23 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
             "#
         ));
 
-        assert!(actual
-            .out
-            .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(
+            actual
+                .out
+                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
+        );
     })
+}
+
+#[test]
+fn table_to_csv_float_doesnt_become_int() {
+    let actual = nu!(pipeline(
+        r#"
+            [[a]; [1.0]] | to csv | from csv | get 0.a | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "float")
 }
 
 #[test]
@@ -342,9 +357,11 @@ fn from_csv_text_with_multiple_char_separator() {
             "#
         ));
 
-        assert!(actual
-            .err
-            .contains("separator should be a single char or a 4-byte unicode"));
+        assert!(
+            actual
+                .err
+                .contains("separator should be a single char or a 4-byte unicode")
+        );
     })
 }
 

@@ -1,7 +1,8 @@
+use super::util::{build_metadata_record, extend_record_with_metadata};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
+    PipelineMetadata,
     ast::{Expr, Expression},
-    DataSource, PipelineMetadata,
 };
 
 #[derive(Clone)]
@@ -42,6 +43,17 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
+        if !matches!(input, PipelineData::Empty) {
+            if let Some(arg_expr) = arg {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "pipeline input was provided".into(),
+                    left_span: head,
+                    right_message: "but a positional metadata expression was also given".into(),
+                    right_span: arg_expr.span,
+                });
+            }
+        }
+
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
@@ -55,56 +67,38 @@ impl Command for Metadata {
                             ..
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
-
-                            Ok(
-                                build_metadata_record(&origin, input.metadata().as_ref(), head)
-                                    .into_pipeline_data(),
+                            Ok(build_metadata_record_value(
+                                &origin,
+                                input.metadata().as_ref(),
+                                head,
                             )
+                            .into_pipeline_data())
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                                .into_pipeline_data())
+                            Ok(
+                                build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                                    .into_pipeline_data(),
+                            )
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                        .into_pipeline_data())
+                    Ok(
+                        build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                            .into_pipeline_data(),
+                    )
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
-                    .into_pipeline_data())
+                Ok(
+                    build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                        .into_pipeline_data(),
+                )
             }
             None => {
-                let mut record = Record::new();
-                if let Some(x) = input.metadata().as_ref() {
-                    match x {
-                        PipelineMetadata {
-                            data_source: DataSource::Ls,
-                            ..
-                        } => record.push("source", Value::string("ls", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::HtmlThemes,
-                            ..
-                        } => record.push("source", Value::string("into html --list", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::FilePath(path),
-                            ..
-                        } => record.push(
-                            "source",
-                            Value::string(path.to_string_lossy().to_string(), head),
-                        ),
-                        _ => {}
-                    }
-                    if let Some(ref content_type) = x.content_type {
-                        record.push("content_type", Value::string(content_type, head));
-                    }
-                }
-
-                Ok(Value::record(record, head).into_pipeline_data())
+                Ok(Value::record(build_metadata_record(&input, head), head).into_pipeline_data())
             }
         }
     }
@@ -125,46 +119,14 @@ impl Command for Metadata {
     }
 }
 
-fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head: Span) -> Value {
+fn build_metadata_record_value(
+    arg: &Value,
+    metadata: Option<&PipelineMetadata>,
+    head: Span,
+) -> Value {
     let mut record = Record::new();
-
-    let span = arg.span();
-    record.push(
-        "span",
-        Value::record(
-            record! {
-                "start" => Value::int(span.start as i64,span),
-                "end" => Value::int(span.end as i64, span),
-            },
-            head,
-        ),
-    );
-
-    if let Some(x) = metadata {
-        match x {
-            PipelineMetadata {
-                data_source: DataSource::Ls,
-                ..
-            } => record.push("source", Value::string("ls", head)),
-            PipelineMetadata {
-                data_source: DataSource::HtmlThemes,
-                ..
-            } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::FilePath(path),
-                ..
-            } => record.push(
-                "source",
-                Value::string(path.to_string_lossy().to_string(), head),
-            ),
-            _ => {}
-        }
-        if let Some(ref content_type) = x.content_type {
-            record.push("content_type", Value::string(content_type, head));
-        }
-    }
-
-    Value::record(record, head)
+    record.push("span", arg.span().into_value(head));
+    Value::record(extend_record_with_metadata(record, metadata, head), head)
 }
 
 #[cfg(test)]

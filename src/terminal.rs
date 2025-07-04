@@ -6,7 +6,7 @@ use std::{
 use nix::{
     errno::Errno,
     libc,
-    sys::signal::{killpg, raise, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
+    sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, killpg, raise, sigaction},
     unistd::{self, Pid},
 };
 

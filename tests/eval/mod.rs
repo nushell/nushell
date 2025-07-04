@@ -56,8 +56,7 @@ fn test_eval(source: &str, expected_out: ExpectedOut) {
                 let compiled_regex = Regex::new(regex).expect("regex failed to compile");
                 assert!(
                     compiled_regex.is_match(&actual.err).unwrap_or(false),
-                    "eval err does not match: {}",
-                    regex
+                    "eval err does not match: {regex}"
                 );
                 assert!(!actual.status.success());
             }

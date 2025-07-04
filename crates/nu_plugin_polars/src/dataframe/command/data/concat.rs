@@ -1,6 +1,6 @@
 use crate::{
-    values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame},
 };
 
 use crate::values::NuDataFrame;
@@ -98,8 +98,11 @@ impl PluginCommand for ConcatDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let maybe_df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head).ok();
-        command_lazy(plugin, engine, call, maybe_df).map_err(LabeledError::from)
+        command_lazy(plugin, engine, call, maybe_df)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

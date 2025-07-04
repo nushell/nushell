@@ -1,10 +1,10 @@
 use crate::completions::{
-    completion_common::surround_remove, completion_options::NuMatcher, Completer,
-    CompletionOptions, SemanticSuggestion, SuggestionKind,
+    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
+    completion_common::surround_remove, completion_options::NuMatcher,
 };
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     ModuleId, Span,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
@@ -69,7 +69,8 @@ impl Completer for ExportableCompletion<'_> {
                     wrapped_name(name),
                     Some(cmd.description().to_string()),
                     None,
-                    SuggestionKind::Command(cmd.command_type()),
+                    // `None` here avoids arguments being expanded by snippet edit style for lsp
+                    SuggestionKind::Command(cmd.command_type(), None),
                 );
             }
         }

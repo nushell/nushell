@@ -156,6 +156,25 @@ impl TableTheme {
         Self::new(theme, full)
     }
 
+    pub fn single() -> TableTheme {
+        let full = Style::modern()
+            .corner_top_left('┌')
+            .corner_top_right('┐')
+            .corner_bottom_left('└')
+            .corner_bottom_right('┘');
+
+        Self::new(Style::sharp(), full)
+    }
+
+    pub fn double() -> TableTheme {
+        let hline = HorizontalLine::inherit(Style::extended());
+        let theme = Style::extended()
+            .remove_horizontal()
+            .horizontals([(1, hline)]);
+
+        Self::new(theme, Style::extended())
+    }
+
     pub fn none() -> TableTheme {
         Self::new(Style::blank(), Style::blank())
     }

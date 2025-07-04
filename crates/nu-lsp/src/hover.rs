@@ -1,9 +1,9 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
-use nu_protocol::{engine::Command, PositionalArg};
+use nu_protocol::{PositionalArg, engine::Command};
 
 use crate::{
-    signature::{display_flag, doc_for_arg, get_signature_label},
     Id, LanguageServer,
+    signature::{display_flag, doc_for_arg, get_signature_label},
 };
 
 impl LanguageServer {
@@ -160,16 +160,15 @@ impl LanguageServer {
                 let var = working_set.get_variable(var_id);
                 markdown_hover(
                     var.const_val
-                        .clone()
-                        .and_then(|val| val.follow_cell_path(&cell_path, false).ok())
+                        .as_ref()
+                        .and_then(|val| val.follow_cell_path(&cell_path).ok())
                         .map(|val| {
-                            let ty = val.get_type().clone();
-                            let value_string = val
-                                .coerce_into_string()
-                                .ok()
-                                .map(|s| format!("\n---\n{}", s))
-                                .unwrap_or_default();
-                            format!("```\n{}\n```{}", ty, value_string)
+                            let ty = val.get_type();
+                            if let Ok(s) = val.coerce_str() {
+                                format!("```\n{ty}\n```\n---\n{s}")
+                            } else {
+                                format!("```\n{ty}\n```")
+                            }
                         })
                         .unwrap_or("`unknown`".into()),
                 )
@@ -187,7 +186,7 @@ impl LanguageServer {
                     .join("\n");
                 markdown_hover(description)
             }
-            Id::Value(t) => markdown_hover(format!("`{}`", t)),
+            Id::Value(t) => markdown_hover(format!("`{t}`")),
             Id::External(cmd) => {
                 let command_output = if cfg!(windows) {
                     std::process::Command::new("powershell.exe")
@@ -457,11 +456,13 @@ mod hover_tests {
         let resp = send_hover_request(&client_connection, script_uri, 0, 22);
         let result = result_from_message(resp);
 
-        assert!(result
-            .pointer("/contents/value")
-            .unwrap()
-            .to_string()
-            .replace("\\r", "")
-            .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags"));
+        assert!(
+            result
+                .pointer("/contents/value")
+                .unwrap()
+                .to_string()
+                .replace("\\r", "")
+                .starts_with("\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags")
+        );
     }
 }

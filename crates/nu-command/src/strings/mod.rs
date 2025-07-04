@@ -1,3 +1,4 @@
+mod ansi;
 mod base;
 mod char_;
 mod detect_columns;
@@ -8,6 +9,7 @@ mod parse;
 mod split;
 mod str_;
 
+pub use ansi::{Ansi, AnsiLink, AnsiStrip};
 pub use base::{
     DecodeBase32, DecodeBase32Hex, DecodeBase64, DecodeHex, EncodeBase32, EncodeBase32Hex,
     EncodeBase64, EncodeHex,
@@ -22,8 +24,8 @@ pub use str_::*;
 
 use nu_engine::CallExt;
 use nu_protocol::{
-    engine::{Call, EngineState, Stack, StateWorkingSet},
     ShellError,
+    engine::{Call, EngineState, Stack, StateWorkingSet},
 };
 
 // For handling the grapheme_cluster related flags on some commands.

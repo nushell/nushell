@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use nu_protocol::{
+    ParseError, Span, Type,
     ast::{Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
-    ParseError, Span, Type,
 };
 
 fn type_error(
@@ -372,7 +372,9 @@ pub fn math_result_type(
                 let help = if matches!(lhs.ty, Type::List(_) | Type::Table(_))
                     || matches!(rhs.ty, Type::List(_) | Type::Table(_))
                 {
-                    Some("if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.")
+                    Some(
+                        "if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.",
+                    )
                 } else {
                     None
                 };

@@ -252,11 +252,13 @@ fn errors_if_file_not_found() {
     // provided error message
 
     assert!(actual.err.contains("nu::shell::io::file_not_found"));
-    assert!(actual.err.contains(
-        &PathBuf::from_iter(["tests", "fixtures", "formats", "i_dont_exist.txt"])
-            .display()
-            .to_string()
-    ));
+    assert!(
+        actual.err.contains(
+            &PathBuf::from_iter(["tests", "fixtures", "formats", "i_dont_exist.txt"])
+                .display()
+                .to_string()
+        )
+    );
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use nu_engine::command_prelude::*;
+use nu_engine::{command_prelude::*, redirect_env};
 use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
@@ -18,6 +18,11 @@ impl Command for OverlayNew {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .required("name", SyntaxShape::String, "Name of the overlay.")
+            .switch(
+                "reload",
+                "If the overlay already exists, reload its environment.",
+                Some('r'),
+            )
             // TODO:
             // .switch(
             //     "prefix",
@@ -41,13 +46,20 @@ This command is a parser keyword. For details, check:
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        caller_stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        let reload = call.has_flag(engine_state, caller_stack, "reload")?;
 
-        stack.add_overlay(name_arg.item);
+        if reload {
+            let callee_stack = caller_stack.clone();
+            caller_stack.add_overlay(name_arg.item);
+            redirect_env(engine_state, caller_stack, &callee_stack);
+        } else {
+            caller_stack.add_overlay(name_arg.item);
+        }
 
         Ok(PipelineData::empty())
     }

@@ -1,8 +1,8 @@
 use nu_parser::*;
 use nu_protocol::{
+    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -24,7 +24,7 @@ fn test_int(
 
     if let Some(err_pat) = expected_err {
         if let Some(parse_err) = err {
-            let act_err = format!("{:?}", parse_err);
+            let act_err = format!("{parse_err:?}");
             assert!(
                 act_err.contains(err_pat),
                 "{test_tag}: expected err to contain {err_pat}, but actual error was {act_err}"
@@ -268,6 +268,28 @@ pub fn parse_int_with_underscores() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
     assert_eq!(element.expr.expr, Expr::Int(420692023));
+}
+
+#[test]
+pub fn parse_filesize() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"95307.27MiB", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(99_936_915_947));
+    assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
 }
 
 #[test]
@@ -1577,6 +1599,78 @@ mod string {
         }
 
         #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"\"\" ++ (1 + 3)foo(7 - 5)bar",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
+                    Expr::StringInterpolation(expressions) => {
+                        expressions.iter().map(|e| &e.expr).collect()
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 4);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("foo".to_string()));
+            assert!(matches!(subexprs[2], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[3], &Expr::String("bar".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_bare_starting_subexpr_external_arg() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(&mut working_set, None, b"^echo ($nu.home-path)/path", true);
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::ExternalCall(_, args) => match &args[0] {
+                    ExternalArgument::Regular(expression) => match &expression.expr {
+                        Expr::StringInterpolation(expressions) => {
+                            expressions.iter().map(|e| &e.expr).collect()
+                        }
+                        _ => panic!("Expected an `ExternalArgument::Regular`"),
+                    },
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
+
+            assert!(matches!(subexprs[0], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[1], &Expr::String("/path".to_string()));
+        }
+
+        #[test]
         pub fn parse_nested_expressions() {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1998,7 +2092,7 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        engine::Call, Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
     };
 
     #[derive(Clone)]
@@ -2676,10 +2770,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{}foo = 1 |
+                r#"{prefix}foo = 1 |
                 # comment
-                dummy"#,
-                prefix
+                dummy"#
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2689,11 +2782,11 @@ mod input_types {
                     call.arguments[1].expr().unwrap()
                 }
                 Expr::BinaryOp(_, _, rhs) => rhs.as_ref(),
-                _ => panic!("Unexpected expression: {:?}", last_expr),
+                _ => panic!("Unexpected expression: {last_expr:?}"),
             };
             let block_id = match block_expr.expr {
                 Expr::Block(block_id) | Expr::Subexpression(block_id) => block_id,
-                _ => panic!("Unexpected expression: {:?}", block_expr),
+                _ => panic!("Unexpected expression: {block_expr:?}"),
             };
             let rhs_expr = working_set.get_block(block_id);
             assert_eq!(rhs_expr.pipelines.len(), 1);
@@ -2721,6 +2814,26 @@ mod input_types {
 
             assert!(working_set.parse_errors.is_empty());
             assert_eq!(block.len(), 2, "testing: {input}");
+        }
+    }
+
+    #[test]
+    fn closure_in_block_position_errors_correctly() {
+        let mut engine_state = EngineState::new();
+        add_declarations(&mut engine_state);
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let inputs = [r#"if true { || print hi }"#, r#"if true { |x| $x }"#];
+
+        for input in inputs {
+            parse(&mut working_set, None, input.as_bytes(), true);
+            assert!(
+                matches!(
+                    working_set.parse_errors.first(),
+                    Some(ParseError::Mismatch(_, _, _))
+                ),
+                "testing: {input}"
+            );
         }
     }
 

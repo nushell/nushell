@@ -1,4 +1,4 @@
-use super::common::{do_merge, typecheck_merge, ListMerge, MergeStrategy};
+use super::common::{ListMerge, MergeStrategy, do_merge, typecheck_merge};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, casing::Casing};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -63,6 +63,7 @@ impl Command for Reject {
                             val: val.clone(),
                             span: *col_span,
                             optional: false,
+                            casing: Casing::Sensitive,
                         }],
                     };
                     new_columns.push(cv.clone());
@@ -109,21 +110,17 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "b" => Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "b" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" =>  Value::test_int(1),
-                        "b" =>  Value::test_int(2),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" =>  Value::test_int(1),
+                    "b" =>  Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Reject the specified field in a record",

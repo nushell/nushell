@@ -1,5 +1,5 @@
 #[cfg(unix)]
-use nix::unistd::{access, AccessFlags};
+use nix::unistd::{AccessFlags, access};
 #[cfg(any(windows, unix))]
 use std::path::Path;
 

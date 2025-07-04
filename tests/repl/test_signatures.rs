@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
 #[test]
@@ -109,7 +109,7 @@ fn list_annotations_space_before() -> TestResult {
 #[test]
 fn list_annotations_unknown_separators() -> TestResult {
     let input = "def run [list: list<int, string>] {$list | length}; run [2 5 4]";
-    let expected = "unknown type";
+    let expected = "only one parameter allowed";
     fail_test(input, expected)
 }
 
@@ -335,6 +335,36 @@ fn table_annotations_type_mismatch_shape() -> TestResult {
 #[test]
 fn table_annotations_with_extra_characters() -> TestResult {
     let input = "def run [t: table<int>extra] {$t | length}; run [[int]; [8]]";
+    let expected = "Extra characters in the parameter name";
+    fail_test(input, expected)
+}
+
+#[rstest]
+fn oneof_annotations(
+    #[values(
+        ("cell-path, list<cell-path>", "a.b.c", "cell-path"),
+        ("cell-path, list<cell-path>", "[a.b.c d.e.f]", "list<cell-path>"),
+        ("closure, any", "{}", "closure"),
+        ("closure, any", "{a: 1}", "record<a: int>"),
+    )]
+    annotation_data: (&str, &str, &str),
+) -> TestResult {
+    let (types, argument, expected) = annotation_data;
+
+    let input = format!("def run [t: oneof<{types}>] {{ $t }}; run {argument} | describe");
+    run_test(&input, expected)
+}
+
+#[test]
+fn oneof_annotations_not_terminated() -> TestResult {
+    let input = "def run [t: oneof<binary, string] { $t }";
+    let expected = "expected closing >";
+    fail_test(input, expected)
+}
+
+#[test]
+fn oneof_annotations_with_extra_characters() -> TestResult {
+    let input = "def run [t: oneof<int, string>extra] {$t}";
     let expected = "Extra characters in the parameter name";
     fail_test(input, expected)
 }

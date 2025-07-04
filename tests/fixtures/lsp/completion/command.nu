@@ -10,3 +10,5 @@ def "config n foo bar" [
   echo "🤔🐘"
   | str substring (str substring -)
 }
+
+config n # don't panic!

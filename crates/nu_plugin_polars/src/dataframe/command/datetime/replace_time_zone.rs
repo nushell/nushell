@@ -1,18 +1,21 @@
 use crate::values::{Column, NuDataFrame, NuSchema};
 use crate::{
-    dataframe::values::NuExpression,
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::NuExpression,
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use chrono::DateTime;
 use polars::prelude::*;
+use polars_plan::plans::DynLiteralValue;
+
+use super::timezone_from_str;
 
 #[derive(Clone)]
 pub struct ReplaceTimeZone;
@@ -93,7 +96,8 @@ impl PluginCommand for ReplaceTimeZone {
                                 "datetime".into(),
                                 DataType::Datetime(
                                     TimeUnit::Nanoseconds,
-                                    Some(PlSmallStr::from_static("America/New_York")),
+                                    TimeZone::opt_try_new(Some("America/New_York"))
+                                        .expect("timezone should be valid"),
                                 ),
                             ),
                         ])))),
@@ -145,7 +149,8 @@ impl PluginCommand for ReplaceTimeZone {
                                 "datetime".into(),
                                 DataType::Datetime(
                                     TimeUnit::Nanoseconds,
-                                    Some(PlSmallStr::from_static("America/New_York")),
+                                    TimeZone::opt_try_new(Some("America/New_York"))
+                                        .expect("timezone should be valid"),
                                 ),
                             ),
                         ])))),
@@ -197,7 +202,8 @@ impl PluginCommand for ReplaceTimeZone {
                                 "datetime".into(),
                                 DataType::Datetime(
                                     TimeUnit::Nanoseconds,
-                                    Some(PlSmallStr::from_static("America/New_York")),
+                                    TimeZone::opt_try_new(Some("America/New_York"))
+                                        .expect("timezone should be valid"),
                                 ),
                             ),
                         ])))),
@@ -216,6 +222,7 @@ impl PluginCommand for ReplaceTimeZone {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let value = input.into_value(call.head)?;
 
         let ambiguous = match call.get_flag::<Value>("ambiguous")? {
@@ -254,13 +261,17 @@ impl PluginCommand for ReplaceTimeZone {
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => {
-                let time_zone: String = call.req(0)?;
+                let time_zone_spanned: Spanned<String> = call.req(0)?;
+                let time_zone =
+                    timezone_from_str(&time_zone_spanned.item, Some(time_zone_spanned.span))?;
                 let expr: NuExpression = expr
                     .into_polars()
                     .dt()
                     .replace_time_zone(
-                        Some(PlSmallStr::from_str(&time_zone)),
-                        Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+                        Some(time_zone),
+                        Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                            PlSmallStr::from_string(ambiguous),
+                        ))),
                         nonexistent,
                     )
                     .into();
@@ -269,6 +280,7 @@ impl PluginCommand for ReplaceTimeZone {
             _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

@@ -1,9 +1,9 @@
 mod custom_value;
 
-use nu_protocol::{record, ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
-    prelude::{col, AggExpr, Expr, Literal},
+    prelude::{AggExpr, Expr, Literal, col},
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
@@ -126,6 +126,16 @@ impl ExtractedExpr {
             Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
+            Value::Record { val, .. } => val
+                .iter()
+                .map(|(key, value)| {
+                    NuExpression::try_from_value(plugin, value)
+                        .map(NuExpression::into_polars)
+                        .map(|expr| expr.alias(key))
+                        .map(ExtractedExpr::Single)
+                })
+                .collect::<Result<Vec<ExtractedExpr>, ShellError>>()
+                .map(ExtractedExpr::List),
             Value::List { vals, .. } => vals
                 .into_iter()
                 .map(|x| Self::extract_exprs(plugin, x))
@@ -242,7 +252,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             record! { "expr" => Value::string("wildcard", span) },
             span,
         )),
-        Expr::Explode(expr) => Ok(Value::record(
+        Expr::Explode { input: expr, .. } => Ok(Value::record(
             record! { "expr" => expr_to_value(expr.as_ref(), span)? },
             span,
         )),
@@ -355,10 +365,9 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 span,
             ))
         }
-        Expr::RenameAlias { expr, function } => Ok(Value::record(
+        Expr::RenameAlias { expr, .. } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
-                "function" => Value::string(format!("{function:?}"), span),
             },
             span,
         )),
@@ -367,6 +376,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             function,
             output_type,
             options,
+            fmt_str,
         } => {
             let input: Result<Vec<Value>, ShellError> =
                 input.iter().map(|e| expr_to_value(e, span)).collect();
@@ -376,22 +386,18 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                     "function" => Value::string(format!("{function:?}"), span),
                     "output_type" => Value::string(format!("{output_type:?}"), span),
                     "options" => Value::string(format!("{options:?}"), span),
+                    "fmt_str" => Value::string(format!("{fmt_str:?}"), span),
                 },
                 span,
             ))
         }
-        Expr::Function {
-            input,
-            function,
-            options,
-        } => {
+        Expr::Function { input, function } => {
             let input: Result<Vec<Value>, ShellError> =
                 input.iter().map(|e| expr_to_value(e, span)).collect();
             Ok(Value::record(
                 record! {
                     "input" => Value::list(input?, span),
                     "function" => Value::string(format!("{function:?}"), span),
-                    "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
             ))
@@ -442,13 +448,19 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
+            msg: "Expressions of type Selector to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
             input_span: Span::unknown(),
         }),
         Expr::IndexColumn(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type IndexColumn to Nu Values is not yet supported".to_string(),
+            msg: "Expressions of type IndexColumn to Nu Value is not yet supported".to_string(),
+            input: format!("Expression is {expr:?}"),
+            msg_span: span,
+            input_span: Span::unknown(),
+        }),
+        Expr::Eval { .. } => Err(ShellError::UnsupportedInput {
+            msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
             input_span: Span::unknown(),
@@ -523,6 +535,32 @@ impl CustomValueSupport for NuExpression {
             Value::Int { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Bool { val, .. } => Ok(val.to_owned().lit().into()),
             Value::Float { val, .. } => Ok(val.to_owned().lit().into()),
+            Value::Date { val, .. } => val
+                .to_owned()
+                .timestamp_nanos_opt()
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "Integer overflow".into(),
+                    msg: "Provided datetime in nanoseconds is too large for i64".into(),
+                    span: Some(value.span()),
+                    help: None,
+                    inner: vec![],
+                })
+                .map(|nanos| -> NuExpression {
+                    nanos
+                        .lit()
+                        .strict_cast(polars::prelude::DataType::Datetime(
+                            polars::prelude::TimeUnit::Nanoseconds,
+                            None,
+                        ))
+                        .into()
+                }),
+            Value::Duration { val, .. } => Ok(val
+                .to_owned()
+                .lit()
+                .strict_cast(polars::prelude::DataType::Duration(
+                    polars::prelude::TimeUnit::Nanoseconds,
+                ))
+                .into()),
             x => Err(ShellError::CantConvert {
                 to_type: "lazy expression".into(),
                 from_type: x.get_type().to_string(),
@@ -536,6 +574,7 @@ impl CustomValueSupport for NuExpression {
         match value {
             Value::Custom { val, .. } => val.as_any().downcast_ref::<Self::CV>().is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
+            Value::Record { val, .. } => val.iter().all(|(_, value)| Self::can_downcast(value)),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true
             }

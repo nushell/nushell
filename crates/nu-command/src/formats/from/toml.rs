@@ -145,6 +145,7 @@ pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value
 
 #[cfg(test)]
 mod tests {
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -345,6 +346,7 @@ mod tests {
             working_set.add_decl(Box::new(FromToml {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -353,7 +355,7 @@ mod tests {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | $in"#;
+        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

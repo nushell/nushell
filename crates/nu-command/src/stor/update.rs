@@ -1,4 +1,4 @@
-use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
@@ -52,21 +52,21 @@ impl Command for StorUpdate {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-        Example {
-            description: "Update the in-memory sqlite database",
-            example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17}",
-            result: None,
-        },
-        Example {
-            description: "Update the in-memory sqlite database with a where clause",
-            example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17} --where-clause \"bool1 = 1\"",
-            result: None,
-        },
-        Example {
-            description: "Update the in-memory sqlite database through pipeline input",
-            example: "{str1: nushell datetime1: 2020-04-17} | stor update --table-name nudb",
-            result: None,
-        },
+            Example {
+                description: "Update the in-memory sqlite database",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17}",
+                result: None,
+            },
+            Example {
+                description: "Update the in-memory sqlite database with a where clause",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17} --where-clause \"bool1 = 1\"",
+                result: None,
+            },
+            Example {
+                description: "Update the in-memory sqlite database through pipeline input",
+                example: "{str1: nushell datetime1: 2020-04-17} | stor update --table-name nudb",
+                result: None,
+            },
         ]
     }
 
@@ -164,7 +164,7 @@ fn process(
     }
     let new_table_name = table_name.unwrap_or("table".into());
     if let Ok(conn) = db.open_connection() {
-        let mut update_stmt = format!("UPDATE {} ", new_table_name);
+        let mut update_stmt = format!("UPDATE {new_table_name} ");
 
         update_stmt.push_str("SET ");
         let mut placeholders: Vec<String> = Vec::new();

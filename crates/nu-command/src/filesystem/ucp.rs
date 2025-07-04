@@ -1,6 +1,9 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{
+    NuGlob,
+    shell_error::{self, io::IoError},
+};
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -198,7 +201,7 @@ impl Command for UCp {
                     .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::Io(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::FileNotFound,
                     p.span,
                     PathBuf::from(p.item.to_string()),
                 )));
@@ -269,12 +272,12 @@ impl Command for UCp {
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: format!("{}", error),
-                        msg: format!("{}", error),
+                        error: format!("{error}"),
+                        msg: format!("{error}"),
                         span: None,
                         help: None,
                         inner: vec![],
-                    })
+                    });
                 }
             };
             // TODO: What should we do in place of set_exit_code?
@@ -370,7 +373,7 @@ fn parse_and_set_attribute(
                 "xattr" => &mut attribute.xattr,
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
-                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        msg: format!("--preserve flag got an unexpected attribute \"{val}\""),
                         span: value.span(),
                     });
                 }

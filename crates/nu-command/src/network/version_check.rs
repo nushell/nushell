@@ -1,9 +1,12 @@
 use nu_engine::command_prelude::*;
 use serde::Deserialize;
 use update_informer::{
+    Check, Package, Registry, Result as UpdateResult,
     http_client::{GenericHttpClient, HttpClient},
-    registry, Check, Package, Registry, Result as UpdateResult,
+    registry,
 };
+
+use super::tls::tls;
 
 #[derive(Clone)]
 pub struct VersionCheck;
@@ -61,7 +64,7 @@ impl Registry for NuShellNightly {
             tag_name: String,
         }
 
-        let url = format!("https://api.github.com/repos/{}/releases", pkg);
+        let url = format!("https://api.github.com/repos/{pkg}/releases");
         let versions = http_client
             .add_header("Accept", "application/vnd.github.v3+json")
             .add_header("User-Agent", "update-informer")
@@ -91,7 +94,7 @@ impl HttpClient for NativeTlsHttpClient {
         headers: update_informer::http_client::HeaderMap,
     ) -> update_informer::Result<T> {
         let agent = ureq::AgentBuilder::new()
-            .tls_connector(std::sync::Arc::new(native_tls::TlsConnector::new()?))
+            .tls_connector(std::sync::Arc::new(tls(false)?))
             .build();
 
         let mut req = agent.get(url).timeout(timeout);
@@ -125,7 +128,7 @@ pub fn check_for_latest_nushell_version() -> Value {
 
         if let Ok(Some(new_version)) = informer.check_version() {
             rec.push("current", Value::test_bool(false));
-            rec.push("latest", Value::test_string(format!("{}", new_version)));
+            rec.push("latest", Value::test_string(format!("{new_version}")));
             Value::test_record(rec)
         } else {
             rec.push("current", Value::test_bool(true));
@@ -145,7 +148,7 @@ pub fn check_for_latest_nushell_version() -> Value {
 
         if let Ok(Some(new_version)) = informer.check_version() {
             rec.push("current", Value::test_bool(false));
-            rec.push("latest", Value::test_string(format!("{}", new_version)));
+            rec.push("latest", Value::test_string(format!("{new_version}")));
             Value::test_record(rec)
         } else {
             rec.push("current", Value::test_bool(true));

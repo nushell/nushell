@@ -1,7 +1,7 @@
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
 
-use crate::{common::INDEX_COLUMN_NAME, NuTable};
+use crate::{NuTable, common::INDEX_COLUMN_NAME};
 
 mod collapse;
 mod expanded;

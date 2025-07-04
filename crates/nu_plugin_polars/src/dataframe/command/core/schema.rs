@@ -1,11 +1,11 @@
 use crate::{
-    values::{datatype_list, CustomValueSupport, PolarsPluginObject},
     PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginObject, datatype_list},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value, record,
 };
 
 #[derive(Clone)]
@@ -25,10 +25,7 @@ impl PluginCommand for SchemaCmd {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .switch("datatype-list", "creates a lazy dataframe", Some('l'))
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_type(Type::Any, Type::record())
             .category(Category::Custom("dataframe".into()))
     }
 
