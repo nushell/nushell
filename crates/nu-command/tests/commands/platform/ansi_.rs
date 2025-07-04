@@ -11,7 +11,7 @@ fn test_ansi_shows_error_on_escape() {
 fn test_ansi_list_outputs_table() {
     let actual = nu!("ansi --list | length");
 
-    assert_eq!(actual.out, "429");
+    assert_eq!(actual.out, "440");
 }
 
 #[test]
