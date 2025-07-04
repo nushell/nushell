@@ -469,7 +469,8 @@ impl NuCompleter {
                             if let Some(external_result) =
                                 self.external_completion(closure, &text_spans, offset, new_span)
                             {
-                                suggestions.extend(external_result);
+                                // Prioritize external results over (sub)commands
+                                suggestions.splice(0..0, external_result);
                                 return suggestions;
                             }
                         }
@@ -478,8 +479,7 @@ impl NuCompleter {
                             let (new_span, prefix) =
                                 strip_placeholder_if_any(working_set, &span, strip);
                             let ctx = Context::new(working_set, new_span, prefix, offset);
-                            suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
-                            return suggestions;
+                            return self.process_completion(&mut FileCompletion, &ctx);
                         }
                         break;
                     }

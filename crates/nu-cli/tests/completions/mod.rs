@@ -1480,11 +1480,12 @@ fn command_watch_with_filecompletion() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
-#[rstest]
-fn subcommand_completions() {
+#[test]
+fn subcommand_vs_external_completer() {
     let (_, _, mut engine, mut stack) = new_engine();
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
+            $env.config.completions.external.completer = {|spans| ["external"]}
             def foo-test-command [] {}
             def "foo-test-command bar" [] {}
             def "foo-test-command aagap bcr" [] {}
@@ -1497,6 +1498,7 @@ fn subcommand_completions() {
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
         &vec![
+            "external",
             "food bar",
             "foo-test-command bar",
             "foo-test-command aagap bcr",
@@ -1506,7 +1508,7 @@ fn subcommand_completions() {
 
     let prefix = "foot bar";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
-    match_suggestions(&vec!["foo-test-command bar"], &suggestions);
+    match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
 }
 
 #[test]
