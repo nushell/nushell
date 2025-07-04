@@ -67,9 +67,37 @@ fn mut_multiply_assign() {
 
 #[test]
 fn mut_divide_assign() {
-    let actual = nu!("mut y = 8; $y /= 2; $y");
+    let actual = nu!("mut y: number = 8; $y /= 2; $y");
 
     assert_eq!(actual.out, "4.0");
+}
+
+#[test]
+fn mut_divide_assign_should_error() {
+    let actual = nu!("mut y = 8; $y /= 2; $y");
+
+    assert!(actual.err.contains("parser::operator_incompatible_types"));
+}
+
+#[test]
+fn mut_subtract_assign_should_error() {
+    let actual = nu!("mut x = (date now); $x -= 2019-05-10");
+
+    assert!(actual.err.contains("parser::operator_incompatible_types"));
+}
+
+#[test]
+fn mut_assign_number() {
+    let actual = nu!("mut x: number = 1; $x = 2.0; $x");
+
+    assert_eq!(actual.out, "2.0");
+}
+
+#[test]
+fn mut_assign_glob() {
+    let actual = nu!(r#"mut x: glob = ""; $x = "meow"; $x"#);
+
+    assert_eq!(actual.out, "meow");
 }
 
 #[test]
