@@ -149,7 +149,7 @@ fn mut_value_with_if() {
 
 #[test]
 fn mut_value_with_match() {
-    let actual = nu!("mut a = 3; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a");
+    let actual = nu!("mut a = 'maybe?'; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a");
     assert_eq!(actual.out, "no!");
 }
 
