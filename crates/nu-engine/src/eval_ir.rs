@@ -2,6 +2,9 @@ use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
+    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -10,14 +13,11 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
 /// Evaluate the compiled representation of a [`Block`].
