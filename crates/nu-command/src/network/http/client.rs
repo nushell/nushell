@@ -10,7 +10,6 @@ use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
-    error::Error as StdError,
     io::Cursor,
     path::PathBuf,
     str::FromStr,
@@ -20,13 +19,11 @@ use std::{
 use ureq::{
     Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::resolver::DefaultResolver,
 };
 use url::Url;
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
-type Request = http::Request<Body>;
 type Response = http::Response<Body>;
 
 // crutch to help migrate to newer ureq
@@ -107,13 +104,9 @@ pub fn http_client(
             config_builder = config_builder.proxy(Some(proxy));
         }
     };
-    let mut agent = ureq::Agent::with_parts(
-        config_builder.build(),
-        tls(allow_insecure)?,
-        DefaultResolver::default(),
-    );
 
-    Ok(agent)
+    config_builder = config_builder.tls_config(tls(allow_insecure)?);
+    Ok(ureq::Agent::new_with_config(config_builder.build()))
 }
 
 pub fn http_parse_url(

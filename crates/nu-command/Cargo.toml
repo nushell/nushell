@@ -192,6 +192,7 @@ os = [
 	"uu_uname",
 	"uu_whoami",
 	"which",
+	"ureq/platform-verifier"
 ]
 
 # The dependencies listed below need 'getrandom'.
