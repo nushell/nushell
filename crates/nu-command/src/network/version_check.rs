@@ -5,7 +5,7 @@ use update_informer::{
     http_client::{GenericHttpClient, HttpClient},
     registry,
 };
-use ureq::unversioned::resolver::DefaultResolver;
+use ureq::unversioned::{resolver::DefaultResolver, transport::DefaultConnector};
 
 use super::tls::tls;
 
@@ -94,12 +94,11 @@ impl HttpClient for NativeTlsHttpClient {
         timeout: std::time::Duration,
         headers: update_informer::http_client::HeaderMap,
     ) -> update_informer::Result<T> {
-        let agent = ureq::Agent::with_parts(
+        let agent = ureq::Agent::new_with_config(
             ureq::config::Config::builder()
                 .timeout_global(Some(timeout))
+                .tls_config(tls(false)?)
                 .build(),
-            tls(false)?,
-            DefaultResolver::default(),
         );
 
         let mut req = agent.get(url);
