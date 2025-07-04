@@ -1,6 +1,6 @@
 use nu_protocol::{
     ParseError, Span, Type,
-    ast::{Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
+    ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
 };
@@ -722,16 +722,27 @@ pub fn math_result_type(
                 type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Int))
             }
         },
-        // TODO: fix this
-        Operator::Assignment(_) => match (&lhs.ty, &rhs.ty) {
-            (x, y) if x == y => (Type::Nothing, None),
-            (Type::Any, _) => (Type::Nothing, None),
-            (_, Type::Any) => (Type::Nothing, None),
-            (Type::List(_) | Type::Table(_), Type::List(_) | Type::Table(_)) => {
-                (Type::Nothing, None)
-            }
-            _ => {
-                let err = ParseError::OperatorIncompatibleTypes {
+        Operator::Assignment(Assignment::AddAssign) => {
+            compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Add)
+        }
+        Operator::Assignment(Assignment::ConcatenateAssign) => {
+            compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Concatenate)
+        }
+        Operator::Assignment(Assignment::DivideAssign) => {
+            compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Divide)
+        }
+        Operator::Assignment(Assignment::MultiplyAssign) => {
+            compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Multiply)
+        }
+        Operator::Assignment(Assignment::SubtractAssign) => {
+            compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Subtract)
+        }
+        Operator::Assignment(Assignment::Assign) => {
+            let err = if type_compatible(&lhs.ty, &rhs.ty) {
+                None
+            } else {
+                *op = Expression::garbage(working_set, op.span);
+                Some(ParseError::OperatorIncompatibleTypes {
                     op: operator.as_str(),
                     lhs: lhs.ty.clone(),
                     rhs: rhs.ty.clone(),
@@ -739,10 +750,10 @@ pub fn math_result_type(
                     lhs_span: lhs.span,
                     rhs_span: rhs.span,
                     help: None,
-                };
-                (Type::Nothing, Some(err))
-            }
-        },
+                })
+            };
+            (Type::Nothing, err)
+        }
     }
 }
 
@@ -936,5 +947,40 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
             *to = Expression::garbage(working_set, to.span);
         }
         _ => (),
+    }
+}
+
+/// Get the result type for a compound assignment operator
+fn compound_assignment_result_type(
+    working_set: &mut StateWorkingSet,
+    lhs: &mut Expression,
+    op: &mut Expression,
+    rhs: &mut Expression,
+    operator: Operator,
+    operation: Math,
+) -> (Type, Option<ParseError>) {
+    let math_expr = Expr::Operator(Operator::Math(operation));
+    let mut math_op = Expression::new(working_set, math_expr, op.span, Type::Any);
+    match math_result_type(working_set, lhs, &mut math_op, rhs) {
+        // There was a type error in the math expression, so propagate it
+        (_, Some(err)) => (Type::Any, Some(err)),
+        // Operation type check okay, check regular assignment
+        (ty, None) if type_compatible(&lhs.ty, &ty) => (Type::Nothing, None),
+        // The math expression is fine, but we can't store the result back into the variable due to type mismatch
+        (_, None) => {
+            *op = Expression::garbage(working_set, op.span);
+            let err = ParseError::OperatorIncompatibleTypes {
+                op: operator.as_str(),
+                lhs: lhs.ty.clone(),
+                rhs: rhs.ty.clone(),
+                op_span: op.span,
+                lhs_span: lhs.span,
+                rhs_span: rhs.span,
+                help: Some(
+                    "The result type of this operation is not compatible with the type of the variable.",
+                ),
+            };
+            (Type::Nothing, Some(err))
+        }
     }
 }
