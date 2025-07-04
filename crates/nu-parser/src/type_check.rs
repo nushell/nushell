@@ -831,6 +831,10 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
             }
         }
 
+        if block.pipelines.is_empty() {
+            current_output_types = vec![Type::Nothing];
+        }
+
         if output_type == &Type::Any || current_output_types.contains(&Type::Any) {
             continue;
         }
@@ -857,8 +861,13 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .span
             };
 
-            let current_ty_string = combined_type_string(&current_output_types, "or")
-                .unwrap_or_else(|| Type::Nothing.to_string());
+            let Some(current_ty_string) = combined_type_string(&current_output_types, "or") else {
+                output_errors.push(ParseError::InternalError(
+                    "Block has no type at this point".to_string(),
+                    span,
+                ));
+                continue;
+            };
 
             output_errors.push(ParseError::OutputMismatch(
                 output_type.clone(),
