@@ -1,9 +1,8 @@
-use itertools::Itertools;
 use nu_protocol::{
+    ParseError, Span, Type,
     ast::{Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
-    ParseError, Span, Type,
 };
 
 fn type_error(
@@ -772,21 +771,15 @@ pub fn check_pipeline_type(
             let io_types = decl.signature().input_output_types;
             if new_types.contains(&Type::Any) {
                 // if input type is any, then output type could be any of the valid output types
-                new_types = io_types
-                    .iter()
-                    .map(|(_, out_type)| out_type.clone())
-                    .collect();
+                new_types = io_types.into_iter().map(|(_, out_type)| out_type).collect();
             } else {
                 // any current type which matches an input type is a possible output type
                 new_types = io_types
-                    .iter()
-                    .filter_map(|(in_type, out_type)| {
-                        // if any of the current types are compatible then this is a valid output type
-                        current_types
-                            .iter()
-                            .any(|ty| type_compatible(in_type, ty))
-                            .then(|| out_type.clone())
+                    .into_iter()
+                    .filter(|(in_type, _)| {
+                        current_types.iter().any(|ty| type_compatible(in_type, ty))
                     })
+                    .map(|(_, out_type)| out_type)
                     .collect();
             }
 
