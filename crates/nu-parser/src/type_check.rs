@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use nu_protocol::{
-    ParseError, Span, Type,
     ast::{Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
+    ParseError, Span, Type,
 };
 
 fn type_error(
@@ -755,7 +755,7 @@ pub fn check_pipeline_type(
     pipeline: &Pipeline,
     input_type: Type,
 ) -> (Vec<Type>, Option<Vec<ParseError>>) {
-    let mut current_types: Vec<Type> = vec![];
+    let mut current_types: Vec<Type>;
     let mut new_types: Vec<Type> = vec![input_type];
 
     let mut output_errors: Option<Vec<ParseError>> = None;
@@ -864,7 +864,8 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .span
             };
 
-            let current_ty_string = combined_type_string(&current_output_types, "or").unwrap();
+            let current_ty_string = combined_type_string(&current_output_types, "or")
+                .unwrap_or_else(|| Type::Nothing.to_string());
 
             output_errors.push(ParseError::OutputMismatch(
                 output_type.clone(),
