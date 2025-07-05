@@ -1,4 +1,9 @@
-use nu_protocol::engine::EngineState;
+use crate::command::Nu;
+use nu_parser::KnownExternal;
+use nu_protocol::{
+    CustomExample,
+    engine::{Command, EngineState, StateWorkingSet},
+};
 
 pub(crate) fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
@@ -7,7 +12,27 @@ pub(crate) fn get_engine_state() -> EngineState {
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
+    let mut engine_state = nu_explore::add_explore_context(engine_state);
+
+    // Add an extern for the Nu command so we get a nice help and flag completions
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let nu_extern = KnownExternal {
+        signature: Box::new(Nu.signature()),
+        attributes: vec![],
+        examples: Nu
+            .examples()
+            .into_iter()
+            .map(CustomExample::from_example)
+            .collect(),
+    };
+    working_set.add_decl(Box::new(nu_extern));
+    let delta = working_set.render();
+
+    if let Err(err) = engine_state.merge_delta(delta) {
+        eprintln!("Error adding Nu extern: {err:?}");
+    }
+
+    engine_state
 }
 
 #[cfg(test)]
