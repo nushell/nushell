@@ -5,6 +5,7 @@ use update_informer::{
     http_client::{GenericHttpClient, HttpClient},
     registry,
 };
+use ureq::unversioned::{resolver::DefaultResolver, transport::DefaultConnector};
 
 use super::tls::tls;
 
@@ -93,17 +94,21 @@ impl HttpClient for NativeTlsHttpClient {
         timeout: std::time::Duration,
         headers: update_informer::http_client::HeaderMap,
     ) -> update_informer::Result<T> {
-        let agent = ureq::AgentBuilder::new()
-            .tls_connector(std::sync::Arc::new(tls(false)?))
-            .build();
+        let agent = ureq::Agent::new_with_config(
+            ureq::config::Config::builder()
+                .timeout_global(Some(timeout))
+                .tls_config(tls(false)?)
+                .build(),
+        );
 
-        let mut req = agent.get(url).timeout(timeout);
+        let mut req = agent.get(url);
 
         for (header, value) in headers {
-            req = req.set(header, value);
+            req = req.header(header, value);
         }
+        let mut resp = req.call()?;
 
-        let json = req.call()?.into_json()?;
+        let json = resp.body_mut().read_json()?;
 
         Ok(json)
     }
