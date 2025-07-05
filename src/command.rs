@@ -532,7 +532,7 @@ pub(crate) fn add_nu_extern(engine_state: &mut EngineState) {
             .collect(),
     };
 
-    let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    let mut working_set = nu_protocol::engine::StateWorkingSet::new(engine_state);
     working_set.add_decl(Box::new(nu_extern));
     let delta = working_set.render();
 
