@@ -312,7 +312,7 @@ pub(crate) struct NushellCliArgs {
 }
 
 #[derive(Clone)]
-pub(crate) struct Nu;
+struct Nu;
 
 impl Command for Nu {
     fn name(&self) -> &str {
