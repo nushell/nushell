@@ -185,13 +185,55 @@ fn pipeline_multiple_types() -> TestResult {
     run_test_contains("{year: 2019} | into datetime | date humanize", "years ago")
 }
 
+const MULTIPLE_TYPES_DEFS: &str = "
+def foo []: [int -> int, int -> string] {
+  if $in > 2 { 'hi' } else 4
+}
+def bar []: [int -> filesize, string -> string] {
+  if $in == 'hi' { 'meow' } else { into filesize }
+}
+";
+
 #[test]
 fn pipeline_multiple_types_custom() -> TestResult {
     run_test(
-        "def foo []: [int -> int, int -> string] {
-            if $in > 2 { 'hi' } else 4
-        }
-        5 | foo | str trim",
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            5 | foo | str trim"
+        ),
         "hi",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_string() -> TestResult {
+    run_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            5 | foo | bar | str trim"
+        ),
+        "meow",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_int() -> TestResult {
+    run_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            2 | foo | bar | format filesize B"
+        ),
+        "4 B",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_error() -> TestResult {
+    fail_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            2 | foo | bar | values"
+        ),
+        "parser::input_type_mismatch",
     )
 }
