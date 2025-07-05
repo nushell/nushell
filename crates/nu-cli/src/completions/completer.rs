@@ -370,7 +370,8 @@ impl NuCompleter {
                                 FileCompletion,
                             );
 
-                            suggestions.extend(self.process_completion(&mut completer, &ctx));
+                            // Prioritize argument completions over (sub)commands
+                            suggestions.splice(0..0, self.process_completion(&mut completer, &ctx));
                             break;
                         }
 
@@ -384,33 +385,39 @@ impl NuCompleter {
                             };
                             self.process_completion(&mut flag_completions, &ctx)
                         };
-                        suggestions.extend(match arg {
-                            // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
-                                flag_completion_helper()
-                            }
-                            // only when `strip` == false
-                            Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
-                            // complete according to expression type and command head
-                            Argument::Positional(expr) => {
-                                let command_head = working_set.get_decl(call.decl_id).name();
-                                positional_arg_indices.push(arg_idx);
-                                self.argument_completion_helper(
-                                    PositionalArguments {
-                                        command_head,
-                                        positional_arg_indices,
-                                        arguments: &call.arguments,
-                                        expr,
-                                    },
-                                    pos,
-                                    &ctx,
-                                    suggestions.is_empty(),
-                                )
-                            }
-                            _ => vec![],
-                        });
+                        // Prioritize argument completions over (sub)commands
+                        suggestions.splice(
+                            0..0,
+                            match arg {
+                                // flags
+                                Argument::Named(_) | Argument::Unknown(_)
+                                    if prefix.starts_with(b"-") =>
+                                {
+                                    flag_completion_helper()
+                                }
+                                // only when `strip` == false
+                                Argument::Positional(_) if prefix == b"-" => {
+                                    flag_completion_helper()
+                                }
+                                // complete according to expression type and command head
+                                Argument::Positional(expr) => {
+                                    let command_head = working_set.get_decl(call.decl_id).name();
+                                    positional_arg_indices.push(arg_idx);
+                                    self.argument_completion_helper(
+                                        PositionalArguments {
+                                            command_head,
+                                            positional_arg_indices,
+                                            arguments: &call.arguments,
+                                            expr,
+                                        },
+                                        pos,
+                                        &ctx,
+                                        suggestions.is_empty(),
+                                    )
+                                }
+                                _ => vec![],
+                            },
+                        );
                         break;
                     } else if !matches!(arg, Argument::Named(_)) {
                         positional_arg_indices.push(arg_idx);
@@ -462,7 +469,8 @@ impl NuCompleter {
                             if let Some(external_result) =
                                 self.external_completion(closure, &text_spans, offset, new_span)
                             {
-                                suggestions.extend(external_result);
+                                // Prioritize external results over (sub)commands
+                                suggestions.splice(0..0, external_result);
                                 return suggestions;
                             }
                         }
@@ -471,8 +479,7 @@ impl NuCompleter {
                             let (new_span, prefix) =
                                 strip_placeholder_if_any(working_set, &span, strip);
                             let ctx = Context::new(working_set, new_span, prefix, offset);
-                            suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
-                            return suggestions;
+                            return self.process_completion(&mut FileCompletion, &ctx);
                         }
                         break;
                     }
