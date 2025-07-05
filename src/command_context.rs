@@ -1,9 +1,4 @@
-use crate::command::Nu;
-use nu_parser::KnownExternal;
-use nu_protocol::{
-    CustomExample,
-    engine::{Command, EngineState, StateWorkingSet},
-};
+use nu_protocol::engine::EngineState;
 
 pub(crate) fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();

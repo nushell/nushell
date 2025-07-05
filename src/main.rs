@@ -21,13 +21,12 @@ use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
-use nu_parser::{KnownExternal, LiteCommand, parse_extern};
+use nu_parser::KnownExternal;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ByteStream, Config, CustomExample, IntoValue, PipelineData, ShellError, Span, Spanned, Type,
     Value,
     engine::{Command, Stack},
-    ir::RedirectMode,
     record, report_shell_error,
 };
 use nu_std::load_standard_library;
