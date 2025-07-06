@@ -471,7 +471,7 @@ impl Command for Nu {
             .named(
                 "experimental-options",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "enable or disable experimental options",
+                r#"enable or disable experimental options, use `"all"` to set all active options"#,
                 None,
             )
             .optional(
