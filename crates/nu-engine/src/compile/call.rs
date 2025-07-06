@@ -19,7 +19,7 @@ pub(crate) fn compile_call(
     let decl = working_set.get_decl(call.decl_id);
 
     // Check if this call has --help - if so, just redirect to `help`
-    // Special case the `nu` extern: we want to forwrd --help to the script
+    // Special case the `nu` extern: we want to forward --help to the script
     if call.named_iter().any(|(name, _, _)| name.item == "help") && decl.name() != "nu" {
         let name = working_set
             .find_decl_name(call.decl_id) // check for name in scope
