@@ -182,6 +182,24 @@ impl PartialEq for ExperimentalOption {
 
 impl Eq for ExperimentalOption {}
 
+/// Sets the state of all experimental option that aren't deprecated.
+///
+/// # Safety
+/// This method is unsafe to emphasize that experimental options are not designed to change
+/// dynamically at runtime.
+/// Changing their state at arbitrary points can lead to inconsistent behavior.
+/// You should set experimental options only during initialization, before the application fully
+/// starts.
+pub unsafe fn set_all(value: bool) {
+    for option in ALL {
+        match option.status() {
+            // SAFETY: The safety bounds for `ExperimentalOption.set` are the same as this function.
+            Status::OptIn | Status::OptOut => unsafe { option.set(value) },
+            Status::DeprecatedDefault | Status::DeprecatedDiscard => {}
+        }
+    }
+}
+
 pub(crate) trait DynExperimentalOptionMarker {
     fn identifier(&self) -> &'static str;
     fn description(&self) -> &'static str;

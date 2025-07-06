@@ -19,6 +19,10 @@ pub enum ParseWarning {
     #[error("Invalid assignment for `{identifier}`, expected `true` or `false`, got `{1}`", identifier = .0.identifier())]
     InvalidAssignment(&'static ExperimentalOption, String),
 
+    /// The assignment for "all" wasn't valid. Only `true` or `false` is accepted.
+    #[error("Invalid assignment for `all`, expected `true` or `false`, got `{0}`")]
+    InvalidAssignmentAll(String),
+
     /// This experimental option is deprecated as this is now the default behavior.
     #[error("The experimental option `{identifier}` is deprecated as this is now the default behavior.", identifier = .0.identifier())]
     DeprecatedDefault(&'static ExperimentalOption),
@@ -33,6 +37,11 @@ pub enum ParseWarning {
 /// This is the recommended way to activate options, as it handles [`ParseWarning`]s properly
 /// and is easy to hook into.
 ///
+/// When the key `"all"` is encountered, [`set_all`](super::set_all) is used to set all
+/// experimental options that aren't deprecated.
+/// This allows opting (or opting out of) all experimental options that are currently available for
+/// testing.
+///
 /// The `iter` argument should yield:
 /// - the identifier of the option
 /// - an optional assignment value (`true`/`false`)
@@ -44,6 +53,19 @@ pub fn parse_iter<'i, Ctx: Clone>(
 ) -> Vec<(ParseWarning, Ctx)> {
     let mut warnings = Vec::new();
     for (key, val, ctx) in iter {
+        if key == "all" {
+            let val = match parse_val(val.as_deref()) {
+                Ok(val) => val,
+                Err(s) => {
+                    warnings.push((ParseWarning::InvalidAssignmentAll(s.to_owned()), ctx));
+                    continue;
+                }
+            };
+            // SAFETY: This is part of the expected parse function to be called at initialization.
+            unsafe { super::set_all(val) };
+            continue;
+        }
+
         let Some(option) = ALL.iter().find(|option| option.identifier() == key.trim()) else {
             warnings.push((ParseWarning::Unknown(key.to_string()), ctx));
             continue;
@@ -59,11 +81,9 @@ pub fn parse_iter<'i, Ctx: Clone>(
             _ => {}
         }
 
-        let val = match val.as_deref().map(str::trim) {
-            None => true,
-            Some("true") => true,
-            Some("false") => false,
-            Some(s) => {
+        let val = match parse_val(val.as_deref()) {
+            Ok(val) => val,
+            Err(s) => {
                 warnings.push((ParseWarning::InvalidAssignment(option, s.to_owned()), ctx));
                 continue;
             }
@@ -73,6 +93,15 @@ pub fn parse_iter<'i, Ctx: Clone>(
     }
 
     warnings
+}
+
+fn parse_val(val: Option<&str>) -> Result<bool, &str> {
+    match val.map(str::trim) {
+        None => Ok(true),
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        Some(s) => Err(s),
+    }
 }
 
 /// Parse experimental options from the [`ENV`] environment variable.
@@ -110,6 +139,7 @@ impl ParseWarning {
         match self {
             Self::Unknown(_) => "nu::experimental_option::unknown",
             Self::InvalidAssignment(_, _) => "nu::experimental_option::invalid_assignment",
+            Self::InvalidAssignmentAll(_) => "nu::experimental_option::invalid_assignment_all",
             Self::DeprecatedDefault(_) => "nu::experimental_option::deprecated_default",
             Self::DeprecatedDiscard(_) => "nu::experimental_option::deprecated_discard",
         }
@@ -126,6 +156,7 @@ impl ParseWarning {
                 ALL.iter().map(|option| option.identifier()).join(", ")
             )),
             Self::InvalidAssignment(_, _) => None,
+            Self::InvalidAssignmentAll(_) => None,
             Self::DeprecatedDiscard(_) => None,
             Self::DeprecatedDefault(_) => {
                 Some(String::from("You can safely remove this option now."))
