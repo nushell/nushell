@@ -198,7 +198,7 @@ impl Command for Open {
                     let converter = exts_opt.and_then(|exts| {
                         exts.iter().find_map(|ext| {
                             engine_state
-                                .find_decl(format!("from {}", ext).as_bytes(), &[])
+                                .find_decl(format!("from {ext}").as_bytes(), &[])
                                 .map(|id| (id, ext.to_string()))
                         })
                     });
@@ -314,7 +314,7 @@ fn extract_extensions(filename: &str) -> Vec<String> {
         if current_extension.is_empty() {
             current_extension.push_str(part);
         } else {
-            current_extension = format!("{}.{}", part, current_extension);
+            current_extension = format!("{part}.{current_extension}");
         }
         extensions.push(current_extension.clone());
     }

@@ -9,14 +9,16 @@ use std::{
 use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_path::expand_tilde;
+use nu_path::{AbsolutePathBuf, expand_tilde};
 use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
 use nu_std::load_standard_library;
+use nu_test_support::fs;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
-        new_dotnu_engine, new_external_engine, new_partial_engine, new_quote_engine,
+        new_dotnu_engine, new_engine_helper, new_external_engine, new_partial_engine,
+        new_quote_engine,
     },
     file, folder, match_suggestions, match_suggestions_by_string, new_engine,
 };
@@ -123,7 +125,7 @@ fn custom_completer_with_options(
         global_opts,
         completions
             .iter()
-            .map(|comp| format!("'{}'", comp))
+            .map(|comp| format!("'{comp}'"))
             .collect::<Vec<_>>()
             .join(", "),
         completer_opts,
@@ -716,6 +718,16 @@ fn external_completer_fallback() {
     let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
     let suggestions = run_external_completion(block, input);
     match_suggestions_by_string(&expected, &suggestions);
+
+    // issue #15790
+    let input = "foo `dir with space/`";
+    let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
+    let suggestions = run_external_completion_within_pwd(
+        block,
+        input,
+        fs::fixtures().join("external_completions"),
+    );
+    match_suggestions(&expected, &suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`
@@ -2103,11 +2115,15 @@ fn alias_of_another_alias() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
-fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+fn run_external_completion_within_pwd(
+    completer: &str,
+    input: &str,
+    pwd: AbsolutePathBuf,
+) -> Vec<Suggestion> {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
-    let (_, _, mut engine_state, mut stack) = new_engine();
+    let (_, _, mut engine_state, mut stack) = new_engine_helper(pwd);
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = parse(&mut working_set, None, completer.as_bytes(), false);
@@ -2129,6 +2145,10 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));
 
     completer.complete(input, input.len())
+}
+
+fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+    run_external_completion_within_pwd(completer, input, fs::fixtures().join("completions"))
 }
 
 #[test]

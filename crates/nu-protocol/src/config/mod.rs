@@ -17,7 +17,7 @@ pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
-pub use output::ErrorStyle;
+pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
@@ -61,7 +61,7 @@ pub struct Config {
     pub rm: RmConfig,
     pub shell_integration: ShellIntegrationConfig,
     pub buffer_editor: Value,
-    pub show_banner: Value,
+    pub show_banner: BannerKind,
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -84,7 +84,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            show_banner: Value::bool(true, Span::unknown()),
+            show_banner: BannerKind::default(),
 
             table: TableConfig::default(),
             rm: RmConfig::default(),

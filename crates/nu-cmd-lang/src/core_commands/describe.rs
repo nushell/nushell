@@ -296,7 +296,7 @@ fn run(
             } else {
                 let value = stream.into_value();
                 let base_description = value.get_type().to_string();
-                Value::string(format!("{} (stream)", base_description), head)
+                Value::string(format!("{base_description} (stream)"), head)
             }
         }
         PipelineData::Value(value, ..) => {

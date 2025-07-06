@@ -45,8 +45,8 @@ impl Command for UName {
             os: false,
         };
         let output = uu_uname::UNameOutput::new(&opts).map_err(|e| ShellError::GenericError {
-            error: format!("{}", e),
-            msg: format!("{}", e),
+            error: format!("{e}"),
+            msg: format!("{e}"),
             span: None,
             help: None,
             inner: Vec::new(),

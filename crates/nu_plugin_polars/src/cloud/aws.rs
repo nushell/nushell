@@ -19,9 +19,7 @@ async fn aws_creds(aws_config: &SdkConfig) -> Result<Option<Credentials>, ShellE
                 error: format!(
                     "Could not fetch AWS credentials: {} - {}",
                     e,
-                    e.source()
-                        .map(|e| format!("{}", e))
-                        .unwrap_or("".to_string())
+                    e.source().map(|e| format!("{e}")).unwrap_or("".to_string())
                 ),
                 msg: "".into(),
                 span: None,

@@ -521,8 +521,7 @@ impl Signature {
         let s = short.inspect(|c| {
             assert!(
                 !self.get_shorts().contains(c),
-                "There may be duplicate short flags for '-{}'",
-                c
+                "There may be duplicate short flags for '-{c}'"
             );
         });
 
@@ -530,8 +529,7 @@ impl Signature {
             let name: String = name.into();
             assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags for '--{}'",
-                name
+                "There may be duplicate name flags for '--{name}'"
             );
             name
         };

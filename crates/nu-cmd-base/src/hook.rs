@@ -1,5 +1,5 @@
 use miette::Result;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, redirect_env};
 use nu_parser::parse;
 use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
@@ -325,19 +325,7 @@ fn run_hook(
     }
 
     // If all went fine, preserve the environment of the called block
-    let caller_env_vars = stack.get_env_var_names(engine_state);
+    redirect_env(engine_state, stack, &callee_stack);
 
-    // remove env vars that are present in the caller but not in the callee
-    // (the callee hid them)
-    for var in caller_env_vars.iter() {
-        if !callee_stack.has_env_var(engine_state, var) {
-            stack.remove_env_var(engine_state, var);
-        }
-    }
-
-    // add new env vars from callee to caller
-    for (var, value) in callee_stack.get_stack_env_vars() {
-        stack.add_env_var(var, value);
-    }
     Ok(pipeline_data)
 }

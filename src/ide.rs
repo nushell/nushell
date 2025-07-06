@@ -247,7 +247,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
                     description.push_str("  ");
                     if let Some(short_flag) = &named.short {
-                        description.push_str(&format!("`-{}`", short_flag));
+                        description.push_str(&format!("`-{short_flag}`"));
                     }
 
                     if !named.long.is_empty() {

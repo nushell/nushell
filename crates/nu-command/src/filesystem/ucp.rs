@@ -119,9 +119,9 @@ impl Command for UCp {
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::IfOlder, CopyMode::Update)
+            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
         } else {
-            (UpdateMode::All, CopyMode::Copy)
+            (UpdateMode::ReplaceAll, CopyMode::Copy)
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
@@ -252,7 +252,7 @@ impl Command for UCp {
             dereference: !recursive,
             progress_bar: progress,
             attributes_only: false,
-            backup: BackupMode::None,
+            backup: BackupMode::NoBackup,
             copy_contents: false,
             cli_dereference: false,
             copy_mode,
@@ -264,8 +264,6 @@ impl Command for UCp {
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
-            set_selinux_context: false,
-            context: None,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
@@ -274,8 +272,8 @@ impl Command for UCp {
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: format!("{}", error),
-                        msg: format!("{}", error),
+                        error: format!("{error}"),
+                        msg: format!("{error}"),
                         span: None,
                         help: None,
                         inner: vec![],
@@ -375,7 +373,7 @@ fn parse_and_set_attribute(
                 "xattr" => &mut attribute.xattr,
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
-                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        msg: format!("--preserve flag got an unexpected attribute \"{val}\""),
                         span: value.span(),
                     });
                 }

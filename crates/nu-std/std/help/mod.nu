@@ -568,41 +568,19 @@ def build-command-page [command: record] {
         ""
         "This command:"
     ] | append (
-        if ($command.creates_scope) {
-            $"- (ansi cyan)does create(ansi reset) a scope."
-        } else {
-            $"- (ansi cyan)does not create(ansi reset) a scope."
-        }
-    ) | append (
-        if ($command.type == "built-in") {
-            $"- (ansi cyan)is(ansi reset) a built-in command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a built-in command."
-        }
-    ) | append (
-        if ($command.is_sub) {
-            $"- (ansi cyan)is(ansi reset) a subcommand."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a subcommand."
-        }
-    ) | append (
-        if ($command.type == "plugin") {
-            $"- (ansi cyan)is part(ansi reset) of a plugin."
-        } else {
-            $"- (ansi cyan)is not part(ansi reset) of a plugin."
-        }
-    ) | append (
-        if ($command.type == "custom") {
-            $"- (ansi cyan)is(ansi reset) a custom command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a custom command."
-        }
-    ) | append (
-        if ($command.type == "keyword") {
-            $"- (ansi cyan)is(ansi reset) a keyword."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a keyword."
-        }
+      {
+        "Creates scope" : $command.creates_scope,
+        "Is built-in" : ($command.type == "built-in"),
+        "Is const" : $command.is_const,
+        "Is a subcommand" : $command.is_sub,
+        "Is a part of a plugin": ($command.type == "plugin"),
+        "Is a custom command": ($command.type == "custom"),
+        "Is a keyword": ($command.type == "keyword"),
+      }
+      | transpose name value
+      | update value { if $in { "2705" } else { "274c" } | char --unicode $in }
+      | transpose -dr
+      | table
     ))
 
     let signatures = ($command.signatures | transpose | get column1)
@@ -661,7 +639,7 @@ def build-command-page [command: record] {
                         $" - ($flag.description)"
                     }),
                     (if ($flag.parameter_default | is-empty) { "" } else {
-                        $" \(default: ($flag.parameter_default)\)"
+                        $" \(default: ($flag.parameter_default | if ($in | describe -d).type == string { debug -v } else {})\)"
                     }),
                 ] | str join ""
             } | str join "\n")
@@ -782,9 +760,13 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " "
+    let target_command = $command | str join " " | str replace "^" ""
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-    ^($env.NU_HELPER? | default "man") $target_command
+    if $env.NU_HELPER? == "--help" {
+        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+    } else {
+        ^($env.NU_HELPER? | default "man") $target_command
+    }
 }
 
 # Show help on commands.
@@ -807,6 +789,11 @@ def pretty-cmd [] {
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
+# If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
+# (default: man) and "word" will be passed as the first argument.
+# Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
+# an external and pass `--help` as the last argument (this could cause unintended
+# behaviour if it doesn't support the flag, use it carefully).
 #
 # Examples:
 #   show help for single command, alias, or module

@@ -1,7 +1,7 @@
 use super::chained_error::ChainedError;
 use crate::{
     ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
-    engine::StateWorkingSet, format_shell_error, record,
+    engine::StateWorkingSet, format_cli_error, record,
 };
 use job::JobError;
 use miette::Diagnostic;
@@ -1418,7 +1418,7 @@ impl ShellError {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
-            "rendered" => Value::string(format_shell_error(working_set, &self), span),
+            "rendered" => Value::string(format_cli_error(working_set, &self), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
@@ -1431,7 +1431,7 @@ impl ShellError {
 
     // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_shell_error(working_set, &self);
+        let msg = format_cli_error(working_set, &self);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),
@@ -1511,15 +1511,15 @@ fn shell_error_serialize_roundtrip() {
         from_type: "Bar".into(),
         help: Some("this is a test".into()),
     };
-    println!("orig_error = {:#?}", original_error);
+    println!("orig_error = {original_error:#?}");
 
     let serialized =
         serde_json::to_string_pretty(&original_error).expect("serde_json::to_string_pretty failed");
-    println!("serialized = {}", serialized);
+    println!("serialized = {serialized}");
 
     let deserialized: ShellError =
         serde_json::from_str(&serialized).expect("serde_json::from_str failed");
-    println!("deserialized = {:#?}", deserialized);
+    println!("deserialized = {deserialized:#?}");
 
     // We don't expect the deserialized error to be the same as the original error, but its miette
     // properties should be comparable

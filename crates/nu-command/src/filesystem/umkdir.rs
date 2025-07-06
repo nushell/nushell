@@ -74,19 +74,11 @@ impl Command for UMkdir {
             });
         }
 
-        let config = uu_mkdir::Config {
-            recursive: IS_RECURSIVE,
-            mode: get_mode(),
-            verbose: is_verbose,
-            set_selinux_context: false,
-            context: None,
-        };
-
         for dir in directories {
-            if let Err(error) = mkdir(&dir, &config) {
+            if let Err(error) = mkdir(&dir, IS_RECURSIVE, get_mode(), is_verbose) {
                 return Err(ShellError::GenericError {
-                    error: format!("{}", error),
-                    msg: format!("{}", error),
+                    error: format!("{error}"),
+                    msg: format!("{error}"),
                     span: None,
                     help: None,
                     inner: vec![],

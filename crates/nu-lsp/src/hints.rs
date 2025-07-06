@@ -40,7 +40,7 @@ fn extract_inlay_hints_from_expression(
                 };
                 vec![InlayHint {
                     kind: Some(InlayHintKind::TYPE),
-                    label: InlayHintLabel::String(format!(": {}", type_string)),
+                    label: InlayHintLabel::String(format!(": {type_string}")),
                     position,
                     text_edits: None,
                     tooltip: None,
@@ -71,7 +71,7 @@ fn extract_inlay_hints_from_expression(
             let type_string = type_short_name(&var.ty);
             vec![InlayHint {
                 kind: Some(InlayHintKind::TYPE),
-                label: InlayHintLabel::String(format!(": {}", type_string)),
+                label: InlayHintLabel::String(format!(": {type_string}")),
                 position,
                 text_edits: None,
                 tooltip: None,

@@ -425,17 +425,37 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
     AnsiCode { short_name: Some("grey89"), long_name: "xterm_grey89", code: Color::Fixed(254).prefix().to_string()},
     AnsiCode { short_name: Some("grey93"), long_name: "xterm_grey93", code: Color::Fixed(255).prefix().to_string()},
 
-    // Attributes
+    // Attribute, SGR (Select Graphic Rendition) style codes
     AnsiCode { short_name: Some("n"), long_name: "attr_normal", code: Color::Green.suffix().to_string()},
     AnsiCode { short_name: Some("bo"), long_name: "attr_bold", code: Style::new().bold().prefix().to_string()},
     AnsiCode { short_name: Some("d"), long_name: "attr_dimmed", code: Style::new().dimmed().prefix().to_string()},
     AnsiCode { short_name: Some("i"), long_name: "attr_italic", code: Style::new().italic().prefix().to_string()},
     AnsiCode { short_name: Some("u"), long_name: "attr_underline", code: Style::new().underline().prefix().to_string()},
+
+    // NOTE: Most modern terminals ignore SGR codes 5 & 6 as they are considered distracting or even 
+    // seizure-triggering for some users. We're including them here for completeness and compatibility with older terminals.
     AnsiCode { short_name: Some("bl"), long_name: "attr_blink", code: Style::new().blink().prefix().to_string()},
+    AnsiCode { short_name: Some("bf"), long_name: "attr_blink_fast", code: "\x1b[6m".to_owned()},
+
+    AnsiCode { short_name: Some("re"), long_name: "attr_reverse", code: Style::new().reverse().prefix().to_string()},
     AnsiCode { short_name: Some("h"), long_name: "attr_hidden", code: Style::new().hidden().prefix().to_string()},
     AnsiCode { short_name: Some("s"), long_name: "attr_strike", code: Style::new().strikethrough().prefix().to_string()},
 
-    AnsiCode{ short_name: None, long_name: "reset", code: "\x1b[0m".to_owned()},
+    // NOTE: Double underline (SGR 21) is not widely supported and may be interpreted as "reset bold" in some terminals.
+    // For resetting bold or dim text, use SGR 22 instead.
+    AnsiCode{ short_name: Some("du"), long_name: "attr_double_underline", code: "\x1b[21m".to_owned()},
+
+    // Reset SGR (Select Graphic Rendition) codes...
+    AnsiCode{ short_name: Some("rst"), long_name: "reset", code: "\x1b[0m".to_owned()},
+    AnsiCode{ short_name: Some("rst_bo"), long_name: "reset_bold", code: "\x1b[22m".to_owned()},
+    AnsiCode{ short_name: Some("rst_d"), long_name: "reset_dimmed", code: "\x1b[22m".to_owned()},
+    AnsiCode{ short_name: Some("rst_i"), long_name: "reset_italic", code: "\x1b[23m".to_owned()},
+    AnsiCode{ short_name: Some("rst_u"), long_name: "reset_underline", code: "\x1b[24m".to_owned()},
+    AnsiCode{ short_name: Some("rst_bl"), long_name: "reset_blink", code: "\x1b[25m".to_owned()},
+    // NB. SGR 26 was reserved in the spec but never used
+    AnsiCode{ short_name: Some("rst_re"), long_name: "reset_reverse", code: "\x1b[27m".to_owned()},
+    AnsiCode{ short_name: Some("rst_h"), long_name: "reset_hidden", code: "\x1b[28m".to_owned()},
+    AnsiCode{ short_name: Some("rst_s"), long_name: "reset_strike", code: "\x1b[29m".to_owned()},
 
     // Reference for ansi codes https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
     // Another good reference http://ascii-table.com/ansi-escape-sequences.php
@@ -571,21 +591,30 @@ Escape sequences usual values:
 │ 17 │ background │     49 │        │ default │
 ╰────┴────────────┴────────┴────────┴─────────╯
 
-Escape sequences attributes:
-╭───┬────┬──────────────┬──────────────────────────────╮
-│ # │ id │ abbreviation │         description          │
-├───┼────┼──────────────┼──────────────────────────────┤
-│ 0 │  0 │              │ reset / normal display       │
-│ 1 │  1 │ b            │ bold or increased intensity  │
-│ 2 │  2 │ d            │ faint or decreased intensity │
-│ 3 │  3 │ i            │ italic on (non-mono font)    │
-│ 4 │  4 │ u            │ underline on                 │
-│ 5 │  5 │ l            │ slow blink on                │
-│ 6 │  6 │              │ fast blink on                │
-│ 7 │  7 │ r            │ reverse video on             │
-│ 8 │  8 │ h            │ nondisplayed (invisible) on  │
-│ 9 │  9 │ s            │ strike-through on            │
-╰───┴────┴──────────────┴──────────────────────────────╯
+Escape sequences style attributes:
+╭────┬────┬──────────────┬─────────────────────────────────────────╮
+│  # │ id │ abbreviation │         description                     │
+├────┼────┼──────────────┼─────────────────────────────────────────┤
+│  0 │  0 │ rst          │ reset / normal display                  │
+│  1 │  1 │ bo           │ bold on                                 │
+│  2 │  2 │ d            │ dimmed on                               │
+│  3 │  3 │ i            │ italic on (non-mono font)               │
+│  4 │  4 │ u            │ underline on                            │
+│  5 │  5 │ bl           │ blink on                                │
+│  6 │  6 │ bf           │ fast blink on                           │
+│  7 │  7 │ r            │ reverse video on                        │
+│  8 │  8 │ h            │ hidden (invisible) on                   │
+│  9 │  9 │ s            │ strike-through on                       │
+│ 10 │ 21 │ rst_bo       │ bold or dimmed off                      │
+│ 11 │ 22 │ du           │ double underline (not widely supported) │
+│ 12 │ 23 │ rst_i        │ italic off (non-mono font)              │
+│ 13 │ 24 │ rst_u        │ underline off                           │
+│ 14 │ 25 │ rst_bl       │ blink off                               │
+│ 15 │ 26 │              │ <reserved>                              │
+│ 16 │ 27 │ rst_r        │ reverse video off                       │
+│ 17 │ 28 │ rst_h        │ hidden (invisible) off                  │
+│ 18 │ 29 │ rst_s        │ strike-through off                      │
+╰────┴────┴──────────────┴─────────────────────────────────────────╯
 
 Operating system commands:
 ╭───┬─────┬───────────────────────────────────────╮
@@ -610,7 +639,7 @@ Operating system commands:
                 result: Some(Value::test_string("\u{1b}[32m")),
             },
             Example {
-                description: "Reset the color",
+                description: "Reset all styles and colors",
                 example: r#"ansi reset"#,
                 result: Some(Value::test_string("\u{1b}[0m")),
             },
@@ -623,15 +652,27 @@ Operating system commands:
             },
             Example {
                 description: "The same example as above with short names",
-                example: r#"$'(ansi rb)Hello(ansi reset) (ansi gd)Nu(ansi reset) (ansi pi)World(ansi reset)'"#,
+                example: r#"$'(ansi rb)Hello(ansi rst) (ansi gd)Nu(ansi rst) (ansi pi)World(ansi rst)'"#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Avoid resetting color when setting/resetting different style codes",
+                example: r#"$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi rst_bo) or (ansi d)DIMMED(ansi rst_d) or (ansi i)ITALICS(ansi rst_i) or (ansi u)UNDERLINE(ansi rst_u) or (ansi re)REVERSE(ansi rst_re) or (ansi h)HIDDEN(ansi rst_h) or (ansi s)STRIKE(ansi rst_s) then (ansi rst)reset everything'"#,
+                result: Some(Value::test_string(
+                    "Set color to \u{1b}[32mGREEN then style to \u{1b}[1mBOLD\u{1b}[22m or \u{1b}[2mDIMMED\u{1b}[22m or \u{1b}[3mITALICS\u{1b}[23m or \u{1b}[4mUNDERLINE\u{1b}[24m or \u{1b}[7mREVERSE\u{1b}[27m or \u{1b}[8mHIDDEN\u{1b}[28m or \u{1b}[9mSTRIKE\u{1b}[29m then \u{1b}[0mreset everything",
                 )),
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
                 example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
+            },
+            Example {
+                description: "Use simple hex string",
+                example: r#"$"(ansi '#4169E1')Hello(ansi reset)"  # royal blue foreground color"#,
+                result: Some(Value::test_string("\u{1b}[38;2;65;105;225mHello\u{1b}[0m")),
             },
             Example {
                 description: "Use structured escape codes",
@@ -861,8 +902,8 @@ fn generate_ansi_code_list(
             let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
 
             let record = if use_ansi_coloring {
-                // The first 397 items in the ansi array are previewable
-                let preview = if i < 397 {
+                // The first 409 items in the ansi array are previewable
+                let preview = if i < 409 {
                     Value::string(
                         format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
                         call_span,
@@ -874,13 +915,13 @@ fn generate_ansi_code_list(
                 record! {
                     "name" => name,
                     "preview" => preview,
-                    "short name" => short_name,
+                    "short_name" => short_name,
                     "code" => code,
                 }
             } else {
                 record! {
                     "name" => name,
-                    "short name" => short_name,
+                    "short_name" => short_name,
                     "code" => code,
                 }
             };
@@ -904,7 +945,7 @@ fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::ansi::ansi_::Ansi;
+    use crate::strings::ansi::ansi_::Ansi;
 
     #[test]
     fn examples_work_as_expected() {
@@ -915,7 +956,7 @@ mod tests {
 
     #[test]
     fn no_duplicate_short_names() {
-        use crate::platform::ansi::ansi_::CODE_LIST;
+        use crate::strings::ansi::ansi_::CODE_LIST;
         use std::collections::HashSet;
 
         let mut seen = HashSet::new();
@@ -931,14 +972,13 @@ mod tests {
 
         assert!(
             duplicates.is_empty(),
-            "Duplicate short_names found: {:?}",
-            duplicates
+            "Duplicate short_names found: {duplicates:?}"
         );
     }
 
     #[test]
     fn no_duplicate_long_names() {
-        use crate::platform::ansi::ansi_::CODE_LIST;
+        use crate::strings::ansi::ansi_::CODE_LIST;
         use std::collections::HashSet;
 
         let mut seen = HashSet::new();
@@ -953,8 +993,7 @@ mod tests {
 
         assert!(
             duplicates.is_empty(),
-            "Duplicate long_names found: {:?}",
-            duplicates
+            "Duplicate long_names found: {duplicates:?}"
         );
     }
 }

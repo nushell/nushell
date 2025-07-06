@@ -1,5 +1,4 @@
-use crate::help::highlight_search_in_table;
-use nu_color_config::StyleComputer;
+use crate::filters::find_internal;
 use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
@@ -52,31 +51,20 @@ pub fn help_commands(
     let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
     let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
-    // 🚩The following two-lines are copied from filters/find.rs:
-    let style_computer = StyleComputer::from_config(engine_state, stack);
-    // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
-    let string_style = style_computer.compute("string", &Value::string("search result", head));
-    let highlight_style =
-        style_computer.compute("search_result", &Value::string("search result", head));
-
     if let Some(f) = find {
         let all_cmds_vec = build_help_commands(engine_state, head);
-        let found_cmds_vec = highlight_search_in_table(
+        return find_internal(
             all_cmds_vec,
+            engine_state,
+            stack,
             &f.item,
             &["name", "description", "search_terms"],
-            &string_style,
-            &highlight_style,
-        )?;
-
-        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
+            true,
+        );
     }
 
     if rest.is_empty() {
-        let found_cmds_vec = build_help_commands(engine_state, head);
-        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
+        Ok(build_help_commands(engine_state, head))
     } else {
         let mut name = String::new();
 
@@ -99,7 +87,7 @@ pub fn help_commands(
     }
 }
 
-fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
+fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
@@ -156,7 +144,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             for named_param in &sig.named {
                 let name = if let Some(short) = named_param.short {
                     if named_param.long.is_empty() {
-                        format!("-{}", short)
+                        format!("-{short}")
                     } else {
                         format!("--{}(-{})", named_param.long, short)
                     }
@@ -215,7 +203,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         found_cmds_vec.push(Value::record(record, span));
     }
 
-    found_cmds_vec
+    Value::list(found_cmds_vec, span).into_pipeline_data()
 }
 
 #[cfg(test)]

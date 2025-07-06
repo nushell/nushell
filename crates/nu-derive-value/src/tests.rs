@@ -19,15 +19,13 @@ fn unsupported_unions() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::UnsupportedUnions)),
-        "expected `DeriveError::UnsupportedUnions`, got {:?}",
-        from_res
+        "expected `DeriveError::UnsupportedUnions`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::UnsupportedUnions)),
-        "expected `DeriveError::UnsupportedUnions`, got {:?}",
-        into_res
+        "expected `DeriveError::UnsupportedUnions`, got {into_res:?}"
     );
 }
 
@@ -48,15 +46,13 @@ fn unsupported_enums() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::UnsupportedEnums { .. })),
-        "expected `DeriveError::UnsupportedEnums`, got {:?}",
-        from_res
+        "expected `DeriveError::UnsupportedEnums`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::UnsupportedEnums { .. })),
-        "expected `DeriveError::UnsupportedEnums`, got {:?}",
-        into_res
+        "expected `DeriveError::UnsupportedEnums`, got {into_res:?}"
     );
 }
 
@@ -73,15 +69,13 @@ fn unexpected_attribute() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        from_res
+        "expected `DeriveError::UnexpectedAttribute`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        into_res
+        "expected `DeriveError::UnexpectedAttribute`, got {into_res:?}"
     );
 }
 
@@ -98,15 +92,13 @@ fn unexpected_attribute_on_struct_field() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        from_res
+        "expected `DeriveError::UnexpectedAttribute`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        into_res
+        "expected `DeriveError::UnexpectedAttribute`, got {into_res:?}"
     );
 }
 
@@ -123,15 +115,13 @@ fn unexpected_attribute_on_enum_variant() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        from_res
+        "expected `DeriveError::UnexpectedAttribute`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::UnexpectedAttribute { .. })),
-        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
-        into_res
+        "expected `DeriveError::UnexpectedAttribute`, got {into_res:?}"
     );
 }
 
@@ -151,8 +141,7 @@ fn invalid_attribute_position_in_tuple_struct() {
             from_res,
             Err(DeriveError::InvalidAttributePosition { attribute_span: _ })
         ),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
-        from_res
+        "expected `DeriveError::InvalidAttributePosition`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
@@ -161,8 +150,7 @@ fn invalid_attribute_position_in_tuple_struct() {
             into_res,
             Err(DeriveError::InvalidAttributePosition { attribute_span: _ })
         ),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
-        into_res
+        "expected `DeriveError::InvalidAttributePosition`, got {into_res:?}"
     );
 }
 
@@ -179,15 +167,13 @@ fn invalid_attribute_value() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::InvalidAttributeValue { .. })),
-        "expected `DeriveError::InvalidAttributeValue`, got {:?}",
-        from_res
+        "expected `DeriveError::InvalidAttributeValue`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::InvalidAttributeValue { .. })),
-        "expected `DeriveError::InvalidAttributeValue`, got {:?}",
-        into_res
+        "expected `DeriveError::InvalidAttributeValue`, got {into_res:?}"
     );
 }
 
@@ -204,15 +190,13 @@ fn non_unique_struct_keys() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::NonUniqueName { .. })),
-        "expected `DeriveError::NonUniqueName`, got {:?}",
-        from_res
+        "expected `DeriveError::NonUniqueName`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::NonUniqueName { .. })),
-        "expected `DeriveError::NonUniqueName`, got {:?}",
-        into_res
+        "expected `DeriveError::NonUniqueName`, got {into_res:?}"
     );
 }
 
@@ -229,14 +213,12 @@ fn non_unique_enum_variants() {
     let from_res = derive_from_value(input.clone());
     assert!(
         matches!(from_res, Err(DeriveError::NonUniqueName { .. })),
-        "expected `DeriveError::NonUniqueName`, got {:?}",
-        from_res
+        "expected `DeriveError::NonUniqueName`, got {from_res:?}"
     );
 
     let into_res = derive_into_value(input);
     assert!(
         matches!(into_res, Err(DeriveError::NonUniqueName { .. })),
-        "expected `DeriveError::NonUniqueName`, got {:?}",
-        into_res
+        "expected `DeriveError::NonUniqueName`, got {into_res:?}"
     );
 }

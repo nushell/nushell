@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
+    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -24,7 +24,7 @@ fn test_int(
 
     if let Some(err_pat) = expected_err {
         if let Some(parse_err) = err {
-            let act_err = format!("{:?}", parse_err);
+            let act_err = format!("{parse_err:?}");
             assert!(
                 act_err.contains(err_pat),
                 "{test_tag}: expected err to contain {err_pat}, but actual error was {act_err}"
@@ -268,6 +268,28 @@ pub fn parse_int_with_underscores() {
     let element = &pipeline.elements[0];
     assert!(element.redirection.is_none());
     assert_eq!(element.expr.expr, Expr::Int(420692023));
+}
+
+#[test]
+pub fn parse_filesize() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"95307.27MiB", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(99_936_915_947));
+    assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
 }
 
 #[test]
@@ -2748,10 +2770,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{}foo = 1 |
+                r#"{prefix}foo = 1 |
                 # comment
-                dummy"#,
-                prefix
+                dummy"#
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2761,11 +2782,11 @@ mod input_types {
                     call.arguments[1].expr().unwrap()
                 }
                 Expr::BinaryOp(_, _, rhs) => rhs.as_ref(),
-                _ => panic!("Unexpected expression: {:?}", last_expr),
+                _ => panic!("Unexpected expression: {last_expr:?}"),
             };
             let block_id = match block_expr.expr {
                 Expr::Block(block_id) | Expr::Subexpression(block_id) => block_id,
-                _ => panic!("Unexpected expression: {:?}", block_expr),
+                _ => panic!("Unexpected expression: {block_expr:?}"),
             };
             let rhs_expr = working_set.get_block(block_id);
             assert_eq!(rhs_expr.pipelines.len(), 1);

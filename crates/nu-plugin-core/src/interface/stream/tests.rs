@@ -201,7 +201,7 @@ fn reader_drop() {
 
     impl WriteStreamMessage for Check {
         fn write_stream_message(&mut self, msg: StreamMessage) -> Result<(), ShellError> {
-            assert!(matches!(msg, StreamMessage::Drop(1)), "got {:?}", msg);
+            assert!(matches!(msg, StreamMessage::Drop(1)), "got {msg:?}");
             self.0.store(true, Relaxed);
             Ok(())
         }

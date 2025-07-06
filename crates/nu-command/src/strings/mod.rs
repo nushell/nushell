@@ -1,3 +1,4 @@
+mod ansi;
 mod base;
 mod char_;
 mod detect_columns;
@@ -8,6 +9,7 @@ mod parse;
 mod split;
 mod str_;
 
+pub use ansi::{Ansi, AnsiLink, AnsiStrip};
 pub use base::{
     DecodeBase32, DecodeBase32Hex, DecodeBase64, DecodeHex, EncodeBase32, EncodeBase32Hex,
     EncodeBase64, EncodeHex,

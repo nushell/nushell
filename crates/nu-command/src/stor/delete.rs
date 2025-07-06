@@ -92,16 +92,16 @@ impl Command for StorDelete {
                 let sql_stmt = match where_clause_opt {
                     None => {
                         // We're deleting an entire table
-                        format!("DROP TABLE {}", new_table_name)
+                        format!("DROP TABLE {new_table_name}")
                     }
                     Some(where_clause) => {
                         // We're just deleting some rows
-                        let mut delete_stmt = format!("DELETE FROM {} ", new_table_name);
+                        let mut delete_stmt = format!("DELETE FROM {new_table_name} ");
 
                         // Yup, this is a bit janky, but I'm not sure a better way to do this without having
                         // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
                         // and other sql syntax. So, for now, just type a sql where clause as a string.
-                        delete_stmt.push_str(&format!("WHERE {}", where_clause));
+                        delete_stmt.push_str(&format!("WHERE {where_clause}"));
                         delete_stmt
                     }
                 };
@@ -109,7 +109,9 @@ impl Command for StorDelete {
                 // dbg!(&sql_stmt);
                 conn.execute(&sql_stmt, [])
                     .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from delete".into(),
+                        error:
+                            "Failed to delete using the SQLite connection in memory from delete.rs."
+                                .into(),
                         msg: err.to_string(),
                         span: Some(Span::test_data()),
                         help: None,

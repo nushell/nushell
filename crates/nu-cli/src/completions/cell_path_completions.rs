@@ -118,7 +118,7 @@ fn get_suggestions_by_value(
             || s.chars()
                 .any(|c: char| !(c.is_ascii_alphabetic() || ['_', '-'].contains(&c)))
         {
-            format!("{:?}", s)
+            format!("{s:?}")
         } else {
             s
         };

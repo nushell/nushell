@@ -112,14 +112,29 @@ impl SQLiteDatabase {
         if self.path == PathBuf::from(MEMORY_DB) {
             open_connection_in_memory_custom()
         } else {
-            Connection::open(&self.path).map_err(|e| ShellError::GenericError {
+            let conn = Connection::open(&self.path).map_err(|e| ShellError::GenericError {
                 error: "Failed to open SQLite database from open_connection".into(),
                 msg: e.to_string(),
                 span: None,
                 help: None,
                 inner: vec![],
-            })
+            })?;
+            conn.busy_handler(Some(SQLiteDatabase::sleeper))
+                .map_err(|e| ShellError::GenericError {
+                    error: "Failed to set busy handler for SQLite database".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })?;
+            Ok(conn)
         }
+    }
+
+    fn sleeper(attempts: i32) -> bool {
+        log::warn!("SQLITE_BUSY, retrying after 250ms (attempt {})", attempts);
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        true
     }
 
     pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, SqliteError> {
@@ -158,7 +173,7 @@ impl SQLiteDatabase {
         filename: String,
     ) -> Result<(), SqliteError> {
         //vacuum main into 'c:\\temp\\foo.db'
-        conn.execute(&format!("vacuum main into '{}'", filename), [])?;
+        conn.execute(&format!("vacuum main into '{filename}'"), [])?;
 
         Ok(())
     }
@@ -668,13 +683,23 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
 
 pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let flags = OpenFlags::default();
-    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite custom connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
-    })
+    let conn =
+        Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
+            error: "Failed to open SQLite custom connection in memory".into(),
+            msg: e.to_string(),
+            span: Some(Span::test_data()),
+            help: None,
+            inner: vec![],
+        })?;
+    conn.busy_handler(Some(SQLiteDatabase::sleeper))
+        .map_err(|e| ShellError::GenericError {
+            error: "Failed to set busy handler for SQLite custom connection in memory".into(),
+            msg: e.to_string(),
+            span: Some(Span::test_data()),
+            help: None,
+            inner: vec![],
+        })?;
+    Ok(conn)
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {

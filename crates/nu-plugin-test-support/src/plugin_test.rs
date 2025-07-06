@@ -276,11 +276,11 @@ impl PluginTest {
                                         )?;
 
                                         (
-                                            format!("{:#?}", expectation_base),
-                                            format!("{:#?}", value_base),
+                                            format!("{expectation_base:#?}"),
+                                            format!("{value_base:#?}"),
                                         )
                                     }
-                                    _ => (format!("{:#?}", expectation), format!("{:#?}", value)),
+                                    _ => (format!("{expectation:#?}"), format!("{value:#?}")),
                                 };
 
                             let diff = diff_by_line(&expectation_formatted, &value_formatted);

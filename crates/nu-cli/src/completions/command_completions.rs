@@ -52,7 +52,7 @@ impl CommandCompletion {
                                 continue;
                             };
                             let value = if matched_internal(&name) {
-                                format!("^{}", name)
+                                format!("^{name}")
                             } else {
                                 name.clone()
                             };

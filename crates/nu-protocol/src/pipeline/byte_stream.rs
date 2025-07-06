@@ -1427,7 +1427,7 @@ mod tests {
             match value {
                 Ok(value) => string.push_str(&value.into_string().expect("not a string")),
                 Err(err) => {
-                    println!("string so far: {:?}", string);
+                    println!("string so far: {string:?}");
                     println!("got error: {err:?}");
                     assert!(!string.is_empty());
                     assert!(matches!(err, ShellError::NonUtf8Custom { .. }));

@@ -1,10 +1,47 @@
-use std::sync::OnceLock;
+use std::{borrow::Cow, sync::OnceLock};
 
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
 use shadow_rs::shadow;
 
 shadow!(build);
+
+/// Static container for the cargo features used by the `version` command.
+///
+/// This `OnceLock` holds the features from `nu`.
+/// When you build `nu_cmd_lang`, Cargo doesn't pass along the same features that `nu` itself uses.
+/// By setting this static before calling `version`, you make it show `nu`'s features instead
+/// of `nu_cmd_lang`'s.
+///
+/// Embedders can set this to any feature list they need, but in most cases you'll probably want to
+/// pass the cargo features of your host binary.
+///
+/// # How to get cargo features in your build script
+///
+/// In your binary's build script:
+/// ```rust,ignore
+/// // Re-export CARGO_CFG_FEATURE to the main binary.
+/// // It holds all the features that cargo sets for your binary as a comma-separated list.
+/// println!(
+///     "cargo:rustc-env=NU_FEATURES={}",
+///     std::env::var("CARGO_CFG_FEATURE").expect("set by cargo")
+/// );
+/// ```
+///
+/// Then, before you call `version`:
+/// ```rust,ignore
+/// // This uses static strings, but since we're using `Cow`, you can also pass owned strings.
+/// let features = env!("NU_FEATURES")
+///     .split(',')
+///     .map(Cow::Borrowed)
+///     .collect();
+///
+/// nu_cmd_lang::VERSION_NU_FEATURES
+///     .set(features)
+///     .expect("couldn't set VERSION_NU_FEATURES");
+/// ```
+pub static VERSION_NU_FEATURES: OnceLock<Vec<Cow<'static, str>>> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct Version;
@@ -113,7 +150,17 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 
     record.push(
         "features",
-        Value::string(features_enabled().join(", "), span),
+        Value::string(
+            VERSION_NU_FEATURES
+                .get()
+                .as_ref()
+                .map(|v| v.as_slice())
+                .unwrap_or_default()
+                .iter()
+                .filter(|f| !f.starts_with("dep:"))
+                .join(", "),
+            span,
+        ),
     );
 
     #[cfg(not(feature = "plugin"))]
@@ -141,6 +188,17 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         );
     }
 
+    record.push(
+        "experimental_options",
+        Value::string(
+            nu_experimental::ALL
+                .iter()
+                .map(|option| format!("{}={}", option.identifier(), option.get()))
+                .join(", "),
+            span,
+        ),
+    );
+
     Ok(Value::record(record, span).into_pipeline_data())
 }
 
@@ -164,42 +222,12 @@ fn global_allocator() -> &'static str {
     "standard"
 }
 
-fn features_enabled() -> Vec<String> {
-    let mut names = vec!["default".to_string()];
-
-    // NOTE: There should be another way to know features on.
-
-    #[cfg(feature = "trash-support")]
-    {
-        names.push("trash".to_string());
-    }
-
-    #[cfg(feature = "sqlite")]
-    {
-        names.push("sqlite".to_string());
-    }
-
-    #[cfg(feature = "static-link-openssl")]
-    {
-        names.push("static-link-openssl".to_string());
-    }
-
-    #[cfg(feature = "system-clipboard")]
-    {
-        names.push("system-clipboard".to_string());
-    }
-
-    names.sort();
-
-    names
-}
-
 #[cfg(test)]
 mod test {
     #[test]
     fn test_examples() {
         use super::Version;
         use crate::test_examples;
-        test_examples(Version {})
+        test_examples(Version)
     }
 }

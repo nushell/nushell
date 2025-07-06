@@ -292,7 +292,7 @@ mod tests {
         ];
 
         for expectation in &cases {
-            println!("{:?}", expectation);
+            println!("{expectation:?}");
             let expected = expectation.expected;
             let actual = action(
                 &word,

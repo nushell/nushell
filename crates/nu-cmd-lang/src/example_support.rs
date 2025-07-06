@@ -221,23 +221,23 @@ impl std::fmt::Debug for DebuggableValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             Value::Bool { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Int { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Float { val, .. } => {
-                write!(f, "{:?}f", val)
+                write!(f, "{val:?}f")
             }
             Value::Filesize { val, .. } => {
-                write!(f, "Filesize({:?})", val)
+                write!(f, "Filesize({val:?})")
             }
             Value::Duration { val, .. } => {
                 let duration = std::time::Duration::from_nanos(*val as u64);
-                write!(f, "Duration({:?})", duration)
+                write!(f, "Duration({duration:?})")
             }
             Value::Date { val, .. } => {
-                write!(f, "Date({:?})", val)
+                write!(f, "Date({val:?})")
             }
             Value::Range { val, .. } => match **val {
                 Range::IntRange(range) => match range.end() {
@@ -280,7 +280,7 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 },
             },
             Value::String { val, .. } | Value::Glob { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Record { val, .. } => {
                 write!(f, "{{")?;
@@ -305,22 +305,22 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 write!(f, "]")
             }
             Value::Closure { val, .. } => {
-                write!(f, "Closure({:?})", val)
+                write!(f, "Closure({val:?})")
             }
             Value::Nothing { .. } => {
                 write!(f, "Nothing")
             }
             Value::Error { error, .. } => {
-                write!(f, "Error({:?})", error)
+                write!(f, "Error({error:?})")
             }
             Value::Binary { val, .. } => {
-                write!(f, "Binary({:?})", val)
+                write!(f, "Binary({val:?})")
             }
             Value::CellPath { val, .. } => {
                 write!(f, "CellPath({:?})", val.to_string())
             }
             Value::Custom { val, .. } => {
-                write!(f, "CustomValue({:?})", val)
+                write!(f, "CustomValue({val:?})")
             }
         }
     }

@@ -94,6 +94,18 @@ impl NuTable {
         self.count_cols
     }
 
+    pub fn create(text: String) -> NuRecordsValue {
+        Text::new(text)
+    }
+
+    pub fn insert_value(&mut self, pos: (usize, usize), value: NuRecordsValue) {
+        let width = value.width() + indent_sum(self.config.indent);
+        let height = value.count_lines();
+        self.widths[pos.1] = max(self.widths[pos.1], width);
+        self.heights[pos.0] = max(self.heights[pos.0], height);
+        self.data[pos.0][pos.1] = value;
+    }
+
     pub fn insert(&mut self, pos: (usize, usize), text: String) {
         let text = Text::new(text);
         let pad = indent_sum(self.config.indent);
@@ -294,6 +306,7 @@ impl NuTable {
 
 // NOTE: Must never be called from nu-table - made only for tests
 // FIXME: remove it?
+#[cfg(test)]
 impl From<Vec<Vec<Text<String>>>> for NuTable {
     fn from(value: Vec<Vec<Text<String>>>) -> Self {
         let count_rows = value.len();
@@ -515,7 +528,9 @@ fn draw_table(
     load_theme(&mut table, &t.config.theme, &structure, sep_color);
     truncate_table(&mut table, &t.config, width, termwidth, t.heights);
     table_set_border_header(&mut table, head, &t.config);
-    table_to_string(table, termwidth)
+
+    let string = table.to_string();
+    Some(string)
 }
 
 fn set_styles(table: &mut Table, styles: Styles, structure: &TableStructure) {
@@ -563,7 +578,6 @@ fn truncate_table(
     termwidth: usize,
     heights: Vec<usize>,
 ) {
-    // TODO: remove clone
     let trim = cfg.trim.clone();
     let pad = indent_sum(cfg.indent);
     let ctrl = DimensionCtrl::new(termwidth, width, trim, cfg.expand, pad, heights);
@@ -576,18 +590,6 @@ fn indent_sum(indent: TableIndent) -> usize {
 
 fn set_indent(table: &mut Table, indent: TableIndent) {
     table.with(Padding::new(indent.left, indent.right, 0, 0));
-}
-
-fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
-    // Note: this is a "safe" path; presumable it must never happen cause we must made all the checks already
-    // TODO: maybe remove it? I think so?
-    let total_width = table.total_width();
-    if total_width > termwidth {
-        None
-    } else {
-        let content = table.to_string();
-        Some(content)
-    }
 }
 
 struct DimensionCtrl {
@@ -976,7 +978,9 @@ fn truncate_columns_by_content(
     widths.push(trailing_column_width);
     width += trailing_column_width;
 
-    if widths.len() == 1 {
+    let has_only_trail = widths.len() == 1;
+    let is_enough_space = width <= termwidth;
+    if has_only_trail || !is_enough_space {
         // nothing to show anyhow
         return WidthEstimation::new(widths_original, vec![], width, false, true);
     }

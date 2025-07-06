@@ -70,7 +70,7 @@ fn into_int_binary_signed_empty() {
 #[ignore]
 fn into_int_datetime1() {
     let dt = DateTime::parse_from_rfc3339("1983-04-13T12:09:14.123456789+00:00");
-    eprintln!("dt debug {:?}", dt);
+    eprintln!("dt debug {dt:?}");
     assert_eq!(
         dt,
         Ok(FixedOffset::east_opt(0)

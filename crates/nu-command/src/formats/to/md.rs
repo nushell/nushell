@@ -1,7 +1,8 @@
 use indexmap::IndexMap;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, ast::PathMember};
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct ToMd;
@@ -23,6 +24,12 @@ impl Command for ToMd {
                 "per-element",
                 "treat each row as markdown syntax element",
                 Some('e'),
+            )
+            .named(
+                "center",
+                SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
+                "Formats the Markdown table to center given columns",
+                Some('c'),
             )
             .category(Category::Formats)
     }
@@ -64,6 +71,13 @@ impl Command for ToMd {
                     "|foo|bar|\n|-|-|\n|1|2|\n|3|4|\n|foo|\n|-|\n|5|",
                 )),
             },
+            Example {
+                description: "Center a column of a markdown table",
+                example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4}] | to md --pretty --center [bar]",
+                result: Some(Value::test_string(
+                    "| foo | bar |\n| --- |:---:|\n| 1   |  2  |\n| 3   |  4  |",
+                )),
+            },
         ]
     }
 
@@ -77,8 +91,9 @@ impl Command for ToMd {
         let head = call.head;
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let per_element = call.has_flag(engine_state, stack, "per-element")?;
+        let center: Option<Vec<CellPath>> = call.get_flag(engine_state, stack, "center")?;
         let config = stack.get_config(engine_state);
-        to_md(input, pretty, per_element, &config, head)
+        to_md(input, pretty, per_element, &center, &config, head)
     }
 }
 
@@ -86,6 +101,7 @@ fn to_md(
     input: PipelineData,
     pretty: bool,
     per_element: bool,
+    center: &Option<Vec<CellPath>>,
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -102,9 +118,12 @@ fn to_md(
                 .into_iter()
                 .map(move |val| match val {
                     Value::List { .. } => {
-                        format!("{}\n", table(val.into_pipeline_data(), pretty, config))
+                        format!(
+                            "{}\n",
+                            table(val.into_pipeline_data(), pretty, center, config)
+                        )
                     }
-                    other => fragment(other, pretty, config),
+                    other => fragment(other, pretty, center, config),
                 })
                 .collect::<Vec<String>>()
                 .join("")
@@ -113,11 +132,13 @@ fn to_md(
         )
         .into_pipeline_data_with_metadata(Some(metadata)));
     }
-    Ok(Value::string(table(grouped_input, pretty, config), head)
-        .into_pipeline_data_with_metadata(Some(metadata)))
+    Ok(
+        Value::string(table(grouped_input, pretty, center, config), head)
+            .into_pipeline_data_with_metadata(Some(metadata)),
+    )
 }
 
-fn fragment(input: Value, pretty: bool, config: &Config) -> String {
+fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: &Config) -> String {
     let mut out = String::new();
 
     if let Value::Record { val, .. } = &input {
@@ -128,13 +149,13 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
                     "h2" => "## ".to_string(),
                     "h3" => "### ".to_string(),
                     "blockquote" => "> ".to_string(),
-                    _ => return table(input.into_pipeline_data(), pretty, config),
+                    _ => return table(input.into_pipeline_data(), pretty, center, config),
                 };
 
                 out.push_str(&markup);
                 out.push_str(&data.to_expanded_string("|", config));
             }
-            _ => out = table(input.into_pipeline_data(), pretty, config),
+            _ => out = table(input.into_pipeline_data(), pretty, center, config),
         }
     } else {
         out = input.to_expanded_string("|", config)
@@ -161,7 +182,12 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
     (escaped_headers, column_widths)
 }
 
-fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
+fn table(
+    input: PipelineData,
+    pretty: bool,
+    center: &Option<Vec<CellPath>>,
+    config: &Config,
+) -> String {
     let vec_of_values = input
         .into_iter()
         .flat_map(|val| match val {
@@ -220,17 +246,21 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
         escaped_rows.push(escaped_row);
     }
 
-    let output_string = if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
+    if (column_widths.is_empty() || column_widths.iter().all(|x| *x == 0))
         && escaped_rows.is_empty()
     {
         String::from("")
     } else {
-        get_output_string(&escaped_headers, &escaped_rows, &column_widths, pretty)
-            .trim()
-            .to_string()
-    };
-
-    output_string
+        get_output_string(
+            &escaped_headers,
+            &escaped_rows,
+            &column_widths,
+            pretty,
+            center,
+        )
+        .trim()
+        .to_string()
+    }
 }
 
 pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineData, bool) {
@@ -271,8 +301,22 @@ fn get_output_string(
     rows: &[Vec<String>],
     column_widths: &[usize],
     pretty: bool,
+    center: &Option<Vec<CellPath>>,
 ) -> String {
     let mut output_string = String::new();
+
+    let mut to_center: HashSet<String> = HashSet::new();
+    if let Some(center_vec) = center.as_ref() {
+        for cell_path in center_vec {
+            if let Some(PathMember::String { val, .. }) = cell_path
+                .members
+                .iter()
+                .find(|member| matches!(member, PathMember::String { .. }))
+            {
+                to_center.insert(val.clone());
+            }
+        }
+    }
 
     if !headers.is_empty() {
         output_string.push('|');
@@ -280,11 +324,19 @@ fn get_output_string(
         for i in 0..headers.len() {
             if pretty {
                 output_string.push(' ');
-                output_string.push_str(&get_padded_string(
-                    headers[i].clone(),
-                    column_widths[i],
-                    ' ',
-                ));
+                if center.is_some() && to_center.contains(&headers[i]) {
+                    output_string.push_str(&get_centered_string(
+                        headers[i].clone(),
+                        column_widths[i],
+                        ' ',
+                    ));
+                } else {
+                    output_string.push_str(&get_padded_string(
+                        headers[i].clone(),
+                        column_widths[i],
+                        ' ',
+                    ));
+                }
                 output_string.push(' ');
             } else {
                 output_string.push_str(&headers[i]);
@@ -295,11 +347,21 @@ fn get_output_string(
 
         output_string.push_str("\n|");
 
-        for &col_width in column_widths.iter().take(headers.len()) {
+        for i in 0..headers.len() {
+            let centered_column = center.is_some() && to_center.contains(&headers[i]);
+            let border_char = if centered_column { ':' } else { ' ' };
             if pretty {
-                output_string.push(' ');
-                output_string.push_str(&get_padded_string(String::from("-"), col_width, '-'));
-                output_string.push(' ');
+                output_string.push(border_char);
+                output_string.push_str(&get_padded_string(
+                    String::from("-"),
+                    column_widths[i],
+                    '-',
+                ));
+                output_string.push(border_char);
+            } else if centered_column {
+                output_string.push(':');
+                output_string.push('-');
+                output_string.push(':');
             } else {
                 output_string.push('-');
             }
@@ -318,7 +380,19 @@ fn get_output_string(
         for i in 0..row.len() {
             if pretty && column_widths.get(i).is_some() {
                 output_string.push(' ');
-                output_string.push_str(&get_padded_string(row[i].clone(), column_widths[i], ' '));
+                if center.is_some() && to_center.contains(&headers[i]) {
+                    output_string.push_str(&get_centered_string(
+                        row[i].clone(),
+                        column_widths[i],
+                        ' ',
+                    ));
+                } else {
+                    output_string.push_str(&get_padded_string(
+                        row[i].clone(),
+                        column_widths[i],
+                        ' ',
+                    ));
+                }
                 output_string.push(' ');
             } else {
                 output_string.push_str(&row[i]);
@@ -333,6 +407,24 @@ fn get_output_string(
     }
 
     output_string
+}
+
+fn get_centered_string(text: String, desired_length: usize, padding_character: char) -> String {
+    let total_padding = if text.len() > desired_length {
+        0
+    } else {
+        desired_length - text.len()
+    };
+
+    let repeat_left = total_padding / 2;
+    let repeat_right = total_padding - repeat_left;
+
+    format!(
+        "{}{}{}",
+        padding_character.to_string().repeat(repeat_left),
+        text,
+        padding_character.to_string().repeat(repeat_right)
+    )
 }
 
 fn get_padded_string(text: String, desired_length: usize, padding_character: char) -> String {
@@ -355,7 +447,7 @@ mod tests {
 
     use super::*;
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
-    use nu_protocol::{Config, IntoPipelineData, Value, record};
+    use nu_protocol::{Config, IntoPipelineData, Value, casing::Casing, record};
 
     fn one(string: &str) -> String {
         string
@@ -381,7 +473,10 @@ mod tests {
             "H1" => Value::test_string("Ecuador"),
         });
 
-        assert_eq!(fragment(value, false, &Config::default()), "# Ecuador\n");
+        assert_eq!(
+            fragment(value, false, &None, &Config::default()),
+            "# Ecuador\n"
+        );
     }
 
     #[test]
@@ -390,7 +485,10 @@ mod tests {
             "H2" => Value::test_string("Ecuador"),
         });
 
-        assert_eq!(fragment(value, false, &Config::default()), "## Ecuador\n");
+        assert_eq!(
+            fragment(value, false, &None, &Config::default()),
+            "## Ecuador\n"
+        );
     }
 
     #[test]
@@ -399,7 +497,10 @@ mod tests {
             "H3" => Value::test_string("Ecuador"),
         });
 
-        assert_eq!(fragment(value, false, &Config::default()), "### Ecuador\n");
+        assert_eq!(
+            fragment(value, false, &None, &Config::default()),
+            "### Ecuador\n"
+        );
     }
 
     #[test]
@@ -408,7 +509,10 @@ mod tests {
             "BLOCKQUOTE" => Value::test_string("Ecuador"),
         });
 
-        assert_eq!(fragment(value, false, &Config::default()), "> Ecuador\n");
+        assert_eq!(
+            fragment(value, false, &None, &Config::default()),
+            "> Ecuador\n"
+        );
     }
 
     #[test]
@@ -429,6 +533,7 @@ mod tests {
             table(
                 value.clone().into_pipeline_data(),
                 false,
+                &None,
                 &Config::default()
             ),
             one(r#"
@@ -441,7 +546,7 @@ mod tests {
         );
 
         assert_eq!(
-            table(value.into_pipeline_data(), true, &Config::default()),
+            table(value.into_pipeline_data(), true, &None, &Config::default()),
             one(r#"
             | country     |
             | ----------- |
@@ -469,6 +574,7 @@ mod tests {
             table(
                 value.clone().into_pipeline_data(),
                 false,
+                &None,
                 &Config::default()
             ),
             one(r#"
@@ -501,6 +607,7 @@ mod tests {
             table(
                 value.clone().into_pipeline_data(),
                 false,
+                &None,
                 &Config::default()
             ),
             one(r#"
@@ -509,6 +616,270 @@ mod tests {
             |1|2|
             |3|4|
             |5||
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_center_column() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "foo" => Value::test_string("1"),
+                "bar" => Value::test_string("2"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("3"),
+                "bar" => Value::test_string("4"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("5"),
+                "bar" => Value::test_string("6"),
+            }),
+        ]);
+
+        let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
+            members: vec![PathMember::test_string(
+                "bar".into(),
+                false,
+                Casing::Sensitive,
+            )],
+        })]);
+
+        let cell_path: Vec<CellPath> = center_columns
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|v| v.into_cell_path().unwrap())
+            .collect();
+
+        let center: Option<Vec<CellPath>> = Some(cell_path);
+
+        // With pretty
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            | foo | bar |
+            | --- |:---:|
+            | 1   |  2  |
+            | 3   |  4  |
+            | 5   |  6  |
+        "#)
+        );
+
+        // Without pretty
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            |foo|bar|
+            |-|:-:|
+            |1|2|
+            |3|4|
+            |5|6|
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_empty_center_column() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "foo" => Value::test_string("1"),
+                "bar" => Value::test_string("2"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("3"),
+                "bar" => Value::test_string("4"),
+            }),
+            Value::test_record(record! {
+                "foo" => Value::test_string("5"),
+                "bar" => Value::test_string("6"),
+            }),
+        ]);
+
+        let center: Option<Vec<CellPath>> = Some(vec![]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            | foo | bar |
+            | --- | --- |
+            | 1   | 2   |
+            | 3   | 4   |
+            | 5   | 6   |
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_center_multiple_columns() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "command" => Value::test_string("ls"),
+                "input" => Value::test_string("."),
+                "output" => Value::test_string("file.txt"),
+            }),
+            Value::test_record(record! {
+                "command" => Value::test_string("echo"),
+                "input" => Value::test_string("'hi'"),
+                "output" => Value::test_string("hi"),
+            }),
+            Value::test_record(record! {
+                "command" => Value::test_string("cp"),
+                "input" => Value::test_string("a.txt"),
+                "output" => Value::test_string("b.txt"),
+            }),
+        ]);
+
+        let center_columns = Value::test_list(vec![
+            Value::test_cell_path(CellPath {
+                members: vec![PathMember::test_string(
+                    "command".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+            }),
+            Value::test_cell_path(CellPath {
+                members: vec![PathMember::test_string(
+                    "output".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+            }),
+        ]);
+
+        let cell_path: Vec<CellPath> = center_columns
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|v| v.into_cell_path().unwrap())
+            .collect();
+
+        let center: Option<Vec<CellPath>> = Some(cell_path);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            | command | input |  output  |
+            |:-------:| ----- |:--------:|
+            |   ls    | .     | file.txt |
+            |  echo   | 'hi'  |    hi    |
+            |   cp    | a.txt |  b.txt   |
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_center_non_existing_column() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "name" => Value::test_string("Alice"),
+                "age" => Value::test_string("30"),
+            }),
+            Value::test_record(record! {
+                "name" => Value::test_string("Bob"),
+                "age" => Value::test_string("5"),
+            }),
+            Value::test_record(record! {
+                "name" => Value::test_string("Charlie"),
+                "age" => Value::test_string("20"),
+            }),
+        ]);
+
+        let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
+            members: vec![PathMember::test_string(
+                "none".into(),
+                false,
+                Casing::Sensitive,
+            )],
+        })]);
+
+        let cell_path: Vec<CellPath> = center_columns
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|v| v.into_cell_path().unwrap())
+            .collect();
+
+        let center: Option<Vec<CellPath>> = Some(cell_path);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            | name    | age |
+            | ------- | --- |
+            | Alice   | 30  |
+            | Bob     | 5   |
+            | Charlie | 20  |
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_center_complex_cell_path() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "k" => Value::test_string("version"),
+                "v" => Value::test_string("0.104.1"),
+            }),
+            Value::test_record(record! {
+                "k" => Value::test_string("build_time"),
+                "v" => Value::test_string("2025-05-28 11:00:45 +01:00"),
+            }),
+        ]);
+
+        let center_columns = Value::test_list(vec![Value::test_cell_path(CellPath {
+            members: vec![
+                PathMember::test_int(1, false),
+                PathMember::test_string("v".into(), false, Casing::Sensitive),
+            ],
+        })]);
+
+        let cell_path: Vec<CellPath> = center_columns
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|v| v.into_cell_path().unwrap())
+            .collect();
+
+        let center: Option<Vec<CellPath>> = Some(cell_path);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &center,
+                &Config::default()
+            ),
+            one(r#"
+            | k          |             v              |
+            | ---------- |:--------------------------:|
+            | version    |          0.104.1           |
+            | build_time | 2025-05-28 11:00:45 +01:00 |
         "#)
         );
     }
@@ -533,14 +904,14 @@ mod tests {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{a: 1 b: 2} | to md  | metadata | get content_type";
+        let cmd = "{a: 1 b: 2} | to md  | metadata | get content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("content_type" => Value::test_string("text/markdown"))),
+            Value::test_string("text/markdown"),
             result.expect("There should be a result")
         );
     }

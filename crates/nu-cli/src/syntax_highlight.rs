@@ -17,147 +17,173 @@ pub struct NuHighlighter {
 }
 
 impl Highlighter for NuHighlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
-        trace!("highlighting: {}", line);
+    fn highlight(&self, line: &str, cursor: usize) -> StyledText {
+        let result = highlight_syntax(&self.engine_state, &self.stack, line, cursor);
+        result.text
+    }
+}
 
-        let config = self.stack.get_config(&self.engine_state);
-        let highlight_resolved_externals = config.highlight_resolved_externals;
-        let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let block = parse(&mut working_set, None, line.as_bytes(), false);
-        let (shapes, global_span_offset) = {
-            let mut shapes = flatten_block(&working_set, &block);
-            // Highlighting externals has a config point because of concerns that using which to resolve
-            // externals may slow down things too much.
-            if highlight_resolved_externals {
-                for (span, shape) in shapes.iter_mut() {
-                    if *shape == FlatShape::External {
-                        let str_contents =
-                            working_set.get_span_contents(Span::new(span.start, span.end));
+/// Result of a syntax highlight operation
+#[derive(Default)]
+pub(crate) struct HighlightResult {
+    /// The highlighted text
+    pub(crate) text: StyledText,
+    /// The span of any garbage that was highlighted
+    pub(crate) found_garbage: Option<Span>,
+}
 
-                        let str_word = String::from_utf8_lossy(str_contents).to_string();
-                        let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
-                        #[allow(deprecated)]
-                        let res = if let Ok(cwd) =
-                            env::current_dir_str(&self.engine_state, &self.stack)
-                        {
-                            which::which_in(str_word, paths.as_ref(), cwd).ok()
-                        } else {
-                            which::which_in_global(str_word, paths.as_ref())
-                                .ok()
-                                .and_then(|mut i| i.next())
-                        };
-                        if res.is_some() {
-                            *shape = FlatShape::ExternalResolved;
-                        }
+pub(crate) fn highlight_syntax(
+    engine_state: &EngineState,
+    stack: &Stack,
+    line: &str,
+    cursor: usize,
+) -> HighlightResult {
+    trace!("highlighting: {}", line);
+
+    let config = stack.get_config(engine_state);
+    let highlight_resolved_externals = config.highlight_resolved_externals;
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let block = parse(&mut working_set, None, line.as_bytes(), false);
+    let (shapes, global_span_offset) = {
+        let mut shapes = flatten_block(&working_set, &block);
+        // Highlighting externals has a config point because of concerns that using which to resolve
+        // externals may slow down things too much.
+        if highlight_resolved_externals {
+            for (span, shape) in shapes.iter_mut() {
+                if *shape == FlatShape::External {
+                    let str_contents =
+                        working_set.get_span_contents(Span::new(span.start, span.end));
+
+                    let str_word = String::from_utf8_lossy(str_contents).to_string();
+                    let paths = env::path_str(engine_state, stack, *span).ok();
+                    let res = if let Ok(cwd) = engine_state.cwd(Some(stack)) {
+                        which::which_in(str_word, paths.as_ref(), cwd).ok()
+                    } else {
+                        which::which_in_global(str_word, paths.as_ref())
+                            .ok()
+                            .and_then(|mut i| i.next())
+                    };
+                    if res.is_some() {
+                        *shape = FlatShape::ExternalResolved;
                     }
                 }
             }
-            (shapes, self.engine_state.next_span_start())
+        }
+        (shapes, engine_state.next_span_start())
+    };
+
+    let mut result = HighlightResult::default();
+    let mut last_seen_span = global_span_offset;
+
+    let global_cursor_offset = cursor + global_span_offset;
+    let matching_brackets_pos = find_matching_brackets(
+        line,
+        &working_set,
+        &block,
+        global_span_offset,
+        global_cursor_offset,
+    );
+
+    for shape in &shapes {
+        if shape.0.end <= last_seen_span
+            || last_seen_span < global_span_offset
+            || shape.0.start < global_span_offset
+        {
+            // We've already output something for this span
+            // so just skip this one
+            continue;
+        }
+        if shape.0.start > last_seen_span {
+            let gap = line
+                [(last_seen_span - global_span_offset)..(shape.0.start - global_span_offset)]
+                .to_string();
+            result.text.push((Style::new(), gap));
+        }
+        let next_token = line
+            [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
+            .to_string();
+
+        let mut add_colored_token = |shape: &FlatShape, text: String| {
+            result
+                .text
+                .push((get_shape_color(shape.as_str(), &config), text));
         };
 
-        let mut output = StyledText::default();
-        let mut last_seen_span = global_span_offset;
-
-        let global_cursor_offset = _cursor + global_span_offset;
-        let matching_brackets_pos = find_matching_brackets(
-            line,
-            &working_set,
-            &block,
-            global_span_offset,
-            global_cursor_offset,
-        );
-
-        for shape in &shapes {
-            if shape.0.end <= last_seen_span
-                || last_seen_span < global_span_offset
-                || shape.0.start < global_span_offset
-            {
-                // We've already output something for this span
-                // so just skip this one
-                continue;
+        match shape.1 {
+            FlatShape::Garbage => {
+                result.found_garbage.get_or_insert_with(|| {
+                    Span::new(
+                        shape.0.start - global_span_offset,
+                        shape.0.end - global_span_offset,
+                    )
+                });
+                add_colored_token(&shape.1, next_token)
             }
-            if shape.0.start > last_seen_span {
-                let gap = line
-                    [(last_seen_span - global_span_offset)..(shape.0.start - global_span_offset)]
-                    .to_string();
-                output.push((Style::new(), gap));
-            }
-            let next_token = line
-                [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
-                .to_string();
-
-            let mut add_colored_token = |shape: &FlatShape, text: String| {
-                output.push((get_shape_color(shape.as_str(), &config), text));
-            };
-
-            match shape.1 {
-                FlatShape::Garbage => add_colored_token(&shape.1, next_token),
-                FlatShape::Nothing => add_colored_token(&shape.1, next_token),
-                FlatShape::Binary => add_colored_token(&shape.1, next_token),
-                FlatShape::Bool => add_colored_token(&shape.1, next_token),
-                FlatShape::Int => add_colored_token(&shape.1, next_token),
-                FlatShape::Float => add_colored_token(&shape.1, next_token),
-                FlatShape::Range => add_colored_token(&shape.1, next_token),
-                FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-                FlatShape::External => add_colored_token(&shape.1, next_token),
-                FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
-                FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
-                FlatShape::Keyword => add_colored_token(&shape.1, next_token),
-                FlatShape::Literal => add_colored_token(&shape.1, next_token),
-                FlatShape::Operator => add_colored_token(&shape.1, next_token),
-                FlatShape::Signature => add_colored_token(&shape.1, next_token),
-                FlatShape::String => add_colored_token(&shape.1, next_token),
-                FlatShape::RawString => add_colored_token(&shape.1, next_token),
-                FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
-                FlatShape::DateTime => add_colored_token(&shape.1, next_token),
-                FlatShape::List
-                | FlatShape::Table
-                | FlatShape::Record
-                | FlatShape::Block
-                | FlatShape::Closure => {
-                    let span = shape.0;
-                    let shape = &shape.1;
-                    let spans = split_span_by_highlight_positions(
-                        line,
-                        span,
-                        &matching_brackets_pos,
-                        global_span_offset,
-                    );
-                    for (part, highlight) in spans {
-                        let start = part.start - span.start;
-                        let end = part.end - span.start;
-                        let text = next_token[start..end].to_string();
-                        let mut style = get_shape_color(shape.as_str(), &config);
-                        if highlight {
-                            style = get_matching_brackets_style(style, &config);
-                        }
-                        output.push((style, text));
+            FlatShape::Nothing => add_colored_token(&shape.1, next_token),
+            FlatShape::Binary => add_colored_token(&shape.1, next_token),
+            FlatShape::Bool => add_colored_token(&shape.1, next_token),
+            FlatShape::Int => add_colored_token(&shape.1, next_token),
+            FlatShape::Float => add_colored_token(&shape.1, next_token),
+            FlatShape::Range => add_colored_token(&shape.1, next_token),
+            FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
+            FlatShape::External => add_colored_token(&shape.1, next_token),
+            FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+            FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
+            FlatShape::Keyword => add_colored_token(&shape.1, next_token),
+            FlatShape::Literal => add_colored_token(&shape.1, next_token),
+            FlatShape::Operator => add_colored_token(&shape.1, next_token),
+            FlatShape::Signature => add_colored_token(&shape.1, next_token),
+            FlatShape::String => add_colored_token(&shape.1, next_token),
+            FlatShape::RawString => add_colored_token(&shape.1, next_token),
+            FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
+            FlatShape::DateTime => add_colored_token(&shape.1, next_token),
+            FlatShape::List
+            | FlatShape::Table
+            | FlatShape::Record
+            | FlatShape::Block
+            | FlatShape::Closure => {
+                let span = shape.0;
+                let shape = &shape.1;
+                let spans = split_span_by_highlight_positions(
+                    line,
+                    span,
+                    &matching_brackets_pos,
+                    global_span_offset,
+                );
+                for (part, highlight) in spans {
+                    let start = part.start - span.start;
+                    let end = part.end - span.start;
+                    let text = next_token[start..end].to_string();
+                    let mut style = get_shape_color(shape.as_str(), &config);
+                    if highlight {
+                        style = get_matching_brackets_style(style, &config);
                     }
+                    result.text.push((style, text));
                 }
-
-                FlatShape::Filepath => add_colored_token(&shape.1, next_token),
-                FlatShape::Directory => add_colored_token(&shape.1, next_token),
-                FlatShape::GlobInterpolation => add_colored_token(&shape.1, next_token),
-                FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
-                FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
-                    add_colored_token(&shape.1, next_token)
-                }
-                FlatShape::Flag => add_colored_token(&shape.1, next_token),
-                FlatShape::Pipe => add_colored_token(&shape.1, next_token),
-                FlatShape::Redirection => add_colored_token(&shape.1, next_token),
-                FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
-                FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
             }
-            last_seen_span = shape.0.end;
-        }
 
-        let remainder = line[(last_seen_span - global_span_offset)..].to_string();
-        if !remainder.is_empty() {
-            output.push((Style::new(), remainder));
+            FlatShape::Filepath => add_colored_token(&shape.1, next_token),
+            FlatShape::Directory => add_colored_token(&shape.1, next_token),
+            FlatShape::GlobInterpolation => add_colored_token(&shape.1, next_token),
+            FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
+            FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
+                add_colored_token(&shape.1, next_token)
+            }
+            FlatShape::Flag => add_colored_token(&shape.1, next_token),
+            FlatShape::Pipe => add_colored_token(&shape.1, next_token),
+            FlatShape::Redirection => add_colored_token(&shape.1, next_token),
+            FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
+            FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
         }
-
-        output
+        last_seen_span = shape.0.end;
     }
+
+    let remainder = line[(last_seen_span - global_span_offset)..].to_string();
+    if !remainder.is_empty() {
+        result.text.push((Style::new(), remainder));
+    }
+
+    result
 }
 
 fn split_span_by_highlight_positions(

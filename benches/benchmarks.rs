@@ -199,7 +199,7 @@ fn bench_record_nested_access(n: usize) -> impl IntoBenchmarks {
     let nested_access = ".col".repeat(n);
     bench_command(
         format!("record_nested_access_{n}"),
-        format!("$record{} | ignore", nested_access),
+        format!("$record{nested_access} | ignore"),
         stack,
         engine,
     )
@@ -319,7 +319,7 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
     let stack = Stack::new();
     bench_command(
         format!("eval_par_each_{n}"),
-        format!("(1..{}) | par-each -t 2 {{|_| 1 }} | ignore", n),
+        format!("(1..{n}) | par-each -t 2 {{|_| 1 }} | ignore"),
         stack,
         engine,
     )
@@ -357,7 +357,7 @@ fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"json").unwrap());
 
     [benchmark_fn(
-        format!("encode_json_{}_{}", row_cnt, col_cnt),
+        format!("encode_json_{row_cnt}_{col_cnt}"),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -377,7 +377,7 @@ fn encode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"msgpack").unwrap());
 
     [benchmark_fn(
-        format!("encode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("encode_msgpack_{row_cnt}_{col_cnt}"),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -399,7 +399,7 @@ fn decode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        format!("decode_json_{}_{}", row_cnt, col_cnt),
+        format!("decode_json_{row_cnt}_{col_cnt}"),
         move |b| {
             let res = res.clone();
             b.iter(move || {
@@ -422,7 +422,7 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        format!("decode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("decode_msgpack_{row_cnt}_{col_cnt}"),
         move |b| {
             let res = res.clone();
             b.iter(move || {

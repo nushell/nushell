@@ -158,27 +158,26 @@ fn convert_yaml_value_to_nu_value(
         }
         serde_yaml::Value::Tagged(t) => {
             let tag = &t.tag;
-            let value = match &t.value {
+
+            match &t.value {
                 serde_yaml::Value::String(s) => {
-                    let val = format!("{} {}", tag, s).trim().to_string();
+                    let val = format!("{tag} {s}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Number(n) => {
-                    let val = format!("{} {}", tag, n).trim().to_string();
+                    let val = format!("{tag} {n}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Bool(b) => {
-                    let val = format!("{} {}", tag, b).trim().to_string();
+                    let val = format!("{tag} {b}").trim().to_string();
                     Value::string(val, span)
                 }
                 serde_yaml::Value::Null => {
-                    let val = format!("{}", tag).trim().to_string();
+                    let val = format!("{tag}").trim().to_string();
                     Value::string(val, span)
                 }
                 v => convert_yaml_value_to_nu_value(v, span, val_span)?,
-            };
-
-            value
+            }
         }
         serde_yaml::Value::Null => Value::nothing(span),
         x => unimplemented!("Unsupported YAML case: {:?}", x),
@@ -244,6 +243,7 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
 
 #[cfg(test)]
 mod test {
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -410,6 +410,7 @@ mod test {
             working_set.add_decl(Box::new(FromYaml {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -418,7 +419,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --datasource-ls | from yaml | metadata | $in"#;
+        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --datasource-ls | from yaml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

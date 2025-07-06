@@ -3634,19 +3634,19 @@ fn table_list() {
     let actual = nu!("table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("ls | table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("table --list --theme basic");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 }
 
@@ -3698,11 +3698,10 @@ fn table_footer_inheritance() {
         field0: [ [ y1, y2, y3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
         field1: [ a, b, c ],\
         field2: [ 123, 234, 345 ],\
-        field3: {},\
+        field3: {table1},\
         field4: {{ f1: 1, f2: 3, f3: {{ f1: f1, f2: f2, f3: f3 }} }},\
         field5: [ [ x1, x2, x3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
-    }}",
-        table1
+    }}"
     );
     let actual = nu!(format!(
         "$env.config.table.footer_inheritance = true; {structure} | table --width=80 --expand"

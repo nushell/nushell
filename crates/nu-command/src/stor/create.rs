@@ -81,33 +81,32 @@ fn process(
     if let Ok(conn) = db.open_connection() {
         match columns {
             Some(record) => {
-                let mut create_stmt = format!("CREATE TABLE {} ( ", new_table_name);
+                let mut create_stmt = format!("CREATE TABLE {new_table_name} ( ");
                 for (column_name, column_datatype) in record {
                     match column_datatype.coerce_str()?.as_ref() {
                         "int" => {
-                            create_stmt.push_str(&format!("{} INTEGER, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} INTEGER, "));
                         }
                         "float" => {
-                            create_stmt.push_str(&format!("{} REAL, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} REAL, "));
                         }
                         "str" => {
-                            create_stmt.push_str(&format!("{} VARCHAR(255), ", column_name));
+                            create_stmt.push_str(&format!("{column_name} VARCHAR(255), "));
                         }
 
                         "bool" => {
-                            create_stmt.push_str(&format!("{} BOOLEAN, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} BOOLEAN, "));
                         }
                         "datetime" => {
                             create_stmt.push_str(&format!(
-                                "{} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), ",
-                                column_name
+                                "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
                             ));
                         }
 
                         _ => {
                             return Err(ShellError::UnsupportedInput {
                                 msg: "unsupported column data type".into(),
-                                input: format!("{:?}", column_datatype),
+                                input: format!("{column_datatype:?}"),
                                 msg_span: column_datatype.span(),
                                 input_span: column_datatype.span(),
                             });

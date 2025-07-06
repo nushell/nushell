@@ -164,34 +164,35 @@ fn process(
     }
     let new_table_name = table_name.unwrap_or("table".into());
 
+    let mut create_stmt = format!("INSERT INTO {new_table_name} (");
+    let mut column_placeholders: Vec<String> = Vec::new();
+
+    let cols = record.columns();
+    cols.for_each(|col| {
+        column_placeholders.push(col.to_string());
+    });
+
+    create_stmt.push_str(&column_placeholders.join(", "));
+
+    // Values are set as placeholders.
+    create_stmt.push_str(") VALUES (");
+    let mut value_placeholders: Vec<String> = Vec::new();
+    for (index, _) in record.columns().enumerate() {
+        value_placeholders.push(format!("?{}", index + 1));
+    }
+    create_stmt.push_str(&value_placeholders.join(", "));
+    create_stmt.push(')');
+
+    // dbg!(&create_stmt);
+
+    // Get the params from the passed values
+    let params = values_to_sql(record.values().cloned())?;
+
     if let Ok(conn) = db.open_connection() {
-        let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
-        let mut column_placeholders: Vec<String> = Vec::new();
-
-        let cols = record.columns();
-        cols.for_each(|col| {
-            column_placeholders.push(col.to_string());
-        });
-
-        create_stmt.push_str(&column_placeholders.join(", "));
-
-        // Values are set as placeholders.
-        create_stmt.push_str(") VALUES (");
-        let mut value_placeholders: Vec<String> = Vec::new();
-        for (index, _) in record.columns().enumerate() {
-            value_placeholders.push(format!("?{}", index + 1));
-        }
-        create_stmt.push_str(&value_placeholders.join(", "));
-        create_stmt.push(')');
-
-        // dbg!(&create_stmt);
-
-        // Get the params from the passed values
-        let params = values_to_sql(record.values().cloned())?;
-
         conn.execute(&create_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
-                error: "Failed to open SQLite connection in memory from insert".into(),
+                error: "Failed to insert using the SQLite connection in memory from insert.rs."
+                    .into(),
                 msg: err.to_string(),
                 span: Some(Span::test_data()),
                 help: None,
