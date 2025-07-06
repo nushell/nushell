@@ -95,7 +95,7 @@ pub fn parse_iter<'i, Ctx: Clone>(
     warnings
 }
 
-fn parse_val<'v>(val: Option<&'v str>) -> Result<bool, &'v str> {
+fn parse_val(val: Option<&str>) -> Result<bool, &str> {
     match val.map(str::trim) {
         None => Ok(true),
         Some("true") => Ok(true),
