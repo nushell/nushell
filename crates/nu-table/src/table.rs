@@ -306,14 +306,17 @@ impl NuTable {
 
 // NOTE: Must never be called from nu-table - made only for tests
 // FIXME: remove it?
-#[cfg(test)]
+// #[cfg(test)]
 impl From<Vec<Vec<Text<String>>>> for NuTable {
     fn from(value: Vec<Vec<Text<String>>>) -> Self {
         let count_rows = value.len();
         let count_cols = if value.is_empty() { 0 } else { value[0].len() };
 
         let mut t = Self::new(count_rows, count_cols);
-        t.data = value;
+        for (i, row) in value.into_iter().enumerate() {
+            t.set_row(i, row);
+        }
+
         table_recalculate_widths(&mut t);
 
         t
