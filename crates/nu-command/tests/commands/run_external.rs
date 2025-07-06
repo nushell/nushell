@@ -4,6 +4,14 @@ use nu_test_support::playground::Playground;
 use rstest::rstest;
 use rstest_reuse::*;
 
+// Get full path to nu, so we don't use the nu extern
+fn nu_path(prefix: &str) -> String {
+    let binary = nu_test_support::fs::executable_path()
+        .to_string_lossy()
+        .to_string();
+    format!("{prefix}{}", binary)
+}
+
 // Template for run-external test to ensure tests work when calling
 // the binary directly, using the caret operator, and when using
 // the run-external command
@@ -18,8 +26,8 @@ fn run_external_prefixes(#[case] prefix: &str) {}
 fn better_empty_redirection(prefix: &str) {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | each {{ |it| {}nu `--testbin` cococo $it.name }} | ignore",
-        prefix
+        "ls | each {{ |it| {} `--testbin` cococo $it.name }} | ignore",
+        nu_path(prefix)
     );
 
     eprintln!("out: {}", actual.out);
@@ -39,9 +47,9 @@ fn explicit_glob(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo ('*.txt' | into glob)
+                {} `--testbin` cococo ('*.txt' | into glob)
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
@@ -61,9 +69,9 @@ fn bare_word_expand_path_glob(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             "
-                {}nu `--testbin` cococo *.txt
+                {} `--testbin` cococo *.txt
             ",
-            prefix
+            nu_path(prefix)
         );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
@@ -83,9 +91,9 @@ fn backtick_expand_path_glob(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo `*.txt`
+                {} `--testbin` cococo `*.txt`
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert!(actual.out.contains("D&D_volume_1.txt"));
@@ -105,9 +113,9 @@ fn single_quote_does_not_expand_path_glob(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo '*.txt'
+                {} `--testbin` cococo '*.txt'
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(actual.out, "*.txt");
@@ -126,9 +134,9 @@ fn double_quote_does_not_expand_path_glob(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo "*.txt"
+                {} `--testbin` cococo "*.txt"
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(actual.out, "*.txt");
@@ -141,9 +149,9 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             "
-                {}nu `--testbin` fail; echo done
+                {} `--testbin` fail; echo done
             ",
-            prefix
+            nu_path(prefix)
         );
 
         assert!(!actual.out.contains("done"));
@@ -156,9 +164,9 @@ fn external_args_with_quoted(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo "foo=bar 'hi'"
+                {} `--testbin` cococo "foo=bar 'hi'"
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(actual.out, "foo=bar 'hi'");
@@ -198,9 +206,9 @@ fn external_arg_with_non_option_like_embedded_quotes(#[case] prefix: &str) {
             let actual = nu!(
                 cwd: dirs.test(),
                 r#"
-                    {}nu `--testbin` cococo foo='bar' 'foo'=bar
+                    {} `--testbin` cococo foo='bar' 'foo'=bar
                 "#,
-                prefix
+                nu_path(prefix)
             );
 
             assert_eq!(actual.out, "foo=bar foo=bar");
@@ -217,9 +225,9 @@ fn external_arg_with_string_interpolation(#[case] prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
+                {} `--testbin` cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(actual.out, "foo=4 foo=4 foo=4");
@@ -233,9 +241,9 @@ fn external_arg_with_variable_name(prefix: &str) {
             cwd: dirs.test(),
             r#"
                 let dump_command = "PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'";
-                {}nu `--testbin` nonu $dump_command
+                {} `--testbin` nonu $dump_command
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(
@@ -251,9 +259,9 @@ fn external_command_escape_args(prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo "\"abcd"
+                {} `--testbin` cococo "\"abcd"
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         assert_eq!(actual.out, r#""abcd"#);
@@ -264,9 +272,9 @@ fn external_command_escape_args(prefix: &str) {
 fn external_command_ndots_args(prefix: &str) {
     let actual = nu!(
         r#"
-            {}nu `--testbin` cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
+            {} `--testbin` cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
         "#,
-        prefix
+        nu_path(prefix)
     );
 
     assert_eq!(
@@ -286,9 +294,9 @@ fn external_command_ndots_leading_dot_slash(prefix: &str) {
     // Don't expand ndots with a leading `./`
     let actual = nu!(
         r#"
-            {}nu `--testbin` cococo ./... ./....
+            {} `--testbin` cococo ./... ./....
         "#,
-        prefix
+        nu_path(prefix)
     );
 
     assert_eq!(actual.out, "./... ./....");
@@ -300,9 +308,9 @@ fn external_command_url_args(prefix: &str) {
     // here
     let actual = nu!(
         r#"
-            {}nu `--testbin` cococo http://example.com http://example.com/.../foo //foo
+            {} `--testbin` cococo http://example.com http://example.com/.../foo //foo
         "#,
-        prefix
+        nu_path(prefix)
     );
 
     assert_eq!(
@@ -359,9 +367,9 @@ fn external_arg_expand_tilde(#[case] prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                {}nu `--testbin` cococo ~/foo ~/(2 + 2)
+                {} `--testbin` cococo ~/foo ~/(2 + 2)
             "#,
-            prefix
+            nu_path(prefix)
         );
 
         let home = dirs::home_dir().expect("failed to find home dir");
@@ -382,7 +390,7 @@ fn external_command_not_expand_tilde_with_quotes(prefix: &str) {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), r#"{}nu `--testbin` nonu "~""#, prefix);
+            let actual = nu!(cwd: dirs.test(), r#"{} `--testbin` nonu "~""#, nu_path(prefix));
             assert_eq!(actual.out, r#"~"#);
         },
     )
@@ -393,7 +401,7 @@ fn external_command_expand_tilde_with_back_quotes(prefix: &str) {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), r#"{}nu `--testbin` nonu `~`"#, prefix);
+            let actual = nu!(cwd: dirs.test(), r#"{} `--testbin` nonu `~`"#, nu_path(prefix));
             assert!(!actual.out.contains('~'));
         },
     )
@@ -404,8 +412,8 @@ fn external_command_receives_raw_binary_data(prefix: &str) {
     Playground::setup("external command receives raw binary data", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            "0x[deadbeef] | {}nu `--testbin` input_bytes_length",
-            prefix
+            "0x[deadbeef] | {} `--testbin` input_bytes_length",
+            nu_path(prefix)
         );
         assert_eq!(actual.out, r#"4"#);
     })
@@ -494,9 +502,9 @@ fn quotes_trimmed_when_shelling_out(prefix: &str) {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
     let actual = nu!(
         r#"
-            {}nu `--testbin` cococo "foo"
+            {} `--testbin` cococo "foo"
         "#,
-        prefix
+        nu_path(prefix)
     );
 
     assert_eq!(actual.out, "foo");
@@ -565,8 +573,9 @@ fn expand_command_if_list(#[case] prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                let cmd = [nu `--testbin`]; {}$cmd meow foo.txt
+                let cmd = ['{}' `--testbin`]; {}$cmd meow foo.txt
             "#,
+            nu_path(""),
             prefix
         );
 
