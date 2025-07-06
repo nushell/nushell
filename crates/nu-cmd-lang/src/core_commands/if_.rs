@@ -60,11 +60,13 @@ impl Command for If {
     ) -> Result<PipelineData, ShellError> {
         let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
-        let then_block = call
-            .positional_nth(1)
-            .expect("checked through parser")
+        let then_expr = call.positional_nth(1).expect("checked through parser");
+        let then_block = then_expr
             .as_block()
-            .expect("internal error: missing block");
+            .ok_or_else(|| ShellError::TypeMismatch {
+                err_message: "expected block".into(),
+                span: then_expr.span,
+            })?;
         let else_case = call.positional_nth(2);
 
         if eval_constant(working_set, cond)?.as_bool()? {

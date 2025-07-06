@@ -9,6 +9,7 @@ use strum_macros::EnumIter;
 pub enum Type {
     Any,
     Binary,
+    Block,
     Bool,
     CellPath,
     Closure,
@@ -110,6 +111,7 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
+            Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
             Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
             Type::Duration => SyntaxShape::Duration,
@@ -134,6 +136,7 @@ impl Type {
         match self {
             Type::Closure => String::from("closure"),
             Type::Bool => String::from("bool"),
+            Type::Block => String::from("block"),
             Type::CellPath => String::from("cell-path"),
             Type::Date => String::from("datetime"),
             Type::Duration => String::from("duration"),
@@ -159,6 +162,7 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Type::Block => write!(f, "block"),
             Type::Closure => write!(f, "closure"),
             Type::Bool => write!(f, "bool"),
             Type::CellPath => write!(f, "cell-path"),
