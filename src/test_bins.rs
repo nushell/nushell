@@ -45,7 +45,6 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
 /// If it's not present, panic instead
 pub fn echo_env_mixed() {
     let args = args();
-    let args = &args[1..];
 
     if args.len() != 3 {
         panic!(
@@ -75,11 +74,11 @@ pub fn echo_env_mixed() {
 pub fn cococo() {
     let args: Vec<String> = args();
 
-    if args.len() > 1 {
+    if !args.is_empty() {
         // Write back out all the arguments passed
         // if given at least 1 instead of chickens
         // speaking co co co.
-        println!("{}", &args[1..].join(" "));
+        println!("{}", args.join(" "));
     } else {
         println!("cococo");
     }
@@ -89,7 +88,7 @@ pub fn cococo() {
 pub fn meow() {
     let args: Vec<String> = args();
 
-    for arg in args.iter().skip(1) {
+    for arg in args.iter() {
         let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
         println!("{contents}");
     }
@@ -102,7 +101,7 @@ pub fn meowb() {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    for arg in args.iter().skip(1) {
+    for arg in args.iter() {
         let buf = std::fs::read(arg).expect("Expected a filepath");
         handle.write_all(&buf).expect("failed to write to stdout");
     }
@@ -118,7 +117,7 @@ pub fn relay() {
 /// nu --testbin nonu a b c
 /// abc
 pub fn nonu() {
-    args().iter().skip(1).for_each(|arg| print!("{arg}"));
+    args().iter().for_each(|arg| print!("{arg}"));
 }
 
 /// Repeat a string or char N times
@@ -128,8 +127,7 @@ pub fn nonu() {
 /// testtesttesttesttest
 pub fn repeater() {
     let mut stdout = io::stdout();
-    let args = args();
-    let mut args = args.iter().skip(1);
+    let mut args = args().into_iter();
     let letter = args.next().expect("needs a character to iterate");
     let count = args.next().expect("need the number of times to iterate");
 
@@ -144,8 +142,7 @@ pub fn repeater() {
 /// A version of repeater that can output binary data, even null bytes
 pub fn repeat_bytes() {
     let mut stdout = io::stdout();
-    let args = args();
-    let mut args = args.iter().skip(1);
+    let mut args = args().into_iter();
 
     while let (Some(binary), Some(count)) = (args.next(), args.next()) {
         let bytes: Vec<u8> = (0..binary.len())
@@ -173,7 +170,6 @@ pub fn iecho() {
     let mut stdout = io::stdout();
     let _ = args()
         .iter()
-        .skip(1)
         .cycle()
         .try_for_each(|v| writeln!(stdout, "{v}"));
 }
@@ -364,6 +360,18 @@ pub fn input_bytes_length() {
 }
 
 fn args() -> Vec<String> {
-    // skip (--testbin bin_name args)
-    std::env::args().skip(2).collect()
+    // skip `nu` path (first argument)
+    // then skip --testbin=foo OR --testbin foo
+    std::env::args().skip(1).fold(vec![], |mut acc, it| {
+        // if we have --testbin foo, skip the previous argument (--testbin) and this argument (foo)
+        if acc.last().is_some_and(|last| last == "--testbin") {
+            acc.pop();
+            return acc;
+        }
+        // if we have --testbin=foo, skip it
+        if !it.starts_with("--testbin=") {
+            acc.push(it);
+        }
+        acc
+    })
 }
