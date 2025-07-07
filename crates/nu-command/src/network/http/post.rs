@@ -1,10 +1,9 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, extract_request_headers, http_client,
-    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
-use ureq::typestate::WithBody;
 
 #[derive(Clone)]
 pub struct HttpPost;
@@ -170,19 +169,19 @@ pub fn run_post(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
-    if let HttpBody::None = data {
+    let Some(data) = data else {
         return Err(ShellError::GenericError {
             error: "Data must be provided either through pipeline or positional argument".into(),
             msg: "".into(),
@@ -190,7 +189,7 @@ pub fn run_post(
             help: None,
             inner: vec![],
         });
-    }
+    };
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
@@ -229,11 +228,10 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let request_headers = extract_request_headers(&request);
-
-    let response = send_request(
+    let (response, request_headers) = send_request(
         engine_state,
-        super::client::GenericRequestBuilder::WithBody(request, args.data),
+        request,
+        args.data,
         args.content_type,
         call.head,
         engine_state.signals(),
@@ -253,7 +251,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
-        request_headers.unwrap_or_default(),
+        request_headers,
     )
 }
 
