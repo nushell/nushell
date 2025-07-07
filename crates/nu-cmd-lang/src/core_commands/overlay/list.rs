@@ -9,12 +9,13 @@ impl Command for OverlayList {
     }
 
     fn description(&self) -> &str {
-        "List all active overlays."
+        "List all active overlays, or all overlays including hidden ones with --hidden."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay list")
             .category(Category::Core)
+            .switch("hidden", "Show hidden overlays", None)
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
     }
 
@@ -24,27 +25,57 @@ impl Command for OverlayList {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let active_overlays_engine: Vec<Value> = stack
-            .active_overlays
-            .iter()
-            .map(|s| Value::string(s, call.head))
-            .collect();
+        let show_hidden = call.has_flag(engine_state, stack, "hidden")?;
 
-        Ok(Value::list(active_overlays_engine, call.head).into_pipeline_data())
+        let overlays: Vec<Value> = if show_hidden {
+            // Show all overlays from engine state (including hidden ones)
+            engine_state
+                .scope
+                .overlays
+                .iter()
+                .filter_map(|(name, _)| {
+                    let overlay_name = String::from_utf8_lossy(name);
+                    stack
+                        .active_overlays
+                        .iter()
+                        .all(|name| name.as_str() != overlay_name) // filter already existing overlays
+                        .then_some(Value::string(overlay_name, call.head))
+                })
+                .collect()
+        } else {
+            // Show only active overlays from stack
+            stack
+                .active_overlays
+                .iter()
+                .map(|s| Value::string(s, call.head))
+                .collect()
+        };
+
+        Ok(Value::list(overlays, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Get the last activated overlay",
-            example: r#"module spam { export def foo [] { "foo" } }
+        vec![
+            Example {
+                description: "Get the last activated overlay",
+                example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay list | last"#,
-            result: Some(Value::test_string("spam")),
-        }]
+                result: Some(Value::test_string("spam")),
+            },
+            Example {
+                description: "List all overlays including hidden ones",
+                example: r#"module spam { export def foo [] { "foo" } }
+    overlay use spam
+    overlay hide spam
+    overlay list --hidden | last"#,
+                result: Some(Value::test_string("spam")),
+            },
+        ]
     }
 }
