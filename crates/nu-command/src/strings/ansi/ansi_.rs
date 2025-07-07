@@ -902,8 +902,8 @@ fn generate_ansi_code_list(
             let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
 
             let record = if use_ansi_coloring {
-                // The first 397 items in the ansi array are previewable
-                let preview = if i < 397 {
+                // The first 409 items in the ansi array are previewable
+                let preview = if i < 409 {
                     Value::string(
                         format!("\u{1b}[0m{}NUSHELL\u{1b}[0m", &ansi_code.code),
                         call_span,
