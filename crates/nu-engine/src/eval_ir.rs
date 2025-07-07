@@ -354,7 +354,7 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.collect_reg(*src, *span)?;
             // Perform runtime type checking and conversion for variable assignment
             let variable = ctx.engine_state.get_var(*var_id);
-            let converted_value = convert_value_for_assignment(value, &variable.ty)?;
+            let converted_value = check_assignment_type(value, &variable.ty)?;
             ctx.stack.add_var(*var_id, converted_value);
             Ok(Continue)
         }
@@ -1274,7 +1274,7 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
 }
 
 /// Type check and convert value for assignment.
-fn convert_value_for_assignment(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
+fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
     match val {
         Value::Error { error, .. } => Err(*error),
         _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
