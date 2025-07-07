@@ -41,17 +41,6 @@
     <!-- If set to WixPerMachineFolder will install for PerMachine by default -->
     <Property Id="WixAppFolder" Value="WixLocalAppDataFolder" />
 
-    <!--
-      Support for winget install `——scope machine`:
-        Winget doesn't directly pass ALLUSERS=1 to the MSI installer when using
-        ——scope machine. Instead, it passes a property called INSTALLSCOPEMACHINE=1
-        This converts the winget parameter to the standard MSI parameter.
-        FIXME: However, this doesn't seem to work...
-    -->
-    <SetProperty Id="ALLUSERS" Value="1" After="LaunchConditions" Condition="INSTALLSCOPEMACHINE=1" />
-    <!-- This ensures the per-user flag is turned off when installing for all users. -->
-    <SetProperty Id="MSIINSTALLPERUSER" Value="0" After="LaunchConditions" Condition="INSTALLSCOPEMACHINE=1" />
-
     <!-- Workaround Wix Bug: https://github.com/wixtoolset/issues/issues/2165 -->
     <!-- The suggested folder in the dest folder dialog should be C:\Program Files\nu -->
     <CustomAction Id="Overwrite_WixSetDefaultPerMachineFolder" Property="WixPerMachineFolder"
@@ -248,7 +237,7 @@
     <!-- If installing per-machine (ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1), this sets INSTALLDIR and BINDIR to point to machine-wide (Program Files) paths -->
     <SetProperty Id="INSTALLDIR"
                  Action="SetINSTALLDIR_Machine"
-                 Value="[APPLICATIONFOLDER]"
+                 Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
                  After="LaunchConditions"
                  Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
                  Sequence="both" />
