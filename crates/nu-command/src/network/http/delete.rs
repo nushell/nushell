@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, extract_request_headers, http_client,
-    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -148,7 +148,7 @@ impl Command for HttpDelete {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: HttpBody,
+    data: Option<HttpBody>,
     content_type: Option<String>,
     raw: bool,
     insecure: bool,
@@ -168,13 +168,13 @@ fn run_delete(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .get_flag::<Value>(engine_state, stack, "data")?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
@@ -216,16 +216,23 @@ fn helper(
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
-
-    let request_headers = extract_request_headers(&request);
-
-    let response = send_request(
-        engine_state,
-        super::client::GenericRequestBuilder::WithoutBody(request),
-        args.content_type,
-        call.head,
-        engine_state.signals(),
-    );
+    let (response, request_headers) = match args.data {
+        None => send_request_no_body(request, call.head, engine_state.signals()),
+        
+        Some(body) => send_request(
+            engine_state,
+            // Nushell allows sending body via delete method, but not via get.
+            // We should probably unify the behaviour here.
+            //
+            // Sending body with DELETE goes against the spec, but might be useful in some cases,
+            // see [force_send_body] documentation.
+            request.force_send_body(),
+            body,
+            args.content_type,
+            span,
+            engine_state.signals()
+        ),
+    };
 
     let request_flags = RequestFlags {
         raw: args.raw,
@@ -241,7 +248,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
-        request_headers.unwrap_or_default(),
+        request_headers,
     )
 }
 
