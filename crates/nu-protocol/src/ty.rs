@@ -74,6 +74,8 @@ impl Type {
             (t, u) if t == u => true,
             (Type::Float, Type::Number) => true,
             (Type::Int, Type::Number) => true,
+            (Type::Glob, Type::String) => true,
+            (Type::String, Type::Glob) => true,
             (_, Type::Any) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
