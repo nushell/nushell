@@ -3,7 +3,6 @@ use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
 };
-use http::Uri;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
@@ -25,21 +24,6 @@ use url::Url;
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
 type Response = http::Response<Body>;
-
-// crutch to help migrate to newer ureq
-pub(crate) enum GenericRequestBuilder {
-    WithBody(RequestBuilder<WithBody>, HttpBody),
-    WithoutBody(RequestBuilder<WithoutBody>),
-}
-
-impl GenericRequestBuilder {
-    fn uri_ref(&self) -> Option<&Uri> {
-        match self {
-            GenericRequestBuilder::WithBody(request_builder, ..) => request_builder.uri_ref(),
-            GenericRequestBuilder::WithoutBody(request_builder) => request_builder.uri_ref(),
-        }
-    }
-}
 
 type ContentType = String;
 
@@ -236,74 +220,80 @@ impl From<ShellError> for ShellErrorOrRequestError {
 pub enum HttpBody {
     Value(Value),
     ByteStream(ByteStream),
-    // FIXME(ureq): deprecated, ureq now uses WithBody and WithoutBody for this
-    None,
 }
 
-// FIXME(ureq): split into two functions along [GenericRequestBuilder]
+pub fn send_request_no_body(
+    request: RequestBuilder<WithoutBody>,
+    span: Span,
+    signals: &Signals,
+) -> (Result<Response, ShellErrorOrRequestError>, Headers) {
+    let headers = extract_request_headers(&request);
+    let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
+    (
+        send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals),
+        headers.unwrap_or_default(),
+    )
+}
+
 // remove once all commands have been migrated
 pub fn send_request(
     engine_state: &EngineState,
-    request: GenericRequestBuilder,
+    request: RequestBuilder<WithBody>,
+    body: HttpBody,
     content_type: Option<String>,
     span: Span,
     signals: &Signals,
-) -> Result<Response, ShellErrorOrRequestError> {
+) -> (Result<Response, ShellErrorOrRequestError>, Headers) {
+    let mut request_headers = Headers::new();
     let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
     // hard code serialze_types to false because closures probably shouldn't be
     // deserialized for send_request but it's required by send_json_request
     let serialze_types = false;
-
-    match request {
-        GenericRequestBuilder::WithoutBody(request) => {
-            send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
+    let response = match body {
+        HttpBody::ByteStream(byte_stream) => {
+            let req = if let Some(content_type) = content_type {
+                request.header("Content-Type", &content_type)
+            } else {
+                request
+            };
+            if let Some(h) = extract_request_headers(&req) {
+                request_headers = h;
+            }
+            send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
-        GenericRequestBuilder::WithBody(request, http_body) => {
-            match http_body {
-                HttpBody::ByteStream(byte_stream) => {
-                    let req = if let Some(content_type) = content_type {
-                        request.header("Content-Type", &content_type)
-                    } else {
-                        request
-                    };
-                    send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
-                }
-                HttpBody::Value(body) => {
-                    let body_type = BodyType::from(content_type);
+        HttpBody::Value(body) => {
+            let body_type = BodyType::from(content_type);
 
-                    // We should set the content_type if there is one available
-                    // when the content type is unknown
-                    let req = if let BodyType::Unknown(Some(content_type)) = &body_type {
-                        request.header("Content-Type", content_type)
-                    } else {
-                        request
-                    };
+            // We should set the content_type if there is one available
+            // when the content type is unknown
+            let req = if let BodyType::Unknown(Some(content_type)) = &body_type {
+                request.header("Content-Type", content_type)
+            } else {
+                request
+            };
 
-                    match body_type {
-                        BodyType::Json => send_json_request(
-                            engine_state,
-                            &request_url,
-                            body,
-                            req,
-                            span,
-                            signals,
-                            serialze_types,
-                        ),
-                        BodyType::Form => send_form_request(&request_url, body, req, span, signals),
-                        BodyType::Multipart => {
-                            send_multipart_request(&request_url, body, req, span, signals)
-                        }
-                        BodyType::Unknown(_) => {
-                            send_default_request(&request_url, body, req, span, signals)
-                        }
-                    }
+            match body_type {
+                BodyType::Json => send_json_request(
+                    engine_state,
+                    &request_url,
+                    body,
+                    req,
+                    span,
+                    signals,
+                    serialze_types,
+                ),
+                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
+                BodyType::Multipart => {
+                    send_multipart_request(&request_url, body, req, span, signals)
                 }
-                HttpBody::None => {
-                    unreachable!("FIXME(ureq): remove this variant")
+                BodyType::Unknown(_) => {
+                    send_default_request(&request_url, body, req, span, signals)
                 }
             }
         }
-    }
+    };
+
+    (response, request_headers)
 }
 
 fn send_json_request(
