@@ -9,7 +9,7 @@ impl Command for OverlayList {
     }
 
     fn description(&self) -> &str {
-        "List all active overlays, or all overlays including hidden ones with --hidden."
+        "List all active overlays, or hidden ones with --hidden."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
