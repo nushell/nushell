@@ -353,6 +353,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
 
         // intentionally enumerated so that any future types get handled
         Type::Any
+        | Type::Block
         | Type::CellPath
         | Type::Closure
         | Type::Custom(_)

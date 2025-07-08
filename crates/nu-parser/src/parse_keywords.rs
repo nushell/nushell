@@ -2487,7 +2487,7 @@ pub fn parse_module(
         working_set,
         Expr::Block(block_id),
         block_expr_span,
-        Type::Any,
+        Type::Block,
     );
 
     let module_decl_id = working_set

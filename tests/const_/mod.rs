@@ -410,6 +410,15 @@ fn if_const() {
     assert_eq!(actual.out, "no!");
 }
 
+#[rstest]
+#[case(&"const x = if true ()", "expected block, found nothing")]
+#[case(&"const x = if true {foo: bar}", "expected block, found record")]
+#[case(&"const x = if true {1: 2}", "expected block")]
+fn if_const_error(#[case] inp: &str, #[case] expect: &str) {
+    let actual = nu!(inp);
+    assert!(actual.err.contains(expect));
+}
+
 #[test]
 fn const_glob_type() {
     let actual = nu!("const x: glob = 'aa'; $x | describe");
