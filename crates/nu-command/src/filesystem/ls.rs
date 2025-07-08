@@ -341,7 +341,7 @@ fn ls_for_one_pattern(
 
     let mut paths_peek = paths.peekable();
     let no_matches = paths_peek.peek().is_none();
-    signals.check(call_span)?;
+    signals.check(&call_span)?;
     if no_matches {
         return Err(ShellError::GenericError {
             error: format!("No matches found for {:?}", path.item),
@@ -979,14 +979,14 @@ fn read_dir(
         .read_dir()
         .map_err(|err| IoError::new(err, span, f.clone()))?
         .map(move |d| {
-            signals_clone.check(span)?;
+            signals_clone.check(&span)?;
             d.map(|r| r.path())
                 .map_err(|err| IoError::new(err, span, f.clone()))
                 .map_err(ShellError::from)
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();
-        signals.check(span)?;
+        signals.check(&span)?;
         collected.sort_by(|a, b| match (a, b) {
             (Ok(a), Ok(b)) => a.cmp(b),
             (Ok(_), Err(_)) => Ordering::Greater,

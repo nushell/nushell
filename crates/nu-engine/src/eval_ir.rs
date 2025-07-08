@@ -292,6 +292,9 @@ fn eval_instruction<D: DebugContext>(
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
+    // Check for ctrl-c
+    ctx.engine_state.signals().check(&span)?;
+
     // See the docs for `Instruction` for more information on what these instructions are supposed
     // to do.
     match instruction {
