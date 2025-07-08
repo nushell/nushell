@@ -1181,7 +1181,7 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     let nanos = nanos_per_day(a);
-                    let datetime = datetime_from_epoch_nanos(nanos, &None, span)?;
+                    let datetime = datetime_from_epoch_nanos(nanos, None, span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -1208,7 +1208,7 @@ fn series_to_values(
                 Some(a) => {
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
                     let nanos = nanos_from_timeunit(a, *time_unit)?;
-                    let datetime = datetime_from_epoch_nanos(nanos, tz, span)?;
+                    let datetime = datetime_from_epoch_nanos(nanos, tz.as_ref(), span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -1298,7 +1298,7 @@ fn series_to_values(
             error: "Error creating Dataframe".into(),
             msg: "".to_string(),
             span: None,
-            help: Some(format!("Value not supported in nushell: {e}")),
+            help: Some(format!("Value not supported in nushell: {e:?}")),
             inner: vec![],
         }),
     }
@@ -1321,12 +1321,16 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::Float64(f) => Ok(Value::float(*f, span)),
         AnyValue::Date(d) => {
             let nanos = nanos_per_day(*d);
-            datetime_from_epoch_nanos(nanos, &None, span)
-                .map(|datetime| Value::date(datetime, span))
+            datetime_from_epoch_nanos(nanos, None, span).map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Datetime(a, time_unit, tz) => {
             let nanos = nanos_from_timeunit(*a, *time_unit)?;
-            datetime_from_epoch_nanos(nanos, &tz.cloned(), span)
+            datetime_from_epoch_nanos(nanos, tz.cloned().as_ref(), span)
+                .map(|datetime| Value::date(datetime, span))
+        }
+        AnyValue::DatetimeOwned(a, time_unit, tz) => {
+            let nanos = nanos_from_timeunit(*a, *time_unit)?;
+            datetime_from_epoch_nanos(nanos, tz.as_ref().map(|tz| tz.as_ref()), span)
                 .map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Duration(a, time_unit) => {
@@ -1402,7 +1406,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             error: "Error creating Value".into(),
             msg: "".to_string(),
             span: Some(span),
-            help: Some(format!("Value not supported in nushell: {e}")),
+            help: Some(format!("Value not supported in nushell: {e:?}")),
             inner: Vec::new(),
         }),
     }
@@ -1445,7 +1449,7 @@ fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
 
 fn datetime_from_epoch_nanos(
     nanos: i64,
-    timezone: &Option<PolarsTimeZone>,
+    timezone: Option<&PolarsTimeZone>,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
