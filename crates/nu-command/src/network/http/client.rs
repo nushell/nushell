@@ -3,6 +3,7 @@ use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
 };
+use log::warn;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
@@ -865,21 +866,11 @@ pub fn request_handle_response(
             ShellErrorOrRequestError::RequestError(_, e) => {
                 if flags.allow_errors {
                     if let Error::StatusCode(..) = *e {
-                        // FIXME(ureq): check that we do indeed configure away errors
                         unreachable!(
                             "We configure away status code errors
                             because we would like to receive
                             the body even on http error status"
                         );
-
-                        // Ok(request_handle_response_content(
-                        //     engine_state,
-                        //     stack,
-                        //     span,
-                        //     requested_url,
-                        //     flags,
-                        //     request,
-                        // )?)
                     } else {
                         Err(handle_response_error(span, requested_url, *e))
                     }
@@ -893,7 +884,7 @@ pub fn request_handle_response(
 
 type Headers = HashMap<String, Vec<String>>;
 
-pub(crate) fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<Headers> {
+fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<Headers> {
     let headers = request.headers_ref()?;
     let headers_str = headers
         .keys()
@@ -903,8 +894,14 @@ pub(crate) fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<
                 headers
                     .get_all(name)
                     .iter()
-                    // FIXME(ureq): log unparseable headers
-                    .filter_map(|v| v.to_str().ok().map(|s| s.to_string()))
+                    .filter_map(|v| {
+                        v.to_str()
+                            .map_err(|e| {
+                                warn!("Invalid header {name:?}: {e:?}");
+                            })
+                            .ok()
+                            .map(|s| s.to_string())
+                    })
                     .collect(),
             )
         })
@@ -913,18 +910,23 @@ pub(crate) fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<
 }
 
 fn extract_response_headers(response: &Response) -> Headers {
-    response
-        .headers()
+    let header_map = response.headers();
+    header_map
         .keys()
         .map(|name| {
             (
                 name.to_string().clone(),
-                response
-                    .headers()
+                header_map
                     .get_all(name)
                     .iter()
-                    // FIXME(ureq): log unparseable headers
-                    .filter_map(|v| v.to_str().ok().map(|s| s.to_string()))
+                    .filter_map(|v| {
+                        v.to_str()
+                            .map_err(|e| {
+                                warn!("Invalid header {name:?}: {e:?}");
+                            })
+                            .ok()
+                            .map(|s| s.to_string())
+                    })
                     .collect(),
             )
         })
