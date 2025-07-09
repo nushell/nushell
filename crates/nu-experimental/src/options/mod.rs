@@ -8,6 +8,8 @@ use crate::*;
 mod example;
 mod reorder_cell_paths;
 
+pub(crate) type Version = (u16, u16, u16);
+
 /// Marker trait for defining experimental options.
 ///
 /// Implement this trait to mark a struct as metadata for an [`ExperimentalOption`].
@@ -36,6 +38,19 @@ pub(crate) trait ExperimentalOptionMarker {
     /// Experimental options that stabilize should be marked as [`Status::DeprecatedDefault`] while
     /// options that will be removed should be [`Status::DeprecatedDiscard`].
     const STATUS: Status;
+
+    /// Nushell version since this experimental option is available.
+    /// 
+    /// These three values represent major.minor.patch version.
+    /// Don't use some macro to generate this dynamically as this would defeat the purpose of having 
+    /// a historic record.
+    const SINCE: Version;
+
+    /// PR number that introduced this experimental option.
+    /// 
+    /// To make this work, add a placeholder value here when developing and then, after opening the 
+    /// PR, update this value.
+    const PR: u32;
 }
 
 // Export only the static values.
