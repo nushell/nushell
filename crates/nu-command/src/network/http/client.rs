@@ -682,13 +682,17 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
             ),
             span,
         },
-        e => {
-            // FIXME(ureq): handle other errors
-            ShellError::NetworkFailure {
-                msg: e.to_string(),
-                span,
-            }
-        }
+        Error::ConnectionFailed => ShellError::NetworkFailure {
+            msg: format!(
+                "Cannot make request to {requested_url}, there was an error establishing a connection.",
+            ),
+            span,
+        },
+        Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
+        e => ShellError::NetworkFailure {
+            msg: e.to_string(),
+            span,
+        },
     }
 }
 
