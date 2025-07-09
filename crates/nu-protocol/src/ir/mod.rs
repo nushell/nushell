@@ -382,6 +382,21 @@ impl Instruction {
         }
         Ok(())
     }
+
+    /// Whether the evaluator is allowed to check for an interrupt before evaluating an instruction
+    pub fn allow_interrupt(&self) -> bool {
+        match self {
+            Instruction::Collect { .. } => true,
+            Instruction::Drain { .. } => true,
+            Instruction::DrainIfEnd { .. } => true,
+            Instruction::Jump { .. } => true,
+            Instruction::BranchIf { .. } => true,
+            Instruction::Iterate { .. } => true,
+            Instruction::ReturnEarly { .. } => true,
+            Instruction::Return { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 // This is to document/enforce the size of `Instruction` in bytes.
