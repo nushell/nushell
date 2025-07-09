@@ -134,7 +134,10 @@ impl ExperimentalOption {
     }
 
     pub fn pr_url(&self) -> String {
-        format!("https://github.com/nushell/nushell/pull/{}", self.marker.pr())
+        format!(
+            "https://github.com/nushell/nushell/pull/{}",
+            self.marker.pr()
+        )
     }
 
     pub fn get(&self) -> bool {
