@@ -106,8 +106,6 @@ pub fn tls(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
             let certs = RootCerts::WebPki;
 
             TlsConfig::builder()
-                // FIXME(ureq): this call does not have semver guarantees
-                // should we set up crypto provider some other way?
                 .unversioned_rustls_crypto_provider(crypto_provider)
                 .root_certs(certs)
                 .build()
