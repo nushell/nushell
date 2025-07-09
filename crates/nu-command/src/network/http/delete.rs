@@ -218,7 +218,7 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
     let (response, request_headers) = match args.data {
         None => send_request_no_body(request, call.head, engine_state.signals()),
-        
+
         Some(body) => send_request(
             engine_state,
             // Nushell allows sending body via delete method, but not via get.
@@ -230,7 +230,7 @@ fn helper(
             body,
             args.content_type,
             span,
-            engine_state.signals()
+            engine_state.signals(),
         ),
     };
 
