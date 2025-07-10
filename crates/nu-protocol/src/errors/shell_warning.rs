@@ -35,7 +35,7 @@ impl Reportable for ShellWarning {
     fn report_mode(&self) -> ReportMode {
         match self {
             ShellWarning::Deprecated { report_mode, .. } => *report_mode,
-            ShellWarning::InvalidConfig { .. } => ReportMode::EveryUse,
+            ShellWarning::InvalidConfig { .. } => ReportMode::FirstUse,
         }
     }
 }
