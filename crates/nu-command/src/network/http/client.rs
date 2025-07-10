@@ -3,6 +3,7 @@ use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
 };
+use http::StatusCode;
 use log::warn;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
@@ -656,42 +657,52 @@ pub fn request_add_custom_headers<B>(
     Ok(request)
 }
 
-fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
-    match response_err {
-        Error::StatusCode(301) => ShellError::NetworkFailure {
+fn handle_status_error(span: Span, requested_url: &str, status: StatusCode) -> ShellError {
+    match status {
+        StatusCode::MOVED_PERMANENTLY => ShellError::NetworkFailure {
             msg: format!("Resource moved permanently (301): {requested_url:?}"),
             span,
         },
-        Error::StatusCode(400) => ShellError::NetworkFailure {
+        StatusCode::BAD_REQUEST => ShellError::NetworkFailure {
             msg: format!("Bad request (400) to {requested_url:?}"),
             span,
         },
-        Error::StatusCode(403) => ShellError::NetworkFailure {
+        StatusCode::FORBIDDEN => ShellError::NetworkFailure {
             msg: format!("Access forbidden (403) to {requested_url:?}"),
             span,
         },
-        Error::StatusCode(404) => ShellError::NetworkFailure {
+        StatusCode::NOT_FOUND => ShellError::NetworkFailure {
             msg: format!("Requested file not found (404): {requested_url:?}"),
             span,
         },
-        Error::StatusCode(408) => ShellError::NetworkFailure {
+        StatusCode::REQUEST_TIMEOUT => ShellError::NetworkFailure {
             msg: format!("Request timeout (408): {requested_url:?}"),
             span,
         },
-        Error::StatusCode(..) => ShellError::NetworkFailure {
+        c => ShellError::NetworkFailure {
             msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
-                response_err.to_string()
+                c.to_string()
             ),
             span,
         },
+    }
+}
+
+fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+    match response_err {
         Error::ConnectionFailed => ShellError::NetworkFailure {
             msg: format!(
                 "Cannot make request to {requested_url}, there was an error establishing a connection.",
             ),
             span,
         },
+        Error::Timeout(..) => ShellError::Io(IoError::new(
+            ErrorKind::from_std(std::io::ErrorKind::TimedOut),
+            span,
+            None,
+        )),
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
         e => ShellError::NetworkFailure {
             msg: e.to_string(),
@@ -807,6 +818,10 @@ fn request_handle_response_content(
             None => Ok(response_to_buffer(response, engine_state, span)),
         }
     };
+
+    if !flags.allow_errors && !resp.status().is_success() {
+        return Err(handle_status_error(span, requested_url, resp.status()));
+    }
 
     if flags.full {
         let response_status = resp.status();
