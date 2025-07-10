@@ -273,6 +273,10 @@ pub fn send_request(
                 request
             };
 
+            if let Some(h) = extract_request_headers(&req) {
+                request_headers = h;
+            }
+
             match body_type {
                 BodyType::Json => send_json_request(
                     engine_state,
