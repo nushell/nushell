@@ -10,7 +10,7 @@ use crate::{ReportMode, Reportable};
 #[diagnostic(severity(Warning))]
 pub enum ShellWarning {
     #[error("{dep_type} deprecated.")]
-    #[diagnostic(code(nu::parser::deprecated))]
+    #[diagnostic(code(nu::shell::deprecated))]
     Deprecated {
         dep_type: String,
         label: String,
