@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 
 use nu_protocol::{
-    report_error::report_experimental_option_warning,
     engine::{EngineState, StateWorkingSet},
+    report_error::report_experimental_option_warning,
 };
 
 use crate::command::NushellCliArgs;

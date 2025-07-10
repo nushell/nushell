@@ -3,9 +3,9 @@ use nu_engine::{eval_block, eval_block_with_early_return, redirect_env};
 use nu_parser::parse;
 use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
-    report_error::{report_parse_error, report_shell_error},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
+    report_error::{report_parse_error, report_shell_error},
 };
 use std::{collections::HashMap, sync::Arc};
 
