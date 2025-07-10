@@ -1,7 +1,7 @@
 //! Module containing the internal representation of user configuration
 
-use crate as nu_protocol;
 use crate::FromValue;
+use crate::{self as nu_protocol};
 use helper::*;
 use prelude::*;
 use std::collections::HashMap;
@@ -219,7 +219,11 @@ impl UpdateFromValue for Config {
 }
 
 impl Config {
-    pub fn update_from_value(&mut self, old: &Config, value: &Value) -> Option<ShellError> {
+    pub fn update_from_value(
+        &mut self,
+        old: &Config,
+        value: &Value,
+    ) -> Result<Option<ShellWarning>, ShellError> {
         // Current behaviour is that config errors are displayed, but do not prevent the rest
         // of the config from being updated (fields with errors are skipped/not updated).
         // Errors are simply collected one-by-one and wrapped into a ShellError variant at the end.
@@ -228,6 +232,6 @@ impl Config {
 
         self.update(value, &mut path, &mut errors);
 
-        errors.into_shell_error()
+        errors.check()
     }
 }
