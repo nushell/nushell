@@ -8,7 +8,7 @@ use crate::{ReportMode, Reportable};
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 #[diagnostic(severity(Warning))]
-pub enum ParseWarning {
+pub enum ShellWarning {
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
     Deprecation {
@@ -22,27 +22,27 @@ pub enum ParseWarning {
     },
 }
 
-impl ParseWarning {
+impl ShellWarning {
     pub fn span(&self) -> Span {
         match self {
-            ParseWarning::Deprecation { span, .. } => *span,
+            ShellWarning::Deprecation { span, .. } => *span,
         }
     }
 }
 
-impl Reportable for ParseWarning {
+impl Reportable for ShellWarning {
     fn report_mode(&self) -> ReportMode {
         match self {
-            ParseWarning::Deprecation { report_mode, .. } => *report_mode,
+            ShellWarning::Deprecation { report_mode, .. } => *report_mode,
         }
     }
 }
 
 // To keep track of reported warnings
-impl Hash for ParseWarning {
+impl Hash for ShellWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            ParseWarning::Deprecation {
+            ShellWarning::Deprecation {
                 dep_type, label, ..
             } => {
                 dep_type.hash(state);

@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use nu_protocol::{
-    cli_error::report_experimental_option_warning,
+    report_error::report_experimental_option_warning,
     engine::{EngineState, StateWorkingSet},
 };
 

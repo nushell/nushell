@@ -3,7 +3,7 @@ use crate::{
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
     VarId, VirtualPathId,
     ast::Block,
-    cli_error::ReportLog,
+    report_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
