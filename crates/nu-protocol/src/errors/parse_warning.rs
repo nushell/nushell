@@ -11,7 +11,7 @@ use crate::{ReportMode, Reportable};
 pub enum ParseWarning {
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
-    Deprecation {
+    Deprecated {
         dep_type: String,
         label: String,
         #[label("{label}")]
@@ -25,7 +25,7 @@ pub enum ParseWarning {
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
-            ParseWarning::Deprecation { span, .. } => *span,
+            ParseWarning::Deprecated { span, .. } => *span,
         }
     }
 }
@@ -33,7 +33,7 @@ impl ParseWarning {
 impl Reportable for ParseWarning {
     fn report_mode(&self) -> ReportMode {
         match self {
-            ParseWarning::Deprecation { report_mode, .. } => *report_mode,
+            ParseWarning::Deprecated { report_mode, .. } => *report_mode,
         }
     }
 }
@@ -42,7 +42,7 @@ impl Reportable for ParseWarning {
 impl Hash for ParseWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            ParseWarning::Deprecation {
+            ParseWarning::Deprecated {
                 dep_type, label, ..
             } => {
                 dep_type.hash(state);

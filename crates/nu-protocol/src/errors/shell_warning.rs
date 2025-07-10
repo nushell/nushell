@@ -11,7 +11,7 @@ use crate::{ReportMode, Reportable};
 pub enum ShellWarning {
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
-    Deprecation {
+    Deprecated {
         dep_type: String,
         label: String,
         #[label("{label}")]
@@ -25,7 +25,7 @@ pub enum ShellWarning {
 impl ShellWarning {
     pub fn span(&self) -> Span {
         match self {
-            ShellWarning::Deprecation { span, .. } => *span,
+            ShellWarning::Deprecated { span, .. } => *span,
         }
     }
 }
@@ -33,7 +33,7 @@ impl ShellWarning {
 impl Reportable for ShellWarning {
     fn report_mode(&self) -> ReportMode {
         match self {
-            ShellWarning::Deprecation { report_mode, .. } => *report_mode,
+            ShellWarning::Deprecated { report_mode, .. } => *report_mode,
         }
     }
 }
@@ -42,7 +42,7 @@ impl Reportable for ShellWarning {
 impl Hash for ShellWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            ShellWarning::Deprecation {
+            ShellWarning::Deprecated {
                 dep_type, label, ..
             } => {
                 dep_type.hash(state);

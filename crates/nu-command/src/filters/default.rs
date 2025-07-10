@@ -339,7 +339,7 @@ fn closure_variable_warning(
 
             report_shell_warning(
                 engine_state,
-                &ShellWarning::Deprecation {
+                &ShellWarning::Deprecated {
                     dep_type: "Behavior".to_string(),
                     label,
                     span,
