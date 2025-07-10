@@ -54,3 +54,17 @@ pub enum ConfigError {
     #[diagnostic(transparent)]
     ShellError(#[from] ShellError),
 }
+
+/// Warnings which don't prevent config from being loaded, but we should inform the user about
+#[derive(Clone, Debug, PartialEq, Error, Diagnostic)]
+#[diagnostic(severity(Warning))]
+pub enum ConfigWarning {
+    #[error("Incompatible options")]
+    #[diagnostic(code(nu::shell::incompatible_options), help("{help}"))]
+    IncompatibleOptions {
+        label: &'static str,
+        #[label = "{label}"]
+        span: Span,
+        help: &'static str,
+    },
+}
