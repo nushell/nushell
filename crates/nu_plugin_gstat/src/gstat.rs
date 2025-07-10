@@ -220,7 +220,7 @@ impl Stats {
         let mut st: Stats = Default::default();
 
         st.read_branch(repo);
-        st.state = format!("{:?}", repo.state());
+        st.state = format!("{:?}", repo.state()).to_lowercase();
 
         let mut opts = git2::StatusOptions::new();
 
