@@ -1220,7 +1220,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     },
 
     #[error("{deprecation_type} deprecated.")]
-    #[diagnostic(code(nu::shell::deprecated))]
+    #[diagnostic(code(nu::shell::deprecated), severity(Warning))]
     DeprecationWarning {
         deprecation_type: &'static str,
         suggestion: String,
