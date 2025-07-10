@@ -292,10 +292,8 @@ fn eval_instruction<D: DebugContext>(
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
-    if instruction.allow_interrupt() {
-        // Check for ctrl-c
-        ctx.engine_state.signals().check(span)?;
-    }
+    // Check for interrupt if necessary
+    instruction.check_interrupt(ctx.engine_state, span)?;
 
     // See the docs for `Instruction` for more information on what these instructions are supposed
     // to do.

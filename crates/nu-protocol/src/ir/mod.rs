@@ -1,5 +1,5 @@
 use crate::{
-    BlockId, DeclId, Filesize, RegId, Span, Value, VarId,
+    BlockId, DeclId, Filesize, RegId, ShellError, Span, Value, VarId,
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
 };
@@ -383,18 +383,17 @@ impl Instruction {
         Ok(())
     }
 
-    /// Whether the evaluator is allowed to check for an interrupt before evaluating an instruction
-    pub fn allow_interrupt(&self) -> bool {
+    /// Check for an interrupt before certain instructions
+    pub fn check_interrupt(
+        &self,
+        engine_state: &EngineState,
+        span: &Span,
+    ) -> Result<(), ShellError> {
         match self {
-            Instruction::Collect { .. } => true,
-            Instruction::Drain { .. } => true,
-            Instruction::DrainIfEnd { .. } => true,
-            Instruction::Jump { .. } => true,
-            Instruction::BranchIf { .. } => true,
-            Instruction::Iterate { .. } => true,
-            Instruction::ReturnEarly { .. } => true,
-            Instruction::Return { .. } => true,
-            _ => false,
+            Instruction::Jump { .. } | Instruction::Return { .. } => {
+                engine_state.signals().check(span)
+            }
+            _ => Ok(()),
         }
     }
 }
