@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{ShellError, Span, Type};
 use miette::Diagnostic;
 use thiserror::Error;
@@ -67,4 +69,16 @@ pub enum ConfigWarning {
         span: Span,
         help: &'static str,
     },
+}
+
+// To keep track of reported warnings
+impl Hash for ConfigWarning {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            ConfigWarning::IncompatibleOptions { label, help, .. } => {
+                label.hash(state);
+                help.hash(state);
+            }
+        }
+    }
 }
