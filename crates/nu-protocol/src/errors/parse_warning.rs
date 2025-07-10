@@ -7,6 +7,7 @@ use thiserror::Error;
 use super::ReportMode;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
+#[diagnostic(severity(Warning))]
 pub enum ParseWarning {
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
