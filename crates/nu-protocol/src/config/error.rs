@@ -1,10 +1,12 @@
 use super::ConfigPath;
-use crate::{Config, ConfigError, ShellError, Span, Type, Value};
+use crate::{Config, ConfigError, ConfigWarning, ShellError, ShellWarning, Span, Type, Value};
 
 #[derive(Debug)]
+#[must_use]
 pub(super) struct ConfigErrors<'a> {
     config: &'a Config,
     errors: Vec<ConfigError>,
+    warnings: Vec<ConfigWarning>,
 }
 
 impl<'a> ConfigErrors<'a> {
@@ -12,15 +14,24 @@ impl<'a> ConfigErrors<'a> {
         Self {
             config,
             errors: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.errors.is_empty()
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    pub fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
     }
 
     pub fn error(&mut self, error: ConfigError) {
         self.errors.push(error);
+    }
+
+    pub fn warn(&mut self, warning: ConfigWarning) {
+        self.warnings.push(warning);
     }
 
     pub fn type_mismatch(&mut self, path: &ConfigPath, expected: Type, actual: &Value) {
@@ -75,13 +86,15 @@ impl<'a> ConfigErrors<'a> {
         });
     }
 
-    pub fn into_shell_error(self) -> Option<ShellError> {
-        if self.is_empty() {
-            None
-        } else {
-            Some(ShellError::InvalidConfig {
+    pub fn check(self) -> Result<Option<ShellWarning>, ShellError> {
+        match (self.has_errors(), self.has_warnings()) {
+            (true, _) => Err(ShellError::InvalidConfig {
                 errors: self.errors,
-            })
+            }),
+            (false, true) => Ok(Some(ShellWarning::InvalidConfig {
+                warnings: self.warnings,
+            })),
+            (false, false) => Ok(None),
         }
     }
 }

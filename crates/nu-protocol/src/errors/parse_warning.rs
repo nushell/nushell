@@ -1,14 +1,16 @@
 use crate::Span;
 use miette::Diagnostic;
-use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
 
 use crate::{ReportMode, Reportable};
 
-#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
+#[derive(Clone, Debug, Error, Diagnostic)]
 #[diagnostic(severity(Warning))]
 pub enum ParseWarning {
+    /// A parse-time deprectaion. Indicates that something will be removed in a future release.
+    ///
+    /// Use [`ShellWarning::Deprecated`] if this is a deprecation which is only detectable at run-time.
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
     Deprecated {
