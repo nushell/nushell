@@ -168,3 +168,11 @@ fn mutate_nu_config_plugin_gc_plugins() -> TestResult {
         "0sec",
     )
 }
+
+#[test]
+fn mutate_nu_config_history_warning() -> TestResult {
+    fail_test(
+        r#"$env.config.history.file_format = "plaintext"; $env.config.history.isolation = true"#,
+        "history isolation only compatible with SQLite format",
+    )
+}
