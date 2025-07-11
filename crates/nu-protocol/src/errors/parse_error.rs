@@ -60,13 +60,13 @@ pub enum ParseError {
 
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
-    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+    InputMismatch(String, #[label("command doesn't support {0} input")] Span),
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
     OutputMismatch(
         Type,
-        Type,
+        String,
         #[label("expected {0}, but command outputs {1}")] Span,
     ),
 
