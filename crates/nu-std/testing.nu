@@ -240,13 +240,15 @@ def run-tests-for-module [
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
-            $test|insert result {|x|
-                run-test $test $plugins
-                | if $in.exit_code == 0 {
-                    'pass'
-                } else {
-                    'fail'
-                }
+            $test | insert result { run-test $test $plugins }
+        }
+        | collect # Avoid interleaving errors
+        | update result {|test|
+            if $in.exit_code == 0 {
+                'pass'
+            } else {
+                log error $"Error while running ($test.test) in module ($module.name)(char nl)($in.stderr)"
+                'fail'
             }
         }
         | append $skipped_tests
