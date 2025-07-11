@@ -5,6 +5,8 @@ mod list;
 mod row;
 mod words;
 
+mod helpers;
+
 pub use chars::SplitChars;
 pub use column::SplitColumn;
 pub use command::Split;
