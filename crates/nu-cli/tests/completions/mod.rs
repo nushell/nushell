@@ -309,10 +309,10 @@ fn custom_arguments_and_subcommands() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both subcommand and directory completions
     let expected = [
-        "foo test bar".into(),
         folder("test_a"),
         file("test_a_symlink"),
         folder("test_b"),
+        "foo test bar".into(),
     ];
     match_suggestions_by_string(&expected, &suggestions);
 }
@@ -330,7 +330,7 @@ fn custom_flags_and_subcommands() {
     let completion_str = "foo --test";
     let suggestions = completer.complete(completion_str, completion_str.len());
     // including both flag and directory completions
-    let expected: Vec<_> = vec!["foo --test bar", "--test"];
+    let expected: Vec<_> = vec!["--test", "foo --test bar"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -1480,11 +1480,12 @@ fn command_watch_with_filecompletion() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
-#[rstest]
-fn subcommand_completions() {
+#[test]
+fn subcommand_vs_external_completer() {
     let (_, _, mut engine, mut stack) = new_engine();
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
+            $env.config.completions.external.completer = {|spans| ["external"]}
             def foo-test-command [] {}
             def "foo-test-command bar" [] {}
             def "foo-test-command aagap bcr" [] {}
@@ -1497,6 +1498,7 @@ fn subcommand_completions() {
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
         &vec![
+            "external",
             "food bar",
             "foo-test-command bar",
             "foo-test-command aagap bcr",
@@ -1506,7 +1508,7 @@ fn subcommand_completions() {
 
     let prefix = "foot bar";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
-    match_suggestions(&vec!["foo-test-command bar"], &suggestions);
+    match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
 }
 
 #[test]
