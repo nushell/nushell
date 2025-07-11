@@ -18,7 +18,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    engine_state.signals().check(call.head)?;
+    engine_state.signals().check(&call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {

@@ -56,7 +56,7 @@ impl Command for Sleep {
                 break;
             }
             thread::sleep(CTRL_C_CHECK_INTERVAL.min(time_until_deadline));
-            engine_state.signals().check(call.head)?;
+            engine_state.signals().check(&call.head)?;
         }
 
         Ok(Value::nothing(call.head).into_pipeline_data())

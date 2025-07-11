@@ -44,11 +44,11 @@ impl Signals {
     ///
     /// Otherwise, returns `Ok`.
     #[inline]
-    pub fn check(&self, span: Span) -> Result<(), ShellError> {
+    pub fn check(&self, span: &Span) -> Result<(), ShellError> {
         #[inline]
         #[cold]
-        fn interrupt_error(span: Span) -> Result<(), ShellError> {
-            Err(ShellError::Interrupted { span })
+        fn interrupt_error(span: &Span) -> Result<(), ShellError> {
+            Err(ShellError::Interrupted { span: *span })
         }
 
         if self.interrupted() {

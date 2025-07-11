@@ -115,7 +115,7 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    signals.check(span)?;
+                    signals.check(&span)?;
 
                     match f {
                         Ok(i) => match i.file_type() {

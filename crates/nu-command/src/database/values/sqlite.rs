@@ -588,7 +588,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                signals.check(call_span)?;
+                signals.check(&call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }
@@ -614,7 +614,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                signals.check(call_span)?;
+                signals.check(&call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }
