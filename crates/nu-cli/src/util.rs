@@ -5,9 +5,9 @@ use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
-    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
 };
 #[cfg(windows)]
