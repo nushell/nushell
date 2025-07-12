@@ -159,16 +159,16 @@ fn run_put(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
 
-    if let HttpBody::None = data {
+    let Some(data) = data else {
         return Err(ShellError::GenericError {
             error: "Data must be provided either through pipeline or positional argument".into(),
             msg: "".into(),
@@ -176,7 +176,7 @@ fn run_put(
             help: None,
             inner: vec![],
         });
-    }
+    };
 
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
@@ -219,9 +219,9 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
+    let (response, request_headers) = send_request(
         engine_state,
-        request.clone(),
+        request,
         args.data,
         args.content_type,
         call.head,
@@ -242,7 +242,7 @@ fn helper(
         &requested_url,
         request_flags,
         response,
-        request,
+        request_headers,
     )
 }
 
