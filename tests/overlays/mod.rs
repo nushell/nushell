@@ -919,6 +919,74 @@ fn overlay_use_export_env() {
 }
 
 #[test]
+fn overlay_use_export_env_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB"]"#);
+    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB"]"#);
+}
+
+#[test]
+fn overlay_hide_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "overlay hide",
+        "$out ++= [(20MB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    // Can't hide overlay within the same source file
+    // let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+}
+
+#[test]
+fn overlay_use_after_hide_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "overlay hide",
+        "$out ++= [(20MB | into string)]",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    // Can't hide overlay within the same source file
+    // let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+    assert_eq!(
+        actual_repl.out,
+        r#"["20.0 MB","20.0 MiB","20.0 MB","20.0 MiB"]"#
+    );
+}
+
+#[test]
 fn overlay_use_export_env_hide() {
     let inp = &[
         "$env.FOO = 'foo'",
