@@ -7,8 +7,7 @@ use notify_debouncer_full::{
 };
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    format_cli_error, report_shell_error,
+    engine::Closure, report_shell_error,
     shell_error::io::IoError,
 };
 use std::{
