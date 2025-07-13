@@ -6,10 +6,7 @@ use notify_debouncer_full::{
     },
 };
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{
-    engine::Closure, report_shell_error,
-    shell_error::io::IoError,
-};
+use nu_protocol::{engine::Closure, report_shell_error, shell_error::io::IoError};
 use std::{
     path::PathBuf,
     sync::mpsc::{RecvTimeoutError, channel},
