@@ -375,6 +375,21 @@ impl From<&std::io::Error> for ErrorKind {
             }
         }
 
+        #[cfg(debug_assertions)]
+        if err.kind() == std::io::ErrorKind::Other {
+            panic!(
+                "\
+suspicious conversion:
+    tried to convert `std::io::Error` with `std::io::ErrorKind::Other`
+    into `nu_protocol::shell_error::io::ErrorKind`
+
+I/O errors should always be specific, provide more context
+
+{err:#?}\
+            "
+            )
+        }
+
         ErrorKind::Std(err.kind(), Sealed)
     }
 }
