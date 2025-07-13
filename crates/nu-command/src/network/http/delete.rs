@@ -249,6 +249,7 @@ fn helper(
         request_flags,
         response,
         request_headers,
+        redirect_mode
     )
 }
 

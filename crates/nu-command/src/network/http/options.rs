@@ -150,8 +150,8 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
-
-    let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
+    let redirect_mode = RedirectMode::Follow;
+    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.options(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
@@ -178,6 +178,7 @@ fn helper(
         request_flags,
         response,
         request_headers,
+        redirect_mode
     )
 }
 
