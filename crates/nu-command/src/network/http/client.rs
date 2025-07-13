@@ -79,7 +79,8 @@ pub fn http_client(
     let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
         .save_redirect_history(true)
-        .http_status_as_error(false);
+        .http_status_as_error(false)
+        .max_redirects_will_error(false);
 
     if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
         config_builder = config_builder.max_redirects(0);
@@ -114,7 +115,7 @@ pub fn http_parse_url(
                 msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
                 input: format!("value: '{requested_url:?}'"),
                 msg_span: call.head,
-                input_span: span
+                input_span: span,
             });
         }
     };
@@ -799,6 +800,7 @@ fn request_handle_response_content(
     flags: RequestFlags,
     resp: Response,
     request_headers: Headers,
+    redirect_mode: RedirectMode,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.
     // Wrapping it into a closure to call when needed
@@ -818,8 +820,10 @@ fn request_handle_response_content(
             None => Ok(response_to_buffer(response, engine_state, span)),
         }
     };
+    let manual_redirect = redirect_mode == RedirectMode::Manual;
 
-    if !flags.allow_errors && !resp.status().is_success() {
+    let is_success = resp.status().is_success() || flags.allow_errors || (resp.status().is_redirection() && manual_redirect);
+    if !is_success {
         return Err(handle_status_error(span, requested_url, resp.status()));
     }
 
@@ -873,6 +877,7 @@ pub fn request_handle_response(
     flags: RequestFlags,
     response: Result<Response, ShellErrorOrRequestError>,
     request_headers: Headers,
+    redirect_mode: RedirectMode,
 ) -> Result<PipelineData, ShellError> {
     match response {
         Ok(resp) => request_handle_response_content(
@@ -882,7 +887,7 @@ pub fn request_handle_response(
             requested_url,
             flags,
             resp,
-            request_headers,
+            request_headers, redirect_mode,
         ),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
@@ -963,11 +968,11 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { val, .. } = val {
                 if let Some((
-                    _col,
-                    Value::String {
-                        val: header_name, ..
-                    },
-                )) = val.get_index(0)
+                                _col,
+                                Value::String {
+                                    val: header_name, ..
+                                },
+                            )) = val.get_index(0)
                 {
                     return name == header_name;
                 }
