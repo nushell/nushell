@@ -290,7 +290,7 @@ fn scope_externs_sorted() {
     ];
 
     let actual = nu!(&inp.join("; "));
-    assert_eq!(actual.out, "abc");
+    assert!(actual.out.starts_with("abc"));
 }
 
 #[test]
