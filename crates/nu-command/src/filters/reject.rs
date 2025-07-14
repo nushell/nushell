@@ -19,7 +19,7 @@ impl Command for Reject {
             ])
             .switch(
                 "optional",
-                "ignore missing data (make all cell path members optional)",
+                "make all cell path members optional",
                 Some('o'),
             )
             .switch(

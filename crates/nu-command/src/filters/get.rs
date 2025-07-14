@@ -42,7 +42,7 @@ If multiple cell paths are given, this will produce a list of values."#
             .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
                 "optional",
-                "ignore missing data (make all cell path members optional)",
+                "make all cell path members optional (returns `null` for missing values)",
                 Some('o'),
             )
             .switch(
