@@ -100,7 +100,7 @@ impl Expr {
             | Expr::GlobInterpolation(_, _)
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
-                // but we still need to use the pipelien ouptut, so the previous command
+                // but we still need to use the pipeline output, so the previous command
                 // can be stopped with SIGPIPE(in unix).
                 (None, None)
             }
