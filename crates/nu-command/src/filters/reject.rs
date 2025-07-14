@@ -17,11 +17,7 @@ impl Command for Reject {
                 (Type::table(), Type::table()),
                 (Type::list(Type::Any), Type::list(Type::Any)),
             ])
-            .switch(
-                "optional",
-                "make all cell path members optional",
-                Some('o'),
-            )
+            .switch("optional", "make all cell path members optional", Some('o'))
             .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional) (deprecated)",
