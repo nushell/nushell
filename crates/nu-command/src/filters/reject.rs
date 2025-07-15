@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, casing::Casing};
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -17,9 +17,10 @@ impl Command for Reject {
                 (Type::table(), Type::table()),
                 (Type::list(Type::Any), Type::list(Type::Any)),
             ])
+            .switch("optional", "make all cell path members optional", Some('o'))
             .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional)",
+                "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
             )
             .rest(
@@ -90,14 +91,28 @@ impl Command for Reject {
         }
         let span = call.head;
 
-        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
-        if ignore_errors {
+        let optional = call.has_flag(engine_state, stack, "optional")?
+            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        if optional {
             for cell_path in &mut new_columns {
                 cell_path.make_optional();
             }
         }
 
         reject(engine_state, span, input, new_columns)
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("ignore-errors".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.106.0".into()),
+            expected_removal: None,
+            help: Some(
+                "This flag has been renamed to `--optional (-o)` to better reflect its behavior."
+                    .into(),
+            ),
+        }]
     }
 
     fn examples(&self) -> Vec<Example> {

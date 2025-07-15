@@ -174,14 +174,14 @@ fn reject_multiple_rows_descending() {
 
 #[test]
 fn test_ignore_errors_flag() {
-    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -i | to nuon");
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 
 #[test]
 fn test_ignore_errors_flag_var() {
     let actual =
-        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -i | to nuon");
+        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 

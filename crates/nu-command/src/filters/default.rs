@@ -82,7 +82,7 @@ impl Command for Default {
             },
             Example {
                 description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
-                example: "$env | get --ignore-errors MY_ENV | default 'abc'",
+                example: "$env | get --optional MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
             Example {

@@ -178,6 +178,7 @@ impl Command for OverlayUse {
             }
         } else {
             caller_stack.add_overlay(overlay_name);
+            caller_stack.update_config(engine_state)?;
         }
 
         Ok(PipelineData::empty())

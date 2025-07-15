@@ -245,7 +245,7 @@ fn from_tsv_text_with_missing_columns_to_table() {
             r#"
                 open los_tres_caballeros.txt
                 | from tsv --flexible
-                | get -i rusty_luck
+                | get -o rusty_luck
                 | compact
                 | length
             "#
