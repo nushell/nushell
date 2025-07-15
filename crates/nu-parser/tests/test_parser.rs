@@ -820,11 +820,11 @@ pub fn parse_if_in_const_expression() {
     let _ = parse(&mut working_set, None, source, false);
 
     assert!(!working_set.parse_errors.is_empty());
-    let ParseError::MissingPositional(error, _, _) = &working_set.parse_errors[0] else {
-        panic!("Expected MissingPositional");
+    let ParseError::TypeMismatch(expected, _, _) = &working_set.parse_errors[0] else {
+        panic!("Expected TypeMismatch");
     };
 
-    assert!(error.contains("cond"));
+    assert_eq!(expected, &Type::Bool);
 
     working_set.parse_errors = Vec::new();
     let source = b"def a [n= (if ]";
