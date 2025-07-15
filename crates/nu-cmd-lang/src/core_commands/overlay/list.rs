@@ -49,17 +49,16 @@ impl Command for OverlayList {
             .scope
             .removed_overlays
             .iter()
-            .map(|name| (String::from_utf8(name.clone()).unwrap(), false))
+            .map(|name| (String::from_utf8_lossy(name).to_string(), false))
             .chain(active_overlays)
             .map(|(name, active)| {
-                let record = Value::record(
+                Value::record(
                     record! {
                         "name" => Value::string(name.to_owned(), call.head),
                         "active" => Value::bool(active, call.head),
                     },
                     call.head,
-                );
-                record
+                )
             })
             .collect();
 
