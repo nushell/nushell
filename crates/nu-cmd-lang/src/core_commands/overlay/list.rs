@@ -38,31 +38,30 @@ impl Command for OverlayList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Get all overlay names from engine state
-        let mut all_overlays: Vec<String> = engine_state
-            .scope
-            .overlays
+        // get active overlay iterator
+        let active_overlays = stack
+            .active_overlays
             .iter()
-            .map(|(name, _)| String::from_utf8_lossy(name).to_string())
+            .map(|overlay| (overlay.clone(), true));
+
+        // Get all overlay names from engine state
+        let rows: Vec<Value> = engine_state
+            .scope
+            .removed_overlays
+            .iter()
+            .map(|name| (String::from_utf8(name.clone()).unwrap(), false))
+            .chain(active_overlays)
+            .map(|(name, active)| {
+                let record = Value::record(
+                    record! {
+                        "name" => Value::string(name.to_owned(), call.head),
+                        "active" => Value::bool(active, call.head),
+                    },
+                    call.head,
+                );
+                record
+            })
             .collect();
-        all_overlays.sort();
-
-        // Get active overlay names from stack
-        let active_overlays = &stack.active_overlays;
-
-        // Create table rows
-        let mut rows: Vec<Value> = Vec::new();
-        for overlay_name in all_overlays {
-            let is_active = active_overlays.contains(&overlay_name);
-            let record = Value::record(
-                record! {
-                    "name" => Value::string(overlay_name, call.head),
-                    "active" => Value::bool(is_active, call.head),
-                },
-                call.head,
-            );
-            rows.push(record);
-        }
 
         Ok(Value::list(rows, call.head).into_pipeline_data())
     }
