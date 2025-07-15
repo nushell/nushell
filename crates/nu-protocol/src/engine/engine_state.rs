@@ -3,7 +3,6 @@ use crate::{
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
     VarId, VirtualPathId,
     ast::Block,
-    cli_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
@@ -11,6 +10,7 @@ use crate::{
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
+    report_error::ReportLog,
     shell_error::io::IoError,
 };
 use fancy_regex::Regex;

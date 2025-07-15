@@ -4,7 +4,7 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
-    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
+    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError, ShellWarning,
     engine::{EngineState, StateWorkingSet},
 };
 use miette::{
@@ -39,13 +39,11 @@ impl<'src> CliError<'src> {
     }
 }
 
+/// A bloom-filter like structure to store the hashes of warnings,
+/// without actually permanently storing the entire warning in memory.
+/// May rarely result in warnings incorrectly being unreported upon hash collision.
 #[derive(Default)]
-pub struct ReportLog {
-    // A bloom-filter like structure to store the hashes of `ParseWarning`s,
-    // without actually permanently storing the entire warning in memory.
-    // May rarely result in warnings incorrectly being unreported upon hash collision.
-    parse_warnings: Vec<u64>,
-}
+pub struct ReportLog(Vec<u64>);
 
 /// How a warning/error should be reported
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -54,13 +52,21 @@ pub enum ReportMode {
     EveryUse,
 }
 
+/// For warnings/errors which have a ReportMode that dictates when they are reported
+pub trait Reportable {
+    fn report_mode(&self) -> ReportMode;
+}
+
 /// Returns true if this warning should be reported
-fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bool {
-    match warning.report_mode() {
+fn should_show_reportable<R>(engine_state: &EngineState, reportable: &R) -> bool
+where
+    R: Reportable + Hash,
+{
+    match reportable.report_mode() {
         ReportMode::EveryUse => true,
         ReportMode::FirstUse => {
             let mut hasher = DefaultHasher::new();
-            warning.hash(&mut hasher);
+            reportable.hash(&mut hasher);
             let hash = hasher.finish();
 
             let mut report_log = engine_state
@@ -68,10 +74,10 @@ fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bo
                 .lock()
                 .expect("report log lock is poisioned");
 
-            match report_log.parse_warnings.contains(&hash) {
+            match report_log.0.contains(&hash) {
                 true => false,
                 false => {
-                    report_log.parse_warnings.push(hash);
+                    report_log.0.push(hash);
                     true
                 }
             }
@@ -97,13 +103,13 @@ pub fn report_shell_error(engine_state: &EngineState, error: &ShellError) {
     }
 }
 
-pub fn report_shell_warning(engine_state: &EngineState, warning: &ShellError) {
-    if engine_state.config.display_errors.should_show(warning) {
+pub fn report_shell_warning(engine_state: &EngineState, warning: &ShellWarning) {
+    if should_show_reportable(engine_state, warning) {
         report_warning(
             &StateWorkingSet::new(engine_state),
             warning,
             "nu::shell::warning",
-        )
+        );
     }
 }
 
@@ -112,7 +118,7 @@ pub fn report_parse_error(working_set: &StateWorkingSet, error: &ParseError) {
 }
 
 pub fn report_parse_warning(working_set: &StateWorkingSet, warning: &ParseWarning) {
-    if should_show_warning(working_set.permanent(), warning) {
+    if should_show_reportable(working_set.permanent(), warning) {
         report_warning(working_set, warning, "nu::parser::warning");
     }
 }
