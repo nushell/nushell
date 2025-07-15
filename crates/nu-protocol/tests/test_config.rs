@@ -60,7 +60,7 @@ fn fancy_default_errors() {
 
     assert_eq!(
         actual.err,
-        "Error:   \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline2:1:13\u{1b}[0m]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n"
+        "Error: \u{1b}[31mnu::shell::error\u{1b}[0m\n\n  \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline2:1:13\u{1b}[0m]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n"
     );
 }
 
@@ -90,6 +90,7 @@ Begin snippet for line2 starting at line 1, column 1
 
 snippet line 1: force_error "my error"
     label at line 1, columns 13 to 22: here's the error
+diagnostic code: nu::shell::error
 
 
 "#,
