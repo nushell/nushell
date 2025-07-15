@@ -3741,7 +3741,17 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
             return expression;
         }
         _ => {
-            // We have an expression, so let's convert this into a block.
+            // We have an expression, check that it's compatible with bool
+            if !type_compatible(&Type::Bool, &expression.ty) {
+                working_set.error(ParseError::TypeMismatch(
+                    Type::Bool,
+                    expression.ty.clone(),
+                    expression.span,
+                ));
+                return Expression::garbage(working_set, expression.span);
+            }
+
+            // Convert this expression into a block.
             let mut block = Block::new();
             let mut pipeline = Pipeline::new();
             pipeline.elements.push(PipelineElement {
