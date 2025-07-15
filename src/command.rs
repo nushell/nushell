@@ -1,10 +1,9 @@
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_parser::{KnownExternal, escape_for_script_arg, parse};
+use nu_parser::{escape_for_script_arg, parse};
 use nu_protocol::{
-    CustomExample,
     ast::{Expr, Expression},
     engine::StateWorkingSet,
-    report_parse_error, report_shell_error,
+    report_parse_error,
 };
 use nu_utils::{escape_quote_string, stdout_write_all_and_flush};
 
@@ -517,26 +516,5 @@ impl Command for Nu {
                 result: None,
             },
         ]
-    }
-}
-
-/// Add the [`Nu`] command as an extern so we get help and flag completions
-pub(crate) fn add_nu_extern(engine_state: &mut EngineState) {
-    let nu_extern = KnownExternal {
-        signature: Box::new(Nu.signature()),
-        attributes: vec![],
-        examples: Nu
-            .examples()
-            .into_iter()
-            .map(CustomExample::from_example)
-            .collect(),
-    };
-
-    let mut working_set = nu_protocol::engine::StateWorkingSet::new(engine_state);
-    working_set.add_decl(Box::new(nu_extern));
-    let delta = working_set.render();
-
-    if let Err(err) = engine_state.merge_delta(delta) {
-        report_shell_error(engine_state, &err);
     }
 }
