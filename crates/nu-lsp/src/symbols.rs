@@ -80,7 +80,11 @@ pub(crate) struct SymbolCache {
 impl SymbolCache {
     pub fn new() -> Self {
         SymbolCache {
-            matcher: Matcher::new(Config::DEFAULT),
+            matcher: Matcher::new({
+                let mut cfg = Config::DEFAULT;
+                cfg.prefer_prefix = true;
+                cfg
+            }),
             cache: BTreeMap::new(),
             dirty_flags: BTreeMap::new(),
         }
