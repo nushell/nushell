@@ -1606,3 +1606,17 @@ fn test_overlay_use_with_printing_current_file() {
         );
     });
 }
+
+#[test]
+fn report_errors_in_export_env() {
+    let inp = &[
+        r#"module spam { export-env { error make -u {msg: "reported"} } }"#,
+        "overlay use spam",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.contains("reported"));
+    assert!(actual_repl.err.contains("reported"));
+}
