@@ -47,7 +47,13 @@ impl Command for Watch {
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
-                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events",
+                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated)",
+                None,
+            )
+            .named(
+                "debounce",
+                SyntaxShape::Duration,
+                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events",
                 Some('d'),
             )
             .named(
@@ -99,20 +105,57 @@ impl Command for Watch {
 
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
 
-        let debounce_duration_flag: Option<Spanned<i64>> =
+        let debounce_duration_flag_ms: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;
-        let debounce_duration = match debounce_duration_flag {
-            Some(val) => match u64::try_from(val.item) {
-                Ok(val) => Duration::from_millis(val),
-                Err(_) => {
+
+        let debounce_duration_flag: Option<Spanned<Value>> =
+            call.get_flag(engine_state, stack, "debounce")?;
+
+        let debounce_duration: Duration;
+        match (debounce_duration_flag, debounce_duration_flag_ms) {
+            (None, None) => debounce_duration = DEFAULT_WATCH_DEBOUNCE_DURATION,
+            (Some(l), Some(r)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "Here".to_string(),
+                    left_span: l.span,
+                    right_message: "and here".to_string(),
+                    right_span: r.span,
+                });
+            }
+            (None, Some(val)) => {
+                debounce_duration = match u64::try_from(val.item) {
+                    Ok(val) => Duration::from_millis(val),
+                    Err(_) => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "Debounce duration is invalid".to_string(),
+                            span: val.span,
+                        });
+                    }
+                }
+            }
+            (Some(v), None) => match v.item {
+                dur @ Value::Duration { val, .. } => {
+                    debounce_duration = match u64::try_from(val / 1_000_000) {
+                        Ok(d) => Duration::from_millis(d),
+                        Err(_) => {
+                            return Err(ShellError::TypeMismatch {
+                                err_message: "Debounce duration is invalid".to_string(),
+                                span: dur.span(),
+                            });
+                        }
+                    };
+                }
+                // This should be unreachable, as the parser will fail
+                // before this is ever called. I will leave it in anyways
+                // so we can handle it gracefully once it never arrives
+                any => {
                     return Err(ShellError::TypeMismatch {
-                        err_message: "Debounce duration is invalid".to_string(),
-                        span: val.span,
+                        err_message: "Debounce duration must be a duration".to_string(),
+                        span: any.span(),
                     });
                 }
             },
-            None => DEFAULT_WATCH_DEBOUNCE_DURATION,
-        };
+        }
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
         let glob_pattern = match glob_flag {
@@ -301,6 +344,11 @@ impl Command for Watch {
             Example {
                 description: "Log all changes in a directory",
                 example: r#"watch /foo/bar { |op, path| $"($op) - ($path)(char nl)" | save --append changes_in_bar.log }"#,
+                result: None,
+            },
+            Example {
+                description: "Print file changes with a debounce time of 5 minutes",
+                example: r#"watch /foo/bar --debounce 5min { |op, path| $"Registered ($op) on ($path)" | print }"#,
                 result: None,
             },
             Example {
