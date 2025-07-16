@@ -17,6 +17,6 @@ fuzz_target!(|data: &[u8]| {
         // Here, we're assuming a second path for the "relative to" aspect.
         // For simplicity, we're just using the current directory.
         let current_dir = std::path::Path::new(".");
-        let _ = expand_path_with(path, &current_dir);
+        let _ = expand_path_with(path, &current_dir, true);
     }
 });
