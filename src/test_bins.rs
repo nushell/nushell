@@ -14,9 +14,9 @@ use std::{
 };
 
 pub trait TestBin {
-    fn run(&self);
-
+    fn name(&self) -> &'static str;
     fn help(&self) -> &'static str;
+    fn run(&self);
 }
 
 pub struct EchoEnv;
@@ -36,6 +36,166 @@ pub struct RepeatBytes;
 pub struct NuRepl;
 pub struct InputBytesLength;
 
+impl TestBin for EchoEnv {
+    fn name(&self) -> &'static str {
+        "echo_env"
+    }
+
+    fn help(&self) -> &'static str {
+        "Echo's value of env keys from args(nu --testbin echo_env FOO BAR)"
+    }
+
+    fn run(&self) {
+        echo_env(true)
+    }
+}
+
+impl TestBin for EchoEnvStderr {
+    fn name(&self) -> &'static str {
+        "echo_env_stderr"
+    }
+
+    fn help(&self) -> &'static str {
+        "Echo's value of env keys from args to stderr(nu --testbin echo_env_stderr FOO BAR)"
+    }
+
+    fn run(&self) {
+        echo_env(false)
+    }
+}
+
+impl TestBin for EchoEnvStderrFail {
+    fn name(&self) -> &'static str {
+        "echo_env_stderr_fail"
+    }
+
+    fn help(&self) -> &'static str {
+        "Echo's value of env keys from args to stderr, and exit with failure(nu --testbin echo_env_stderr_fail FOO BAR)"
+    }
+
+    fn run(&self) {
+        echo_env(false);
+        fail();
+    }
+}
+
+impl TestBin for EchoEnvMixed {
+    fn name(&self) -> &'static str {
+        "echo_env_mixed"
+    }
+
+    fn help(&self) -> &'static str {
+        "Mix echo of env keys from input(nu --testbin echo_env_mixed out-err FOO BAR; nu --testbin echo_env_mixed err-out FOO BAR)"
+    }
+
+    fn run(&self) {
+        let args = args();
+
+        if args.len() != 3 {
+            panic!(
+                r#"Usage examples:
+* nu --testbin echo_env_mixed out-err FOO BAR
+* nu --testbin echo_env_mixed err-out FOO BAR"#
+            )
+        }
+        match args[0].as_str() {
+            "out-err" => {
+                let (out_arg, err_arg) = (&args[1], &args[2]);
+                echo_one_env(out_arg, true);
+                echo_one_env(err_arg, false);
+            }
+            "err-out" => {
+                let (err_arg, out_arg) = (&args[1], &args[2]);
+                echo_one_env(err_arg, false);
+                echo_one_env(out_arg, true);
+            }
+            _ => panic!("The mixed type must be `out_err`, `err_out`"),
+        }
+    }
+}
+
+impl TestBin for Cococo {
+    fn name(&self) -> &'static str {
+        "cococo"
+    }
+
+    fn help(&self) -> &'static str {
+        "Cross platform echo using println!()"
+    }
+
+    fn run(&self) {
+        let args: Vec<String> = args();
+
+        if !args.is_empty() {
+            // Write back out all the arguments passed
+            // if given at least 1 instead of chickens
+            // speaking co co co.
+            println!("{}", args.join(" "));
+        } else {
+            println!("cococo");
+        }
+    }
+}
+
+impl TestBin for Meow {
+    fn name(&self) -> &'static str {
+        "meow"
+    }
+
+    fn help(&self) -> &'static str {
+        "Cross platform cat (open a file, print the contents) using read_to_string and println!()"
+    }
+
+    fn run(&self) {
+        let args: Vec<String> = args();
+
+        for arg in args.iter() {
+            let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
+            println!("{contents}");
+        }
+    }
+}
+
+impl TestBin for Meowb {
+    fn name(&self) -> &'static str {
+        "meowb"
+    }
+
+    fn help(&self) -> &'static str {
+        "Cross platform cat (open a file, print the contents) using read() and write_all() / binary"
+    }
+
+    fn run(&self) {
+        let args: Vec<String> = args();
+
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+
+        for arg in args.iter() {
+            let buf = std::fs::read(arg).expect("Expected a filepath");
+            handle.write_all(&buf).expect("failed to write to stdout");
+        }
+    }
+}
+
+impl TestBin for Relay {
+    fn name(&self) -> &'static str {
+        "relay"
+    }
+
+    fn help(&self) -> &'static str {
+        "Relays anything received on stdin to stdout"
+    }
+
+    fn run(&self) {
+        io::copy(&mut io::stdin().lock(), &mut io::stdout().lock())
+            .expect("failed to copy stdin to stdout");
+    }
+}
+
+impl TestBin for Iecho {
+    fn name(&self) -> &'static str {}
+}
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
 /// If it it's not present echo's nothing
@@ -44,11 +204,6 @@ pub fn echo_env(to_stdout: bool) {
     for arg in args {
         echo_one_env(&arg, to_stdout)
     }
-}
-
-pub fn echo_env_and_fail(to_stdout: bool) {
-    echo_env(to_stdout);
-    fail();
 }
 
 fn echo_one_env(arg: &str, to_stdout: bool) {
@@ -66,69 +221,18 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
 ///     * nu --testbin echo_env_mixed out-err FOO BAR
 ///     * nu --testbin echo_env_mixed err-out FOO BAR
 /// If it's not present, panic instead
-pub fn echo_env_mixed() {
-    let args = args();
-
-    if args.len() != 3 {
-        panic!(
-            r#"Usage examples:
-* nu --testbin echo_env_mixed out-err FOO BAR
-* nu --testbin echo_env_mixed err-out FOO BAR"#
-        )
-    }
-    match args[0].as_str() {
-        "out-err" => {
-            let (out_arg, err_arg) = (&args[1], &args[2]);
-            echo_one_env(out_arg, true);
-            echo_one_env(err_arg, false);
-        }
-        "err-out" => {
-            let (err_arg, out_arg) = (&args[1], &args[2]);
-            echo_one_env(err_arg, false);
-            echo_one_env(out_arg, true);
-        }
-        _ => panic!("The mixed type must be `out_err`, `err_out`"),
-    }
-}
+pub fn echo_env_mixed() {}
 
 /// Cross platform echo using println!()
 /// Example: nu --testbin cococo a b c
 /// a b c
-pub fn cococo() {
-    let args: Vec<String> = args();
-
-    if !args.is_empty() {
-        // Write back out all the arguments passed
-        // if given at least 1 instead of chickens
-        // speaking co co co.
-        println!("{}", args.join(" "));
-    } else {
-        println!("cococo");
-    }
-}
+pub fn cococo() {}
 
 /// Cross platform cat (open a file, print the contents) using read_to_string and println!()
-pub fn meow() {
-    let args: Vec<String> = args();
-
-    for arg in args.iter() {
-        let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
-        println!("{contents}");
-    }
-}
+pub fn meow() {}
 
 /// Cross platform cat (open a file, print the contents) using read() and write_all() / binary
-pub fn meowb() {
-    let args: Vec<String> = args();
-
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-
-    for arg in args.iter() {
-        let buf = std::fs::read(arg).expect("Expected a filepath");
-        handle.write_all(&buf).expect("failed to write to stdout");
-    }
-}
+pub fn meowb() {}
 
 // Relays anything received on stdin to stdout
 pub fn relay() {
