@@ -135,8 +135,8 @@ impl Command for Watch {
             }
             (Some(v), None) => match v.item {
                 dur @ Value::Duration { val, .. } => {
-                    debounce_duration = match u64::try_from(val / 1_000_000) {
-                        Ok(d) => Duration::from_millis(d),
+                    debounce_duration = match u64::try_from(val) {
+                        Ok(d) => Duration::from_nanos(d),
                         Err(_) => {
                             return Err(ShellError::TypeMismatch {
                                 err_message: "Debounce duration is invalid".to_string(),
