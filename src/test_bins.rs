@@ -13,6 +13,29 @@ use std::{
     sync::Arc,
 };
 
+pub trait TestBin {
+    fn run(&self);
+
+    fn help(&self) -> &'static str;
+}
+
+pub struct EchoEnv;
+pub struct EchoEnvStderr;
+pub struct EchoEnvStderrFail;
+pub struct EchoEnvMixed;
+pub struct Cococo;
+pub struct Meow;
+pub struct Meowb;
+pub struct Relay;
+pub struct Iecho;
+pub struct Fail;
+pub struct Nonu;
+pub struct Chop;
+pub struct Repeater;
+pub struct RepeatBytes;
+pub struct NuRepl;
+pub struct InputBytesLength;
+
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
 /// If it it's not present echo's nothing
@@ -374,4 +397,11 @@ fn args() -> Vec<String> {
         }
         acc
     })
+}
+
+pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<&dyn TestBin>>) {
+    println!("Usage: nu --testbin <bin>\n<bin>:");
+    for (name, test_bin) in dispatcher.iter() {
+        println!("{name} -> {}", test_bin.help())
+    }
 }

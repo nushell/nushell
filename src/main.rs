@@ -30,7 +30,8 @@ use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
-use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, str::FromStr, sync::Arc};
+use test_bins::TestBin;
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -371,6 +372,12 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
+        let mut dispatcher: HashMap<String, Box<&dyn TestBin>> = HashMap::new();
+        dispatcher.insert("echo_env".to_string(), Box::new(&test_bins::EchoEnv));
+        dispatcher.insert(
+            "echo_env_stderr".to_string(),
+            Box::new(&test_bins::EchoEnvStderr),
+        );
         // Call out to the correct testbin
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
@@ -389,6 +396,7 @@ fn main() -> Result<()> {
             "repeat_bytes" => test_bins::repeat_bytes(),
             "nu_repl" => test_bins::nu_repl(),
             "input_bytes_length" => test_bins::input_bytes_length(),
+            "-h" => test_bins::show_help(&dispatcher),
             _ => std::process::exit(1),
         }
         std::process::exit(0)
