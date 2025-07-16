@@ -158,7 +158,7 @@ impl Command for OverlayUse {
                 }
 
                 let eval_block = get_eval_block(engine_state);
-                let _ = eval_block(engine_state, &mut callee_stack, block, input);
+                let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
                 // The export-env block should see the env vars *before* activating this overlay
                 caller_stack.add_overlay(overlay_name);
