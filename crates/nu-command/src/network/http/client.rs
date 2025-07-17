@@ -468,7 +468,7 @@ fn send_cancellable_request(
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check(&span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -526,7 +526,7 @@ fn send_cancellable_request_bytes(
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check(&span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {

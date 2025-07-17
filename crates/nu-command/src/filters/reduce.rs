@@ -119,7 +119,7 @@ impl Command for Reduce {
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         for value in iter {
-            engine_state.signals().check(head)?;
+            engine_state.signals().check(&head)?;
             acc = closure
                 .add_arg(value)
                 .add_arg(acc.clone())
