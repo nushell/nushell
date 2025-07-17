@@ -288,7 +288,7 @@ impl TestBin for NuRepl {
 
 impl TestBin for InputBytesLength {
     fn help(&self) -> &'static str {
-        "Prints the number of bytes received on stdin(e.g: 0x[deadbeef] | nu `--testbin` input_bytes_length)"
+        "Prints the number of bytes received on stdin(e.g: 0x[deadbeef] | nu --testbin input_bytes_length)"
     }
 
     fn run(&self) {
@@ -296,16 +296,6 @@ impl TestBin for InputBytesLength {
         let count = stdin.lock().bytes().count();
 
         println!("{count}");
-    }
-}
-
-/// Echo's value of env keys from args
-/// Example: nu --testbin env_echo FOO BAR
-/// If it it's not present echo's nothing
-pub fn echo_env(to_stdout: bool) {
-    let args = args();
-    for arg in args {
-        echo_one_env(&arg, to_stdout)
     }
 }
 
@@ -319,54 +309,9 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
     }
 }
 
-/// Mix echo of env keys from input
-/// Example:
-///     * nu --testbin echo_env_mixed out-err FOO BAR
-///     * nu --testbin echo_env_mixed err-out FOO BAR
-/// If it's not present, panic instead
-pub fn echo_env_mixed() {}
-
-/// Cross platform echo using println!()
-/// Example: nu --testbin cococo a b c
-/// a b c
-pub fn cococo() {}
-
-/// Cross platform cat (open a file, print the contents) using read_to_string and println!()
-pub fn meow() {}
-
-/// Cross platform cat (open a file, print the contents) using read() and write_all() / binary
-pub fn meowb() {}
-
-// Relays anything received on stdin to stdout
-pub fn relay() {
-    io::copy(&mut io::stdin().lock(), &mut io::stdout().lock())
-        .expect("failed to copy stdin to stdout");
-}
-
-/// Cross platform echo but concats arguments without space and NO newline
-/// nu --testbin nonu a b c
-/// abc
-pub fn nonu() {}
-
-/// Repeat a string or char N times
-/// nu --testbin repeater a 5
-/// aaaaa
-/// nu --testbin repeater test 5
-/// testtesttesttesttest
-pub fn repeater() {}
-
-/// A version of repeater that can output binary data, even null bytes
-pub fn repeat_bytes() {}
-
-/// Another type of echo that outputs a parameter per line, looping infinitely
-pub fn iecho() {}
-
 pub fn fail() {
     std::process::exit(1);
 }
-
-/// With no parameters, will chop a character off the end of each line
-pub fn chop() {}
 
 fn outcome_err(engine_state: &EngineState, error: &ShellError) -> ! {
     report_shell_error(engine_state, error);
@@ -514,8 +459,6 @@ fn did_chop_arguments() -> bool {
 
     false
 }
-
-pub fn input_bytes_length() {}
 
 fn args() -> Vec<String> {
     // skip `nu` path (first argument)
