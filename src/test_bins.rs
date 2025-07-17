@@ -99,7 +99,7 @@ impl TestBin for EchoEnvMixed {
 
 impl TestBin for Cococo {
     fn help(&self) -> &'static str {
-        "Cross platform echo using println!()"
+        "Cross platform echo using println!()(e.g: nu --testbin cococo a b c)"
     }
 
     fn run(&self) {
@@ -118,7 +118,7 @@ impl TestBin for Cococo {
 
 impl TestBin for Meow {
     fn help(&self) -> &'static str {
-        "Cross platform cat (open a file, print the contents) using read_to_string and println!()"
+        "Cross platform cat (open a file, print the contents) using read_to_string and println!()(e.g: nu --testbin meow file.txt)"
     }
 
     fn run(&self) {
@@ -133,7 +133,7 @@ impl TestBin for Meow {
 
 impl TestBin for Meowb {
     fn help(&self) -> &'static str {
-        "Cross platform cat (open a file, print the contents) using read() and write_all() / binary"
+        "Cross platform cat (open a file, print the contents) using read() and write_all() / binary(e.g: nu --testbin meowb sample.db)"
     }
 
     fn run(&self) {
@@ -151,7 +151,7 @@ impl TestBin for Meowb {
 
 impl TestBin for Relay {
     fn help(&self) -> &'static str {
-        "Relays anything received on stdin to stdout"
+        "Relays anything received on stdin to stdout(e.g: 0x[beef] | nu --testbin relay)"
     }
 
     fn run(&self) {
@@ -177,7 +177,7 @@ impl TestBin for Iecho {
 
 impl TestBin for Fail {
     fn help(&self) -> &'static str {
-        "Exits with failure code 1"
+        "Exits with failure code 1(e.g: nu --testbin fail)"
     }
 
     fn run(&self) {
@@ -248,7 +248,7 @@ impl TestBin for Repeater {
 
 impl TestBin for RepeatBytes {
     fn help(&self) -> &'static str {
-        "A version of repeater that can output binary data, even null bytes"
+        "A version of repeater that can output binary data, even null bytes(e.g: nu --testbin repeat_bytes 003d9fbf 10)"
     }
 
     fn run(&self) {
@@ -288,7 +288,7 @@ impl TestBin for NuRepl {
 
 impl TestBin for InputBytesLength {
     fn help(&self) -> &'static str {
-        "Prints the number of bytes received on stdin"
+        "Prints the number of bytes received on stdin(e.g: 0x[deadbeef] | nu `--testbin` input_bytes_length)"
     }
 
     fn run(&self) {
