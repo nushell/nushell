@@ -4,6 +4,7 @@ use crate::{
         ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, ErrorHandlerStack, Redirection,
         StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
+    report_shell_warning,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{
@@ -212,18 +213,17 @@ impl Stack {
         if let Some(value) = self.get_env_var(engine_state, "config") {
             let old = self.get_config(engine_state);
             let mut config = (*old).clone();
-            let error = config.update_from_value(&old, value);
+            let result = config.update_from_value(&old, value);
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());
-            match error {
-                None => Ok(()),
-                Some(err) => Err(err),
+            if let Some(warning) = result? {
+                report_shell_warning(engine_state, &warning);
             }
         } else {
             self.config = None;
-            Ok(())
         }
+        Ok(())
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {

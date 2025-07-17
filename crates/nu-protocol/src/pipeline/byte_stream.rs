@@ -598,7 +598,12 @@ impl ByteStream {
         match self.stream {
             ByteStreamSource::Read(mut read) => {
                 let mut buf = Vec::new();
-                read.read_to_end(&mut buf).map_err(&from_io_error)?;
+                read.read_to_end(&mut buf).map_err(|err| {
+                    match ShellErrorBridge::try_from(err) {
+                        Ok(ShellErrorBridge(err)) => err,
+                        Err(err) => ShellError::Io(from_io_error(err)),
+                    }
+                })?;
                 Ok(buf)
             }
             ByteStreamSource::File(mut file) => {
@@ -809,7 +814,7 @@ impl Reader {
 
 impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.signals.check(self.span).map_err(ShellErrorBridge)?;
+        self.signals.check(&self.span).map_err(ShellErrorBridge)?;
         self.reader.read(buf)
     }
 }
@@ -1290,7 +1295,7 @@ fn generic_copy(
     let buf = &mut [0; DEFAULT_BUF_SIZE];
     let mut len = 0;
     loop {
-        signals.check(span)?;
+        signals.check(&span)?;
         let n = match reader.read(buf) {
             Ok(0) => break,
             Ok(n) => n,

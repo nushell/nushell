@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use nu_system::{UnfreezeHandle, kill_by_pid};
 
-use crate::{PipelineData, Signals};
+use crate::{PipelineData, Signals, shell_error};
 
 use crate::JobId;
 
@@ -92,7 +92,7 @@ impl Jobs {
     /// This function tries to forcefully kill a job from this job table,
     /// removes it from the job table. It always succeeds in removing the job
     /// from the table, but may fail in killing the job's active processes.
-    pub fn kill_and_remove(&mut self, id: JobId) -> std::io::Result<()> {
+    pub fn kill_and_remove(&mut self, id: JobId) -> shell_error::io::Result<()> {
         if let Some(job) = self.jobs.get(&id) {
             let err = job.kill();
 
@@ -109,7 +109,7 @@ impl Jobs {
     ///
     /// It returns an error if any of the job killing attempts fails, but always
     /// succeeds in removing the jobs from the table.
-    pub fn kill_all(&mut self) -> std::io::Result<()> {
+    pub fn kill_all(&mut self) -> shell_error::io::Result<()> {
         self.last_frozen_job_id = None;
 
         let first_err = self
@@ -180,7 +180,7 @@ impl ThreadJob {
         lock.iter().copied().collect()
     }
 
-    pub fn kill(&self) -> std::io::Result<()> {
+    pub fn kill(&self) -> shell_error::io::Result<()> {
         // it's okay to make this interrupt outside of the mutex, since it has acquire-release
         // semantics.
 
@@ -205,7 +205,7 @@ impl ThreadJob {
 }
 
 impl Job {
-    pub fn kill(&self) -> std::io::Result<()> {
+    pub fn kill(&self) -> shell_error::io::Result<()> {
         match self {
             Job::Thread(thread_job) => thread_job.kill(),
             Job::Frozen(frozen_job) => frozen_job.kill(),
@@ -233,10 +233,10 @@ pub struct FrozenJob {
 }
 
 impl FrozenJob {
-    pub fn kill(&self) -> std::io::Result<()> {
+    pub fn kill(&self) -> shell_error::io::Result<()> {
         #[cfg(unix)]
         {
-            kill_by_pid(self.unfreeze.pid() as i64)
+            Ok(kill_by_pid(self.unfreeze.pid() as i64)?)
         }
 
         // it doesn't happen outside unix.

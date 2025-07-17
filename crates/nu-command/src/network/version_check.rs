@@ -6,8 +6,6 @@ use update_informer::{
     registry,
 };
 
-use super::tls::tls;
-
 #[derive(Clone)]
 pub struct VersionCheck;
 
@@ -85,30 +83,6 @@ impl Registry for NuShellNightly {
     }
 }
 
-struct NativeTlsHttpClient;
-
-impl HttpClient for NativeTlsHttpClient {
-    fn get<T: serde::de::DeserializeOwned>(
-        url: &str,
-        timeout: std::time::Duration,
-        headers: update_informer::http_client::HeaderMap,
-    ) -> update_informer::Result<T> {
-        let agent = ureq::AgentBuilder::new()
-            .tls_connector(std::sync::Arc::new(tls(false)?))
-            .build();
-
-        let mut req = agent.get(url).timeout(timeout);
-
-        for (header, value) in headers {
-            req = req.set(header, value);
-        }
-
-        let json = req.call()?.into_json()?;
-
-        Ok(json)
-    }
-}
-
 pub fn check_for_latest_nushell_version() -> Value {
     let current_version = env!("CARGO_PKG_VERSION").to_string();
 
@@ -123,7 +97,6 @@ pub fn check_for_latest_nushell_version() -> Value {
         // Since this is run on demand, there isn't really a need to cache the check.
         let informer =
             update_informer::new(NuShellNightly, nightly_pkg_name, current_version.clone())
-                .http_client(NativeTlsHttpClient)
                 .interval(std::time::Duration::ZERO);
 
         if let Ok(Some(new_version)) = informer.check_version() {

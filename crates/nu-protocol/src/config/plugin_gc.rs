@@ -147,7 +147,7 @@ mod tests {
         let mut errors = ConfigErrors::new(&config);
         let mut result = PluginGcConfigs::default();
         result.update(&input, &mut ConfigPath::new(), &mut errors);
-        assert!(errors.is_empty(), "errors: {errors:#?}");
+        assert!(!errors.has_errors(), "errors: {errors:#?}");
         assert_eq!(expected, result);
     }
 

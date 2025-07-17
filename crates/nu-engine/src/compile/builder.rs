@@ -347,7 +347,9 @@ impl BlockBuilder {
     /// Deallocate a register and set it to `Empty`, if it is allocated
     pub(crate) fn drop_reg(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         if self.is_allocated(reg_id) {
-            self.push(Instruction::Drop { src: reg_id }.into_spanned(Span::unknown()))?;
+            // try using the block Span if available, since that's slightly more helpful than Span::unknown
+            let span = self.block_span.unwrap_or(Span::unknown());
+            self.push(Instruction::Drop { src: reg_id }.into_spanned(span))?;
         }
         Ok(())
     }

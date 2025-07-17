@@ -5,9 +5,9 @@ use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
-    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    report_error::report_compile_error,
     report_parse_error, report_parse_warning,
     shell_error::io::*,
 };

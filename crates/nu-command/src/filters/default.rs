@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    ListStream, Signals,
+    ListStream, ReportMode, ShellWarning, Signals,
     ast::{Expr, Expression},
     report_shell_warning,
 };
@@ -82,7 +82,7 @@ impl Command for Default {
             },
             Example {
                 description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
-                example: "$env | get --ignore-errors MY_ENV | default 'abc'",
+                example: "$env | get --optional MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
             Example {
@@ -329,7 +329,7 @@ fn closure_variable_warning(
         (Value::Closure { .. }, true) => {
             let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
             let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
-            let suggestion = match span_contents {
+            let label = match span_contents {
                 Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
                 Cow::Owned(s) if s.deref() == "$carapace_completer" => {
                     carapace_suggestion.to_string()
@@ -339,14 +339,15 @@ fn closure_variable_warning(
 
             report_shell_warning(
                 engine_state,
-                &ShellError::DeprecationWarning {
-                    deprecation_type: "Behavior",
-                    suggestion,
+                &ShellWarning::Deprecated {
+                    dep_type: "Behavior".to_string(),
+                    label,
                     span,
                     help: Some(
                         r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
-In a future release, closures passed by variable will also be lazily evaluated.",
+In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
                     ),
+                    report_mode: ReportMode::FirstUse,
                 },
             );
 

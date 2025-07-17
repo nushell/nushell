@@ -11,6 +11,7 @@ use nu_protocol::{
     format_cli_error, report_shell_error,
     shell_error::io::IoError,
 };
+
 use std::{
     path::PathBuf,
     sync::mpsc::{RecvTimeoutError, channel},
@@ -257,14 +258,9 @@ impl Command for Watch {
                     .run_with_input(PipelineData::Empty);
 
                 match result {
-                    Ok(val) => {
-                        val.print_table(engine_state, stack, false, false)?;
-                    }
-                    Err(err) => {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_cli_error(&working_set, &err));
-                    }
-                }
+                    Ok(val) => val.print_table(engine_state, stack, false, false)?,
+                    Err(err) => report_shell_error(engine_state, &err),
+                };
             }
 
             Ok(())

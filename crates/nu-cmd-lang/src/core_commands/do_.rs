@@ -264,7 +264,7 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.is_subtype_of(&param_type) {
+            if !result.is_subtype_of(&param_type) {
                 return Err(ShellError::CantConvert {
                     to_type: param.shape.to_type().to_string(),
                     from_type: result.get_type().to_string(),

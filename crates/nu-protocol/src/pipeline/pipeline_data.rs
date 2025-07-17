@@ -784,7 +784,7 @@ where
     let span = span.unwrap_or(Span::unknown());
     const OUTPUT_CHUNK_SIZE: usize = 8192;
     for chunk in data.as_ref().chunks(OUTPUT_CHUNK_SIZE) {
-        signals.check(span)?;
+        signals.check(&span)?;
         destination
             .write_all(chunk)
             .map_err(|err| io_error_map(err, location!()))?;

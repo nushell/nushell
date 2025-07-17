@@ -57,7 +57,7 @@ Note that history item IDs are ignored when importing from file."#
                 result: None,
             },
             Example {
-                example: "[[ command_line cwd ]; [ foo /home ]] | history import",
+                example: "[[ command cwd ]; [ foo /home ]] | history import",
                 description: "Append `foo` ran from `/home` to the current history",
                 result: None,
             },
