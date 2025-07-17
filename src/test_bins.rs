@@ -14,7 +14,6 @@ use std::{
 };
 
 pub trait TestBin {
-    fn name(&self) -> &'static str;
     fn help(&self) -> &'static str;
     fn run(&self);
 }
@@ -37,10 +36,6 @@ pub struct NuRepl;
 pub struct InputBytesLength;
 
 impl TestBin for EchoEnv {
-    fn name(&self) -> &'static str {
-        "echo_env"
-    }
-
     fn help(&self) -> &'static str {
         "Echo's value of env keys from args(nu --testbin echo_env FOO BAR)"
     }
@@ -51,10 +46,6 @@ impl TestBin for EchoEnv {
 }
 
 impl TestBin for EchoEnvStderr {
-    fn name(&self) -> &'static str {
-        "echo_env_stderr"
-    }
-
     fn help(&self) -> &'static str {
         "Echo's value of env keys from args to stderr(nu --testbin echo_env_stderr FOO BAR)"
     }
@@ -65,10 +56,6 @@ impl TestBin for EchoEnvStderr {
 }
 
 impl TestBin for EchoEnvStderrFail {
-    fn name(&self) -> &'static str {
-        "echo_env_stderr_fail"
-    }
-
     fn help(&self) -> &'static str {
         "Echo's value of env keys from args to stderr, and exit with failure(nu --testbin echo_env_stderr_fail FOO BAR)"
     }
@@ -80,10 +67,6 @@ impl TestBin for EchoEnvStderrFail {
 }
 
 impl TestBin for EchoEnvMixed {
-    fn name(&self) -> &'static str {
-        "echo_env_mixed"
-    }
-
     fn help(&self) -> &'static str {
         "Mix echo of env keys from input(nu --testbin echo_env_mixed out-err FOO BAR; nu --testbin echo_env_mixed err-out FOO BAR)"
     }
@@ -115,10 +98,6 @@ impl TestBin for EchoEnvMixed {
 }
 
 impl TestBin for Cococo {
-    fn name(&self) -> &'static str {
-        "cococo"
-    }
-
     fn help(&self) -> &'static str {
         "Cross platform echo using println!()"
     }
@@ -138,10 +117,6 @@ impl TestBin for Cococo {
 }
 
 impl TestBin for Meow {
-    fn name(&self) -> &'static str {
-        "meow"
-    }
-
     fn help(&self) -> &'static str {
         "Cross platform cat (open a file, print the contents) using read_to_string and println!()"
     }
@@ -157,10 +132,6 @@ impl TestBin for Meow {
 }
 
 impl TestBin for Meowb {
-    fn name(&self) -> &'static str {
-        "meowb"
-    }
-
     fn help(&self) -> &'static str {
         "Cross platform cat (open a file, print the contents) using read() and write_all() / binary"
     }
@@ -179,10 +150,6 @@ impl TestBin for Meowb {
 }
 
 impl TestBin for Relay {
-    fn name(&self) -> &'static str {
-        "relay"
-    }
-
     fn help(&self) -> &'static str {
         "Relays anything received on stdin to stdout"
     }
@@ -194,8 +161,144 @@ impl TestBin for Relay {
 }
 
 impl TestBin for Iecho {
-    fn name(&self) -> &'static str {}
+    fn help(&self) -> &'static str {
+        "Another type of echo that outputs a parameter per line, looping infinitely(nu --testbin iecho 3)"
+    }
+
+    fn run(&self) {
+        // println! panics if stdout gets closed, whereas writeln gives us an error
+        let mut stdout = io::stdout();
+        let _ = args()
+            .iter()
+            .cycle()
+            .try_for_each(|v| writeln!(stdout, "{v}"));
+    }
 }
+
+impl TestBin for Fail {
+    fn help(&self) -> &'static str {
+        "Exits with failure code 1"
+    }
+
+    fn run(&self) {
+        fail();
+    }
+}
+
+impl TestBin for Nonu {
+    fn help(&self) -> &'static str {
+        "Cross platform echo but concats arguments without space and NO newline(nu --testbin nonu a b c)"
+    }
+
+    fn run(&self) {
+        args().iter().for_each(|arg| print!("{arg}"));
+    }
+}
+
+impl TestBin for Chop {
+    fn help(&self) -> &'static str {
+        "With no parameters, will chop a character off the end of each line"
+    }
+
+    fn run(&self) {
+        if did_chop_arguments() {
+            // we are done and don't care about standard input.
+            std::process::exit(0);
+        }
+
+        // if no arguments given, chop from standard input and exit.
+        let stdin = io::stdin();
+        let mut stdout = io::stdout();
+
+        for given in stdin.lock().lines().map_while(Result::ok) {
+            let chopped = if given.is_empty() {
+                &given
+            } else {
+                let to = given.len() - 1;
+                &given[..to]
+            };
+
+            if let Err(_e) = writeln!(stdout, "{chopped}") {
+                break;
+            }
+        }
+
+        std::process::exit(0);
+    }
+}
+impl TestBin for Repeater {
+    fn help(&self) -> &'static str {
+        "Repeat a string or char N times(nu --testbin repeater a 5)"
+    }
+
+    fn run(&self) {
+        let mut stdout = io::stdout();
+        let mut args = args().into_iter();
+        let letter = args.next().expect("needs a character to iterate");
+        let count = args.next().expect("need the number of times to iterate");
+
+        let count: u64 = count.parse().expect("can't convert count to number");
+
+        for _ in 0..count {
+            let _ = write!(stdout, "{letter}");
+        }
+        let _ = stdout.flush();
+    }
+}
+
+impl TestBin for RepeatBytes {
+    fn help(&self) -> &'static str {
+        "A version of repeater that can output binary data, even null bytes"
+    }
+
+    fn run(&self) {
+        let mut stdout = io::stdout();
+        let mut args = args().into_iter();
+
+        while let (Some(binary), Some(count)) = (args.next(), args.next()) {
+            let bytes: Vec<u8> = (0..binary.len())
+                .step_by(2)
+                .map(|i| {
+                    u8::from_str_radix(&binary[i..i + 2], 16)
+                        .expect("binary string is valid hexadecimal")
+                })
+                .collect();
+            let count: u64 = count.parse().expect("repeat count must be a number");
+
+            for _ in 0..count {
+                stdout
+                    .write_all(&bytes)
+                    .expect("writing to stdout must not fail");
+            }
+        }
+
+        let _ = stdout.flush();
+    }
+}
+
+impl TestBin for NuRepl {
+    fn help(&self) -> &'static str {
+        "Run a REPL with the given source lines"
+    }
+
+    fn run(&self) {
+        nu_repl();
+    }
+}
+
+impl TestBin for InputBytesLength {
+    fn help(&self) -> &'static str {
+        "Prints the number of bytes received on stdin"
+    }
+
+    fn run(&self) {
+        let stdin = io::stdin();
+        let count = stdin.lock().bytes().count();
+
+        println!("{count}");
+    }
+}
+
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
 /// If it it's not present echo's nothing
@@ -243,94 +346,27 @@ pub fn relay() {
 /// Cross platform echo but concats arguments without space and NO newline
 /// nu --testbin nonu a b c
 /// abc
-pub fn nonu() {
-    args().iter().for_each(|arg| print!("{arg}"));
-}
+pub fn nonu() {}
 
 /// Repeat a string or char N times
 /// nu --testbin repeater a 5
 /// aaaaa
 /// nu --testbin repeater test 5
 /// testtesttesttesttest
-pub fn repeater() {
-    let mut stdout = io::stdout();
-    let mut args = args().into_iter();
-    let letter = args.next().expect("needs a character to iterate");
-    let count = args.next().expect("need the number of times to iterate");
-
-    let count: u64 = count.parse().expect("can't convert count to number");
-
-    for _ in 0..count {
-        let _ = write!(stdout, "{letter}");
-    }
-    let _ = stdout.flush();
-}
+pub fn repeater() {}
 
 /// A version of repeater that can output binary data, even null bytes
-pub fn repeat_bytes() {
-    let mut stdout = io::stdout();
-    let mut args = args().into_iter();
-
-    while let (Some(binary), Some(count)) = (args.next(), args.next()) {
-        let bytes: Vec<u8> = (0..binary.len())
-            .step_by(2)
-            .map(|i| {
-                u8::from_str_radix(&binary[i..i + 2], 16)
-                    .expect("binary string is valid hexadecimal")
-            })
-            .collect();
-        let count: u64 = count.parse().expect("repeat count must be a number");
-
-        for _ in 0..count {
-            stdout
-                .write_all(&bytes)
-                .expect("writing to stdout must not fail");
-        }
-    }
-
-    let _ = stdout.flush();
-}
+pub fn repeat_bytes() {}
 
 /// Another type of echo that outputs a parameter per line, looping infinitely
-pub fn iecho() {
-    // println! panics if stdout gets closed, whereas writeln gives us an error
-    let mut stdout = io::stdout();
-    let _ = args()
-        .iter()
-        .cycle()
-        .try_for_each(|v| writeln!(stdout, "{v}"));
-}
+pub fn iecho() {}
 
 pub fn fail() {
     std::process::exit(1);
 }
 
 /// With no parameters, will chop a character off the end of each line
-pub fn chop() {
-    if did_chop_arguments() {
-        // we are done and don't care about standard input.
-        std::process::exit(0);
-    }
-
-    // if no arguments given, chop from standard input and exit.
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
-
-    for given in stdin.lock().lines().map_while(Result::ok) {
-        let chopped = if given.is_empty() {
-            &given
-        } else {
-            let to = given.len() - 1;
-            &given[..to]
-        };
-
-        if let Err(_e) = writeln!(stdout, "{chopped}") {
-            break;
-        }
-    }
-
-    std::process::exit(0);
-}
+pub fn chop() {}
 
 fn outcome_err(engine_state: &EngineState, error: &ShellError) -> ! {
     report_shell_error(engine_state, error);
@@ -479,12 +515,7 @@ fn did_chop_arguments() -> bool {
     false
 }
 
-pub fn input_bytes_length() {
-    let stdin = io::stdin();
-    let count = stdin.lock().bytes().count();
-
-    println!("{count}");
-}
+pub fn input_bytes_length() {}
 
 fn args() -> Vec<String> {
     // skip `nu` path (first argument)

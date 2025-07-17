@@ -378,26 +378,43 @@ fn main() -> Result<()> {
             "echo_env_stderr".to_string(),
             Box::new(&test_bins::EchoEnvStderr),
         );
-        // Call out to the correct testbin
-        match testbin.item.as_str() {
-            "echo_env" => test_bins::echo_env(true),
-            "echo_env_stderr" => test_bins::echo_env(false),
-            "echo_env_stderr_fail" => test_bins::echo_env_and_fail(false),
-            "echo_env_mixed" => test_bins::echo_env_mixed(),
-            "cococo" => test_bins::cococo(),
-            "meow" => test_bins::meow(),
-            "meowb" => test_bins::meowb(),
-            "relay" => test_bins::relay(),
-            "iecho" => test_bins::iecho(),
-            "fail" => test_bins::fail(),
-            "nonu" => test_bins::nonu(),
-            "chop" => test_bins::chop(),
-            "repeater" => test_bins::repeater(),
-            "repeat_bytes" => test_bins::repeat_bytes(),
-            "nu_repl" => test_bins::nu_repl(),
-            "input_bytes_length" => test_bins::input_bytes_length(),
-            "-h" => test_bins::show_help(&dispatcher),
-            _ => std::process::exit(1),
+        dispatcher.insert(
+            "echo_env_stderr_fail".to_string(),
+            Box::new(&test_bins::EchoEnvStderrFail),
+        );
+        dispatcher.insert(
+            "echo_env_mixed".to_string(),
+            Box::new(&test_bins::EchoEnvMixed),
+        );
+        dispatcher.insert("cococo".to_string(), Box::new(&test_bins::Cococo));
+        dispatcher.insert("meow".to_string(), Box::new(&test_bins::Meow));
+        dispatcher.insert("meowb".to_string(), Box::new(&test_bins::Meowb));
+        dispatcher.insert("relay".to_string(), Box::new(&test_bins::Relay));
+        dispatcher.insert("iecho".to_string(), Box::new(&test_bins::IEcho));
+        dispatcher.insert("fail".to_string(), Box::new(&test_bins::Fail));
+        dispatcher.insert("nonu".to_string(), Box::new(&test_bins::Nonu));
+        dispatcher.insert("chop".to_string(), Box::new(&test_bins::Chop));
+        dispatcher.insert("repeater".to_string(), Box::new(&test_bins::Repeater));
+        dispatcher.insert(
+            "repeat_bytes".to_string(),
+            Box::new(&test_bins::RepeatBytes),
+        );
+        dispatcher.insert("nu_repl".to_string(), Box::new(&test_bins::NuRepl));
+        dispatcher.insert(
+            "input_bytes_length".to_string(),
+            Box::new(&test_bins::InputBytesLength),
+        );
+        let test_bin = testbin.item.as_str();
+        match dispatcher.get(test_bin) {
+            Some(test_bin) => test_bin.run(),
+            None => {
+                if ["-h", "--help"].contains(&test_bin) {
+                    test_bins::show_help(&dispatcher);
+                } else {
+                    eprintln!("ERROR: Unknown testbin '{}'", test_bin);
+                    std::process::exit(1);
+                }
+            }
         }
         std::process::exit(0)
     } else {
