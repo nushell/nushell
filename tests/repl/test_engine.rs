@@ -440,6 +440,14 @@ fn better_operator_spans() -> TestResult {
 }
 
 #[test]
+fn call_rest_arg_span() -> TestResult {
+    run_test(
+        r#"let l = [2, 3]; def foo [...rest] { metadata $rest | view span $in.span.start $in.span.end }; foo 1 ...$l"#,
+        "1 ...$l",
+    )
+}
+
+#[test]
 fn range_right_exclusive() -> TestResult {
     run_test(r#"[1, 4, 5, 8, 9] | slice 1..<3 | math sum"#, "9")
 }

@@ -173,9 +173,3 @@ fn known_external_arg_internally_quoted_options() -> TestResult {
         "--option=test",
     )
 }
-
-// Verify that the KnownExternal for the `nu` binary exists
-#[test]
-fn known_external_nu() -> TestResult {
-    run_test_contains("help nu", "Usage")
-}

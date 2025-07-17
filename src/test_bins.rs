@@ -74,6 +74,7 @@ impl TestBin for EchoEnvMixed {
 
     fn run(&self) {
         let args = args();
+        let args = &args[1..];
 
         if args.len() != 3 {
             panic!(
@@ -106,11 +107,11 @@ impl TestBin for Cococo {
     fn run(&self) {
         let args: Vec<String> = args();
 
-        if !args.is_empty() {
+        if args.len() > 1 {
             // Write back out all the arguments passed
             // if given at least 1 instead of chickens
             // speaking co co co.
-            println!("{}", args.join(" "));
+            println!("{}", &args[1..].join(" "));
         } else {
             println!("cococo");
         }
@@ -125,7 +126,7 @@ impl TestBin for Meow {
     fn run(&self) {
         let args: Vec<String> = args();
 
-        for arg in args.iter() {
+        for arg in args.iter().skip(1) {
             let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
             println!("{contents}");
         }
@@ -143,7 +144,7 @@ impl TestBin for Meowb {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
 
-        for arg in args.iter() {
+        for arg in args.iter().skip(1) {
             let buf = std::fs::read(arg).expect("Expected a filepath");
             handle.write_all(&buf).expect("failed to write to stdout");
         }
@@ -171,6 +172,7 @@ impl TestBin for Iecho {
         let mut stdout = io::stdout();
         let _ = args()
             .iter()
+            .skip(1)
             .cycle()
             .try_for_each(|v| writeln!(stdout, "{v}"));
     }
@@ -192,7 +194,7 @@ impl TestBin for Nonu {
     }
 
     fn run(&self) {
-        args().iter().for_each(|arg| print!("{arg}"));
+        args().iter().skip(1).for_each(|arg| print!("{arg}"));
     }
 }
 
@@ -234,7 +236,8 @@ impl TestBin for Repeater {
 
     fn run(&self) {
         let mut stdout = io::stdout();
-        let mut args = args().into_iter();
+        let args = args();
+        let mut args = args.iter().skip(1);
         let letter = args.next().expect("needs a character to iterate");
         let count = args.next().expect("need the number of times to iterate");
 
@@ -254,7 +257,8 @@ impl TestBin for RepeatBytes {
 
     fn run(&self) {
         let mut stdout = io::stdout();
-        let mut args = args().into_iter();
+        let args = args();
+        let mut args = args.iter().skip(1);
 
         while let (Some(binary), Some(count)) = (args.next(), args.next()) {
             let bytes: Vec<u8> = (0..binary.len())
@@ -279,7 +283,7 @@ impl TestBin for RepeatBytes {
 
 impl TestBin for NuRepl {
     fn help(&self) -> &'static str {
-        "Run a REPL with the given source lines"
+        "Run a REPL with the given source lines, it must be called with `--testbin=nu_repl`, `--testbin nu_repl` will not work due to argument count logic"
     }
 
     fn run(&self) {
@@ -472,20 +476,8 @@ fn did_chop_arguments() -> bool {
 }
 
 fn args() -> Vec<String> {
-    // skip `nu` path (first argument)
-    // then skip --testbin=foo OR --testbin foo
-    std::env::args().skip(1).fold(vec![], |mut acc, it| {
-        // if we have --testbin foo, skip the previous argument (--testbin) and this argument (foo)
-        if acc.last().is_some_and(|last| last == "--testbin") {
-            acc.pop();
-            return acc;
-        }
-        // if we have --testbin=foo, skip it
-        if !it.starts_with("--testbin=") {
-            acc.push(it);
-        }
-        acc
-    })
+    // skip (--testbin bin_name args)
+    std::env::args().skip(2).collect()
 }
 
 pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<dyn TestBin>>) {

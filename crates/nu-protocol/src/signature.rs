@@ -715,14 +715,6 @@ impl CustomExample {
             result: self.result.clone(),
         }
     }
-
-    pub fn from_example(example: Example<'_>) -> Self {
-        Self {
-            example: example.example.to_string(),
-            description: example.description.to_string(),
-            result: example.result,
-        }
-    }
 }
 
 #[derive(Clone)]

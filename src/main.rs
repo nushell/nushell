@@ -15,7 +15,7 @@ use crate::{
     config_files::set_config_path,
     logger::{configure, logger},
 };
-use command::{add_nu_extern, gather_commandline_args};
+use command::gather_commandline_args;
 use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
@@ -79,7 +79,6 @@ fn main() -> Result<()> {
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(nu_cli::NuHighlight));
         working_set.add_decl(Box::new(nu_cli::Print));
-
         working_set.render()
     };
 
@@ -202,9 +201,6 @@ fn main() -> Result<()> {
             report_shell_error(&engine_state, &err);
             std::process::exit(1)
         });
-
-    // this has to happen after `parse_command_args` since that hides the `Nu` decl
-    add_nu_extern(&mut engine_state);
 
     experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
