@@ -9,6 +9,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use std::{
+    collections::HashMap,
     io::{self, BufRead, Read, Write},
     sync::Arc,
 };
@@ -487,7 +488,7 @@ fn args() -> Vec<String> {
     })
 }
 
-pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<&dyn TestBin>>) {
+pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<dyn TestBin>>) {
     println!("Usage: nu --testbin <bin>\n<bin>:");
     let mut names = dispatcher.keys().collect::<Vec<_>>();
     names.sort();
@@ -495,4 +496,29 @@ pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<&dyn TestBin
         let test_bin = dispatcher.get(n).expect("Test bin should exist");
         println!("{n} -> {}", test_bin.help())
     }
+}
+
+/// Create a new testbin dispatcher, which is useful to guide the testbin to run.
+pub fn new_testbin_dispatcher() -> HashMap<String, Box<dyn TestBin>> {
+    let mut dispatcher: HashMap<String, Box<dyn TestBin>> = HashMap::new();
+    dispatcher.insert("echo_env".to_string(), Box::new(EchoEnv));
+    dispatcher.insert("echo_env_stderr".to_string(), Box::new(EchoEnvStderr));
+    dispatcher.insert(
+        "echo_env_stderr_fail".to_string(),
+        Box::new(EchoEnvStderrFail),
+    );
+    dispatcher.insert("echo_env_mixed".to_string(), Box::new(EchoEnvMixed));
+    dispatcher.insert("cococo".to_string(), Box::new(Cococo));
+    dispatcher.insert("meow".to_string(), Box::new(Meow));
+    dispatcher.insert("meowb".to_string(), Box::new(Meowb));
+    dispatcher.insert("relay".to_string(), Box::new(Relay));
+    dispatcher.insert("iecho".to_string(), Box::new(Iecho));
+    dispatcher.insert("fail".to_string(), Box::new(Fail));
+    dispatcher.insert("nonu".to_string(), Box::new(Nonu));
+    dispatcher.insert("chop".to_string(), Box::new(Chop));
+    dispatcher.insert("repeater".to_string(), Box::new(Repeater));
+    dispatcher.insert("repeat_bytes".to_string(), Box::new(RepeatBytes));
+    dispatcher.insert("nu_repl".to_string(), Box::new(NuRepl));
+    dispatcher.insert("input_bytes_length".to_string(), Box::new(InputBytesLength));
+    dispatcher
 }

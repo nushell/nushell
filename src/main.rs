@@ -30,8 +30,7 @@ use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
-use std::{borrow::Cow, collections::HashMap, path::PathBuf, str::FromStr, sync::Arc};
-use test_bins::TestBin;
+use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc};
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -372,38 +371,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
-        let mut dispatcher: HashMap<String, Box<&dyn TestBin>> = HashMap::new();
-        dispatcher.insert("echo_env".to_string(), Box::new(&test_bins::EchoEnv));
-        dispatcher.insert(
-            "echo_env_stderr".to_string(),
-            Box::new(&test_bins::EchoEnvStderr),
-        );
-        dispatcher.insert(
-            "echo_env_stderr_fail".to_string(),
-            Box::new(&test_bins::EchoEnvStderrFail),
-        );
-        dispatcher.insert(
-            "echo_env_mixed".to_string(),
-            Box::new(&test_bins::EchoEnvMixed),
-        );
-        dispatcher.insert("cococo".to_string(), Box::new(&test_bins::Cococo));
-        dispatcher.insert("meow".to_string(), Box::new(&test_bins::Meow));
-        dispatcher.insert("meowb".to_string(), Box::new(&test_bins::Meowb));
-        dispatcher.insert("relay".to_string(), Box::new(&test_bins::Relay));
-        dispatcher.insert("iecho".to_string(), Box::new(&test_bins::Iecho));
-        dispatcher.insert("fail".to_string(), Box::new(&test_bins::Fail));
-        dispatcher.insert("nonu".to_string(), Box::new(&test_bins::Nonu));
-        dispatcher.insert("chop".to_string(), Box::new(&test_bins::Chop));
-        dispatcher.insert("repeater".to_string(), Box::new(&test_bins::Repeater));
-        dispatcher.insert(
-            "repeat_bytes".to_string(),
-            Box::new(&test_bins::RepeatBytes),
-        );
-        dispatcher.insert("nu_repl".to_string(), Box::new(&test_bins::NuRepl));
-        dispatcher.insert(
-            "input_bytes_length".to_string(),
-            Box::new(&test_bins::InputBytesLength),
-        );
+        let dispatcher = test_bins::new_testbin_dispatcher();
         let test_bin = testbin.item.as_str();
         match dispatcher.get(test_bin) {
             Some(test_bin) => test_bin.run(),
@@ -411,7 +379,7 @@ fn main() -> Result<()> {
                 if ["-h", "--help"].contains(&test_bin) {
                     test_bins::show_help(&dispatcher);
                 } else {
-                    eprintln!("ERROR: Unknown testbin '{}'", test_bin);
+                    eprintln!("ERROR: Unknown testbin '{test_bin}'");
                     std::process::exit(1);
                 }
             }
