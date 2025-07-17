@@ -390,7 +390,7 @@ fn main() -> Result<()> {
         dispatcher.insert("meow".to_string(), Box::new(&test_bins::Meow));
         dispatcher.insert("meowb".to_string(), Box::new(&test_bins::Meowb));
         dispatcher.insert("relay".to_string(), Box::new(&test_bins::Relay));
-        dispatcher.insert("iecho".to_string(), Box::new(&test_bins::IEcho));
+        dispatcher.insert("iecho".to_string(), Box::new(&test_bins::Iecho));
         dispatcher.insert("fail".to_string(), Box::new(&test_bins::Fail));
         dispatcher.insert("nonu".to_string(), Box::new(&test_bins::Nonu));
         dispatcher.insert("chop".to_string(), Box::new(&test_bins::Chop));
