@@ -37,7 +37,7 @@ pub struct InputBytesLength;
 
 impl TestBin for EchoEnv {
     fn help(&self) -> &'static str {
-        "Echo's value of env keys from args(nu --testbin echo_env FOO BAR)"
+        "Echo's value of env keys from args(e.g: nu --testbin echo_env FOO BAR)"
     }
 
     fn run(&self) {
@@ -47,7 +47,7 @@ impl TestBin for EchoEnv {
 
 impl TestBin for EchoEnvStderr {
     fn help(&self) -> &'static str {
-        "Echo's value of env keys from args to stderr(nu --testbin echo_env_stderr FOO BAR)"
+        "Echo's value of env keys from args to stderr(e.g: nu --testbin echo_env_stderr FOO BAR)"
     }
 
     fn run(&self) {
@@ -57,7 +57,7 @@ impl TestBin for EchoEnvStderr {
 
 impl TestBin for EchoEnvStderrFail {
     fn help(&self) -> &'static str {
-        "Echo's value of env keys from args to stderr, and exit with failure(nu --testbin echo_env_stderr_fail FOO BAR)"
+        "Echo's value of env keys from args to stderr, and exit with failure(e.g: nu --testbin echo_env_stderr_fail FOO BAR)"
     }
 
     fn run(&self) {
@@ -68,7 +68,7 @@ impl TestBin for EchoEnvStderrFail {
 
 impl TestBin for EchoEnvMixed {
     fn help(&self) -> &'static str {
-        "Mix echo of env keys from input(nu --testbin echo_env_mixed out-err FOO BAR; nu --testbin echo_env_mixed err-out FOO BAR)"
+        "Mix echo of env keys from input(e.g: nu --testbin echo_env_mixed out-err FOO BAR; nu --testbin echo_env_mixed err-out FOO BAR)"
     }
 
     fn run(&self) {
@@ -162,7 +162,7 @@ impl TestBin for Relay {
 
 impl TestBin for Iecho {
     fn help(&self) -> &'static str {
-        "Another type of echo that outputs a parameter per line, looping infinitely(nu --testbin iecho 3)"
+        "Another type of echo that outputs a parameter per line, looping infinitely(e.g: nu --testbin iecho 3)"
     }
 
     fn run(&self) {
@@ -187,7 +187,7 @@ impl TestBin for Fail {
 
 impl TestBin for Nonu {
     fn help(&self) -> &'static str {
-        "Cross platform echo but concats arguments without space and NO newline(nu --testbin nonu a b c)"
+        "Cross platform echo but concats arguments without space and NO newline(e.g: nu --testbin nonu a b c)"
     }
 
     fn run(&self) {
@@ -228,7 +228,7 @@ impl TestBin for Chop {
 }
 impl TestBin for Repeater {
     fn help(&self) -> &'static str {
-        "Repeat a string or char N times(nu --testbin repeater a 5)"
+        "Repeat a string or char N times(e.g: nu --testbin repeater a 5)"
     }
 
     fn run(&self) {
@@ -536,7 +536,10 @@ fn args() -> Vec<String> {
 
 pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<&dyn TestBin>>) {
     println!("Usage: nu --testbin <bin>\n<bin>:");
-    for (name, test_bin) in dispatcher.iter() {
-        println!("{name} -> {}", test_bin.help())
+    let mut names = dispatcher.keys().collect::<Vec<_>>();
+    names.sort();
+    for n in names {
+        let test_bin = dispatcher.get(*k).expect("Test bin should exist");
+        println!("{n} -> {}", test_bin.help())
     }
 }
