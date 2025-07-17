@@ -8,7 +8,7 @@ use notify_debouncer_full::{
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
-    format_cli_error,
+    format_cli_error, report_shell_error,
     shell_error::io::IoError,
 };
 use std::{
@@ -124,7 +124,18 @@ impl Command for Watch {
             }
             (None, Some(val)) => {
                 debounce_duration = match u64::try_from(val.item) {
-                    Ok(val) => Duration::from_millis(val),
+                    Ok(v) => {
+                        report_shell_error(
+                            &engine_state,
+                            &ShellError::DeprecationWarning {
+                                deprecation_type: "Something",
+                                suggestion: "Use the --debounce flag instead".into(),
+                                span: val.span,
+                                help: Some("--debounce uses a duration instead of an int"),
+                            },
+                        );
+                        Duration::from_millis(v)
+                    }
                     Err(_) => {
                         return Err(ShellError::TypeMismatch {
                             err_message: "Debounce duration is invalid".to_string(),
