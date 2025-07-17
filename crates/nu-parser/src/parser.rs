@@ -795,9 +795,6 @@ fn parse_oneof(
             true => parse_multispan_value(working_set, spans, spans_idx, shape),
             false => parse_value(working_set, spans[*spans_idx], shape),
         };
-        if let SyntaxShape::RowCondition = shape {
-            return value;
-        }
 
         let new_errors = working_set.parse_errors[starting_error_count..].to_vec();
         // no new errors found means success
