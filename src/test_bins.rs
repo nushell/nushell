@@ -539,7 +539,7 @@ pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<&dyn TestBin
     let mut names = dispatcher.keys().collect::<Vec<_>>();
     names.sort();
     for n in names {
-        let test_bin = dispatcher.get(*k).expect("Test bin should exist");
+        let test_bin = dispatcher.get(n).expect("Test bin should exist");
         println!("{n} -> {}", test_bin.help())
     }
 }
