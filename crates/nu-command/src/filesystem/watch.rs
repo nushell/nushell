@@ -6,7 +6,10 @@ use notify_debouncer_full::{
     },
 };
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{engine::Closure, report_shell_error, shell_error::io::IoError};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, ReportMode, engine::Closure, report_shell_error,
+    shell_error::io::IoError,
+};
 
 use std::{
     path::PathBuf,
@@ -32,6 +35,16 @@ impl Command for Watch {
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["watcher", "reload", "filesystem"]
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("--debounce-ms".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.106.0".into()),
+            expected_removal: Some("0.108.0".into()),
+            help: Some("`--debounce-ms` will be removed in favour of  `--debounce`".into()),
+        }]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -125,7 +138,7 @@ impl Command for Watch {
                         report_shell_error(
                             &engine_state,
                             &ShellError::DeprecationWarning {
-                                deprecation_type: "Something",
+                                deprecation_type: "--debounce-ms",
                                 suggestion: "Use the --debounce flag instead".into(),
                                 span: val.span,
                                 help: Some("--debounce uses a duration instead of an int"),
