@@ -299,6 +299,16 @@ impl TestBin for InputBytesLength {
     }
 }
 
+/// Echo's value of env keys from args
+/// Example: nu --testbin env_echo FOO BAR
+/// If it it's not present echo's nothing
+pub fn echo_env(to_stdout: bool) {
+    let args = args();
+    for arg in args {
+        echo_one_env(&arg, to_stdout)
+    }
+}
+
 fn echo_one_env(arg: &str, to_stdout: bool) {
     if let Ok(v) = std::env::var(arg) {
         if to_stdout {
