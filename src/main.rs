@@ -468,6 +468,23 @@ fn main() -> Result<()> {
         }
 
         LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
+    } else if parsed_nu_cli_args.mcp {
+        perf!("mcp starting", start_time, use_color);
+
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut stack = nu_protocol::engine::Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut stack,
+                #[cfg(feature = "plugin")]
+                parsed_nu_cli_args.plugin_file,
+                parsed_nu_cli_args.config_file,
+                parsed_nu_cli_args.env_file,
+                false,
+            );
+        }
+
+        nu_mcp::initialize_mcp_server(engine_state)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
