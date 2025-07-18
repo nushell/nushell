@@ -2246,8 +2246,10 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
             if token_start < end {
                 let span = Span::new(token_start, end);
 
-                let expr = parse_full_cell_path(working_set, None, span);
-                output.push(expr);
+                if delimiter_stack.is_empty() {
+                    let expr = parse_full_cell_path(working_set, None, span);
+                    output.push(expr);
+                }
             }
         }
     }
