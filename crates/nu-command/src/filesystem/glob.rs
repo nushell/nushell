@@ -85,7 +85,7 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files for folders that do not begin with c, C, b, M, or s",
+                description: "Search for files or folders that do not begin with c, C, b, M, or s",
                 example: r#"glob "[!cCbMs]*""#,
                 result: None,
             },
