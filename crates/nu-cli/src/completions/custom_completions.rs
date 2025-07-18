@@ -140,7 +140,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 _ => {
                     log::error!(
                         "Custom completer returned invalid value of type {}",
-                        value.get_type().to_string()
+                        value.get_type()
                     );
                     return vec![];
                 }

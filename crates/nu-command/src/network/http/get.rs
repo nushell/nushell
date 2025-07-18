@@ -1,11 +1,9 @@
 use crate::network::http::client::{
     RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
     http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
-
-use super::client::HttpBody;
 
 #[derive(Clone)]
 pub struct HttpGet;
@@ -180,15 +178,8 @@ fn helper(
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
-
-    let response = send_request(
-        engine_state,
-        request.clone(),
-        HttpBody::None,
-        None,
-        call.head,
-        engine_state.signals(),
-    );
+    let (response, request_headers) =
+        send_request_no_body(request, call.head, engine_state.signals());
 
     let request_flags = RequestFlags {
         raw: args.raw,
@@ -204,7 +195,8 @@ fn helper(
         &requested_url,
         request_flags,
         response,
-        request,
+        request_headers,
+        redirect_mode
     )
 }
 
