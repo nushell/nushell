@@ -2003,15 +2003,11 @@ pub fn parse_paren_expr(
     let fcp_error_count = working_set.parse_errors.len();
     if fcp_error_count > starting_error_count {
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
-            .iter()
-            .any(|e| match e {
-                ParseError::Unclosed(right, _) if right == ")" => true,
-                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
-                _ => false,
-            });
+            .first()
+            .is_some_and(|e| matches!(e, ParseError::Unclosed(right, _) if right == ")" ));
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
-            parse_string(working_set, span)
+            parse_string_interpolation(working_set, span)
         } else {
             fcp_expr
         }
