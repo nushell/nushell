@@ -102,7 +102,11 @@ impl<T> NuMatcher<'_, T> {
                     options,
                     needle: needle.to_owned(),
                     state: State::Fuzzy {
-                        matcher: Matcher::new(Config::DEFAULT),
+                        matcher: Matcher::new({
+                            let mut cfg = Config::DEFAULT;
+                            cfg.prefer_prefix = true;
+                            cfg
+                        }),
                         atom,
                         items: Vec::new(),
                     },
