@@ -83,7 +83,7 @@ pub enum SyntaxShape {
     List(Box<SyntaxShape>),
 
     /// A general math expression, eg `1 + 2`
-    MathExpression,
+    MathExpression(Type),
 
     /// A block of matches, used by `match`
     MatchBlock,
@@ -167,7 +167,7 @@ impl SyntaxShape {
             }
             SyntaxShape::Keyword(_, expr) => expr.to_type(),
             SyntaxShape::MatchBlock => Type::Any,
-            SyntaxShape::MathExpression => Type::Any,
+            SyntaxShape::MathExpression(ty) => ty.clone(),
             SyntaxShape::Nothing => Type::Nothing,
             SyntaxShape::Number => Type::Number,
             SyntaxShape::OneOf(_) => Type::Any,
@@ -240,7 +240,7 @@ impl Display for SyntaxShape {
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
-            SyntaxShape::MathExpression => write!(f, "variable"),
+            SyntaxShape::MathExpression(_) => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::MatchBlock => write!(f, "match-block"),

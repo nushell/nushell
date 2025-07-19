@@ -20,7 +20,10 @@ impl Command for Mut {
             .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                SyntaxShape::Keyword(
+                    b"=".to_vec(),
+                    Box::new(SyntaxShape::MathExpression(Type::Any)),
+                ),
                 "Equals sign followed by value.",
             )
             .category(Category::Core)

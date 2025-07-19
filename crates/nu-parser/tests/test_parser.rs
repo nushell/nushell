@@ -820,11 +820,11 @@ pub fn parse_if_in_const_expression() {
     let _ = parse(&mut working_set, None, source, false);
 
     assert!(!working_set.parse_errors.is_empty());
-    let ParseError::MissingPositional(error, _, _) = &working_set.parse_errors[0] else {
-        panic!("Expected MissingPositional");
+    let ParseError::TypeMismatch(expected, _, _) = &working_set.parse_errors[0] else {
+        panic!("Expected TypeMismatch");
     };
 
-    assert!(error.contains("cond"));
+    assert_eq!(expected, &Type::Bool);
 
     working_set.parse_errors = Vec::new();
     let source = b"def a [n= (if ]";
@@ -2114,7 +2114,10 @@ mod mock {
                 .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
                 .required(
                     "initial_value",
-                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    SyntaxShape::Keyword(
+                        b"=".to_vec(),
+                        Box::new(SyntaxShape::MathExpression(Type::Any)),
+                    ),
                     "Equals sign followed by constant value.",
                 )
                 .category(Category::Core)
@@ -2157,7 +2160,10 @@ mod mock {
                 .required("var_name", SyntaxShape::VarWithOptType, "variable name")
                 .required(
                     "initial_value",
-                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    SyntaxShape::Keyword(
+                        b"=".to_vec(),
+                        Box::new(SyntaxShape::MathExpression(Type::Any)),
+                    ),
                     "equals sign followed by value",
                 )
         }
@@ -2190,7 +2196,10 @@ mod mock {
                 .required("var_name", SyntaxShape::VarWithOptType, "variable name")
                 .required(
                     "initial_value",
-                    SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    SyntaxShape::Keyword(
+                        b"=".to_vec(),
+                        Box::new(SyntaxShape::MathExpression(Type::Any)),
+                    ),
                     "equals sign followed by value",
                 )
         }
@@ -2564,7 +2573,11 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("if")
-                .required("cond", SyntaxShape::MathExpression, "condition to check")
+                .required(
+                    "cond",
+                    SyntaxShape::MathExpression(Type::Bool),
+                    "condition to check",
+                )
                 .required(
                     "then_block",
                     SyntaxShape::Block,

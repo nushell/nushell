@@ -15,7 +15,10 @@ impl Command for LetEnv {
             .optional("var_name", SyntaxShape::String, "Variable name.")
             .optional(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                SyntaxShape::Keyword(
+                    b"=".to_vec(),
+                    Box::new(SyntaxShape::MathExpression(Type::Any)),
+                ),
                 "Equals sign followed by value.",
             )
             .category(Category::Removed)
