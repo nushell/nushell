@@ -1,5 +1,5 @@
 use crate::{
-    BlockId, DeclId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
+    BlockId, GetSpan, IN_VARIABLE_ID, Signature, Span, SpanId, Type, VarId,
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
 };
@@ -15,7 +15,6 @@ pub struct Expression {
     pub span: Span,
     pub span_id: SpanId,
     pub ty: Type,
-    pub custom_completion: Option<DeclId>,
 }
 
 impl Expression {
@@ -26,7 +25,6 @@ impl Expression {
             span,
             span_id,
             ty: Type::Any,
-            custom_completion: None,
         }
     }
 
@@ -572,7 +570,6 @@ impl Expression {
             span,
             span_id,
             ty,
-            custom_completion: None,
         }
     }
 
@@ -582,7 +579,6 @@ impl Expression {
             span,
             span_id,
             ty,
-            custom_completion: None,
         }
     }
 
@@ -592,7 +588,6 @@ impl Expression {
             span,
             span_id: SpanId::new(0),
             ty,
-            custom_completion: None,
         }
     }
 
@@ -602,7 +597,6 @@ impl Expression {
             span: self.span,
             span_id,
             ty: self.ty,
-            custom_completion: self.custom_completion,
         }
     }
 

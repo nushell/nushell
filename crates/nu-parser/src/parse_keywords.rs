@@ -350,6 +350,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
                 shape: var_type.to_shape(),
                 var_id: Some(*var_id),
                 default_value: None,
+                custom_completion: None,
             },
         );
     }

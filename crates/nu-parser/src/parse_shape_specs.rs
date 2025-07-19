@@ -2,40 +2,21 @@
 
 use crate::{TokenContents, lex::lex_signature, parser::parse_value, trim_quotes};
 use nu_protocol::{
-    IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, engine::StateWorkingSet,
+    DeclId, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, engine::StateWorkingSet,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ShapeDescriptorUse {
-    /// Used in an argument position allowing the addition of custom completion
-    Argument,
-    /// Used to define the type of a variable or input/output types
-    Type,
-}
-
-/// equivalent to [`parse_shape_name`] with [`ShapeDescriptorUse::Type`] converting the
-/// [`SyntaxShape`] to its [`Type`]
+/// [`parse_shape_name`] then convert to Type
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
-    parse_shape_name(working_set, bytes, span, ShapeDescriptorUse::Type).to_type()
+    parse_shape_name(working_set, bytes, span).to_type()
 }
 
 /// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
-/// Also handles the specification of custom completions with `type@completer`.
-///
-/// Restrict the parsing with `use_loc`
-/// Used in:
-/// - [`ShapeDescriptorUse::Argument`]
-///   - `: ` argument type (+completer) positions in signatures
-/// - [`ShapeDescriptorUse::Type`]
-///   - `type->type` input/output type pairs
-///   - `let name: type` variable type infos
 ///
 /// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
     span: Span,
-    use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     match bytes {
         b"any" => SyntaxShape::Any,
@@ -70,71 +51,54 @@ pub fn parse_shape_name(
             || bytes.starts_with(b"record")
             || bytes.starts_with(b"table") =>
         {
-            parse_generic_shape(working_set, bytes, span, use_loc)
+            parse_generic_shape(working_set, bytes, span)
         }
         _ => {
             if bytes.contains(&b'@') {
-                let mut split = bytes.splitn(2, |b| b == &b'@');
-
-                let shape_name = split
-                    .next()
-                    .expect("If `bytes` contains `@` splitn returns 2 slices");
-                let shape_span = Span::new(span.start, span.start + shape_name.len());
-                let shape = parse_shape_name(working_set, shape_name, shape_span, use_loc);
-                if use_loc != ShapeDescriptorUse::Argument {
-                    let illegal_span = Span::new(span.start + shape_name.len(), span.end);
-                    working_set.error(ParseError::LabeledError(
-                        "Unexpected custom completer in type spec".into(),
-                        "Type specifications do not support custom completers".into(),
-                        illegal_span,
-                    ));
-                    return shape;
-                }
-
-                let cmd_span = Span::new(span.start + shape_name.len() + 1, span.end);
-                let cmd_name = split
-                    .next()
-                    .expect("If `bytes` contains `@` splitn returns 2 slices");
-
-                let cmd_name = trim_quotes(cmd_name);
-                if cmd_name.is_empty() {
-                    working_set.error(ParseError::Expected(
-                        "the command name of a completion function",
-                        cmd_span,
-                    ));
-                    return shape;
-                }
-
-                if let Some(decl_id) = working_set.find_decl(cmd_name) {
-                    SyntaxShape::CompleterWrapper(Box::new(shape), decl_id)
-                } else {
-                    working_set.error(ParseError::UnknownCommand(cmd_span));
-                    shape
-                }
-            } else {
-                //TODO: Handle error case for unknown shapes
-                working_set.error(ParseError::UnknownType(span));
-                SyntaxShape::Any
+                working_set.error(ParseError::LabeledError(
+                    "Unexpected custom completer in type spec".into(),
+                    "Type specifications do not support custom completers".into(),
+                    span,
+                ));
             }
+            //TODO: Handle error case for unknown shapes
+            working_set.error(ParseError::UnknownType(span));
+            SyntaxShape::Any
         }
     }
+}
+
+/// Handles the specification of custom completions with `type@completer`.
+pub fn parse_completer(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+) -> Option<DeclId> {
+    let cmd_name = trim_quotes(bytes);
+    if cmd_name.is_empty() {
+        working_set.error(ParseError::Expected(
+            "the command name of a completion function",
+            span,
+        ));
+        return None;
+    }
+    working_set.find_decl(cmd_name)
 }
 
 fn parse_generic_shape(
     working_set: &mut StateWorkingSet<'_>,
     bytes: &[u8],
     span: Span,
-    use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     let (type_name, type_params) = split_generic_params(working_set, bytes, span);
     match type_name {
         b"oneof" => SyntaxShape::OneOf(match type_params {
-            Some(params) => parse_type_params(working_set, params, use_loc),
+            Some(params) => parse_type_params(working_set, params),
             None => vec![],
         }),
         b"list" => SyntaxShape::List(Box::new(match type_params {
             Some(params) => {
-                let mut parsed_params = parse_type_params(working_set, params, use_loc);
+                let mut parsed_params = parse_type_params(working_set, params);
                 if parsed_params.len() > 1 {
                     working_set.error(ParseError::LabeledError(
                         "expected a single type parameter".into(),
@@ -149,11 +113,11 @@ fn parse_generic_shape(
             None => SyntaxShape::Any,
         })),
         b"record" => SyntaxShape::Record(match type_params {
-            Some(params) => parse_named_type_params(working_set, params, use_loc),
+            Some(params) => parse_named_type_params(working_set, params),
             None => vec![],
         }),
         b"table" => SyntaxShape::Table(match type_params {
-            Some(params) => parse_named_type_params(working_set, params, use_loc),
+            Some(params) => parse_named_type_params(working_set, params),
             None => vec![],
         }),
         _ => {
@@ -204,7 +168,6 @@ fn split_generic_params<'a>(
 fn parse_named_type_params(
     working_set: &mut StateWorkingSet,
     Spanned { item: source, span }: Spanned<&[u8]>,
-    use_loc: ShapeDescriptorUse,
 ) -> Vec<(String, SyntaxShape)> {
     let (tokens, err) = lex_signature(source, span.start, &[b'\n', b'\r'], &[b':', b','], true);
 
@@ -279,7 +242,7 @@ fn parse_named_type_params(
         }
 
         let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span, use_loc);
+        let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
         sig.push((key, shape));
         idx += 1;
     }
@@ -290,7 +253,6 @@ fn parse_named_type_params(
 fn parse_type_params(
     working_set: &mut StateWorkingSet,
     Spanned { item: source, span }: Spanned<&[u8]>,
-    use_loc: ShapeDescriptorUse,
 ) -> Vec<SyntaxShape> {
     let (tokens, err) = lex_signature(source, span.start, &[b'\n', b'\r'], &[b':', b','], true);
 
@@ -312,7 +274,7 @@ fn parse_type_params(
         }
 
         let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-        let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span, use_loc);
+        let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
         sig.push(shape);
         idx += 1;
     }
