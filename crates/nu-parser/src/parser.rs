@@ -6,7 +6,7 @@ use crate::{
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
     parse_keywords::*,
     parse_patterns::parse_pattern,
-    parse_shape_specs::{ShapeDescriptorUse, parse_completer, parse_shape_name, parse_type},
+    parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
 };
 use itertools::Itertools;
@@ -4194,24 +4194,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         .next()
                                         .expect("If `bytes` contains `@` splitn returns 2 slices");
                                     (
-                                        parse_shape_name(
-                                            working_set,
-                                            shape_name,
-                                            shape_span,
-                                            ShapeDescriptorUse::Argument,
-                                        ),
+                                        parse_shape_name(working_set, shape_name, shape_span),
                                         parse_completer(working_set, cmd_name, cmd_span),
                                     )
                                 } else {
-                                    (
-                                        parse_shape_name(
-                                            working_set,
-                                            &contents,
-                                            span,
-                                            ShapeDescriptorUse::Argument,
-                                        ),
-                                        None,
-                                    )
+                                    (parse_shape_name(working_set, &contents, span), None)
                                 };
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
