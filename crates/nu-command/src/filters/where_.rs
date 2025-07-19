@@ -43,10 +43,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
             ])
             .required(
                 "condition",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::RowCondition,
-                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                ]),
+                SyntaxShape::RowCondition,
                 "Filter row condition or closure.",
             )
             .allow_variants_without_examples(true)
