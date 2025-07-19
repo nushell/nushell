@@ -53,9 +53,6 @@ impl Command for IntoDuration {
                 (Type::Float, Type::Duration),
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
-                // FIXME: https://github.com/nushell/nushell/issues/15485
-                // 'record -> any' was added as a temporary workaround to avoid type inference issues. The Any arm needs to be appear first.
-                (Type::record(), Type::Any),
                 (Type::record(), Type::record()),
                 (Type::record(), Type::Duration),
                 (Type::table(), Type::table()),
