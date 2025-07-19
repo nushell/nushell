@@ -484,6 +484,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
+    // If the engine is configured to immediately
+    line_editor = if engine_state
+        .immediately_accept
+        .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
+        .is_ok()
+    {
+        line_editor.with_immediately_accept(true)
+    } else {
+        line_editor
+    };
+
     let input = line_editor.read_line(nu_prompt);
     // we got our inputs, we can now drop our stack references
     // This lists all of the stack references that we have cleaned up
@@ -491,7 +502,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // CLEAR STACK-REFERENCE 1
         .with_highlighter(Box::<NoOpHighlighter>::default())
         // CLEAR STACK-REFERENCE 2
-        .with_completer(Box::<DefaultCompleter>::default());
+        .with_completer(Box::<DefaultCompleter>::default())
+        // Ensure immediately accept is always cleared
+        .with_immediately_accept(false);
 
     // Let's grab the shell_integration configs
     let shell_integration_osc2 = config.shell_integration.osc2;
