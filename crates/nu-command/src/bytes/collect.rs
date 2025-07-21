@@ -67,7 +67,7 @@ impl Command for BytesCollect {
             ByteStreamType::Binary,
         );
 
-        Ok(PipelineData::ByteStream(output, metadata))
+        Ok(PipelineData::byte_stream(output, metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

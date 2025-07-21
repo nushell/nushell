@@ -191,7 +191,7 @@ fn first_helper(
                         }
                     } else {
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::read(
                                 reader.take(rows as u64),
                                 head,

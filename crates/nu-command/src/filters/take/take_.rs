@@ -89,7 +89,7 @@ impl Command for Take {
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         stream.take(span, rows_desired as u64)?,
                         metadata,
                     ))

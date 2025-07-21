@@ -170,7 +170,7 @@ fn string_helper(
         // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
         // to binary
         if stream.type_().is_string_coercible() {
-            Ok(PipelineData::ByteStream(
+            Ok(PipelineData::byte_stream(
                 stream.with_type(ByteStreamType::String),
                 metadata,
             ))

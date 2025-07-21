@@ -369,7 +369,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 });
                 Ok(PipelineData::list_stream(stream, meta))
             }
-            PipelineData::empty() | PipelineData::ByteStream(..) => Ok(data),
+            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
         }
     }
 }

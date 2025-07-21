@@ -76,7 +76,7 @@ impl Command for BytesAt {
 
         if let PipelineData::ByteStream(stream, metadata) = input {
             let stream = stream.slice(call.head, call.arguments_span(), range)?;
-            Ok(PipelineData::ByteStream(stream, metadata))
+            Ok(PipelineData::byte_stream(stream, metadata))
         } else {
             operate(
                 map_value,

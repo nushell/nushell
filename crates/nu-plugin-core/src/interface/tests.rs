@@ -430,7 +430,7 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let span = Span::new(400, 500);
 
     // Set up pipeline data for a byte stream
-    let data = PipelineData::ByteStream(
+    let data = PipelineData::byte_stream(
         ByteStream::read(
             std::io::Cursor::new(expected),
             span,

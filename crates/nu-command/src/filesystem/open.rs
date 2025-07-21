@@ -176,7 +176,7 @@ impl Command for Open {
                         .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
 
                     // No content_type by default - Is added later if no converter is found
-                    let stream = PipelineData::ByteStream(
+                    let stream = PipelineData::byte_stream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),

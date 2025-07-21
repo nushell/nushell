@@ -60,7 +60,7 @@ impl PipelineData {
         PipelineData::ListStream(stream, metadata)
     }
 
-    pub fn byte_stream(stream: ByteStream, metadata: Option<PipelineMetadata>) -> Self {
+    pub const fn byte_stream(stream: ByteStream, metadata: Option<PipelineMetadata>) -> Self {
         PipelineData::ByteStream(stream, metadata)
     }
 
@@ -111,7 +111,7 @@ impl PipelineData {
                 PipelineData::list_stream(stream.with_span(span), metadata)
             }
             PipelineData::ByteStream(stream, metadata) => {
-                PipelineData::ByteStream(stream.with_span(span), metadata)
+                PipelineData::byte_stream(stream.with_span(span), metadata)
             }
         }
     }
@@ -209,13 +209,13 @@ impl PipelineData {
                 ))
             }
             PipelineData::Value(Value::String { val, .. }, metadata) => {
-                Ok(PipelineData::ByteStream(
+                Ok(PipelineData::byte_stream(
                     ByteStream::read_string(val, span, engine_state.signals().clone()),
                     metadata,
                 ))
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
-                Ok(PipelineData::ByteStream(
+                Ok(PipelineData::byte_stream(
                     ByteStream::read_binary(val, span, engine_state.signals().clone()),
                     metadata,
                 ))

@@ -143,7 +143,7 @@ pub fn response_to_buffer(
 
     let reader = response.into_reader();
 
-    PipelineData::ByteStream(
+    PipelineData::byte_stream(
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
         None,

@@ -181,5 +181,5 @@ pub fn to_delimited_data(
         },
     );
 
-    Ok(PipelineData::ByteStream(stream, metadata))
+    Ok(PipelineData::byte_stream(stream, metadata))
 }

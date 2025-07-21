@@ -84,7 +84,7 @@ pub enum PipelineDataHeader {
     ///
     /// Items are sent via [`StreamData`]
     ListStream(ListStreamInfo),
-    /// Initiate [`nu_protocol::PipelineData::ByteStream`].
+    /// Initiate [`nu_protocol::PipelineData::byte_stream`].
     ///
     /// Items are sent via [`StreamData`]
     ByteStream(ByteStreamInfo),
