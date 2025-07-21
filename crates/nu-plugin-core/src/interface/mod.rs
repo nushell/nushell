@@ -190,7 +190,7 @@ pub trait InterfaceManager {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 let ls = ListStream::new(reader, info.span, signals.clone());
-                PipelineData::ListStream(ls, info.metadata)
+                PipelineData::list_stream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();

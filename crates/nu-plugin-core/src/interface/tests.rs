@@ -180,7 +180,7 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
     assert!(
-        matches!(pipe, PipelineData::ListStream(..)),
+        matches!(pipe, PipelineData::list_stream(..)),
         "unexpected PipelineData: {pipe:?}"
     );
 
@@ -376,7 +376,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     ];
 
     // Set up pipeline data for a list stream
-    let pipe = PipelineData::ListStream(
+    let pipe = PipelineData::list_stream(
         ListStream::new(
             values.clone().into_iter(),
             Span::test_data(),

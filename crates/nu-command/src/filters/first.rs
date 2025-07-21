@@ -167,7 +167,7 @@ fn first_helper(
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     stream.modify(|iter| iter.take(rows)),
                     metadata,
                 ))

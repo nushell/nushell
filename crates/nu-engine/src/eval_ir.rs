@@ -1594,7 +1594,7 @@ fn eval_iterate(
         let span = data.span().unwrap_or(Span::unknown());
         ctx.put_reg(
             stream,
-            PipelineData::ListStream(
+            PipelineData::list_stream(
                 ListStream::new(data.into_iter(), span, Signals::EMPTY),
                 metadata,
             ),

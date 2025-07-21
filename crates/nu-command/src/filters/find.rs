@@ -470,7 +470,7 @@ fn find_in_pipelinedata(
                 .map(move |x| highlight_matches_in_value(&map_pattern, x, &map_columns_to_search))
             });
 
-            Ok(PipelineData::ListStream(stream, metadata))
+            Ok(PipelineData::list_stream(stream, metadata))
         }
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();

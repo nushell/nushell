@@ -81,7 +81,7 @@ impl Command for Lines {
                     .flatten()
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(lines) = stream.lines() {

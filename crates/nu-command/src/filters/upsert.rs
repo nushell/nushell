@@ -288,7 +288,7 @@ fn upsert(
                     }
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             } else {
                 let stream = stream.map(move |mut value| {
                     if let Err(e) =
@@ -300,7 +300,7 @@ fn upsert(
                     }
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

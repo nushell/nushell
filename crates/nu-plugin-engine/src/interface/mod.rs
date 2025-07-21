@@ -600,7 +600,7 @@ impl InterfaceManager for PluginInterfaceManager {
             }
             PipelineData::ListStream(stream, meta) => {
                 let source = self.state.source.clone();
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     stream.map(move |mut value| {
                         let _ = PluginCustomValueWithSource::add_source_in(&mut value, &source);
                         value
@@ -1106,7 +1106,7 @@ impl Interface for PluginInterface {
             PipelineData::ListStream(stream, meta) => {
                 let source = self.state.source.clone();
                 let state = state.clone();
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     stream.map(move |mut value| {
                         match state.prepare_value(&mut value, &source) {
                             Ok(()) => value,

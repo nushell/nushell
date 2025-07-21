@@ -56,7 +56,7 @@ impl PipelineData {
         PipelineData::Value(val, metadata)
     }
 
-    pub fn list_stream(stream: ListStream, metadata: Option<PipelineMetadata>) -> Self {
+    pub const fn list_stream(stream: ListStream, metadata: Option<PipelineMetadata>) -> Self {
         PipelineData::ListStream(stream, metadata)
     }
 
@@ -108,7 +108,7 @@ impl PipelineData {
                 PipelineData::Value(value.with_span(span), metadata)
             }
             PipelineData::ListStream(stream, metadata) => {
-                PipelineData::ListStream(stream.with_span(span), metadata)
+                PipelineData::list_stream(stream.with_span(span), metadata)
             }
             PipelineData::ByteStream(stream, metadata) => {
                 PipelineData::ByteStream(stream.with_span(span), metadata)
@@ -203,7 +203,7 @@ impl PipelineData {
             PipelineData::ListStream(..) | PipelineData::ByteStream(..) => Ok(self),
             PipelineData::Value(Value::List { .. } | Value::Range { .. }, ref metadata) => {
                 let metadata = metadata.clone();
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     ListStream::new(self.into_iter(), span, engine_state.signals().clone()),
                     metadata,
                 ))
@@ -468,7 +468,7 @@ impl PipelineData {
             }
             PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
-                Ok(PipelineData::ListStream(stream.map(f), metadata))
+                Ok(PipelineData::list_stream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
                 Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
@@ -923,7 +923,7 @@ where
         signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
-        PipelineData::ListStream(
+        PipelineData::list_stream(
             ListStream::new(self.into_iter().map(Into::into), span, signals),
             metadata.into(),
         )

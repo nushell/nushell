@@ -189,7 +189,7 @@ impl Command for Do {
                         value
                     }
                 });
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
             r => r,
         }
