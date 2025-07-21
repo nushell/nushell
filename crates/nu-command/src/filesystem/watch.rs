@@ -143,28 +143,20 @@ impl Command for Watch {
                     }
                 }
             }
-            (Some(v), None) => match v.item {
-                dur @ Value::Duration { val, .. } => {
-                    debounce_duration = match u64::try_from(val) {
-                        Ok(d) => Duration::from_nanos(d),
-                        Err(_) => {
-                            return Err(ShellError::TypeMismatch {
-                                err_message: "Debounce duration is invalid".to_string(),
-                                span: dur.span(),
-                            });
-                        }
-                    };
-                }
-                // This should be unreachable, as the parser will fail
-                // before this is ever called. I will leave it in anyways
-                // so we can handle it gracefully once it never arrives
-                any => {
+            (Some(v), None) => {
+                let Value::Duration { val, .. } = v.item else {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Debounce duration must be a duration".to_string(),
-                        span: any.span(),
+                        span: v.item.span(),
                     });
-                }
-            },
+                };
+                debounce_duration = Duration::from_nanos(u64::try_from(val).map_err(|_| {
+                    ShellError::TypeMismatch {
+                        err_message: "Debounce duration is invalid".to_string(),
+                        span: v.item.span(),
+                    }
+                })?)
+            }
         }
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
