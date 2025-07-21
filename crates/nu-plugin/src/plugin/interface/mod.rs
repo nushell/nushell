@@ -565,7 +565,7 @@ impl EngineInterface {
     ) -> Result<Option<Value>, ShellError> {
         let name = engine_call.name();
         match self.engine_call(engine_call)? {
-            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
             EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -721,14 +721,14 @@ impl EngineInterface {
     pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
         match self.engine_call(EngineCall::EnterForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::value(
+            EngineCallResponse::PipelineData(PipelineData::Value(
                 Value::Int { val: pgrp, .. },
                 _,
             )) => {
                 set_pgrp_from_enter_foreground(pgrp)?;
                 Ok(ForegroundGuard(Some(self.clone())))
             }
-            EngineCallResponse::PipelineData(PipelineData::empty()) => {
+            EngineCallResponse::PipelineData(PipelineData::Empty) => {
                 Ok(ForegroundGuard(Some(self.clone())))
             }
             _ => Err(ShellError::PluginFailedToDecode {
@@ -741,7 +741,7 @@ impl EngineInterface {
     fn leave_foreground(&self) -> Result<(), ShellError> {
         match self.engine_call(EngineCall::LeaveForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(()),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
             }),
@@ -904,7 +904,7 @@ impl EngineInterface {
         match self.engine_call(call)? {
             EngineCallResponse::Error(err) => Err(err),
             EngineCallResponse::Identifier(id) => Ok(Some(id)),
-            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::FindDecl".into(),
             }),

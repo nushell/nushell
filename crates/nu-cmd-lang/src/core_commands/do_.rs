@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_e
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
+    engine::Closure, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest,
 };
 
 use std::{

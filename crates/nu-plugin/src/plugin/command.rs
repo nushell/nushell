@@ -322,7 +322,7 @@ where
         let input_value = input.into_value(span)?;
         // Wrap the output in PipelineData::value
         <Self as SimplePluginCommand>::run(self, plugin, engine, call, &input_value)
-            .map(|Value| PipelineData::value(value, None))
+            .map(|value| PipelineData::value(value, None))
     }
 
     fn search_terms(&self) -> Vec<&str> {

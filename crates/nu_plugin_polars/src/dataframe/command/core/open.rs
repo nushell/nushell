@@ -205,7 +205,7 @@ fn command(
             "File without extension",
         ))),
     }
-    .map(|Value| PipelineData::value(value, Some(metadata)))
+    .map(|value| PipelineData::value(value, Some(metadata)))
 }
 
 fn from_parquet(

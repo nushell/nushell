@@ -82,7 +82,7 @@ impl Command for Take {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
