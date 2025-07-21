@@ -8,7 +8,7 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
-    PipelineData, Span, Type, Value,
+    Completion, PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
@@ -349,7 +349,7 @@ impl NuCompleter {
                     let span = arg.span();
                     if span.contains(pos) {
                         // Get custom completion from PositionalArg or Flag
-                        let custom_completion_decl_id = {
+                        let completion = {
                             // Check PositionalArg or Flag from Signature
                             let signature = working_set.get_decl(call.decl_id).signature();
 
@@ -369,7 +369,7 @@ impl NuCompleter {
                                                     )
                                                 })
                                             });
-                                        flag.and_then(|f| f.custom_completion)
+                                        flag.and_then(|f| f.completion)
                                     }
                                 }
                                 // For positional arguments, check PositionalArg
@@ -378,14 +378,20 @@ impl NuCompleter {
                                     let arg_pos = positional_arg_indices.len();
                                     signature
                                         .get_positional(arg_pos)
-                                        .and_then(|pos_arg| pos_arg.custom_completion)
+                                        .and_then(|pos_arg| pos_arg.completion.clone())
                                 }
                                 _ => None,
                             }
                         };
 
-                        if let Some(decl_id) = custom_completion_decl_id {
-                            // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
+                        if let Some(completion) = completion {
+                            // for `--foo ..a|` and `--foo=..a|` (`|` represents the cursor), the
+                            // arg span should be trimmed:
+                            // - split the given span with `predicate` (b == '=' || b == ' '), and
+                            //   take the rightmost part:
+                            //   - "--foo ..a" => ["--foo", "..a"] => "..a"
+                            //   - "--foo=..a" => ["--foo", "..a"] => "..a"
+                            // - strip placeholder (`a`) if present
                             let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
                                 strip_placeholder_with_rsplit(
                                     working_set,
@@ -398,16 +404,22 @@ impl NuCompleter {
                             };
                             let ctx = Context::new(working_set, new_span, prefix, offset);
 
-                            let mut completer = CustomCompletion::new(
-                                decl_id,
-                                prefix_str.into(),
-                                pos - offset,
-                                FileCompletion,
-                            );
-
-                            // Prioritize argument completions over (sub)commands
-                            suggestions.splice(0..0, self.process_completion(&mut completer, &ctx));
-                            break;
+                            match completion {
+                                Completion::Command(decl_id) => {
+                                    let mut completer = CustomCompletion::new(
+                                        decl_id,
+                                        prefix_str.into(),
+                                        pos - offset,
+                                        FileCompletion,
+                                    );
+                                    // Prioritize argument completions over (sub)commands
+                                    suggestions.splice(
+                                        0..0,
+                                        self.process_completion(&mut completer, &ctx),
+                                    );
+                                    break;
+                                }
+                            }
                         }
 
                         // normal arguments completion
