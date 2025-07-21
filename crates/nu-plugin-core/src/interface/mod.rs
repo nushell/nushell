@@ -185,7 +185,7 @@ pub trait InterfaceManager {
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::empty(),
-            PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
+            PipelineDataHeader::Value(value, metadata) => PipelineData::value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;

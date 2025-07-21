@@ -51,7 +51,7 @@ impl PluginCommand for SchemaCmd {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         if call.has_flag("datatype-list")? {
-            Ok(PipelineData::Value(datatype_list(Span::unknown()), None))
+            Ok(PipelineData::value(datatype_list(Span::unknown()), None))
         } else {
             command(plugin, engine, call, input).map_err(LabeledError::from)
         }
@@ -68,12 +68,12 @@ fn command(
         PolarsPluginObject::NuDataFrame(df) => {
             let schema = df.schema();
             let value = schema.base_value(call.head)?;
-            Ok(PipelineData::Value(value, None))
+            Ok(PipelineData::value(value, None))
         }
         PolarsPluginObject::NuLazyFrame(mut lazy) => {
             let schema = lazy.schema()?;
             let value = schema.base_value(call.head)?;
-            Ok(PipelineData::Value(value, None))
+            Ok(PipelineData::value(value, None))
         }
         _ => Err(ShellError::GenericError {
             error: "Must be a dataframe or lazy dataframe".into(),

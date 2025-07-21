@@ -324,7 +324,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(7);
 
     let (header, writer) =
-        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
+        interface.init_write_pipeline_data(PipelineData::value(value.clone(), None), &())?;
 
     match header {
         PipelineDataHeader::Value(read_value, _) => assert_eq!(value, read_value),
@@ -349,7 +349,7 @@ fn write_pipeline_data_prepared_properly() {
     // Sending a binary should be an error in our test scenario
     let value = Value::test_binary(vec![7, 8]);
 
-    match interface.init_write_pipeline_data(PipelineData::Value(value, None), &()) {
+    match interface.init_write_pipeline_data(PipelineData::value(value, None), &()) {
         Ok(_) => panic!("prepare_pipeline_data was not called"),
         Err(err) => {
             assert_eq!(

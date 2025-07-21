@@ -293,7 +293,7 @@ pub fn transpose(
         })
         .collect::<Vec<Value>>();
     if result_data.len() == 1 && args.as_record {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             result_data
                 .pop()
                 .expect("already check result only contains one item"),

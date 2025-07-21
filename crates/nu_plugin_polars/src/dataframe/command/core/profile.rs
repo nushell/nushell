@@ -107,5 +107,5 @@ fn command_lazy(
         call.head,
     );
 
-    Ok(PipelineData::Value(result, None))
+    Ok(PipelineData::value(result, None))
 }

@@ -558,7 +558,7 @@ impl EngineInterface {
     }
 
     /// Do an engine call returning an `Option<Value>` as either `PipelineData::empty()` or
-    /// `PipelineData::Value`
+    /// `PipelineData::value`
     fn engine_call_option_value(
         &self,
         engine_call: EngineCall<PipelineData>,
@@ -721,7 +721,7 @@ impl EngineInterface {
     pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
         match self.engine_call(EngineCall::EnterForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::Value(
+            EngineCallResponse::PipelineData(PipelineData::value(
                 Value::Int { val: pgrp, .. },
                 _,
             )) => {
@@ -786,7 +786,7 @@ impl EngineInterface {
     /// # use nu_plugin::{EngineInterface, EvaluatedCall};
     /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<(), ShellError> {
     /// let closure = call.req(0)?;
-    /// let input = PipelineData::Value(Value::int(4, call.head), None);
+    /// let input = PipelineData::value(Value::int(4, call.head), None);
     /// let output = engine.eval_closure_with_stream(
     ///     &closure,
     ///     vec![],
@@ -885,7 +885,7 @@ impl EngineInterface {
         positional: Vec<Value>,
         input: Option<Value>,
     ) -> Result<Value, ShellError> {
-        let input = input.map_or_else(|| PipelineData::empty(), |v| PipelineData::Value(v, None));
+        let input = input.map_or_else(|| PipelineData::empty(), |v| PipelineData::value(v, None));
         let output = self.eval_closure_with_stream(closure, positional, input, true, false)?;
         // Unwrap an error value
         match output.into_value(closure.span)? {

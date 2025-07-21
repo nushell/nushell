@@ -62,7 +62,7 @@ impl Command for Take {
                         )),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
+                        Ok(PipelineData::value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
                         .into_range_iter(span, Signals::empty())

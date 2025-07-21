@@ -650,7 +650,7 @@ impl<D> EngineCallResponse<D> {
 impl EngineCallResponse<PipelineData> {
     /// Build an [`EngineCallResponse::PipelineData`] from a [`Value`]
     pub fn value(value: Value) -> EngineCallResponse<PipelineData> {
-        EngineCallResponse::PipelineData(PipelineData::Value(value, None))
+        EngineCallResponse::PipelineData(PipelineData::value(value, None))
     }
 
     /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::empty()`]

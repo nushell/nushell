@@ -1101,7 +1101,7 @@ impl Interface for PluginInterface {
         match data {
             PipelineData::Value(mut value, meta) => {
                 state.prepare_value(&mut value, &self.state.source)?;
-                Ok(PipelineData::Value(value, meta))
+                Ok(PipelineData::value(value, meta))
             }
             PipelineData::ListStream(stream, meta) => {
                 let source = self.state.source.clone();

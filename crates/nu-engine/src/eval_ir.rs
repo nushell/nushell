@@ -141,7 +141,7 @@ impl<'a> EvalContext<'a> {
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
         match &self.registers[reg_id.get() as usize] {
             PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
+            PipelineData::Value(val, meta) => Ok(PipelineData::value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
                 msg: "Must collect to value before using instruction that clones from a register"
                     .into(),
@@ -838,7 +838,7 @@ fn load_literal(
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(dst, PipelineData::Value(value, None));
+    ctx.put_reg(dst, PipelineData::value(value, None));
     Ok(InstructionResult::Continue)
 }
 
@@ -993,7 +993,7 @@ fn binary_op(
         }
     };
 
-    ctx.put_reg(lhs_dst, PipelineData::Value(result, None));
+    ctx.put_reg(lhs_dst, PipelineData::value(result, None));
 
     Ok(InstructionResult::Continue)
 }
@@ -1466,7 +1466,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
         other => other,
     };
     let value = data.into_value(span)?;
-    Ok(PipelineData::Value(value, metadata))
+    Ok(PipelineData::value(value, metadata))
 }
 
 /// Helper for drain behavior.

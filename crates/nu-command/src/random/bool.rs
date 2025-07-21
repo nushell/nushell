@@ -78,7 +78,7 @@ fn bool(
 
     let bool_result: bool = random_bool(probability);
 
-    Ok(PipelineData::Value(Value::bool(bool_result, span), None))
+    Ok(PipelineData::value(Value::bool(bool_result, span), None))
 }
 
 #[cfg(test)]

@@ -52,7 +52,7 @@ impl PipelineData {
         PipelineData::Empty
     }
 
-    pub fn value(val: Value, metadata: Option<PipelineMetadata>) -> Self {
+    pub const fn value(val: Value, metadata: Option<PipelineMetadata>) -> Self {
         PipelineData::Value(val, metadata)
     }
 
@@ -103,9 +103,9 @@ impl PipelineData {
     /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::empty()`].
     pub fn with_span(self, span: Span) -> Self {
         match self {
-            PipelineData::Empty => PipelineData::Value(Value::nothing(span), None),
+            PipelineData::Empty => PipelineData::value(Value::nothing(span), None),
             PipelineData::Value(value, metadata) => {
-                PipelineData::Value(value.with_span(span), metadata)
+                PipelineData::value(value.with_span(span), metadata)
             }
             PipelineData::ListStream(stream, metadata) => {
                 PipelineData::list_stream(stream.with_span(span), metadata)
@@ -614,9 +614,9 @@ impl PipelineData {
                         }
                         let range_values: Vec<Value> =
                             val.into_range_iter(span, Signals::empty()).collect();
-                        Ok(PipelineData::Value(Value::list(range_values, span), None))
+                        Ok(PipelineData::value(Value::list(range_values, span), None))
                     }
-                    x => Ok(PipelineData::Value(x, metadata)),
+                    x => Ok(PipelineData::value(x, metadata)),
                 }
             }
             _ => Ok(self),
@@ -886,14 +886,14 @@ where
     V: Into<Value>,
 {
     fn into_pipeline_data(self) -> PipelineData {
-        PipelineData::Value(self.into(), None)
+        PipelineData::value(self.into(), None)
     }
 
     fn into_pipeline_data_with_metadata(
         self,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
-        PipelineData::Value(self.into(), metadata.into())
+        PipelineData::value(self.into(), metadata.into())
     }
 }
 

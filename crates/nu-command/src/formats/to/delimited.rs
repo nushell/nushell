@@ -132,7 +132,7 @@ pub fn to_delimited_data(
                 Value::Record { val, .. } => val.columns().cloned().collect(),
                 _ => return Err(make_unsupported_input_error(value.get_type(), head, span)),
             };
-            input = PipelineData::Value(value, metadata.clone());
+            input = PipelineData::value(value, metadata.clone());
             columns
         }
     };

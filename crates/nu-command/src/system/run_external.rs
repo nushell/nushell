@@ -793,12 +793,12 @@ mod test {
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
-        let input = PipelineData::Value(Value::string("foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::string("foo", Span::unknown()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
-        let input = PipelineData::Value(Value::binary(b"foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::binary(b"foo", Span::unknown()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 

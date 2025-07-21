@@ -55,7 +55,7 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
                 .map(|(k, v)| (k, Value::string(v, head)))
                 .collect();
 
-            Ok(PipelineData::Value(Value::record(record, head), metadata))
+            Ok(PipelineData::value(Value::record(record, head), metadata))
         }
         _ => Err(ShellError::UnsupportedInput {
             msg: "String not compatible with URL encoding".to_string(),

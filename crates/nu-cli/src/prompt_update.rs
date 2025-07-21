@@ -76,7 +76,7 @@ fn get_prompt_string(
                     })
                     .ok()
             }
-            Value::String { .. } => Some(PipelineData::Value(v.clone(), None)),
+            Value::String { .. } => Some(PipelineData::value(v.clone(), None)),
             _ => None,
         })
         .and_then(|pipeline_data| {
