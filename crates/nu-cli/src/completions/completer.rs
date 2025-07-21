@@ -16,6 +16,8 @@ use nu_protocol::{
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
 
+use super::StaticCompletion;
+
 /// Used as the function `f` in find_map Traverse
 ///
 /// returns the inner-most pipeline_element of interest
@@ -412,6 +414,15 @@ impl NuCompleter {
                                         pos - offset,
                                         FileCompletion,
                                     );
+                                    // Prioritize argument completions over (sub)commands
+                                    suggestions.splice(
+                                        0..0,
+                                        self.process_completion(&mut completer, &ctx),
+                                    );
+                                    break;
+                                }
+                                Completion::List(list) => {
+                                    let mut completer = StaticCompletion::new(list);
                                     // Prioritize argument completions over (sub)commands
                                     suggestions.splice(
                                         0..0,

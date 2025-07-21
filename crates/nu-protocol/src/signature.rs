@@ -4,6 +4,7 @@ use crate::{
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
+use nu_utils::NuCow;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -43,9 +44,14 @@ pub struct PositionalArg {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Completion {
     Command(DeclId),
+    List(NuCow<&'static [&'static str], Vec<String>>),
 }
 
 impl Completion {
+    pub const fn new_list(list: &'static [&'static str]) -> Self {
+        Self::List(NuCow::Borrowed(list))
+    }
+
     pub fn to_value(&self, engine_state: &EngineState, span: Span) -> Value {
         match self {
             Completion::Command(id) => engine_state
@@ -53,6 +59,19 @@ impl Completion {
                 .name()
                 .to_owned()
                 .into_value(span),
+            Completion::List(list) => match list {
+                NuCow::Borrowed(list) => list
+                    .iter()
+                    .map(|&e| e.into_value(span))
+                    .collect::<Vec<Value>>()
+                    .into_value(span),
+                NuCow::Owned(list) => list
+                    .iter()
+                    .cloned()
+                    .map(|e| e.into_value(span))
+                    .collect::<Vec<Value>>()
+                    .into_value(span),
+            },
         }
     }
 }
