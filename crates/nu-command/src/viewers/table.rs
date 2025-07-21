@@ -13,7 +13,7 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
+    ByteStream, Completion, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
     ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
@@ -59,6 +59,7 @@ impl Command for Table {
                 "set a table mode/theme",
                 Some('t'),
             )
+            .add_named_completion(Completion::new_list(SUPPORTED_TABLE_MODES))
             .named(
                 "index",
                 SyntaxShape::Any,
@@ -1165,28 +1166,34 @@ fn convert_table_to_output(
     }
 }
 
+const SUPPORTED_TABLE_MODES: &[&str] = &[
+    "basic",
+    "compact",
+    "compact_double",
+    "default",
+    "heavy",
+    "light",
+    "none",
+    "reinforced",
+    "rounded",
+    "thin",
+    "with_love",
+    "psql",
+    "markdown",
+    "dots",
+    "restructured",
+    "ascii_rounded",
+    "basic_compact",
+    "single",
+    "double",
+];
+
 fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-        Value::test_string("single"),
-        Value::test_string("double"),
-    ]
+    SUPPORTED_TABLE_MODES
+        .iter()
+        .copied()
+        .map(Value::test_string)
+        .collect()
 }
 
 fn create_table_opts<'a>(
