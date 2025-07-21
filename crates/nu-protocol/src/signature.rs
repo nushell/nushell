@@ -4,6 +4,7 @@ use crate::{
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
+use nu_utils::OnewaySerde;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -24,7 +25,7 @@ pub struct Flag {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
+    pub custom_completion: Option<Completion>,
 }
 
 /// The signature definition for a positional argument
@@ -37,7 +38,19 @@ pub struct PositionalArg {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
+    pub custom_completion: Option<Completion>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Completion {
+    Command(DeclId),
+    List(OnewaySerde<&'static [&'static str], Vec<String>>),
+}
+
+impl Completion {
+    pub const fn new_list(list: &'static [&'static str]) -> Self {
+        Self::List(OnewaySerde::Borrowed(list))
+    }
 }
 
 /// Command categories
@@ -319,6 +332,34 @@ impl Signature {
     /// Allow unknown signature parameters
     pub fn allows_unknown_args(mut self) -> Signature {
         self.allows_unknown_args = true;
+        self
+    }
+
+    pub fn add_positional_completion(mut self, completion: Completion) -> Signature {
+        let Self {
+            required_positional,
+            optional_positional,
+            rest_positional,
+            ..
+        } = &mut self;
+        match (
+            rest_positional.as_mut(),
+            optional_positional.as_mut_slice(),
+            required_positional.as_mut_slice(),
+        ) {
+            (Some(rest), _, _) => rest.custom_completion = Some(completion),
+            (_, [.., last], _) | (_, _, [.., last]) => last.custom_completion = Some(completion),
+            _ => panic!("oops no parameters"),
+        }
+        self
+    }
+
+    pub fn add_named_completion(mut self, completion: Completion) -> Signature {
+        if let Some(last) = self.named.last_mut() {
+            last.custom_completion = Some(completion);
+        } else {
+            panic!("oops no flags")
+        }
         self
     }
 
