@@ -13,9 +13,9 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
+    BlockId, Completion, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID,
+    ParseError, PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    VarId, ast::*, casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -4239,7 +4239,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         .expect("If `bytes` contains `@` splitn returns 2 slices");
                                     (
                                         parse_shape_name(working_set, shape_name, shape_span),
-                                        parse_completer(working_set, cmd_name, cmd_span),
+                                        parse_completer(working_set, cmd_name, cmd_span)
+                                            .map(Completion::Command),
                                     )
                                 } else {
                                     (parse_shape_name(working_set, &contents, span), None)

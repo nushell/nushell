@@ -1,5 +1,5 @@
 use nu_protocol::{
-    DeclId, ModuleId, Signature, Span, Type, Value, VarId,
+    Completion, DeclId, ModuleId, Signature, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
     record,
@@ -548,14 +548,18 @@ impl<'e, 's> ScopeData<'e, 's> {
 
 fn extract_custom_completion_from_arg(
     engine_state: &EngineState,
-    decl_id: &Option<DeclId>,
+    decl_id: &Option<Completion>,
 ) -> String {
-    if let Some(decl_id) = decl_id {
-        let custom_completion_command = engine_state.get_decl(*decl_id);
-        let custom_completion_command_name: &str = custom_completion_command.name();
-        custom_completion_command_name.to_string()
-    } else {
-        "".to_string()
+    match decl_id {
+        Some(Completion::Command(decl_id)) => {
+            let custom_completion_command = engine_state.get_decl(*decl_id);
+            let custom_completion_command_name: &str = custom_completion_command.name();
+            custom_completion_command_name.to_string()
+        }
+        Some(Completion::List(list)) => {
+            format!("{list:?}")
+        }
+        _ => "".to_string(),
     }
 }
 

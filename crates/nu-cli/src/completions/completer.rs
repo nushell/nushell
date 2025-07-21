@@ -8,13 +8,15 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
-    PipelineData, Span, Type, Value,
+    Completion, PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
+
+use super::StaticCompletion;
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -349,7 +351,7 @@ impl NuCompleter {
                     let span = arg.span();
                     if span.contains(pos) {
                         // Get custom completion from PositionalArg or Flag
-                        let custom_completion_decl_id = {
+                        let custom_completion = {
                             // Check PositionalArg or Flag from Signature
                             let signature = working_set.get_decl(call.decl_id).signature();
 
@@ -378,36 +380,53 @@ impl NuCompleter {
                                     let arg_pos = positional_arg_indices.len();
                                     signature
                                         .get_positional(arg_pos)
-                                        .and_then(|pos_arg| pos_arg.custom_completion)
+                                        .and_then(|pos_arg| pos_arg.custom_completion.clone())
                                 }
                                 _ => None,
                             }
                         };
 
-                        if let Some(decl_id) = custom_completion_decl_id {
-                            // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
-                            let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(
-                                    working_set,
-                                    &span,
-                                    |b| *b == b'=' || *b == b' ',
-                                    strip,
-                                )
-                            } else {
-                                strip_placeholder_if_any(working_set, &span, strip)
-                            };
-                            let ctx = Context::new(working_set, new_span, prefix, offset);
-
-                            let mut completer = CustomCompletion::new(
-                                decl_id,
-                                prefix_str.into(),
-                                pos - offset,
-                                FileCompletion,
-                            );
-
-                            // Prioritize argument completions over (sub)commands
-                            suggestions.splice(0..0, self.process_completion(&mut completer, &ctx));
-                            break;
+                        match custom_completion {
+                            Some(Completion::Command(decl_id)) => {
+                                let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
+                                    strip_placeholder_with_rsplit(
+                                        working_set,
+                                        &span,
+                                        |b| *b == b'=' || *b == b' ',
+                                        strip,
+                                    )
+                                } else {
+                                    strip_placeholder_if_any(working_set, &span, strip)
+                                };
+                                let ctx = Context::new(working_set, new_span, prefix, offset);
+                                let mut completer = CustomCompletion::new(
+                                    decl_id,
+                                    prefix_str.into(),
+                                    pos - offset,
+                                    FileCompletion,
+                                );
+                                suggestions
+                                    .splice(0..0, self.process_completion(&mut completer, &ctx));
+                                break;
+                            }
+                            Some(Completion::List(list)) => {
+                                let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
+                                    strip_placeholder_with_rsplit(
+                                        working_set,
+                                        &span,
+                                        |b| *b == b'=' || *b == b' ',
+                                        strip,
+                                    )
+                                } else {
+                                    strip_placeholder_if_any(working_set, &span, strip)
+                                };
+                                let ctx = Context::new(working_set, new_span, prefix, offset);
+                                let mut completer = StaticCompletion::new(list);
+                                suggestions
+                                    .splice(0..0, self.process_completion(&mut completer, &ctx));
+                                break;
+                            }
+                            _ => (),
                         }
 
                         // normal arguments completion
