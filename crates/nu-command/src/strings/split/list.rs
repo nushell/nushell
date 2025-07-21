@@ -27,11 +27,11 @@ impl Command for SubCommand {
                  string",
                 Some('r'),
             )
-            .named(
-                "split",
-                SyntaxShape::String,
-                "Whether to split lists before, after, or on (default) the separator",
-                None,
+            .add_flag(
+                Flag::new("split")
+                    .arg(SyntaxShape::String)
+                    .desc("Whether to split lists before, after, or on (default) the separator")
+                    .completion(Completion::new_list(&["before", "after", "on"])),
             )
             .category(Category::Filters)
     }
