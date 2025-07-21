@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, DeclId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape,
-    Type, Value, VarId,
+    BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData, ShellError,
+    Span, SyntaxShape, Type, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
@@ -20,11 +20,11 @@ pub struct Flag {
     pub arg: Option<SyntaxShape>,
     pub required: bool,
     pub desc: String,
+    pub completion: Option<Completion>,
 
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
 }
 
 /// The signature definition for a positional argument
@@ -33,11 +33,28 @@ pub struct PositionalArg {
     pub name: String,
     pub desc: String,
     pub shape: SyntaxShape,
+    pub completion: Option<Completion>,
 
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Completion {
+    Command(DeclId),
+}
+
+impl Completion {
+    pub fn to_value(&self, engine_state: &EngineState, span: Span) -> Value {
+        match self {
+            Completion::Command(id) => engine_state
+                .get_decl(*id)
+                .name()
+                .to_owned()
+                .into_value(span),
+        }
+    }
 }
 
 /// Command categories
@@ -268,7 +285,7 @@ impl Signature {
             required: false,
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         };
         self.named.push(flag);
         self
@@ -335,7 +352,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -354,7 +371,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -379,7 +396,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -419,7 +436,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -443,7 +460,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -466,7 +483,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
