@@ -53,11 +53,12 @@ impl Command for Table {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
-            .named(
-                "theme",
-                SyntaxShape::String,
-                "set a table mode/theme",
-                Some('t'),
+            .param(
+                Flag::new("theme")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc("set a table mode/theme")
+                    .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
                 "index",
@@ -1165,28 +1166,34 @@ fn convert_table_to_output(
     }
 }
 
+const SUPPORTED_TABLE_MODES: &[&str] = &[
+    "basic",
+    "compact",
+    "compact_double",
+    "default",
+    "heavy",
+    "light",
+    "none",
+    "reinforced",
+    "rounded",
+    "thin",
+    "with_love",
+    "psql",
+    "markdown",
+    "dots",
+    "restructured",
+    "ascii_rounded",
+    "basic_compact",
+    "single",
+    "double",
+];
+
 fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-        Value::test_string("single"),
-        Value::test_string("double"),
-    ]
+    SUPPORTED_TABLE_MODES
+        .iter()
+        .copied()
+        .map(Value::test_string)
+        .collect()
 }
 
 fn create_table_opts<'a>(
