@@ -97,8 +97,11 @@ fn extern_completer() -> NuCompleter {
     // Add record value as example
     let record = r#"
         def animals [] { [ "cat", "dog", "eel" ] }
+        def fruits [] { [ "apple", "banana" ] }
         extern spam [
             animal: string@animals
+            fruit?: string@fruits
+            ...rest: string@animals
             --foo (-f): string@animals
             -b: string@animals
         ]
@@ -2262,6 +2265,22 @@ fn extern_custom_completion_positional(mut extern_completer: NuCompleter) {
 }
 
 #[rstest]
+fn extern_custom_completion_optional(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam foo -f bar ", 16);
+    let expected: Vec<_> = vec!["apple", "banana"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_rest(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam foo -f bar baz ", 20);
+    let expected: Vec<_> = vec!["cat", "dog", "eel"];
+    match_suggestions(&expected, &suggestions);
+    let suggestions = extern_completer.complete("spam foo -f bar baz qux ", 24);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
 fn extern_custom_completion_long_flag_1(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam --foo=", 11);
     let expected: Vec<_> = vec!["cat", "dog", "eel"];
@@ -2298,19 +2317,10 @@ fn custom_completion_flag_name_not_value(mut extern_completer: NuCompleter) {
         suggestions.iter().any(|s| s.value == "--foo"),
         "Should contain --foo flag"
     );
-    let should_not_contain: Vec<_> = vec!["cat", "dog", "eel"];
-    for item in should_not_contain {
-        assert!(
-            !suggestions.iter().any(|s| s.value == item),
-            "Should not contain custom completion {}",
-            item
-        );
-    }
-
+    match_suggestions(&vec!["--foo"], &suggestions);
     // Also test with partial short flag
     let suggestions = extern_completer.complete("spam -f", 7);
-    assert_eq!(1, suggestions.len(), "Should only have one suggestion");
-    assert_eq!("-f", suggestions[0].value, "Should suggest -f flag");
+    match_suggestions(&vec!["-f"], &suggestions);
 }
 
 #[rstest]
