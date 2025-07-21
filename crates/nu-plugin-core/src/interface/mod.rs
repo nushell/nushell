@@ -184,7 +184,7 @@ pub trait InterfaceManager {
         signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
-            PipelineDataHeader::Empty => PipelineData::Empty,
+            PipelineDataHeader::Empty => PipelineData::empty(),
             PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();

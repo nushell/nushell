@@ -335,7 +335,7 @@ fn upsert_value_by_closure(
     let input = value_at_path
         .map(Cow::into_owned)
         .map(IntoPipelineData::into_pipeline_data)
-        .unwrap_or(PipelineData::Empty);
+        .unwrap_or(PipelineData::empty());
 
     let new_value = closure
         .add_arg(arg)
@@ -366,7 +366,7 @@ fn upsert_single_value_by_closure(
     let input = value_at_path
         .map(Cow::into_owned)
         .map(IntoPipelineData::into_pipeline_data)
-        .unwrap_or(PipelineData::Empty);
+        .unwrap_or(PipelineData::empty());
 
     let new_value = closure
         .add_arg(arg)

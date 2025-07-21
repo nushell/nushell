@@ -2,9 +2,9 @@ use super::*;
 use nu_engine::test_help::{convert_single_value_to_cmd_args, eval_block_with_input};
 use nu_engine::{current_dir, eval_expression};
 use nu_protocol::{
+    PipelineData, Span, Spanned, Type, Value,
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Spanned, Type, Value,
 };
 use std::path::PathBuf;
 
@@ -33,19 +33,14 @@ fn test_start_valid_url() {
 
     // Create call for: `start https://www.example.com`
     let path = "https://www.example.com".to_string();
-    let span = Span::test_data(); 
+    let span = Span::test_data();
     let call = Call::test(
         "start",
         // The arguments for `start` are just the path in this case
         vec![Value::string(path, span)],
     );
 
-    let result = Start.run(
-        &engine_state,
-        &mut stack,
-        &call,
-        PipelineData::Empty,
-    );
+    let result = Start.run(&engine_state, &mut stack, &call, PipelineData::empty);
 
     assert!(
         result.is_ok(),
@@ -61,17 +56,9 @@ fn test_start_valid_local_path() {
     // Here we'll simulate opening the current directory (`.`).
     let path = ".".to_string();
     let span = Span::test_data();
-    let call = Call::test(
-        "start",
-        vec![Value::string(path, span)],
-    );
+    let call = Call::test("start", vec![Value::string(path, span)]);
 
-    let result = Start.run(
-        &engine_state,
-        &mut stack,
-        &call,
-        PipelineData::Empty,
-    );
+    let result = Start.run(&engine_state, &mut stack, &call, PipelineData::empty);
 
     // If the environment is correctly set, it should succeed.
     // If you're running in a CI environment or restricted environment
@@ -90,17 +77,9 @@ fn test_start_nonexistent_local_path() {
     // Create an obviously invalid path
     let path = "this_file_does_not_exist_hopefully.txt".to_string();
     let span = Span::test_data();
-    let call = Call::test(
-        "start",
-        vec![Value::string(path, span)],
-    );
+    let call = Call::test("start", vec![Value::string(path, span)]);
 
-    let result = Start.run(
-        &engine_state,
-        &mut stack,
-        &call,
-        PipelineData::Empty,
-    );
+    let result = Start.run(&engine_state, &mut stack, &call, PipelineData::empty);
 
     // We expect an error since the file does not exist
     assert!(
@@ -118,3 +97,4 @@ fn test_start_nonexistent_local_path() {
         panic!("Unexpected error type, expected ShellError::GenericError");
     }
 }
+

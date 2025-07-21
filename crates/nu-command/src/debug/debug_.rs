@@ -42,7 +42,7 @@ impl Command for Debug {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let raw_value = call.has_flag(engine_state, stack, "raw-value")?;
 
-        // Should PipelineData::Empty result in an error here?
+        // Should PipelineData::empty() result in an error here?
 
         input.map(
             move |x| {

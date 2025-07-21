@@ -642,7 +642,7 @@ fn custom_value_op(
         CustomValueOp::Dropped => {
             let result = plugin
                 .custom_value_dropped(engine, local_value.item)
-                .map(|_| PipelineData::Empty);
+                .map(|_| PipelineData::empty());
             engine
                 .write_response(result)
                 .and_then(|writer| writer.write())

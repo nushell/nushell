@@ -901,7 +901,7 @@ fn interface_get_plugin_config() -> Result<(), ShellError> {
 
     start_fake_plugin_call_responder(manager, 2, |id| {
         if id == 0 {
-            EngineCallResponse::PipelineData(PipelineData::Empty)
+            EngineCallResponse::PipelineData(PipelineData::empty())
         } else {
             EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
         }
@@ -1051,7 +1051,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                 span: Span::test_data(),
             },
             vec![Value::test_string("test")],
-            PipelineData::Empty,
+            PipelineData::empty(),
             true,
             false,
         )?

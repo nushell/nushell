@@ -48,7 +48,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // the heap allocation here by reusing buffers - our allocator is fast enough
         let mut registers = Vec::with_capacity(ir_block.register_count as usize);
         for _ in 0..ir_block.register_count {
-            registers.push(PipelineData::Empty);
+            registers.push(PipelineData::empty());
         }
 
         // Initialize file storage.
@@ -133,14 +133,14 @@ impl<'a> EvalContext<'a> {
         // log::trace!("<- {reg_id}");
         std::mem::replace(
             &mut self.registers[reg_id.get() as usize],
-            PipelineData::Empty,
+            PipelineData::empty(),
         )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
         match &self.registers[reg_id.get() as usize] {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
                 msg: "Must collect to value before using instruction that clones from a register"
@@ -269,7 +269,7 @@ fn prepare_error_handler(
             );
         } else {
             // Set the register to empty
-            ctx.put_reg(reg_id, PipelineData::Empty);
+            ctx.put_reg(reg_id, PipelineData::empty());
         }
     }
 }
@@ -1584,7 +1584,7 @@ fn eval_iterate(
             ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
             Ok(InstructionResult::Continue)
         } else {
-            ctx.put_reg(dst, PipelineData::Empty);
+            ctx.put_reg(dst, PipelineData::empty());
             Ok(InstructionResult::Branch(end_index))
         }
     } else {

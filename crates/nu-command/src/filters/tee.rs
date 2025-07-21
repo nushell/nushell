@@ -243,7 +243,7 @@ use it in your pipeline."#
                             thread.join().unwrap_or_else(|_| Err(panic_error()))?;
                         }
                         child.wait()?;
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
             }

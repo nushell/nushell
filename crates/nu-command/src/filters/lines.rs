@@ -57,7 +57,7 @@ impl Command for Lines {
                     src_span: value.span(),
                 }),
             },
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
                 let stream = stream.modify(|iter| {
                     iter.filter_map(move |value| {

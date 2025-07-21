@@ -1084,7 +1084,7 @@ fn interface_run() -> Result<(), ShellError> {
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineData::Empty,
+            input: PipelineData::empty(),
         },
         &mut PluginExecutionBogusContext,
     )?;
@@ -1361,7 +1361,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![Value::test_int(4)],
                     named: vec![("x".to_owned().into_spanned(span), Some(Value::test_int(6)))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1373,7 +1373,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![cv_ok.clone()],
                     named: vec![("ok".to_owned().into_spanned(span), Some(cv_ok.clone()))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1385,7 +1385,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![cv_bad.clone()],
                     named: vec![],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1397,7 +1397,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![],
                     named: vec![("bad".to_owned().into_spanned(span), Some(cv_bad.clone()))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (

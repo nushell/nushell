@@ -246,7 +246,7 @@ impl Command for Open {
         }
 
         if output.is_empty() {
-            Ok(PipelineData::Empty)
+            Ok(PipelineData::empty())
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {

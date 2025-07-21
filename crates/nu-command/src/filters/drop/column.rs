@@ -108,7 +108,7 @@ fn drop_cols(
                         metadata,
                     ))
             } else {
-                Ok(PipelineData::Empty)
+                Ok(PipelineData::empty())
             }
         }
         PipelineData::Value(mut v, ..) => {
@@ -136,7 +136,7 @@ fn drop_cols(
                 val => Err(unsupported_value_error(&val, head)),
             }
         }
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "table or record".into(),
             wrong_type: stream.type_().describe().into(),

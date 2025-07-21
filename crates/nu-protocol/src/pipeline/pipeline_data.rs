@@ -48,8 +48,20 @@ pub enum PipelineData {
 }
 
 impl PipelineData {
-    pub fn empty() -> PipelineData {
+    pub const fn empty() -> PipelineData {
         PipelineData::Empty
+    }
+
+    pub fn value(val: Value, metadata: Option<PipelineMetadata>) -> Self {
+        PipelineData::Value(val, metadata)
+    }
+
+    pub fn list_stream(stream: ListStream, metadata: Option<PipelineMetadata>) -> Self {
+        PipelineData::ListStream(stream, metadata)
+    }
+
+    pub fn byte_stream(stream: ByteStream, metadata: Option<PipelineMetadata>) -> Self {
+        PipelineData::ByteStream(stream, metadata)
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
@@ -88,7 +100,7 @@ impl PipelineData {
 
     /// Change the span of the [`PipelineData`].
     ///
-    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::Empty`].
+    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::empty()`].
     pub fn with_span(self, span: Span) -> Self {
         match self {
             PipelineData::Empty => PipelineData::Value(Value::nothing(span), None),
@@ -454,7 +466,7 @@ impl PipelineData {
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
                 Ok(PipelineData::ListStream(stream.map(f), metadata))
             }
@@ -473,7 +485,7 @@ impl PipelineData {
         F: FnMut(Value) -> U + 'static + Send,
     {
         match self {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
@@ -520,7 +532,7 @@ impl PipelineData {
         F: FnMut(&Value) -> bool + 'static + Send,
     {
         match self {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {

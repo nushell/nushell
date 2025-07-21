@@ -788,7 +788,7 @@ mod test {
         engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
         let mut buf = vec![];
-        let input = PipelineData::Empty;
+        let input = PipelineData::empty();
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"");
 

@@ -95,7 +95,7 @@ pub(super) fn from_delimited_data(
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata().map(|md| md.with_content_type(None));
     match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(value, ..) => {
             let string = value.into_string()?;
             let byte_stream = ByteStream::read_string(string, name, Signals::empty());

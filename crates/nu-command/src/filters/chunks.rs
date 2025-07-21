@@ -148,7 +148,7 @@ pub fn chunks(
         }
         PipelineData::ByteStream(stream, metadata) => {
             let pipeline_data = match stream.reader() {
-                None => PipelineData::Empty,
+                None => PipelineData::empty(),
                 Some(reader) => {
                     let chunk_read = ChunkRead {
                         reader,

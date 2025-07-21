@@ -202,7 +202,7 @@ fn first_helper(
                         ))
                     }
                 } else {
-                    Ok(PipelineData::Empty)
+                    Ok(PipelineData::empty())
                 }
             } else {
                 Err(ShellError::OnlySupportsThisInputType {

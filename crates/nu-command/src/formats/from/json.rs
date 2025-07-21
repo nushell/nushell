@@ -94,7 +94,7 @@ impl Command for FromJson {
                             metadata,
                         ))
                     } else {
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
                 _ => Err(ShellError::OnlySupportsThisInputType {

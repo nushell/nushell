@@ -653,8 +653,8 @@ impl EngineCallResponse<PipelineData> {
         EngineCallResponse::PipelineData(PipelineData::Value(value, None))
     }
 
-    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::Empty`]
+    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::empty()`]
     pub const fn empty() -> EngineCallResponse<PipelineData> {
-        EngineCallResponse::PipelineData(PipelineData::Empty)
+        EngineCallResponse::PipelineData(PipelineData::empty())
     }
 }

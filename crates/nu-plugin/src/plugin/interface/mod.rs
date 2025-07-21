@@ -369,7 +369,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 });
                 Ok(PipelineData::ListStream(stream, meta))
             }
-            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
+            PipelineData::empty() | PipelineData::ByteStream(..) => Ok(data),
         }
     }
 }
@@ -557,7 +557,7 @@ impl EngineInterface {
         }
     }
 
-    /// Do an engine call returning an `Option<Value>` as either `PipelineData::Empty` or
+    /// Do an engine call returning an `Option<Value>` as either `PipelineData::empty()` or
     /// `PipelineData::Value`
     fn engine_call_option_value(
         &self,
@@ -565,7 +565,7 @@ impl EngineInterface {
     ) -> Result<Option<Value>, ShellError> {
         let name = engine_call.name();
         match self.engine_call(engine_call)? {
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(None),
             EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
@@ -728,7 +728,7 @@ impl EngineInterface {
                 set_pgrp_from_enter_foreground(pgrp)?;
                 Ok(ForegroundGuard(Some(self.clone())))
             }
-            EngineCallResponse::PipelineData(PipelineData::Empty) => {
+            EngineCallResponse::PipelineData(PipelineData::empty()) => {
                 Ok(ForegroundGuard(Some(self.clone())))
             }
             _ => Err(ShellError::PluginFailedToDecode {
@@ -741,7 +741,7 @@ impl EngineInterface {
     fn leave_foreground(&self) -> Result<(), ShellError> {
         match self.engine_call(EngineCall::LeaveForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
+            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
             }),
@@ -885,7 +885,7 @@ impl EngineInterface {
         positional: Vec<Value>,
         input: Option<Value>,
     ) -> Result<Value, ShellError> {
-        let input = input.map_or_else(|| PipelineData::Empty, |v| PipelineData::Value(v, None));
+        let input = input.map_or_else(|| PipelineData::empty(), |v| PipelineData::Value(v, None));
         let output = self.eval_closure_with_stream(closure, positional, input, true, false)?;
         // Unwrap an error value
         match output.into_value(closure.span)? {
@@ -904,7 +904,7 @@ impl EngineInterface {
         match self.engine_call(call)? {
             EngineCallResponse::Error(err) => Err(err),
             EngineCallResponse::Identifier(id) => Ok(Some(id)),
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineData::empty()) => Ok(None),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::FindDecl".into(),
             }),
@@ -924,7 +924,7 @@ impl EngineInterface {
     ///     let commands = engine.call_decl(
     ///         decl_id,
     ///         EvaluatedCall::new(call.head),
-    ///         PipelineData::Empty,
+    ///         PipelineData::empty(),
     ///         true,
     ///         false,
     ///     )?;

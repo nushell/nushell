@@ -128,7 +128,7 @@ fn read_pipeline_data_empty() -> Result<(), ShellError> {
 
     assert!(matches!(
         manager.read_pipeline_data(header, &Signals::empty())?,
-        PipelineData::Empty
+        PipelineData::empty()
     ));
     Ok(())
 }
@@ -302,7 +302,7 @@ fn write_pipeline_data_empty() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&test);
     let interface = manager.get_interface();
 
-    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty, &())?;
+    let (header, writer) = interface.init_write_pipeline_data(PipelineData::empty(), &())?;
 
     assert!(matches!(header, PipelineDataHeader::Empty));
 

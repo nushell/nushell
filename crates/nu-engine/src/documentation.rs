@@ -532,7 +532,7 @@ fn update_ansi_from_config(
                         arguments: vec![argument],
                         parser_info: HashMap::new(),
                     },
-                    PipelineData::Empty,
+                    PipelineData::empty(),
                 ) {
                     if let Ok((str, ..)) = result.collect_string_strict(span) {
                         *ansi_code = str;

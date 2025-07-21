@@ -61,7 +61,7 @@ fn get_prompt_string(
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
                 let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
-                    .run_with_input(PipelineData::Empty);
+                    .run_with_input(PipelineData::empty());
 
                 trace!(
                     "get_prompt_string (block) {}:{}:{}",
