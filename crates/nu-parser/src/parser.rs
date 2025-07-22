@@ -1761,7 +1761,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     let starting_error_count = working_set.parse_errors.len();
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
-    //   where <next_operator> is ".."
+    //   where <next_operator> is ".." or "..="
     //   and  <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
@@ -1835,7 +1835,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
             return None;
         }
     } else {
-        let op_str = if token.contains("..=") { "..=" } else { ".." };
+        let op_str = if token[range_op_pos..].starts_with("..=") {
+            "..="
+        } else {
+            ".."
+        };
+
         let op_span = Span::new(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),
@@ -1869,7 +1874,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     }
 
     let (next, next_op_span) = if let Some(pos) = next_op_pos {
-        let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
+        let next_op_str = if token[pos..].starts_with("..=") {
+            "..="
+        } else {
+            ".."
+        };
+        let next_op_span = Span::new(span.start + pos, span.start + pos + next_op_str.len());
         let next_span = Span::new(next_op_span.end, range_op_span.start);
 
         (
