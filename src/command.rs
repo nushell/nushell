@@ -48,7 +48,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--ide-hover"
             | "--ide-complete"
             | "--ide-check"
-            | "--experimental-options" => args.next(),
+            | "--experimental-options"
+            | "--mcp" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -130,6 +131,7 @@ pub(crate) fn parse_commandline_args(
                 call.get_flag(engine_state, &mut stack, "ide-complete")?;
             let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
             let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
+            let mcp = call.has_flag(engine_state, &mut stack, "mcp")?;
 
             fn extract_contents(
                 expression: Option<&Expression>,
@@ -266,6 +268,7 @@ pub(crate) fn parse_commandline_args(
                 error_style,
                 no_newline,
                 experimental_options,
+                mcp,
             });
         }
     }
@@ -308,6 +311,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_check: Option<Value>,
     pub(crate) ide_ast: Option<Spanned<String>>,
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
+    pub(crate) mcp: bool,
 }
 
 #[derive(Clone)]
@@ -413,7 +417,12 @@ impl Command for Nu {
                 "run a diagnostic check on the given source and limit number of errors returned to provided number",
                 None,
             )
-            .switch("ide-ast", "generate the ast on the given source", None);
+            .switch("ide-ast", "generate the ast on the given source", None)
+            .switch(
+               "mcp",
+               "start nu's model context protocol server",
+               None,
+            );
 
         #[cfg(feature = "plugin")]
         {
