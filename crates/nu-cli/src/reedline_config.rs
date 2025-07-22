@@ -1172,6 +1172,7 @@ fn edit_from_record(
         "cutfromlinestart" => EditCommand::CutFromLineStart,
         "cuttoend" => EditCommand::CutToEnd,
         "cuttolineend" => EditCommand::CutToLineEnd,
+        "killline" => EditCommand::KillLine,
         "cutwordleft" => EditCommand::CutWordLeft,
         "cutbigwordleft" => EditCommand::CutBigWordLeft,
         "cutwordright" => EditCommand::CutWordRight,
