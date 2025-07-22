@@ -239,7 +239,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
-            SyntaxShape::RowCondition => write!(f, "condition"),
+            SyntaxShape::RowCondition => write!(
+                f,
+                "oneof<condition, {}>",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))
+            ),
             SyntaxShape::MathExpression => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
