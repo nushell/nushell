@@ -74,6 +74,13 @@ fn group_by_on_empty_list_returns_empty_record() {
 }
 
 #[test]
+fn group_by_to_table_on_empty_list_returns_empty_list() {
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by --to-table a");
+    assert!(actual.err.is_empty());
+    assert!(actual.out.contains("empty list"));
+}
+
+#[test]
 fn optional_cell_path_works() {
     let actual = nu!("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo? | to nuon");
     let expected = r#"{"123": [[foo]; [123]], "234": [[foo]; [234]]}"#;
