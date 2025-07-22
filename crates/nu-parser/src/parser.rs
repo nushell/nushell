@@ -856,13 +856,18 @@ pub fn parse_multispan_value(
 
             arg
         }
-        SyntaxShape::MathExpression => {
+        SyntaxShape::MathExpression(ty) => {
             trace!("parsing: math expression");
 
             let arg = parse_math_expression(working_set, &spans[*spans_idx..], None);
             *spans_idx = spans.len() - 1;
 
-            arg
+            if !type_compatible(ty, &arg.ty) {
+                working_set.error(ParseError::TypeMismatch(ty.clone(), arg.ty, arg.span));
+                Expression::garbage(working_set, arg.span)
+            } else {
+                arg
+            }
         }
         SyntaxShape::OneOf(possible_shapes) => {
             parse_oneof(working_set, spans, spans_idx, possible_shapes, true)
@@ -4913,7 +4918,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 working_set,
                 &tokens.iter().map(|tok| tok.span).collect_vec(),
                 &mut start,
-                &SyntaxShape::MathExpression,
+                &SyntaxShape::MathExpression(Type::Bool),
             );
 
             pattern.guard = Some(Box::new(guard));

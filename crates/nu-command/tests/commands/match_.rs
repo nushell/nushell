@@ -211,7 +211,7 @@ fn match_with_guard_block_as_guard() {
         "match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }"
     );
 
-    assert!(actual.err.contains("Match guard not bool"));
+    assert!(actual.err.contains("expected bool"));
 }
 
 #[test]

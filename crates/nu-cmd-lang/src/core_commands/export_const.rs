@@ -20,7 +20,10 @@ impl Command for ExportConst {
             .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
             .required(
                 "initial_value",
-                SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                SyntaxShape::Keyword(
+                    b"=".to_vec(),
+                    Box::new(SyntaxShape::MathExpression(Type::Any)),
+                ),
                 "Equals sign followed by constant value.",
             )
             .category(Category::Core)
