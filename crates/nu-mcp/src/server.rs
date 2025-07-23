@@ -90,10 +90,16 @@ fn json_schema_for_type(ty: &Type) -> Result<serde_json::Value, ShellError> {
         Type::Any => json!({
             "type": ["null", "boolean", "integer", "number", "string", "array", "object"]
         }),
-        Type::Binary => json!({
-            "type": "string",
-            "format": "binary"
-        }),
+        // todo - this probably supportable
+        Type::Binary => {
+            return Err(ShellError::GenericError {
+                error: "Nushell Binary type is not supported in JSON Schema".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            });
+        }
         Type::Block => {
             return Err(ShellError::GenericError {
                 error: "Nushell Block type is not supported in JSON Schema".into(),
@@ -250,79 +256,81 @@ mod tests {
 
     #[test]
     fn test_schema_for_string_type() {
-        let schema = json_schema_for_type(Type::String);
+        let schema = json_schema_for_type(&Type::String).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_int_type() {
-        let schema = json_schema_for_type(Type::Int);
+        let schema = json_schema_for_type(&Type::Int).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_float_type() {
-        let schema = json_schema_for_type(Type::Float);
+        let schema = json_schema_for_type(&Type::Float).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_bool_type() {
-        let schema = json_schema_for_type(Type::Bool);
+        let schema = json_schema_for_type(&Type::Bool).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_any_type() {
-        let schema = json_schema_for_type(Type::Any);
+        let schema = json_schema_for_type(&Type::Any).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
+    #[should_panic(expected = "binary type is not supported")]
     fn test_schema_for_binary_type() {
-        let schema = json_schema_for_type(Type::Binary);
+        let schema = json_schema_for_type(&Type::Binary).expect("binary type is not supported");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_date_type() {
-        let schema = json_schema_for_type(Type::Date);
+        let schema = json_schema_for_type(&Type::Date).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_duration_type() {
-        let schema = json_schema_for_type(Type::Duration);
+        let schema = json_schema_for_type(&Type::Duration).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_filesize_type() {
-        let schema = json_schema_for_type(Type::Filesize);
+        let schema = json_schema_for_type(&Type::Filesize).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_nothing_type() {
-        let schema = json_schema_for_type(Type::Nothing);
+        let schema = json_schema_for_type(&Type::Nothing).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_number_type() {
-        let schema = json_schema_for_type(Type::Number);
+        let schema = json_schema_for_type(&Type::Number).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_range_type() {
-        let schema = json_schema_for_type(Type::Range);
+        let schema = json_schema_for_type(&Type::Range).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_list_type() {
-        let schema = json_schema_for_type(Type::List(Box::new(Type::Int)));
+        let schema =
+            json_schema_for_type(&Type::List(Box::new(Type::Int))).expect("expected valid schema");
         validate_schema(schema);
     }
 
@@ -330,7 +338,7 @@ mod tests {
     fn test_schema_for_record_type() {
         let fields =
             vec![("name".into(), Type::String), ("age".into(), Type::Int)].into_boxed_slice();
-        let schema = json_schema_for_type(Type::Record(fields));
+        let schema = json_schema_for_type(&Type::Record(fields)).expect("expected valid schema");
         validate_schema(schema);
     }
 
@@ -338,49 +346,53 @@ mod tests {
     fn test_schema_for_table_type() {
         let columns =
             vec![("name".into(), Type::String), ("age".into(), Type::Int)].into_boxed_slice();
-        let schema = json_schema_for_type(Type::Table(columns));
+        let schema = json_schema_for_type(&Type::Table(columns)).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_custom_type() {
-        let schema = json_schema_for_type(Type::Custom("MyType".into()));
+        let schema =
+            json_schema_for_type(&Type::Custom("MyType".into())).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_glob_type() {
-        let schema = json_schema_for_type(Type::Glob);
+        let schema = json_schema_for_type(&Type::Glob).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_error_type() {
-        let schema = json_schema_for_type(Type::Error);
+        let schema = json_schema_for_type(&Type::Error).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_nested_list_type() {
-        let schema = json_schema_for_type(Type::List(Box::new(Type::List(Box::new(Type::String)))));
+        let schema =
+            json_schema_for_type(&Type::List(Box::new(Type::List(Box::new(Type::String)))))
+                .expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_cellpath_type() {
-        let schema = json_schema_for_type(Type::CellPath);
+        let schema = json_schema_for_type(&Type::CellPath).expect("expected valid schema");
         validate_schema(schema);
     }
 
     #[test]
+    #[should_panic(expected = "block is not supported")]
     fn test_schema_for_block_type() {
-        let schema = json_schema_for_type(Type::Block);
+        let schema = json_schema_for_type(&Type::Block).expect("block is not supported");
         validate_schema(schema);
     }
 
     #[test]
     fn test_schema_for_closure_type() {
-        let schema = json_schema_for_type(Type::Closure);
+        let schema = json_schema_for_type(&Type::Closure).expect("expected valid schema");
         validate_schema(schema);
     }
 
