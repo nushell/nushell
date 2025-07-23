@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
-use nu_protocol::{Signature, SyntaxShape, Type, engine::EngineState};
+use nu_protocol::{ShellError, Signature, SyntaxShape, Type, engine::EngineState};
 use rmcp::{
     ServerHandler,
     handler::server::tool::ToolRouter,
@@ -36,15 +36,14 @@ impl ServerHandler for NushellMcpServer {
     }
 }
 
-fn command_to_tool(command: &dyn nu_protocol::engine::Command) -> Tool {
-    // Tool {
-    //     name: command.name().into(),
-    //     description: Some(command.description().into()),
-    //     input_schema: command.inp
-    //     output_schema: command.output_schema().clone(),
-    //     annotations: None,
-    // }
-    todo!("implement me")
+fn command_to_tool(command: &dyn nu_protocol::engine::Command) -> Result<Tool, ShellError> {
+    let (input_schema, output_schema) = json_schema_signature(&command.signature())?;
+    Ok(Tool {
+        name: Cow::Owned(command.name().to_owned()),
+        description: Some(Cow::Owned(command.description().to_owned())),
+        input_schema: Arc::new(rmcp::model::object(input_schema.into())),
+        annotations: None,
+    })
 }
 
 fn json_schema_signature(
@@ -53,22 +52,22 @@ fn json_schema_signature(
     if signature.input_output_types.len() == 1 {
         let (input_type, output_type) = signature.input_output_types[0].clone();
         Ok((
-            Schema::try_from(json_schema_for_type(&input_type))?,
-            Schema::try_from(json_schema_for_type(&output_type))?,
+            Schema::try_from(json_schema_for_type(&input_type)?)?,
+            Schema::try_from(json_schema_for_type(&output_type)?)?,
         ))
     } else {
         let input_schemas: Vec<Schema> = signature
             .input_output_types
             .iter()
             .map(|(input_type, _)| json_schema_for_type(input_type))
-            .map(Schema::try_from)
+            .map(|schema| schema.and_then(into_schema))
             .collect::<Result<Vec<_>, _>>()?;
 
         let output_schemas: Vec<Schema> = signature
             .input_output_types
             .iter()
             .map(|(_, output_type)| json_schema_for_type(output_type))
-            .map(Schema::try_from)
+            .map(|schema| schema.and_then(into_schema))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok((
@@ -84,8 +83,18 @@ fn json_schema_signature(
     }
 }
 
-fn json_schema_for_type(ty: &Type) -> serde_json::Value {
-    match ty {
+fn into_schema(value: serde_json::Value) -> Result<Schema, ShellError> {
+    Schema::try_from(value).map_err(|e| ShellError::GenericError {
+        error: format!("Failed to convert JSON value to schema: {e}"),
+        msg: e.to_string(),
+        span: None,
+        help: None,
+        inner: vec![],
+    })
+}
+
+fn json_schema_for_type(ty: &Type) -> Result<serde_json::Value, ShellError> {
+    let schema = match ty {
         Type::Any => json!({
             "type": ["null", "boolean", "integer", "number", "string", "array", "object"]
         }),
@@ -93,7 +102,15 @@ fn json_schema_for_type(ty: &Type) -> serde_json::Value {
             "type": "string",
             "format": "binary"
         }),
-        Type::Block => unimplemented!("Nushell Block type is not supported in JSON Schema"),
+        Type::Block => {
+            return Err(ShellError::GenericError {
+                error: "Nushell Block type is not supported in JSON Schema".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            });
+        }
         Type::Bool => json!({
             "type": "boolean"
         }),
@@ -149,7 +166,7 @@ fn json_schema_for_type(ty: &Type) -> serde_json::Value {
             let inner_schema = json_schema_for_type(inner_type);
             json!({
                 "type": "array",
-                "items": inner_schema
+                "items": inner_schema?
             })
         }
         Type::Nothing => json!({
@@ -212,7 +229,8 @@ fn json_schema_for_type(ty: &Type) -> serde_json::Value {
                 }
             })
         }
-    }
+    };
+    Ok(schema)
 }
 
 /// Convert a SyntaxShape to a JSON Schema type string
