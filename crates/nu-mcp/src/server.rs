@@ -1,13 +1,13 @@
 use std::{borrow::Cow, sync::Arc};
 
-use nu_protocol::{ShellError, Signature, SyntaxShape, Type, engine::EngineState};
+use nu_protocol::{ShellError, Signature, Type, engine::EngineState};
 use rmcp::{
     ServerHandler,
     handler::server::tool::ToolRouter,
     model::{ServerCapabilities, ServerInfo, Tool},
     tool_handler, tool_router,
 };
-use schemars::{Schema, json_schema, schema_for};
+use schemars::{Schema, json_schema};
 use serde_json::{self, json};
 
 pub struct NushellMcpServer {
@@ -37,7 +37,7 @@ impl ServerHandler for NushellMcpServer {
 }
 
 fn command_to_tool(command: &dyn nu_protocol::engine::Command) -> Result<Tool, ShellError> {
-    let (input_schema, output_schema) = json_schema_signature(&command.signature())?;
+    let input_schema = json_schema_signature(&command.signature())?;
     Ok(Tool {
         name: Cow::Owned(command.name().to_owned()),
         description: Some(Cow::Owned(command.description().to_owned())),
@@ -46,15 +46,20 @@ fn command_to_tool(command: &dyn nu_protocol::engine::Command) -> Result<Tool, S
     })
 }
 
-fn json_schema_signature(
-    signature: &Signature,
-) -> Result<(Schema, Schema), Box<dyn std::error::Error>> {
+fn json_schema_signature(signature: &Signature) -> Result<Schema, ShellError> {
     if signature.input_output_types.len() == 1 {
-        let (input_type, output_type) = signature.input_output_types[0].clone();
-        Ok((
-            Schema::try_from(json_schema_for_type(&input_type)?)?,
-            Schema::try_from(json_schema_for_type(&output_type)?)?,
-        ))
+        let (input_type, _) = signature.input_output_types[0].clone();
+        Ok(
+            Schema::try_from(json_schema_for_type(&input_type)?).map_err(|e| {
+                ShellError::GenericError {
+                    error: format!("failed to conver to schema: {e}"),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                }
+            })?,
+        )
     } else {
         let input_schemas: Vec<Schema> = signature
             .input_output_types
@@ -63,23 +68,10 @@ fn json_schema_signature(
             .map(|schema| schema.and_then(into_schema))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let output_schemas: Vec<Schema> = signature
-            .input_output_types
-            .iter()
-            .map(|(_, output_type)| json_schema_for_type(output_type))
-            .map(|schema| schema.and_then(into_schema))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok((
-            json_schema!({
-                "type": "object",
-                "oneOf": input_schemas,
-            }),
-            json_schema!({
-                "type": "object",
-                "oneOf": output_schemas,
-            }),
-        ))
+        Ok(json_schema!({
+            "type": "object",
+            "oneOf": input_schemas,
+        }))
     }
 }
 
