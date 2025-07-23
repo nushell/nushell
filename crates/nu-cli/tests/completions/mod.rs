@@ -2313,10 +2313,6 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
 #[rstest]
 fn custom_completion_flag_name_not_value(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam --f", 8);
-    assert!(
-        suggestions.iter().any(|s| s.value == "--foo"),
-        "Should contain --foo flag"
-    );
     match_suggestions(&vec!["--foo"], &suggestions);
     // Also test with partial short flag
     let suggestions = extern_completer.complete("spam -f", 7);
