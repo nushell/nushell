@@ -128,7 +128,7 @@ fn read_pipeline_data_empty() -> Result<(), ShellError> {
 
     assert!(matches!(
         manager.read_pipeline_data(header, &Signals::empty())?,
-        PipelineData::empty()
+        PipelineData::Empty
     ));
     Ok(())
 }
@@ -180,7 +180,7 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
     assert!(
-        matches!(pipe, PipelineData::list_stream(..)),
+        matches!(pipe, PipelineData::ListStream(..)),
         "unexpected PipelineData: {pipe:?}"
     );
 
