@@ -1637,6 +1637,44 @@ mod string {
         }
 
         #[test]
+        pub fn parse_string_interpolation_bare_starting_and_ending_subexpr() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"(100 + 20 + 3)/bar/(300 + 20 + 1)",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty(),);
+
+            let [pipeline] = block.pipelines.as_slice() else {
+                panic!("expected 1 pipeline")
+            };
+            let [element] = pipeline.elements.as_slice() else {
+                panic!("expected 1 pipeline element")
+            };
+            assert!(element.redirection.is_none());
+
+            let Expr::StringInterpolation(expressions) = &element.expr.expr else {
+                panic!("Expected an `Expr::StringInterpolation`")
+            };
+            let subexprs: Vec<_> = expressions.iter().map(|e| &e.expr).collect();
+
+            let [
+                Expr::FullCellPath(..),
+                Expr::String(s),
+                Expr::FullCellPath(..),
+            ] = subexprs.as_slice()
+            else {
+                panic!("AST does not have the expected structure")
+            };
+            assert_eq!(s, "/bar/");
+        }
+
+        #[test]
         pub fn parse_string_interpolation_bare_starting_subexpr_external_arg() {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
