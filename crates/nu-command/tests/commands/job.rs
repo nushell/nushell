@@ -437,33 +437,40 @@ fn job_tag_modifies_tagged_job_tag() {
 }
 
 #[test]
-fn job_wait_waits_for_completion() {
-    let actual = nu!(r#"
-        let id = job spawn { sleep 1sec; 'beep' }
+fn job_wait_does_wait_for_completion() {
+    Playground::setup("job_wait_test_1", |dirs, sandbox| {
+        sandbox.with_files(&[]);
 
-        job wait $id
-        "#);
+        let actual = nu!(cwd: dirs.root(),
+            r#"
+            let id = job spawn { sleep 1sec; 'beep' | save a.txt }
 
-    assert_eq!(actual.err, "");
-    assert_eq!(actual.out, "beep");
+            job wait $id
+
+            open a.txt
+            "#);
+
+        assert_eq!(actual.err, "");
+        assert_eq!(actual.out, "beep");
+    })
 }
 
 #[test]
-fn multiple_jobs_can_wait_for_a_single_one() {
-    Playground::setup("job_wait_test_1", |dirs, sandbox| {
+fn job_wait_when_done_through_multiple_jobs_does_wait() {
+    Playground::setup("job_wait_test_2", |dirs, sandbox| {
         sandbox.with_files(&[]);
 
         let actual = nu!(
         cwd: dirs.root(),
 
         r#"
-        let id = job spawn { sleep 1sec; 'beep' }
+        let id = job spawn { sleep 1sec; 'beep' | save original.txt }
 
-        let a = job spawn { job wait $id | save a.txt }
-        let b = job spawn { job wait $id | save b.txt }
-        let c = job spawn { job wait $id | save c.txt }
+        let a = job spawn { job wait $id; open original.txt | save a.txt }
+        let b = job spawn { job wait $id; open original.txt | save b.txt }
+        let c = job spawn { job wait $id; open original.txt | save c.txt }
 
-        sleep 1.1sec
+        sleep 1.2sec
 
         [(open a.txt), (open b.txt), (open c.txt)] | to nuon
         "#);

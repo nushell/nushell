@@ -16,8 +16,7 @@ impl Command for JobWait {
 
     fn extra_description(&self) -> &str {
         r#"Given the id of a running job currently in the job table, this command
-waits for it to complete and returns the value returned
-by the closure passed down to `job spawn` to create the given job.
+waits for it to complete, blocking the current thread. 
 
 Note that this command fails if the provided job id is currently not in the job table
 (as seen by `job list`), so it is not possible to wait for jobs that have already finished.   
@@ -71,13 +70,13 @@ Note that this command fails if the provided job id is currently not in the job 
                 // .wait() blocks so we drop our mutex guard
                 drop(jobs);
 
-                let value = wait_with_interrupt(
+                wait_with_interrupt(
                     |time| waiter.wait_timeout(time),
                     || engine_state.signals().check(head),
                     Duration::from_millis(100),
                 )?;
 
-                Ok(value.clone().with_span(head).into_pipeline_data())
+                Ok(Value::nothing(head).into_pipeline_data())
             }
         }
     }

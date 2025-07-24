@@ -76,7 +76,7 @@ impl Command for JobSpawn {
         let jobs = job_state.jobs.clone();
         let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-        let (complete, wait) = completion_signal();
+        let (completer, wait) = completion_signal();
         let (send, recv) = mpsc::channel();
 
         let id = {
@@ -101,18 +101,16 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
-                let result_value = ClosureEvalOnce::new(&job_state, &stack, closure)
+                ClosureEvalOnce::new(&job_state, &stack, closure)
                     .run_with_input(Value::nothing(head).into_pipeline_data())
-                    .and_then(|data| data.into_value(spanned_closure.span))
+                    .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {
                             report_shell_error(&job_state, &err);
                         }
-
-                        Value::error(err, head)
                     });
 
-                complete.complete(result_value);
+                completer.complete(());
 
                 {
                     let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");

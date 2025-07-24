@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use nu_system::{kill_by_pid, UnfreezeHandle};
 
-use crate::{PipelineData, Signals, Value};
+use crate::{PipelineData, Signals};
 
 use crate::JobId;
 
@@ -145,7 +145,7 @@ pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
     tag: Option<String>,
-    on_termination: Waiter<Value>,
+    on_termination: Waiter<()>,
     pub sender: Sender<Mail>,
 }
 
@@ -154,7 +154,7 @@ impl ThreadJob {
         signals: Signals,
         tag: Option<String>,
         sender: Sender<Mail>,
-        on_termination: Waiter<Value>,
+        on_termination: Waiter<()>,
     ) -> Self {
         ThreadJob {
             signals,
@@ -210,7 +210,7 @@ impl ThreadJob {
         pids.remove(&pid);
     }
 
-    pub fn on_termination(&self) -> &Waiter<Value> {
+    pub fn on_termination(&self) -> &Waiter<()> {
         &self.on_termination
     }
 }
@@ -291,7 +291,7 @@ struct InnerWaitCompleteSignal<T> {
     // It turns out OnceLock doesn't have a `wait_timeout` method, so
     // we use the one from the condvar.
     //
-    // We once again, assume acquire-release semamntics for Rust mutexes
+    // We once again, assume acquire-release semantics for Rust mutexes
     mutex: std::sync::Mutex<()>,
     var: std::sync::Condvar,
     value: std::sync::OnceLock<T>,
