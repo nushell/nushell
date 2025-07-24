@@ -97,8 +97,11 @@ fn extern_completer() -> NuCompleter {
     // Add record value as example
     let record = r#"
         def animals [] { [ "cat", "dog", "eel" ] }
+        def fruits [] { [ "apple", "banana" ] }
         extern spam [
             animal: string@animals
+            fruit?: string@fruits
+            ...rest: string@animals
             --foo (-f): string@animals
             -b: string@animals
         ]
@@ -2262,6 +2265,22 @@ fn extern_custom_completion_positional(mut extern_completer: NuCompleter) {
 }
 
 #[rstest]
+fn extern_custom_completion_optional(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam foo -f bar ", 16);
+    let expected: Vec<_> = vec!["apple", "banana"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn extern_custom_completion_rest(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam foo -f bar baz ", 20);
+    let expected: Vec<_> = vec!["cat", "dog", "eel"];
+    match_suggestions(&expected, &suggestions);
+    let suggestions = extern_completer.complete("spam foo -f bar baz qux ", 24);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
 fn extern_custom_completion_long_flag_1(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam --foo=", 11);
     let expected: Vec<_> = vec!["cat", "dog", "eel"];
@@ -2287,6 +2306,17 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -b ", 8);
     let expected: Vec<_> = vec!["cat", "dog", "eel"];
     match_suggestions(&expected, &suggestions);
+}
+
+/// When we're completing the flag name itself, not its value,
+/// custom completions should not be used
+#[rstest]
+fn custom_completion_flag_name_not_value(mut extern_completer: NuCompleter) {
+    let suggestions = extern_completer.complete("spam --f", 8);
+    match_suggestions(&vec!["--foo"], &suggestions);
+    // Also test with partial short flag
+    let suggestions = extern_completer.complete("spam -f", 7);
+    match_suggestions(&vec!["-f"], &suggestions);
 }
 
 #[rstest]
