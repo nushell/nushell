@@ -1,6 +1,6 @@
 use crate::{
-    BlockId, DeclId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape,
-    Type, Value, VarId,
+    BlockId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape, Type,
+    Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
@@ -24,7 +24,6 @@ pub struct Flag {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
 }
 
 /// The signature definition for a positional argument
@@ -37,7 +36,6 @@ pub struct PositionalArg {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
 }
 
 /// Command categories
@@ -257,7 +255,6 @@ impl Signature {
             required: false,
             var_id: None,
             default_value: None,
-            custom_completion: None,
         };
         self.named.push(flag);
         self
@@ -322,7 +319,6 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
@@ -341,7 +337,6 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
@@ -359,7 +354,6 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
@@ -399,7 +393,6 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
@@ -423,7 +416,6 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
@@ -446,7 +438,6 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
         });
 
         self
