@@ -3,12 +3,12 @@ use std::sync::Arc;
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{SemanticToken, SemanticTokens, SemanticTokensParams};
 use nu_protocol::{
+    Span,
     ast::{Block, Expr, Expression, Traverse},
     engine::StateWorkingSet,
-    Span,
 };
 
-use crate::{span_to_range, LanguageServer};
+use crate::{LanguageServer, span_to_range};
 
 /// Important to keep spans in increasing order,
 /// since `SemanticToken`s are created by relative positions
@@ -96,11 +96,11 @@ mod tests {
     use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
-    use lsp_types::{
-        request::{Request, SemanticTokensFullRequest},
-        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
-    };
     use lsp_types::{PartialResultParams, SemanticTokensParams};
+    use lsp_types::{
+        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
+        request::{Request, SemanticTokensFullRequest},
+    };
     use nu_test_support::fs::fixtures;
 
     fn send_semantic_token_request(client_connection: &Connection, uri: Uri) -> Message {

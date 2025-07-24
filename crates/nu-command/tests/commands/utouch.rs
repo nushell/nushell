@@ -1,6 +1,6 @@
 use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
-use nu_test_support::fs::{files_exist_at, Stub};
+use nu_test_support::fs::{Stub, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::{Dirs, Playground};
 use std::path::Path;
@@ -540,10 +540,7 @@ fn change_file_times_to_date() {
         assert!(
             got_atime.signed_duration_since(expected).lt(&threshold)
                 && got_mtime.signed_duration_since(expected).lt(&threshold),
-            "Expected: {}. Got: atime={}, mtime={}",
-            expected,
-            got_atime,
-            got_mtime
+            "Expected: {expected}. Got: atime={got_atime}, mtime={got_mtime}"
         );
         assert!(got_mtime.signed_duration_since(expected).lt(&threshold));
     })

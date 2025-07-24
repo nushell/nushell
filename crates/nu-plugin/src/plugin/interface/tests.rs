@@ -2,22 +2,23 @@ use crate::test_util::TestCaseExt;
 
 use super::{EngineInterfaceManager, ReceivedPluginCall};
 use nu_engine::command_prelude::IoError;
-use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
+use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
-    test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse,
     EvaluatedCall, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
+    test_util::{TestCustomValue, expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    engine::Closure, BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
+    PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    engine::Closure, shell_error,
 };
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{self, TryRecvError},
         Arc,
+        mpsc::{self, TryRecvError},
     },
 };
 
@@ -90,7 +91,7 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
 fn test_io_error() -> ShellError {
     ShellError::Io(IoError::new_with_additional_context(
-        std::io::ErrorKind::Other,
+        shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
         Span::test_data(),
         None,
         "test io error",
@@ -542,8 +543,8 @@ fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> R
 }
 
 #[test]
-fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
-) -> Result<(), ShellError> {
+fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data()
+-> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;
 

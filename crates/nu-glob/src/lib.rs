@@ -882,7 +882,7 @@ impl Pattern {
                             AnySequence
                                 if options.require_literal_separator && follows_separator =>
                             {
-                                return SubPatternDoesntMatch
+                                return SubPatternDoesntMatch;
                             }
                             _ => (),
                         }
@@ -1159,7 +1159,7 @@ impl Default for MatchOptions {
 mod test {
     use crate::{Paths, PatternError, Uninterruptible};
 
-    use super::{glob as glob_with_signals, MatchOptions, Pattern};
+    use super::{MatchOptions, Pattern, glob as glob_with_signals};
     use std::path::Path;
 
     fn glob(pattern: &str) -> Result<Paths, PatternError> {
@@ -1266,10 +1266,12 @@ mod test {
                 })
                 .unwrap();
             // FIXME (#9639): This needs to handle non-utf8 paths
-            assert!(glob(root_with_device.as_os_str().to_str().unwrap())
-                .unwrap()
-                .next()
-                .is_some());
+            assert!(
+                glob(root_with_device.as_os_str().to_str().unwrap())
+                    .unwrap()
+                    .next()
+                    .is_some()
+            );
         }
         win()
     }
@@ -1281,15 +1283,21 @@ mod test {
         assert!(!Pattern::new("a*b*c").unwrap().matches("abcd"));
         assert!(Pattern::new("a*b*c").unwrap().matches("a_b_c"));
         assert!(Pattern::new("a*b*c").unwrap().matches("a___b___c"));
-        assert!(Pattern::new("abc*abc*abc")
-            .unwrap()
-            .matches("abcabcabcabcabcabcabc"));
-        assert!(!Pattern::new("abc*abc*abc")
-            .unwrap()
-            .matches("abcabcabcabcabcabcabca"));
-        assert!(Pattern::new("a*a*a*a*a*a*a*a*a")
-            .unwrap()
-            .matches("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(
+            Pattern::new("abc*abc*abc")
+                .unwrap()
+                .matches("abcabcabcabcabcabcabc")
+        );
+        assert!(
+            !Pattern::new("abc*abc*abc")
+                .unwrap()
+                .matches("abcabcabcabcabcabcabca")
+        );
+        assert!(
+            Pattern::new("a*a*a*a*a*a*a*a*a")
+                .unwrap()
+                .matches("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
         assert!(Pattern::new("a*b[xyz]c*d").unwrap().matches("abxcdbxcddd"));
     }
 
@@ -1351,13 +1359,13 @@ mod test {
     fn test_range_pattern() {
         let pat = Pattern::new("a[0-9]b").unwrap();
         for i in 0..10 {
-            assert!(pat.matches(&format!("a{}b", i)), "a{i}b =~ a[0-9]b");
+            assert!(pat.matches(&format!("a{i}b")), "a{i}b =~ a[0-9]b");
         }
         assert!(!pat.matches("a_b"));
 
         let pat = Pattern::new("a[!0-9]b").unwrap();
         for i in 0..10 {
-            assert!(!pat.matches(&format!("a{}b", i)));
+            assert!(!pat.matches(&format!("a{i}b")));
         }
         assert!(pat.matches("a_b"));
 
@@ -1480,31 +1488,47 @@ mod test {
             recursive_match_hidden_dir: true,
         };
 
-        assert!(Pattern::new("abc/def")
-            .unwrap()
-            .matches_with("abc/def", options_require_literal));
-        assert!(!Pattern::new("abc?def")
-            .unwrap()
-            .matches_with("abc/def", options_require_literal));
-        assert!(!Pattern::new("abc*def")
-            .unwrap()
-            .matches_with("abc/def", options_require_literal));
-        assert!(!Pattern::new("abc[/]def")
-            .unwrap()
-            .matches_with("abc/def", options_require_literal));
+        assert!(
+            Pattern::new("abc/def")
+                .unwrap()
+                .matches_with("abc/def", options_require_literal)
+        );
+        assert!(
+            !Pattern::new("abc?def")
+                .unwrap()
+                .matches_with("abc/def", options_require_literal)
+        );
+        assert!(
+            !Pattern::new("abc*def")
+                .unwrap()
+                .matches_with("abc/def", options_require_literal)
+        );
+        assert!(
+            !Pattern::new("abc[/]def")
+                .unwrap()
+                .matches_with("abc/def", options_require_literal)
+        );
 
-        assert!(Pattern::new("abc/def")
-            .unwrap()
-            .matches_with("abc/def", options_not_require_literal));
-        assert!(Pattern::new("abc?def")
-            .unwrap()
-            .matches_with("abc/def", options_not_require_literal));
-        assert!(Pattern::new("abc*def")
-            .unwrap()
-            .matches_with("abc/def", options_not_require_literal));
-        assert!(Pattern::new("abc[/]def")
-            .unwrap()
-            .matches_with("abc/def", options_not_require_literal));
+        assert!(
+            Pattern::new("abc/def")
+                .unwrap()
+                .matches_with("abc/def", options_not_require_literal)
+        );
+        assert!(
+            Pattern::new("abc?def")
+                .unwrap()
+                .matches_with("abc/def", options_not_require_literal)
+        );
+        assert!(
+            Pattern::new("abc*def")
+                .unwrap()
+                .matches_with("abc/def", options_not_require_literal)
+        );
+        assert!(
+            Pattern::new("abc[/]def")
+                .unwrap()
+                .matches_with("abc/def", options_not_require_literal)
+        );
     }
 
     #[test]

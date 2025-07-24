@@ -7,8 +7,8 @@ use tabled::{
         util::string::get_text_width,
     },
     settings::{
-        width::{Truncate, Wrap},
         Color,
+        width::{Truncate, Wrap},
     },
 };
 

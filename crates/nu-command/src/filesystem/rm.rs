@@ -4,9 +4,8 @@ use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
-    report_shell_error,
+    NuGlob, report_shell_error,
     shell_error::{self, io::IoError},
-    NuGlob,
 };
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -71,8 +70,7 @@ impl Command for Rm {
 
     fn examples(&self) -> Vec<Example> {
         let mut examples = vec![Example {
-            description:
-                "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+            description: "Delete, or move a file to the trash (based on the 'always_trash' config option)",
             example: "rm file.txt",
             result: None,
         }];
@@ -306,7 +304,7 @@ fn rm(
                     && matches!(
                         e,
                         ShellError::Io(IoError {
-                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound),
+                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound, ..),
                             ..
                         })
                     ))
@@ -422,7 +420,7 @@ fn rm(
                 };
 
                 if let Err(e) = result {
-                    Err(ShellError::Io(IoError::new(e.kind(), span, f)))
+                    Err(ShellError::Io(IoError::new(e, span, f)))
                 } else if verbose {
                     let msg = if interactive && !confirmed {
                         "not deleted"
@@ -456,7 +454,7 @@ fn rm(
     });
 
     for result in iter {
-        engine_state.signals().check(call.head)?;
+        engine_state.signals().check(&call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),

@@ -122,8 +122,8 @@ impl Table {
             .conn
             .query_row(&table_exists_query, [], |row| row.get(0))
             .map_err(|err| ShellError::GenericError {
-                error: format!("{:#?}", err),
-                msg: format!("{:#?}", err),
+                error: format!("{err:#?}"),
+                msg: format!("{err:#?}"),
                 span: None,
                 help: None,
                 inner: Vec::new(),
@@ -241,7 +241,7 @@ fn insert_in_transaction(
     let tx = table.try_init(&first_val)?;
 
     for stream_value in stream {
-        if let Err(err) = signals.check(span) {
+        if let Err(err) = signals.check(&span) {
             tx.rollback().map_err(|e| ShellError::GenericError {
                 error: "Failed to rollback SQLite transaction".into(),
                 msg: e.to_string(),
@@ -257,7 +257,7 @@ fn insert_in_transaction(
         let insert_statement = format!(
             "INSERT INTO [{}] ({}) VALUES ({})",
             table_name,
-            Itertools::intersperse(val.columns().map(|c| format!("`{}`", c)), ", ".to_string())
+            Itertools::intersperse(val.columns().map(|c| format!("`{c}`")), ", ".to_string())
                 .collect::<String>(),
             Itertools::intersperse(itertools::repeat_n("?", val.len()), ", ").collect::<String>(),
         );
@@ -353,6 +353,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
 
         // intentionally enumerated so that any future types get handled
         Type::Any
+        | Type::Block
         | Type::CellPath
         | Type::Closure
         | Type::Custom(_)
@@ -381,7 +382,7 @@ fn get_columns_with_sqlite_types(
             .map(|name| (format!("`{}`", name.0), name.1))
             .any(|(name, _)| name == *c)
         {
-            columns.push((format!("`{}`", c), nu_value_to_sqlite_type(v)?));
+            columns.push((format!("`{c}`"), nu_value_to_sqlite_type(v)?));
         }
     }
 

@@ -1,8 +1,9 @@
 use crate::{
+    BlockId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape, Type,
+    Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
-    BlockId, Example, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
 };
-use nu_derive_value::FromValue;
+use nu_derive_value::FromValue as DeriveFromValue;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -520,8 +521,7 @@ impl Signature {
         let s = short.inspect(|c| {
             assert!(
                 !self.get_shorts().contains(c),
-                "There may be duplicate short flags for '-{}'",
-                c
+                "There may be duplicate short flags for '-{c}'"
             );
         });
 
@@ -529,8 +529,7 @@ impl Signature {
             let name: String = name.into();
             assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags for '--{}'",
-                name
+                "There may be duplicate name flags for '--{name}'"
             );
             name
         };
@@ -701,7 +700,7 @@ fn get_positional_short_name(arg: &PositionalArg, is_required: bool) -> String {
     }
 }
 
-#[derive(Clone, FromValue)]
+#[derive(Clone, DeriveFromValue)]
 pub struct CustomExample {
     pub example: String,
     pub description: String,
@@ -783,6 +782,18 @@ impl Command for BlockCommand {
             .search_terms
             .iter()
             .map(String::as_str)
+            .collect()
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        self.attributes
+            .iter()
+            .filter_map(|(key, value)| {
+                (key == "deprecated")
+                    .then_some(value.clone())
+                    .map(DeprecationEntry::from_value)
+                    .and_then(Result::ok)
+            })
             .collect()
     }
 }

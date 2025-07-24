@@ -1,19 +1,15 @@
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
-        event::{DataChange, ModifyKind, RenameMode},
         EventKind, RecursiveMode, Watcher,
+        event::{DataChange, ModifyKind, RenameMode},
     },
 };
-use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    format_shell_error,
-    shell_error::io::IoError,
-};
+use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::{engine::Closure, report_shell_error, shell_error::io::IoError};
 use std::{
     path::PathBuf,
-    sync::mpsc::{channel, RecvTimeoutError},
+    sync::mpsc::{RecvTimeoutError, channel},
     time::Duration,
 };
 
@@ -86,10 +82,10 @@ impl Command for Watch {
             Ok(p) => p,
             Err(err) => {
                 return Err(ShellError::Io(IoError::new(
-                    err.kind(),
+                    err,
                     path_arg.span,
                     PathBuf::from(path_no_whitespace),
-                )))
+                )));
             }
         };
 
@@ -108,7 +104,7 @@ impl Command for Watch {
                     return Err(ShellError::TypeMismatch {
                         err_message: "Debounce duration is invalid".to_string(),
                         span: val.span,
-                    })
+                    });
                 }
             },
             None => DEFAULT_WATCH_DEBOUNCE_DURATION,
@@ -128,7 +124,7 @@ impl Command for Watch {
                         return Err(ShellError::TypeMismatch {
                             err_message: "Glob pattern is invalid".to_string(),
                             span: glob.span,
-                        })
+                        });
                     }
                 }
             }
@@ -203,14 +199,9 @@ impl Command for Watch {
                     .run_with_input(PipelineData::Empty);
 
                 match result {
-                    Ok(val) => {
-                        val.print_table(engine_state, stack, false, false)?;
-                    }
-                    Err(err) => {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        eprintln!("{}", format_shell_error(&working_set, &err));
-                    }
-                }
+                    Ok(val) => val.print_table(engine_state, stack, false, false)?,
+                    Err(err) => report_shell_error(engine_state, &err),
+                };
             }
 
             Ok(())

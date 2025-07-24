@@ -1,4 +1,4 @@
-use fancy_regex::{escape, Regex};
+use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]

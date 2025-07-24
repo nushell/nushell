@@ -3,8 +3,8 @@ use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Syntax
 use polars::prelude::PlSmallStr;
 
 use crate::{
-    values::{CustomValueSupport, NuDataFrame},
     PolarsPlugin,
+    values::{CustomValueSupport, NuDataFrame},
 };
 
 pub struct CutSeries;
@@ -52,7 +52,10 @@ impl PluginCommand for CutSeries {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
-        command(plugin, engine, call, input).map_err(|e| e.into())
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(|e| e.into())
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

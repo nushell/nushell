@@ -1,14 +1,15 @@
 use std::{
     cmp::Ordering,
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
 };
 
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use command::{
-    aggregation::aggregation_commands, boolean::boolean_commands, core::core_commands,
-    data::data_commands, datetime::datetime_commands, index::index_commands,
-    integer::integer_commands, list::list_commands, string::string_commands, stub::PolarsCmd,
+    aggregation::aggregation_commands, boolean::boolean_commands,
+    computation::computation_commands, core::core_commands, data::data_commands,
+    datetime::datetime_commands, index::index_commands, integer::integer_commands,
+    list::list_commands, string::string_commands, stub::PolarsCmd,
 };
 use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
@@ -17,7 +18,7 @@ mod cache;
 mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator};
 use tokio::runtime::Runtime;
 use values::CustomValueType;
 
@@ -88,6 +89,7 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut aggregation_commands());
         commands.append(&mut boolean_commands());
         commands.append(&mut core_commands());
+        commands.append(&mut computation_commands());
         commands.append(&mut data_commands());
         commands.append(&mut datetime_commands());
         commands.append(&mut index_commands());
@@ -276,7 +278,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, Span};
+    use nu_protocol::{ShellError, Span, engine::Command};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode

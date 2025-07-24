@@ -1,4 +1,4 @@
-use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
+use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
@@ -46,7 +46,8 @@ impl Command for StorInsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
+        vec![
+            Example {
                 description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
                 example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
                 result: None,
@@ -120,7 +121,7 @@ fn handle(
             return Err(ShellError::MissingParameter {
                 param_name: "requires a table or a record".into(),
                 span,
-            })
+            });
         }
         PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
         PipelineData::Value(Value::List { vals, .. }, ..) => vals,
@@ -131,7 +132,7 @@ fn handle(
                 wrong_type: "".into(),
                 dst_span: span,
                 src_span: span,
-            })
+            });
         }
     };
 
@@ -163,34 +164,35 @@ fn process(
     }
     let new_table_name = table_name.unwrap_or("table".into());
 
+    let mut create_stmt = format!("INSERT INTO {new_table_name} (");
+    let mut column_placeholders: Vec<String> = Vec::new();
+
+    let cols = record.columns();
+    cols.for_each(|col| {
+        column_placeholders.push(col.to_string());
+    });
+
+    create_stmt.push_str(&column_placeholders.join(", "));
+
+    // Values are set as placeholders.
+    create_stmt.push_str(") VALUES (");
+    let mut value_placeholders: Vec<String> = Vec::new();
+    for (index, _) in record.columns().enumerate() {
+        value_placeholders.push(format!("?{}", index + 1));
+    }
+    create_stmt.push_str(&value_placeholders.join(", "));
+    create_stmt.push(')');
+
+    // dbg!(&create_stmt);
+
+    // Get the params from the passed values
+    let params = values_to_sql(record.values().cloned())?;
+
     if let Ok(conn) = db.open_connection() {
-        let mut create_stmt = format!("INSERT INTO {} (", new_table_name);
-        let mut column_placeholders: Vec<String> = Vec::new();
-
-        let cols = record.columns();
-        cols.for_each(|col| {
-            column_placeholders.push(col.to_string());
-        });
-
-        create_stmt.push_str(&column_placeholders.join(", "));
-
-        // Values are set as placeholders.
-        create_stmt.push_str(") VALUES (");
-        let mut value_placeholders: Vec<String> = Vec::new();
-        for (index, _) in record.columns().enumerate() {
-            value_placeholders.push(format!("?{}", index + 1));
-        }
-        create_stmt.push_str(&value_placeholders.join(", "));
-        create_stmt.push(')');
-
-        // dbg!(&create_stmt);
-
-        // Get the params from the passed values
-        let params = values_to_sql(record.values().cloned())?;
-
         conn.execute(&create_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
-                error: "Failed to open SQLite connection in memory from insert".into(),
+                error: "Failed to insert using the SQLite connection in memory from insert.rs."
+                    .into(),
                 msg: err.to_string(),
                 span: Some(Span::test_data()),
                 help: None,

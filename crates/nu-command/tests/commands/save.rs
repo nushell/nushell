@@ -1,4 +1,4 @@
-use nu_test_support::fs::{file_contents, Stub};
+use nu_test_support::fs::{Stub, file_contents};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use std::io::Write;
@@ -96,9 +96,11 @@ fn save_stderr_and_stdout_to_same_file() {
             do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
             "#,
         );
-        assert!(actual
-            .err
-            .contains("can't save both input and stderr input to the same file"));
+        assert!(
+            actual
+                .err
+                .contains("can't save both input and stderr input to the same file")
+        );
     })
 }
 
@@ -340,9 +342,11 @@ fn save_same_file_with_extension() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -361,9 +365,11 @@ fn save_same_file_with_extension_pipeline() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -381,9 +387,11 @@ fn save_same_file_without_extension() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -402,9 +410,11 @@ fn save_same_file_without_extension_pipeline() {
             )
         );
 
-        assert!(actual
-            .err
-            .contains("pipeline input and output are the same file"));
+        assert!(
+            actual
+                .err
+                .contains("pipeline input and output are the same file")
+        );
     })
 }
 
@@ -523,6 +533,39 @@ fn parent_redirection_doesnt_affect_save() {
 
         let actual = file_contents(dirs.test().join("empty_file"));
         assert_eq!(actual.trim_end(), "");
+    })
+}
+
+#[test]
+fn save_missing_parent_dir() {
+    Playground::setup("save_test_24", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"'hello' | save save_test_24/foobar/hello.txt"#,
+        );
+
+        assert!(actual.err.contains("nu::shell::io::directory_not_found"));
+        assert!(actual.err.contains("foobar' does not exist"));
+    })
+}
+
+#[test]
+fn save_missing_ancestor_dir() {
+    Playground::setup("save_test_24", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        std::fs::create_dir(dirs.test().join("foo"))
+            .expect("should have been able to create subdir for test");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"'hello' | save save_test_24/foo/bar/baz/hello.txt"#,
+        );
+
+        assert!(actual.err.contains("nu::shell::io::directory_not_found"));
+        assert!(actual.err.contains("bar' does not exist"));
     })
 }
 

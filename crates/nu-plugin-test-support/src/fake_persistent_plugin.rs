@@ -5,8 +5,8 @@ use std::{
 
 use nu_plugin_engine::{GetPlugin, PluginInterface};
 use nu_protocol::{
-    engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
+    engine::{EngineState, Stack},
 };
 
 pub struct FakePersistentPlugin {

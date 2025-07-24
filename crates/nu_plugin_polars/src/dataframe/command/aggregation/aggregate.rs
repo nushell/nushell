@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::{Column, CustomValueSupport, NuDataFrame},
-    PolarsPlugin,
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -127,6 +127,7 @@ impl PluginCommand for LazyAggregate {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, value)?;
@@ -153,6 +154,7 @@ impl PluginCommand for LazyAggregate {
         let lazy = NuLazyFrame::new(false, polars.agg(&expressions));
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -184,7 +186,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Exclude(expr, _)
         | Expr::Alias(expr, _)
         | Expr::KeepName(expr)
-        | Expr::Explode(expr) => get_col_name(expr.as_ref()),
+        | Expr::Explode { input: expr, .. } => get_col_name(expr.as_ref()),
         Expr::Ternary { .. }
         | Expr::AnonymousFunction { .. }
         | Expr::Function { .. }
@@ -200,7 +202,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::SubPlan(_, _)
         | Expr::IndexColumn(_)
         | Expr::Selector(_)
-        | Expr::Field(_) => None,
+        | Expr::Field(_)
+        | Expr::Eval { .. } => None,
     }
 }
 

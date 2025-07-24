@@ -3,12 +3,12 @@ use lsp_types::{
     SignatureHelpParams, SignatureInformation,
 };
 use nu_protocol::{
+    Flag, PositionalArg, Signature, SyntaxShape, Value,
     ast::{Argument, Call, Expr, Expression, FindMapResult, Traverse},
     engine::StateWorkingSet,
-    Flag, PositionalArg, Signature, SyntaxShape, Value,
 };
 
-use crate::{uri_to_path, LanguageServer};
+use crate::{LanguageServer, uri_to_path};
 
 fn find_active_internal_call<'a>(
     expr: &'a Expression,
@@ -61,13 +61,13 @@ pub(crate) fn doc_for_arg(
         if let SyntaxShape::Keyword(_, inner_shape) = shape {
             shape = *inner_shape;
         }
-        text.push_str(&format!(": `<{}>`", shape));
+        text.push_str(&format!(": `<{shape}>`"));
     }
     if !(desc.is_empty() && default_value.is_none()) || optional {
         text.push_str(" -")
     };
     if !desc.is_empty() {
-        text.push_str(&format!(" {}", desc));
+        text.push_str(&format!(" {desc}"));
     };
     if let Some(value) = default_value.as_ref().and_then(|v| v.coerce_str().ok()) {
         text.push_str(&format!(
@@ -246,11 +246,11 @@ mod tests {
     use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_include;
     use lsp_server::{Connection, Message};
-    use lsp_types::{
-        request::{Request, SignatureHelpRequest},
-        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
-    };
     use lsp_types::{Position, SignatureHelpParams, TextDocumentPositionParams};
+    use lsp_types::{
+        TextDocumentIdentifier, Uri, WorkDoneProgressParams,
+        request::{Request, SignatureHelpRequest},
+    };
     use nu_test_support::fs::fixtures;
 
     fn send_signature_help_request(

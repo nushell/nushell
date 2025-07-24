@@ -5,7 +5,7 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, shell_error::io::IoError, Signals, Spanned};
+use nu_protocol::{Signals, Spanned, ast::PathMember, shell_error::io::IoError};
 use rmp::encode as mp;
 
 /// Max recursion depth
@@ -152,7 +152,7 @@ impl From<WriteError> for ShellError {
                 help: None,
                 inner: vec![],
             },
-            WriteError::Io(err, span) => ShellError::Io(IoError::new(err.kind(), span, None)),
+            WriteError::Io(err, span) => ShellError::Io(IoError::new(err, span, None)),
             WriteError::Shell(err) => *err,
         }
     }
@@ -348,16 +348,14 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{a: 1 b: 2} | to msgpack | metadata | get content_type";
+        let cmd = "{a: 1 b: 2} | to msgpack | metadata | get content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(
-                record!("content_type" => Value::test_string("application/x-msgpack"))
-            ),
+            Value::test_string("application/x-msgpack"),
             result.expect("There should be a result")
         );
     }

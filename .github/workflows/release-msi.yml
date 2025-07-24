@@ -1,0 +1,103 @@
+#
+# REF:
+#   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
+#
+name: Build Windows MSI
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        description: 'Tag to Rebuild MSI'
+      version:
+        description: 'Version of Rebuild MSI'
+
+permissions:
+  contents: write
+  packages: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: Nu
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+        - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
+        extra: ['bin']
+
+        include:
+        - target: x86_64-pc-windows-msvc
+          os: windows-latest
+        - target: aarch64-pc-windows-msvc
+          os: windows-11-arm
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Wix Toolset 6 for Windows
+      shell: pwsh
+      if: ${{ startsWith(matrix.os, 'windows') }}
+      run: |
+        dotnet tool install --global wix --version 6.0.0
+        dotnet workload install wix
+        $wixPath = "$env:USERPROFILE\.dotnet\tools"
+        echo "$wixPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        $env:PATH = "$wixPath;$env:PATH"
+        wix --version
+
+    - name: Setup Nushell
+      uses: hustcer/setup-nu@v3
+      with:
+        version: 0.105.1
+
+    - name: Release MSI Packages
+      id: nu
+      run: nu .github/workflows/release-msi.nu
+      env:
+        OS: ${{ matrix.os }}
+        REF: ${{ inputs.tag }}
+        TARGET: ${{ matrix.target }}
+        MSI_VERSION: ${{ inputs.version }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # REF: https://github.com/marketplace/actions/gh-release
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v2.0.5
+      with:
+        tag_name: ${{ inputs.tag }}
+        files: ${{ steps.nu.outputs.msi }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sha256sum:
+    needs: release
+    name: Create Sha256sum
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Release Archives
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: >-
+        gh release download ${{ inputs.tag }}
+        --repo ${{ github.repository }}
+        --pattern '*'
+        --dir release
+    - name: Create Checksums
+      run: cd release && rm -f SHA256SUMS && shasum -a 256 * > ../SHA256SUMS
+    - name: Publish Checksums
+      uses: softprops/action-gh-release@v2.0.5
+      with:
+        files: SHA256SUMS
+        tag_name: ${{ inputs.tag }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,11 +7,11 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{PipelineData, Record, ShellError, Span, Value, did_you_mean};
 use polars::prelude::{
     Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
 };
-use polars_plan::prelude::{lit, Expr, Null};
+use polars_plan::prelude::{Expr, Null, lit};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::fmt;
 use std::{
@@ -28,8 +28,8 @@ use crate::{Cacheable, PolarsPlugin};
 pub use self::custom_value::NuDataFrameCustomValue;
 
 use super::{
-    cant_convert_err, nu_schema::NuSchema, utils::DEFAULT_ROWS, CustomValueSupport, NuLazyFrame,
-    PolarsPluginObject, PolarsPluginType,
+    CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    nu_schema::NuSchema, utils::DEFAULT_ROWS,
 };
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used

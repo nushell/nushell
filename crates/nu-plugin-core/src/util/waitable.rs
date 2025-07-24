@@ -1,6 +1,6 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Condvar, Mutex, MutexGuard, PoisonError,
+    atomic::{AtomicBool, Ordering},
 };
 
 use nu_protocol::ShellError;

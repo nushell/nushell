@@ -21,8 +21,13 @@
 @example "Store a number" {
   kv set foo 5
 }
-@example "Update a number" {
-  kv set foo { $in + 1 }
+@example "Update a number and return it" {
+  let $new_foo = (kv get foo | kv set foo { $in + 1 } --return value)
+}
+@example "Use a single pipeline with closures" {
+  ls
+  | kv set names { get name }
+  | kv set sizes { get size }
 }
 export def "kv set" [
   key: string
@@ -38,7 +43,7 @@ export def "kv set" [
   # If passed a closure, execute it
   let arg_type = ($value_or_closure | describe)
   let value = match $arg_type {
-    closure => { kv get $key --universal=$universal | do $value_or_closure }
+    closure => { $input | do $value_or_closure }
     _ => ($value_or_closure | default $input)
   }
 
@@ -106,16 +111,12 @@ export def "kv get" [
 ] {
   let db_open = (db_setup --universal=$universal)
   do $db_open
-    # Hack to turn a SQLiteDatabase into a table
-    | $in.std_kv_store | wrap temp | get temp
-    | where key == $key
-    # Should only be one occurrence of each key in the stor
-    | get -i value.0
+    | query db "SELECT value FROM std_kv_store WHERE key = :key" --params { key: $key }
     | match $in {
-      # Key not found
-      null => null
-      # Key found
-      _ => { from nuon }
+      # Match should be exactly one row
+      [$el] => { $el.value | from nuon }
+      # Otherwise no match
+      _ => null
     }
 }
 

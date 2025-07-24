@@ -1,6 +1,5 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local};
-use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -90,7 +89,7 @@ fn helper(value: Value, head: Span) -> Value {
 }
 
 fn humanize_date(dt: DateTime<FixedOffset>) -> String {
-    HumanTime::from(dt).to_string()
+    nu_protocol::human_time_from_now(&dt).to_string()
 }
 
 #[cfg(test)]

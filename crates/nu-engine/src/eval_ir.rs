@@ -1,7 +1,10 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path_with, AbsolutePathBuf};
+use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
+    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{
@@ -9,14 +12,11 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
-    DataSource, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
+    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
 /// Evaluate the compiled representation of a [`Block`].
@@ -291,6 +291,9 @@ fn eval_instruction<D: DebugContext>(
     need_backtrace: bool,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
+
+    // Check for interrupt if necessary
+    instruction.check_interrupt(ctx.engine_state, span)?;
 
     // See the docs for `Instruction` for more information on what these instructions are supposed
     // to do.
@@ -678,7 +681,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span, true)?;
+                let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
@@ -694,9 +697,8 @@ fn eval_instruction<D: DebugContext>(
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
-                let value = value.follow_cell_path(&path.members, true)?;
-                ctx.put_reg(*dst, value.into_pipeline_data());
+                let value = value.follow_cell_path(&path.members)?;
+                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
                 Err(*error)
@@ -889,9 +891,7 @@ fn literal_value(
             if *no_expand {
                 Value::string(path, span)
             } else {
-                let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
-                let path = expand_path_with(path, cwd, true);
-
+                let path = expand_path(path, true);
                 Value::string(path.to_string_lossy(), span)
             }
         }
@@ -905,13 +905,7 @@ fn literal_value(
             } else if *no_expand {
                 Value::string(path, span)
             } else {
-                let cwd = ctx
-                    .engine_state
-                    .cwd(Some(ctx.stack))
-                    .map(AbsolutePathBuf::into_std_path_buf)
-                    .unwrap_or_default();
-                let path = expand_path_with(path, cwd, true);
-
+                let path = expand_path(path, true);
                 Value::string(path.to_string_lossy(), span)
             }
         }
@@ -995,7 +989,7 @@ fn binary_op(
             return Err(ShellError::IrEvalError {
                 msg: "can't eval assignment with the `binary-op` instruction".into(),
                 span: Some(span),
-            })
+            });
         }
     };
 
@@ -1168,6 +1162,7 @@ fn gather_arguments(
 
     // Arguments that didn't get consumed by required/optional
     let mut rest = vec![];
+    let mut rest_span: Option<Span> = None;
 
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;
@@ -1187,12 +1182,19 @@ fn gather_arguments(
                     }
                     callee_stack.add_var(var_id, val);
                 } else {
+                    rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
                     rest.push(val);
                 }
             }
-            Argument::Spread { vals, .. } => {
+            Argument::Spread {
+                vals,
+                span: spread_span,
+                ..
+            } => {
                 if let Value::List { vals, .. } = vals {
                     rest.extend(vals);
+                    // Rest variable should span the spread syntax, not the list values
+                    rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
                     // All further positional args should go to spread
                     always_spread = true;
                 } else if let Value::Error { error, .. } = vals {
@@ -1227,7 +1229,7 @@ fn gather_arguments(
 
     // Add the collected rest of the arguments if a spread argument exists
     if let Some(rest_arg) = &block.signature.rest_positional {
-        let rest_span = rest.first().map(|v| v.span()).unwrap_or(call_head);
+        let rest_span = rest_span.unwrap_or(call_head);
         let var_id = expect_positional_var_id(rest_arg, rest_span)?;
         callee_stack.add_var(var_id, Value::list(rest, rest_span));
     }
@@ -1323,7 +1325,7 @@ fn check_input_types(
             return Err(ShellError::NushellFailed {
                 msg: "Command input type strings is empty, despite being non-zero earlier"
                     .to_string(),
-            })
+            });
         }
         1 => input_types.swap_remove(0),
         2 => input_types.join(" and "),
@@ -1530,7 +1532,7 @@ fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<Fi
     let file = options
         .create(true)
         .open(&path_expanded)
-        .map_err(|err| IoError::new(err.kind(), path.span(), path_expanded))?;
+        .map_err(|err| IoError::new(err, path.span(), path_expanded))?;
     Ok(Arc::new(file))
 }
 

@@ -1,12 +1,12 @@
 use crate::{
+    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
+    Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
     shell_error::{io::IoError, location::Location},
-    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Signals, Span, Type, Value,
 };
-use std::io::Write;
+use std::{borrow::Cow, io::Write};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -222,14 +222,14 @@ impl PipelineData {
                 let bytes = value_to_bytes(value)?;
                 dest.write_all(&bytes).map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not write PipelineData to dest",
                         crate::location!(),
                     )
                 })?;
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -241,14 +241,14 @@ impl PipelineData {
                     let bytes = value_to_bytes(value)?;
                     dest.write_all(&bytes).map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write PipelineData to dest",
                             crate::location!(),
                         )
                     })?;
                     dest.write_all(b"\n").map_err(|err| {
                         IoError::new_internal(
-                            err.kind(),
+                            err,
                             "Could not write linebreak after PipelineData to dest",
                             crate::location!(),
                         )
@@ -256,7 +256,7 @@ impl PipelineData {
                 }
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not flush PipelineData to dest",
                         crate::location!(),
                     )
@@ -347,7 +347,7 @@ impl PipelineData {
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
                             src_span: val_span,
-                        })
+                        });
                     }
                 }
             }
@@ -360,7 +360,7 @@ impl PipelineData {
                     wrong_type: "null".into(),
                     dst_span: span,
                     src_span: span,
-                })
+                });
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -411,13 +411,13 @@ impl PipelineData {
         self,
         cell_path: &[PathMember],
         head: Span,
-        insensitive: bool,
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
             PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path, insensitive),
-            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
+                .follow_cell_path(cell_path)
+                .map(Cow::into_owned),
+            PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
                 span: head,
@@ -773,20 +773,18 @@ where
     T: AsRef<[u8]>,
 {
     let io_error_map = |err: std::io::Error, location: Location| {
-        let context = format!("Writing to {} failed", destination_name);
+        let context = format!("Writing to {destination_name} failed");
         match span {
-            None => IoError::new_internal(err.kind(), context, location),
-            Some(span) if span == Span::unknown() => {
-                IoError::new_internal(err.kind(), context, location)
-            }
-            Some(span) => IoError::new_with_additional_context(err.kind(), span, None, context),
+            None => IoError::new_internal(err, context, location),
+            Some(span) if span == Span::unknown() => IoError::new_internal(err, context, location),
+            Some(span) => IoError::new_with_additional_context(err, span, None, context),
         }
     };
 
     let span = span.unwrap_or(Span::unknown());
     const OUTPUT_CHUNK_SIZE: usize = 8192;
     for chunk in data.as_ref().chunks(OUTPUT_CHUNK_SIZE) {
-        signals.check(span)?;
+        signals.check(&span)?;
         destination
             .write_all(chunk)
             .map_err(|err| io_error_map(err, location!()))?;

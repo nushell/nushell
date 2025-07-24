@@ -10,6 +10,11 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
 jobs:
 
   winget:
@@ -26,4 +31,4 @@ jobs:
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
           token: ${{ secrets.NUSHELL_PAT }}
-          fork-user: fdncred
+          fork-user: nushell

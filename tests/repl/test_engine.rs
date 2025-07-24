@@ -1,4 +1,4 @@
-use crate::repl::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
 #[test]
@@ -187,12 +187,12 @@ fn proper_variable_captures_with_nesting() -> TestResult {
 
 #[test]
 fn divide_duration() -> TestResult {
-    run_test(r#"4ms / 4ms"#, "1")
+    run_test(r#"4ms / 4ms"#, "1.0")
 }
 
 #[test]
 fn divide_filesize() -> TestResult {
-    run_test(r#"4mb / 4mb"#, "1")
+    run_test(r#"4mb / 4mb"#, "1.0")
 }
 
 #[test]
@@ -436,6 +436,14 @@ fn better_operator_spans() -> TestResult {
     run_test(
         r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
         "true",
+    )
+}
+
+#[test]
+fn call_rest_arg_span() -> TestResult {
+    run_test(
+        r#"let l = [2, 3]; def foo [...rest] { metadata $rest | view span $in.span.start $in.span.end }; foo 1 ...$l"#,
+        "1 ...$l",
     )
 }
 

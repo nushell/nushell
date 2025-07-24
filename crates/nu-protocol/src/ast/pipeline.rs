@@ -1,4 +1,4 @@
-use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span, VarId};
+use crate::{OutDest, Span, VarId, ast::Expression, engine::StateWorkingSet};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 

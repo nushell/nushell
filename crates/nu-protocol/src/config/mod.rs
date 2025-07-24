@@ -1,7 +1,7 @@
 //! Module containing the internal representation of user configuration
 
-use crate as nu_protocol;
 use crate::FromValue;
+use crate::{self as nu_protocol};
 use helper::*;
 use prelude::*;
 use std::collections::HashMap;
@@ -17,7 +17,7 @@ pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
-pub use output::ErrorStyle;
+pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
@@ -61,7 +61,7 @@ pub struct Config {
     pub rm: RmConfig,
     pub shell_integration: ShellIntegrationConfig,
     pub buffer_editor: Value,
-    pub show_banner: Value,
+    pub show_banner: BannerKind,
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
@@ -84,7 +84,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            show_banner: Value::bool(true, Span::unknown()),
+            show_banner: BannerKind::default(),
 
             table: TableConfig::default(),
             rm: RmConfig::default(),
@@ -219,7 +219,11 @@ impl UpdateFromValue for Config {
 }
 
 impl Config {
-    pub fn update_from_value(&mut self, old: &Config, value: &Value) -> Option<ShellError> {
+    pub fn update_from_value(
+        &mut self,
+        old: &Config,
+        value: &Value,
+    ) -> Result<Option<ShellWarning>, ShellError> {
         // Current behaviour is that config errors are displayed, but do not prevent the rest
         // of the config from being updated (fields with errors are skipped/not updated).
         // Errors are simply collected one-by-one and wrapped into a ShellError variant at the end.
@@ -228,6 +232,6 @@ impl Config {
 
         self.update(value, &mut path, &mut errors);
 
-        errors.into_shell_error()
+        errors.check()
     }
 }

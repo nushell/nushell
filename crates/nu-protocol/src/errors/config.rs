@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{ShellError, Span, Type};
 use miette::Diagnostic;
 use thiserror::Error;
@@ -53,4 +55,30 @@ pub enum ConfigError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     ShellError(#[from] ShellError),
+}
+
+/// Warnings which don't prevent config from being loaded, but we should inform the user about
+#[derive(Clone, Debug, PartialEq, Error, Diagnostic)]
+#[diagnostic(severity(Warning))]
+pub enum ConfigWarning {
+    #[error("Incompatible options")]
+    #[diagnostic(code(nu::shell::incompatible_options), help("{help}"))]
+    IncompatibleOptions {
+        label: &'static str,
+        #[label = "{label}"]
+        span: Span,
+        help: &'static str,
+    },
+}
+
+// To keep track of reported warnings
+impl Hash for ConfigWarning {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            ConfigWarning::IncompatibleOptions { label, help, .. } => {
+                label.hash(state);
+                help.hash(state);
+            }
+        }
+    }
 }

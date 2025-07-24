@@ -46,7 +46,7 @@ fn get_path_style(path: &str, cwd: &str, ls_colors: &LsColors) -> Option<Style> 
             let mut expanded_path = expand_to_real_path(path);
             let try_cwd = expanded_path.as_path() == Path::new(path);
             if try_cwd {
-                let cwd_path = format!("./{}", path);
+                let cwd_path = format!("./{path}");
                 expanded_path = expand_path_with(cwd_path, cwd, false);
             }
 

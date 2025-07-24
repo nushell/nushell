@@ -1,4 +1,4 @@
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent};
+use nu_test_support::fs::{Stub::EmptyFile, Stub::FileWithContent, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
@@ -249,9 +249,11 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() {
             "mv file?.txt not_a_dir"
         );
 
-        assert!(actual
-            .err
-            .contains("Can only move multiple sources if destination is a directory"));
+        assert!(
+            actual
+                .err
+                .contains("Can only move multiple sources if destination is a directory")
+        );
     })
 }
 
@@ -420,29 +422,31 @@ fn mv_change_case_of_directory() {
         let original_dir = String::from("somedir");
         let new_dir = String::from("SomeDir");
 
-        let _actual = nu!(
+        #[allow(unused)]
+        let actual = nu!(
             cwd: dirs.test(),
             format!("mv {original_dir} {new_dir}")
         );
 
-        // Doing this instead of `Path::exists()` because we need to check file existence in
-        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
-        let _files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
-            .unwrap()
-            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
-            .collect();
-
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        assert!(
-            !_files_in_test_directory.contains(&original_dir)
-                && _files_in_test_directory.contains(&new_dir)
-        );
+        {
+            // Doing this instead of `Path::exists()` because we need to check file existence in
+            // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
+            let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+                .unwrap()
+                .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
 
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        assert!(files_exist_at(&["somefile.txt"], dirs.test().join(new_dir)));
+            assert!(
+                !files_in_test_directory.contains(&original_dir)
+                    && files_in_test_directory.contains(&new_dir)
+            );
+
+            assert!(files_exist_at(&["somefile.txt"], dirs.test().join(new_dir)));
+        }
 
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        _actual.err.contains("to a subdirectory of itself");
+        actual.err.contains("to a subdirectory of itself");
     })
 }
 
@@ -456,24 +460,27 @@ fn mv_change_case_of_file() {
         let original_file_name = String::from("somefile.txt");
         let new_file_name = String::from("SomeFile.txt");
 
-        let _actual = nu!(
+        #[allow(unused)]
+        let actual = nu!(
             cwd: dirs.test(),
             format!("mv {original_file_name} -f {new_file_name}")
         );
 
-        // Doing this instead of `Path::exists()` because we need to check file existence in
-        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
-        let _files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
-            .unwrap()
-            .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
-            .collect();
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        assert!(
-            !_files_in_test_directory.contains(&original_file_name)
-                && _files_in_test_directory.contains(&new_file_name)
-        );
+        {
+            // Doing this instead of `Path::exists()` because we need to check file existence in
+            // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
+            let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+                .unwrap()
+                .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            assert!(
+                !files_in_test_directory.contains(&original_file_name)
+                    && files_in_test_directory.contains(&new_file_name)
+            );
+        }
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        _actual.err.contains("are the same file");
+        actual.err.contains("are the same file");
     })
 }
 
@@ -546,13 +553,15 @@ fn mv_with_no_target() {
             cwd: dirs.test(),
             "mv a",
         );
-        assert!(actual.err.contains(
-            format!(
-                "Missing destination path operand after {}",
-                dirs.test().join("a").display()
+        assert!(
+            actual.err.contains(
+                format!(
+                    "Missing destination path operand after {}",
+                    dirs.test().join("a").display()
+                )
+                .as_str()
             )
-            .as_str()
-        ));
+        );
     })
 }
 

@@ -1,7 +1,7 @@
 //! This is used for both NetBSD and OpenBSD, because they are fairly similar.
 
 use itertools::{EitherOrBoth, Itertools};
-use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
+use libc::{CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV, sysctl};
 use std::{
     io,
     mem::{self, MaybeUninit},

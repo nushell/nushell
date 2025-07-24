@@ -1,8 +1,8 @@
 use crate::Id;
 use nu_protocol::{
+    DeclId, ModuleId, Span,
     ast::{Argument, Block, Call, Expr, Expression, FindMapResult, ListItem, PathMember, Traverse},
     engine::StateWorkingSet,
-    DeclId, ModuleId, Span,
 };
 use std::sync::Arc;
 

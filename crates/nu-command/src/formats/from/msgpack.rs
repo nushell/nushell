@@ -212,7 +212,7 @@ impl From<ReadError> for ShellError {
             },
             ReadError::TypeMismatch(marker, span) => ShellError::GenericError {
                 error: "Invalid marker while reading MessagePack data".into(),
-                msg: format!("unexpected {:?} in data", marker),
+                msg: format!("unexpected {marker:?} in data"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -514,6 +514,7 @@ fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet, ToMsgpack};
 
     use super::*;
@@ -535,6 +536,7 @@ mod test {
             working_set.add_decl(Box::new(FromMsgpack {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -543,7 +545,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"{a: 1 b: 2} | to msgpack | metadata set --datasource-ls | from msgpack | metadata | $in"#;
+        let cmd = r#"{a: 1 b: 2} | to msgpack | metadata set --datasource-ls | from msgpack | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

@@ -83,7 +83,7 @@ def local-transpose_to_record [] {
 }
 
 @test
-def local-using_cellpaths [] {
+def local-using_closure [] {
     if ('sqlite' not-in (version).features) { return }
 
     let key = (random uuid)
@@ -91,8 +91,8 @@ def local-using_cellpaths [] {
     let size_key = (random uuid)
 
     ls
-    | kv set $name_key $in.name
-    | kv set $size_key $in.size
+    | kv set $name_key { get name }
+    | kv set $size_key { get size }
 
     let expected = "list<string>"
     let actual = (kv get $name_key | describe)
@@ -104,22 +104,6 @@ def local-using_cellpaths [] {
 
     kv drop $name_key
     kv drop $size_key
-}
-
-@test
-def local-using_closure [] {
-    if ('sqlite' not-in (version).features) { return }
-
-    let key = (random uuid)
-
-    kv set $key 5
-    kv set $key { $in + 1 }
-
-    let expected = 6
-    let actual = (kv get $key)
-    assert equal $actual $expected
-
-    kv drop $key
 }
 
 @test
@@ -153,7 +137,7 @@ def local-return_value_only [] {
     let key = (random uuid)
 
     let expected = 'VALUE'
-    let actual = ('value' | kv set -r v $key ($in | str upcase))
+    let actual = ('value' | kv set -r v $key {str upcase})
 
     assert equal $actual $expected
 
@@ -249,7 +233,7 @@ def universal-transpose_to_record [] {
 }
 
 @test
-def universal-using_cellpaths [] {
+def universal-using_closure [] {
     if ('sqlite' not-in (version).features) { return }
 
     let key = (random uuid)
@@ -259,8 +243,8 @@ def universal-using_cellpaths [] {
     let size_key = (random uuid)
 
     ls
-    | kv set -u $name_key $in.name
-    | kv set -u $size_key $in.size
+    | kv set -u $name_key { get name }
+    | kv set -u $size_key { get size }
 
     let expected = "list<string>"
     let actual = (kv get -u $name_key | describe)
@@ -272,24 +256,6 @@ def universal-using_cellpaths [] {
 
     kv drop -u $name_key
     kv drop -u $size_key
-    rm $env.NU_UNIVERSAL_KV_PATH
-}
-
-@test
-def universal-using_closure [] {
-    if ('sqlite' not-in (version).features) { return }
-
-    let key = (random uuid)
-    $env.NU_UNIVERSAL_KV_PATH = (mktemp -t --suffix .sqlite3)
-
-    kv set -u $key 5
-    kv set -u $key { $in + 1 }
-
-    let expected = 6
-    let actual = (kv get -u $key)
-    assert equal $actual $expected
-
-    kv drop -u $key
     rm $env.NU_UNIVERSAL_KV_PATH
 }
 
@@ -329,7 +295,7 @@ def universal-return_value_only [] {
     let key = (random uuid)
 
     let expected = 'VALUE'
-    let actual = ('value' | kv set --universal -r v $key ($in | str upcase))
+    let actual = ('value' | kv set --universal -r v $key {str upcase})
 
     assert equal $actual $expected
 

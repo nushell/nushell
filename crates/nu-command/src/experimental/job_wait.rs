@@ -54,15 +54,15 @@ Note that this command fails if the provided job id is currently not in the job 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup_mut(id) {
-            None => Err(ShellError::JobNotFound {
-                id: id.get(),
+            None => Err(ShellError::Job(JobError::NotFound {
+                id,
                 span: head,
-            }),
+            })),
 
-            Some(Job::Frozen { .. }) => Err(ShellError::JobIsFrozen {
-                id: id.get() as usize,
+            Some(Job::Frozen { .. }) => Err(ShellError::Job(JobError::AlreadyFrozen {
+                id,
                 span: head,
-            }),
+            })),
 
             Some(Job::Thread(job)) => {
                 let waiter = job.on_termination().clone();
@@ -72,7 +72,7 @@ Note that this command fails if the provided job id is currently not in the job 
 
                 wait_with_interrupt(
                     |time| waiter.wait_timeout(time),
-                    || engine_state.signals().check(head),
+                    || engine_state.signals().check(&head),
                     Duration::from_millis(100),
                 )?;
 

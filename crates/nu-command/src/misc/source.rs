@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_path::canonicalize_with;
-use nu_protocol::{engine::CommandType, shell_error::io::IoError, BlockId};
+use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -55,13 +55,8 @@ impl Command for Source {
         let cwd = engine_state.cwd_as_string(Some(stack))?;
         let pb = std::path::PathBuf::from(block_id_name);
         let parent = pb.parent().unwrap_or(std::path::Path::new(""));
-        let file_path = canonicalize_with(pb.as_path(), cwd).map_err(|err| {
-            IoError::new(
-                err.kind().not_found_as(NotFound::File),
-                call.head,
-                pb.clone(),
-            )
-        })?;
+        let file_path = canonicalize_with(pb.as_path(), cwd)
+            .map_err(|err| IoError::new(err.not_found_as(NotFound::File), call.head, pb.clone()))?;
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to
         // to work like argv[0] in C, which is the name of the program being executed.
@@ -121,7 +116,7 @@ impl Command for Source {
                 description: "Source can be used with const variables.",
                 example: r#"const file = if $nu.is-interactive { "interactive.nu" } else { null }; source $file"#,
                 result: None,
-            }
+            },
         ]
     }
 }

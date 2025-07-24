@@ -196,9 +196,11 @@ fn use_module_creates_accurate_did_you_mean_2() {
     let actual = nu!(r#"
             module spam { export def foo [] { "foo" } }; foo
         "#);
-    assert!(actual
-        .err
-        .contains("A command with that name exists in module `spam`"));
+    assert!(
+        actual
+            .err
+            .contains("A command with that name exists in module `spam`")
+    );
 }
 
 #[test]
@@ -351,4 +353,16 @@ fn test_use_with_printing_current_file() {
 
         assert_eq!(actual.out, dirs.test().join("mod.nu").to_string_lossy());
     });
+}
+
+#[test]
+fn report_errors_in_export_env() {
+    let actual = nu!(r#"
+        module spam {
+            export-env { error make -u {msg: "reported"} }
+        }
+        use spam
+    "#);
+
+    assert!(actual.err.contains("reported"));
 }

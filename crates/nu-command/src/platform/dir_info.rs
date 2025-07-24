@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, shell_error::io::IoError, ShellError, Signals, Span, Value};
+use nu_protocol::{ShellError, Signals, Span, Value, record, shell_error::io::IoError};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ impl FileInfo {
                     long,
                 })
             }
-            Err(e) => Err(IoError::new(e.kind(), tag, path).into()),
+            Err(e) => Err(IoError::new(e, tag, path).into()),
         }
     }
 }
@@ -115,7 +115,7 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    signals.check(span)?;
+                    signals.check(&span)?;
 
                     match f {
                         Ok(i) => match i.file_type() {

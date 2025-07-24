@@ -1,5 +1,5 @@
-use crate::values::NuDataFrame;
 use crate::PolarsPlugin;
+use crate::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -44,7 +44,10 @@ impl PluginCommand for ColumnsDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, call, input).map_err(|e| e.into())
+        let metadata = input.metadata();
+        command(plugin, call, input)
+            .map_err(|e| e.into())
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

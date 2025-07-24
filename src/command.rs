@@ -35,9 +35,20 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             }
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--log-include" | "--log-exclude" | "--testbin"
-            | "--threads" | "-t" | "--include-path" | "--lsp" | "--ide-goto-def"
-            | "--ide-hover" | "--ide-complete" | "--ide-check" => args.next(),
+            "--log-level"
+            | "--log-target"
+            | "--log-include"
+            | "--log-exclude"
+            | "--testbin"
+            | "--threads"
+            | "-t"
+            | "--include-path"
+            | "--lsp"
+            | "--ide-goto-def"
+            | "--ide-hover"
+            | "--ide-complete"
+            | "--ide-check"
+            | "--experimental-options" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -107,6 +118,7 @@ pub(crate) fn parse_commandline_args(
             let error_style: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "error-style")?;
             let no_newline = call.get_named_arg("no-newline");
+            let experimental_options = call.get_flag_expr("experimental-options");
 
             // ide flags
             let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
@@ -201,6 +213,8 @@ pub(crate) fn parse_commandline_args(
             let log_exclude = extract_list(log_exclude, "string", |expr| expr.as_string())?;
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
+            let experimental_options =
+                extract_list(experimental_options, "string", |expr| expr.as_string())?;
 
             let help = call.has_flag(engine_state, &mut stack, "help")?;
 
@@ -251,6 +265,7 @@ pub(crate) fn parse_commandline_args(
                 table_mode,
                 error_style,
                 no_newline,
+                experimental_options,
             });
         }
     }
@@ -292,6 +307,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_complete: Option<Value>,
     pub(crate) ide_check: Option<Value>,
     pub(crate) ide_ast: Option<Spanned<String>>,
+    pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
 }
 
 #[derive(Clone)]
@@ -450,6 +466,12 @@ impl Command for Nu {
                 "testbin",
                 SyntaxShape::String,
                 "run internal test binary",
+                None,
+            )
+            .named(
+                "experimental-options",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                r#"enable or disable experimental options, use `"all"` to set all active options"#,
                 None,
             )
             .optional(

@@ -1,4 +1,4 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -6,7 +6,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::{arg_where, col, IntoLazy};
+use polars::prelude::{IntoLazy, arg_where, col};
 
 #[derive(Clone)]
 pub struct ArgTrue;
@@ -60,7 +60,10 @@ impl PluginCommand for ArgTrue {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

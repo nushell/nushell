@@ -2,16 +2,24 @@ use std::io;
 use std::process::Command as CommandSys;
 
 /// Tries to forcefully kill a process by its PID
-pub fn kill_by_pid(pid: i64) -> io::Result<()> {
+pub fn kill_by_pid(pid: i64) -> Result<(), KillByPidError> {
     let mut cmd = build_kill_command(true, std::iter::once(pid), None);
 
-    let output = cmd.output()?;
+    let output = cmd.output().map_err(KillByPidError::Output)?;
 
-    if !output.status.success() {
-        return Err(io::Error::other("failed to kill process"));
+    match output.status.success() {
+        true => Ok(()),
+        false => Err(KillByPidError::KillProcess),
     }
+}
 
-    Ok(())
+/// Error while killing a process forcefully by its PID.
+pub enum KillByPidError {
+    /// I/O error while capturing the output of the process.
+    Output(io::Error),
+
+    /// Killing the process failed.
+    KillProcess,
 }
 
 /// Create a `std::process::Command` for the current target platform, for killing
@@ -39,7 +47,7 @@ pub fn build_kill_command(
     } else {
         let mut cmd = CommandSys::new("kill");
         if let Some(signal_value) = signal {
-            cmd.arg(format!("-{}", signal_value));
+            cmd.arg(format!("-{signal_value}"));
         } else if force {
             cmd.arg("-9");
         }

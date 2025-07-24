@@ -1,9 +1,9 @@
 use std::io::{self, Read, Write};
 
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::{shell_error::io::IoError, Signals};
+use nu_protocol::{Signals, shell_error::io::IoError};
 use num_traits::ToPrimitive;
 
 struct Arguments {
@@ -68,42 +68,33 @@ impl Command for FormatBits {
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
                 example: "0x[1] | format bits",
-                result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
+                result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
                 description: "convert an int into a string, padded to 8 places with 0s",
                 example: "1 | format bits",
-                result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
+                result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
                 description: "convert a filesize value into a string, padded to 8 places with 0s",
                 example: "1b | format bits",
-                result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
+                result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
                 description: "convert a duration value into a string, padded to 8 places with 0s",
                 example: "1ns | format bits",
-                result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
+                result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
                 description: "convert a boolean value into a string, padded to 8 places with 0s",
                 example: "true | format bits",
-                result: Some(Value::string("00000001",
-                    Span::test_data(),
-                )),
+                result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
                 description: "convert a string into a raw binary string, padded with 0s to 8 places",
                 example: "'nushell.sh' | format bits",
-                result: Some(Value::string("01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000",
+                result: Some(Value::string(
+                    "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000",
                     Span::test_data(),
                 )),
             },
@@ -143,7 +134,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
                 let mut byte = [0];
                 if reader
                     .read(&mut byte[..])
-                    .map_err(|err| IoError::new(err.kind(), head, None))?
+                    .map_err(|err| IoError::new(err, head, None))?
                     > 0
                 {
                     // Format the byte as bits
@@ -170,28 +161,28 @@ fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i16() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i32() {
         let bytes = v.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else {
         let bytes = num.to_ne_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     }
@@ -202,7 +193,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
             for ch in val {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }
@@ -213,7 +204,7 @@ fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             let raw_bytes = val.as_bytes();
             let mut raw_string = "".to_string();
             for ch in raw_bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }

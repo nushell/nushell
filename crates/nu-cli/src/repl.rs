@@ -6,12 +6,12 @@ use crate::prompt_update::{
     VSCODE_PRE_EXECUTION_MARKER,
 };
 use crate::{
+    NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
-    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
+    reedline_config::{KeybindingsMode, add_menus, create_keybindings},
     util::eval_source,
-    NuHighlighter, NuValidator, NushellPrompt,
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
@@ -23,14 +23,15 @@ use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{BannerKind, shell_error};
 use nu_protocol::{
+    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    report_shell_error,
 };
 use nu_utils::{
-    filesystem::{have_permission, PermissionResult},
+    filesystem::{PermissionResult, have_permission},
     perf,
 };
 use reedline::{
@@ -42,7 +43,7 @@ use std::{
     collections::HashMap,
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -144,8 +145,8 @@ pub fn evaluate_repl(
 
     if load_std_lib.is_none() {
         match engine_state.get_config().show_banner {
-            Value::Bool { val: false, .. } => {}
-            Value::String { ref val, .. } if val == "short" => {
+            BannerKind::None => {}
+            BannerKind::Short => {
                 eval_source(
                     engine_state,
                     &mut unique_stack,
@@ -155,7 +156,7 @@ pub fn evaluate_repl(
                     false,
                 );
             }
-            _ => {
+            BannerKind::Full => {
                 eval_source(
                     engine_state,
                     &mut unique_stack,
@@ -238,7 +239,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
 
                 match byte {
                     // Escape bytes below 0x20
-                    b if b < 0x20 => format!("\\x{:02X}", byte).into_bytes(),
+                    b if b < 0x20 => format!("\\x{byte:02X}").into_bytes(),
                     // Escape semicolon as \x3B
                     b';' => "\\x3B".to_string().into_bytes(),
                     // Escape backslash as \\
@@ -854,7 +855,7 @@ fn do_auto_cd(
             report_shell_error(
                 engine_state,
                 &ShellError::Io(IoError::new_with_additional_context(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::DirectoryNotFound,
                     span,
                     PathBuf::from(&path),
                     "Cannot change directory",
@@ -868,7 +869,7 @@ fn do_auto_cd(
         report_shell_error(
             engine_state,
             &ShellError::Io(IoError::new_with_additional_context(
-                std::io::ErrorKind::PermissionDenied,
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
                 span,
                 PathBuf::from(path),
                 "Cannot change directory",
@@ -1096,8 +1097,7 @@ fn run_shell_integration_osc633(
             // If we're in vscode, run their specific ansi escape sequence.
             // This is helpful for ctrl+g to change directories in the terminal.
             run_ansi_sequence(&format!(
-                "{}{}{}",
-                VSCODE_CWD_PROPERTY_MARKER_PREFIX, path, VSCODE_CWD_PROPERTY_MARKER_SUFFIX
+                "{VSCODE_CWD_PROPERTY_MARKER_PREFIX}{path}{VSCODE_CWD_PROPERTY_MARKER_SUFFIX}"
             ));
 
             perf!(
@@ -1113,10 +1113,7 @@ fn run_shell_integration_osc633(
 
             //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
             run_ansi_sequence(&format!(
-                "{}{}{}",
-                VSCODE_COMMANDLINE_MARKER_PREFIX,
-                replaced_cmd_text,
-                VSCODE_COMMANDLINE_MARKER_SUFFIX
+                "{VSCODE_COMMANDLINE_MARKER_PREFIX}{replaced_cmd_text}{VSCODE_COMMANDLINE_MARKER_SUFFIX}"
             ));
         }
     }
@@ -1451,7 +1448,7 @@ fn are_session_ids_in_sync() {
 
 #[cfg(test)]
 mod test_auto_cd {
-    use super::{do_auto_cd, escape_special_vscode_bytes, parse_operation, ReplOperation};
+    use super::{ReplOperation, do_auto_cd, escape_special_vscode_bytes, parse_operation};
     use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
     use tempfile::tempdir;
@@ -1492,7 +1489,7 @@ mod test_auto_cd {
         // Parse the input. It must be an auto-cd operation.
         let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
         let ReplOperation::AutoCd { cwd, target, span } = op else {
-            panic!("'{}' was not parsed into an auto-cd operation", input)
+            panic!("'{input}' was not parsed into an auto-cd operation")
         };
 
         // Perform the auto-cd operation.

@@ -1,9 +1,9 @@
 use crate::{
-    values::{
-        cant_convert_err, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame,
-        PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame, PolarsPluginObject,
+        PolarsPluginType, cant_convert_err,
+    },
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -11,7 +11,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
 };
 use polars::{
-    prelude::{col, DatetimeMethods, IntoSeries, NamedFrom},
+    prelude::{DatetimeMethods, IntoSeries, NamedFrom, col},
     series::Series,
 };
 
@@ -84,7 +84,10 @@ impl PluginCommand for GetNanosecond {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

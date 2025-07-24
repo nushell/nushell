@@ -1,14 +1,16 @@
 use crate::{
+    Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
     engine::{
-        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
-        StackCollectValueGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
+        ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, ErrorHandlerStack, Redirection,
+        StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
-    Config, IntoValue, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    report_shell_warning,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
+    path::{Component, MAIN_SEPARATOR},
     sync::Arc,
 };
 
@@ -211,18 +213,17 @@ impl Stack {
         if let Some(value) = self.get_env_var(engine_state, "config") {
             let old = self.get_config(engine_state);
             let mut config = (*old).clone();
-            let error = config.update_from_value(&old, value);
+            let result = config.update_from_value(&old, value);
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());
-            match error {
-                None => Ok(()),
-                Some(err) => Err(err),
+            if let Some(warning) = result? {
+                report_shell_warning(engine_state, &warning);
             }
         } else {
             self.config = None;
-            Ok(())
         }
+        Ok(())
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
@@ -410,6 +411,37 @@ impl Stack {
             }
         }
 
+        result
+    }
+
+    /// Get hidden envs, but without envs defined previously in `excluded_overlay_name`.
+    pub fn get_hidden_env_vars(
+        &self,
+        excluded_overlay_name: &str,
+        engine_state: &EngineState,
+    ) -> HashMap<String, Value> {
+        let mut result = HashMap::new();
+
+        for overlay_name in self.active_overlays.iter().rev() {
+            if overlay_name == excluded_overlay_name {
+                continue;
+            }
+            if let Some(env_names) = self.env_hidden.get(overlay_name) {
+                for n in env_names {
+                    if result.contains_key(n) {
+                        continue;
+                    }
+                    // get env value.
+                    if let Some(Some(v)) = engine_state
+                        .env_vars
+                        .get(overlay_name)
+                        .map(|env_vars| env_vars.get(n))
+                    {
+                        result.insert(n.to_string(), v.clone());
+                    }
+                }
+            }
+        }
         result
     }
 
@@ -755,6 +787,19 @@ impl Stack {
         let path = path.as_ref();
 
         if !path.is_absolute() {
+            if matches!(path.components().next(), Some(Component::Prefix(_))) {
+                return Err(ShellError::GenericError {
+                    error: "Cannot set $env.PWD to a prefix-only path".to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!(
+                        "Try to use {}{MAIN_SEPARATOR} instead",
+                        path.display()
+                    )),
+                    inner: vec![],
+                });
+            }
+
             error("Cannot set $env.PWD to a non-absolute path")
         } else if !path.exists() {
             error("Cannot set $env.PWD to a non-existent directory")
@@ -774,7 +819,7 @@ impl Stack {
 mod test {
     use std::sync::Arc;
 
-    use crate::{engine::EngineState, Span, Value, VarId};
+    use crate::{Span, Value, VarId, engine::EngineState};
 
     use super::Stack;
 

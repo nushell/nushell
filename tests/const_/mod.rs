@@ -147,7 +147,7 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[rstest]
 #[case(&["const x = 1 + 2", "$x"], "3")]
 #[case(&["const x = 1 * 2", "$x"], "2")]
-#[case(&["const x = 4 / 2", "$x"], "2")]
+#[case(&["const x = 4 / 2", "$x"], "2.0")]
 #[case(&["const x = 4 mod 3", "$x"], "1")]
 #[case(&["const x = 5.0 / 2.0", "$x"], "2.5")]
 #[case(&[r#"const x = "a" + "b" "#, "$x"], "ab")]
@@ -408,6 +408,15 @@ fn if_const() {
     let actual =
         nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
     assert_eq!(actual.out, "no!");
+}
+
+#[rstest]
+#[case(&"const x = if true ()", "expected block, found nothing")]
+#[case(&"const x = if true {foo: bar}", "expected block, found record")]
+#[case(&"const x = if true {1: 2}", "expected block")]
+fn if_const_error(#[case] inp: &str, #[case] expect: &str) {
+    let actual = nu!(inp);
+    assert!(actual.err.contains(expect));
 }
 
 #[test]

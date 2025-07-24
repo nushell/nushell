@@ -35,6 +35,14 @@ impl Command for FromNuon {
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                 })),
             },
+            Example {
+                example: "'{a:1,b:[1,2]}' | from nuon",
+                description: "Converts raw nuon formatted string to table",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+                })),
+            },
         ]
     }
 
@@ -66,6 +74,7 @@ impl Command for FromNuon {
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -86,6 +95,7 @@ mod test {
             working_set.add_decl(Box::new(FromNuon {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -94,7 +104,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'[[a, b]; [1, 2]]' | metadata set --content-type 'application/x-nuon' --datasource-ls | from nuon | metadata | $in"#;
+        let cmd = r#"'[[a, b]; [1, 2]]' | metadata set --content-type 'application/x-nuon' --datasource-ls | from nuon | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

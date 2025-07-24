@@ -15,8 +15,8 @@ use nu_plugin_core::{
     ServerCommunicationIo,
 };
 use nu_protocol::{
-    engine::StateWorkingSet, report_shell_error, PluginIdentity, PluginRegistryFile,
-    PluginRegistryItem, PluginRegistryItemData, RegisteredPlugin, ShellError, Span,
+    PluginIdentity, PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData,
+    RegisteredPlugin, ShellError, Span, engine::StateWorkingSet, report_shell_error,
 };
 
 use crate::{

@@ -1,7 +1,7 @@
 use crate::completions::CompletionOptions;
 use nu_protocol::{
-    engine::{Stack, StateWorkingSet},
     DeclId, Span,
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 

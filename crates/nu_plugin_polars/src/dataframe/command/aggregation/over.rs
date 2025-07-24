@@ -1,11 +1,12 @@
 use crate::{
-    dataframe::values::{NuDataFrame, NuExpression},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
+    dataframe::values::{NuDataFrame, NuExpression},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::df;
 
@@ -83,6 +84,7 @@ impl PluginCommand for Over {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
@@ -93,7 +95,14 @@ impl PluginCommand for Over {
             PolarsPluginObject::NuExpression(expr) => {
                 let expr: NuExpression = expr
                     .into_polars()
-                    .over_with_options(expressions, None, Default::default())
+                    .over_with_options(Some(expressions), None, Default::default())
+                    .map_err(|e| ShellError::GenericError {
+                        error: format!("Error applying over expression: {e}"),
+                        msg: "".into(),
+                        span: Some(call.head),
+                        help: None,
+                        inner: vec![],
+                    })?
                     .into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
@@ -103,6 +112,7 @@ impl PluginCommand for Over {
             )),
         }
         .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 

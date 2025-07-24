@@ -24,7 +24,7 @@ fn row_but_all() {
 #[test]
 fn throw_inner_error() {
     let error_msg = "This message should show up";
-    let error = format!("(error make {{ msg: \"{}\" }})", error_msg);
+    let error = format!("(error make {{ msg: \"{error_msg}\" }})");
     let actual = nu!(format!(
         "[[key value]; [foo 1] [foo 2] [{} 3]] | transpose",
         error

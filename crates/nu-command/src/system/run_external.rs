@@ -1,13 +1,12 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_path::{dots::expand_ndots_safe, expand_tilde, AbsolutePath};
+use nu_path::{AbsolutePath, dots::expand_ndots_safe, expand_tilde};
 use nu_protocol::{
-    did_you_mean,
+    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring, did_you_mean,
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
-    ByteStream, NuGlob, OutDest, Signals, UseAnsiColoring,
 };
-use nu_system::{kill_by_pid, ForegroundChild};
+use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -54,9 +53,9 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
         let rest = call.rest::<Value>(engine_state, stack, 0)?;
-        let name_args = rest.split_first();
+        let name_args = rest.split_first().map(|(x, y)| (x, y.to_vec()));
 
-        let Some((name, call_args)) = name_args else {
+        let Some((name, mut call_args)) = name_args else {
             return Err(ShellError::MissingParameter {
                 param_name: "no command given".into(),
                 span: call.head,
@@ -66,6 +65,17 @@ impl Command for External {
         let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
             Value::String { val, .. } => Cow::Borrowed(val),
+            Value::List { vals, .. } => {
+                let Some((first, args)) = vals.split_first() else {
+                    return Err(ShellError::MissingParameter {
+                        param_name: "external command given as list empty".into(),
+                        span: call.head,
+                    });
+                };
+                // Prepend elements in command list to the list of arguments except the first
+                call_args.splice(0..0, args.to_vec());
+                first.coerce_str()?
+            }
             _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
@@ -111,46 +121,47 @@ impl Command for External {
         };
 
         // let's make sure it's a .ps1 script, but only on Windows
-        let potential_powershell_script = if cfg!(windows) {
-            if let Some(executable) = which(&expanded_name, "", cwd.as_ref()) {
+        let (potential_powershell_script, path_to_ps1_executable) = if cfg!(windows) {
+            if let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) {
                 let ext = executable
                     .extension()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_uppercase();
-                ext == "PS1"
+                (ext == "PS1", Some(executable))
             } else {
-                false
+                (false, None)
             }
         } else {
-            false
+            (false, None)
         };
 
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable =
-            if cfg!(windows) && (is_cmd_internal_command(&name_str) || pathext_script_in_windows) {
-                PathBuf::from("cmd.exe")
-            } else if cfg!(windows) && potential_powershell_script {
-                // If we're on Windows and we're trying to run a PowerShell script, we'll use
-                // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
-                // it's automatically installed on all modern windows systems.
-                PathBuf::from("powershell.exe")
-            } else {
-                // Determine the PATH to be used and then use `which` to find it - though this has no
-                // effect if it's an absolute path already
-                let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
-                    return Err(command_not_found(
-                        &name_str,
-                        call.head,
-                        engine_state,
-                        stack,
-                        &cwd,
-                    ));
-                };
-                executable
+        let executable = if cfg!(windows)
+            && (is_cmd_internal_command(&name_str) || pathext_script_in_windows)
+        {
+            PathBuf::from("cmd.exe")
+        } else if cfg!(windows) && potential_powershell_script && path_to_ps1_executable.is_some() {
+            // If we're on Windows and we're trying to run a PowerShell script, we'll use
+            // `powershell.exe` to run it. We shouldn't have to check for powershell.exe because
+            // it's automatically installed on all modern windows systems.
+            PathBuf::from("powershell.exe")
+        } else {
+            // Determine the PATH to be used and then use `which` to find it - though this has no
+            // effect if it's an absolute path already
+            let Some(executable) = which(&expanded_name, &paths, cwd.as_ref()) else {
+                return Err(command_not_found(
+                    &name_str,
+                    call.head,
+                    engine_state,
+                    stack,
+                    &cwd,
+                ));
             };
+            executable
+        };
 
         // Create the command.
         let mut command = std::process::Command::new(&executable);
@@ -164,7 +175,7 @@ impl Command for External {
         command.envs(envs);
 
         // Configure args.
-        let args = eval_external_arguments(engine_state, stack, call_args.to_vec())?;
+        let args = eval_external_arguments(engine_state, stack, call_args)?;
         #[cfg(windows)]
         if is_cmd_internal_command(&name_str) || pathext_script_in_windows {
             // The /D flag disables execution of AutoRun commands from registry.
@@ -175,23 +186,11 @@ impl Command for External {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else if potential_powershell_script {
-            use nu_path::canonicalize_with;
-
-            // canonicalize the path to the script so that tests pass
-            let canon_path = if let Ok(cwd) = engine_state.cwd_as_string(None) {
-                canonicalize_with(&expanded_name, cwd).map_err(|err| {
-                    IoError::new(err.kind(), call.head, PathBuf::from(&expanded_name))
-                })?
-            } else {
-                // If we can't get the current working directory, just provide the expanded name
-                expanded_name
-            };
-            // The -Command flag followed by a script name instructs PowerShell to
-            // execute that script and quit.
-            command.args(["-Command", &canon_path.to_string_lossy()]);
-            for arg in &args {
-                command.raw_arg(arg.item.clone());
-            }
+            command.args([
+                "-File",
+                &path_to_ps1_executable.unwrap_or_default().to_string_lossy(),
+            ]);
+            command.args(args.into_iter().map(|s| s.item));
         } else {
             command.args(args.into_iter().map(|s| s.item));
         }
@@ -204,11 +203,11 @@ impl Command for External {
         let stderr = stack.stderr();
         let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
             let (reader, writer) =
-                os_pipe::pipe().map_err(|err| IoError::new(err.kind(), call.head, None))?;
+                os_pipe::pipe().map_err(|err| IoError::new(err, call.head, None))?;
             command.stdout(
                 writer
                     .try_clone()
-                    .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    .map_err(|err| IoError::new(err, call.head, None))?,
             );
             command.stderr(writer);
             Some(reader)
@@ -219,8 +218,7 @@ impl Command for External {
                 command.stdout(Stdio::null());
             } else {
                 command.stdout(
-                    Stdio::try_from(stdout)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stdout).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -230,8 +228,7 @@ impl Command for External {
                 command.stderr(Stdio::null());
             } else {
                 command.stderr(
-                    Stdio::try_from(stderr)
-                        .map_err(|err| IoError::new(err.kind(), call.head, None))?,
+                    Stdio::try_from(stderr).map_err(|err| IoError::new(err, call.head, None))?,
                 );
             }
 
@@ -278,18 +275,15 @@ impl Command for External {
         );
 
         let mut child = child.map_err(|err| {
-            IoError::new_internal(
-                err.kind(),
-                "Could not spawn foreground child",
-                nu_protocol::location!(),
-            )
+            let context = format!("Could not spawn foreground child: {err}");
+            IoError::new_internal(err, context, nu_protocol::location!())
         })?;
 
         if let Some(thread_job) = engine_state.current_thread_job() {
             if !thread_job.try_add_pid(child.pid()) {
                 kill_by_pid(child.pid().into()).map_err(|err| {
                     ShellError::Io(IoError::new_internal(
-                        err.kind(),
+                        err,
                         "Could not spawn external stdin worker",
                         nu_protocol::location!(),
                     ))
@@ -309,7 +303,7 @@ impl Command for External {
                 })
                 .map_err(|err| {
                     IoError::new_with_additional_context(
-                        err.kind(),
+                        err,
                         call.head,
                         None,
                         "Could not spawn external stdin worker",
@@ -437,7 +431,7 @@ fn expand_glob(
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
-            signals.check(span)?;
+            signals.check(&span)?;
             if let Ok(arg) = m {
                 let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
                 result.push(arg.into());
@@ -497,7 +491,7 @@ fn write_pipeline_data(
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val).map_err(|err| {
             IoError::new_internal(
-                err.kind(),
+                err,
                 "Could not write pipeline data",
                 nu_protocol::location!(),
             )
@@ -517,7 +511,7 @@ fn write_pipeline_data(
             let bytes = value.coerce_into_binary()?;
             writer.write_all(&bytes).map_err(|err| {
                 IoError::new_internal(
-                    err.kind(),
+                    err,
                     "Could not write pipeline data",
                     nu_protocol::location!(),
                 )
@@ -605,7 +599,9 @@ pub fn command_not_found(
         } else {
             return ShellError::ExternalCommand {
                 label: format!("Command `{name}` not found"),
-                help: format!("A command with that name exists in module `{module}`. Try importing it with `use`"),
+                help: format!(
+                    "A command with that name exists in module `{module}`. Try importing it with `use`"
+                ),
                 span,
             };
         }
@@ -647,7 +643,9 @@ pub fn command_not_found(
     if cwd.join(name).is_file() {
         return ShellError::ExternalCommand {
             label: format!("Command `{name}` not found"),
-            help: format!("`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"),
+            help: format!(
+                "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
+            ),
             span,
         };
     }

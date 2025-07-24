@@ -2,8 +2,9 @@ use crate::NushellPrompt;
 use log::{trace, warn};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
+    Config, PipelineData, Value,
     engine::{EngineState, Stack},
-    report_shell_error, Config, PipelineData, Value,
+    report_shell_error,
 };
 use reedline::Prompt;
 

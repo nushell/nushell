@@ -18,13 +18,13 @@ fn can_sqrt_irrational() {
 fn can_sqrt_perfect_square() {
     let actual = nu!("echo 4 | math sqrt");
 
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual.out, "2.0");
 }
 
 #[test]
 fn const_sqrt() {
     let actual = nu!("const SQRT = 4 | math sqrt; $SQRT");
-    assert_eq!(actual.out, "2");
+    assert_eq!(actual.out, "2.0");
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
+use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -77,32 +77,28 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_int(1),
-                        "ColB" => Value::test_int(2),
-                    })],
-                ))
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_int(1),
+                    "ColB" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Convert comma-separated data to a table, allowing variable number of columns per row",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
-                result: Some(Value::test_list (
-                    vec![
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(1),
-                            "ColB" => Value::test_int(2),
-                        }),
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(3),
-                            "ColB" => Value::test_int(4),
-                            "column2" => Value::test_int(5),
-                        }),
-                        Value::test_record(record! {
-                            "ColA" => Value::test_int(6),
-                        }),
-                    ],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(1),
+                        "ColB" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(3),
+                        "ColB" => Value::test_int(4),
+                        "column2" => Value::test_int(5),
+                    }),
+                    Value::test_record(record! {
+                        "ColA" => Value::test_int(6),
+                    }),
+                ])),
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",
@@ -207,6 +203,7 @@ mod test {
 
     use super::*;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     #[test]
@@ -225,6 +222,7 @@ mod test {
             working_set.add_decl(Box::new(FromCsv {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -233,7 +231,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | $in"#;
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

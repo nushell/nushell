@@ -1,7 +1,7 @@
 use nu_protocol::{
+    CompileError, IntoSpanned, RegId, Span, Spanned,
     ast::Pattern,
     ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
-    CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
 /// A label identifier. Only exists while building code. Replaced with the actual target.
@@ -347,7 +347,9 @@ impl BlockBuilder {
     /// Deallocate a register and set it to `Empty`, if it is allocated
     pub(crate) fn drop_reg(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         if self.is_allocated(reg_id) {
-            self.push(Instruction::Drop { src: reg_id }.into_spanned(Span::unknown()))?;
+            // try using the block Span if available, since that's slightly more helpful than Span::unknown
+            let span = self.block_span.unwrap_or(Span::unknown());
+            self.push(Instruction::Drop { src: reg_id }.into_spanned(span))?;
         }
         Ok(())
     }
@@ -556,7 +558,7 @@ impl BlockBuilder {
                 );
                 instruction.set_branch_target(target_index).map_err(|_| {
                     CompileError::SetBranchTargetOfNonBranchInstruction {
-                        instruction: format!("{:?}", instruction),
+                        instruction: format!("{instruction:?}"),
                         span: *span,
                     }
                 })?;

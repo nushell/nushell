@@ -1,6 +1,7 @@
 mod command;
 mod command_context;
 mod config_files;
+mod experimental_options;
 mod ide;
 mod logger;
 mod run;
@@ -15,21 +16,21 @@ use crate::{
     logger::{configure, logger},
 };
 use command::gather_commandline_args;
-use log::{trace, Level};
+use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::Stack, record, report_shell_error, ByteStream, Config, IntoValue, PipelineData,
-    ShellError, Span, Spanned, Type, Value,
+    ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
+    engine::Stack, record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc};
 
 /// Get the directory where the Nushell executable is located.
 fn current_exe_directory() -> PathBuf {
@@ -64,6 +65,12 @@ fn main() -> Result<()> {
 
     let mut engine_state = command_context::get_engine_state();
 
+    // Provide `version` the features of this nu binary
+    let cargo_features = env!("NU_FEATURES").split(",").map(Cow::Borrowed).collect();
+    nu_cmd_lang::VERSION_NU_FEATURES
+        .set(cargo_features)
+        .expect("unable to set VERSION_NU_FEATURES");
+
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
 
@@ -81,6 +88,9 @@ fn main() -> Result<()> {
 
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state);
+
+    #[cfg(feature = "rustls-tls")]
+    nu_command::tls::CRYPTO_PROVIDER.default();
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -191,6 +201,8 @@ fn main() -> Result<()> {
             report_shell_error(&engine_state, &err);
             std::process::exit(1)
         });
+
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
@@ -406,7 +418,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
+        use nu_protocol::{ErrSpan, PluginIdentity, RegisteredPlugin, engine::StateWorkingSet};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -417,7 +429,7 @@ fn main() -> Result<()> {
             let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new(
-                        err.kind(),
+                        err,
                         plugin_filename.span,
                         PathBuf::from(&plugin_filename.item),
                     )

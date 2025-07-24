@@ -1,7 +1,7 @@
 use crate::{
+    PolarsPlugin,
     dataframe::values::{NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy},
     values::CustomValueSupport,
-    PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -31,6 +31,10 @@ impl PluginCommand for ToLazyGroupBy {
                 SyntaxShape::Any,
                 "Expression(s) that define the lazy group-by",
             )
+            .switch(
+                "maintain-order",
+                "Ensure that the order of the groups is consistent with the input data. This is slower than a default group by and cannot be run on the streaming engine.",
+                Some('m'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -100,9 +104,11 @@ impl PluginCommand for ToLazyGroupBy {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
+        let maintain_order = call.has_flag("maintain-order")?;
 
         if expressions
             .iter()
@@ -117,7 +123,9 @@ impl PluginCommand for ToLazyGroupBy {
 
         let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
-        command(plugin, engine, call, lazy, expressions).map_err(LabeledError::from)
+        command(plugin, engine, call, lazy, expressions, maintain_order)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -127,8 +135,13 @@ fn command(
     call: &EvaluatedCall,
     mut lazy: NuLazyFrame,
     expressions: Vec<Expr>,
+    maintain_order: bool,
 ) -> Result<PipelineData, ShellError> {
-    let group_by = lazy.to_polars().group_by(expressions);
+    let group_by = if maintain_order {
+        lazy.to_polars().group_by_stable(expressions)
+    } else {
+        lazy.to_polars().group_by(expressions)
+    };
     let group_by = NuLazyGroupBy::new(group_by, lazy.from_eager, lazy.schema().clone()?);
     group_by.to_pipeline_data(plugin, engine, call.head)
 }

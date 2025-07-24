@@ -1,5 +1,5 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
-use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
+use nu_protocol::{IntoSpanned, LabeledError, Span, Spanned, Value, record};
 use std::{fmt::Write, ops::BitAnd, path::Path};
 
 // git status
@@ -21,6 +21,7 @@ impl GStat {
         value: &Value,
         current_dir: &str,
         path: Option<Spanned<String>>,
+        calculate_tag: bool,
         span: Span,
     ) -> Result<Value, LabeledError> {
         // use std::any::Any;
@@ -92,14 +93,14 @@ impl GStat {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "".to_string());
 
-        let mut desc_opts = DescribeOptions::new();
-        desc_opts.describe_tags();
-
-        let tag = if let Ok(Ok(s)) = repo.describe(&desc_opts).map(|d| d.format(None)) {
-            s
-        } else {
-            "no_tag".to_string()
-        };
+        let tag = calculate_tag
+            .then(|| {
+                let mut desc_opts = DescribeOptions::new();
+                desc_opts.describe_tags();
+                repo.describe(&desc_opts).ok()?.format(None).ok()
+            })
+            .flatten()
+            .unwrap_or_else(|| "no_tag".to_string());
 
         // Leave this in case we want to turn it into a table instead of a list
         // Ok(Value::List {
@@ -132,6 +133,7 @@ impl GStat {
                 "tag" => Value::string(tag, span),
                 "branch" => Value::string(stats.branch, span),
                 "remote" => Value::string(stats.remote, span),
+                "state" => Value::string(stats.state, span),
             },
             span,
         ))
@@ -159,6 +161,7 @@ impl GStat {
                 "tag" => Value::string("no_tag", span),
                 "branch" => Value::string("no_branch", span),
                 "remote" => Value::string("no_remote", span),
+                "state" => Value::string("no_state", span),
             },
             span,
         )
@@ -205,6 +208,10 @@ pub struct Stats {
     pub branch: String,
     /// The of the upstream branch
     pub remote: String,
+
+    /// State of the repository (Clean, Merge, Rebase, etc.)
+    /// See all states at https://docs.rs/git2/latest/git2/enum.RepositoryState.html
+    pub state: String,
 }
 
 impl Stats {
@@ -213,6 +220,7 @@ impl Stats {
         let mut st: Stats = Default::default();
 
         st.read_branch(repo);
+        st.state = format!("{:?}", repo.state()).to_lowercase();
 
         let mut opts = git2::StatusOptions::new();
 

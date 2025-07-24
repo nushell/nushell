@@ -1,14 +1,17 @@
 // note: Seems like could be simplified
 //       IMHO: it shall not take 300+ lines :)
+// TODO: Simplify
+// NOTE: Pool table could be used?
+// FIXME: `inspect` wrapping produces too much new lines with small terminal
 
-use self::{global_horizontal_char::SetHorizontalChar, set_widths::SetWidths};
-use nu_protocol::engine::EngineState;
+use self::global_horizontal_char::SetHorizontalChar;
 use nu_protocol::Value;
+use nu_protocol::engine::EngineState;
 use nu_table::{string_width, string_wrap};
 use tabled::{
-    grid::config::ColoredConfig,
-    settings::{peaker::Priority, width::Wrap, Settings, Style},
     Table,
+    grid::config::ColoredConfig,
+    settings::{Style, peaker::Priority, width::Wrap},
 };
 
 pub fn build_table(
@@ -60,13 +63,12 @@ pub fn build_table(
     desc_table.with(Style::rounded().remove_bottom().remove_horizontals());
 
     let mut val_table = Table::from_iter(data);
-    val_table.with(
-        Settings::default()
-            .with(Style::rounded().corner_top_left('├').corner_top_right('┤'))
-            .with(SetWidths(widths))
-            .with(Wrap::new(width).priority(Priority::max(true)))
-            .with(SetHorizontalChar::new('┼', '┴', 11 + 2 + 1)),
-    );
+    val_table.get_dimension_mut().set_widths(widths);
+    val_table.with(Style::rounded().corner_top_left('├').corner_top_right('┤'));
+    val_table.with((
+        Wrap::new(width).priority(Priority::max(true)),
+        SetHorizontalChar::new('┼', '┴', 11 + 2 + 1),
+    ));
 
     format!("{desc_table}\n{val_table}")
 }
@@ -199,8 +201,8 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 mod util {
     use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
-    use nu_protocol::engine::EngineState;
     use nu_protocol::Value;
+    use nu_protocol::engine::EngineState;
 
     /// Try to build column names and a table grid.
     pub fn collect_input(
@@ -263,10 +265,12 @@ mod util {
         } else if cols.is_empty() && records.is_empty() {
             vec![]
         } else if cols.len() == records.len() {
-            vec![records
-                .into_iter()
-                .map(|s| debug_string_without_formatting(engine_state, &s))
-                .collect()]
+            vec![
+                records
+                    .into_iter()
+                    .map(|s| debug_string_without_formatting(engine_state, &s))
+                    .collect(),
+            ]
         } else {
             records
                 .into_iter()
@@ -313,10 +317,11 @@ mod util {
 }
 
 mod global_horizontal_char {
+    use nu_table::NuRecords;
     use tabled::{
         grid::{
-            config::{ColoredConfig, Offset},
-            dimension::{CompleteDimensionVecRecords, Dimension},
+            config::{ColoredConfig, Offset, Position},
+            dimension::{CompleteDimension, Dimension},
             records::{ExactRecords, Records},
         },
         settings::TableOption,
@@ -338,14 +343,12 @@ mod global_horizontal_char {
         }
     }
 
-    impl<R: Records + ExactRecords> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>>
-        for SetHorizontalChar
-    {
+    impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetHorizontalChar {
         fn change(
             self,
-            records: &mut R,
+            records: &mut NuRecords,
             cfg: &mut ColoredConfig,
-            dimension: &mut CompleteDimensionVecRecords<'_>,
+            dimension: &mut CompleteDimension,
         ) {
             let count_columns = records.count_columns();
             let count_rows = records.count_rows();
@@ -358,9 +361,9 @@ mod global_horizontal_char {
 
             let has_vertical = cfg.has_vertical(0, count_columns);
             if has_vertical && self.index == 0 {
-                let mut border = cfg.get_border((0, 0), (count_rows, count_columns));
+                let mut border = cfg.get_border(Position::new(0, 0), (count_rows, count_columns));
                 border.left_top_corner = Some(self.intersection);
-                cfg.set_border((0, 0), border);
+                cfg.set_border(Position::new(0, 0), border);
                 return;
             }
 
@@ -368,7 +371,7 @@ mod global_horizontal_char {
             for (col, width) in widths.into_iter().enumerate() {
                 if self.index < i + width {
                     let o = self.index - i;
-                    cfg.set_horizontal_char((0, col), self.split, Offset::Begin(o));
+                    cfg.set_horizontal_char(Position::new(0, col), Offset::Start(o), self.split);
                     return;
                 }
 
@@ -377,9 +380,10 @@ mod global_horizontal_char {
                 let has_vertical = cfg.has_vertical(col, count_columns);
                 if has_vertical {
                     if self.index == i {
-                        let mut border = cfg.get_border((0, col), (count_rows, count_columns));
+                        let mut border =
+                            cfg.get_border(Position::new(0, col), (count_rows, count_columns));
                         border.right_top_corner = Some(self.intersection);
-                        cfg.set_border((0, col), border);
+                        cfg.set_border(Position::new(0, col), border);
                         return;
                     }
 
@@ -389,32 +393,12 @@ mod global_horizontal_char {
         }
     }
 
-    fn get_widths(dims: &CompleteDimensionVecRecords<'_>, count_columns: usize) -> Vec<usize> {
+    fn get_widths(dims: &CompleteDimension, count_columns: usize) -> Vec<usize> {
         let mut widths = vec![0; count_columns];
         for (col, width) in widths.iter_mut().enumerate() {
             *width = dims.get_width(col);
         }
 
         widths
-    }
-}
-
-mod set_widths {
-    use tabled::{
-        grid::{config::ColoredConfig, dimension::CompleteDimensionVecRecords},
-        settings::TableOption,
-    };
-
-    pub struct SetWidths(pub Vec<usize>);
-
-    impl<R> TableOption<R, ColoredConfig, CompleteDimensionVecRecords<'_>> for SetWidths {
-        fn change(
-            self,
-            _: &mut R,
-            _: &mut ColoredConfig,
-            dims: &mut CompleteDimensionVecRecords<'_>,
-        ) {
-            dims.set_widths(self.0);
-        }
     }
 }

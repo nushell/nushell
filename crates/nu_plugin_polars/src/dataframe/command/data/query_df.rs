@@ -1,9 +1,9 @@
 use super::sql_context::SQLContext;
+use crate::PolarsPlugin;
 use crate::dataframe::values::Column;
 use crate::dataframe::values::NuLazyFrame;
 use crate::values::CustomValueSupport;
 use crate::values::NuDataFrame;
-use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -63,12 +63,15 @@ impl PluginCommand for QueryDf {
 
     fn run(
         &self,
-        plugin: &PolarsPlugin,
+        plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

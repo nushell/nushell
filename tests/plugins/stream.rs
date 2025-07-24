@@ -103,7 +103,7 @@ fn sum_accepts_stream_of_float() {
         "seq 1 5 | into float | example sum"
     );
 
-    assert_eq!(actual.out, "15");
+    assert_eq!(actual.out, "15.0");
 }
 
 #[test]

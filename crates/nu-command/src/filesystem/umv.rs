@@ -1,7 +1,10 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
-use nu_protocol::{shell_error::io::IoError, NuGlob};
+use nu_protocol::{
+    NuGlob,
+    shell_error::{self, io::IoError},
+};
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
@@ -139,7 +142,7 @@ impl Command for UMv {
                     .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::Io(IoError::new(
-                    std::io::ErrorKind::NotFound,
+                    shell_error::io::ErrorKind::FileNotFound,
                     p.span,
                     PathBuf::from(p.item.to_string()),
                 )));
@@ -192,8 +195,8 @@ impl Command for UMv {
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
-                error: format!("{}", error),
-                msg: format!("{}", error),
+                error: format!("{error}"),
+                msg: format!("{error}"),
                 span: None,
                 help: None,
                 inner: Vec::new(),

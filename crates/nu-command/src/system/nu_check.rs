@@ -101,12 +101,12 @@ impl Command for NuCheck {
                                 ErrorKind::FileNotFound,
                                 path_span,
                                 PathBuf::from(path_str.item),
-                            )))
+                            )));
                         }
                         Err(err) => return Err(err),
                     };
 
-                    let result = if as_module || path.is_dir() {
+                    if as_module || path.is_dir() {
                         parse_file_or_dir_module(
                             path.to_string_lossy().as_bytes(),
                             &mut working_set,
@@ -120,9 +120,7 @@ impl Command for NuCheck {
                         working_set.files = FileStack::with_file(path.clone());
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                         // The working set is not merged, so no need to pop the file from the stack.
-                    };
-
-                    result
+                    }
                 } else {
                     Err(ShellError::GenericError {
                         error: "Failed to execute command".into(),
@@ -255,7 +253,7 @@ fn parse_file_script(
     match std::fs::read(path) {
         Ok(contents) => parse_script(working_set, Some(&filename), &contents, is_debug, call_head),
         Err(err) => Err(ShellError::Io(IoError::new(
-            err.kind().not_found_as(NotFound::File),
+            err.not_found_as(NotFound::File),
             path_span,
             PathBuf::from(path),
         ))),

@@ -129,7 +129,9 @@ fn reject_optional_row() {
 
 #[test]
 fn reject_columns_with_list_spread() {
-    let actual = nu!("let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon");
+    let actual = nu!(
+        "let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
     assert_eq!(
         actual.out,
         r#"[[name]; ["Cargo.toml"], ["Cargo.lock"], [src]]"#
@@ -138,7 +140,9 @@ fn reject_columns_with_list_spread() {
 
 #[test]
 fn reject_rows_with_list_spread() {
-    let actual = nu!("let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon");
+    let actual = nu!(
+        "let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
     assert_eq!(
         actual.out,
         r#"[[name, type, size]; ["Cargo.lock", file, 10000000b]]"#
@@ -147,7 +151,9 @@ fn reject_rows_with_list_spread() {
 
 #[test]
 fn reject_mixed_with_list_spread() {
-    let actual = nu!("let arg = [type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon");
+    let actual = nu!(
+        "let arg = [type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
     assert_eq!(
         actual.out,
         r#"[[name, size]; ["Cargp.toml", 10000000b], ["Cargo.lock", 10000000b]]"#
@@ -168,14 +174,14 @@ fn reject_multiple_rows_descending() {
 
 #[test]
 fn test_ignore_errors_flag() {
-    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -i | to nuon");
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 
 #[test]
 fn test_ignore_errors_flag_var() {
     let actual =
-        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -i | to nuon");
+        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 

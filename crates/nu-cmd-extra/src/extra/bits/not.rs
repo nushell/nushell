@@ -1,5 +1,5 @@
-use super::{get_number_bytes, NumberBytes};
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use super::{NumberBytes, get_number_bytes};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -100,8 +100,7 @@ impl Command for BitsNot {
                 )),
             },
             Example {
-                description:
-                    "Apply logical negation to a list of numbers, treat input as 2 bytes number",
+                description: "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not --number-bytes 2",
                 result: Some(Value::list(
                     vec![
@@ -113,8 +112,7 @@ impl Command for BitsNot {
                 )),
             },
             Example {
-                description:
-                    "Apply logical negation to a list of numbers, treat input as signed number",
+                description: "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not --signed",
                 result: Some(Value::list(
                     vec![

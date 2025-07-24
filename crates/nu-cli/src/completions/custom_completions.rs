@@ -1,13 +1,13 @@
 use crate::completions::{
-    completer::map_value_completions, Completer, CompletionOptions, MatchAlgorithm,
-    SemanticSuggestion,
+    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
+    completer::map_value_completions,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
+    DeclId, PipelineData, Span, Type, Value,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, PipelineData, Span, Type, Value,
 };
 use std::collections::HashMap;
 
@@ -106,7 +106,9 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         let positional =
                             options.get("positional").and_then(|val| val.as_bool().ok());
                         if positional.is_some() {
-                            log::warn!("Use of the positional option is deprecated. Use the substring match algorithm instead.");
+                            log::warn!(
+                                "Use of the positional option is deprecated. Use the substring match algorithm instead."
+                            );
                         }
                         if let Some(algorithm) = options
                             .get("completion_algorithm")

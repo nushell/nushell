@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error, Range,
+    Range, ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error,
 };
 use std::{
     sync::Arc,
@@ -163,13 +163,9 @@ pub fn check_example_evaluates_to_expected_output(
         let expected = DebuggableValue(expected);
         let result = DebuggableValue(&result);
         assert_eq!(
-            result,
-            expected,
+            result, expected,
             "Error: The result of example '{}' for the command '{}' differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
-            example.description,
-            cmd_name,
-            expected,
-            result,
+            example.description, cmd_name, expected, result,
         );
     }
 }
@@ -225,23 +221,23 @@ impl std::fmt::Debug for DebuggableValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
             Value::Bool { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Int { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Float { val, .. } => {
-                write!(f, "{:?}f", val)
+                write!(f, "{val:?}f")
             }
             Value::Filesize { val, .. } => {
-                write!(f, "Filesize({:?})", val)
+                write!(f, "Filesize({val:?})")
             }
             Value::Duration { val, .. } => {
                 let duration = std::time::Duration::from_nanos(*val as u64);
-                write!(f, "Duration({:?})", duration)
+                write!(f, "Duration({duration:?})")
             }
             Value::Date { val, .. } => {
-                write!(f, "Date({:?})", val)
+                write!(f, "Date({val:?})")
             }
             Value::Range { val, .. } => match **val {
                 Range::IntRange(range) => match range.end() {
@@ -284,7 +280,7 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 },
             },
             Value::String { val, .. } | Value::Glob { val, .. } => {
-                write!(f, "{:?}", val)
+                write!(f, "{val:?}")
             }
             Value::Record { val, .. } => {
                 write!(f, "{{")?;
@@ -309,22 +305,22 @@ impl std::fmt::Debug for DebuggableValue<'_> {
                 write!(f, "]")
             }
             Value::Closure { val, .. } => {
-                write!(f, "Closure({:?})", val)
+                write!(f, "Closure({val:?})")
             }
             Value::Nothing { .. } => {
                 write!(f, "Nothing")
             }
             Value::Error { error, .. } => {
-                write!(f, "Error({:?})", error)
+                write!(f, "Error({error:?})")
             }
             Value::Binary { val, .. } => {
-                write!(f, "Binary({:?})", val)
+                write!(f, "Binary({val:?})")
             }
             Value::CellPath { val, .. } => {
                 write!(f, "CellPath({:?})", val.to_string())
             }
             Value::Custom { val, .. } => {
-                write!(f, "CustomValue({:?})", val)
+                write!(f, "CustomValue({val:?})")
             }
         }
     }

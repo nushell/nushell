@@ -262,11 +262,12 @@ fn test_change_windows_drive() {
                 subst Z: /d
             "#
         );
-        assert!(dirs
-            .test()
-            .join("test_folder")
-            .join("test_file.txt")
-            .exists());
+        assert!(
+            dirs.test()
+                .join("test_folder")
+                .join("test_file.txt")
+                .exists()
+        );
     })
 }
 

@@ -1,7 +1,7 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ListStream, Signals};
+use nu_protocol::{ListStream, Signals, shell_error::io::IoError};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -134,7 +134,7 @@ fn read_json_lines(
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
-            let line = line.map_err(|err| IoError::new(err.kind(), span, None))?;
+            let line = line.map_err(|err| IoError::new(err, span, None))?;
             if strict {
                 convert_string_to_value_strict(&line, span)
             } else {
@@ -248,6 +248,7 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -268,6 +269,7 @@ mod test {
             working_set.add_decl(Box::new(FromJson {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -276,7 +278,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | $in"#;
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

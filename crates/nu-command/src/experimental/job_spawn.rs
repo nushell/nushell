@@ -1,12 +1,13 @@
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicBool, AtomicU32},
-        mpsc, Arc, Mutex,
+        mpsc,
     },
     thread,
 };
 
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     engine::{completion_signal, Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob},
     report_shell_error, OutDest, Signals,
@@ -124,7 +125,7 @@ impl Command for JobSpawn {
             Err(err) => {
                 jobs.remove_job(id);
                 Err(ShellError::Io(IoError::new_with_additional_context(
-                    err.kind(),
+                    err,
                     call.head,
                     None,
                     "Failed to spawn thread for job",

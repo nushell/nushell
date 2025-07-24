@@ -1,12 +1,11 @@
-use crate::formats::value_to_json_value;
+use crate::{formats::value_to_json_value, network::tls::tls};
 use base64::{
-    alphabet,
-    engine::{general_purpose::PAD, GeneralPurpose},
-    Engine,
+    Engine, alphabet,
+    engine::{GeneralPurpose, general_purpose::PAD},
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, ByteStream, LabeledError, Signals};
+use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -57,20 +56,9 @@ pub fn http_client(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
-    let tls = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Failed to build network tls: {}", e),
-            msg: String::new(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
-
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
-        .tls_connector(std::sync::Arc::new(tls));
+        .tls_connector(std::sync::Arc::new(tls(allow_insecure)?));
 
     if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
         agent_builder = agent_builder.redirects(0);
@@ -90,12 +78,22 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.coerce_into_string()?;
+    let mut requested_url = raw_url.coerce_into_string()?;
+    if requested_url.starts_with(':') {
+        requested_url = format!("http://localhost{requested_url}");
+    } else if !requested_url.contains("://") {
+        requested_url = format!("http://{requested_url}");
+    }
+
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
+            return Err(ShellError::UnsupportedInput {
+                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
+                input: format!("value: '{requested_url:?}'"),
+                msg_span: call.head,
+                input_span: span
+            });
         }
     };
 
@@ -375,9 +373,7 @@ fn send_multipart_request(
             let mut builder = MultipartWriter::new();
 
             let err = |e: std::io::Error| {
-                ShellErrorOrRequestError::ShellError(
-                    IoError::new_with_additional_context(e.kind(), span, None, e).into(),
-                )
+                ShellErrorOrRequestError::ShellError(IoError::new(e, span, None).into())
             };
 
             for (col, val) in val.into_owned() {
@@ -386,8 +382,7 @@ fn send_multipart_request(
                         "Content-Type: application/octet-stream".to_string(),
                         "Content-Transfer-Encoding: binary".to_string(),
                         format!(
-                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
-                            col, col
+                            "Content-Disposition: form-data; name=\"{col}\"; filename=\"{col}\""
                         ),
                         format!("Content-Length: {}", val.len()),
                     ];
@@ -395,7 +390,7 @@ fn send_multipart_request(
                         .add(&mut Cursor::new(val), &headers.join("\r\n"))
                         .map_err(err)?;
                 } else {
-                    let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                    let headers = format!(r#"Content-Disposition: form-data; name="{col}""#);
                     builder
                         .add(val.coerce_into_string()?.as_bytes(), &headers)
                         .map_err(err)?;
@@ -404,7 +399,7 @@ fn send_multipart_request(
             builder.finish();
 
             let (boundary, data) = (builder.boundary, builder.data);
-            let content_type = format!("multipart/form-data; boundary={}", boundary);
+            let content_type = format!("multipart/form-data; boundary={boundary}");
 
             move || req.set("Content-Type", &content_type).send_bytes(&data)
         }
@@ -414,7 +409,7 @@ fn send_multipart_request(
                     err_message: format!("Accepted types: [record]. Check: {HTTP_DOCS}"),
                     span: body.span(),
                 },
-            ))
+            ));
         }
     };
     send_cancellable_request(request_url, Box::new(request_fn), span, signals)
@@ -467,18 +462,13 @@ fn send_cancellable_request(
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn HTTP requester",
-            )
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
         })
         .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check(&span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -530,18 +520,13 @@ fn send_cancellable_request_bytes(
             let _ = tx.send(ret);
         })
         .map_err(|err| {
-            IoError::new_with_additional_context(
-                err.kind(),
-                span,
-                None,
-                "Could not spawn HTTP requester",
-            )
+            IoError::new_with_additional_context(err, span, None, "Could not spawn HTTP requester")
         })
         .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
     loop {
-        signals.check(span)?;
+        signals.check(&span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -671,7 +656,12 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                 span,
             };
             match t.kind() {
-                ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+                ErrorKind::ConnectionFailed => ShellError::NetworkFailure {
+                    msg: format!(
+                        "Cannot make request to {requested_url}, there was an error establishing a connection.",
+                    ),
+                    span,
+                },
                 ErrorKind::Io => 'io: {
                     let Some(source) = t.source() else {
                         break 'io generic_network_failure();
@@ -681,9 +671,9 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
                         break 'io generic_network_failure();
                     };
 
-                    ShellError::Io(IoError::new(io_error.kind(), span, None))
+                    ShellError::Io(IoError::new(io_error, span, None))
                 }
-                _ => generic_network_failure()
+                _ => generic_network_failure(),
             }
         }
     }
@@ -712,26 +702,23 @@ fn transform_response_using_content_type(
         .expect("Failed to parse content type, and failed to default to text/plain");
 
     let ext = match (content_type.type_(), content_type.subtype()) {
-        (mime::TEXT, mime::PLAIN) => {
-            let path_extension = url::Url::parse(requested_url)
-                .map_err(|err| {
-                    LabeledError::new(err.to_string())
-                        .with_help("cannot parse")
-                        .with_label(
-                            format!("Cannot parse URL: {requested_url}"),
-                            Span::unknown(),
-                        )
-                })?
-                .path_segments()
-                .and_then(|mut segments| segments.next_back())
-                .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                .and_then(|name| {
-                    PathBuf::from(name)
-                        .extension()
-                        .map(|name| name.to_string_lossy().to_string())
-                });
-            path_extension
-        }
+        (mime::TEXT, mime::PLAIN) => url::Url::parse(requested_url)
+            .map_err(|err| {
+                LabeledError::new(err.to_string())
+                    .with_help("cannot parse")
+                    .with_label(
+                        format!("Cannot parse URL: {requested_url}"),
+                        Span::unknown(),
+                    )
+            })?
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .and_then(|name| if name.is_empty() { None } else { Some(name) })
+            .and_then(|name| {
+                PathBuf::from(name)
+                    .extension()
+                    .map(|name| name.to_string_lossy().to_string())
+            }),
         _ => Some(content_type.subtype().to_string()),
     };
 

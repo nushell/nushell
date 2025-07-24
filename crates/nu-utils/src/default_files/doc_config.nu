@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.103.1"
+# version = "0.106.0"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -70,7 +70,10 @@ $env.config.history.isolation = true
 # Miscellaneous Settings
 # ----------------------
 
-# show_banner (bool): Enable or disable the welcome banner at startup
+# show_banner (bool|string): Enable or disable the welcome banner at startup
+# true | "full": show the full banner
+# "short": just show the start-up time
+# false | "none": don't show a banner
 $env.config.show_banner = true
 
 # rm.always_trash (bool):
@@ -202,12 +205,12 @@ $env.config.shell_integration.osc2 = true
 # osc7 (bool):
 # Nushell will report the current directory to the terminal using OSC 7. This is useful when
 # spawning new tabs in the same directory.
-$env.config.shell_integration.osc7 = true
+$env.config.shell_integration.osc7 = ($nu.os-info.name != windows)
 
 # osc9_9 (bool):
 # Enables/Disables OSC 9;9 support, originally a ConEmu terminal feature. This is an
 # alternative to OSC 7 which also communicates the current path to the terminal.
-$env.config.shell_integration.osc9_9 = false
+$env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # osc8 (bool):
 # When true, the `ls` command will generate clickable links that can be launched in another
@@ -236,7 +239,7 @@ $env.config.shell_integration.osc633 = true
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
 # This sequence is commonly used to keep cursor key modes in sync between the local
-# terminal and a remove SSH host.
+# terminal and a remote SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
@@ -300,7 +303,7 @@ $env.config.footer_mode = 25
 # Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# or "basic_compact"
+# "basic_compact", "single", or "double"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 
@@ -355,6 +358,9 @@ $env.config.table.abbreviated_row_count = null
 # false: Always apply `footer_mode` rules to the parent table
 $env.config.table.footer_inheritance = false
 
+# missing_value_symbol (string): The symbol shown for missing values
+$env.config.table.missing_value_symbol = "❎"
+
 # ----------------
 # Datetime Display
 # ----------------
@@ -365,6 +371,7 @@ $env.config.table.footer_inheritance = false
 # datetime_format.table (string or nothing):
 # The format string (or `null`) that will be used to display a datetime value when it appears in a
 # structured value such as a table, list, or record.
+# Execute `into datetime --list` to get a list of supported datetime specifiers.
 $env.config.datetime_format.table = null
 
 # datetime_format.normal (string or nothing):

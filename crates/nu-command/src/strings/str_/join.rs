@@ -1,6 +1,6 @@
 use chrono::Datelike;
 use nu_engine::command_prelude::*;
-use nu_protocol::{shell_error::io::IoError, Signals};
+use nu_protocol::{Signals, shell_error::io::IoError};
 
 use std::io::Write;
 
@@ -103,7 +103,7 @@ fn run(
                 if first {
                     first = false;
                 } else if let Some(separator) = &separator {
-                    write!(buffer, "{}", separator).map_err(&from_io_error)?;
+                    write!(buffer, "{separator}").map_err(&from_io_error)?;
                 }
 
                 match value {

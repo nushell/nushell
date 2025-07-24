@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{engine::Closure, shell_error::io::IoError};
 use std::{sync::mpsc, thread};
 
@@ -137,7 +137,7 @@ interleave
                             }
                         })
                         .map(|_| ())
-                        .map_err(|err| IoError::new(err.kind(), head, None).into())
+                        .map_err(|err| IoError::new(err, head, None).into())
                 })
             })?;
 

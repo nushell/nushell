@@ -2,13 +2,13 @@
 
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
-use nu_parser::{lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    cli_error::report_compile_error,
+    PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_parse_error, report_parse_warning, report_shell_error, PipelineData, ShellError, Span,
-    Value,
+    report_error::report_compile_error,
+    report_parse_error, report_parse_warning, report_shell_error,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;

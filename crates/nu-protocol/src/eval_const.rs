@@ -3,12 +3,12 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
+    BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value,
-    VarId,
+    record,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -439,26 +439,6 @@ impl Eval for EvalConst {
 
     fn get_config(state: Self::State<'_>, _: &mut ()) -> Arc<Config> {
         state.get_config().clone()
-    }
-
-    fn eval_filepath(
-        _: &StateWorkingSet,
-        _: &mut (),
-        path: String,
-        _: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        Ok(Value::string(path, span))
-    }
-
-    fn eval_directory(
-        _: &StateWorkingSet,
-        _: &mut (),
-        _: String,
-        _: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_var(

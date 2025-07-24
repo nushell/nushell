@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_e
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    engine::Closure, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest,
+    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
 };
 
 use std::{
@@ -107,14 +107,14 @@ impl Command for Do {
                                         let mut buf = Vec::new();
                                         stdout.read_to_end(&mut buf).map_err(|err| {
                                             IoError::new_internal(
-                                                err.kind(),
+                                                err,
                                                 "Could not read stdout to end",
                                                 nu_protocol::location!(),
                                             )
                                         })?;
                                         Ok::<_, ShellError>(buf)
                                     })
-                                    .map_err(|err| IoError::new(err.kind(), head, None))
+                                    .map_err(|err| IoError::new(err, head, None))
                             })
                             .transpose()?;
 
@@ -126,7 +126,7 @@ impl Command for Do {
                                 let mut buf = String::new();
                                 stderr
                                     .read_to_string(&mut buf)
-                                    .map_err(|err| IoError::new(err.kind(), span, None))?;
+                                    .map_err(|err| IoError::new(err, span, None))?;
                                 buf
                             }
                         };
@@ -264,7 +264,7 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.is_subtype_of(&param_type) {
+            if !result.is_subtype_of(&param_type) {
                 return Err(ShellError::CantConvert {
                     to_type: param.shape.to_type().to_string(),
                     from_type: result.get_type().to_string(),

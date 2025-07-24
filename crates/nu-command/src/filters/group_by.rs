@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{engine::Closure, FromValue, IntoValue};
+use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::{FromValue, IntoValue, engine::Closure};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -167,7 +167,7 @@ impl Command for GroupBy {
                                 })],
                             ),
                     }),
-                }))
+                })),
             },
             Example {
                 description: "Group items by multiple columns' values",
@@ -212,7 +212,7 @@ impl Command for GroupBy {
                             })
                         ]),
                     }),
-                ]))
+                ])),
             },
         ]
     }
@@ -231,7 +231,12 @@ pub fn group_by(
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
-        return Ok(Value::record(Record::new(), head).into_pipeline_data());
+        let val = if to_table {
+            Value::list(Vec::new(), head)
+        } else {
+            Value::record(Record::new(), head)
+        };
+        return Ok(val.into_pipeline_data());
     }
 
     let grouped = match &groupers[..] {
@@ -322,11 +327,9 @@ fn group_cell_path(
     let mut groups = IndexMap::<_, Vec<_>>::new();
 
     for value in values.into_iter() {
-        let key = value
-            .clone()
-            .follow_cell_path(&column_name.members, false)?;
+        let key = value.follow_cell_path(&column_name.members)?;
 
-        if matches!(key, Value::Nothing { .. }) {
+        if key.is_nothing() {
             continue; // likely the result of a failed optional access, ignore this value
         }
 

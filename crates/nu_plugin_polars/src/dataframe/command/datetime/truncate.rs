@@ -1,9 +1,9 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression, NuSchema,
-        PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, NuSchema, PolarsPluginObject,
+        PolarsPluginType, cant_convert_err,
+    },
 };
 use std::sync::Arc;
 
@@ -15,6 +15,7 @@ use nu_protocol::{
 
 use chrono::DateTime;
 use polars::prelude::{DataType, Expr, Field, LiteralValue, PlSmallStr, Schema, TimeUnit};
+use polars_plan::plans::DynLiteralValue;
 
 #[derive(Clone)]
 pub struct Truncate;
@@ -150,7 +151,10 @@ impl PluginCommand for Truncate {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 
     fn extra_description(&self) -> &str {
@@ -188,9 +192,9 @@ fn command(
             let res: NuExpression = expr
                 .into_polars()
                 .dt()
-                .truncate(Expr::Literal(LiteralValue::String(
+                .truncate(Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
                     PlSmallStr::from_string(every),
-                )))
+                ))))
                 .into();
             res.to_pipeline_data(plugin, engine, call.head)
         }

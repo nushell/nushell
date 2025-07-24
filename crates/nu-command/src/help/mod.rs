@@ -16,7 +16,6 @@ pub use help_modules::HelpModules;
 pub use help_operators::HelpOperators;
 pub use help_pipe_and_redirect::HelpPipeAndRedirect;
 
-pub(crate) use help_::{highlight_search_in_table, highlight_search_string};
 pub(crate) use help_aliases::help_aliases;
 pub(crate) use help_commands::help_commands;
 pub(crate) use help_modules::help_modules;

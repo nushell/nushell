@@ -1,4 +1,3 @@
-mod ansi;
 mod clear;
 mod dir_info;
 mod input;
@@ -10,7 +9,6 @@ mod term;
 mod ulimit;
 mod whoami;
 
-pub use ansi::{Ansi, AnsiLink, AnsiStrip};
 pub use clear::Clear;
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use input::Input;

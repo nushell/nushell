@@ -5,9 +5,9 @@ use crate::{
     parser::{is_variable, parse_value},
 };
 use nu_protocol::{
+    ParseError, Span, SyntaxShape, Type, VarId,
     ast::{MatchPattern, Pattern},
     engine::StateWorkingSet,
-    ParseError, Span, SyntaxShape, Type, VarId,
 };
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {

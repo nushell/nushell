@@ -1,11 +1,12 @@
 use crate::{
-    values::{
-        cant_convert_err, Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame,
-        NuSchema, PolarsPluginObject, PolarsPluginType,
-    },
     PolarsPlugin,
+    values::{
+        Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame, NuSchema,
+        PolarsPluginObject, PolarsPluginType, cant_convert_err,
+    },
 };
 use chrono::DateTime;
+use polars_plan::plans::DynLiteralValue;
 use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -14,8 +15,8 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{
-    col, DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
-    StrptimeOptions, TimeUnit,
+    DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
+    StrptimeOptions, TimeUnit, col,
 };
 
 #[derive(Clone)]
@@ -138,10 +139,7 @@ impl PluginCommand for AsDateTime {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
@@ -156,24 +154,19 @@ impl PluginCommand for AsDateTime {
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "datetime".to_string(),
-                            vec![
-                                Value::date(
-                                    DateTime::parse_from_str(
-                                        "2021-12-30 00:00:00 +0000",
-                                        "%Y-%m-%d %H:%M:%S %z",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                            ],
+                            vec![Value::date(
+                                DateTime::parse_from_str(
+                                    "2021-12-30 00:00:00 +0000",
+                                    "%Y-%m-%d %H:%M:%S %z",
+                                )
+                                .expect("date calculation should not fail in test"),
+                                Span::test_data(),
+                            )],
                         )],
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
@@ -197,7 +190,6 @@ impl PluginCommand for AsDateTime {
                                     .expect("date calculation should not fail in test"),
                                     Span::test_data(),
                                 ),
-
                                 Value::date(
                                     DateTime::parse_from_str(
                                         "2025-11-02 01:00:00 +0000",
@@ -227,10 +219,7 @@ impl PluginCommand for AsDateTime {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new(
                                 "datetime".into(),
-                                DataType::Datetime(
-                                    TimeUnit::Nanoseconds,
-                                    None
-                                ),
+                                DataType::Datetime(TimeUnit::Nanoseconds, None),
                             ),
                         ])))),
                     )
@@ -248,7 +237,10 @@ impl PluginCommand for AsDateTime {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let metadata = input.metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 
@@ -303,7 +295,9 @@ fn command(
                     None,
                     None,
                     options,
-                    Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+                    Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                        PlSmallStr::from_string(ambiguous),
+                    ))),
                 )
                 .into();
             res.to_pipeline_data(plugin, engine, call.head)
@@ -333,7 +327,9 @@ fn command_lazy(
             None,
             None,
             options,
-            Expr::Literal(LiteralValue::String(PlSmallStr::from_string(ambiguous))),
+            Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+                PlSmallStr::from_string(ambiguous),
+            ))),
         )]),
     )
     .to_pipeline_data(plugin, engine, call.head)

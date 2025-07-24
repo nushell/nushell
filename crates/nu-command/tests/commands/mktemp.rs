@@ -10,7 +10,7 @@ fn creates_temp_file() {
             "mktemp"
         );
         let loc = AbsolutePath::try_new(&output.out).unwrap();
-        println!("{:?}", loc);
+        println!("{loc:?}");
         assert!(loc.exists());
     })
 }

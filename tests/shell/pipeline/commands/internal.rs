@@ -759,7 +759,7 @@ fn range_with_mixed_types() {
         echo 1..10.5 | math sum
         ");
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual.out, "55.0");
 }
 
 #[test]
@@ -771,9 +771,11 @@ fn filesize_math() {
 #[test]
 fn filesize_math2() {
     let actual = nu!("100 / 10kB");
-    assert!(actual
-        .err
-        .contains("nu::parser::operator_incompatible_types"));
+    assert!(
+        actual
+            .err
+            .contains("nu::parser::operator_incompatible_types")
+    );
 }
 
 #[test]
@@ -800,7 +802,7 @@ fn exclusive_range_with_mixed_types() {
         echo 1..<10.5 | math sum
         ");
 
-    assert_eq!(actual.out, "55");
+    assert_eq!(actual.out, "55.0");
 }
 
 #[test]
@@ -1133,9 +1135,11 @@ fn command_not_found_error_shows_not_found_2() {
 #[test]
 fn error_on_out_greater_pipe() {
     let actual = nu!(r#""foo" o>| print"#);
-    assert!(actual
-        .err
-        .contains("Redirecting stdout to a pipe is the same as normal piping"))
+    assert!(
+        actual
+            .err
+            .contains("Redirecting stdout to a pipe is the same as normal piping")
+    )
 }
 
 #[test]

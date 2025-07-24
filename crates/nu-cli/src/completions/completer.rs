@@ -1,17 +1,17 @@
 use crate::completions::{
-    base::{SemanticSuggestion, SuggestionKind},
     AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
     CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
     ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
+    PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
@@ -176,7 +176,7 @@ impl NuCompleter {
             &mut working_set,
             Some("completer"),
             // Add a placeholder `a` to the end
-            format!("{}a", line).as_bytes(),
+            format!("{line}a").as_bytes(),
             false,
         );
         self.fetch_completions_by_block(block, &working_set, pos, offset, line, true)
@@ -370,7 +370,8 @@ impl NuCompleter {
                                 FileCompletion,
                             );
 
-                            suggestions.extend(self.process_completion(&mut completer, &ctx));
+                            // Prioritize argument completions over (sub)commands
+                            suggestions.splice(0..0, self.process_completion(&mut completer, &ctx));
                             break;
                         }
 
@@ -384,33 +385,39 @@ impl NuCompleter {
                             };
                             self.process_completion(&mut flag_completions, &ctx)
                         };
-                        suggestions.extend(match arg {
-                            // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
-                                flag_completion_helper()
-                            }
-                            // only when `strip` == false
-                            Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
-                            // complete according to expression type and command head
-                            Argument::Positional(expr) => {
-                                let command_head = working_set.get_decl(call.decl_id).name();
-                                positional_arg_indices.push(arg_idx);
-                                self.argument_completion_helper(
-                                    PositionalArguments {
-                                        command_head,
-                                        positional_arg_indices,
-                                        arguments: &call.arguments,
-                                        expr,
-                                    },
-                                    pos,
-                                    &ctx,
-                                    suggestions.is_empty(),
-                                )
-                            }
-                            _ => vec![],
-                        });
+                        // Prioritize argument completions over (sub)commands
+                        suggestions.splice(
+                            0..0,
+                            match arg {
+                                // flags
+                                Argument::Named(_) | Argument::Unknown(_)
+                                    if prefix.starts_with(b"-") =>
+                                {
+                                    flag_completion_helper()
+                                }
+                                // only when `strip` == false
+                                Argument::Positional(_) if prefix == b"-" => {
+                                    flag_completion_helper()
+                                }
+                                // complete according to expression type and command head
+                                Argument::Positional(expr) => {
+                                    let command_head = working_set.get_decl(call.decl_id).name();
+                                    positional_arg_indices.push(arg_idx);
+                                    self.argument_completion_helper(
+                                        PositionalArguments {
+                                            command_head,
+                                            positional_arg_indices,
+                                            arguments: &call.arguments,
+                                            expr,
+                                        },
+                                        pos,
+                                        &ctx,
+                                        suggestions.is_empty(),
+                                    )
+                                }
+                                _ => vec![],
+                            },
+                        );
                         break;
                     } else if !matches!(arg, Argument::Named(_)) {
                         positional_arg_indices.push(arg_idx);
@@ -462,9 +469,17 @@ impl NuCompleter {
                             if let Some(external_result) =
                                 self.external_completion(closure, &text_spans, offset, new_span)
                             {
-                                suggestions.extend(external_result);
+                                // Prioritize external results over (sub)commands
+                                suggestions.splice(0..0, external_result);
                                 return suggestions;
                             }
+                        }
+                        // for external path arguments with spaces, please check issue #15790
+                        if suggestions.is_empty() {
+                            let (new_span, prefix) =
+                                strip_placeholder_if_any(working_set, &span, strip);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
+                            return self.process_completion(&mut FileCompletion, &ctx);
                         }
                         break;
                     }
@@ -842,7 +857,7 @@ mod completer_tests {
         for (line, has_result, begins_with, expected_values) in dataset {
             let result = completer.fetch_completions_at(line, line.len());
             // Test whether the result is empty or not
-            assert_eq!(!result.is_empty(), has_result, "line: {}", line);
+            assert_eq!(!result.is_empty(), has_result, "line: {line}");
 
             // Test whether the result begins with the expected value
             result
@@ -857,8 +872,7 @@ mod completer_tests {
                     .filter(|x| *x)
                     .count(),
                 expected_values.len(),
-                "line: {}",
-                line
+                "line: {line}"
             );
         }
     }

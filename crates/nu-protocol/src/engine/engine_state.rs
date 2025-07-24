@@ -1,16 +1,17 @@
 use crate::{
-    ast::Block,
-    debugger::{Debugger, NoopDebugger},
-    engine::{
-        description::{build_desc, Doccomments},
-        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
-        Variable, Visibility, DEFAULT_OVERLAY_NAME,
-    },
-    eval_const::create_nu_constant,
-    shell_error::io::IoError,
     BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
     VarId, VirtualPathId,
+    ast::Block,
+    debugger::{Debugger, NoopDebugger},
+    engine::{
+        CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
+        Stack, StateDelta, Variable, Visibility,
+        description::{Doccomments, build_desc},
+    },
+    eval_const::create_nu_constant,
+    report_error::ReportLog,
+    shell_error::io::IoError,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -21,10 +22,10 @@ use std::{
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc::channel,
-        mpsc::Sender,
         Arc, Mutex, MutexGuard, PoisonError,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc::Sender,
+        mpsc::channel,
     },
 };
 
@@ -115,6 +116,7 @@ pub struct EngineState {
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
+    pub report_log: Arc<Mutex<ReportLog>>,
 
     pub jobs: Arc<Mutex<Jobs>>,
 
@@ -201,6 +203,7 @@ impl EngineState {
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
+            report_log: Arc::default(),
             jobs: Arc::new(Mutex::new(Jobs::default())),
             current_job: CurrentJob {
                 id: JobId::new(0),
@@ -353,7 +356,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err.kind(), "Could not set current dir", crate::location!())
+            IoError::new_internal(err, "Could not set current dir", crate::location!())
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -366,13 +369,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    pub fn has_overlay(&self, name: &[u8]) -> bool {
-        self.scope
-            .overlays
-            .iter()
-            .any(|(overlay_name, _)| name == overlay_name)
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -412,7 +408,7 @@ impl EngineState {
     }
 
     /// Translate overlay IDs from other to IDs in self
-    pub fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
+    fn translate_overlay_ids(&self, other: &ScopeFrame) -> Vec<OverlayId> {
         let other_names = other.active_overlays.iter().map(|other_id| {
             &other
                 .overlays
@@ -520,10 +516,7 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(
-        &self,
-        updated_items: Vec<PluginRegistryItem>,
-    ) -> Result<(), ShellError> {
+    fn update_plugin_file(&self, updated_items: Vec<PluginRegistryItem>) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
         use std::fs::File;
 
@@ -546,7 +539,7 @@ impl EngineState {
                     Ok(PluginRegistryFile::default())
                 } else {
                     Err(ShellError::Io(IoError::new_internal_with_path(
-                        err.kind(),
+                        err,
                         "Failed to open plugin file",
                         crate::location!(),
                         PathBuf::from(plugin_path),
@@ -563,7 +556,7 @@ impl EngineState {
         // Write it to the same path
         let plugin_file = File::create(plugin_path.as_path()).map_err(|err| {
             IoError::new_internal_with_path(
-                err.kind(),
+                err,
                 "Failed to write plugin file",
                 crate::location!(),
                 PathBuf::from(plugin_path),
@@ -773,6 +766,30 @@ impl EngineState {
             }
         }
         &[0u8; 0]
+    }
+
+    /// If the span's content starts with the given prefix, return two subspans
+    /// corresponding to this prefix, and the rest of the content.
+    pub fn span_match_prefix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
+        let contents = self.get_span_contents(span);
+
+        if contents.starts_with(prefix) {
+            span.split_at(prefix.len())
+        } else {
+            None
+        }
+    }
+
+    /// If the span's content ends with the given postfix, return two subspans
+    /// corresponding to the rest of the content, and this postfix.
+    pub fn span_match_postfix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
+        let contents = self.get_span_contents(span);
+
+        if contents.ends_with(prefix) {
+            span.split_at(span.len() - prefix.len())
+        } else {
+            None
+        }
     }
 
     /// Get the global config from the engine state.
@@ -1015,10 +1032,7 @@ impl EngineState {
         cwd.into_os_string()
             .into_string()
             .map_err(|err| ShellError::NonUtf8Custom {
-                msg: format!(
-                    "The current working directory is not a valid utf-8 string: {:?}",
-                    err
-                ),
+                msg: format!("The current working directory is not a valid utf-8 string: {err:?}"),
                 span: Span::unknown(),
             })
     }
@@ -1120,7 +1134,7 @@ impl Default for EngineState {
 #[cfg(test)]
 mod engine_state_tests {
     use crate::engine::StateWorkingSet;
-    use std::str::{from_utf8, Utf8Error};
+    use std::str::{Utf8Error, from_utf8};
 
     use super::*;
 
@@ -1227,10 +1241,10 @@ mod test_cwd {
     //! PWD should NOT point to non-existent entities in the filesystem.
 
     use crate::{
-        engine::{EngineState, Stack},
         Value,
+        engine::{EngineState, Stack},
     };
-    use nu_path::{assert_path_eq, AbsolutePath, Path};
+    use nu_path::{AbsolutePath, Path, assert_path_eq};
     use tempfile::{NamedTempFile, TempDir};
 
     /// Creates a symlink. Works on both Unix and Windows.

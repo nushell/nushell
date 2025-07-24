@@ -37,11 +37,16 @@ def get-annotated [
         source `($file)`
         scope commands
         | select name attributes
-        | where attributes != []
         | to nuon
     '
     | from nuon
-    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | each {|e|
+        # filter commands with test attributes, and map attributes to annotation name
+        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -o $x }
+        if ($test_attributes | is-not-empty) {
+          $e | update attributes $test_attributes.0
+        }
+      }
     | rename function_name annotation
 }
 
@@ -235,13 +240,15 @@ def run-tests-for-module [
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
-            $test|insert result {|x|
-                run-test $test $plugins
-                | if $in.exit_code == 0 {
-                    'pass'
-                } else {
-                    'fail'
-                }
+            $test | insert result { run-test $test $plugins }
+        }
+        | collect # Avoid interleaving errors
+        | update result {|test|
+            if $in.exit_code == 0 {
+                'pass'
+            } else {
+                log error $"Error while running ($test.test) in module ($module.name)(char nl)($in.stderr)"
+                'fail'
             }
         }
         | append $skipped_tests
@@ -333,20 +340,20 @@ export def run-tests [
                 commands: (get-annotated $row.name)
             }
         }
-        | filter {|x| ($x.commands|length) > 0}
+        | where {|x| ($x.commands|length) > 0}
         | upsert commands {|module|
             $module.commands
             | create-test-record
         }
         | flatten
-        | filter {|x| ($x.test|length) > 0}
-        | filter {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
-        | filter {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
-        | filter {|x| if ($module|is-empty) {true} else {$module == $x.name}}
+        | where {|x| ($x.test|length) > 0}
+        | where {|x| if ($exclude_module|is-empty) {true} else {$x.name !~ $exclude_module}}
+        | where {|x| if ($test|is-empty) {true} else {$x.test|any {|y| $y =~ $test}}}
+        | where {|x| if ($module|is-empty) {true} else {$module == $x.name}}
         | update test {|x|
             $x.test
-            | filter {|y| if ($test|is-empty) {true} else {$y =~ $test}}
-            | filter {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
+            | where {|y| if ($test|is-empty) {true} else {$y =~ $test}}
+            | where {|y| if ($exclude|is-empty) {true} else {$y !~ $exclude}}
         }
     )
     if $list {

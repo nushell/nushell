@@ -6,8 +6,8 @@ use std::{
 use nu_engine::command_prelude::*;
 
 use nu_protocol::{
-    engine::{FilterTag, Mailbox},
     Signals,
+    engine::{FilterTag, Mailbox},
 };
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ impl Command for JobRecv {
     fn extra_description(&self) -> &str {
         r#"When messages are sent to the current process, they get stored in what is called the "mailbox".
 This commands reads and returns a message from the mailbox, in a first-in-first-out fashion.
-j
+
 Messages may have numeric flags attached to them. This commands supports filtering out messages that do not satisfy a given tag, by using the `tag` flag.
 If no tag is specified, this command will accept any message.
 
@@ -145,7 +145,7 @@ fn recv_instantly(
 ) -> Result<PipelineData, ShellError> {
     match mailbox.try_recv(tag) {
         Ok(value) => Ok(value),
-        Err(TryRecvError::Empty) => Err(ShellError::RecvTimeout { span }),
+        Err(TryRecvError::Empty) => Err(JobError::RecvTimeout { span }.into()),
         Err(TryRecvError::Disconnected) => Err(ShellError::Interrupted { span }),
     }
 }
@@ -175,7 +175,7 @@ fn recv_with_time_limit(
         }
 
         if time_until_deadline.is_zero() {
-            return Err(ShellError::RecvTimeout { span });
+            return Err(JobError::RecvTimeout { span }.into());
         }
     }
 }

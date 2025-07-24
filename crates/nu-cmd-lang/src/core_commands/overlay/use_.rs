@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
+use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
 
 use std::path::Path;
 
@@ -158,7 +158,7 @@ impl Command for OverlayUse {
                 }
 
                 let eval_block = get_eval_block(engine_state);
-                let _ = eval_block(engine_state, &mut callee_stack, block, input);
+                let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
                 // The export-env block should see the env vars *before* activating this overlay
                 caller_stack.add_overlay(overlay_name);
@@ -178,6 +178,7 @@ impl Command for OverlayUse {
             }
         } else {
             caller_stack.add_overlay(overlay_name);
+            caller_stack.update_config(engine_state)?;
         }
 
         Ok(PipelineData::empty())

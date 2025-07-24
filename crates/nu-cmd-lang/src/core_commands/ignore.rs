@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, OutDest};
+use nu_protocol::{ByteStreamSource, OutDest, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct Ignore;

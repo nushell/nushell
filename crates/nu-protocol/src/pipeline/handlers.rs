@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use crate::{engine::Sequence, ShellError, SignalAction};
+use crate::{ShellError, SignalAction, engine::Sequence};
 
 /// Handler is a closure that can be sent across threads and shared.
 pub type Handler = Box<dyn Fn(SignalAction) + Send + Sync>;

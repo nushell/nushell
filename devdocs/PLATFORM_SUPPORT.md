@@ -15,7 +15,7 @@ The Nushell team runs **testing of Nushell for the following platforms** through
 
 - macOS (latest version available through GitHub CI)
 - Windows (10 and 11)
-- Linux (our test runners use `ubuntu-20.04` to represent distributions with not the latest glibc versions.)
+- Linux (our test runners use `ubuntu-22.04` to represent distributions with not the latest glibc versions.)
 
 All PR level tests are performed on x86/AMD64 (at least at the time of writing the default macOS runner was not yet using arm64).
 

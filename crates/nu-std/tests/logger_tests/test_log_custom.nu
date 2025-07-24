@@ -19,7 +19,7 @@ def run-command [
     } else {
         ^$nu.current-exe --no-config-file --commands $'use std/log; NU_LOG_LEVEL=($system_level) log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
     }
-    | complete | get --ignore-errors stderr
+    | complete | get --optional stderr
 }
 
 @test

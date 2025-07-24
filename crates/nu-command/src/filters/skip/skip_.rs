@@ -83,7 +83,7 @@ impl Command for Skip {
                         return Err(ShellError::TypeMismatch {
                             err_message: "expected int".into(),
                             span,
-                        })
+                        });
                     }
                 }
             }

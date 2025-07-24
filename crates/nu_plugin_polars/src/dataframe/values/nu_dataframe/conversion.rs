@@ -2,25 +2,27 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
+use polars::chunked_array::ChunkedArray;
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
-use polars::chunked_array::ChunkedArray;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
     ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
-    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder,
+    Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
     ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
     NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    TemporalMethods, TimeUnit, TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type,
+    UInt64Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
-use polars_arrow::array::Utf8ViewArray;
 use polars_arrow::Either;
+use polars_arrow::array::Utf8ViewArray;
 
+use crate::command::datetime::timezone_utc;
 use crate::dataframe::values::NuSchema;
 
 use super::{DataFrameValue, NuDataFrame};
@@ -232,7 +234,7 @@ pub fn insert_value(
         col_val.column_type = value_to_data_type(&value);
     } else if let Some(current_data_type) = current_data_type {
         if col_val.column_type.as_ref() != Some(&current_data_type) {
-            col_val.column_type = Some(DataType::Object("Value", None));
+            col_val.column_type = Some(DataType::Object("Value"));
         }
     }
     col_val.values.push(value);
@@ -248,7 +250,7 @@ fn value_to_data_type(value: &Value) -> Option<DataType> {
         Value::Bool { .. } => Some(DataType::Boolean),
         Value::Date { .. } => Some(DataType::Datetime(
             TimeUnit::Nanoseconds,
-            Some(PlSmallStr::from_static("UTC")),
+            Some(timezone_utc()),
         )),
         Value::Duration { .. } => Some(DataType::Duration(TimeUnit::Nanoseconds)),
         Value::Filesize { .. } => Some(DataType::Int64),
@@ -266,7 +268,7 @@ fn value_to_data_type(value: &Value) -> Option<DataType> {
                 .map(value_to_data_type)
                 .nth(1)
                 .flatten()
-                .unwrap_or(DataType::Object("Value", None));
+                .unwrap_or(DataType::Object("Value"));
 
             Some(DataType::List(Box::new(list_type)))
         }
@@ -278,7 +280,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
     let column_type = &column
         .column_type
         .clone()
-        .unwrap_or(DataType::Object("Value", None));
+        .unwrap_or(DataType::Object("Value"));
     match column_type {
         DataType::Float32 => {
             let series_values: Result<Vec<_>, _> = column
@@ -433,7 +435,7 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 column.values.iter().map(|v| v.coerce_binary()).collect();
             Ok(Series::new(name, series_values?))
         }
-        DataType::Object(_, _) => value_to_series(name, &column.values),
+        DataType::Object(_) => value_to_series(name, &column.values),
         DataType::Duration(time_unit) => {
             let series_values: Result<Vec<_>, _> = column
                 .values
@@ -452,24 +454,39 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                 Err(_) => {
                     // An error case will occur when there are lists of mixed types.
                     // If this happens, fallback to object list
-                    input_type_list_to_series(
-                        &name,
-                        &DataType::Object("unknown", None),
-                        &column.values,
-                    )
+                    input_type_list_to_series(&name, &DataType::Object("unknown"), &column.values)
                 }
             }
         }
         DataType::Date => {
-            let it = column.values.iter().map(|v| {
-                if let Value::Date { val, .. } = &v {
-                    Some(val.timestamp_nanos_opt().unwrap_or_default())
-                } else {
-                    None
-                }
-            });
+            let it = column
+                .values
+                .iter()
+                .map(|v| match &v {
+                    Value::Date { val, .. } => {
+                        Ok(Some(val.timestamp_nanos_opt().unwrap_or_default()))
+                    }
 
-            ChunkedArray::<Int64Type>::from_iter_options(name, it)
+                    Value::String { val, .. } => {
+                        let expected_format = "%Y-%m-%d";
+                        let nanos = NaiveDate::parse_from_str(val, expected_format)
+                            .map_err(|e| ShellError::GenericError {
+                                error: format!("Error parsing date from string: {e}"),
+                                msg: "".into(),
+                                span: None,
+                                help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-date <format>`.")),
+                                inner: vec![],
+                            })?
+                            .and_hms_nano_opt(0, 0, 0, 0)
+                            .and_then(|dt| dt.and_utc().timestamp_nanos_opt());
+                        Ok(nanos)
+                    }
+
+                    _ => Ok(None),
+                })
+                .collect::<Result<Vec<_>, ShellError>>()?;
+
+            ChunkedArray::<Int64Type>::from_iter_options(name, it.into_iter())
                 .into_datetime(TimeUnit::Nanoseconds, None)
                 .cast_with_options(&DataType::Date, Default::default())
                 .map_err(|e| ShellError::GenericError {
@@ -506,6 +523,39 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                             .timestamp_nanos_opt()
                             .map(|nanos| nanos_to_timeunit(nanos, *tu))
                             .transpose(),
+
+                        (Some(_), Value::String { val, .. }) => {
+                            // because we're converting to the number of nano seconds since epoch, the timezone is irrelevant
+                            let expected_format = "%Y-%m-%d %H:%M:%S%:z";
+                            DateTime::parse_from_str(val, expected_format)
+                                .map_err(|e| ShellError::GenericError {
+                                    error: format!("Error parsing datetime from string: {e}"),
+                                    msg: "".into(),
+                                    span: None,
+                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
+                                    inner: vec![],
+                                })?
+                                .timestamp_nanos_opt()
+                                .map(|nanos| nanos_to_timeunit(nanos, *tu))
+                                .transpose()
+                        }
+
+                        (None, Value::String { val, .. }) => {
+                            let expected_format = "%Y-%m-%d %H:%M:%S";
+
+                            NaiveDateTime::parse_from_str(val, expected_format)
+                                .map_err(|e| ShellError::GenericError {
+                                    error: format!("Error parsing datetime from string: {e}"),
+                                    msg: "".into(),
+                                    span: None,
+                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
+                                    inner: vec![],
+                                })?
+                                .and_utc()
+                                .timestamp_nanos_opt()
+                                .map(|nanos| nanos_to_timeunit(nanos, *tu))
+                                .transpose()
+                        }
 
                         _ => Ok(None),
                     }
@@ -742,15 +792,11 @@ fn series_to_values(
 ) -> Result<Vec<Value>, ShellError> {
     match series.dtype() {
         DataType::Null => {
-            let it = std::iter::repeat(Value::nothing(span));
-            let values = if let Some(size) = maybe_size {
-                Either::Left(it.take(size))
+            if let Some(size) = maybe_size {
+                Ok(vec![Value::nothing(span); size])
             } else {
-                Either::Right(it)
+                Ok(vec![Value::nothing(span); series.len()])
             }
-            .collect::<Vec<Value>>();
-
-            Ok(values)
         }
         DataType::UInt8 => {
             let casted = series.u8().map_err(|e| ShellError::GenericError {
@@ -1056,7 +1102,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Object(x, _) => {
+        DataType::Object(x) => {
             let casted = series
                 .as_any()
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
@@ -1135,7 +1181,7 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     let nanos = nanos_per_day(a);
-                    let datetime = datetime_from_epoch_nanos(nanos, &None, span)?;
+                    let datetime = datetime_from_epoch_nanos(nanos, None, span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -1162,7 +1208,7 @@ fn series_to_values(
                 Some(a) => {
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
                     let nanos = nanos_from_timeunit(a, *time_unit)?;
-                    let datetime = datetime_from_epoch_nanos(nanos, tz, span)?;
+                    let datetime = datetime_from_epoch_nanos(nanos, tz.as_ref(), span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -1252,7 +1298,7 @@ fn series_to_values(
             error: "Error creating Dataframe".into(),
             msg: "".to_string(),
             span: None,
-            help: Some(format!("Value not supported in nushell: {e}")),
+            help: Some(format!("Value not supported in nushell: {e:?}")),
             inner: vec![],
         }),
     }
@@ -1275,12 +1321,16 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::Float64(f) => Ok(Value::float(*f, span)),
         AnyValue::Date(d) => {
             let nanos = nanos_per_day(*d);
-            datetime_from_epoch_nanos(nanos, &None, span)
-                .map(|datetime| Value::date(datetime, span))
+            datetime_from_epoch_nanos(nanos, None, span).map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Datetime(a, time_unit, tz) => {
             let nanos = nanos_from_timeunit(*a, *time_unit)?;
-            datetime_from_epoch_nanos(nanos, &tz.cloned(), span)
+            datetime_from_epoch_nanos(nanos, tz.cloned().as_ref(), span)
+                .map(|datetime| Value::date(datetime, span))
+        }
+        AnyValue::DatetimeOwned(a, time_unit, tz) => {
+            let nanos = nanos_from_timeunit(*a, *time_unit)?;
+            datetime_from_epoch_nanos(nanos, tz.as_ref().map(|tz| tz.as_ref()), span)
                 .map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Duration(a, time_unit) => {
@@ -1356,7 +1406,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             error: "Error creating Value".into(),
             msg: "".to_string(),
             span: Some(span),
-            help: Some(format!("Value not supported in nushell: {e}")),
+            help: Some(format!("Value not supported in nushell: {e:?}")),
             inner: Vec::new(),
         }),
     }
@@ -1399,7 +1449,7 @@ fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
 
 fn datetime_from_epoch_nanos(
     nanos: i64,
-    timezone: &Option<PlSmallStr>,
+    timezone: Option<&PolarsTimeZone>,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {

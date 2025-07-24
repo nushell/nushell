@@ -1,5 +1,5 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
-use crate::SpanId;
+use crate::{IntoValue, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -132,6 +132,45 @@ impl Span {
         Self::new(self.start - offset, self.end - offset)
     }
 
+    /// Return length of the slice.
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
+
+    /// Indicate if slice has length 0.
+    pub fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    /// Return another span fully inside the [`Span`].
+    ///
+    /// `start` and `end` are relative to `self.start`, and must lie within the `Span`.
+    /// In other words, both `start` and `end` must be `<= self.len()`.
+    pub fn subspan(&self, offset_start: usize, offset_end: usize) -> Option<Self> {
+        let len = self.len();
+
+        if offset_start > len || offset_end > len || offset_start > offset_end {
+            None
+        } else {
+            Some(Self::new(
+                self.start + offset_start,
+                self.start + offset_end,
+            ))
+        }
+    }
+
+    /// Return two spans that split the ['Span'] at the given position.
+    pub fn split_at(&self, offset: usize) -> Option<(Self, Self)> {
+        if offset < self.len() {
+            Some((
+                Self::new(self.start, self.start + offset),
+                Self::new(self.start + offset, self.end),
+            ))
+        } else {
+            None
+        }
+    }
+
     pub fn contains(&self, pos: usize) -> bool {
         self.start <= pos && pos < self.end
     }
@@ -235,6 +274,16 @@ impl Span {
             .into_iter()
             .reduce(Self::merge)
             .unwrap_or(Self::unknown())
+    }
+}
+
+impl IntoValue for Span {
+    fn into_value(self, span: Span) -> Value {
+        let record = record! {
+            "start" => Value::int(self.start as i64, self),
+            "end" => Value::int(self.end as i64, self),
+        };
+        record.into_value(span)
     }
 }
 

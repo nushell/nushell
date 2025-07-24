@@ -143,7 +143,7 @@ impl SyntaxShape {
 
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block => Type::Any,
+            SyntaxShape::Block => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
@@ -239,7 +239,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
-            SyntaxShape::RowCondition => write!(f, "condition"),
+            SyntaxShape::RowCondition => write!(
+                f,
+                "oneof<condition, {}>",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))
+            ),
             SyntaxShape::MathExpression => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
@@ -250,9 +254,14 @@ impl Display for SyntaxShape {
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
-                let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
-                let arg_string = arg_vec.join(", ");
-                write!(f, "one_of({arg_string})")
+                write!(f, "oneof<")?;
+                if let Some((last, rest)) = list.split_last() {
+                    for ty in rest {
+                        write!(f, "{ty}, ")?;
+                    }
+                    write!(f, "{last}")?;
+                }
+                write!(f, ">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }

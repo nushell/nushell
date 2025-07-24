@@ -1,7 +1,9 @@
-use nu_cmd_base::input_handler::{operate, CmdArgument};
+use std::str::FromStr;
+
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
-use nu_protocol::{ast::Expr, Unit};
+use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
+use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
 
 const NS_PER_US: i64 = 1_000;
 const NS_PER_MS: i64 = 1_000_000;
@@ -26,7 +28,7 @@ const ALLOWED_SIGNS: [&str; 2] = ["+", "-"];
 
 #[derive(Clone, Debug)]
 struct Arguments {
-    unit: Option<Spanned<String>>,
+    unit: Option<Spanned<Unit>>,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -95,28 +97,27 @@ impl Command for IntoDuration {
         let cell_paths = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        let span = match input.span() {
-            Some(t) => t,
-            None => call.head,
-        };
         let unit = match call.get_flag::<Spanned<String>>(engine_state, stack, "unit")? {
-            Some(spanned_unit) => {
-                if ["ns", "us", "µs", "ms", "sec", "min", "hr", "day", "wk"]
-                    .contains(&spanned_unit.item.as_str())
-                {
-                    Some(spanned_unit)
-                } else {
-                    return Err(ShellError::CantConvertToDuration {
-                        details: spanned_unit.item,
-                        dst_span: span,
-                        src_span: span,
-                        help: Some(
-                            "supported units are ns, us/µs, ms, sec, min, hr, day, and wk"
-                                .to_string(),
-                        ),
+            Some(spanned_unit) => match Unit::from_str(&spanned_unit.item) {
+                Ok(u) => match u {
+                    Unit::Filesize(_) => {
+                        return Err(ShellError::InvalidUnit {
+                            span: spanned_unit.span,
+                            supported_units: SUPPORTED_DURATION_UNITS.join(", "),
+                        });
+                    }
+                    _ => Some(Spanned {
+                        item: u,
+                        span: spanned_unit.span,
+                    }),
+                },
+                Err(_) => {
+                    return Err(ShellError::InvalidUnit {
+                        span: spanned_unit.span,
+                        supported_units: SUPPORTED_DURATION_UNITS.join(", "),
                     });
                 }
-            }
+            },
             None => None,
         };
         let args = Arguments { unit, cell_paths };
@@ -139,8 +140,7 @@ impl Command for IntoDuration {
             },
             Example {
                 description: "Convert table of duration strings to table of duration values",
-                example:
-                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_duration(NS_PER_SEC),
@@ -245,11 +245,9 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         }
     }
 
-    Err(ShellError::CantConvertToDuration {
-        details: s.to_string(),
-        dst_span: span,
-        src_span: span,
-        help: Some("supported units are ns, us/µs, ms, sec, min, hr, day, and wk".to_string()),
+    Err(ShellError::InvalidUnit {
+        span,
+        supported_units: SUPPORTED_DURATION_UNITS.join(", "),
     })
 }
 
@@ -271,9 +269,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     }
 
-    let unit: &str = match unit_option {
+    let unit = match unit_option {
         Some(unit) => &unit.item,
-        None => "ns",
+        None => &Unit::Nanosecond,
     };
 
     match input {
@@ -325,9 +323,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
             ),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: span
-            }
-        );
+            input_span: span,
+        });
     };
 
     let mut duration: i64 = 0;
@@ -371,8 +368,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 if !ALLOWED_SIGNS.contains(&val.as_str()) {
                     let allowed_signs = ALLOWED_SIGNS.join(", ");
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign. Allowed signs are {}", allowed_signs)
-                            .to_string(),
+                        msg: format!("Invalid sign. Allowed signs are {allowed_signs}").to_string(),
                         val_span: sign.span(),
                         call_span: head,
                     });
@@ -419,16 +415,16 @@ fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellEr
     Ok(value)
 }
 
-fn unit_to_ns_factor(unit: &str) -> i64 {
+fn unit_to_ns_factor(unit: &Unit) -> i64 {
     match unit {
-        "ns" => 1,
-        "us" | "µs" => NS_PER_US,
-        "ms" => NS_PER_MS,
-        "sec" => NS_PER_SEC,
-        "min" => NS_PER_MINUTE,
-        "hr" => NS_PER_HOUR,
-        "day" => NS_PER_DAY,
-        "wk" => NS_PER_WEEK,
+        Unit::Nanosecond => 1,
+        Unit::Microsecond => NS_PER_US,
+        Unit::Millisecond => NS_PER_MS,
+        Unit::Second => NS_PER_SEC,
+        Unit::Minute => NS_PER_MINUTE,
+        Unit::Hour => NS_PER_HOUR,
+        Unit::Day => NS_PER_DAY,
+        Unit::Week => NS_PER_WEEK,
         _ => 0,
     }
 }
@@ -464,7 +460,7 @@ mod test {
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
             unit: Some(Spanned {
-                item: "ns".to_string(),
+                item: Unit::Nanosecond,
                 span: Span::test_data(),
             }),
             cell_paths: None,
