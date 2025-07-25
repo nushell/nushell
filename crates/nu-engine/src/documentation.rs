@@ -648,14 +648,6 @@ impl HelpStyle {
     }
 }
 
-/// Make syntax shape presentable by stripping custom completer info
-fn document_shape(shape: &SyntaxShape) -> &SyntaxShape {
-    match shape {
-        SyntaxShape::CompleterWrapper(inner_shape, _) => inner_shape,
-        _ => shape,
-    }
-}
-
 #[derive(PartialEq)]
 enum PositionalKind {
     Required,
@@ -686,15 +678,14 @@ fn write_positional(
                 long_desc,
                 "{help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>",
                 String::from_utf8_lossy(kw),
-                document_shape(shape),
+                shape,
             );
         }
         _ => {
             let _ = write!(
                 long_desc,
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
-                positional.name,
-                document_shape(&positional.shape),
+                positional.name, &positional.shape,
             );
         }
     };
@@ -767,11 +758,7 @@ where
         }
         // Type/Syntax shape info
         if let Some(arg) = &flag.arg {
-            let _ = write!(
-                long_desc,
-                " <{help_subcolor_two}{}{RESET}>",
-                document_shape(arg)
-            );
+            let _ = write!(long_desc, " <{help_subcolor_two}{arg}{RESET}>");
         }
         if !flag.desc.is_empty() {
             let _ = write!(
