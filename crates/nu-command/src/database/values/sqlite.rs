@@ -570,9 +570,36 @@ fn read_single_table(
     prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
 }
 
+/// The SQLite type behind a query column returned as some raw type (e.g. 'text')
+#[derive(Clone, Copy)]
+pub enum DeclType {
+    Json,
+    Jsonb,
+}
+
+impl DeclType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "JSON" => Some(DeclType::Json),
+            "JSONB" => Some(DeclType::Jsonb),
+            _ => None, // We are only special-casing JSON(B) columns for now
+        }
+    }
+}
+
+/// A column out of an SQLite query, together with its type
 pub struct TypedColumn {
     pub name: String,
-    pub decl_type: Option<String>,
+    pub decl_type: Option<DeclType>,
+}
+
+impl TypedColumn {
+    pub fn from_rusqlite_column(c: &rusqlite::Column) -> Self {
+        Self {
+            name: c.name().to_owned(),
+            decl_type: c.decl_type().and_then(DeclType::from_str),
+        }
+    }
 }
 
 fn prepared_statement_to_nu_list(
@@ -584,10 +611,7 @@ fn prepared_statement_to_nu_list(
     let columns: Vec<TypedColumn> = stmt
         .columns()
         .iter()
-        .map(|c| TypedColumn {
-            name: c.name().to_owned(),
-            decl_type: c.decl_type().map(|s| s.to_owned()),
-        })
+        .map(TypedColumn::from_rusqlite_column)
         .collect();
 
     // I'm very sorry for this repetition
@@ -670,11 +694,7 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, columns: &[TypedCol
         .map(|(i, col)| {
             (
                 col.name.clone(),
-                convert_sqlite_value_to_nu_value(
-                    row.get_ref_unwrap(i),
-                    col.decl_type.as_deref(),
-                    span,
-                ),
+                convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), col.decl_type, span),
             )
         })
         .collect();
@@ -684,27 +704,23 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, columns: &[TypedCol
 
 pub fn convert_sqlite_value_to_nu_value(
     value: ValueRef,
-    decl_type: Option<&str>,
+    decl_type: Option<DeclType>,
     span: Span,
 ) -> Value {
     match value {
         ValueRef::Null => Value::nothing(span),
         ValueRef::Integer(i) => Value::int(i, span),
         ValueRef::Real(f) => Value::float(f, span),
-        ValueRef::Text(buf) => {
-            let s = match std::str::from_utf8(buf) {
-                Ok(v) => v,
-                Err(_) => return Value::error(ShellError::NonUtf8 { span }, span),
-            };
-            match decl_type {
-                Some(typ) if &typ.to_uppercase()[0..4] == "JSON" => {
-                    match crate::convert_string_to_value(s, span) {
-                        Ok(v) => v,
-                        Err(e) => Value::error(e, span),
-                    }
+        ValueRef::Text(buf) => match (std::str::from_utf8(buf), decl_type) {
+            (Ok(txt), Some(DeclType::Json | DeclType::Jsonb)) => {
+                match crate::convert_string_to_value(txt, span) {
+                    Ok(val) => val,
+                    Err(err) => Value::error(err, span),
                 }
             }
-        }
+            (Ok(txt), _) => Value::string(txt.to_string(), span),
+            (Err(_), _) => Value::error(ShellError::NonUtf8 { span }, span),
+        },
         ValueRef::Blob(u) => Value::binary(u.to_vec(), span),
     }
 }
