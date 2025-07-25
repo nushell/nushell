@@ -2004,7 +2004,11 @@ pub fn parse_paren_expr(
     if fcp_error_count > starting_error_count {
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
             .first()
-            .is_some_and(|e| matches!(e, ParseError::Unclosed(right, _) if right == ")" ));
+            .is_some_and(|e| match e {
+                ParseError::Unclosed(right, _) if (right == ")") => true,
+                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                _ => false,
+            });
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
             parse_string_interpolation(working_set, span)
