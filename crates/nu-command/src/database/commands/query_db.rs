@@ -73,7 +73,7 @@ stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p {
             .get_flag(engine_state, stack, "params")?
             .unwrap_or_else(|| Value::nothing(Span::unknown()));
 
-        let params = nu_value_to_params(params_value)?;
+        let params = nu_value_to_params(engine_state, params_value, call.head)?;
 
         let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
         db.query(&sql, params, call.head)

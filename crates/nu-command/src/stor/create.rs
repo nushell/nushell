@@ -102,6 +102,12 @@ fn process(
                                 "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
                             ));
                         }
+                        "json" => {
+                            create_stmt.push_str(&format!("{column_name} JSON, "));
+                        }
+                        "jsonb" => {
+                            create_stmt.push_str(&format!("{column_name} JSONB, "));
+                        }
 
                         _ => {
                             return Err(ShellError::UnsupportedInput {
