@@ -89,6 +89,7 @@ pub enum Value {
         internal_span: Span,
     },
     Duration {
+        /// The duration in nanoseconds.
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
