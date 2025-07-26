@@ -120,12 +120,12 @@ impl Command for Window {
                 PipelineData::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowGapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
-                    Ok(PipelineData::ListStream(stream, metadata))
+                    Ok(PipelineData::list_stream(stream, metadata))
                 }
                 PipelineData::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowGapIter::new(iter, size, stride, remainder, head));
-                    Ok(PipelineData::ListStream(stream, metadata))
+                    Ok(PipelineData::list_stream(stream, metadata))
                 }
                 input => Err(input.unsupported_input_error("list", head)),
             }
@@ -134,12 +134,12 @@ impl Command for Window {
                 PipelineData::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowOverlapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
-                    Ok(PipelineData::ListStream(stream, metadata))
+                    Ok(PipelineData::list_stream(stream, metadata))
                 }
                 PipelineData::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowOverlapIter::new(iter, size, stride, remainder, head));
-                    Ok(PipelineData::ListStream(stream, metadata))
+                    Ok(PipelineData::list_stream(stream, metadata))
                 }
                 input => Err(input.unsupported_input_error("list", head)),
             }

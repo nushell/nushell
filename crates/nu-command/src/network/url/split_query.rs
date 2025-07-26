@@ -89,7 +89,7 @@ impl Command for UrlSplitQuery {
         let span = value.span();
         let query = value.to_expanded_string("", &stack.get_config(engine_state));
         let table = query_string_to_table(&query, call.head, span)?;
-        Ok(PipelineData::Value(table, None))
+        Ok(PipelineData::value(table, None))
     }
 }
 

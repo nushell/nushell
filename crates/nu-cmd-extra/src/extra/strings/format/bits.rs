@@ -113,7 +113,7 @@ fn format_bits(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     if let PipelineData::ByteStream(stream, metadata) = input {
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             byte_stream_to_bits(stream, head),
             metadata,
         ))

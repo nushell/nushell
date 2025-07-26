@@ -294,7 +294,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     match eval_block::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::value(*value, None)),
         x => x,
     }
 }

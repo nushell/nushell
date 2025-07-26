@@ -48,7 +48,7 @@ to the `polars agg` command with some column expressions for aggregation which t
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             Value::string(engine.get_help()?, call.head),
             None,
         ))

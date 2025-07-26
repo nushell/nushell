@@ -196,7 +196,7 @@ impl Command for Watch {
                         new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
                         head,
                     ))
-                    .run_with_input(PipelineData::Empty);
+                    .run_with_input(PipelineData::empty());
 
                 match result {
                     Ok(val) => val.print_table(engine_state, stack, false, false)?,

@@ -191,7 +191,7 @@ fn format(
     //  We can only handle a Record or a List of Records
     match data_as_value {
         Value::Record { .. } => match format_record(format_operations, &data_as_value, config) {
-            Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
+            Ok(value) => Ok(PipelineData::value(Value::string(value, head_span), None)),
             Err(value) => Err(value),
         },
 

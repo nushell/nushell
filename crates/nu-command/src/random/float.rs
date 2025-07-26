@@ -93,9 +93,9 @@ fn float(
                 Bound::Unbounded => random_range(range.start()..f64::MAX),
             };
 
-            Ok(PipelineData::Value(Value::float(value, span), None))
+            Ok(PipelineData::value(Value::float(value, span), None))
         }
-        None => Ok(PipelineData::Value(
+        None => Ok(PipelineData::value(
             Value::float(random_range(0.0..1.0), span),
             None,
         )),

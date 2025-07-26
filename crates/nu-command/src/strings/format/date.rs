@@ -160,7 +160,7 @@ fn run(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     if list {
-        return Ok(PipelineData::Value(
+        return Ok(PipelineData::value(
             generate_strftime_list(head, false),
             None,
         ));

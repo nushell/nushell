@@ -28,7 +28,7 @@ pub fn empty(
         }
     } else {
         match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
                 match stream.reader() {

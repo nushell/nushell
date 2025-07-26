@@ -555,7 +555,7 @@ impl Command for ULimit {
                 set_limits(&limit_value, &res, hard, soft, call.head)?;
             }
 
-            Ok(PipelineData::Empty)
+            Ok(PipelineData::empty())
         } else {
             print_limits(call, engine_state, stack, all, soft, hard)
         }

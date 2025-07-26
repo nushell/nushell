@@ -79,7 +79,7 @@ impl Command for SchemaDb {
 
         // TODO: add views and triggers
 
-        Ok(PipelineData::Value(Value::record(record, span), None))
+        Ok(PipelineData::value(Value::record(record, span), None))
     }
 }
 

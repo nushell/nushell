@@ -67,7 +67,7 @@ fn command(
 
     let names = Value::list(names, call.head);
 
-    Ok(PipelineData::Value(names, None))
+    Ok(PipelineData::value(names, None))
 }
 
 #[cfg(test)]

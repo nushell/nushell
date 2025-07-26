@@ -424,13 +424,13 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
         PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
+            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
         ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
-            Ok(PipelineData::ByteStream(
+            Ok(PipelineData::byte_stream(
                 pretty_hex_stream(stream, input.call.head),
                 None,
             ))
@@ -439,16 +439,16 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
             let stream = ListStream::new(vals.into_iter(), span, signals);
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
 
             handle_row_stream(input, stream, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_record(input, val.into_owned())
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
@@ -464,7 +464,7 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             let signals = input.engine_state.signals().clone();
             let stream =
                 ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
         x => Ok(x),
@@ -761,7 +761,7 @@ fn handle_row_stream(
         Signals::empty(),
         ByteStreamType::String,
     );
-    Ok(PipelineData::ByteStream(stream, None))
+    Ok(PipelineData::byte_stream(stream, None))
 }
 
 fn make_clickable_link(

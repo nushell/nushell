@@ -76,7 +76,7 @@ pub fn calculate(
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(
                 vals,
-                values.span().expect("PipelineData::Value had no span"),
+                values.span().expect("PipelineData::value had no span"),
                 name,
                 mf,
             ),

@@ -94,7 +94,7 @@ impl Command for Skip {
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         stream.skip(span, n as u64)?,
                         metadata,
                     ))

@@ -264,7 +264,7 @@ fn insert(
                         value
                     }
                 });
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             } else {
                 let stream = stream.map(move |mut value| {
                     if let Err(e) = value.insert_data_at_cell_path(
@@ -278,7 +278,7 @@ fn insert(
                     }
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

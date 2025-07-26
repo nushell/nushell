@@ -270,7 +270,7 @@ pub fn compare_custom_closure(
     closure_eval
         .add_arg(left.clone())
         .add_arg(right.clone())
-        .run_with_input(PipelineData::Value(
+        .run_with_input(PipelineData::value(
             Value::list(vec![left.clone(), right.clone()], span),
             None,
         ))

@@ -57,7 +57,7 @@ impl PluginCommand for Sum {
                     .with_label("can't be used here", call.head));
             }
         }
-        Ok(PipelineData::Value(acc.to_value(call.head), None))
+        Ok(PipelineData::value(acc.to_value(call.head), None))
     }
 }
 

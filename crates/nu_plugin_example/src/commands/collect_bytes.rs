@@ -48,7 +48,7 @@ impl PluginCommand for CollectBytes {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             ByteStream::from_result_iter(
                 input.into_iter().map(Value::coerce_into_binary),
                 call.head,

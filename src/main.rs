@@ -403,7 +403,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
-        PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
+        PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()

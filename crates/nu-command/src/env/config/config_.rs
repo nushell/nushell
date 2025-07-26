@@ -124,7 +124,7 @@ pub(super) fn start_editor(
 
     let post_wait_callback = PostWaitCallback::for_job_control(engine_state, None, None);
 
-    // Wrap the output into a `PipelineData::ByteStream`.
+    // Wrap the output into a `PipelineData::byte_stream`.
     let child = nu_protocol::process::ChildProcess::new(
         child,
         None,
@@ -133,7 +133,7 @@ pub(super) fn start_editor(
         Some(post_wait_callback),
     )?;
 
-    Ok(PipelineData::ByteStream(
+    Ok(PipelineData::byte_stream(
         ByteStream::child(child, call.head),
         None,
     ))

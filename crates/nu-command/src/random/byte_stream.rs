@@ -24,7 +24,7 @@ pub(super) fn random_byte_stream(
 
     const OUTPUT_CHUNK_SIZE: usize = 8192;
     let mut remaining_bytes = length;
-    PipelineData::ByteStream(
+    PipelineData::byte_stream(
         ByteStream::from_fn(span, signals.clone(), stream_type, move |out| {
             if remaining_bytes == 0 || signals.interrupted() {
                 return Ok(false);

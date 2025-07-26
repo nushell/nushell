@@ -129,7 +129,7 @@ fn into_binary(
 
     if let PipelineData::ByteStream(stream, metadata) = input {
         // Just set the type - that should be good enough
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             stream.with_type(ByteStreamType::Binary),
             metadata,
         ))

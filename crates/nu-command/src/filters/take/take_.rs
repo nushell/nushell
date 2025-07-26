@@ -62,7 +62,7 @@ impl Command for Take {
                         )),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
+                        Ok(PipelineData::value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
                         .into_range_iter(span, Signals::empty())
@@ -82,14 +82,14 @@ impl Command for Take {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         stream.take(span, rows_desired as u64)?,
                         metadata,
                     ))

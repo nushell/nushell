@@ -168,7 +168,7 @@ fn from_ods(
         }
     }
 
-    Ok(PipelineData::Value(
+    Ok(PipelineData::value(
         Value::record(dict.into_iter().collect(), head),
         None,
     ))

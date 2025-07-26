@@ -167,7 +167,7 @@ fn first_helper(
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     stream.modify(|iter| iter.take(rows)),
                     metadata,
                 ))
@@ -191,7 +191,7 @@ fn first_helper(
                         }
                     } else {
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::read(
                                 reader.take(rows as u64),
                                 head,
@@ -202,7 +202,7 @@ fn first_helper(
                         ))
                     }
                 } else {
-                    Ok(PipelineData::Empty)
+                    Ok(PipelineData::empty())
                 }
             } else {
                 Err(ShellError::OnlySupportsThisInputType {

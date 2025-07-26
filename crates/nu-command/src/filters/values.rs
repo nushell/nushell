@@ -137,7 +137,7 @@ fn values(
     let signals = engine_state.signals().clone();
     let metadata = input.metadata();
     match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(v, ..) => {
             let span = v.span();
             match v {

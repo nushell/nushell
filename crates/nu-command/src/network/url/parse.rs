@@ -117,7 +117,7 @@ fn parse(value: Value, head: Span, config: &Config) -> Result<PipelineData, Shel
         "params" => params,
     };
 
-    Ok(PipelineData::Value(Value::record(record, head), None))
+    Ok(PipelineData::value(Value::record(record, head), None))
 }
 
 #[cfg(test)]

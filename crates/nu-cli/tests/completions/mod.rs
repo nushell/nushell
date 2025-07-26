@@ -2140,7 +2140,8 @@ fn run_external_completion_within_pwd(
     assert!(engine_state.merge_delta(delta).is_ok());
 
     assert!(
-        eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::Empty).is_ok()
+        eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::empty())
+            .is_ok()
     );
 
     // Merge environment into the permanent state

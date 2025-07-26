@@ -124,11 +124,11 @@ pub fn chunks(
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let chunks = ChunksIter::new(vals, chunk_size, span);
             let stream = ListStream::new(chunks, span, engine_state.signals().clone());
-            Ok(PipelineData::ListStream(stream, metadata))
+            Ok(PipelineData::list_stream(stream, metadata))
         }
         PipelineData::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| ChunksIter::new(iter, chunk_size, span));
-            Ok(PipelineData::ListStream(stream, metadata))
+            Ok(PipelineData::list_stream(stream, metadata))
         }
         PipelineData::Value(Value::Binary { val, .. }, metadata) => {
             let chunk_read = ChunkRead {
@@ -148,7 +148,7 @@ pub fn chunks(
         }
         PipelineData::ByteStream(stream, metadata) => {
             let pipeline_data = match stream.reader() {
-                None => PipelineData::Empty,
+                None => PipelineData::empty(),
                 Some(reader) => {
                     let chunk_read = ChunkRead {
                         reader,

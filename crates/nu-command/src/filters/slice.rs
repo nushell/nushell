@@ -81,7 +81,7 @@ impl Command for Slice {
             };
 
             if count == 0 {
-                Ok(PipelineData::Value(Value::list(vec![], head), None))
+                Ok(PipelineData::value(Value::list(vec![], head), None))
             } else {
                 let iter = v.into_iter().skip(from).take(count);
                 Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
@@ -102,7 +102,7 @@ impl Command for Slice {
             };
 
             if count == 0 {
-                Ok(PipelineData::Value(Value::list(vec![], head), None))
+                Ok(PipelineData::value(Value::list(vec![], head), None))
             } else {
                 let iter = input.into_iter().skip(from).take(count);
                 Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))

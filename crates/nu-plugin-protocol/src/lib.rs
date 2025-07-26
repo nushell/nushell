@@ -84,7 +84,7 @@ pub enum PipelineDataHeader {
     ///
     /// Items are sent via [`StreamData`]
     ListStream(ListStreamInfo),
-    /// Initiate [`nu_protocol::PipelineData::ByteStream`].
+    /// Initiate [`nu_protocol::PipelineData::byte_stream`].
     ///
     /// Items are sent via [`StreamData`]
     ByteStream(ByteStreamInfo),
@@ -650,11 +650,11 @@ impl<D> EngineCallResponse<D> {
 impl EngineCallResponse<PipelineData> {
     /// Build an [`EngineCallResponse::PipelineData`] from a [`Value`]
     pub fn value(value: Value) -> EngineCallResponse<PipelineData> {
-        EngineCallResponse::PipelineData(PipelineData::Value(value, None))
+        EngineCallResponse::PipelineData(PipelineData::value(value, None))
     }
 
-    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::Empty`]
+    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::empty()`]
     pub const fn empty() -> EngineCallResponse<PipelineData> {
-        EngineCallResponse::PipelineData(PipelineData::Empty)
+        EngineCallResponse::PipelineData(PipelineData::empty())
     }
 }

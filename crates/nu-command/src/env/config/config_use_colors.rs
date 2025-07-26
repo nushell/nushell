@@ -33,7 +33,7 @@ impl Command for ConfigUseColors {
             .get_config()
             .use_ansi_coloring
             .get(engine_state);
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             Value::bool(use_ansi_coloring, call.head),
             None,
         ))

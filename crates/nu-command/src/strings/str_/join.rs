@@ -128,7 +128,7 @@ fn run(
         },
     );
 
-    Ok(PipelineData::ByteStream(output, metadata))
+    Ok(PipelineData::byte_stream(output, metadata))
 }
 
 #[cfg(test)]

@@ -85,7 +85,7 @@ impl PluginCommand for ToLazyFrame {
         let mut lazy = NuLazyFrame::from_dataframe(df);
         // We don't want this converted back to an eager dataframe at some point
         lazy.from_eager = false;
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             lazy.cache(plugin, engine, call.head)?.into_value(call.head),
             None,
         ))

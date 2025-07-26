@@ -159,7 +159,7 @@ pub(crate) fn add_menus(
             engine_state.merge_delta(delta)?;
 
             let mut temp_stack = Stack::new().collect_value();
-            let input = PipelineData::Empty;
+            let input = PipelineData::empty();
             menu_eval_results.push(eval_block::<WithoutDebug>(
                 &engine_state,
                 &mut temp_stack,

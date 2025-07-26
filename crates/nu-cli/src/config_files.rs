@@ -278,7 +278,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
         &mut stack,
         &old_contents,
         &old_plugin_file_path.to_string_lossy(),
-        PipelineData::Empty,
+        PipelineData::empty(),
         false,
     ) != 0
     {

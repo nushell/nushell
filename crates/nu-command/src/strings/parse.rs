@@ -195,7 +195,7 @@ fn operate(
         .collect::<Vec<_>>();
 
     match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(value, ..) => match value {
             Value::String { val, .. } => {
                 let captures = regex
@@ -270,7 +270,7 @@ fn operate(
 
                 Ok(ListStream::new(iter, head, Signals::empty()).into())
             } else {
-                Ok(PipelineData::Empty)
+                Ok(PipelineData::empty())
             }
         }
     }

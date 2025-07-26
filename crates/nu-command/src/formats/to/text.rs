@@ -121,10 +121,10 @@ impl Command for ToText {
                     )
                 };
 
-                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
+                Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
             PipelineData::ByteStream(stream, meta) => {
-                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
+                Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
         }
     }

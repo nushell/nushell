@@ -194,7 +194,7 @@ impl PluginTest {
     /// # }
     /// ```
     pub fn eval(&mut self, nu_source: &str) -> Result<PipelineData, ShellError> {
-        self.eval_with(nu_source, PipelineData::Empty)
+        self.eval_with(nu_source, PipelineData::empty())
     }
 
     /// Test a list of plugin examples. Prints an error for each failing example.

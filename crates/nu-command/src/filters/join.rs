@@ -85,7 +85,7 @@ impl Command for Join {
                 Value::String { val: r_on, .. },
             ) => {
                 let result = join(rows_1, rows_2, l_on, r_on, join_type, span);
-                Ok(PipelineData::Value(result, metadata))
+                Ok(PipelineData::value(result, metadata))
             }
             _ => Err(ShellError::UnsupportedInput {
                 msg: "(PipelineData<table>, table, string, string)".into(),

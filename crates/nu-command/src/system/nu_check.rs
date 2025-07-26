@@ -234,10 +234,10 @@ fn check_parse(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::value(Value::bool(true, call_head), None))
     }
 }
 
@@ -289,10 +289,10 @@ fn parse_file_or_dir_module(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::value(Value::bool(true, call_head), None))
     }
 }
 

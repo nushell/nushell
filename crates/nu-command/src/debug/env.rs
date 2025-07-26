@@ -25,7 +25,7 @@ impl Command for DebugEnv {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             env_to_strings(engine_state, stack)?.into_value(call.head),
             None,
         ))

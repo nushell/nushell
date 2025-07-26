@@ -130,7 +130,7 @@ impl Command for ParEach {
         };
 
         match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
