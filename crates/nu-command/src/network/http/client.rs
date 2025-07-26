@@ -1,4 +1,7 @@
-use crate::{formats::value_to_json_value, network::tls::tls};
+use crate::{
+    formats::value_to_json_value,
+    network::{http::timeout_extractor_reader::UreqTimeoutExtractorReader, tls::tls},
+};
 use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
@@ -164,7 +167,9 @@ pub fn response_to_buffer(
         _ => ByteStreamType::Unknown,
     };
 
-    let reader = response.into_body().into_reader();
+    let reader = UreqTimeoutExtractorReader {
+        r: response.into_body().into_reader(),
+    };
 
     PipelineData::ByteStream(
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
@@ -822,7 +827,9 @@ fn request_handle_response_content(
     };
     let manual_redirect = redirect_mode == RedirectMode::Manual;
 
-    let is_success = resp.status().is_success() || flags.allow_errors || (resp.status().is_redirection() && manual_redirect);
+    let is_success = resp.status().is_success()
+        || flags.allow_errors
+        || (resp.status().is_redirection() && manual_redirect);
     if !is_success {
         return Err(handle_status_error(span, requested_url, resp.status()));
     }
@@ -887,7 +894,8 @@ pub fn request_handle_response(
             requested_url,
             flags,
             resp,
-            request_headers, redirect_mode,
+            request_headers,
+            redirect_mode,
         ),
         Err(e) => match e {
             ShellErrorOrRequestError::ShellError(e) => Err(e),
@@ -968,11 +976,11 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { val, .. } = val {
                 if let Some((
-                                _col,
-                                Value::String {
-                                    val: header_name, ..
-                                },
-                            )) = val.get_index(0)
+                    _col,
+                    Value::String {
+                        val: header_name, ..
+                    },
+                )) = val.get_index(0)
                 {
                     return name == header_name;
                 }
