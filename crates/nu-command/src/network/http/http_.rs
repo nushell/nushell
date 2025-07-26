@@ -69,7 +69,14 @@ impl Command for Http {
             )
             .switch(
                 "full",
-                "returns the full response instead of only the body",
+                r#"Returns the record, containing metainformation about the exchange in addition to the response.
+                Returning record fields:
+                - urls: list of url redirects this command had to make to get to the destination
+                - headers.request: list of headers passed when doing the request
+                - headers.response: list of received headers
+                - body: the http body of the response
+                - status: the http status of the response
+                "#,
                 Some('f'),
             )
             .switch(

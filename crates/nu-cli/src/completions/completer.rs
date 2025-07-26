@@ -753,7 +753,7 @@ impl NuCompleter {
             Ok(value) => {
                 log::error!(
                     "External completer returned invalid value of type {}",
-                    value.get_type().to_string()
+                    value.get_type()
                 );
                 Some(vec![])
             }

@@ -101,14 +101,15 @@ fn http_post_failed_due_to_unexpected_body() {
     assert!(actual.err.contains("Cannot make request"))
 }
 
+const JSON: &str = r#"{
+  "foo": "bar"
+}"#;
+
 #[test]
 fn http_post_json_is_success() {
     let mut server = Server::new();
 
-    let mock = server
-        .mock("POST", "/")
-        .match_body(r#"{"foo":"bar"}"#)
-        .create();
+    let mock = server.mock("POST", "/").match_body(JSON).create();
 
     let actual = nu!(format!(
         r#"http post -t 'application/json' {url} {{foo: 'bar'}}"#,
@@ -116,17 +117,14 @@ fn http_post_json_is_success() {
     ));
 
     mock.assert();
-    assert!(actual.out.is_empty())
+    assert!(actual.out.is_empty(), "Unexpected output {:?}", actual.out)
 }
 
 #[test]
 fn http_post_json_string_is_success() {
     let mut server = Server::new();
 
-    let mock = server
-        .mock("POST", "/")
-        .match_body(r#"{"foo":"bar"}"#)
-        .create();
+    let mock = server.mock("POST", "/").match_body(JSON).create();
 
     let actual = nu!(format!(
         r#"http post -t 'application/json' {url} '{{"foo":"bar"}}'"#,
@@ -137,14 +135,17 @@ fn http_post_json_string_is_success() {
     assert!(actual.out.is_empty())
 }
 
+const JSON_LIST: &str = r#"[
+  {
+    "foo": "bar"
+  }
+]"#;
+
 #[test]
 fn http_post_json_list_is_success() {
     let mut server = Server::new();
 
-    let mock = server
-        .mock("POST", "/")
-        .match_body(r#"[{"foo":"bar"}]"#)
-        .create();
+    let mock = server.mock("POST", "/").match_body(JSON_LIST).create();
 
     let actual = nu!(format!(
         r#"http post -t 'application/json' {url} [{{foo: "bar"}}]"#,

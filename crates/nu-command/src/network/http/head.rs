@@ -1,8 +1,7 @@
-use super::client::HttpBody;
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response_headers,
-    request_set_timeout, send_request,
+    check_response_redirection, extract_response_headers, handle_response_status, headers_to_nu,
+    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
@@ -140,7 +139,6 @@ fn run_head(
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
-// The Option<String> return a possible file extension which can be used in AutoConvert commands
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -159,16 +157,11 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
-        engine_state,
-        request,
-        HttpBody::None,
-        None,
-        call.head,
-        signals,
-    );
+    let (response, _request_headers) = send_request_no_body(request, call.head, signals);
+    let response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
-    request_handle_response_headers(span, response)
+    handle_response_status(&response, redirect_mode, &requested_url, span, false)?;
+    headers_to_nu(&extract_response_headers(&response), span)
 }
 
 #[cfg(test)]
