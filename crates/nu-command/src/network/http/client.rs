@@ -781,19 +781,18 @@ fn transform_response_using_content_type(
 pub fn check_response_redirection(
     redirect_mode: RedirectMode,
     span: Span,
-    response: &Result<Response, ShellErrorOrRequestError>,
+    resp: &Response,
 ) -> Result<(), ShellError> {
-    if let Ok(resp) = response {
-        if RedirectMode::Error == redirect_mode && (300..400).contains(&resp.status().as_u16()) {
-            return Err(ShellError::NetworkFailure {
-                msg: format!(
-                    "Redirect encountered when redirect handling mode was 'error' ({})",
-                    resp.status()
-                ),
-                span,
-            });
-        }
+    if RedirectMode::Error == redirect_mode && (300..400).contains(&resp.status().as_u16()) {
+        return Err(ShellError::NetworkFailure {
+            msg: format!(
+                "Redirect encountered when redirect handling mode was 'error' ({})",
+                resp.status()
+            ),
+            span,
+        });
     }
+
     Ok(())
 }
 
@@ -816,7 +815,7 @@ pub(crate) fn handle_response_status(
     }
 }
 
-fn request_handle_response_content(
+pub(crate) fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
@@ -894,48 +893,6 @@ fn request_handle_response_content(
     }
 }
 
-pub fn request_handle_response(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    span: Span,
-    requested_url: &str,
-    flags: RequestFlags,
-    response: Result<Response, ShellErrorOrRequestError>,
-    request_headers: Headers,
-    redirect_mode: RedirectMode,
-) -> Result<PipelineData, ShellError> {
-    match response {
-        Ok(resp) => request_handle_response_content(
-            engine_state,
-            stack,
-            span,
-            requested_url,
-            flags,
-            resp,
-            request_headers,
-            redirect_mode,
-        ),
-        Err(e) => match e {
-            ShellErrorOrRequestError::ShellError(e) => Err(e),
-            ShellErrorOrRequestError::RequestError(_, e) => {
-                if flags.allow_errors {
-                    if let Error::StatusCode(..) = *e {
-                        unreachable!(
-                            "We configure away status code errors
-                            because we would like to receive
-                            the body even on http error status"
-                        );
-                    } else {
-                        Err(handle_response_error(span, requested_url, *e))
-                    }
-                } else {
-                    Err(handle_response_error(span, requested_url, *e))
-                }
-            }
-        },
-    }
-}
-
 type Headers = HashMap<String, Vec<String>>;
 
 fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<Headers> {
@@ -963,7 +920,7 @@ fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<Headers> {
     Some(headers_str)
 }
 
-fn extract_response_headers(response: &Response) -> Headers {
+pub(crate) fn extract_response_headers(response: &Response) -> Headers {
     let header_map = response.headers();
     header_map
         .keys()
@@ -987,7 +944,7 @@ fn extract_response_headers(response: &Response) -> Headers {
         .collect()
 }
 
-fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
+pub(crate) fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellError> {
     let mut vals = Vec::with_capacity(headers.len());
 
     for (name, values) in headers {
@@ -1021,18 +978,12 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
     Ok(Value::list(vals, span).into_pipeline_data())
 }
 
-pub fn request_handle_response_headers(
-    span: Span,
-    response: Result<Response, ShellErrorOrRequestError>,
-) -> Result<PipelineData, ShellError> {
-    match response {
-        Ok(resp) => headers_to_nu(&extract_response_headers(&resp), span),
-        Err(e) => match e {
-            ShellErrorOrRequestError::ShellError(e) => Err(e),
-            ShellErrorOrRequestError::RequestError(requested_url, e) => {
-                Err(handle_response_error(span, &requested_url, *e))
-            }
-        },
+pub(crate) fn request_error_to_shell_error(span: Span, e: ShellErrorOrRequestError) -> ShellError {
+    match e {
+        ShellErrorOrRequestError::ShellError(e) => e,
+        ShellErrorOrRequestError::RequestError(requested_url, e) => {
+            handle_response_error(span, &requested_url, *e)
+        }
     }
 }
 

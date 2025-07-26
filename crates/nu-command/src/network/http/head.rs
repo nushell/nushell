@@ -1,7 +1,8 @@
 use crate::network::http::client::{
-    check_response_redirection, handle_response_status, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response_headers, request_set_timeout, send_request_no_body,
+    check_response_redirection, extract_response_headers, handle_response_status, headers_to_nu,
+    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_error_to_shell_error, request_set_timeout,
+    send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
@@ -158,14 +159,10 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
 
     let (response, _request_headers) = send_request_no_body(request, call.head, signals);
+    let response = response.map_err(|e| request_error_to_shell_error(span, e))?;
     check_response_redirection(redirect_mode, span, &response)?;
-
-    // TODO(ureq): streamline this
-    if let Ok(resp) = &response {
-        handle_response_status(resp, redirect_mode, &requested_url, span, false)?;
-    }
-
-    request_handle_response_headers(span, response)
+    handle_response_status(&response, redirect_mode, &requested_url, span, false)?;
+    headers_to_nu(&extract_response_headers(&response), span)
 }
 
 #[cfg(test)]

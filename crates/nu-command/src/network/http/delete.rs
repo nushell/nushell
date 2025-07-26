@@ -1,7 +1,8 @@
 use crate::network::http::client::{
     HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
     http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request, send_request_no_body,
+    request_error_to_shell_error, request_handle_response, request_set_timeout, send_request,
+    send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -239,6 +240,7 @@ fn helper(
         full: args.full,
         allow_errors: args.allow_errors,
     };
+    let response = response.map_err(|e| request_error_to_shell_error(span, e))?;
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
@@ -249,7 +251,7 @@ fn helper(
         request_flags,
         response,
         request_headers,
-        redirect_mode
+        redirect_mode,
     )
 }
 
