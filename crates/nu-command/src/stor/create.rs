@@ -83,7 +83,7 @@ fn process(
             Some(record) => {
                 let mut create_stmt = format!("CREATE TABLE {new_table_name} ( ");
                 for (column_name, column_datatype) in record {
-                    match column_datatype.coerce_str()?.as_ref() {
+                    match column_datatype.coerce_str()?.to_lowercase().as_ref() {
                         "int" => {
                             create_stmt.push_str(&format!("{column_name} INTEGER, "));
                         }
@@ -111,7 +111,7 @@ fn process(
 
                         _ => {
                             return Err(ShellError::UnsupportedInput {
-                                msg: "unsupported column data type".into(),
+                                msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
                                 input: format!("{column_datatype:?}"),
                                 msg_span: column_datatype.span(),
                                 input_span: column_datatype.span(),
