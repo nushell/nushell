@@ -36,8 +36,11 @@ fn http_head_failed_due_to_server_error() {
         )
         .as_str()
     ));
-
-    assert!(actual.err.contains("Bad request (400)"))
+    assert!(
+        actual.err.contains("Bad request (400)"),
+        "Unexpected error: {:?}",
+        actual.err
+    )
 }
 
 #[test]
