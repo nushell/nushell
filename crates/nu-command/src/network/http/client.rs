@@ -797,6 +797,25 @@ pub fn check_response_redirection(
     Ok(())
 }
 
+pub(crate) fn handle_response_status(
+    resp: &Response,
+    redirect_mode: RedirectMode,
+    requested_url: &str,
+    span: Span,
+    allow_errors: bool,
+) -> Result<(), ShellError> {
+    let manual_redirect = redirect_mode == RedirectMode::Manual;
+
+    let is_success = resp.status().is_success()
+        || allow_errors
+        || (resp.status().is_redirection() && manual_redirect);
+    if is_success {
+        Ok(())
+    } else {
+        return Err(handle_status_error(span, requested_url, resp.status()));
+    }
+}
+
 fn request_handle_response_content(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -825,14 +844,13 @@ fn request_handle_response_content(
             None => Ok(response_to_buffer(response, engine_state, span)),
         }
     };
-    let manual_redirect = redirect_mode == RedirectMode::Manual;
-
-    let is_success = resp.status().is_success()
-        || flags.allow_errors
-        || (resp.status().is_redirection() && manual_redirect);
-    if !is_success {
-        return Err(handle_status_error(span, requested_url, resp.status()));
-    }
+    handle_response_status(
+        &resp,
+        redirect_mode,
+        requested_url,
+        span,
+        flags.allow_errors,
+    )?;
 
     if flags.full {
         let response_status = resp.status();
