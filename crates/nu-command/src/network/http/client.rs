@@ -813,7 +813,7 @@ pub(crate) fn handle_response_status(
     if is_success {
         Ok(())
     } else {
-        return Err(handle_status_error(span, requested_url, resp.status()));
+        Err(handle_status_error(span, requested_url, resp.status()))
     }
 }
 

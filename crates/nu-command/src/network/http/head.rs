@@ -1,8 +1,7 @@
 use crate::network::http::client::{
     check_response_redirection, extract_response_headers, handle_response_status, headers_to_nu,
     http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_set_timeout,
-    send_request_no_body,
+    request_add_custom_headers, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
