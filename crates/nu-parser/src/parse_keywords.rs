@@ -1025,7 +1025,7 @@ fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) ->
         return None;
     };
 
-    if spans.len() == 1 {
+    if spans.len() == command_len {
         None
     } else if spans.len() < command_len + 3 {
         if working_set.get_span_contents(spans[command_len]) == b"=" {
