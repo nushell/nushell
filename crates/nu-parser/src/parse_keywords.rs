@@ -1104,10 +1104,6 @@ pub fn parse_alias(
             decl_id,
         );
 
-        working_set
-            .parse_errors
-            .truncate(original_starting_error_count);
-
         let Ok(has_help_flag) = has_flag_const(working_set, &alias_call, "help") else {
             return garbage_pipeline(working_set, spans);
         };
@@ -1122,9 +1118,13 @@ pub fn parse_alias(
             output,
         )]);
 
-        if has_help_flag {
+        if original_starting_error_count != working_set.parse_errors.len() || has_help_flag {
             return alias_pipeline;
         }
+
+        working_set
+            .parse_errors
+            .truncate(original_starting_error_count);
 
         let Some(alias_name_expr) = alias_call.positional_nth(0) else {
             working_set.error(ParseError::UnknownState(
