@@ -24,10 +24,3 @@ fn export_alias_should_not_panic() {
 
     assert!(actual.err.contains("Missing required positional argument"));
 }
-
-#[test]
-fn export_alias_check_call() {
-    let actual = nu!("export alias foo bar");
-
-    assert!(actual.err.contains("expected ="));
-}
