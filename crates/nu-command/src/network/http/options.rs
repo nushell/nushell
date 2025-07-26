@@ -1,6 +1,6 @@
 use crate::network::http::client::{
     RedirectMode, RequestFlags, http_client, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_error_to_shell_error, request_handle_response,
+    request_add_custom_headers, request_handle_response,
     request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
@@ -162,7 +162,7 @@ fn helper(
     let (response, request_headers) =
         send_request_no_body(request, call.head, engine_state.signals());
 
-    let response = response.map_err(|e| request_error_to_shell_error(span, e))?;
+    let response = response?;
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true

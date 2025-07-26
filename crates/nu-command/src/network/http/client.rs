@@ -234,13 +234,13 @@ pub fn send_request_no_body(
     request: RequestBuilder<WithoutBody>,
     span: Span,
     signals: &Signals,
-) -> (Result<Response, ShellErrorOrRequestError>, Headers) {
+) -> (Result<Response, ShellError>, Headers) {
     let headers = extract_request_headers(&request);
     let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
-    (
-        send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals),
-        headers.unwrap_or_default(),
-    )
+    let result = send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
+        .map_err(|e| request_error_to_shell_error(span, e));
+
+    (result, headers.unwrap_or_default())
 }
 
 // remove once all commands have been migrated
@@ -251,7 +251,7 @@ pub fn send_request(
     content_type: Option<String>,
     span: Span,
     signals: &Signals,
-) -> (Result<Response, ShellErrorOrRequestError>, Headers) {
+) -> (Result<Response, ShellError>, Headers) {
     let mut request_headers = Headers::new();
     let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
     // hard code serialze_types to false because closures probably shouldn't be
@@ -304,6 +304,8 @@ pub fn send_request(
             }
         }
     };
+
+    let response = response.map_err(|e| request_error_to_shell_error(span, e));
 
     (response, request_headers)
 }
