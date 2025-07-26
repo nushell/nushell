@@ -1112,9 +1112,6 @@ pub fn parse_alias(
             return garbage_pipeline(working_set, spans);
         };
 
-        let sig = working_set.get_decl(decl_id).signature();
-        check_call(working_set, Span::concat(spans), &sig, &alias_call);
-
         let alias_pipeline = Pipeline::from_vec(vec![Expression::new(
             working_set,
             Expr::Call(alias_call.clone()),

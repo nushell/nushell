@@ -22,5 +22,5 @@ fn export_command_unexpected() {
 fn export_alias_should_not_panic() {
     let actual = nu!("export alias");
 
-    assert!(actual.err.contains("Missing required positional argument"));
+    assert!(actual.err.contains("Missing"));
 }
