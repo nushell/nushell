@@ -12,6 +12,13 @@ fn export_command_help() {
 }
 
 #[test]
+fn export_command_unexpected() {
+    let actual = nu!("export foo");
+
+    assert!(actual.err.contains("unexpected export"));
+}
+
+#[test]
 fn export_alias_should_not_panic() {
     let actual = nu!("export alias");
 
