@@ -100,6 +100,7 @@ unsafe fn sysctl_get(
     data: *mut libc::c_void,
     data_len: *mut usize,
 ) -> i32 {
+// Safety: Call to unsafe function `libc::sysctl`
     unsafe {
         sysctl(
             name,
@@ -251,6 +252,7 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
 
 // For getting simple values from the sysctl interface
 unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
+// Safety: Call to unsafe function `netbsd::sysctl_get`
     unsafe {
         let mut value: MaybeUninit<T> = MaybeUninit::uninit();
         let mut value_len = mem::size_of_val(&value);
