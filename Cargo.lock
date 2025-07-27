@@ -3778,6 +3778,7 @@ dependencies = [
  "fancy-regex",
  "filesize",
  "filetime",
+ "fuzzy-matcher",
  "getrandom 0.2.15",
  "human-date-parser",
  "indexmap",
