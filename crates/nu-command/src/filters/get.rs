@@ -46,6 +46,11 @@ If multiple cell paths are given, this will produce a list of values."#
                 Some('o'),
             )
             .switch(
+                "ignore-case",
+                "make all cell path members case insensitive",
+                None,
+            )
+            .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
@@ -116,12 +121,14 @@ If multiple cell paths are given, this will produce a list of values."#
         let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let optional = call.has_flag_const(working_set, "optional")?
             || call.has_flag_const(working_set, "ignore-errors")?;
+        let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
             optional,
+            ignore_case,
             working_set.permanent().signals().clone(),
             call.head,
         )
@@ -139,12 +146,14 @@ If multiple cell paths are given, this will produce a list of values."#
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
             optional,
+            ignore_case,
             engine_state.signals().clone(),
             call.head,
         )
@@ -176,6 +185,7 @@ fn action(
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
     optional: bool,
+    ignore_case: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -183,6 +193,13 @@ fn action(
         cell_path.make_optional();
         for path in &mut rest {
             path.make_optional();
+        }
+    }
+
+    if ignore_case {
+        cell_path.make_insensitive();
+        for path in &mut rest {
+            path.make_insensitive();
         }
     }
 
