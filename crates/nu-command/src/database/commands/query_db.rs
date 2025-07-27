@@ -54,6 +54,21 @@ stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p {
                     "second" => Value::test_int(123)
                 })])),
             },
+            Example {
+                description: "Execute a SQL query over JSONB data",
+                example: r#"stor create -t my_table -c {data: jsonb}
+stor insert -t my_table -d {data: {foo: foo, bar: 12, baz: [0 1 2]}}
+stor open | query db "SELECT data->'baz' as baz from my_table" | update baz {from json}"#,
+                result: Some(Value::test_list(vec![Value::test_record(
+                    record! { "baz" =>
+                        Value::test_list(vec![
+                            Value::test_int(0),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                        ])
+                    },
+                )])),
+            },
         ]
     }
 

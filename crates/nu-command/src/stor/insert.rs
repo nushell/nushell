@@ -67,6 +67,11 @@ impl Command for StorInsert {
                 example: "ls | stor insert --table-name files",
                 result: None,
             },
+            Example {
+                description: "Insert nu records as json data",
+                example: "ls -l | each {{file: $in.name, metadata: ($in | reject name)}} | stor insert --table-name files_with_md",
+                result: None,
+            },
         ]
     }
 
@@ -389,5 +394,49 @@ mod test {
         let result = process(&EngineState::new(), table_name, span, &db, columns);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_insert_json() {
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
+
+        let create_stmt = "CREATE TABLE test_insert_json (
+            json_field JSON,
+            jsonb_field JSONB 
+        )";
+
+        let conn = db
+            .open_connection()
+            .expect("Test was unable to open connection.");
+        conn.execute(create_stmt, [])
+            .expect("Failed to create table as part of test.");
+
+        let mut record = Record::new();
+        record.insert("x", Value::test_int(89));
+        record.insert("y", Value::test_int(12));
+        record.insert(
+            "z",
+            Value::test_list(vec![
+                Value::test_string("hello"),
+                Value::test_string("goodbye"),
+            ]),
+        );
+
+        let mut row = Record::new();
+        row.insert("json_field", Value::test_record(record.clone()));
+        row.insert("jsonb_field", Value::test_record(record));
+
+        let result = process(
+            &EngineState::new(),
+            Some("test_insert_json".to_owned()),
+            Span::unknown(),
+            &db,
+            row,
+        );
+
+        assert!(result.is_ok());
     }
 }
