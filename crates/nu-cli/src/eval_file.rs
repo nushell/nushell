@@ -31,7 +31,7 @@ pub fn evaluate_file(
             Ok(t) => Ok(t),
             Err(err) => {
                 let cmdline = format!("nu {path} {}", args.join(" "));
-                let mut working_set = StateWorkingSet::new(&engine_state);
+                let mut working_set = StateWorkingSet::new(engine_state);
                 let file_id = working_set.add_file("<commandline>".into(), cmdline.as_bytes());
                 let span = working_set
                     .get_span_for_file(file_id)
