@@ -80,6 +80,30 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
+                description: "Get a column from a table where some rows don't have that column, using optional cell-path syntax",
+                example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get A?",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A0"),
+                        Value::test_nothing(),
+                        Value::test_string("A2"),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Get a column from a table where some rows don't have that column, using the optional flag",
+                example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get -o A",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A0"),
+                        Value::test_nothing(),
+                        Value::test_string("A2"),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
                 description: "Get a cell from a table",
                 example: "[{A: A0}] | get 0.A",
                 result: Some(Value::test_string("A0")),
@@ -95,8 +119,13 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
             Example {
-                description: "Getting Path/PATH in a case insensitive way",
-                example: "$env | get paTH!",
+                description: "Getting environment variables in a case insensitive way, using case insensitive cell-path syntax",
+                example: "$env | get home! path!",
+                result: None,
+            },
+            Example {
+                description: "Getting environment variables in a case insensitive way, using the '--ignore-case' flag",
+                example: "$env | get --ignore-case home path",
                 result: None,
             },
             Example {
