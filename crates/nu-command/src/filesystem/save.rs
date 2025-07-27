@@ -32,6 +32,7 @@ impl Command for Save {
             "write",
             "write_file",
             "append",
+            "prepend",
             "redirection",
             "file",
             "io",
@@ -52,6 +53,11 @@ impl Command for Save {
             )
             .switch("raw", "save file as raw binary", Some('r'))
             .switch("append", "append input to the end of the file", Some('a'))
+            .switch(
+                "prepend",
+                "prepend input to the beginning of the file",
+                Some('P'),
+            )
             .switch("force", "overwrite the destination", Some('f'))
             .switch("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
@@ -66,8 +72,19 @@ impl Command for Save {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let append = call.has_flag(engine_state, stack, "append")?;
+        let prepend = call.has_flag(engine_state, stack, "prepend")?;
         let force = call.has_flag(engine_state, stack, "force")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
+
+        if append && prepend {
+            return Err(ShellError::GenericError {
+                error: "Cannot use both --append and --prepend".into(),
+                msg: "You can only use one of --append or --prepend flags".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
+        }
 
         let span = call.head;
         #[allow(deprecated)]
@@ -91,8 +108,14 @@ impl Command for Save {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
-                let (file, stderr_file) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                let (file, stderr_file) = get_files(
+                    engine_state,
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    prepend,
+                    force,
+                )?;
 
                 let size = stream.known_size();
                 let signals = engine_state.signals();
@@ -194,7 +217,11 @@ impl Command for Save {
                 Ok(PipelineData::Empty)
             }
             PipelineData::ListStream(ls, pipeline_metadata)
-                if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
+                if raw
+                    || prepare_path(&path, append, prepend, force)?
+                        .0
+                        .extension()
+                        .is_none() =>
             {
                 check_saving_to_source_file(
                     pipeline_metadata.as_ref(),
@@ -202,8 +229,14 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let (mut file, _) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    engine_state,
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    prepend,
+                    force,
+                )?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(&from_io_error)?;
@@ -228,10 +261,27 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    engine_state,
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    prepend,
+                    force,
+                )?;
 
-                file.write_all(&bytes).map_err(&from_io_error)?;
+                if prepend && path.item.exists() {
+                    let mut existing_content = Vec::new();
+                    File::open(&path.item)
+                        .and_then(|mut f| f.read_to_end(&mut existing_content))
+                        .map_err(&from_io_error)?;
+
+                    file.write_all(&bytes).map_err(&from_io_error)?;
+                    file.write_all(&existing_content).map_err(&from_io_error)?;
+                } else {
+                    file.write_all(&bytes).map_err(&from_io_error)?;
+                }
+
                 file.flush().map_err(&from_io_error)?;
 
                 Ok(PipelineData::empty())
@@ -249,6 +299,11 @@ impl Command for Save {
             Example {
                 description: "Append a string to the end of foo.txt",
                 example: r#"'append me' | save --append foo.txt"#,
+                result: None,
+            },
+            Example {
+                description: "Prepend a string to the beginning of foo.txt",
+                example: r#"'prepend me' | save --prepend foo.txt"#,
                 result: None,
             },
             Example {
@@ -404,12 +459,13 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 fn prepare_path(
     path: &Spanned<PathBuf>,
     append: bool,
+    prepend: bool,
     force: bool,
 ) -> Result<(&Path, Span), ShellError> {
     let span = path.span;
     let path = &path.item;
 
-    if !(force || append) && path.exists() {
+    if !(force || append || prepend) && path.exists() {
         Err(ShellError::GenericError {
             error: "Destination file already exists".into(),
             msg: format!(
@@ -430,9 +486,11 @@ fn open_file(
     path: &Path,
     span: Span,
     append: bool,
+    prepend: bool,
 ) -> Result<File, ShellError> {
-    let file: std::io::Result<File> = match (append, path.exists()) {
-        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
+    let file: std::io::Result<File> = match (append, prepend, path.exists()) {
+        (true, false, true) => std::fs::OpenOptions::new().append(true).open(path),
+        (false, true, true) => std::fs::OpenOptions::new().write(true).open(path),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)
             // A TOCTOU problem exists here, which may cause wrong error message to be shown
@@ -454,7 +512,7 @@ fn open_file(
     match file {
         Ok(file) => Ok(file),
         Err(err) => {
-            // In caase of NotFound, search for the missing parent directory.
+            // In case of NotFound, search for the missing parent directory.
             // This also presents a TOCTOU (or TOUTOC, technically?)
             if err.kind() == std::io::ErrorKind::NotFound {
                 if let Some(missing_component) =
@@ -490,17 +548,18 @@ fn get_files(
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
+    prepend: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
     // First check both paths
-    let (path, path_span) = prepare_path(path, append, force)?;
+    let (path, path_span) = prepare_path(path, append, prepend, force)?;
     let stderr_path_and_span = stderr_path
         .as_ref()
-        .map(|stderr_path| prepare_path(stderr_path, append, force))
+        .map(|stderr_path| prepare_path(stderr_path, append, prepend, force))
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(engine_state, path, path_span, append)?;
+    let file = open_file(engine_state, path, path_span, append, prepend)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
@@ -513,7 +572,7 @@ fn get_files(
                     inner: vec![],
                 })
             } else {
-                open_file(engine_state, stderr_path, stderr_path_span, append)
+                open_file(engine_state, stderr_path, stderr_path_span, append, prepend)
             }
         })
         .transpose()?;
