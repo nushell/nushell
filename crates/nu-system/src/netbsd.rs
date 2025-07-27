@@ -100,18 +100,21 @@ unsafe fn sysctl_get(
     data: *mut libc::c_void,
     data_len: *mut usize,
 ) -> i32 {
-    sysctl(
-        name,
-        name_len,
-        data,
-        data_len,
-        // NetBSD and OpenBSD differ in mutability for this pointer, but it's null anyway
-        #[cfg(target_os = "netbsd")]
-        ptr::null(),
-        #[cfg(target_os = "openbsd")]
-        ptr::null_mut(),
-        0,
-    )
+    // Safety: Call to unsafe function `libc::sysctl`
+    unsafe {
+        sysctl(
+            name,
+            name_len,
+            data,
+            data_len,
+            // NetBSD and OpenBSD differ in mutability for this pointer, but it's null anyway
+            #[cfg(target_os = "netbsd")]
+            ptr::null(),
+            #[cfg(target_os = "openbsd")]
+            ptr::null_mut(),
+            0,
+        )
+    }
 }
 
 fn get_procs() -> io::Result<Vec<KInfoProc>> {
@@ -249,15 +252,18 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
 
 // For getting simple values from the sysctl interface
 unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
-    let mut value: MaybeUninit<T> = MaybeUninit::uninit();
-    let mut value_len = mem::size_of_val(&value);
-    check(sysctl_get(
-        ctl_name.as_ptr(),
-        ctl_name.len() as u32,
-        value.as_mut_ptr() as *mut libc::c_void,
-        &mut value_len,
-    ))?;
-    Ok(value.assume_init())
+    // Safety: Call to unsafe function `netbsd::sysctl_get`
+    unsafe {
+        let mut value: MaybeUninit<T> = MaybeUninit::uninit();
+        let mut value_len = mem::size_of_val(&value);
+        check(sysctl_get(
+            ctl_name.as_ptr(),
+            ctl_name.len() as u32,
+            value.as_mut_ptr() as *mut libc::c_void,
+            &mut value_len,
+        ))?;
+        Ok(value.assume_init())
+    }
 }
 
 fn get_pagesize() -> io::Result<libc::c_int> {
