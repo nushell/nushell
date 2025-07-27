@@ -30,12 +30,12 @@ pub fn evaluate_file(
         match canonicalize_with(&path, cwd) {
             Ok(t) => Ok(t),
             Err(err) => {
-                let cmdline = format!("{path} {}", args.join(" "));
+                let cmdline = format!("nu {path} {}", args.join(" "));
                 let mut working_set = StateWorkingSet::new(&engine_state);
                 let file_id = working_set.add_file("<commandline>".into(), cmdline.as_bytes());
                 let span = working_set
                     .get_span_for_file(file_id)
-                    .subspan(0, path.len())
+                    .subspan(3, path.len() + 3)
                     .expect("<commandline> to contain script path");
                 engine_state.merge_delta(working_set.render())?;
                 let e = IoError::new(err.not_found_as(NotFound::File), span, PathBuf::from(&path));
