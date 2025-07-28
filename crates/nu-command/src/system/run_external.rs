@@ -239,7 +239,7 @@ impl Command for External {
         // directly. If that's not possible, we'll set up a pipe and spawn a
         // thread to copy data into the child process.
         let data_to_copy_into_stdin = match input {
-            PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+            PipelineDataBody::ByteStream(stream, metadata) => match stream.into_stdio() {
                 Ok(stdin) => {
                     command.stdin(stdin);
                     None
@@ -249,7 +249,7 @@ impl Command for External {
                     Some(PipelineData::byte_stream(stream, metadata))
                 }
             },
-            PipelineData::Empty => {
+            PipelineDataBody::Empty => {
                 command.stdin(Stdio::inherit());
                 None
             }
@@ -486,9 +486,9 @@ fn write_pipeline_data(
     data: PipelineData,
     mut writer: impl Write,
 ) -> Result<(), ShellError> {
-    if let PipelineData::ByteStream(stream, ..) = data {
+    if let PipelineDataBody::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
-    } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
+    } else if let PipelineDataBody::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val).map_err(|err| {
             IoError::new_internal(
                 err,
@@ -560,7 +560,7 @@ pub fn command_not_found(
         stack.remove_env_var(engine_state, canary);
 
         match output {
-            Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
+            Ok(PipelineDataBody::Value(Value::String { val, .. }, ..)) => {
                 return ShellError::ExternalCommand {
                     label: format!("Command `{name}` not found"),
                     help: val,

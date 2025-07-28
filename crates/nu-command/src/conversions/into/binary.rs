@@ -127,7 +127,7 @@ fn into_binary(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, metadata) = input {
+    if let PipelineDataBody::ByteStream(stream, metadata) = input {
         // Just set the type - that should be good enough
         Ok(PipelineData::byte_stream(
             stream.with_type(ByteStreamType::Binary),

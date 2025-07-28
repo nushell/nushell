@@ -181,9 +181,9 @@ impl Debugger for Profiler {
 
         let out_opt = self.opts.collect_values.then(|| match result {
             Ok(pipeline_data) => match pipeline_data {
-                PipelineData::Value(val, ..) => val.clone(),
-                PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
+                PipelineDataBody::Value(val, ..) => val.clone(),
+                PipelineDataBody::ListStream(..) => Value::string("list stream", element_span),
+                PipelineDataBody::ByteStream(..) => Value::string("byte stream", element_span),
                 _ => Value::nothing(element_span),
             },
             Err(e) => Value::error(e.clone(), element_span),
@@ -369,9 +369,9 @@ fn format_result(
 ) -> Value {
     match result {
         Ok(pipeline_data) => match pipeline_data.borrow() {
-            PipelineData::Value(val, ..) => val.clone(),
-            PipelineData::ListStream(..) => Value::string("list stream", element_span),
-            PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
+            PipelineDataBody::Value(val, ..) => val.clone(),
+            PipelineDataBody::ListStream(..) => Value::string("list stream", element_span),
+            PipelineDataBody::ByteStream(..) => Value::string("byte stream", element_span),
             _ => Value::nothing(element_span),
         },
         Err(e) => Value::error(e.borrow().clone(), element_span),

@@ -115,7 +115,7 @@ impl Command for UpdateCells {
         let metadata = input.metadata();
 
         match input {
-            PipelineData::Value(
+            PipelineDataBody::Value(
                 Value::Record {
                     ref mut val,
                     internal_span,

@@ -6,10 +6,10 @@ use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     match input {
-        PipelineData::Empty => Ok((vec![], vec![])),
-        PipelineData::Value(value, ..) => collect_input(value),
-        PipelineData::ListStream(stream, ..) => Ok(collect_list_stream(stream)),
-        PipelineData::ByteStream(stream, metadata) => Ok(collect_byte_stream(stream, metadata)),
+        PipelineDataBody::Empty => Ok((vec![], vec![])),
+        PipelineDataBody::Value(value, ..) => collect_input(value),
+        PipelineDataBody::ListStream(stream, ..) => Ok(collect_list_stream(stream)),
+        PipelineDataBody::ByteStream(stream, metadata) => Ok(collect_byte_stream(stream, metadata)),
     }
 }
 

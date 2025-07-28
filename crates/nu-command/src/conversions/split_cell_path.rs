@@ -49,16 +49,16 @@ impl Command for SplitCellPath {
 
         let src_span = match input {
             // Early return on correct type and empty pipeline
-            PipelineData::Value(Value::CellPath { val, .. }, _) => {
+            PipelineDataBody::Value(Value::CellPath { val, .. }, _) => {
                 return Ok(split_cell_path(val, head)?.into_pipeline_data());
             }
-            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+            PipelineDataBody::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
 
             // Extract span from incorrect pipeline types
             // NOTE: Match arms can't be combined, `stream`s are of different types
-            PipelineData::Value(other, _) => other.span(),
-            PipelineData::ListStream(stream, ..) => stream.span(),
-            PipelineData::ByteStream(stream, ..) => stream.span(),
+            PipelineDataBody::Value(other, _) => other.span(),
+            PipelineDataBody::ListStream(stream, ..) => stream.span(),
+            PipelineDataBody::ByteStream(stream, ..) => stream.span(),
         };
         Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "cell-path".into(),

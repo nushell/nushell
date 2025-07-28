@@ -76,7 +76,7 @@ impl Command for FromJson {
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, ..) => {
+                PipelineDataBody::Value(Value::String { val, .. }, ..) => {
                     Ok(PipelineData::list_stream(
                         read_json_lines(
                             Cursor::new(val),
@@ -87,7 +87,7 @@ impl Command for FromJson {
                         metadata,
                     ))
                 }
-                PipelineData::ByteStream(stream, ..)
+                PipelineDataBody::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {

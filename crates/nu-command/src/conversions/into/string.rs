@@ -165,7 +165,7 @@ fn string_helper(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, metadata) = input {
+    if let PipelineDataBody::ByteStream(stream, metadata) = input {
         // Just set the type - that should be good enough. There is no guarantee that the data
         // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
         // to binary

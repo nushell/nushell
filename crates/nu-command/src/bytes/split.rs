@@ -73,11 +73,11 @@ impl Command for BytesSplit {
         }
 
         let (split_read, md) = match input {
-            PipelineData::Value(Value::Binary { val, .. }, md) => (
+            PipelineDataBody::Value(Value::Binary { val, .. }, md) => (
                 ByteStream::read_binary(val, head, engine_state.signals().clone()).split(separator),
                 md,
             ),
-            PipelineData::ByteStream(stream, md) => (stream.split(separator), md),
+            PipelineDataBody::ByteStream(stream, md) => (stream.split(separator), md),
             input => {
                 let span = input.span().unwrap_or(head);
                 return Err(input.unsupported_input_error("bytes", span));

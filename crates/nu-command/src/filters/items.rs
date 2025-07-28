@@ -42,8 +42,8 @@ impl Command for Items {
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(value, ..) => {
                 let span = value.span();
                 match value {
                     Value::Record { val, .. } => {
@@ -77,13 +77,13 @@ impl Command for Items {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+            PipelineDataBody::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: "stream".into(),
                 dst_span: call.head,
                 src_span: stream.span(),
             }),
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+            PipelineDataBody::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: stream.type_().describe().into(),
                 dst_span: call.head,

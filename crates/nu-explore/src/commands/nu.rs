@@ -54,7 +54,7 @@ impl ViewCommand for NuCmd {
 
         let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)?;
 
-        let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
+        let is_record = matches!(pipeline, PipelineDataBody::Value(Value::Record { .. }, ..));
 
         let (columns, values) = collect_pipeline(pipeline)?;
 

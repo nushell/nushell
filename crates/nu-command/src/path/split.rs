@@ -46,7 +46,7 @@ impl Command for PathSplit {
         let args = Arguments;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if matches!(input, PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -65,7 +65,7 @@ impl Command for PathSplit {
         let args = Arguments;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if matches!(input, PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

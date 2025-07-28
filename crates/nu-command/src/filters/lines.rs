@@ -30,7 +30,7 @@ impl Command for Lines {
 
         let span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::Value(value, ..) => match value {
+            PipelineDataBody::Value(value, ..) => match value {
                 Value::String { val, .. } => {
                     let lines = if skip_empty {
                         val.lines()
@@ -57,8 +57,8 @@ impl Command for Lines {
                     src_span: value.span(),
                 }),
             },
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::ListStream(stream, metadata) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ListStream(stream, metadata) => {
                 let stream = stream.modify(|iter| {
                     iter.filter_map(move |value| {
                         let span = value.span();
@@ -83,7 +83,7 @@ impl Command for Lines {
 
                 Ok(PipelineData::list_stream(stream, metadata))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 if let Some(lines) = stream.lines() {
                     Ok(lines
                         .map(move |line| match line {

@@ -77,7 +77,7 @@ impl Command for Open {
         if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
             let (filename, span) = match input {
-                PipelineData::Value(val, ..) => {
+                PipelineDataBody::Value(val, ..) => {
                     let span = val.span();
                     (val.coerce_into_string()?, span)
                 }

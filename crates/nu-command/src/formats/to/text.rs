@@ -52,9 +52,9 @@ impl Command for ToText {
         let input = input.try_expand_range()?;
 
         match input {
-            PipelineData::Empty => Ok(Value::string(String::new(), head)
+            PipelineDataBody::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 let add_trailing = !no_newline
                     && match &value {
                         Value::List { vals, .. } => !vals.is_empty(),
@@ -70,7 +70,7 @@ impl Command for ToText {
                         .into_pipeline_data_with_metadata(update_metadata(None)),
                 )
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let span = stream.span();
                 let from_io_error = IoError::factory(head, None);
                 let stream = if no_newline {
@@ -123,7 +123,7 @@ impl Command for ToText {
 
                 Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
-            PipelineData::ByteStream(stream, meta) => {
+            PipelineDataBody::ByteStream(stream, meta) => {
                 Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
         }

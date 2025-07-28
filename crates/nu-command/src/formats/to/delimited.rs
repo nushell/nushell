@@ -107,16 +107,16 @@ pub fn to_delimited_data(
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
     match input {
-        PipelineData::Value(Value::List { .. } | Value::Record { .. }, _) => (),
-        PipelineData::Value(Value::Error { error, .. }, _) => return Err(*error),
-        PipelineData::Value(other, _) => {
+        PipelineDataBody::Value(Value::List { .. } | Value::Record { .. }, _) => (),
+        PipelineDataBody::Value(Value::Error { error, .. }, _) => return Err(*error),
+        PipelineDataBody::Value(other, _) => {
             return Err(make_unsupported_input_error(other.get_type(), head, span));
         }
-        PipelineData::ByteStream(..) => {
+        PipelineDataBody::ByteStream(..) => {
             return Err(make_unsupported_input_error("byte stream", head, span));
         }
-        PipelineData::ListStream(..) => (),
-        PipelineData::Empty => (),
+        PipelineDataBody::ListStream(..) => (),
+        PipelineDataBody::Empty => (),
     }
 
     // Determine the columns we'll use. This is necessary even if we don't write the header row,

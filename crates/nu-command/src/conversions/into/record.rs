@@ -111,13 +111,13 @@ impl Command for IntoRecord {
 fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
     match input {
-        PipelineData::Value(Value::Date { val, .. }, _) => {
+        PipelineDataBody::Value(Value::Date { val, .. }, _) => {
             Ok(parse_date_into_record(val, span).into_pipeline_data())
         }
-        PipelineData::Value(Value::Duration { val, .. }, _) => {
+        PipelineDataBody::Value(Value::Duration { val, .. }, _) => {
             Ok(parse_duration_into_record(val, span).into_pipeline_data())
         }
-        PipelineData::Value(Value::List { .. }, _) | PipelineData::ListStream(..) => {
+        PipelineDataBody::Value(Value::List { .. }, _) | PipelineDataBody::ListStream(..) => {
             let mut record = Record::new();
             let metadata = input.metadata();
 
@@ -177,8 +177,8 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             }
             Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
         }
-        PipelineData::Value(Value::Record { .. }, _) => Ok(input),
-        PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+        PipelineDataBody::Value(Value::Record { .. }, _) => Ok(input),
+        PipelineDataBody::Value(Value::Error { error, .. }, _) => Err(*error),
         other => Err(ShellError::TypeMismatch {
             err_message: format!("Can't convert {} to record", other.get_type()),
             span,

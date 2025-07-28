@@ -28,8 +28,8 @@ pub fn empty(
         }
     } else {
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 match stream.reader() {
                     Some(reader) => {
@@ -54,7 +54,7 @@ pub fn empty(
                     }
                 }
             }
-            PipelineData::ListStream(s, ..) => {
+            PipelineDataBody::ListStream(s, ..) => {
                 let empty = s.into_iter().next().is_none();
                 if negate {
                     Ok(Value::bool(!empty, head).into_pipeline_data())
@@ -62,7 +62,7 @@ pub fn empty(
                     Ok(Value::bool(empty, head).into_pipeline_data())
                 }
             }
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 if negate {
                     Ok(Value::bool(!value.is_empty(), head).into_pipeline_data())
                 } else {

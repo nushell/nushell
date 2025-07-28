@@ -50,10 +50,10 @@ impl Command for MetadataSet {
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
 
         let mut metadata = match &mut input {
-            PipelineData::Value(_, metadata)
-            | PipelineData::ListStream(_, metadata)
-            | PipelineData::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
-            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+            PipelineDataBody::Value(_, metadata)
+            | PipelineDataBody::ListStream(_, metadata)
+            | PipelineDataBody::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
+            PipelineDataBody::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
         };
 
         if let Some(content_type) = content_type {

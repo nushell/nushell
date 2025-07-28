@@ -35,10 +35,10 @@ fn run_pager(
     let mut p = Pager::new(config.clone());
     let commands = create_command_registry();
 
-    let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
+    let is_record = matches!(input, PipelineDataBody::Value(Value::Record { .. }, ..));
     let is_binary = matches!(
         input,
-        PipelineData::Value(Value::Binary { .. }, ..) | PipelineData::ByteStream(..)
+        PipelineDataBody::Value(Value::Binary { .. }, ..) | PipelineDataBody::ByteStream(..)
     );
 
     if is_binary {
@@ -94,8 +94,8 @@ fn help_view() -> Option<Page> {
 
 fn binary_view(input: PipelineData, config: &ExploreConfig) -> Result<Page> {
     let data = match input {
-        PipelineData::Value(Value::Binary { val, .. }, _) => val,
-        PipelineData::ByteStream(bs, _) => bs.into_bytes()?,
+        PipelineDataBody::Value(Value::Binary { val, .. }, _) => val,
+        PipelineDataBody::ByteStream(bs, _) => bs.into_bytes()?,
         _ => unreachable!("checked beforehand"),
     };
 

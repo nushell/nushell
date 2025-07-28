@@ -265,7 +265,7 @@ impl PluginCommand for ToDataFrame {
             NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
         } else {
             match &input {
-                PipelineData::Value(Value::Record { val, .. }, _) => {
+                PipelineDataBody::Value(Value::Record { val, .. }, _) => {
                     let items: Result<Vec<(String, Vec<Value>)>, &str> = val
                         .iter()
                         .map(|(k, v)| match v.to_owned().into_list() {

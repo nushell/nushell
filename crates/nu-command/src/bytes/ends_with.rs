@@ -62,7 +62,7 @@ impl Command for BytesEndsWith {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        if let PipelineData::ByteStream(stream, ..) = input {
+        if let PipelineDataBody::ByteStream(stream, ..) = input {
             let span = stream.span();
             if pattern.is_empty() {
                 return Ok(Value::bool(true, head).into_pipeline_data());

@@ -74,7 +74,7 @@ impl Command for BytesAt {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        if let PipelineData::ByteStream(stream, metadata) = input {
+        if let PipelineDataBody::ByteStream(stream, metadata) = input {
             let stream = stream.slice(call.head, call.arguments_span(), range)?;
             Ok(PipelineData::byte_stream(stream, metadata))
         } else {

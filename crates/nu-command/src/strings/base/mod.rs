@@ -49,7 +49,7 @@ pub fn encode(
 
 fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), ShellError> {
     match input {
-        PipelineData::Value(val, ..) => {
+        PipelineDataBody::Value(val, ..) => {
             let span = val.span();
             match val {
                 Value::String { val, .. } => Ok((val, span)),
@@ -60,16 +60,16 @@ fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), Sh
                 }),
             }
         }
-        PipelineData::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
+        PipelineDataBody::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
             exp_input_type: "binary or string".to_owned(),
             dst_span: call_span,
             src_span: list.span(),
         }),
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             Ok((stream.into_string()?, span))
         }
-        PipelineData::Empty => Err(ShellError::PipelineEmpty {
+        PipelineDataBody::Empty => Err(ShellError::PipelineEmpty {
             dst_span: call_span,
         }),
     }
@@ -77,7 +77,7 @@ fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), Sh
 
 fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), ShellError> {
     match input {
-        PipelineData::Value(val, ..) => {
+        PipelineDataBody::Value(val, ..) => {
             let span = val.span();
             match val {
                 Value::Binary { val, .. } => Ok((val, span)),
@@ -89,16 +89,16 @@ fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), S
                 }),
             }
         }
-        PipelineData::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
+        PipelineDataBody::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
             exp_input_type: "binary or string".to_owned(),
             dst_span: call_span,
             src_span: list.span(),
         }),
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             Ok((stream.into_bytes()?, span))
         }
-        PipelineData::Empty => Err(ShellError::PipelineEmpty {
+        PipelineDataBody::Empty => Err(ShellError::PipelineEmpty {
             dst_span: call_span,
         }),
     }

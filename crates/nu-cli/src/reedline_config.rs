@@ -172,7 +172,7 @@ pub(crate) fn add_menus(
     let new_engine_state_ref = Arc::new(engine_state);
 
     for res in menu_eval_results.into_iter() {
-        if let PipelineData::Value(value, None) = res {
+        if let PipelineDataBody::Value(value, None) = res {
             line_editor = add_menu(
                 line_editor,
                 &ParsedMenu::from_value(value)?,

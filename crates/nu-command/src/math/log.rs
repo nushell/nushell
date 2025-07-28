@@ -50,7 +50,7 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-        if let PipelineData::Value(
+        if let PipelineDataBody::Value(
             Value::Range {
                 ref val,
                 internal_span,
@@ -71,7 +71,7 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
-        if let PipelineData::Value(
+        if let PipelineDataBody::Value(
             Value::Range {
                 ref val,
                 internal_span,
@@ -122,7 +122,7 @@ fn log(
         });
     }
     // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
+    if matches!(input, PipelineDataBody::Empty) {
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
     let base = base.item;

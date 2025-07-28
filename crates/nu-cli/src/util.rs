@@ -315,7 +315,7 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let no_newline = matches!(&pipeline, &PipelineData::ByteStream(..));
+    let no_newline = matches!(&pipeline, &PipelineDataBody::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     Ok(false)

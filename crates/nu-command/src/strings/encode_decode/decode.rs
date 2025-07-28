@@ -111,7 +111,7 @@ fn run(
     let head = call.head;
 
     match input {
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             let bytes = stream.into_bytes()?;
             match encoding {
@@ -122,7 +122,7 @@ fn run(
             }
             .map(|val| val.into_pipeline_data())
         }
-        PipelineData::Value(v, ..) => {
+        PipelineDataBody::Value(v, ..) => {
             let input_span = v.span();
             match v {
                 Value::Binary { val: bytes, .. } => match encoding {
@@ -142,7 +142,7 @@ fn run(
             }
         }
         // This should be more precise, but due to difficulties in getting spans
-        // from PipelineData::ListData, this is as it is.
+        // from PipelineDataBody::ListData, this is as it is.
         _ => Err(ShellError::UnsupportedInput {
             msg: "non-binary input".into(),
             input: "value originates from here".into(),

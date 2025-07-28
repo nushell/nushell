@@ -106,10 +106,10 @@ with 'transpose' first."#
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream(..) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
                 Ok(input
                     .into_iter()
@@ -117,7 +117,7 @@ with 'transpose' first."#
                         let span = value.span();
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
-                            Ok(PipelineData::ListStream(s, ..)) => {
+                            Ok(PipelineDataBody::ListStream(s, ..)) => {
                                 let mut vals = vec![];
                                 for v in s {
                                     if let Value::Error { .. } = v {
@@ -139,7 +139,7 @@ with 'transpose' first."#
                     })
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
                     Ok(chunks
@@ -169,7 +169,7 @@ with 'transpose' first."#
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
         }

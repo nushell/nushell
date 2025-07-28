@@ -25,7 +25,7 @@ pub fn run_command_with_value(
 
     let pipeline = PipelineData::value(input.clone(), None);
     let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
+    if let PipelineDataBody::Value(Value::Error { error, .. }, ..) = pipeline {
         Err(ShellError::GenericError {
             error: "Error from pipeline".to_string(),
             msg: error.to_string(),

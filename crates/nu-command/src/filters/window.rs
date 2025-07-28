@@ -117,12 +117,12 @@ impl Command for Window {
             super::chunks::chunks(engine_state, input, size, head)
         } else if stride >= size {
             match input {
-                PipelineData::Value(Value::List { vals, .. }, metadata) => {
+                PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowGapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                PipelineData::ListStream(stream, metadata) => {
+                PipelineDataBody::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowGapIter::new(iter, size, stride, remainder, head));
                     Ok(PipelineData::list_stream(stream, metadata))
@@ -131,12 +131,12 @@ impl Command for Window {
             }
         } else {
             match input {
-                PipelineData::Value(Value::List { vals, .. }, metadata) => {
+                PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowOverlapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                PipelineData::ListStream(stream, metadata) => {
+                PipelineDataBody::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowOverlapIter::new(iter, size, stride, remainder, head));
                     Ok(PipelineData::list_stream(stream, metadata))

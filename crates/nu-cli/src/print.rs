@@ -74,7 +74,7 @@ Since this command has no output, there is no point in piping it with other comm
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineData::ByteStream(stream, _) = &mut input {
+            if let PipelineDataBody::ByteStream(stream, _) = &mut input {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }

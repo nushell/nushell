@@ -239,7 +239,7 @@ fn reject(
     });
 
     match input {
-        PipelineData::ListStream(stream, ..) if !has_integer_path_member => {
+        PipelineDataBody::ListStream(stream, ..) if !has_integer_path_member => {
             let result = stream
                 .into_iter()
                 .map(move |mut value| {

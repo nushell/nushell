@@ -78,7 +78,7 @@ impl Command for Do {
         }
 
         match result {
-            Ok(PipelineData::ByteStream(stream, metadata)) if capture_errors => {
+            Ok(PipelineDataBody::ByteStream(stream, metadata)) if capture_errors => {
                 let span = stream.span();
                 #[cfg(not(feature = "os"))]
                 return Err(ShellError::DisabledOsSupport {
@@ -165,7 +165,7 @@ impl Command for Do {
                     Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                 }
             }
-            Ok(PipelineData::ByteStream(mut stream, metadata))
+            Ok(PipelineDataBody::ByteStream(mut stream, metadata))
                 if ignore_all_errors
                     && !matches!(
                         caller_stack.stdout(),
@@ -178,10 +178,10 @@ impl Command for Do {
                 }
                 Ok(PipelineData::byte_stream(stream, metadata))
             }
-            Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
+            Ok(PipelineDataBody::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
             }
-            Ok(PipelineData::ListStream(stream, metadata)) if ignore_all_errors => {
+            Ok(PipelineDataBody::ListStream(stream, metadata)) if ignore_all_errors => {
                 let stream = stream.map(move |value| {
                     if let Value::Error { .. } = value {
                         Value::nothing(head)

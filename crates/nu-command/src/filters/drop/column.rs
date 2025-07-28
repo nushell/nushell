@@ -90,7 +90,7 @@ fn drop_cols(
     // is displayed farther to the right.
     let metadata = input.metadata();
     match input {
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {
                 let drop_cols = drop_cols_set(&mut first, head, columns)?;
@@ -111,7 +111,7 @@ fn drop_cols(
                 Ok(PipelineData::empty())
             }
         }
-        PipelineData::Value(mut v, ..) => {
+        PipelineDataBody::Value(mut v, ..) => {
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {
@@ -136,8 +136,8 @@ fn drop_cols(
                 val => Err(unsupported_value_error(&val, head)),
             }
         }
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "table or record".into(),
             wrong_type: stream.type_().describe().into(),
             dst_span: head,

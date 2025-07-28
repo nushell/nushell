@@ -448,8 +448,8 @@ fn find_in_pipelinedata(
     let map_columns_to_search = columns_to_search.clone();
 
     match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(_, _) => input
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(_, _) => input
             .filter(
                 move |value| {
                     value_should_be_printed(&pattern, value, &columns_to_search, &config)
@@ -461,7 +461,7 @@ fn find_in_pipelinedata(
                 move |x| highlight_matches_in_value(&map_pattern, x, &map_columns_to_search),
                 engine_state.signals(),
             ),
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineDataBody::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| {
                 iter.filter(move |value| {
                     value_should_be_printed(&pattern, value, &columns_to_search, &config)
@@ -472,7 +472,7 @@ fn find_in_pipelinedata(
 
             Ok(PipelineData::list_stream(stream, metadata))
         }
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             if let Some(lines) = stream.lines() {
                 let mut output: Vec<Value> = vec![];
@@ -555,7 +555,7 @@ fn value_should_be_printed(
 fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
     match input {
-        PipelineData::Value(Value::String { ref val, .. }, _) => {
+        PipelineDataBody::Value(Value::String { ref val, .. }, _) => {
             if val.contains('\n') {
                 Value::list(
                     val.lines()

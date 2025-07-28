@@ -195,8 +195,8 @@ fn operate(
         .collect::<Vec<_>>();
 
     match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(value, ..) => match value {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(value, ..) => match value {
             Value::String { val, .. } => {
                 let captures = regex
                     .captures_iter(&val)
@@ -236,7 +236,7 @@ fn operate(
                 src_span: value.span(),
             }),
         },
-        PipelineData::ListStream(stream, ..) => Ok(stream
+        PipelineDataBody::ListStream(stream, ..) => Ok(stream
             .modify(|stream| {
                 let iter = stream.map(move |val| {
                     let span = val.span();
@@ -257,7 +257,7 @@ fn operate(
                 }
             })
             .into()),
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             if let Some(lines) = stream.lines() {
                 let iter = ParseIter {
                     captures: VecDeque::new(),

@@ -155,7 +155,7 @@ pub fn eval_hook(
                         other_span,
                     ) {
                         Ok(pipeline_data) => {
-                            if let PipelineData::Value(Value::Bool { val, .. }, ..) = pipeline_data
+                            if let PipelineDataBody::Value(Value::Bool { val, .. }, ..) = pipeline_data
                             {
                                 val
                             } else {
@@ -320,7 +320,7 @@ fn run_hook(
         input,
     )?;
 
-    if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
+    if let PipelineDataBody::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);
     }
 

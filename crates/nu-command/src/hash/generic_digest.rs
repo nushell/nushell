@@ -87,7 +87,7 @@ where
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let mut hasher = D::new();
 
-        if let PipelineData::ByteStream(stream, ..) = input {
+        if let PipelineDataBody::ByteStream(stream, ..) = input {
             stream.write_to(&mut hasher)?;
             let digest = hasher.finalize();
             if binary {

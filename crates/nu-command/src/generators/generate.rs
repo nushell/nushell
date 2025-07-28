@@ -102,7 +102,7 @@ In this case, generation also stops when the input stream stops."#
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         match input {
-            PipelineData::Empty => {
+            PipelineDataBody::Empty => {
                 // A type of Option<S> is used to represent state. Invocation
                 // will stop on None. Using Option<S> allows functions to output
                 // one final value before stopping.
@@ -126,9 +126,9 @@ In this case, generation also stops when the input stream stops."#
                     .flatten()
                     .into_pipeline_data(call.head, engine_state.signals().clone()))
             }
-            input @ (PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream(..)) => {
+            input @ (PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream(..)) => {
                 let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
                 let iter = input.into_iter().map_while(move |item| {
                     let state_arg = state.take()?;
@@ -191,9 +191,9 @@ fn parse_closure_result(
 ) -> (Option<Value>, Option<Value>) {
     match closure_result {
         // no data -> output nothing and stop.
-        Ok(PipelineData::Empty) => (None, None),
+        Ok(PipelineDataBody::Empty) => (None, None),
 
-        Ok(PipelineData::Value(value, ..)) => {
+        Ok(PipelineDataBody::Value(value, ..)) => {
             let span = value.span();
             match value {
                 // {out: ..., next: ...} -> output and continue

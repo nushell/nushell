@@ -168,16 +168,16 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     let metadata = input.metadata();
 
     match input {
-        PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::value(
+        PipelineDataBody::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
+        PipelineDataBody::ListStream(stream, ..) => Ok(PipelineData::value(
             handle_value(stream.into_value(), args, head),
             metadata,
         )),
-        PipelineData::ByteStream(stream, ..) => Ok(PipelineData::value(
+        PipelineDataBody::ByteStream(stream, ..) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),
-        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
+        PipelineDataBody::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
     }
 }
 

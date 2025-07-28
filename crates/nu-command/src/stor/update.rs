@@ -104,11 +104,11 @@ fn handle(
     input: PipelineData,
 ) -> Result<Record, ShellError> {
     match input {
-        PipelineData::Empty => update_record.ok_or_else(|| ShellError::MissingParameter {
+        PipelineDataBody::Empty => update_record.ok_or_else(|| ShellError::MissingParameter {
             param_name: "requires a record".into(),
             span,
         }),
-        PipelineData::Value(value, ..) => {
+        PipelineDataBody::Value(value, ..) => {
             // Since input is being used, check if the data record parameter is used too
             if update_record.is_some() {
                 return Err(ShellError::GenericError {

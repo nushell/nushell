@@ -72,10 +72,10 @@ impl Command for EachWhile {
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream(..) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
                 Ok(input
                     .into_iter()
@@ -91,7 +91,7 @@ impl Command for EachWhile {
                     .fuse()
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
@@ -114,7 +114,7 @@ impl Command for EachWhile {
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
         }

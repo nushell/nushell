@@ -356,11 +356,11 @@ impl InterfaceManager for EngineInterfaceManager {
     fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
         // Deserialize custom values in the pipeline data
         match data {
-            PipelineData::Value(ref mut value, _) => {
+            PipelineDataBody::Value(ref mut value, _) => {
                 PluginCustomValue::deserialize_custom_values_in(value)?;
                 Ok(data)
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let stream = stream.map(|mut value| {
                     let span = value.span();
                     PluginCustomValue::deserialize_custom_values_in(&mut value)
@@ -369,7 +369,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 });
                 Ok(PipelineData::list_stream(stream, meta))
             }
-            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
         }
     }
 }
@@ -565,8 +565,8 @@ impl EngineInterface {
     ) -> Result<Option<Value>, ShellError> {
         let name = engine_call.name();
         match self.engine_call(engine_call)? {
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
-            EngineCallResponse::PipelineData(PipelineData::Value(value, _)) => Ok(Some(value)),
+            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineDataBody::Value(value, _)) => Ok(Some(value)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response for EngineCall::{name}"),
@@ -627,7 +627,7 @@ impl EngineInterface {
     pub fn get_current_dir(&self) -> Result<String, ShellError> {
         match self.engine_call(EngineCall::GetCurrentDir)? {
             // Always a string, and the span doesn't matter.
-            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::String { val, .. }, _)) => {
                 Ok(val)
             }
             EngineCallResponse::Error(err) => Err(err),
@@ -702,7 +702,7 @@ impl EngineInterface {
     /// ```
     pub fn get_help(&self) -> Result<String, ShellError> {
         match self.engine_call(EngineCall::GetHelp)? {
-            EngineCallResponse::PipelineData(PipelineData::Value(Value::String { val, .. }, _)) => {
+            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::String { val, .. }, _)) => {
                 Ok(val)
             }
             _ => Err(ShellError::PluginFailedToDecode {
@@ -721,14 +721,14 @@ impl EngineInterface {
     pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
         match self.engine_call(EngineCall::EnterForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::Value(
+            EngineCallResponse::PipelineData(PipelineDataBody::Value(
                 Value::Int { val: pgrp, .. },
                 _,
             )) => {
                 set_pgrp_from_enter_foreground(pgrp)?;
                 Ok(ForegroundGuard(Some(self.clone())))
             }
-            EngineCallResponse::PipelineData(PipelineData::Empty) => {
+            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => {
                 Ok(ForegroundGuard(Some(self.clone())))
             }
             _ => Err(ShellError::PluginFailedToDecode {
@@ -741,7 +741,7 @@ impl EngineInterface {
     fn leave_foreground(&self) -> Result<(), ShellError> {
         match self.engine_call(EngineCall::LeaveForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(()),
+            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
             }),
@@ -755,7 +755,7 @@ impl EngineInterface {
     /// offsets are byte-indexed. Use [`String::from_utf8_lossy()`] for display if necessary.
     pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
         match self.engine_call(EngineCall::GetSpanContents(span))? {
-            EngineCallResponse::PipelineData(PipelineData::Value(Value::Binary { val, .. }, _)) => {
+            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::Binary { val, .. }, _)) => {
                 Ok(val)
             }
             _ => Err(ShellError::PluginFailedToDecode {
@@ -904,7 +904,7 @@ impl EngineInterface {
         match self.engine_call(call)? {
             EngineCallResponse::Error(err) => Err(err),
             EngineCallResponse::Identifier(id) => Ok(Some(id)),
-            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(None),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::FindDecl".into(),
             }),
@@ -1014,11 +1014,11 @@ impl Interface for EngineInterface {
     ) -> Result<PipelineData, ShellError> {
         // Serialize custom values in the pipeline data
         match data {
-            PipelineData::Value(ref mut value, _) => {
+            PipelineDataBody::Value(ref mut value, _) => {
                 PluginCustomValue::serialize_custom_values_in(value)?;
                 Ok(data)
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let stream = stream.map(|mut value| {
                     let span = value.span();
                     PluginCustomValue::serialize_custom_values_in(&mut value)
@@ -1027,7 +1027,7 @@ impl Interface for EngineInterface {
                 });
                 Ok(PipelineData::list_stream(stream, meta))
             }
-            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
         }
     }
 }

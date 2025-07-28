@@ -93,7 +93,7 @@ impl Command for Last {
         }
 
         match input {
-            PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
+            PipelineDataBody::ListStream(_, _) | PipelineDataBody::Value(Value::Range { .. }, _) => {
                 let iterator = input.into_iter_strict(head)?;
 
                 // only keep the last `rows` in memory
@@ -117,7 +117,7 @@ impl Command for Last {
                     Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
                 }
             }
-            PipelineData::Value(val, _) => {
+            PipelineDataBody::Value(val, _) => {
                 let span = val.span();
                 match val {
                     Value::List { mut vals, .. } => {
@@ -156,7 +156,7 @@ impl Command for Last {
                     }),
                 }
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     if let Some(mut reader) = stream.reader() {
@@ -197,7 +197,7 @@ impl Command for Last {
                     })
                 }
             }
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+            PipelineDataBody::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),
                 dst_span: call.head,

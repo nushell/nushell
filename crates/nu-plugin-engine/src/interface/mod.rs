@@ -591,14 +591,14 @@ impl InterfaceManager for PluginInterfaceManager {
     fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
         // Add source to any values
         match data {
-            PipelineData::Value(ref mut value, _) => {
+            PipelineDataBody::Value(ref mut value, _) => {
                 with_custom_values_in(value, |custom_value| {
                     PluginCustomValueWithSource::add_source(custom_value.item, &self.state.source);
                     Ok::<_, ShellError>(())
                 })?;
                 Ok(data)
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let source = self.state.source.clone();
                 Ok(PipelineData::list_stream(
                     stream.map(move |mut value| {
@@ -608,7 +608,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     meta,
                 ))
             }
-            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
         }
     }
 
@@ -1099,11 +1099,11 @@ impl Interface for PluginInterface {
     ) -> Result<PipelineData, ShellError> {
         // Validate the destination of values in the pipeline data
         match data {
-            PipelineData::Value(mut value, meta) => {
+            PipelineDataBody::Value(mut value, meta) => {
                 state.prepare_value(&mut value, &self.state.source)?;
                 Ok(PipelineData::value(value, meta))
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let source = self.state.source.clone();
                 let state = state.clone();
                 Ok(PipelineData::list_stream(
@@ -1117,7 +1117,7 @@ impl Interface for PluginInterface {
                     meta,
                 ))
             }
-            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
         }
     }
 }

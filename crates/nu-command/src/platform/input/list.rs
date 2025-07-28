@@ -83,9 +83,9 @@ impl Command for InputList {
         let config = stack.get_config(engine_state);
 
         let options: Vec<Options> = match input {
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => input
+            PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream { .. } => input
                 .into_iter()
                 .map(move |val| {
                     let display_value = if let Some(ref cellpath) = display_path {

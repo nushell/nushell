@@ -161,8 +161,8 @@ fn run_put(
         .opt::<Value>(engine_state, stack, 1)?
         .map(|v| (HttpBody::Value(v), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
-            PipelineData::ByteStream(byte_stream, metadata) => {
+            PipelineDataBody::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineDataBody::ByteStream(byte_stream, metadata) => {
                 (HttpBody::ByteStream(byte_stream), metadata)
             }
             _ => (HttpBody::None, None),

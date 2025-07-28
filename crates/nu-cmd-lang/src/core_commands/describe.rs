@@ -241,7 +241,7 @@ fn run(
     let metadata = input.metadata();
 
     let description = match input {
-        PipelineData::ByteStream(stream, ..) => {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let type_ = stream.type_().describe();
 
             let description = if options.detailed {
@@ -272,7 +272,7 @@ fn run(
 
             description
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             let type_ = type_of(&stream);
             if options.detailed {
                 let subtype = if options.no_collect {
@@ -299,14 +299,14 @@ fn run(
                 Value::string(format!("{base_description} (stream)"), head)
             }
         }
-        PipelineData::Value(value, ..) => {
+        PipelineDataBody::Value(value, ..) => {
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
                 describe_value(value, head, engine_state)
             }
         }
-        PipelineData::Empty => Value::string(Type::Nothing.to_string(), head),
+        PipelineDataBody::Empty => Value::string(Type::Nothing.to_string(), head),
     };
 
     Ok(description.into_pipeline_data())

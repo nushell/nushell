@@ -91,7 +91,7 @@ impl Command for Skip {
         };
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ByteStream(stream, metadata) => {
+            PipelineDataBody::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     Ok(PipelineData::byte_stream(
@@ -107,7 +107,7 @@ impl Command for Skip {
                     })
                 }
             }
-            PipelineData::Value(Value::Binary { val, .. }, metadata) => {
+            PipelineDataBody::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }

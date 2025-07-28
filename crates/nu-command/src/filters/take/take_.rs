@@ -49,7 +49,7 @@ impl Command for Take {
         let metadata = input.metadata();
 
         match input {
-            PipelineData::Value(val, _) => {
+            PipelineDataBody::Value(val, _) => {
                 let span = val.span();
                 match val {
                     Value::List { vals, .. } => Ok(vals
@@ -82,11 +82,11 @@ impl Command for Take {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
+            PipelineDataBody::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
-            PipelineData::ByteStream(stream, metadata) => {
+            PipelineDataBody::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     Ok(PipelineData::byte_stream(
@@ -102,7 +102,7 @@ impl Command for Take {
                     })
                 }
             }
-            PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+            PipelineDataBody::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),
                 dst_span: head,

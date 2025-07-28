@@ -46,12 +46,12 @@ impl Command for FromMsgpackz {
         let metadata = input.metadata().map(|md| md.with_content_type(None));
         let out = match input {
             // Deserialize from a byte buffer
-            PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
+            PipelineDataBody::Value(Value::Binary { val: bytes, .. }, _) => {
                 let reader = brotli::Decompressor::new(Cursor::new(bytes), BUFFER_SIZE);
                 read_msgpack(reader, opts)
             }
             // Deserialize from a raw stream directly without having to collect it
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 if let Some(reader) = stream.reader() {
                     let reader = brotli::Decompressor::new(reader, BUFFER_SIZE);

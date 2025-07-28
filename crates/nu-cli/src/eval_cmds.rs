@@ -84,7 +84,7 @@ pub fn evaluate_commands(
     // Run the block
     let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
 
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
+    if let PipelineDataBody::Value(Value::Error { error, .. }, ..) = pipeline {
         return Err(*error);
     }
 

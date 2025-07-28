@@ -199,10 +199,10 @@ pub fn chunk_by(
     let metadata = input.metadata();
 
     match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(Value::Range { .. }, ..)
-        | PipelineData::Value(Value::List { .. }, ..)
-        | PipelineData::ListStream(..) => {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(Value::Range { .. }, ..)
+        | PipelineDataBody::Value(Value::List { .. }, ..)
+        | PipelineDataBody::ListStream(..) => {
             let closure = ClosureEval::new(engine_state, stack, closure);
 
             let result = chunk_value_stream(
@@ -215,7 +215,7 @@ pub fn chunk_by(
             Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
         }
 
-        PipelineData::ByteStream(..) | PipelineData::Value(..) => {
+        PipelineDataBody::ByteStream(..) | PipelineDataBody::Value(..) => {
             Err(input.unsupported_input_error("list", head))
         }
     }

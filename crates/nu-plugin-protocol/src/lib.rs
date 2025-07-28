@@ -80,7 +80,7 @@ pub enum PipelineDataHeader {
     Empty,
     /// A single value
     Value(Value, Option<PipelineMetadata>),
-    /// Initiate [`nu_protocol::PipelineData::ListStream`].
+    /// Initiate [`nu_protocol::PipelineDataBody::ListStream`].
     ///
     /// Items are sent via [`StreamData`]
     ListStream(ListStreamInfo),
@@ -392,10 +392,10 @@ impl PluginCallResponse<PipelineData> {
     pub fn has_stream(&self) -> bool {
         match self {
             PluginCallResponse::PipelineData(data) => match data {
-                PipelineData::Empty => false,
-                PipelineData::Value(..) => false,
-                PipelineData::ListStream(..) => true,
-                PipelineData::ByteStream(..) => true,
+                PipelineDataBody::Empty => false,
+                PipelineDataBody::Value(..) => false,
+                PipelineDataBody::ListStream(..) => true,
+                PipelineDataBody::ByteStream(..) => true,
             },
             _ => false,
         }

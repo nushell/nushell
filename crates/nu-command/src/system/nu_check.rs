@@ -56,7 +56,7 @@ impl Command for NuCheck {
         let input_span = input.span().unwrap_or(call.head);
 
         match input {
-            PipelineData::Value(Value::String { val, .. }, ..) => {
+            PipelineDataBody::Value(Value::String { val, .. }, ..) => {
                 let contents = Vec::from(val);
                 if as_module {
                     parse_module(&mut working_set, None, &contents, is_debug, input_span)
@@ -64,7 +64,7 @@ impl Command for NuCheck {
                     parse_script(&mut working_set, None, &contents, is_debug, input_span)
                 }
             }
-            PipelineData::ListStream(stream, ..) => {
+            PipelineDataBody::ListStream(stream, ..) => {
                 let config = stack.get_config(engine_state);
                 let list_stream = stream.into_string("\n", &config);
                 let contents = Vec::from(list_stream);
@@ -75,7 +75,7 @@ impl Command for NuCheck {
                     parse_script(&mut working_set, None, &contents, is_debug, call.head)
                 }
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let contents = stream.into_bytes()?;
 
                 if as_module {

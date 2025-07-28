@@ -137,7 +137,7 @@ impl PluginTest {
 
         // Serialize custom values in the input
         let source = self.source.clone();
-        let input = if matches!(input, PipelineData::ByteStream(..)) {
+        let input = if matches!(input, PipelineDataBody::ByteStream(..)) {
             input
         } else {
             input.map(
@@ -159,7 +159,7 @@ impl PluginTest {
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
         let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
-        if matches!(data, PipelineData::ByteStream(..)) {
+        if matches!(data, PipelineDataBody::ByteStream(..)) {
             Ok(data)
         } else {
             data.map(

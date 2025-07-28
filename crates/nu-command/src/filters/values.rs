@@ -137,8 +137,8 @@ fn values(
     let signals = engine_state.signals().clone();
     let metadata = input.metadata();
     match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(v, ..) => {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(v, ..) => {
             let span = v.span();
             match v {
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
@@ -171,7 +171,7 @@ fn values(
                 }),
             }
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             let vals: Vec<_> = stream.into_iter().collect();
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
@@ -180,7 +180,7 @@ fn values(
                 Err(err) => Err(err),
             }
         }
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineDataBody::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: stream.type_().describe().into(),
             dst_span: head,

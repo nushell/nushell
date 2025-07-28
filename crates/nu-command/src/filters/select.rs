@@ -245,7 +245,7 @@ fn select(
     };
 
     match input {
-        PipelineData::Value(v, metadata, ..) => {
+        PipelineDataBody::Value(v, metadata, ..) => {
             let span = v.span();
             match v {
                 Value::List {
@@ -291,7 +291,7 @@ fn select(
                 }
             }
         }
-        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
+        PipelineDataBody::ListStream(stream, metadata, ..) => Ok(stream
             .map(move |x| {
                 if !columns.is_empty() {
                     let mut record = Record::new();

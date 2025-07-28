@@ -130,8 +130,8 @@ impl Command for ParEach {
         };
 
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(value, ..) => {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
@@ -190,7 +190,7 @@ impl Command for ParEach {
                     }
                 }
             }
-            PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
+            PipelineDataBody::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
                 let vec = stream
                     .into_iter()
                     .enumerate()
@@ -211,7 +211,7 @@ impl Command for ParEach {
 
                 apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
             })),
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
                     Ok(create_pool(max_threads)?.install(|| {
                         let vec = chunks

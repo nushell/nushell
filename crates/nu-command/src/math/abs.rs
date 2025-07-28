@@ -48,7 +48,7 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineData::Value(
+        if let PipelineDataBody::Value(
             Value::Range {
                 ref val,
                 internal_span,
@@ -68,7 +68,7 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineData::Value(
+        if let PipelineDataBody::Value(
             Value::Range {
                 ref val,
                 internal_span,

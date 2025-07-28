@@ -67,19 +67,19 @@ impl Command for Length {
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
     match input {
-        PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
+        PipelineDataBody::Empty | PipelineDataBody::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
-        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+        PipelineDataBody::Value(Value::Binary { val, .. }, ..) => {
             Ok(Value::int(val.len() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::Value(Value::List { vals, .. }, ..) => {
+        PipelineDataBody::Value(Value::List { vals, .. }, ..) => {
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             Ok(Value::int(stream.into_iter().count() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
+        PipelineDataBody::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
             Ok(Value::int(
                 match stream.reader() {
                     Some(r) => r.bytes().count() as i64,

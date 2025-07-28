@@ -43,7 +43,7 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
-        if !matches!(input, PipelineData::Empty) {
+        if !matches!(input, PipelineDataBody::Empty) {
             if let Some(arg_expr) = arg {
                 return Err(ShellError::IncompatibleParameters {
                     left_message: "pipeline input was provided".into(),

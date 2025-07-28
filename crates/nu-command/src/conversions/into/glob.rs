@@ -88,7 +88,7 @@ fn glob_helper(
     let head = call.head;
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    if let PipelineData::ByteStream(stream, ..) = input {
+    if let PipelineDataBody::ByteStream(stream, ..) = input {
         // TODO: in the future, we may want this to stream out, converting each to bytes
         Ok(Value::glob(stream.into_string()?, false, head).into_pipeline_data())
     } else {

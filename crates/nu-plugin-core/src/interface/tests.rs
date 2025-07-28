@@ -113,7 +113,7 @@ impl Interface for TestInterface {
     ) -> Result<PipelineData, ShellError> {
         // Add an arbitrary check to the data to verify this is being called
         match data {
-            PipelineData::Value(Value::Binary { .. }, None) => Err(ShellError::NushellFailed {
+            PipelineDataBody::Value(Value::Binary { .. }, None) => Err(ShellError::NushellFailed {
                 msg: "TEST can't send binary".into(),
             }),
             _ => Ok(data),
@@ -128,7 +128,7 @@ fn read_pipeline_data_empty() -> Result<(), ShellError> {
 
     assert!(matches!(
         manager.read_pipeline_data(header, &Signals::empty())?,
-        PipelineData::Empty
+        PipelineDataBody::Empty
     ));
     Ok(())
 }
@@ -143,13 +143,13 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     });
     let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
     match manager.read_pipeline_data(header, &Signals::empty())? {
-        PipelineData::Value(read_value, read_metadata) => {
+        PipelineDataBody::Value(read_value, read_metadata) => {
             assert_eq!(value, read_value);
             assert_eq!(metadata, read_metadata);
         }
-        PipelineData::ListStream(..) => panic!("unexpected ListStream"),
-        PipelineData::ByteStream(..) => panic!("unexpected ByteStream"),
-        PipelineData::Empty => panic!("unexpected Empty"),
+        PipelineDataBody::ListStream(..) => panic!("unexpected ListStream"),
+        PipelineDataBody::ByteStream(..) => panic!("unexpected ByteStream"),
+        PipelineDataBody::Empty => panic!("unexpected Empty"),
     }
 
     Ok(())
@@ -180,7 +180,7 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
     assert!(
-        matches!(pipe, PipelineData::ListStream(..)),
+        matches!(pipe, PipelineDataBody::ListStream(..)),
         "unexpected PipelineData: {pipe:?}"
     );
 
@@ -235,7 +235,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     manager.consume_all()?;
 
     match pipe {
-        PipelineData::ByteStream(stream, metadata) => {
+        PipelineDataBody::ByteStream(stream, metadata) => {
             assert_eq!(test_span, stream.span());
             assert!(
                 metadata.is_some(),
@@ -282,7 +282,7 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
         metadata,
     });
     match manager.read_pipeline_data(header, &Signals::empty())? {
-        PipelineData::ListStream(_, meta) => match meta {
+        PipelineDataBody::ListStream(_, meta) => match meta {
             Some(PipelineMetadata { data_source, .. }) => match data_source {
                 DataSource::FilePath(path) => {
                     assert_eq!(Path::new("/test/path"), path);

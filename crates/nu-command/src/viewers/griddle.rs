@@ -76,7 +76,7 @@ prints out the list properly."#
         let cwd = engine_state.cwd(Some(stack))?;
 
         match input {
-            PipelineData::Value(Value::List { vals, .. }, ..) => {
+            PipelineDataBody::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
                 let data = convert_to_list(vals, config)?;
                 if let Some(items) = data {
@@ -94,7 +94,7 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::ListStream(stream, ..) => {
+            PipelineDataBody::ListStream(stream, ..) => {
                 // dbg!("value::stream");
                 let data = convert_to_list(stream, config)?;
                 if let Some(items) = data {
@@ -113,7 +113,7 @@ prints out the list properly."#
                     Ok(PipelineData::empty())
                 }
             }
-            PipelineData::Value(Value::Record { val, .. }, ..) => {
+            PipelineDataBody::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
                 let mut items = vec![];
 

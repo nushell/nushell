@@ -84,7 +84,7 @@ Note that history item IDs are ignored when importing from file."#
             println!("Backed history to {}", bak_path.display());
         }
         match input {
-            PipelineData::Empty => {
+            PipelineDataBody::Empty => {
                 let other_format = match history.file_format {
                     HistoryFileFormat::Sqlite => HistoryFileFormat::Plaintext,
                     HistoryFileFormat::Plaintext => HistoryFileFormat::Sqlite,

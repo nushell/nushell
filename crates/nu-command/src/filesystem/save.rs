@@ -88,7 +88,7 @@ impl Command for Save {
 
         let from_io_error = IoError::factory(span, path.item.as_path());
         match input {
-            PipelineData::ByteStream(stream, metadata) => {
+            PipelineDataBody::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
                 let (file, stderr_file) =
@@ -193,7 +193,7 @@ impl Command for Save {
 
                 Ok(PipelineData::empty())
             }
-            PipelineData::ListStream(ls, pipeline_metadata)
+            PipelineDataBody::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
                 check_saving_to_source_file(
@@ -216,7 +216,7 @@ impl Command for Save {
             input => {
                 // It's not necessary to check if we are saving to the same file if this is a
                 // collected value, and not a stream
-                if !matches!(input, PipelineData::Value(..) | PipelineData::Empty) {
+                if !matches!(input, PipelineDataBody::Value(..) | PipelineDataBody::Empty) {
                     check_saving_to_source_file(
                         input.metadata().as_ref(),
                         &path,
@@ -333,9 +333,9 @@ fn input_to_bytes(
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
-    } else if let PipelineData::ByteStream(..) = input {
+    } else if let PipelineDataBody::ByteStream(..) = input {
         None
-    } else if let PipelineData::Value(Value::String { .. }, ..) = input {
+    } else if let PipelineDataBody::Value(Value::String { .. }, ..) = input {
         None
     } else {
         path.extension()

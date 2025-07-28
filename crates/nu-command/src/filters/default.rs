@@ -163,7 +163,7 @@ fn default(
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
+        if matches!(input, PipelineDataBody::Value(Value::Record { .. }, _)) {
             let record = input.into_value(input_span)?.into_record()?;
             fill_record(
                 record,
@@ -175,7 +175,7 @@ fn default(
             .map(|x| x.into_pipeline_data_with_metadata(metadata))
         } else if matches!(
             input,
-            PipelineData::ListStream(..) | PipelineData::Value(Value::List { .. }, _)
+            PipelineDataBody::ListStream(..) | PipelineDataBody::Value(Value::List { .. }, _)
         ) {
             // Potential enhancement: add another branch for Value::List,
             // and collect the iterator into a Result<Value::List, ShellError>
@@ -211,11 +211,11 @@ fn default(
     // or an empty string, list, or record when --empty is passed
     } else if input.is_nothing()
         || (default_when_empty
-            && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
+            && matches!(input, PipelineDataBody::Value(ref value, _) if value.is_empty()))
     {
         default_value.single_run_pipeline_data()
-    } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
-        let PipelineData::ListStream(ls, metadata) = input else {
+    } else if default_when_empty && matches!(input, PipelineDataBody::ListStream(..)) {
+        let PipelineDataBody::ListStream(ls, metadata) = input else {
             unreachable!()
         };
         let span = ls.span();
