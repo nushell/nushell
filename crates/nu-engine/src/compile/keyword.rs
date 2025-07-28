@@ -808,17 +808,13 @@ pub(crate) fn compile_break(
         builder.load_empty(io_reg)?;
         builder.push_break(call.head)?;
         builder.add_comment("break");
+        Ok(())
     } else {
-        // Fall back to calling the command if we can't find the loop target statically
-        builder.push(
-            Instruction::Call {
-                decl_id: call.decl_id,
-                src_dst: io_reg,
-            }
-            .into_spanned(call.head),
-        )?;
+        return Err(CompileError::NotInALoop {
+            msg: "'break' can only be used inside a loop".to_string(),
+            span: Some(call.head),
+        });
     }
-    Ok(())
 }
 
 /// Compile a call to `continue`.
@@ -833,17 +829,13 @@ pub(crate) fn compile_continue(
         builder.load_empty(io_reg)?;
         builder.push_continue(call.head)?;
         builder.add_comment("continue");
+        Ok(())
     } else {
-        // Fall back to calling the command if we can't find the loop target statically
-        builder.push(
-            Instruction::Call {
-                decl_id: call.decl_id,
-                src_dst: io_reg,
-            }
-            .into_spanned(call.head),
-        )?;
+        return Err(CompileError::NotInALoop {
+            msg: "'continue' can only be used inside a loop".to_string(),
+            span: Some(call.head),
+        });
     }
-    Ok(())
 }
 
 /// Compile a call to `return` as a `return-early` instruction.
