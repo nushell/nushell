@@ -48,7 +48,8 @@ fn zip_ranges() -> TestResult {
 
 #[test]
 fn int_in_stepped_range() -> TestResult {
-    run_test(r#"7 in 1..3..15"#, "true")
+    run_test(r#"7 in 1..3..15"#, "true")?;
+    run_test(r#"7 in 1..3..=15"#, "true")
 }
 
 #[test]
@@ -77,17 +78,12 @@ fn float_not_in_unbounded_stepped_range() -> TestResult {
 }
 
 #[rstest]
-#[case("1..=3.. == 1..3..")]
-#[case("1..3..=15 == 1..3..15")]
-#[case("..=3..=15 == ..3..15")]
-fn alt_inclusive_range_syntax(#[case] input: &str) -> TestResult {
-    run_test(input, "true")
-}
-
+#[case("1..=3..", "expected number")]
+#[case("..=3..=15", "expected number")]
+#[case("..=(..", "expected closing )")]
+#[case("..=()..", "expected at least one range bound")]
+#[case("..=..", "expected at least one range bound")]
 #[test]
-fn missing_range_bound_error() -> TestResult {
-    fail_test(
-        r#"def foo [r: range] {}; foo ..=.."#,
-        "expected at least one range bound",
-    )
+fn bad_range_syntax(#[case] input: &str, #[case] expect: &str) -> TestResult {
+    fail_test(&format!("def foo [r: range] {{}}; foo {input}"), expect)
 }

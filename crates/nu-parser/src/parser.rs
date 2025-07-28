@@ -1874,12 +1874,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     }
 
     let (next, next_op_span) = if let Some(pos) = next_op_pos {
-        let next_op_str = if token[pos..].starts_with("..=") {
-            "..="
-        } else {
-            ".."
-        };
-        let next_op_span = Span::new(span.start + pos, span.start + pos + next_op_str.len());
+        let next_op_span = Span::new(span.start + pos, span.start + pos + "..".len());
         let next_span = Span::new(next_op_span.end, range_op_span.start);
 
         (
