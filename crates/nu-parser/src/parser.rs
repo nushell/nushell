@@ -1275,11 +1275,19 @@ pub fn parse_internal_call(
             } else {
                 arg
             };
+
             call.add_positional(arg);
             positional_idx += 1;
-        } else if signature.allows_unknown_args {
-            let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
+            // when allowing unknown args, if all positionals have been filled then start passing through flags
+            if signature.allows_unknown_args && positional_idx >= signature.num_positionals() {
+                flags_ended = true;
+            }
+        } else if signature.allows_unknown_args {
+            // all positionals (possibly none) have been filled
+            flags_ended = true;
+
+            let arg = parse_unknown_arg(working_set, arg_span, &signature);
             call.add_unknown(arg);
         } else {
             call.add_positional(Expression::garbage(working_set, arg_span));
