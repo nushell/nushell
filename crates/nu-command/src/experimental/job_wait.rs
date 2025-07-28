@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::Job, JobId};
+use nu_protocol::{JobId, engine::Job};
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -54,15 +54,11 @@ Note that this command fails if the provided job id is currently not in the job 
         let mut jobs = engine_state.jobs.lock().expect("jobs lock is poisoned!");
 
         match jobs.lookup_mut(id) {
-            None => Err(ShellError::Job(JobError::NotFound {
-                id,
-                span: head,
-            })),
+            None => Err(ShellError::Job(JobError::NotFound { id, span: head })),
 
-            Some(Job::Frozen { .. }) => Err(ShellError::Job(JobError::AlreadyFrozen {
-                id,
-                span: head,
-            })),
+            Some(Job::Frozen { .. }) => {
+                Err(ShellError::Job(JobError::AlreadyFrozen { id, span: head }))
+            }
 
             Some(Job::Thread(job)) => {
                 let waiter = job.on_termination().clone();
