@@ -52,16 +52,16 @@ impl PipelineData {
         PipelineData::Empty
     }
 
-    pub const fn value(val: Value, metadata: Option<PipelineMetadata>) -> Self {
-        PipelineData::Value(val, metadata)
+    pub fn value(val: Value, metadata: impl Option<PipelineMetadata>) -> Self {
+        PipelineData::Value(val, metadata.into())
     }
 
-    pub const fn list_stream(stream: ListStream, metadata: Option<PipelineMetadata>) -> Self {
-        PipelineData::ListStream(stream, metadata)
+    pub fn list_stream(stream: ListStream, metadata: impl Option<PipelineMetadata>) -> Self {
+        PipelineData::ListStream(stream, metadata.into())
     }
 
-    pub const fn byte_stream(stream: ByteStream, metadata: Option<PipelineMetadata>) -> Self {
-        PipelineData::ByteStream(stream, metadata)
+    pub fn byte_stream(stream: ByteStream, metadata: impl Option<PipelineMetadata>) -> Self {
+        PipelineData::ByteStream(stream, metadata.into())
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
