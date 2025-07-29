@@ -215,21 +215,18 @@ impl Display for Type {
 ///
 /// Helpful for listing types in errors
 pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
-    let mut type_strings = types
-        .iter()
-        .map(|ty| ty.to_string())
-        .collect::<Vec<String>>();
-
-    match type_strings.len() {
-        0 => None,
-        1 => Some(type_strings.swap_remove(0)),
-        2 => Some(type_strings.join(&format!(" {join_word} "))),
-        _ => {
-            type_strings
-                .last_mut()
-                .expect("Vector with length >2 has no elements")
-                .insert_str(0, "and ");
-            Some(type_strings.join(", "))
+    use std::fmt::Write as _;
+    match types {
+        [] => None,
+        [one] => Some(one.to_string()),
+        [one, two] => Some(format!("{one} {join_word} {two}")),
+        [initial @ .., last] => {
+            let mut out = String::new();
+            for ele in initial {
+                let _ = write!(out, "{ele}, ");
+            }
+            let _ = write!(out, "{join_word} {last}");
+            Some(out)
         }
     }
 }
