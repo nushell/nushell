@@ -308,3 +308,52 @@ fn allow_pass_negative_float() -> TestResult {
     run_test("def spam [val: float] { $val }; spam -1.4", "-1.4")?;
     run_test("def spam [val: float] { $val }; spam -2", "-2.0")
 }
+
+#[test]
+fn wrapped_filled_positional() -> TestResult {
+    // flag should be passed through iff positionals are filled
+    run_test(
+        "def --wrapped foo [--meow, arg1, ...rest] { $meow == true and $arg1 == bar and $rest == [] }; foo --meow bar",
+        "true",
+    )?;
+    run_test(
+        "def --wrapped foo [--meow, arg1, ...rest] { $meow == false and $arg1 == bar and $rest == [--meow] }; foo bar --meow",
+        "true",
+    )?;
+    run_test(
+        "def --wrapped foo [--meow, arg1, arg2?, ...rest] { $meow == true and $arg1 == bar and $arg2 == baz and $rest == [] }; foo bar --meow baz",
+        "true",
+    )?;
+
+    // if only rest, should require one rest parameter to be passed first
+    run_test(
+        "def --wrapped foo [--meow, ...rest] { $rest }; foo --meow bar | to nuon",
+        "[bar]",
+    )?;
+    run_test(
+        "def --wrapped foo [--meow, ...rest] { $rest }; foo bar --meow baz | to nuon",
+        "[bar, --meow, baz]",
+    )?;
+
+    // also works with --
+    run_test(
+        "def --wrapped foo [--meow, ...rest] { $rest }; foo -- --meow bar | to nuon",
+        "[--, --meow, bar]",
+    )?;
+
+    // passes through the flag normally
+    run_test(
+        "def --wrapped foo [...rest] { $rest }; foo --meow bar | to nuon",
+        "[--meow, bar]",
+    )?;
+
+    // non-wrapped should use flag regardless of positionals
+    run_test(
+        "def foo [--meow, ...rest] { $rest }; foo bar --meow | to nuon",
+        "[bar]",
+    )?;
+    run_test(
+        "def foo [--meow, arg1, ...rest] { $meow == true and $arg1 == bar and $rest == [baz] }; foo bar --meow baz",
+        "true",
+    )
+}
