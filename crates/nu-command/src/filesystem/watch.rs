@@ -41,8 +41,8 @@ impl Command for Watch {
         vec![DeprecationEntry {
             ty: DeprecationType::Flag("--debounce-ms".into()),
             report_mode: ReportMode::FirstUse,
-            since: Some("0.106.0".into()),
-            expected_removal: Some("0.108.0".into()),
+            since: Some("0.107.0".into()),
+            expected_removal: Some("0.109.0".into()),
             help: Some("`--debounce-ms` will be removed in favour of  `--debounce`".into()),
         }]
     }
