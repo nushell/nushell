@@ -810,10 +810,10 @@ pub(crate) fn compile_break(
         builder.add_comment("break");
         Ok(())
     } else {
-        return Err(CompileError::NotInALoop {
+        Err(CompileError::NotInALoop {
             msg: "'break' can only be used inside a loop".to_string(),
             span: Some(call.head),
-        });
+        })
     }
 }
 
@@ -831,10 +831,10 @@ pub(crate) fn compile_continue(
         builder.add_comment("continue");
         Ok(())
     } else {
-        return Err(CompileError::NotInALoop {
+        Err(CompileError::NotInALoop {
             msg: "'continue' can only be used inside a loop".to_string(),
             span: Some(call.head),
-        });
+        })
     }
 }
 
