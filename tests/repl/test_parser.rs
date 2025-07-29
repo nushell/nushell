@@ -620,10 +620,7 @@ fn single_value_row_condition() -> TestResult {
 
 #[test]
 fn row_condition_non_boolean() -> TestResult {
-    fail_test(
-        r#"[1 2 3] | where 1"#,
-        "expected bool",
-    )
+    fail_test(r#"[1 2 3] | where 1"#, "expected bool")
 }
 
 #[test]
