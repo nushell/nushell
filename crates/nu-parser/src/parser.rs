@@ -1761,7 +1761,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     let starting_error_count = working_set.parse_errors.len();
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
-    //   where <next_operator> is ".." or "..="
+    //   where <next_operator> is ".."
     //   and  <range_operator> is "..", "..=" or "..<"
     //   and one of the <from> or <to> bounds must be present (just '..' is not allowed since it
     //     looks like parent directory)
