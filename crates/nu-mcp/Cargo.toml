@@ -4,6 +4,7 @@ version = "0.105.2"
 edition = "2024"
 
 [dependencies]
+futures = "0.3.31"
 nu-protocol = { path = "../nu-protocol", version = "0.105.2", features = ["plugin"] }
 
 rmcp = { version = "0.3.0", features = ["server", "transport-io"] }
