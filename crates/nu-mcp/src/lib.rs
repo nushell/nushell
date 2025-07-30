@@ -5,7 +5,6 @@ use tokio::runtime::Runtime;
 use tracing_subscriber::EnvFilter;
 
 mod server;
-mod schema;
 
 pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError> {
     tracing_subscriber::fmt()
