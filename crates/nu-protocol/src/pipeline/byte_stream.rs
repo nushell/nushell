@@ -5,7 +5,7 @@
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
-    IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
+    IntRange, PipelineData, PipelineDataBody, ShellError, Signals, Span, Type, Value,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use serde::{Deserialize, Serialize};

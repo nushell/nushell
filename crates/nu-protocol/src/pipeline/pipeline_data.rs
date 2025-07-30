@@ -84,8 +84,12 @@ impl PipelineData {
         &self.body
     }
 
+    pub fn get_budy_mut(&mut self) -> &mut PipelineDataBody {
+        &mut self.body
+    }
+
     pub fn metadata(&self) -> Option<PipelineMetadata> {
-        match self {
+        match &self.body {
             PipelineDataBody::Empty => None,
             PipelineDataBody::Value(_, meta)
             | PipelineDataBody::ListStream(_, meta)
@@ -94,7 +98,7 @@ impl PipelineData {
     }
 
     pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
-        match &mut self {
+        match &mut self.body {
             PipelineDataBody::Empty => {}
             PipelineDataBody::Value(_, meta)
             | PipelineDataBody::ListStream(_, meta)
@@ -104,13 +108,15 @@ impl PipelineData {
     }
 
     pub fn is_nothing(&self) -> bool {
-        matches!(self, PipelineDataBody::Value(Value::Nothing { .. }, ..))
-            || matches!(self, PipelineDataBody::Empty)
+        matches!(
+            &self.body,
+            PipelineDataBody::Value(Value::Nothing { .. }, ..)
+        ) || matches!(&self.body, PipelineDataBody::Empty)
     }
 
     /// PipelineData doesn't always have a Span, but we can try!
     pub fn span(&self) -> Option<Span> {
-        match self {
+        match &self.body {
             PipelineDataBody::Empty => None,
             PipelineDataBody::Value(value, ..) => Some(value.span()),
             PipelineDataBody::ListStream(stream, ..) => Some(stream.span()),
@@ -122,7 +128,7 @@ impl PipelineData {
     ///
     /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::empty()`].
     pub fn with_span(self, span: Span) -> Self {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => PipelineData::value(Value::nothing(span), None),
             PipelineDataBody::Value(value, metadata) => {
                 PipelineData::value(value.with_span(span), metadata)
@@ -147,7 +153,7 @@ impl PipelineData {
     /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
     /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
     pub fn get_type(&self) -> Type {
-        match self {
+        match &self.body {
             PipelineDataBody::Empty => Type::Nothing,
             PipelineDataBody::Value(value, _) => value.get_type(),
             PipelineDataBody::ListStream(_, _) => Type::list(Type::Any),
@@ -170,7 +176,7 @@ impl PipelineData {
     /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
     /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
     pub fn is_subtype_of(&self, other: &Type) -> bool {
-        match (self, other) {
+        match (&self.body, other) {
             (_, Type::Any) => true,
             (PipelineDataBody::Empty, Type::Nothing) => true,
             (PipelineDataBody::Value(val, ..), ty) => val.is_subtype_of(ty),
@@ -196,7 +202,7 @@ impl PipelineData {
     }
 
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok(Value::nothing(span)),
             PipelineDataBody::Value(value, ..) => {
                 if value.span() == Span::unknown() {
@@ -219,7 +225,7 @@ impl PipelineData {
     /// variant. If the variant is already a stream variant, it is returned as-is.
     pub fn try_into_stream(self, engine_state: &EngineState) -> Result<PipelineData, PipelineData> {
         let span = self.span().unwrap_or(Span::unknown());
-        match self {
+        match self.body {
             PipelineDataBody::ListStream(..) | PipelineDataBody::ByteStream(..) => Ok(self),
             PipelineDataBody::Value(Value::List { .. } | Value::Range { .. }, ref metadata) => {
                 let metadata = metadata.clone();
@@ -248,7 +254,7 @@ impl PipelineData {
     ///
     /// Values are converted to bytes and separated by newlines if this is a `ListStream`.
     pub fn write_to(self, mut dest: impl Write) -> Result<(), ShellError> {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok(()),
             PipelineDataBody::Value(value, ..) => {
                 let bytes = value_to_bytes(value)?;
@@ -333,7 +339,7 @@ impl PipelineData {
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
-        match self {
+        match self.body {
             Self::Empty => Ok(()),
             Self::Value(Value::Error { error, .. }, ..) => Err(*error),
             Self::Value(..) => Ok(()),
@@ -348,7 +354,7 @@ impl PipelineData {
     ///
     /// The `span` should be the span of the command or operation that would raise an error.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
-        Ok(PipelineIterator(match self {
+        Ok(PipelineIterator(match self.body {
             PipelineDataBody::Value(value, ..) => {
                 let val_span = value.span();
                 match value {
@@ -405,7 +411,7 @@ impl PipelineData {
     }
 
     pub fn collect_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok(String::new()),
             PipelineDataBody::Value(value, ..) => Ok(value.to_expanded_string(separator, config)),
             PipelineDataBody::ListStream(stream, ..) => Ok(stream.into_string(separator, config)),
@@ -421,9 +427,11 @@ impl PipelineData {
         self,
         span: Span,
     ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok((String::new(), span, None)),
-            PipelineDataBody::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
+            PipelineDataBody::Value(Value::String { val, .. }, metadata) => {
+                Ok((val, span, metadata))
+            }
             PipelineDataBody::Value(val, ..) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
                 span: val.span(),
@@ -444,11 +452,13 @@ impl PipelineData {
         cell_path: &[PathMember],
         head: Span,
     ) -> Result<Value, ShellError> {
-        match self {
+        match self.body {
             // FIXME: there are probably better ways of doing this
-            PipelineDataBody::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path)
-                .map(Cow::into_owned),
+            PipelineDataBody::ListStream(stream, ..) => {
+                Value::list(stream.into_iter().collect(), head)
+                    .follow_cell_path(cell_path)
+                    .map(Cow::into_owned)
+            }
             PipelineDataBody::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
             PipelineDataBody::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
@@ -467,7 +477,7 @@ impl PipelineData {
         Self: Sized,
         F: FnMut(Value) -> Value + 'static + Send,
     {
-        match self {
+        match self.body {
             PipelineDataBody::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
@@ -504,7 +514,7 @@ impl PipelineData {
         <U as IntoIterator>::IntoIter: 'static + Send,
         F: FnMut(Value) -> U + 'static + Send,
     {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::Value(value, metadata) => {
                 let span = value.span();
@@ -551,7 +561,7 @@ impl PipelineData {
         Self: Sized,
         F: FnMut(&Value) -> bool + 'static + Send,
     {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::Value(value, metadata) => {
                 let span = value.span();
@@ -603,7 +613,7 @@ impl PipelineData {
     /// converting `to json` or `to nuon`.
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
-        match self {
+        match self.body {
             PipelineDataBody::Value(v, metadata) => {
                 let span = v.span();
                 match v {
@@ -657,9 +667,11 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<(), ShellError> {
-        match self {
+        match self.body {
             // Print byte streams directly as long as they aren't binary.
-            PipelineDataBody::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
+            PipelineDataBody::ByteStream(stream, ..)
+                if stream.type_() != ByteStreamType::Binary =>
+            {
                 stream.print(to_stderr)
             }
             _ => {
@@ -770,7 +782,7 @@ impl PipelineData {
         expected_type: impl Into<String>,
         span: Span,
     ) -> ShellError {
-        match self {
+        match self.body {
             PipelineDataBody::Empty => ShellError::PipelineEmpty { dst_span: span },
             PipelineDataBody::Value(value, ..) => ShellError::OnlySupportsThisInputType {
                 exp_input_type: expected_type.into(),
@@ -842,7 +854,7 @@ impl IntoIterator for PipelineData {
     type IntoIter = PipelineIterator;
 
     fn into_iter(self) -> Self::IntoIter {
-        PipelineIterator(match self {
+        PipelineIterator(match self.body {
             PipelineDataBody::Empty => PipelineIteratorInner::Empty,
             PipelineDataBody::Value(value, ..) => {
                 let span = value.span();

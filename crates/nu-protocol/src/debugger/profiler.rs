@@ -4,7 +4,7 @@
 //! profiling Nushell code.
 
 use crate::{
-    PipelineData, ShellError, Span, Value,
+    PipelineData, PipelineDataBody, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
@@ -180,7 +180,7 @@ impl Debugger for Profiler {
         let element_span = element.expr.span;
 
         let out_opt = self.opts.collect_values.then(|| match result {
-            Ok(pipeline_data) => match pipeline_data {
+            Ok(pipeline_data) => match pipeline_data.get_body() {
                 PipelineDataBody::Value(val, ..) => val.clone(),
                 PipelineDataBody::ListStream(..) => Value::string("list stream", element_span),
                 PipelineDataBody::ByteStream(..) => Value::string("byte stream", element_span),
@@ -270,7 +270,7 @@ impl Debugger for Profiler {
                             .output_register()
                             .map(|register| Ok(&registers[register.get() as usize]))
                     })
-                    .map(|result| format_result(&result, span))
+                    .map(|result| format_result(result.map(|r| r.get_body()), span))
             })
             .flatten();
 
@@ -364,7 +364,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
 }
 
 fn format_result(
-    result: &Result<impl Borrow<PipelineData>, impl Borrow<ShellError>>,
+    result: Result<&impl Borrow<PipelineDataBody>, impl Borrow<ShellError>>,
     element_span: Span,
 ) -> Value {
     match result {
