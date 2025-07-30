@@ -22,7 +22,7 @@ pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError
         inner: vec![],
     })?;
 
-    runtime.spawn(async {
+    runtime.block_on(async {
         if let Err(e) = run_server(engine_state).await {
             tracing::error!("Error running MCP server: {:?}", e);
         }
