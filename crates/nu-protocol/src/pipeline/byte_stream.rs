@@ -737,7 +737,7 @@ impl ByteStream {
 
 impl From<ByteStream> for PipelineData {
     fn from(stream: ByteStream) -> Self {
-        Self::ByteStream(stream, None)
+        Self::byte_stream(stream, None)
     }
 }
 

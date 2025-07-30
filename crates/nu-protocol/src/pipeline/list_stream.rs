@@ -139,7 +139,7 @@ impl IntoIterator for ListStream {
 
 impl From<ListStream> for PipelineData {
     fn from(stream: ListStream) -> Self {
-        Self::ListStream(stream, None)
+        Self::list_stream(stream, None)
     }
 }
 
