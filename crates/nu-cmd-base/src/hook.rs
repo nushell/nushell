@@ -2,7 +2,7 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return, redirect_env};
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+    PipelineData, PipelineDataBody, PositionalArg, ShellError, Span, Type, Value, VarId,
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
@@ -155,7 +155,8 @@ pub fn eval_hook(
                         other_span,
                     ) {
                         Ok(pipeline_data) => {
-                            if let PipelineDataBody::Value(Value::Bool { val, .. }, ..) = pipeline_data
+                            if let PipelineDataBody::Value(Value::Bool { val, .. }, ..) =
+                                pipeline_data
                             {
                                 val
                             } else {

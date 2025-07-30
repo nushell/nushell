@@ -22,8 +22,8 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator,
+    ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineDataBody, PipelineMetadata,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator,
     engine::Closure,
 };
 use nu_utils::SharedCow;
@@ -391,7 +391,7 @@ impl PluginCallResponse<PipelineData> {
     /// Does this response have a stream?
     pub fn has_stream(&self) -> bool {
         match self {
-            PluginCallResponse::PipelineData(data) => match data {
+            PluginCallResponse::PipelineData(data) => match data.get_body() {
                 PipelineDataBody::Empty => false,
                 PipelineDataBody::Value(..) => false,
                 PipelineDataBody::ListStream(..) => true,

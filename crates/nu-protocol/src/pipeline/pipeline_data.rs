@@ -10,6 +10,7 @@ use std::{borrow::Cow, io::Write};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
+#[derive(Debug)]
 pub struct PipelineData {
     body: PipelineDataBody,
 }
@@ -84,7 +85,7 @@ impl PipelineData {
         &self.body
     }
 
-    pub fn get_budy_mut(&mut self) -> &mut PipelineDataBody {
+    pub fn get_body_mut(&mut self) -> &mut PipelineDataBody {
         &mut self.body
     }
 
@@ -319,32 +320,32 @@ impl PipelineData {
         match stack.pipe_stdout().unwrap_or(&OutDest::Inherit) {
             OutDest::Print => {
                 self.print_table(engine_state, stack, false, false)?;
-                Ok(Self::Empty)
+                Ok(Self::empty())
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
             OutDest::Value => {
                 let metadata = self.metadata();
                 let span = self.span().unwrap_or(Span::unknown());
-                self.into_value(span).map(|val| Self::Value(val, metadata))
+                self.into_value(span).map(|val| Self::value(val, metadata))
             }
             OutDest::File(file) => {
                 self.write_to(file.as_ref())?;
-                Ok(Self::Empty)
+                Ok(Self::empty())
             }
             OutDest::Null | OutDest::Inherit => {
                 self.drain()?;
-                Ok(Self::Empty)
+                Ok(Self::empty())
             }
         }
     }
 
     pub fn drain(self) -> Result<(), ShellError> {
         match self.body {
-            Self::Empty => Ok(()),
-            Self::Value(Value::Error { error, .. }, ..) => Err(*error),
-            Self::Value(..) => Ok(()),
-            Self::ListStream(stream, ..) => stream.drain(),
-            Self::ByteStream(stream, ..) => stream.drain(),
+            PipelineDataBody::Empty => Ok(()),
+            PipelineDataBody::Value(Value::Error { error, .. }, ..) => Err(*error),
+            PipelineDataBody::Value(..) => Ok(()),
+            PipelineDataBody::ListStream(stream, ..) => stream.drain(),
+            PipelineDataBody::ByteStream(stream, ..) => stream.drain(),
         }
     }
 
@@ -707,7 +708,7 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<(), ShellError> {
         let span = self.span();
-        if let PipelineDataBody::Value(Value::Binary { val: bytes, .. }, _) = self {
+        if let PipelineDataBody::Value(Value::Binary { val: bytes, .. }, _) = self.body {
             if to_stderr {
                 write_all_and_flush(
                     bytes,
@@ -738,7 +739,7 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<(), ShellError> {
         let span = self.span();
-        if let PipelineDataBody::ByteStream(stream, ..) = self {
+        if let PipelineDataBody::ByteStream(stream, ..) = self.body {
             // Copy ByteStreams directly
             stream.print(to_stderr)
         } else {

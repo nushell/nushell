@@ -2,8 +2,8 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    ByteStream, ListStream, PipelineData, Reader, ShellError, Signals, engine::Sequence,
-    shell_error::io::IoError,
+    ByteStream, ListStream, PipelineData, PipelineDataBody, Reader, ShellError, Signals,
+    engine::Sequence, shell_error::io::IoError,
 };
 use std::{
     io::{Read, Write},
@@ -258,7 +258,7 @@ pub trait Interface: Clone + Send {
                     .write_stream(id, self.clone(), high_pressure_mark)?;
             Ok::<_, ShellError>((id, writer))
         };
-        match self.prepare_pipeline_data(data, context)? {
+        match self.prepare_pipeline_data(data, context)?.body() {
             PipelineDataBody::Value(value, metadata) => Ok((
                 PipelineDataHeader::Value(value, metadata),
                 PipelineDataWriter::None,

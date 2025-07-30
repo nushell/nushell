@@ -11,8 +11,10 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
+    CustomValue, IntoSpanned, PipelineData, PipelineDataBody, PluginMetadata, PluginSignature,
+    ShellError, SignalAction, Signals, Span, Spanned, Value,
+    ast::{Operator, Pipeline},
+    engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -588,15 +590,15 @@ impl InterfaceManager for PluginInterfaceManager {
         &self.stream_manager
     }
 
-    fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError> {
         // Add source to any values
-        match data {
-            PipelineDataBody::Value(ref mut value, _) => {
-                with_custom_values_in(value, |custom_value| {
+        match data.body() {
+            PipelineDataBody::Value(mut value, meta) => {
+                with_custom_values_in(&mut value, |custom_value| {
                     PluginCustomValueWithSource::add_source(custom_value.item, &self.state.source);
                     Ok::<_, ShellError>(())
                 })?;
-                Ok(data)
+                Ok(PipelineData::value(value, meta))
             }
             PipelineDataBody::ListStream(stream, meta) => {
                 let source = self.state.source.clone();
@@ -608,7 +610,10 @@ impl InterfaceManager for PluginInterfaceManager {
                     meta,
                 ))
             }
-            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, meta) => {
+                Ok(PipelineData::byte_stream(stream, meta))
+            }
         }
     }
 
@@ -1098,7 +1103,7 @@ impl Interface for PluginInterface {
         state: &CurrentCallState,
     ) -> Result<PipelineData, ShellError> {
         // Validate the destination of values in the pipeline data
-        match data {
+        match data.body() {
             PipelineDataBody::Value(mut value, meta) => {
                 state.prepare_value(&mut value, &self.state.source)?;
                 Ok(PipelineData::value(value, meta))
@@ -1117,7 +1122,10 @@ impl Interface for PluginInterface {
                     meta,
                 ))
             }
-            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, meta) => {
+                Ok(PipelineData::byte_stream(stream, meta))
+            }
         }
     }
 }

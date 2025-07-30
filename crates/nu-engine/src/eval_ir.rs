@@ -3,8 +3,8 @@ use std::{borrow::Cow, fs::File, sync::Arc};
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    PipelineData, PipelineDataBody, PipelineMetadata, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{
@@ -139,9 +139,11 @@ impl<'a> EvalContext<'a> {
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.get() as usize] {
+        match &self.registers[reg_id.get() as usize].get_body() {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
-            PipelineDataBody::Value(val, meta) => Ok(PipelineData::value(val.clone(), meta.clone())),
+            PipelineDataBody::Value(val, meta) => {
+                Ok(PipelineData::value(val.clone(), meta.clone()))
+            }
             _ => Err(ShellError::IrEvalError {
                 msg: "Must collect to value before using instruction that clones from a register"
                     .into(),
@@ -152,7 +154,7 @@ impl<'a> EvalContext<'a> {
 
     /// Clone a value from a register. Must be collected first.
     fn clone_reg_value(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        match self.clone_reg(reg_id, fallback_span)? {
+        match self.clone_reg(reg_id, fallback_span)?.body() {
             PipelineDataBody::Empty => Ok(Value::nothing(fallback_span)),
             PipelineDataBody::Value(val, _) => Ok(val),
             _ => unreachable!("clone_reg should never return stream data"),
@@ -493,7 +495,7 @@ fn eval_instruction<D: DebugContext>(
             ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
         }
-        Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src) {
+        Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src).get_body() {
             #[cfg(feature = "os")]
             PipelineDataBody::ByteStream(stream, _)
                 if matches!(stream.source(), nu_protocol::ByteStreamSource::Child(_)) =>
@@ -529,7 +531,7 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let is_external = if let PipelineDataBody::ByteStream(stream, ..) = &src {
+            let is_external = if let PipelineDataBody::ByteStream(stream, ..) = &src.get_body() {
                 stream.source().is_external()
             } else {
                 false
@@ -557,7 +559,7 @@ fn eval_instruction<D: DebugContext>(
             let input = ctx.take_reg(*src_dst);
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             if need_backtrace {
-                match &mut result {
+                match &mut result.get_body_mut() {
                     PipelineDataBody::ByteStream(s, ..) => s.push_caller_span(*span),
                     PipelineDataBody::ListStream(s, ..) => s.push_caller_span(*span),
                     _ => (),
@@ -680,32 +682,36 @@ fn eval_instruction<D: DebugContext>(
         Instruction::FollowCellPath { src_dst, path } => {
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
-            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path {
+            let path_span = path.span();
+            let path_body = path.body();
+            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path_body {
                 let value = data.follow_cell_path(&path.members, *span)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
-            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path_body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
-                    span: path.span().unwrap_or(*span),
+                    span: path_span.unwrap_or(*span),
                 })
             }
         }
         Instruction::CloneCellPath { dst, src, path } => {
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
-            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path {
+            let path_span = path.span();
+            let path_body = path.body();
+            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path_body {
                 let value = value.follow_cell_path(&path.members)?;
                 ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
                 Ok(Continue)
-            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path_body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
-                    span: path.span().unwrap_or(*span),
+                    span: path_span.unwrap_or(*span),
                 })
             }
         }
@@ -719,17 +725,19 @@ fn eval_instruction<D: DebugContext>(
             // Change the span because we're modifying it
             let mut value = data.into_value(*span)?;
             let path = ctx.take_reg(*path);
+            let path_span = path.span();
+            let path_body = path.body();
             let new_value = ctx.collect_reg(*new_value, *span)?;
-            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path {
+            if let PipelineDataBody::Value(Value::CellPath { val: path, .. }, _) = path_body {
                 value.upsert_data_at_cell_path(&path.members, new_value)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data_with_metadata(metadata));
                 Ok(Continue)
-            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineDataBody::Value(Value::Error { error, .. }, _) = path_body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
                     err_message: "expected cell path".into(),
-                    span: path.span().unwrap_or(*span),
+                    span: path_span.unwrap_or(*span),
                 })
             }
         }
@@ -737,7 +745,8 @@ fn eval_instruction<D: DebugContext>(
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);
             let data_span = data.span();
-            let val = match data {
+            let data_body = data.body();
+            let val = match data_body {
                 PipelineDataBody::Value(Value::Bool { val, .. }, _) => val,
                 PipelineDataBody::Value(Value::Error { error, .. }, _) => {
                     return Err(*error);
@@ -757,7 +766,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::BranchIfEmpty { src, index } => {
             let is_empty = matches!(
-                ctx.borrow_reg(*src),
+                ctx.borrow_reg(*src).get_body(),
                 PipelineDataBody::Empty | PipelineDataBody::Value(Value::Nothing { .. }, _)
             );
 
@@ -788,7 +797,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::CheckMatchGuard { src } => {
             if matches!(
-                ctx.borrow_reg(*src),
+                ctx.borrow_reg(*src).get_body(),
                 PipelineDataBody::Value(Value::Bool { .. }, _)
             ) {
                 Ok(Continue)
@@ -1299,7 +1308,7 @@ fn check_input_types(
         return Ok(());
     }
 
-    match input {
+    match input.get_body() {
         // early return error directly if detected
         PipelineDataBody::Value(Value::Error { error, .. }, ..) => return Err(*error.clone()),
         // bypass run-time typechecking for custom types
@@ -1338,7 +1347,7 @@ fn check_input_types(
         }
     };
 
-    match input {
+    match input.get_body() {
         PipelineDataBody::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: expected_string,
@@ -1472,7 +1481,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
 /// Helper for drain behavior.
 fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    match data {
+    match data.body() {
         PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             let callback_spans = stream.get_caller_spans().clone();
@@ -1577,7 +1586,7 @@ fn eval_iterate(
     end_index: usize,
 ) -> Result<InstructionResult, ShellError> {
     let mut data = ctx.take_reg(stream);
-    if let PipelineDataBody::ListStream(list_stream, _) = &mut data {
+    if let PipelineDataBody::ListStream(list_stream, _) = data.get_body_mut() {
         // Modify the stream, taking one value off, and branching if it's empty
         if let Some(val) = list_stream.next_value() {
             ctx.put_reg(dst, val.into_pipeline_data());
