@@ -619,6 +619,11 @@ fn single_value_row_condition() -> TestResult {
 }
 
 #[test]
+fn row_condition_non_boolean() -> TestResult {
+    fail_test(r#"[1 2 3] | where 1"#, "expected bool")
+}
+
+#[test]
 fn performance_nested_lists() -> TestResult {
     // Parser used to be exponential on deeply nested lists
     // TODO: Add a timeout

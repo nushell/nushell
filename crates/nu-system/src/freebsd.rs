@@ -213,19 +213,39 @@ fn get_proc_args(pid: i32) -> io::Result<Vec<u8>> {
     }
 }
 
-// For getting simple values from the sysctl interface
+/// For getting simple values from the sysctl interface
+///
+/// # Safety
+/// `T` needs to be of the structure that is expected to be returned by `sysctl` for the given
+/// `ctl_name` sequence and will then be assumed to be of correct layout.
+/// Thus only use it for primitive types or well defined fixed size types. For variable length
+/// arrays that can be returned from `sysctl` use it directly (or write a proper wrapper handling
+/// capacity management)
+///
+/// # Panics
+/// If the size of the returned data diverges from the size of the expected `T`
 unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
     let mut value: MaybeUninit<T> = MaybeUninit::uninit();
     let mut value_len = mem::size_of_val(&value);
-    check(sysctl(
-        ctl_name.as_ptr(),
-        ctl_name.len() as u32,
-        value.as_mut_ptr() as *mut libc::c_void,
-        &mut value_len,
-        ptr::null(),
-        0,
-    ))?;
-    Ok(value.assume_init())
+    // SAFETY: lengths to the pointers is provided, uninitialized data with checked length provided
+    // Only assume initialized when the written data doesn't diverge in length, layout is the
+    // safety responsibility of the caller.
+    check(unsafe {
+        sysctl(
+            ctl_name.as_ptr(),
+            ctl_name.len() as u32,
+            value.as_mut_ptr() as *mut libc::c_void,
+            &mut value_len,
+            ptr::null(),
+            0,
+        )
+    })?;
+    assert_eq!(
+        value_len,
+        mem::size_of_val(&value),
+        "Data requested from from `sysctl` diverged in size from the expected return type. For variable length data you need to manually truncate the data to the valid returned size!"
+    );
+    Ok(unsafe { value.assume_init() })
 }
 
 fn get_pagesize() -> io::Result<libc::c_int> {
