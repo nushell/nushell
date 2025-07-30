@@ -66,8 +66,8 @@ impl Command for OverlayUse {
             return Ok(PipelineData::empty());
         }
 
-        let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
-        name_arg.item = trim_quotes_str(&name_arg.item).to_string();
+        let name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
+        let name_arg_item = trim_quotes_str(&name_arg.item);
 
         let maybe_origin_module_id: Option<ModuleId> =
             if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
@@ -91,11 +91,11 @@ impl Command for OverlayUse {
         let overlay_name = if let Some(name) = call.opt(engine_state, caller_stack, 1)? {
             name
         } else if engine_state
-            .find_overlay(name_arg.item.as_bytes())
+            .find_overlay(name_arg_item.as_bytes())
             .is_some()
         {
-            name_arg.item.clone()
-        } else if let Some(os_str) = Path::new(&name_arg.item).file_stem() {
+            name_arg_item.to_string()
+        } else if let Some(os_str) = Path::new(name_arg_item).file_stem() {
             if let Some(name) = os_str.to_str() {
                 name.to_string()
             } else {
@@ -105,7 +105,7 @@ impl Command for OverlayUse {
             }
         } else {
             return Err(ShellError::OverlayNotFoundAtRuntime {
-                overlay_name: name_arg.item,
+                overlay_name: (name_arg_item.to_string()),
                 span: name_arg.span,
             });
         };
@@ -122,7 +122,7 @@ impl Command for OverlayUse {
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
                 let maybe_file_path_or_dir = find_in_dirs_env(
-                    &name_arg.item,
+                    name_arg_item,
                     engine_state,
                     caller_stack,
                     get_dirs_var_from_call(caller_stack, call),
