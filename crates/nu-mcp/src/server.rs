@@ -1,8 +1,14 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    sync::{Mutex, MutexGuard},
+};
 
+use nu_engine::eval_block;
+use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, Span, Value,
-    engine::{Call, EngineState, Stack},
+    PipelineData, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
     write_all_and_flush,
 };
 use rmcp::{
@@ -15,7 +21,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub struct NushellMcpServer {
-    engine_state: Arc<EngineState>,
+    engine_state: Mutex<EngineState>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -23,21 +29,15 @@ pub struct NushellMcpServer {
 impl NushellMcpServer {
     pub fn new(engine_state: EngineState) -> Self {
         NushellMcpServer {
-            engine_state: Arc::new(engine_state),
+            engine_state: Mutex::new(engine_state),
             tool_router: Self::tool_router(),
         }
     }
 
     #[tool(description = "List available commands")]
     async fn list_commands(&self) -> Result<CallToolResult, McpError> {
-        execute_cmd(
-            self.engine_state.as_ref(),
-            PipelineData::empty(),
-            b"help commands",
-        )
-        .and_then(|pipeline| execute_cmd(self.engine_state.as_ref(), pipeline, b"to json"))
-        .and_then(|pipeline| pipeline_to_content(pipeline, self.engine_state.as_ref()))
-        .map(|content| CallToolResult::success(vec![content]))
+        self.eval("help commands | to json", PipelineData::empty())
+            .map(CallToolResult::success)
     }
 
     #[tool(description = "Get help for a specific command")]
@@ -46,13 +46,47 @@ impl NushellMcpServer {
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
     ) -> Result<CallToolResult, McpError> {
         let cmd = format!("help {name}");
-        execute_cmd(
-            self.engine_state.as_ref(),
-            PipelineData::empty(),
-            cmd.as_bytes(),
-        )
-        .and_then(|pipeline| pipeline_to_content(pipeline, self.engine_state.as_ref()))
-        .map(|content| CallToolResult::success(vec![content]))
+        self.eval(&cmd, PipelineData::empty())
+            .map(CallToolResult::success)
+    }
+
+    fn eval(&self, nu_source: &str, input: PipelineData) -> Result<Vec<Content>, McpError> {
+        let mut engine_state = self.engine_state_lock()?;
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        // Parse the source code
+        let block = parse(&mut working_set, None, nu_source.as_bytes(), false);
+
+        // Check for parse errors
+        if !working_set.parse_errors.is_empty() {
+            // ShellError doesn't have ParseError, use LabeledError to contain it.
+            return Err(McpError::invalid_request(
+                "Failed to parse nushell pipeline",
+                None,
+            ));
+        }
+
+        let rendered = working_set.render();
+
+        // Merge into state
+        engine_state
+            .merge_delta(rendered)
+            .map_err(shell_error_to_mcp_error)?;
+
+        // Eval the block with the input
+        let mut stack = Stack::new().collect_value();
+        let output = eval_block::<WithoutDebug>(&mut engine_state, &mut stack, &block, input)
+            .map_err(shell_error_to_mcp_error)?;
+
+        pipeline_to_content(output, &engine_state)
+            .map(|content| vec![content])
+            .map_err(|e| McpError::internal_error(format!("Failed to evaluate block: {e}"), None))
+    }
+
+    fn engine_state_lock(&self) -> Result<MutexGuard<EngineState>, McpError> {
+        self.engine_state.lock().map_err(|e| {
+            McpError::internal_error(format!("Failed to acquire engine state lock: {e}"), None)
+        })
     }
 }
 
@@ -69,27 +103,6 @@ impl ServerHandler for NushellMcpServer {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
-    }
-}
-
-fn execute_cmd(
-    engine_state: &EngineState,
-    pipeline_data: PipelineData,
-    name: &[u8],
-) -> Result<PipelineData, McpError> {
-    let mut stack = Stack::new();
-    let span = Span::unknown();
-    let call = Call::new(span);
-    if let Some(decl_id) = engine_state.find_decl(name, &[]) {
-        engine_state
-            .get_decl(decl_id)
-            .run(engine_state, &mut stack, &call, pipeline_data)
-            .map_err(shell_error_to_mcp_error)
-    } else {
-        Err(McpError::resource_not_found(
-            Cow::from("Command not found"),
-            None,
-        ))
     }
 }
 
