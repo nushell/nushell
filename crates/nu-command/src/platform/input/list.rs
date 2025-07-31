@@ -309,12 +309,12 @@ impl Theme for NuTheme {
             return write!(f, "{text}{RESET}");
         };
         let prefix = nu_ansi_term::Style::new()
-            .bold()
             .italic()
+            .underline()
             .prefix()
             .to_string();
-        // HACK: Reset bold italic, from the `ansi` command, should be moved to `nu_ansi_term`
-        let suffix = "\x1b[22;23m";
+        // HACK: Reset italic and underline, from the `ansi` command, should be moved to `nu_ansi_term`
+        let suffix = "\x1b[23;24m";
 
         for (idx, c) in text.chars().enumerate() {
             if indices.contains(&idx) {
