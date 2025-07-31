@@ -349,6 +349,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         Type::Date => Ok("DATETIME"),
         Type::Duration => Ok("BIGINT"),
         Type::Filesize => Ok("INTEGER"),
+        Type::List(_) | Type::Record(_) | Type::Table(_) => Ok("JSONB"),
 
         // [NOTE] On null values, we just assume TEXT. This could end up
         // creating a table where the column type is wrong in the table schema.
@@ -362,11 +363,8 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Closure
         | Type::Custom(_)
         | Type::Error
-        | Type::List(_)
         | Type::Range
-        | Type::Record(_)
-        | Type::Glob
-        | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
+        | Type::Glob => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),
             wrong_type: val.get_type().to_string(),
             dst_span: Span::unknown(),
