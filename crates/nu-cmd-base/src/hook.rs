@@ -155,15 +155,17 @@ pub fn eval_hook(
                         other_span,
                     ) {
                         Ok(pipeline_data) => {
+                            let pipeline_data_type = pipeline_data.get_type();
+                            let pipeline_data_span = pipeline_data.span();
                             if let PipelineDataBody::Value(Value::Bool { val, .. }, ..) =
-                                pipeline_data
+                                pipeline_data.body()
                             {
                                 val
                             } else {
                                 return Err(ShellError::RuntimeTypeMismatch {
                                     expected: Type::Bool,
-                                    actual: pipeline_data.get_type(),
-                                    span: pipeline_data.span().unwrap_or(other_span),
+                                    actual: pipeline_data_type,
+                                    span: pipeline_data_span.unwrap_or(other_span),
                                 });
                             }
                         }
@@ -321,12 +323,12 @@ fn run_hook(
         input,
     )?;
 
-    if let PipelineDataBody::Value(Value::Error { error, .. }, _) = pipeline_data {
-        return Err(*error);
+    match pipeline_data.body() {
+        PipelineDataBody::Value(Value::Error { error, .. }, _) => Err(*error),
+        other => {
+            // If all went fine, preserve the environment of the called block
+            redirect_env(engine_state, stack, &callee_stack);
+            Ok(other.into())
+        }
     }
-
-    // If all went fine, preserve the environment of the called block
-    redirect_env(engine_state, stack, &callee_stack);
-
-    Ok(pipeline_data)
 }

@@ -807,6 +807,16 @@ impl PipelineData {
     }
 }
 
+impl From<PipelineDataBody> for PipelineData {
+    fn from(value: PipelineDataBody) -> Self {
+        match value {
+            PipelineDataBody::Empty => Self::empty(),
+            PipelineDataBody::ListStream(stream, metadata) => Self::list_stream(stream, metadata),
+            PipelineDataBody::Value(val, metadata) => Self::value(val, metadata),
+            PipelineDataBody::ByteStream(stream, metadata) => Self::byte_stream(stream, metadata),
+        }
+    }
+}
 pub fn write_all_and_flush<T>(
     data: T,
     destination: &mut impl Write,

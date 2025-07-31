@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use nu_protocol::{
-    PipelineData, Value,
+    PipelineDataBody, Value,
     engine::{EngineState, Stack},
 };
 use ratatui::layout::Rect;
@@ -52,7 +52,7 @@ impl ViewCommand for NuCmd {
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
-        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)?;
+        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)?.body();
 
         let is_record = matches!(pipeline, PipelineDataBody::Value(Value::Record { .. }, ..));
 

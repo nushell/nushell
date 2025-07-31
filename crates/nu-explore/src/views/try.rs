@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_protocol::{
-    PipelineData, Value,
+    PipelineDataBody, Value,
     engine::{EngineState, Stack},
 };
 use ratatui::{
@@ -251,9 +251,12 @@ fn run_command(
 ) -> Result<RecordView> {
     let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
-    let is_record = matches!(pipeline, PipelineDataBody::Value(Value::Record { .. }, ..));
+    let is_record = matches!(
+        pipeline.get_body(),
+        PipelineDataBody::Value(Value::Record { .. }, ..)
+    );
 
-    let (columns, values) = collect_pipeline(pipeline)?;
+    let (columns, values) = collect_pipeline(pipeline.body())?;
 
     let mut view = RecordView::new(columns, values, config.clone());
     if is_record {

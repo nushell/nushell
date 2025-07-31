@@ -15,7 +15,7 @@ pub use explore::Explore;
 use explore::ExploreConfig;
 use nu_common::{collect_pipeline, has_simple_value};
 use nu_protocol::{
-    PipelineData, Value,
+    PipelineData, PipelineDataBody, Value,
     engine::{EngineState, Stack},
 };
 use pager::{Page, Pager, PagerConfig};
@@ -35,9 +35,12 @@ fn run_pager(
     let mut p = Pager::new(config.clone());
     let commands = create_command_registry();
 
-    let is_record = matches!(input, PipelineDataBody::Value(Value::Record { .. }, ..));
+    let is_record = matches!(
+        input.get_body(),
+        PipelineDataBody::Value(Value::Record { .. }, ..)
+    );
     let is_binary = matches!(
-        input,
+        input.get_body(),
         PipelineDataBody::Value(Value::Binary { .. }, ..) | PipelineDataBody::ByteStream(..)
     );
 
@@ -48,7 +51,7 @@ fn run_pager(
         return p.run(engine_state, stack, Some(view), commands);
     }
 
-    let (columns, data) = collect_pipeline(input)?;
+    let (columns, data) = collect_pipeline(input.body())?;
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
@@ -93,7 +96,7 @@ fn help_view() -> Option<Page> {
 }
 
 fn binary_view(input: PipelineData, config: &ExploreConfig) -> Result<Page> {
-    let data = match input {
+    let data = match input.body() {
         PipelineDataBody::Value(Value::Binary { val, .. }, _) => val,
         PipelineDataBody::ByteStream(bs, _) => bs.into_bytes()?,
         _ => unreachable!("checked beforehand"),

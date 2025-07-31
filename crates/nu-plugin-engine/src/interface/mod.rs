@@ -12,9 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, PipelineData, PipelineDataBody, PluginMetadata, PluginSignature,
-    ShellError, SignalAction, Signals, Span, Spanned, Value,
-    ast::{Operator, Pipeline},
-    engine::Sequence,
+    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{

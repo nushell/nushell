@@ -1,7 +1,7 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    OutDest, PipelineData, ShellError, Value,
+    OutDest, PipelineData, PipelineDataBody, ShellError, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
 };
@@ -24,17 +24,16 @@ pub fn run_command_with_value(
     }
 
     let pipeline = PipelineData::value(input.clone(), None);
-    let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
-    if let PipelineDataBody::Value(Value::Error { error, .. }, ..) = pipeline {
-        Err(ShellError::GenericError {
+    let pipeline = run_nu_command(engine_state, stack, command, pipeline)?.body();
+    match pipeline {
+        PipelineDataBody::Value(Value::Error { error, .. }, ..) => Err(ShellError::GenericError {
             error: "Error from pipeline".to_string(),
             msg: error.to_string(),
             span: None,
             help: None,
             inner: vec![*error],
-        })
-    } else {
-        Ok(pipeline)
+        }),
+        other => Ok(PipelineData::from(other)),
     }
 }
 
