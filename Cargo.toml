@@ -83,6 +83,7 @@ csv = "1.3"
 ctrlc = "3.4"
 devicons = "0.6.12"
 dialoguer = { default-features = false, version = "0.11" }
+fuzzy-matcher = { version = "^0.3.7" }
 digest = { default-features = false, version = "0.10" }
 dirs = "5.0"
 dirs-sys = "0.4"
