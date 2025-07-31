@@ -41,7 +41,7 @@ impl Command for QueryDb {
             Example {
                 description: "Execute a SQL statement with parameters",
                 example: r#"stor create -t my_table -c { first: str, second: int }
-stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
+        stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
                 result: None,
             },
             Example {
@@ -55,10 +55,25 @@ stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p {
                 })])),
             },
             Example {
-                description: "Execute a SQL query over JSONB data",
+                description: "Execute a SQL query, selecting a declared JSON(B) column that will automatically be parsed",
+                example: r#"stor create -t my_table -c {data: jsonb}
+[{data: {name: Albert, age: 40}} {data: {name: Barnaby, age: 54}}] | stor insert -t my_table
+stor open | query db "SELECT data FROM my_table WHERE data->>'age' < 45""#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "data" => Value::test_record(
+                        record! {
+                            "name" => Value::test_string("Albert"),
+                            "age" => Value::test_int(40),
+                        }
+                )})])),
+            },
+            Example {
+                description: "Execute a SQL query selecting a sub-field of a JSON(B) column.
+In this case, results must be parsed afterwards because SQLite does not
+return declaration types when a JSON(B) column is not directly selected",
                 example: r#"stor create -t my_table -c {data: jsonb}
 stor insert -t my_table -d {data: {foo: foo, bar: 12, baz: [0 1 2]}}
-stor open | query db "SELECT data->'baz' as baz from my_table" | update baz {from json}"#,
+stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {from json}"#,
                 result: Some(Value::test_list(vec![Value::test_record(
                     record! { "baz" =>
                         Value::test_list(vec![
