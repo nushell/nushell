@@ -148,22 +148,30 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     match lhs.strip_prefix(&rhs) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
         Err(e) => {
-            // Try case-insensitive comparison for case-insensitive filesystems
-            if let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs) {
-                Value::string(relative_path.to_string_lossy(), span)
-            } else {
-                Value::error(
-                    ShellError::CantConvert {
-                        to_type: e.to_string(),
-                        from_type: "string".into(),
-                        span,
-                        help: None,
-                    },
-                    span,
-                )
+            // On case-insensitive filesystems, try case-insensitive comparison
+            if is_case_insensitive_filesystem() {
+                if let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs) {
+                    return Value::string(relative_path.to_string_lossy(), span);
+                }
             }
+
+            Value::error(
+                ShellError::CantConvert {
+                    to_type: e.to_string(),
+                    from_type: "string".into(),
+                    span,
+                    help: None,
+                },
+                span,
+            )
         }
     }
+}
+
+/// Check if the current filesystem is typically case-insensitive
+fn is_case_insensitive_filesystem() -> bool {
+    // Windows and macOS typically have case-insensitive filesystems
+    cfg!(any(target_os = "windows", target_os = "macos"))
 }
 
 /// Try to strip prefix in a case-insensitive manner
@@ -223,11 +231,22 @@ mod tests {
 
         let result = relative_to(Path::new("/etc"), Span::test_data(), &args);
 
-        match result {
-            Value::String { val, .. } => {
-                assert_eq!(val, "");
+        // On case-insensitive filesystems (Windows, macOS), this should work
+        // On case-sensitive filesystems (Linux, FreeBSD), this should fail
+        if is_case_insensitive_filesystem() {
+            match result {
+                Value::String { val, .. } => {
+                    assert_eq!(val, "");
+                }
+                _ => panic!("Expected string result on case-insensitive filesystem"),
             }
-            _ => panic!("Expected string result for case-insensitive path match"),
+        } else {
+            match result {
+                Value::Error { .. } => {
+                    // Expected on case-sensitive filesystems
+                }
+                _ => panic!("Expected error on case-sensitive filesystem"),
+            }
         }
     }
 
@@ -245,16 +264,25 @@ mod tests {
 
         let result = relative_to(Path::new("/home/user/documents"), Span::test_data(), &args);
 
-        match result {
-            Value::String { val, .. } => {
-                assert_eq!(val, "documents");
+        if is_case_insensitive_filesystem() {
+            match result {
+                Value::String { val, .. } => {
+                    assert_eq!(val, "documents");
+                }
+                _ => panic!("Expected string result on case-insensitive filesystem"),
             }
-            _ => panic!("Expected string result for case-insensitive path with subpath"),
+        } else {
+            match result {
+                Value::Error { .. } => {
+                    // Expected on case-sensitive filesystems
+                }
+                _ => panic!("Expected error on case-sensitive filesystem"),
+            }
         }
     }
 
     #[test]
-    fn test_case_insensitive_no_match() {
+    fn test_truly_different_paths() {
         use nu_protocol::{Span, Value};
         use std::path::Path;
 
@@ -267,6 +295,7 @@ mod tests {
 
         let result = relative_to(Path::new("/home/user"), Span::test_data(), &args);
 
+        // This should fail on all filesystems since paths are truly different
         match result {
             Value::Error { .. } => {}
             _ => panic!("Expected error for truly different paths"),
