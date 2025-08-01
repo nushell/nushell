@@ -3954,6 +3954,7 @@ version = "0.106.2"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
+ "fancy-regex",
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
