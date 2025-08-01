@@ -79,7 +79,7 @@ impl Command for IntoSqliteDb {
             Example {
                 description: "Insert data that contains records, lists or tables, that will be stored as JSONB columns
 These columns will be automatically turned back into nu objects when read directly via cell-path",
-                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: (ls)} | into sqlite filename.db -t my_table
+                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: [[a b]; [0 1] [2 3]]} | into sqlite filename.db -t my_table
 (open filename.db).my_table.0.a_list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
