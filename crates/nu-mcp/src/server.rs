@@ -34,19 +34,25 @@ impl NushellMcpServer {
         }
     }
 
-    #[tool(description = "List available commands")]
+    #[tool(description = "List available Nushell commands")]
     async fn list_commands(&self) -> Result<CallToolResult, McpError> {
         self.eval("help commands | to json", PipelineData::empty())
             .map(CallToolResult::success)
     }
 
-    #[tool(description = "Get help for a specific command")]
+    #[tool(description = "Get help for a specific Nushell command")]
     async fn command_help(
         &self,
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
     ) -> Result<CallToolResult, McpError> {
         let cmd = format!("help {name}");
         self.eval(&cmd, PipelineData::empty())
+            .map(CallToolResult::success)
+    }
+
+    #[tool(description = "Evaluate Nushell source code")]
+    async fn evaluate(&self, Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>) -> Result<CallToolResult, McpError> {
+        self.eval(&input, PipelineData::empty())
             .map(CallToolResult::success)
     }
 
@@ -92,7 +98,14 @@ impl NushellMcpServer {
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct CommandNameRequest {
+    #[schemars(description = "The name of the command to get help for")]
     name: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+struct NuSourceRequest {
+    #[schemars(description = "The Nushell source code to evaluate")]
+    input: String,
 }
 
 #[tool_handler]
