@@ -170,11 +170,11 @@ pub fn run_post(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input.body() {
-            PipelineDataBody::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineDataBody::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineDataBody::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
             _ => (None, None),
         });
