@@ -310,6 +310,23 @@ def str-align_simple [] {
 }
 
 @test
+def str-align_center [] {
+    let actual = [
+        "a = 1"
+        "max = 2"
+        "very_long_variable_name = 3"
+    ] | str align '=' --center
+
+    let expected = [
+        "                      a = 1"
+        "                    max = 2"
+        "very_long_variable_name = 3"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
 def str-align_with_range [] {
     let actual = r#'match 5 {
     1.. => { print "More than zero" }

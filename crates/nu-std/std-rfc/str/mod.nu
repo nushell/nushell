@@ -141,6 +141,7 @@ five  = 5'#
 export def align [
     target:string       # substring to align
     --char (-c) = " "   # character to use for padding
+    --center (-C)       # add padding at the end of the line instead of before the target
     --range (-r): range # the range of lines to align
 ]: [string -> string, list<string> -> string] {
     let $input = $in | to text | lines
@@ -165,7 +166,8 @@ export def align [
         # If the substring is not in the line, the index is -1 and it is left as it is
         seq 1 (if $x.1 == -1 { 0 } else { $max - $x.1 })
         | reduce -f ($x.0 | split chars) {|_, acc|
-            $acc | insert $x.1 $char
+            let $idx = if $center { 0 } else { $x.1 }
+            $acc | insert $idx $char
         }
         | str join
     }
