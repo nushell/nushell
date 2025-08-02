@@ -157,12 +157,12 @@ impl Command for Do {
                         if !stderr_msg.is_empty() {
                             child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr_msg))));
                         }
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::child(child, span),
                             metadata,
                         ))
                     }
-                    Err(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
+                    Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                 }
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
@@ -176,7 +176,7 @@ impl Command for Do {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }
-                Ok(PipelineData::ByteStream(stream, metadata))
+                Ok(PipelineData::byte_stream(stream, metadata))
             }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
@@ -189,7 +189,7 @@ impl Command for Do {
                         value
                     }
                 });
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
             r => r,
         }

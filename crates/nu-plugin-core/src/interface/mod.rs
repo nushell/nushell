@@ -184,20 +184,20 @@ pub trait InterfaceManager {
         signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
-            PipelineDataHeader::Empty => PipelineData::Empty,
-            PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
+            PipelineDataHeader::Empty => PipelineData::empty(),
+            PipelineDataHeader::Value(value, metadata) => PipelineData::value(value, metadata),
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 let ls = ListStream::new(reader, info.span, signals.clone());
-                PipelineData::ListStream(ls, info.metadata)
+                PipelineData::list_stream(ls, info.metadata)
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 let bs =
                     ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
-                PipelineData::ByteStream(bs, info.metadata)
+                PipelineData::byte_stream(bs, info.metadata)
             }
         })
     }

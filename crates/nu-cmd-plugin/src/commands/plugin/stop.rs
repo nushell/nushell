@@ -66,7 +66,7 @@ impl Command for PluginStop {
         }
 
         if found {
-            Ok(PipelineData::Empty)
+            Ok(PipelineData::empty())
         } else {
             Err(ShellError::GenericError {
                 error: format!("Failed to stop the `{}` plugin", name.item),

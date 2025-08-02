@@ -45,7 +45,7 @@ impl Command for Start {
         // Attempt to parse the input as a URL
         if let Ok(url) = url::Url::parse(path_no_whitespace) {
             open_path(url.as_str(), engine_state, stack, path.span)?;
-            return Ok(PipelineData::Empty);
+            return Ok(PipelineData::empty());
         }
         // If it's not a URL, treat it as a file path
         let cwd = engine_state.cwd(Some(stack))?;
@@ -54,7 +54,7 @@ impl Command for Start {
         // Check if the path exists or if it's a valid file/directory
         if full_path.exists() {
             open_path(full_path, engine_state, stack, path.span)?;
-            return Ok(PipelineData::Empty);
+            return Ok(PipelineData::empty());
         }
         // If neither file nor URL, return an error
         Err(ShellError::GenericError {

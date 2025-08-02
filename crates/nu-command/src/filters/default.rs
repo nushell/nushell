@@ -227,7 +227,7 @@ fn default(
         // stream's internal state already preserves the original signals config, so if this
         // Signals::empty list stream gets interrupted it will be caught by the underlying iterator
         let ls = ListStream::new(stream, span, Signals::empty());
-        Ok(PipelineData::ListStream(ls, metadata))
+        Ok(PipelineData::list_stream(ls, metadata))
     // Otherwise, return the input as is
     } else {
         Ok(input)
@@ -269,7 +269,7 @@ impl DefaultValue {
             DefaultValue::Uncalculated(closure) => {
                 let value = closure
                     .item
-                    .run_with_input(PipelineData::Empty)?
+                    .run_with_input(PipelineData::empty())?
                     .into_value(closure.span)?;
                 *self = DefaultValue::Calculated(value.clone());
                 Ok(value)
@@ -282,7 +282,7 @@ impl DefaultValue {
     fn single_run_pipeline_data(self) -> Result<PipelineData, ShellError> {
         match self {
             DefaultValue::Uncalculated(mut closure) => {
-                closure.item.run_with_input(PipelineData::Empty)
+                closure.item.run_with_input(PipelineData::empty())
             }
             DefaultValue::Calculated(val) => Ok(val.into_pipeline_data()),
         }

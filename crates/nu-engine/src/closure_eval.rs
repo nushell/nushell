@@ -37,7 +37,7 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 /// let mut closure = ClosureEval::new(engine_state, stack, closure);
 /// let iter = Vec::<Value>::new()
 ///     .into_iter()
-///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::Empty));
+///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::empty()));
 /// ```
 ///
 /// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
@@ -175,7 +175,7 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure)
 ///     .add_arg(value)
-///     .run_with_input(PipelineData::Empty);
+///     .run_with_input(PipelineData::empty());
 /// ```
 ///
 /// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.

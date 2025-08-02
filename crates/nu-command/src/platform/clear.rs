@@ -66,7 +66,7 @@ impl Command for Clear {
             }
         };
 
-        Ok(PipelineData::Empty)
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

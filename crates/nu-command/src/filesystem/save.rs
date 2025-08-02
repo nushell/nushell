@@ -191,7 +191,7 @@ impl Command for Save {
                     }
                 }
 
-                Ok(PipelineData::Empty)
+                Ok(PipelineData::empty())
             }
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>

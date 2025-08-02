@@ -406,7 +406,7 @@ pub trait CustomValueSupport: Cacheable {
         engine: &EngineInterface,
         span: Span,
     ) -> Result<PipelineData, ShellError> {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             self.cache_and_to_value(plugin, engine, span)?,
             None,
         ))

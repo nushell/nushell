@@ -76,7 +76,7 @@ impl Command for ToJson {
                     data_source: nu_protocol::DataSource::None,
                     content_type: Some(mime::APPLICATION_JSON.to_string()),
                 };
-                Ok(PipelineData::Value(res, Some(metadata)))
+                Ok(PipelineData::value(res, Some(metadata)))
             }
             _ => Err(ShellError::CantConvert {
                 to_type: "JSON".into(),

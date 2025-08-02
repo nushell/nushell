@@ -138,7 +138,7 @@ use it in your pipeline."#
                     let tee_thread = spawn_tee(info, eval_block)?;
                     let tee = IoTee::new(read, tee_thread);
 
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
@@ -151,7 +151,7 @@ use it in your pipeline."#
                     let tee_thread = spawn_tee(info, eval_block)?;
                     let tee = IoTee::new(file, tee_thread);
 
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
@@ -234,7 +234,7 @@ use it in your pipeline."#
                     };
 
                     if child.stdout.is_some() || child.stderr.is_some() {
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::child(*child, span),
                             metadata,
                         ))
@@ -243,7 +243,7 @@ use it in your pipeline."#
                             thread.join().unwrap_or_else(|_| Err(panic_error()))?;
                         }
                         child.wait()?;
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
             }
@@ -439,7 +439,7 @@ fn spawn_tee(
                 Signals::empty(),
                 info.type_,
             );
-            eval_block(PipelineData::ByteStream(stream, info.metadata))
+            eval_block(PipelineData::byte_stream(stream, info.metadata))
         })
         .map_err(|err| {
             IoError::new_with_additional_context(err, info.span, None, "Could not spawn tee")

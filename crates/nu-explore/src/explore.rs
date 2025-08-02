@@ -88,8 +88,8 @@ impl Command for Explore {
         let result = run_pager(engine_state, &mut stack.clone(), input, config);
 
         match result {
-            Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
-            Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
+            Ok(Some(value)) => Ok(PipelineData::value(value, None)),
+            Ok(None) => Ok(PipelineData::value(Value::default(), None)),
             Err(err) => {
                 let shell_error = match err.downcast::<ShellError>() {
                     Ok(e) => e,
@@ -102,7 +102,7 @@ impl Command for Explore {
                     },
                 };
 
-                Ok(PipelineData::Value(
+                Ok(PipelineData::value(
                     Value::error(shell_error, call.head),
                     None,
                 ))
