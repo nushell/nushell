@@ -3095,7 +3095,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3905,7 +3905,7 @@ dependencies = [
  "web-time",
  "webpki-roots 1.0.0",
  "which",
- "windows 0.56.0",
+ "windows 0.61.3",
  "winreg",
 ]
 
@@ -4068,7 +4068,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "windows 0.56.0",
+ "windows 0.61.3",
 ]
 
 [[package]]
@@ -4084,7 +4084,7 @@ dependencies = [
  "nu-utils",
  "serde",
  "typetag",
- "windows 0.56.0",
+ "windows 0.61.3",
 ]
 
 [[package]]
@@ -4164,7 +4164,7 @@ dependencies = [
  "thiserror 2.0.12",
  "typetag",
  "web-time",
- "windows 0.56.0",
+ "windows 0.61.3",
  "windows-sys 0.48.0",
 ]
 
@@ -4194,7 +4194,7 @@ dependencies = [
  "procfs",
  "sysinfo",
  "web-time",
- "windows 0.56.0",
+ "windows 0.61.3",
 ]
 
 [[package]]
