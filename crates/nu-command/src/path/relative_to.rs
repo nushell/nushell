@@ -2,7 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::expand_to_real_path;
 use nu_protocol::engine::StateWorkingSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 struct Arguments {
     path: Spanned<String>,
@@ -113,6 +113,12 @@ path."#
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
                 result: Some(Value::test_string(r"spam")),
             },
+            Example {
+                description: "Find a relative path that requires parent directory symbols",
+                example: r"'a\b\c' | path relative-to 'a\d\e'",
+
+                result: Some(Value::test_string(r"..\..\b\c")),
+            },
         ]
     }
 
@@ -137,27 +143,62 @@ path."#
                 example: r"'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
                 result: Some(Value::test_string(r"spam")),
             },
+            Example {
+                description: "Find a relative path that requires parent directory symbols",
+                example: r"'a/b/c' | path relative-to 'a/d/e'",
+
+                result: Some(Value::test_string(r"../../b/c")),
+            },
         ]
     }
 }
 
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
-    let lhs = expand_to_real_path(path);
-    let rhs = expand_to_real_path(&args.path.item);
-    match lhs.strip_prefix(&rhs) {
-        Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => Value::error(
-            ShellError::CantConvert {
-                to_type: e.to_string(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            },
-            span,
-        ),
-    }
-}
+    let child = expand_to_real_path(path);
+    let parent = expand_to_real_path(&args.path.item);
 
+    let common: PathBuf = child
+        .iter()
+        .zip(parent.iter())
+        .take_while(|(x, y)| x == y)
+        .map(|(x, _)| x)
+        .collect();
+
+    let differing_parent = match parent.strip_prefix(&common) {
+        Ok(p) => p,
+        Err(_) => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "Unable to strip common prefix from parent".into(),
+                    val_span: span,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+
+    let differing_child = match child.strip_prefix(&common) {
+        Ok(p) => p,
+        Err(_) => {
+            return Value::error(
+                ShellError::IncorrectValue {
+                    msg: "Unable to strip common prefix from child".into(),
+                    val_span: span,
+                    call_span: span,
+                },
+                span,
+            )
+        }
+    };
+
+    let mut path = PathBuf::new();
+    differing_parent.iter().for_each(|_| path.push(".."));
+
+    path.push(differing_child);
+
+    Value::string(path.to_string_lossy(), span)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
