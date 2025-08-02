@@ -219,7 +219,7 @@ impl Command for Input {
                 result: None,
             },
             Example {
-                description: "Get multiple lines of input from the user (newlines can be entered using Alt + Enter or Ctrl + Enter), and assign to a variable",
+                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
                 example: "let multiline_input = (input --reedline)",
                 result: None,
             },
