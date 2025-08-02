@@ -84,6 +84,8 @@ export def main [
     nothing -> table<code: string, mean: duration, std: duration, ratio: float>
     nothing -> string
 ] {
+    let $num_commands = ($commands | length)
+    let $total_rounds = $rounds * $num_commands
     if $setup != null { do $setup | ignore }
 
     let results = (
@@ -91,7 +93,7 @@ export def main [
             let code = $x.item
             let idx = $x.index
 
-            let bench_num = if ($commands | length) > 1 { $" ($idx + 1)"}
+            let bench_num = if $num_commands > 1 { $" ($idx + 1)"}
 
             seq 1 $warmup | each {|i|
                 if $progress { print -n $"Warmup($bench_num): ($i) / ($warmup)\r" }
@@ -104,6 +106,7 @@ export def main [
 
             let times: list<duration> = (
                 seq 1 $rounds | each {|i|
+                    if $i mod 10 == 0 { print -n $'(ansi osc)9;4;1;(($idx * $rounds + $i) / $total_rounds * 100 | into int)(ansi st)' }
                     if $progress { print -n $"Benchmark($bench_num): ($i) / ($rounds)\r" }
 
                     if $prepare != null { $idx | do $prepare $idx | ignore }
@@ -127,9 +130,10 @@ export def main [
     )
 
     if $cleanup != null { do $cleanup | ignore }
+    print -n $'(ansi osc)9;4;0(ansi st)'
 
     # One benchmark
-    if ($results | length) == 1 {
+    if $num_commands == 1 {
         let report = $results | first
         if $pretty {
             return $"($report.mean) +/- ($report.std)"
