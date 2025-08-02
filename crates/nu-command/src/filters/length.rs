@@ -1,6 +1,7 @@
 use std::io::Read;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Length;
@@ -66,20 +67,21 @@ impl Command for Length {
 
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
-    match input {
-        PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
+    let input_type = input.get_type();
+    match input.body() {
+        PipelineDataBody::Empty | PipelineDataBody::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
         }
-        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+        PipelineDataBody::Value(Value::Binary { val, .. }, ..) => {
             Ok(Value::int(val.len() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::Value(Value::List { vals, .. }, ..) => {
+        PipelineDataBody::Value(Value::List { vals, .. }, ..) => {
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             Ok(Value::int(stream.into_iter().count() as i64, call.head).into_pipeline_data())
         }
-        PipelineData::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
+        PipelineDataBody::ByteStream(stream, ..) if stream.type_().is_binary_coercible() => {
             Ok(Value::int(
                 match stream.reader() {
                     Some(r) => r.bytes().count() as i64,
@@ -91,7 +93,7 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         }
         _ => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, table, binary, and nothing".into(),
-            wrong_type: input.get_type().to_string(),
+            wrong_type: input_type.to_string(),
             dst_span: call.head,
             src_span: span,
         }),

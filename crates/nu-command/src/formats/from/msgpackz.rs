@@ -3,6 +3,7 @@ use std::io::Cursor;
 use nu_engine::command_prelude::*;
 
 use super::msgpack::{Opts, read_msgpack};
+use nu_protocol::PipelineDataBody;
 
 const BUFFER_SIZE: usize = 65536;
 
@@ -44,14 +45,14 @@ impl Command for FromMsgpackz {
             signals: engine_state.signals().clone(),
         };
         let metadata = input.metadata().map(|md| md.with_content_type(None));
-        let out = match input {
+        let out = match input.body() {
             // Deserialize from a byte buffer
-            PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
+            PipelineDataBody::Value(Value::Binary { val: bytes, .. }, _) => {
                 let reader = brotli::Decompressor::new(Cursor::new(bytes), BUFFER_SIZE);
                 read_msgpack(reader, opts)
             }
             // Deserialize from a raw stream directly without having to collect it
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 if let Some(reader) = stream.reader() {
                     let reader = brotli::Decompressor::new(reader, BUFFER_SIZE);

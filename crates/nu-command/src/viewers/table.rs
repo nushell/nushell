@@ -13,8 +13,8 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
-    ValueIterator, shell_error::io::IoError,
+    ByteStream, Config, DataSource, ListStream, PipelineDataBody, PipelineMetadata, Signals,
+    TableMode, ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
@@ -421,13 +421,21 @@ impl<'a> CmdInput<'a> {
 
 fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
-    match input.data {
-        // Binary streams should behave as if they really are `binary` data, and printed as hex
-        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
-        ),
-        PipelineData::ByteStream(..) => Ok(input.data),
-        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+
+    // Handle different pipeline data types
+    match input.data.body() {
+        PipelineDataBody::ByteStream(stream, _) => {
+            if stream.type_() == ByteStreamType::Binary {
+                Ok(PipelineData::byte_stream(
+                    pretty_hex_stream(stream, input.call.head),
+                    None,
+                ))
+            } else {
+                // For non-binary ByteStream, recreate PipelineData
+                Ok(PipelineData::byte_stream(stream, None))
+            }
+        }
+        PipelineDataBody::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
             Ok(PipelineData::byte_stream(
@@ -436,38 +444,38 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             ))
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
-        PipelineData::Value(Value::List { vals, .. }, metadata) => {
+        PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
             let stream = ListStream::new(vals.into_iter(), span, signals);
             input.data = PipelineData::empty();
 
             handle_row_stream(input, stream, metadata)
         }
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineDataBody::ListStream(stream, metadata) => {
             input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
-        PipelineData::Value(Value::Record { val, .. }, ..) => {
+        PipelineDataBody::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::empty();
             handle_record(input, val.into_owned())
         }
-        PipelineData::Value(Value::Error { error, .. }, ..) => {
+        PipelineDataBody::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::Custom { val, .. }, ..) => {
+        PipelineDataBody::Value(Value::Custom { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
-        PipelineData::Value(Value::Range { val, .. }, metadata) => {
+        PipelineDataBody::Value(Value::Range { val, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
             let stream =
                 ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
             input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
-        x => Ok(x),
+        x => Ok(x.into()),
     }
 }
 

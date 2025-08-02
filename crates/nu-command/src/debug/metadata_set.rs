@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::DataSource;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -49,11 +50,11 @@ impl Command for MetadataSet {
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
 
-        let mut metadata = match &mut input {
-            PipelineData::Value(_, metadata)
-            | PipelineData::ListStream(_, metadata)
-            | PipelineData::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
-            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+        let mut metadata = match input.get_body_mut() {
+            PipelineDataBody::Value(_, metadata)
+            | PipelineDataBody::ListStream(_, metadata)
+            | PipelineDataBody::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
+            PipelineDataBody::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
         };
 
         if let Some(content_type) = content_type {

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Wrap;
@@ -35,21 +36,23 @@ impl Command for Wrap {
         let name: String = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => Ok(input
+        match input.body() {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            body @ (PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream(..)) => Ok(PipelineData::from(body)
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
                 .into_pipeline_data_with_metadata(span, engine_state.signals().clone(), metadata)),
-            PipelineData::ByteStream(stream, ..) => Ok(Value::record(
+            PipelineDataBody::ByteStream(stream, ..) => Ok(Value::record(
                 record! { name => stream.into_value()? },
                 span,
             )
             .into_pipeline_data_with_metadata(metadata)),
-            PipelineData::Value(input, ..) => Ok(Value::record(record! { name => input }, span)
-                .into_pipeline_data_with_metadata(metadata)),
+            PipelineDataBody::Value(input, ..) => {
+                Ok(Value::record(record! { name => input }, span)
+                    .into_pipeline_data_with_metadata(metadata))
+            }
         }
     }
 

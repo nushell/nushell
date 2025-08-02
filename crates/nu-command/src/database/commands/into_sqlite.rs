@@ -2,6 +2,7 @@ use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
 use nu_engine::command_prelude::*;
 
 use itertools::Itertools;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use std::path::Path;
 
@@ -192,18 +193,18 @@ fn action(
     span: Span,
     signals: &Signals,
 ) -> Result<Value, ShellError> {
-    match input {
-        PipelineData::ListStream(stream, _) => {
+    match input.body() {
+        PipelineDataBody::ListStream(stream, _) => {
             insert_in_transaction(stream.into_iter(), span, table, signals)
         }
-        PipelineData::Value(value @ Value::List { .. }, _) => {
+        PipelineDataBody::Value(value @ Value::List { .. }, _) => {
             let span = value.span();
             let vals = value
                 .into_list()
                 .expect("Value matched as list above, but is not a list");
             insert_in_transaction(vals.into_iter(), span, table, signals)
         }
-        PipelineData::Value(val, _) => {
+        PipelineDataBody::Value(val, _) => {
             insert_in_transaction(std::iter::once(val), span, table, signals)
         }
         _ => Err(ShellError::OnlySupportsThisInputType {

@@ -1,5 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -41,9 +42,9 @@ impl Command for Items {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(value, ..) => {
+        match input.body() {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(value, ..) => {
                 let span = value.span();
                 match value {
                     Value::Record { val, .. } => {
@@ -77,18 +78,22 @@ impl Command for Items {
                     }),
                 }
             }
-            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
-                wrong_type: "stream".into(),
-                dst_span: call.head,
-                src_span: stream.span(),
-            }),
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
-                wrong_type: stream.type_().describe().into(),
-                dst_span: call.head,
-                src_span: stream.span(),
-            }),
+            PipelineDataBody::ListStream(stream, ..) => {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record".into(),
+                    wrong_type: "stream".into(),
+                    dst_span: call.head,
+                    src_span: stream.span(),
+                })
+            }
+            PipelineDataBody::ByteStream(stream, ..) => {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record".into(),
+                    wrong_type: stream.type_().describe().into(),
+                    dst_span: call.head,
+                    src_span: stream.span(),
+                })
+            }
         }
         .map(|data| data.set_metadata(metadata))
     }

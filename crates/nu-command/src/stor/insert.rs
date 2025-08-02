@@ -1,5 +1,6 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
 
@@ -103,7 +104,7 @@ fn handle(
 ) -> Result<Vec<Record>, ShellError> {
     // Check for conflicting use of both pipeline input and flag
     if let Some(record) = data_record {
-        if !matches!(input, PipelineData::Empty) {
+        if !matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::GenericError {
                 error: "Pipeline and Flag both being used".into(),
                 msg: "Use either pipeline input or '--data-record' parameter".into(),
@@ -116,16 +117,16 @@ fn handle(
     }
 
     // Handle the input types
-    let values = match input {
-        PipelineData::Empty => {
+    let values = match input.body() {
+        PipelineDataBody::Empty => {
             return Err(ShellError::MissingParameter {
                 param_name: "requires a table or a record".into(),
                 span,
             });
         }
-        PipelineData::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
-        PipelineData::Value(Value::List { vals, .. }, ..) => vals,
-        PipelineData::Value(val, ..) => vec![val],
+        PipelineDataBody::ListStream(stream, ..) => stream.into_iter().collect::<Vec<_>>(),
+        PipelineDataBody::Value(Value::List { vals, .. }, ..) => vals,
+        PipelineDataBody::Value(val, ..) => vec![val],
         _ => {
             return Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list or record".into(),

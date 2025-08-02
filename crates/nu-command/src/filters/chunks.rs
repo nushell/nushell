@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, shell_error::io::IoError};
+use nu_protocol::{ListStream, PipelineDataBody, shell_error::io::IoError};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,
@@ -120,17 +120,17 @@ pub fn chunks(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let from_io_error = IoError::factory(span, None);
-    match input {
-        PipelineData::Value(Value::List { vals, .. }, metadata) => {
+    match input.body() {
+        PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
             let chunks = ChunksIter::new(vals, chunk_size, span);
             let stream = ListStream::new(chunks, span, engine_state.signals().clone());
             Ok(PipelineData::list_stream(stream, metadata))
         }
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineDataBody::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| ChunksIter::new(iter, chunk_size, span));
             Ok(PipelineData::list_stream(stream, metadata))
         }
-        PipelineData::Value(Value::Binary { val, .. }, metadata) => {
+        PipelineDataBody::Value(Value::Binary { val, .. }, metadata) => {
             let chunk_read = ChunkRead {
                 reader: Cursor::new(val),
                 size: chunk_size,
@@ -146,7 +146,7 @@ pub fn chunks(
             );
             Ok(pipeline_data_with_metadata)
         }
-        PipelineData::ByteStream(stream, metadata) => {
+        PipelineDataBody::ByteStream(stream, metadata) => {
             let pipeline_data = match stream.reader() {
                 None => PipelineData::empty(),
                 Some(reader) => {
@@ -167,7 +167,7 @@ pub fn chunks(
             };
             Ok(pipeline_data)
         }
-        input => Err(input.unsupported_input_error("list", span)),
+        input => Err(PipelineData::from(input).unsupported_input_error("list", span)),
     }
 }
 

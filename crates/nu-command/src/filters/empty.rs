@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::shell_error::io::IoError;
 use std::io::Read;
 
@@ -27,9 +28,9 @@ pub fn empty(
             Ok(Value::bool(true, head).into_pipeline_data())
         }
     } else {
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::ByteStream(stream, ..) => {
+        match input.body() {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 match stream.reader() {
                     Some(reader) => {
@@ -54,7 +55,7 @@ pub fn empty(
                     }
                 }
             }
-            PipelineData::ListStream(s, ..) => {
+            PipelineDataBody::ListStream(s, ..) => {
                 let empty = s.into_iter().next().is_none();
                 if negate {
                     Ok(Value::bool(!empty, head).into_pipeline_data())
@@ -62,7 +63,7 @@ pub fn empty(
                     Ok(Value::bool(empty, head).into_pipeline_data())
                 }
             }
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 if negate {
                     Ok(Value::bool(!value.is_empty(), head).into_pipeline_data())
                 } else {

@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{Signals, engine::Closure};
+use nu_protocol::{PipelineDataBody, Signals, engine::Closure};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -129,9 +129,9 @@ impl Command for ParEach {
             vec.into_iter().map(|(_, val)| val)
         };
 
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(value, ..) => {
+        match input.body() {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(value, ..) => {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
@@ -190,28 +190,30 @@ impl Command for ParEach {
                     }
                 }
             }
-            PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
-                let vec = stream
-                    .into_iter()
-                    .enumerate()
-                    .par_bridge()
-                    .map(move |(index, value)| {
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                            .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
-                            .unwrap_or_else(|err| {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            });
+            PipelineDataBody::ListStream(stream, ..) => {
+                Ok(create_pool(max_threads)?.install(|| {
+                    let vec = stream
+                        .into_iter()
+                        .enumerate()
+                        .par_bridge()
+                        .map(move |(index, value)| {
+                            let span = value.span();
+                            let is_error = value.is_error();
+                            let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                                .run_with_value(value)
+                                .and_then(|data| data.into_value(head))
+                                .unwrap_or_else(|err| {
+                                    Value::error(chain_error_with_input(err, is_error, span), span)
+                                });
 
-                        (index, value)
-                    })
-                    .collect::<Vec<_>>();
+                            (index, value)
+                        })
+                        .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
-            })),
-            PipelineData::ByteStream(stream, ..) => {
+                    apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
+                }))
+            }
+            PipelineDataBody::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
                     Ok(create_pool(max_threads)?.install(|| {
                         let vec = chunks

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Encode;
@@ -104,15 +105,16 @@ fn run(
     ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let input_span = input.span().unwrap_or(head);
 
-    match input {
-        PipelineData::ByteStream(stream, ..) => {
+    match input.body() {
+        PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             let s = stream.into_string()?;
             super::encoding::encode(head, encoding, &s, span, ignore_errors)
                 .map(|val| val.into_pipeline_data())
         }
-        PipelineData::Value(v, ..) => {
+        PipelineDataBody::Value(v, ..) => {
             let span = v.span();
             match v {
                 Value::String { val: s, .. } => {
@@ -129,12 +131,12 @@ fn run(
             }
         }
         // This should be more precise, but due to difficulties in getting spans
-        // from PipelineData::ListStream, this is as it is.
+        // from PipelineDataBody::ListStream, this is as it is.
         _ => Err(ShellError::UnsupportedInput {
             msg: "non-string input".into(),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: input.span().unwrap_or(head),
+            input_span,
         }),
     }
 }

@@ -5,6 +5,7 @@ use crate::network::http::client::{
     send_request_no_body,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct HttpDelete;
@@ -170,9 +171,9 @@ fn run_delete(
     let (data, maybe_metadata) = call
         .get_flag::<Value>(engine_state, stack, "data")?
         .map(|v| (Some(HttpBody::Value(v)), None))
-        .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
-            PipelineData::ByteStream(byte_stream, metadata) => {
+        .unwrap_or_else(|| match input.body() {
+            PipelineDataBody::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
+            PipelineDataBody::ByteStream(byte_stream, metadata) => {
                 (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
             _ => (None, None),

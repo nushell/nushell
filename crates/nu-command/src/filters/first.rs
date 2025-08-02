@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{PipelineDataBody, Signals, shell_error::io::IoError};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -105,8 +105,8 @@ fn first_helper(
         return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
-    match input {
-        PipelineData::Value(val, _) => {
+    match input.body() {
+        PipelineDataBody::Value(val, _) => {
             let span = val.span();
             match val {
                 Value::List { mut vals, .. } => {
@@ -159,7 +159,7 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineDataBody::ListStream(stream, metadata) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
@@ -173,7 +173,7 @@ fn first_helper(
                 ))
             }
         }
-        PipelineData::ByteStream(stream, metadata) => {
+        PipelineDataBody::ByteStream(stream, metadata) => {
             if stream.type_().is_binary_coercible() {
                 let span = stream.span();
                 if let Some(mut reader) = stream.reader() {
@@ -213,7 +213,7 @@ fn first_helper(
                 })
             }
         }
-        PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
+        PipelineDataBody::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
             wrong_type: "null".into(),
             dst_span: call.head,

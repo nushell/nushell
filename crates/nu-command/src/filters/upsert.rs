@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
@@ -176,8 +177,8 @@ fn upsert(
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
-    match input {
-        PipelineData::Value(mut value, metadata) => {
+    match input.body() {
+        PipelineDataBody::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
@@ -207,7 +208,7 @@ fn upsert(
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineDataBody::ListStream(stream, metadata) => {
             if let Some((
                 &PathMember::Int {
                     val,
@@ -303,11 +304,11 @@ fn upsert(
                 Ok(PipelineData::list_stream(stream, metadata))
             }
         }
-        PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
+        PipelineDataBody::Empty => Err(ShellError::IncompatiblePathAccess {
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+        PipelineDataBody::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
             type_name: stream.type_().describe().into(),
             span: head,
         }),

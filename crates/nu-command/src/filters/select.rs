@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing,
+    DeprecationEntry, DeprecationType, PipelineDataBody, PipelineIterator, ReportMode,
+    ast::PathMember, casing::Casing,
 };
 use std::collections::BTreeSet;
 
@@ -244,8 +244,8 @@ fn select(
         input
     };
 
-    match input {
-        PipelineData::Value(v, metadata, ..) => {
+    match input.body() {
+        PipelineDataBody::Value(v, metadata, ..) => {
             let span = v.span();
             match v {
                 Value::List {
@@ -291,7 +291,7 @@ fn select(
                 }
             }
         }
-        PipelineData::ListStream(stream, metadata, ..) => Ok(stream
+        PipelineDataBody::ListStream(stream, metadata, ..) => Ok(stream
             .map(move |x| {
                 if !columns.is_empty() {
                     let mut record = Record::new();

@@ -4,6 +4,7 @@ use crate::network::http::client::{
     request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct HttpPut;
@@ -160,9 +161,9 @@ fn run_put(
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
         .map(|v| (Some(HttpBody::Value(v)), None))
-        .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
-            PipelineData::ByteStream(byte_stream, metadata) => {
+        .unwrap_or_else(|| match input.body() {
+            PipelineDataBody::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
+            PipelineDataBody::ByteStream(byte_stream, metadata) => {
                 (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
             _ => (None, None),

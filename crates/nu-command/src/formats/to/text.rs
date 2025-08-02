@@ -1,7 +1,9 @@
 use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
+use nu_protocol::{
+    ByteStream, PipelineDataBody, PipelineMetadata, format_duration, shell_error::io::IoError,
+};
 use nu_utils::ObviousFloat;
 use std::io::Write;
 
@@ -51,10 +53,10 @@ impl Command for ToText {
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let input = input.try_expand_range()?;
 
-        match input {
-            PipelineData::Empty => Ok(Value::string(String::new(), head)
+        match input.body() {
+            PipelineDataBody::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 let add_trailing = !no_newline
                     && match &value {
                         Value::List { vals, .. } => !vals.is_empty(),
@@ -70,7 +72,7 @@ impl Command for ToText {
                         .into_pipeline_data_with_metadata(update_metadata(None)),
                 )
             }
-            PipelineData::ListStream(stream, meta) => {
+            PipelineDataBody::ListStream(stream, meta) => {
                 let span = stream.span();
                 let from_io_error = IoError::factory(head, None);
                 let stream = if no_newline {
@@ -123,7 +125,7 @@ impl Command for ToText {
 
                 Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
-            PipelineData::ByteStream(stream, meta) => {
+            PipelineDataBody::ByteStream(stream, meta) => {
                 Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
         }

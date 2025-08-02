@@ -1,5 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use nu_protocol::engine::Closure;
 
@@ -198,11 +199,11 @@ pub fn chunk_by(
 
     let metadata = input.metadata();
 
-    match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(Value::Range { .. }, ..)
-        | PipelineData::Value(Value::List { .. }, ..)
-        | PipelineData::ListStream(..) => {
+    match input.get_body() {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(Value::Range { .. }, ..)
+        | PipelineDataBody::Value(Value::List { .. }, ..)
+        | PipelineDataBody::ListStream(..) => {
             let closure = ClosureEval::new(engine_state, stack, closure);
 
             let result = chunk_value_stream(
@@ -215,7 +216,7 @@ pub fn chunk_by(
             Ok(result.into_pipeline_data(head, engine_state.signals().clone()))
         }
 
-        PipelineData::ByteStream(..) | PipelineData::Value(..) => {
+        PipelineDataBody::ByteStream(..) | PipelineDataBody::Value(..) => {
             Err(input.unsupported_input_error("list", head))
         }
     }

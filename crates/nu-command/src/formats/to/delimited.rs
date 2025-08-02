@@ -1,8 +1,8 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
-    shell_error::io::IoError,
+    ByteStream, ByteStreamType, Config, PipelineData, PipelineDataBody, ShellError, Signals, Span,
+    Spanned, Value, shell_error::io::IoError,
 };
 use std::{iter, sync::Arc};
 
@@ -106,17 +106,19 @@ pub fn to_delimited_data(
 
     // Check to ensure the input is likely one of our supported types first. We can't check a stream
     // without consuming it though
-    match input {
-        PipelineData::Value(Value::List { .. } | Value::Record { .. }, _) => (),
-        PipelineData::Value(Value::Error { error, .. }, _) => return Err(*error),
-        PipelineData::Value(other, _) => {
+    match input.get_body() {
+        PipelineDataBody::Value(Value::List { .. } | Value::Record { .. }, _) => (),
+        PipelineDataBody::Value(Value::Error { error, .. }, _) => {
+            return Err(error.as_ref().clone());
+        }
+        PipelineDataBody::Value(other, _) => {
             return Err(make_unsupported_input_error(other.get_type(), head, span));
         }
-        PipelineData::ByteStream(..) => {
+        PipelineDataBody::ByteStream(..) => {
             return Err(make_unsupported_input_error("byte stream", head, span));
         }
-        PipelineData::ListStream(..) => (),
-        PipelineData::Empty => (),
+        PipelineDataBody::ListStream(..) => (),
+        PipelineDataBody::Empty => (),
     }
 
     // Determine the columns we'll use. This is necessary even if we don't write the header row,

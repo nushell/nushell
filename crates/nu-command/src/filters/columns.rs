@@ -1,4 +1,5 @@
 use nu_engine::{column::get_columns, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Columns;
@@ -73,9 +74,9 @@ impl Command for Columns {
 
 fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
-    match input {
-        PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(v, ..) => {
+    match input.body() {
+        PipelineDataBody::Empty => Ok(PipelineData::empty()),
+        PipelineDataBody::Value(v, ..) => {
             let span = v.span();
             let cols = match v {
                 Value::List {
@@ -114,7 +115,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .into_pipeline_data()
                 .set_metadata(metadata))
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineDataBody::ListStream(stream, ..) => {
             let values = stream.into_iter().collect::<Vec<_>>();
             let cols = get_columns(&values)
                 .into_iter()
@@ -125,7 +126,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .into_pipeline_data()
                 .set_metadata(metadata))
         }
-        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+        PipelineDataBody::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: "byte stream".into(),
             dst_span: head,

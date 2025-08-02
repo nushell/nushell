@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_protocol::{PipelineDataBody, engine::Closure};
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -71,13 +71,14 @@ impl Command for EachWhile {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream(..) => {
+        let body = input.body();
+        match body {
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::Value(Value::Range { .. }, ..)
+            | PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(input
+                Ok(PipelineData::from(body)
                     .into_iter()
                     .map_while(move |value| {
                         match closure
@@ -91,7 +92,7 @@ impl Command for EachWhile {
                     .fuse()
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();
                 if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
@@ -114,7 +115,7 @@ impl Command for EachWhile {
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
+            PipelineDataBody::Value(value, ..) => {
                 ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
         }

@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::OutDest;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Complete;
@@ -31,8 +32,8 @@ impl Command for Complete {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        match input {
-            PipelineData::ByteStream(stream, ..) => {
+        match input.body() {
+            PipelineDataBody::ByteStream(stream, ..) => {
                 let Ok(child) = stream.into_child() else {
                     return Err(ShellError::GenericError {
                         error: "Complete only works with external commands".into(),
@@ -72,7 +73,7 @@ impl Command for Complete {
                 Ok(Value::record(record, call.head).into_pipeline_data())
             }
             // bubble up errors from the previous command
-            PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+            PipelineDataBody::Value(Value::Error { error, .. }, _) => Err(*error),
             _ => Err(ShellError::GenericError {
                 error: "Complete only works with external commands".into(),
                 msg: "complete only works on external commands".into(),

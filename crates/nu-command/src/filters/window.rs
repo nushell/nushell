@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
+use nu_protocol::PipelineDataBody;
 use std::num::NonZeroUsize;
 
 #[derive(Clone)]
@@ -116,32 +117,32 @@ impl Command for Window {
         if remainder && size == stride {
             super::chunks::chunks(engine_state, input, size, head)
         } else if stride >= size {
-            match input {
-                PipelineData::Value(Value::List { vals, .. }, metadata) => {
+            match input.body() {
+                PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowGapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                PipelineData::ListStream(stream, metadata) => {
+                PipelineDataBody::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowGapIter::new(iter, size, stride, remainder, head));
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                input => Err(input.unsupported_input_error("list", head)),
+                input => Err(PipelineData::from(input).unsupported_input_error("list", head)),
             }
         } else {
-            match input {
-                PipelineData::Value(Value::List { vals, .. }, metadata) => {
+            match input.body() {
+                PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
                     let chunks = WindowOverlapIter::new(vals, size, stride, remainder, head);
                     let stream = ListStream::new(chunks, head, engine_state.signals().clone());
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                PipelineData::ListStream(stream, metadata) => {
+                PipelineDataBody::ListStream(stream, metadata) => {
                     let stream = stream
                         .modify(|iter| WindowOverlapIter::new(iter, size, stride, remainder, head));
                     Ok(PipelineData::list_stream(stream, metadata))
                 }
-                input => Err(input.unsupported_input_error("list", head)),
+                input => Err(PipelineData::from(input).unsupported_input_error("list", head)),
             }
         }
     }
