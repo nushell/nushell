@@ -31,7 +31,7 @@ impl Command for Find {
             )
             .switch(
                 "ignore-case",
-                "case-insensitive regex mode; equivalent to (?i)",
+                "case-insensitive; for regex mode, equivalent to (?i)",
                 Some('i'),
             )
             .switch(
@@ -242,8 +242,11 @@ struct MatchPattern {
     /// the regex to be used for matching in text
     regex: Regex,
 
-    /// the list of match terms converted to lowercase strings, or empty if a regex was provided
-    lower_terms: Vec<String>,
+    /// the list of match terms (converted to lowercase if needed), or empty if a regex was provided
+    search_terms: Vec<String>,
+
+    /// case-insensitive match
+    ignore_case: bool,
 
     /// return a modified version of the value where matching parts are highlighted
     highlight: bool,
@@ -272,6 +275,11 @@ fn get_match_pattern_from_arguments(
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
 
+    let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+    let multiline = call.has_flag(engine_state, stack, "multiline")?;
+
+    let dotall = call.has_flag(engine_state, stack, "dotall")?;
+
     let style_computer = StyleComputer::from_config(engine_state, stack);
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
@@ -280,7 +288,7 @@ fn get_match_pattern_from_arguments(
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
-    let (regex_str, lower_terms) = if let Some(regex) = regex {
+    let (regex_str, search_terms) = if let Some(regex) = regex {
         if !terms.is_empty() {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Cannot use a `--regex` parameter with additional search terms".into(),
@@ -288,11 +296,7 @@ fn get_match_pattern_from_arguments(
             });
         }
 
-        let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
-        let multiline = call.has_flag(engine_state, stack, "multiline")?;
-        let dotall = call.has_flag(engine_state, stack, "dotall")?;
-
-        let flags = match (insensitive, multiline, dotall) {
+        let flags = match (ignore_case, multiline, dotall) {
             (false, false, false) => "",
             (true, false, false) => "(?i)", // case insensitive
             (false, true, false) => "(?m)", // multi-line mode
@@ -305,30 +309,45 @@ fn get_match_pattern_from_arguments(
 
         (flags.to_string() + regex.as_str(), Vec::new())
     } else {
+        if dotall {
+            return Err(ShellError::IncompatibleParametersSingle {
+                msg: "Flag --dotall only works for regex search".into(),
+                span: call.get_flag_span(stack, "dotall").expect("has flag"),
+            });
+        }
+
         let mut regex = String::new();
 
-        regex += "(?i)";
+        if ignore_case {
+            regex += "(?i)";
+        }
 
-        let lower_terms = terms
+        let search_terms = terms
             .iter()
-            .map(|v| escape(&v.to_expanded_string("", &config).to_lowercase()).into())
+            .map(|v| {
+                if ignore_case {
+                    v.to_expanded_string("", &config).to_lowercase()
+                } else {
+                    v.to_expanded_string("", &config)
+                }
+            })
             .collect::<Vec<String>>();
 
-        if let Some(term) = lower_terms.first() {
+        let escaped_terms = search_terms
+            .iter()
+            .map(|v| escape(v).into())
+            .collect::<Vec<String>>();
+
+        if let Some(term) = escaped_terms.first() {
             regex += term;
         }
 
-        for term in lower_terms.iter().skip(1) {
+        for term in escaped_terms.iter().skip(1) {
             regex += "|";
             regex += term;
         }
 
-        let lower_terms = terms
-            .iter()
-            .map(|v| v.to_expanded_string("", &config).to_lowercase())
-            .collect::<Vec<String>>();
-
-        (regex, lower_terms)
+        (regex, search_terms)
     };
 
     let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
@@ -338,7 +357,8 @@ fn get_match_pattern_from_arguments(
 
     Ok(MatchPattern {
         regex,
-        lower_terms,
+        search_terms,
+        ignore_case,
         invert,
         highlight,
         string_style,
@@ -507,7 +527,11 @@ fn value_should_be_printed(
     columns_to_search: &[String],
     config: &Config,
 ) -> bool {
-    let lower_value = value.to_expanded_string("", config).to_lowercase();
+    let value_as_string = if pattern.ignore_case {
+        value.to_expanded_string("", config).to_lowercase()
+    } else {
+        value.to_expanded_string("", config)
+    };
 
     match value {
         Value::Bool { .. }
@@ -519,18 +543,18 @@ fn value_should_be_printed(
         | Value::Float { .. }
         | Value::Closure { .. }
         | Value::Nothing { .. } => {
-            if !pattern.lower_terms.is_empty() {
+            if !pattern.search_terms.is_empty() {
                 // look for exact match when searching with terms
                 pattern
-                    .lower_terms
+                    .search_terms
                     .iter()
-                    .any(|term: &String| term == &lower_value)
+                    .any(|term: &String| term == &value_as_string)
             } else {
-                string_should_be_printed(pattern, &lower_value)
+                string_should_be_printed(pattern, &value_as_string)
             }
         }
         Value::Glob { .. } | Value::CellPath { .. } | Value::Custom { .. } => {
-            string_should_be_printed(pattern, &lower_value)
+            string_should_be_printed(pattern, &value_as_string)
         }
         Value::String { val, .. } => string_should_be_printed(pattern, val),
         Value::List { vals, .. } => vals
@@ -597,7 +621,8 @@ pub fn find_internal(
 
     let pattern = MatchPattern {
         regex,
-        lower_terms: vec![search_term.to_lowercase()],
+        search_terms: vec![search_term.to_lowercase()],
+        ignore_case: true,
         highlight,
         invert: false,
         string_style,
