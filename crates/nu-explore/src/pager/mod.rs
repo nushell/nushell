@@ -37,6 +37,7 @@ use std::{
     io::{self, Stdout},
     result,
 };
+use unicode_width::UnicodeWidthStr;
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
@@ -450,14 +451,14 @@ fn run_command(
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
+        let next_pos = (pager.cmd_buf.buf_cmd2.width() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
+        let next_pos = (pager.search_buf.buf_cmd_input.width() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
@@ -558,7 +559,8 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, config: &
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, config: &ExploreConfig) {
     let mut input = pager.cmd_buf.buf_cmd2.as_str();
-    if input.len() > area.width as usize + 1 {
+    // UnicodeWidthStr::width is a best guess
+    if input.width() > area.width as usize + 1 {
         // in such case we take last max_cmd_len chars
         let take_bytes = input
             .chars()
@@ -591,7 +593,8 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
         if let Some(p) = text.find(&pager.search_buf.buf_cmd_input) {
             let p = covert_bytes_to_chars(&text, p);
 
-            let w = pager.search_buf.buf_cmd_input.len() as u16;
+            // this width is a best guess
+            let w = pager.search_buf.buf_cmd_input.width() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
 
             f.render_widget(highlight_block.clone(), area);
