@@ -1047,6 +1047,10 @@ fn event_from_record(
             ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         "openeditor" => ReedlineEvent::OpenEditor,
+        "vichangemode" => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
+        }
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline event".into(),
