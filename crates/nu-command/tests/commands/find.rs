@@ -26,10 +26,11 @@ fn find_with_list_search_with_char() {
 
 #[test]
 fn find_with_bytestream_search_with_char() {
-    let actual =
-        nu!("\"ABC\" | save foo.txt; let res = open foo.txt | find abc; rm foo.txt; $res | get 0");
+    let actual = nu!(
+        "\"ABC\" | save foo.txt; let res = open foo.txt | find -i abc; rm foo.txt; $res | get 0"
+    );
     let actual_no_highlight = nu!(
-        "\"ABC\" | save foo.txt; let res = open foo.txt | find --no-highlight abc; rm foo.txt; $res | get 0"
+        "\"ABC\" | save foo.txt; let res = open foo.txt | find -i --no-highlight abc; rm foo.txt; $res | get 0"
     );
 
     assert_eq!(
