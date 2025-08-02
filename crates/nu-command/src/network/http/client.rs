@@ -7,7 +7,7 @@ use base64::{
     engine::{GeneralPurpose, general_purpose::PAD},
 };
 use http::StatusCode;
-use log::warn;
+use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
@@ -60,7 +60,7 @@ impl GetHeader for Response {
     fn header(&self, key: &str) -> Option<&str> {
         self.headers().get(key).and_then(|v| {
             v.to_str()
-                .map_err(|e| log::warn!("Invalid header {e:?}"))
+                .map_err(|e| log::error!("Invalid header {e:?}"))
                 .ok()
         })
     }
@@ -817,15 +817,26 @@ pub(crate) fn handle_response_status(
     }
 }
 
+pub(crate) struct RequestMetadata<'a> {
+    pub requested_url: &'a str,
+    pub span: Span,
+    pub headers: Headers,
+    pub redirect_mode: RedirectMode,
+    pub flags: RequestFlags,
+}
+
 pub(crate) fn request_handle_response(
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
-    requested_url: &str,
-    flags: RequestFlags,
+    RequestMetadata {
+        requested_url,
+        span,
+        headers,
+        redirect_mode,
+        flags,
+    }: RequestMetadata,
+
     resp: Response,
-    request_headers: Headers,
-    redirect_mode: RedirectMode,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.
     // Wrapping it into a closure to call when needed
@@ -856,7 +867,7 @@ pub(crate) fn request_handle_response(
     if flags.full {
         let response_status = resp.status();
 
-        let request_headers_value = headers_to_nu(&request_headers, span)
+        let request_headers_value = headers_to_nu(&headers, span)
             .and_then(|data| data.into_value(span))
             .unwrap_or(Value::nothing(span));
 
@@ -910,7 +921,7 @@ fn extract_request_headers<B>(request: &RequestBuilder<B>) -> Option<Headers> {
                     .filter_map(|v| {
                         v.to_str()
                             .map_err(|e| {
-                                warn!("Invalid header {name:?}: {e:?}");
+                                error!("Invalid header {name:?}: {e:?}");
                             })
                             .ok()
                             .map(|s| s.to_string())
@@ -935,7 +946,7 @@ pub(crate) fn extract_response_headers(response: &Response) -> Headers {
                     .filter_map(|v| {
                         v.to_str()
                             .map_err(|e| {
-                                warn!("Invalid header {name:?}: {e:?}");
+                                error!("Invalid header {name:?}: {e:?}");
                             })
                             .ok()
                             .map(|s| s.to_string())
