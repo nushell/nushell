@@ -89,18 +89,6 @@ impl PipelineData {
         &mut self.body
     }
 
-    pub fn value(val: Value, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
-        PipelineData::Value(val, metadata.into())
-    }
-
-    pub fn list_stream(stream: ListStream, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
-        PipelineData::ListStream(stream, metadata.into())
-    }
-
-    pub fn byte_stream(stream: ByteStream, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
-        PipelineData::ByteStream(stream, metadata.into())
-    }
-
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         match &self.body {
             PipelineDataBody::Empty => None,
