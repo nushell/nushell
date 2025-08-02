@@ -6,6 +6,7 @@ use nu_protocol::{
     PipelineData, PipelineDataBody, PipelineMetadata, PositionalArg, Range, Record, RegId,
     ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
+    combined_type_string,
     debugger::DebugContext,
     engine::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
@@ -1324,36 +1325,20 @@ fn check_input_types(
         return Ok(());
     }
 
-    let mut input_types = io_types
-        .iter()
-        .map(|(input, _)| input.to_string())
-        .collect::<Vec<String>>();
+    let input_types: Vec<Type> = io_types.iter().map(|(input, _)| input.clone()).collect();
+    let expected_string = combined_type_string(&input_types, "and");
 
-    let expected_string = match input_types.len() {
-        0 => {
-            return Err(ShellError::NushellFailed {
-                msg: "Command input type strings is empty, despite being non-zero earlier"
-                    .to_string(),
-            });
-        }
-        1 => input_types.swap_remove(0),
-        2 => input_types.join(" and "),
-        _ => {
-            input_types
-                .last_mut()
-                .expect("Vector with length >2 has no elements")
-                .insert_str(0, "and ");
-            input_types.join(", ")
-        }
-    };
-
-    match input.get_body() {
-        PipelineDataBody::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
-        _ => Err(ShellError::OnlySupportsThisInputType {
+    match (input, expected_string) {
+        (PipelineDataBody::Empty, _) => Err(ShellError::PipelineEmpty { dst_span: head }),
+        (_, Some(expected_string)) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: expected_string,
             wrong_type: input.get_type().to_string(),
             dst_span: head,
             src_span: input.span().unwrap_or(Span::unknown()),
+        }),
+        // expected_string didn't generate properly, so we can't show the proper error
+        (_, None) => Err(ShellError::NushellFailed {
+            msg: "Command input type strings is empty, despite being non-zero earlier".to_string(),
         }),
     }
 }

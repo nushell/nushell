@@ -104,12 +104,14 @@ pub(super) fn from_delimited_data(
                 metadata,
             ))
         }
-        PipelineDataBody::ListStream(list_stream, _) => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "string".into(),
-            wrong_type: "list".into(),
-            dst_span: name,
-            src_span: list_stream.span(),
-        }),
+        PipelineDataBody::ListStream(list_stream, _) => {
+            Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "string".into(),
+                wrong_type: "list".into(),
+                dst_span: name,
+                src_span: list_stream.span(),
+            })
+        }
         PipelineDataBody::ByteStream(byte_stream, ..) => Ok(PipelineData::list_stream(
             from_delimited_stream(config, byte_stream, name)?,
             metadata,

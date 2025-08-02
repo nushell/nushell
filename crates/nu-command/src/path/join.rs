@@ -168,7 +168,9 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     let metadata = input.metadata();
 
     match input {
-        PipelineDataBody::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
+        PipelineDataBody::Value(val, md) => {
+            Ok(PipelineData::value(handle_value(val, args, head), md))
+        }
         PipelineDataBody::ListStream(stream, ..) => Ok(PipelineData::value(
             handle_value(stream.into_value(), args, head),
             metadata,

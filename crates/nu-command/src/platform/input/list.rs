@@ -123,14 +123,8 @@ impl Command for InputList {
             });
         }
 
-        // could potentially be used to map the use theme colors at some point
-        // let theme = dialoguer::theme::ColorfulTheme {
-        //     active_item_style: Style::new().fg(Color::Cyan).bold(),
-        //     ..Default::default()
-        // };
-
         let answer: InteractMode = if multi {
-            let multi_select = MultiSelect::new(); //::with_theme(&theme);
+            let multi_select = MultiSelect::with_theme(&NuTheme);
 
             InteractMode::Multi(
                 if let Some(prompt) = prompt {
@@ -146,7 +140,7 @@ impl Command for InputList {
                 })?,
             )
         } else if fuzzy {
-            let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
+            let fuzzy_select = FuzzySelect::with_theme(&NuTheme);
 
             InteractMode::Single(
                 if let Some(prompt) = prompt {
@@ -163,7 +157,7 @@ impl Command for InputList {
                 })?,
             )
         } else {
-            let select = Select::new(); //::with_theme(&theme);
+            let select = Select::with_theme(&NuTheme);
             InteractMode::Single(
                 if let Some(prompt) = prompt {
                     select.with_prompt(&prompt)
@@ -252,6 +246,84 @@ impl Command for InputList {
                 result: None,
             },
         ]
+    }
+}
+
+use dialoguer::theme::{SimpleTheme, Theme};
+use nu_ansi_term::ansi::RESET;
+
+// could potentially be used to map the use theme colors at some point
+
+/// Theme for handling already colored items gracefully.
+struct NuTheme;
+
+impl Theme for NuTheme {
+    fn format_select_prompt_item(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        text: &str,
+        active: bool,
+    ) -> std::fmt::Result {
+        SimpleTheme.format_select_prompt_item(f, text, active)?;
+        write!(f, "{RESET}")
+    }
+
+    fn format_multi_select_prompt_item(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        text: &str,
+        checked: bool,
+        active: bool,
+    ) -> std::fmt::Result {
+        SimpleTheme.format_multi_select_prompt_item(f, text, checked, active)?;
+        write!(f, "{RESET}")
+    }
+
+    fn format_sort_prompt_item(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        text: &str,
+        picked: bool,
+        active: bool,
+    ) -> std::fmt::Result {
+        SimpleTheme.format_sort_prompt_item(f, text, picked, active)?;
+        writeln!(f, "{RESET}")
+    }
+
+    fn format_fuzzy_select_prompt_item(
+        &self,
+        f: &mut dyn std::fmt::Write,
+        text: &str,
+        active: bool,
+        highlight_matches: bool,
+        matcher: &fuzzy_matcher::skim::SkimMatcherV2,
+        search_term: &str,
+    ) -> std::fmt::Result {
+        use fuzzy_matcher::FuzzyMatcher;
+        write!(f, "{} ", if active { ">" } else { " " })?;
+
+        if !highlight_matches {
+            return write!(f, "{text}{RESET}");
+        }
+        let Some((_score, indices)) = matcher.fuzzy_indices(text, search_term) else {
+            return write!(f, "{text}{RESET}");
+        };
+        let prefix = nu_ansi_term::Style::new()
+            .italic()
+            .underline()
+            .prefix()
+            .to_string();
+        // HACK: Reset italic and underline, from the `ansi` command, should be moved to `nu_ansi_term`
+        let suffix = "\x1b[23;24m";
+
+        for (idx, c) in text.chars().enumerate() {
+            if indices.contains(&idx) {
+                write!(f, "{prefix}{c}{suffix}")?;
+            } else {
+                write!(f, "{}", c)?;
+            }
+        }
+        write!(f, "{RESET}")
     }
 }
 

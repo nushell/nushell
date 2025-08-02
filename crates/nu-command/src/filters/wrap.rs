@@ -48,8 +48,10 @@ impl Command for Wrap {
                 span,
             )
             .into_pipeline_data_with_metadata(metadata)),
-            PipelineDataBody::Value(input, ..) => Ok(Value::record(record! { name => input }, span)
-                .into_pipeline_data_with_metadata(metadata)),
+            PipelineDataBody::Value(input, ..) => {
+                Ok(Value::record(record! { name => input }, span)
+                    .into_pipeline_data_with_metadata(metadata))
+            }
         }
     }
 

@@ -54,6 +54,7 @@ devicons = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = [
 	"fuzzy-select",
 ] }
+fuzzy-matcher = { workspace = true }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
 encoding_rs = { workspace = true }

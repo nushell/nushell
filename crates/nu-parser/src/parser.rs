@@ -1834,7 +1834,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
             return None;
         }
     } else {
-        let op_str = if token.contains("..=") { "..=" } else { ".." };
+        let op_str = if token[range_op_pos..].starts_with("..=") {
+            "..="
+        } else {
+            ".."
+        };
+
         let op_span = Span::new(
             span.start + range_op_pos,
             span.start + range_op_pos + op_str.len(),

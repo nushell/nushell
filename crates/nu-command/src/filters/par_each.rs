@@ -190,27 +190,29 @@ impl Command for ParEach {
                     }
                 }
             }
-            PipelineDataBody::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
-                let vec = stream
-                    .into_iter()
-                    .enumerate()
-                    .par_bridge()
-                    .map(move |(index, value)| {
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                            .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
-                            .unwrap_or_else(|err| {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            });
+            PipelineDataBody::ListStream(stream, ..) => {
+                Ok(create_pool(max_threads)?.install(|| {
+                    let vec = stream
+                        .into_iter()
+                        .enumerate()
+                        .par_bridge()
+                        .map(move |(index, value)| {
+                            let span = value.span();
+                            let is_error = value.is_error();
+                            let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                                .run_with_value(value)
+                                .and_then(|data| data.into_value(head))
+                                .unwrap_or_else(|err| {
+                                    Value::error(chain_error_with_input(err, is_error, span), span)
+                                });
 
-                        (index, value)
-                    })
-                    .collect::<Vec<_>>();
+                            (index, value)
+                        })
+                        .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
-            })),
+                    apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
+                }))
+            }
             PipelineDataBody::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
                     Ok(create_pool(max_threads)?.install(|| {

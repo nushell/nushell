@@ -215,6 +215,26 @@ impl Display for Type {
     }
 }
 
+/// Get a string nicely combining multiple types
+///
+/// Helpful for listing types in errors
+pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
+    use std::fmt::Write as _;
+    match types {
+        [] => None,
+        [one] => Some(one.to_string()),
+        [one, two] => Some(format!("{one} {join_word} {two}")),
+        [initial @ .., last] => {
+            let mut out = String::new();
+            for ele in initial {
+                let _ = write!(out, "{ele}, ");
+            }
+            let _ = write!(out, "{join_word} {last}");
+            Some(out)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Type;
