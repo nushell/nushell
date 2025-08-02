@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineDataBody;
@@ -176,13 +176,13 @@ pub fn run_post(
             PipelineDataBody::ByteStream(byte_stream, metadata) => {
                 (HttpBody::ByteStream(byte_stream), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
-    if let HttpBody::None = data {
+    let Some(data) = data else {
         return Err(ShellError::GenericError {
             error: "Data must be provided either through pipeline or positional argument".into(),
             msg: "".into(),
@@ -190,7 +190,7 @@ pub fn run_post(
             help: None,
             inner: vec![],
         });
-    }
+    };
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
@@ -229,9 +229,9 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
+    let (response, request_headers) = send_request(
         engine_state,
-        request.clone(),
+        request,
         args.data,
         args.content_type,
         call.head,
@@ -244,15 +244,20 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
+    let response = response?;
+
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 
