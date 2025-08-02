@@ -132,6 +132,11 @@ pub fn load_standard_library(
             "std-rfc/iter",
             include_str!("../std-rfc/iter/mod.nu"),
         ),
+        (
+            "mod.nu",
+            "std-rfc/random",
+            include_str!("../std-rfc/random/mod.nu"),
+        ),
     ];
 
     for (filename, std_rfc_subdir_name, content) in std_rfc_submodules.drain(..) {
