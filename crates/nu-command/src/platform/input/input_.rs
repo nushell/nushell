@@ -225,7 +225,7 @@ impl Command for Input {
             },
             Example {
                 description: "Get input from the user with history, and assign to a variable",
-                example: "let user_input = ([past,command,entries] | input)",
+                example: "let user_input = ([past,command,entries] | input --reedline)",
                 result: None,
             },
             Example {
