@@ -405,18 +405,13 @@ fn get_columns_with_sqlite_types(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // use super::{action, IntoSqliteDb};
+    // use nu_protocol::Type::Error;
 
     #[test]
     fn test_examples() {
         use crate::{Open, test_examples_with_commands};
-        use nu_test_support::playground::Playground;
-        use std::env;
 
-        Playground::setup("into sqlite examples", |_, playground| {
-            let old_cwd = std::env::current_dir().unwrap();
-            env::set_current_dir(playground.cwd().to_std_path_buf()).unwrap();
-            test_examples_with_commands(IntoSqliteDb, &[&Open]);
-            env::set_current_dir(old_cwd).unwrap();
-        });
+        test_examples_with_commands(IntoSqliteDb, &[&Open]);
     }
 }
