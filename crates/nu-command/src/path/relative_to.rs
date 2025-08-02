@@ -144,18 +144,68 @@ path."#
 fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let lhs = expand_to_real_path(path);
     let rhs = expand_to_real_path(&args.path.item);
+
     match lhs.strip_prefix(&rhs) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => Value::error(
-            ShellError::CantConvert {
-                to_type: e.to_string(),
-                from_type: "string".into(),
+        Err(e) => {
+            // On case-insensitive filesystems, try case-insensitive comparison
+            if is_case_insensitive_filesystem() {
+                if let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs) {
+                    return Value::string(relative_path.to_string_lossy(), span);
+                }
+            }
+
+            Value::error(
+                ShellError::CantConvert {
+                    to_type: e.to_string(),
+                    from_type: "string".into(),
+                    span,
+                    help: None,
+                },
                 span,
-                help: None,
-            },
-            span,
-        ),
+            )
+        }
     }
+}
+
+/// Check if the current filesystem is typically case-insensitive
+fn is_case_insensitive_filesystem() -> bool {
+    // Windows and macOS typically have case-insensitive filesystems
+    cfg!(any(target_os = "windows", target_os = "macos"))
+}
+
+/// Try to strip prefix in a case-insensitive manner
+fn try_case_insensitive_strip_prefix(lhs: &Path, rhs: &Path) -> Option<std::path::PathBuf> {
+    let lhs_components: Vec<_> = lhs.components().collect();
+    let rhs_components: Vec<_> = rhs.components().collect();
+
+    if rhs_components.len() > lhs_components.len() {
+        return None;
+    }
+
+    for (lhs_comp, rhs_comp) in lhs_components.iter().zip(rhs_components.iter()) {
+        match (lhs_comp, rhs_comp) {
+            (std::path::Component::Normal(lhs_name), std::path::Component::Normal(rhs_name)) => {
+                if lhs_name.to_string_lossy().to_lowercase()
+                    != rhs_name.to_string_lossy().to_lowercase()
+                {
+                    return None;
+                }
+            }
+            // Non-Normal components must match exactly
+            _ if lhs_comp != rhs_comp => {
+                return None;
+            }
+            _ => {}
+        }
+    }
+
+    let mut result = std::path::PathBuf::new();
+    for component in lhs_components.iter().skip(rhs_components.len()) {
+        result.push(component);
+    }
+
+    Some(result)
 }
 
 #[cfg(test)]
@@ -167,5 +217,90 @@ mod tests {
         use crate::test_examples;
 
         test_examples(PathRelativeTo {})
+    }
+
+    #[test]
+    fn test_case_insensitive_filesystem() {
+        use nu_protocol::{Span, Value};
+        use std::path::Path;
+
+        let args = Arguments {
+            path: Spanned {
+                item: "/Etc".to_string(),
+                span: Span::test_data(),
+            },
+        };
+
+        let result = relative_to(Path::new("/etc"), Span::test_data(), &args);
+
+        // On case-insensitive filesystems (Windows, macOS), this should work
+        // On case-sensitive filesystems (Linux, FreeBSD), this should fail
+        if is_case_insensitive_filesystem() {
+            match result {
+                Value::String { val, .. } => {
+                    assert_eq!(val, "");
+                }
+                _ => panic!("Expected string result on case-insensitive filesystem"),
+            }
+        } else {
+            match result {
+                Value::Error { .. } => {
+                    // Expected on case-sensitive filesystems
+                }
+                _ => panic!("Expected error on case-sensitive filesystem"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_case_insensitive_with_subpath() {
+        use nu_protocol::{Span, Value};
+        use std::path::Path;
+
+        let args = Arguments {
+            path: Spanned {
+                item: "/Home/User".to_string(),
+                span: Span::test_data(),
+            },
+        };
+
+        let result = relative_to(Path::new("/home/user/documents"), Span::test_data(), &args);
+
+        if is_case_insensitive_filesystem() {
+            match result {
+                Value::String { val, .. } => {
+                    assert_eq!(val, "documents");
+                }
+                _ => panic!("Expected string result on case-insensitive filesystem"),
+            }
+        } else {
+            match result {
+                Value::Error { .. } => {
+                    // Expected on case-sensitive filesystems
+                }
+                _ => panic!("Expected error on case-sensitive filesystem"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_truly_different_paths() {
+        use nu_protocol::{Span, Value};
+        use std::path::Path;
+
+        let args = Arguments {
+            path: Spanned {
+                item: "/Different/Path".to_string(),
+                span: Span::test_data(),
+            },
+        };
+
+        let result = relative_to(Path::new("/home/user"), Span::test_data(), &args);
+
+        // This should fail on all filesystems since paths are truly different
+        match result {
+            Value::Error { .. } => {}
+            _ => panic!("Expected error for truly different paths"),
+        }
     }
 }
