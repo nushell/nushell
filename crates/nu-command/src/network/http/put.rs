@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
@@ -159,16 +159,16 @@ fn run_put(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
 
-    if let HttpBody::None = data {
+    let Some(data) = data else {
         return Err(ShellError::GenericError {
             error: "Data must be provided either through pipeline or positional argument".into(),
             msg: "".into(),
@@ -176,7 +176,7 @@ fn run_put(
             help: None,
             inner: vec![],
         });
-    }
+    };
 
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
@@ -219,9 +219,9 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
+    let (response, request_headers) = send_request(
         engine_state,
-        request.clone(),
+        request,
         args.data,
         args.content_type,
         call.head,
@@ -233,16 +233,20 @@ fn helper(
         full: args.full,
         allow_errors: args.allow_errors,
     };
+    let response = response?;
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

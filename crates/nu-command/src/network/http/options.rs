@@ -1,10 +1,9 @@
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, http_client, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    RedirectMode, RequestFlags, RequestMetadata, http_client, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
-
-use super::client::HttpBody;
 
 #[derive(Clone)]
 pub struct HttpOptions;
@@ -152,22 +151,18 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
-
-    let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
-    let mut request = client.request("OPTIONS", &requested_url);
+    let redirect_mode = RedirectMode::Follow;
+    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let mut request = client.options(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
-        engine_state,
-        request.clone(),
-        HttpBody::None,
-        None,
-        call.head,
-        engine_state.signals(),
-    );
+    let (response, request_headers) =
+        send_request_no_body(request, call.head, engine_state.signals());
+
+    let response = response?;
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true
@@ -181,11 +176,14 @@ fn helper(
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

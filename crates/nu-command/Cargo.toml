@@ -61,6 +61,7 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
+http = {workspace = true}
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
@@ -192,6 +193,7 @@ os = [
 	"uu_uname",
 	"uu_whoami",
 	"which",
+	"ureq/platform-verifier"
 ]
 
 # The dependencies listed below need 'getrandom'.
@@ -220,7 +222,7 @@ rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:webpki-roots",
 	"update-informer/rustls-tls",
-	"ureq/tls", # ureq 3 will has the feature rustls instead
+	"ureq/rustls",
 ]
 
 plugin = ["nu-parser/plugin", "os"]
