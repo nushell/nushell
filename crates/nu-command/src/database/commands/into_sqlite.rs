@@ -410,8 +410,8 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        use crate::{Open, test_examples_with_commands};
+        use crate::test_examples;
 
-        test_examples_with_commands(IntoSqliteDb, &[&Open]);
+        test_examples(IntoSqliteDb {})
     }
 }
