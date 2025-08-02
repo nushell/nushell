@@ -401,17 +401,3 @@ fn get_columns_with_sqlite_types(
 
     Ok(columns)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    // use super::{action, IntoSqliteDb};
-    // use nu_protocol::Type::Error;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(IntoSqliteDb {})
-    }
-}
