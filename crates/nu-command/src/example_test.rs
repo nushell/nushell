@@ -9,23 +9,12 @@ use nu_protocol::engine::Command;
 /// that's not in the default working set of the test harness.
 /// You may want to use test_examples_with_commands and include any other dependencies.
 pub fn test_examples(cmd: impl Command + 'static) {
-    let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    test_examples::test_examples(cmd, &[], cwd.as_path());
+    test_examples::test_examples(cmd, &[]);
 }
 
 #[cfg(test)]
 pub fn test_examples_with_commands(cmd: impl Command + 'static, commands: &[&dyn Command]) {
-    let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    test_examples::test_examples(cmd, commands, cwd.as_path());
-}
-
-#[cfg(test)]
-pub fn test_examples_with_commands_and_cwd(
-    cmd: impl Command + 'static,
-    commands: &[&dyn Command],
-    cwd: &std::path::Path,
-) {
-    test_examples::test_examples(cmd, commands, cwd);
+    test_examples::test_examples(cmd, commands);
 }
 
 #[cfg(test)]
@@ -49,14 +38,12 @@ mod test_examples {
     };
     use std::collections::HashSet;
 
-    pub fn test_examples(
-        cmd: impl Command + 'static,
-        commands: &[&dyn Command],
-        cwd: &std::path::Path,
-    ) {
+    pub fn test_examples(cmd: impl Command + 'static, commands: &[&dyn Command]) {
         let examples = cmd.examples();
         let signature = cmd.signature();
         let mut engine_state = make_engine_state(cmd.clone_box(), commands);
+
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
 
         let mut witnessed_type_transformations = HashSet::<(Type, Type)>::new();
 
@@ -68,7 +55,7 @@ mod test_examples {
             witnessed_type_transformations.extend(
                 check_example_input_and_output_types_match_command_signature(
                     &example,
-                    cwd,
+                    &cwd,
                     &mut make_engine_state(cmd.clone_box(), commands),
                     &signature.input_output_types,
                     signature.operates_on_cell_paths(),
@@ -77,7 +64,7 @@ mod test_examples {
             check_example_evaluates_to_expected_output(
                 cmd.name(),
                 &example,
-                cwd,
+                cwd.as_path(),
                 &mut engine_state,
             );
         }
