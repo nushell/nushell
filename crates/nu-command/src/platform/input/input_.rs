@@ -219,8 +219,13 @@ impl Command for Input {
                 result: None,
             },
             Example {
+                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
+                example: "let multiline_input = (input --reedline)",
+                result: None,
+            },
+            Example {
                 description: "Get input from the user with history, and assign to a variable",
-                example: "let user_input = ([past,command,entries] | input )",
+                example: "let user_input = ([past,command,entries] | input --reedline)",
                 result: None,
             },
             Example {
