@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{PipelineDataBody, shell_error::io::IoError};
 use std::io::Read;
 
 struct Arguments {
@@ -60,27 +60,37 @@ impl Command for BytesStartsWith {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        if let PipelineDataBody::ByteStream(stream, ..) = input {
-            let span = stream.span();
-            if pattern.is_empty() {
-                return Ok(Value::bool(true, head).into_pipeline_data());
-            }
-            let Some(reader) = stream.reader() else {
-                return Ok(Value::bool(false, head).into_pipeline_data());
-            };
-            let mut start = Vec::with_capacity(pattern.len());
-            reader
-                .take(pattern.len() as u64)
-                .read_to_end(&mut start)
-                .map_err(|err| IoError::new(err, span, None))?;
+        let body = input.body();
+        match body {
+            PipelineDataBody::ByteStream(stream, ..) => {
+                let span = stream.span();
+                if pattern.is_empty() {
+                    return Ok(Value::bool(true, head).into_pipeline_data());
+                }
+                let Some(reader) = stream.reader() else {
+                    return Ok(Value::bool(false, head).into_pipeline_data());
+                };
+                let mut start = Vec::with_capacity(pattern.len());
+                reader
+                    .take(pattern.len() as u64)
+                    .read_to_end(&mut start)
+                    .map_err(|err| IoError::new(err, span, None))?;
 
-            Ok(Value::bool(start == pattern, head).into_pipeline_data())
-        } else {
-            let arg = Arguments {
-                pattern,
-                cell_paths,
-            };
-            operate(starts_with, arg, input, head, engine_state.signals())
+                Ok(Value::bool(start == pattern, head).into_pipeline_data())
+            }
+            _ => {
+                let arg = Arguments {
+                    pattern,
+                    cell_paths,
+                };
+                operate(
+                    starts_with,
+                    arg,
+                    PipelineData::from(body),
+                    head,
+                    engine_state.signals(),
+                )
+            }
         }
     }
 

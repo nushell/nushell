@@ -1,4 +1,5 @@
 use nu_engine::{column::get_columns, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Columns;
@@ -73,7 +74,7 @@ impl Command for Columns {
 
 fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
-    match input {
+    match input.body() {
         PipelineDataBody::Empty => Ok(PipelineData::empty()),
         PipelineDataBody::Value(v, ..) => {
             let span = v.span();

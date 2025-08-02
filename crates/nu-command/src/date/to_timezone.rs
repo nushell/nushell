@@ -2,6 +2,7 @@ use super::parser::datetime_in_timezone;
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct DateToTimezone;
@@ -50,7 +51,7 @@ impl Command for DateToTimezone {
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

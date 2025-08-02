@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Skip;
@@ -90,7 +91,7 @@ impl Command for Skip {
             None => 1,
         };
         let input_span = input.span().unwrap_or(call.head);
-        match input {
+        match input.body() {
             PipelineDataBody::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {
                     let span = stream.span();
@@ -111,14 +112,17 @@ impl Command for Skip {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
-            _ => Ok(input
-                .into_iter_strict(call.head)?
-                .skip(n)
-                .into_pipeline_data_with_metadata(
-                    input_span,
-                    engine_state.signals().clone(),
-                    metadata,
-                )),
+            other => {
+                let input = PipelineData::from(other).set_metadata(metadata.clone());
+                Ok(input
+                    .into_iter_strict(call.head)?
+                    .skip(n)
+                    .into_pipeline_data_with_metadata(
+                        input_span,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
+            }
         }
     }
 }

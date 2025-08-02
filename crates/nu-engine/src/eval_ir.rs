@@ -1328,7 +1328,7 @@ fn check_input_types(
     let input_types: Vec<Type> = io_types.iter().map(|(input, _)| input.clone()).collect();
     let expected_string = combined_type_string(&input_types, "and");
 
-    match (input, expected_string) {
+    match (input.get_body(), expected_string) {
         (PipelineDataBody::Empty, _) => Err(ShellError::PipelineEmpty { dst_span: head }),
         (_, Some(expected_string)) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: expected_string,

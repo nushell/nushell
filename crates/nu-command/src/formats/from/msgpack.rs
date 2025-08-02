@@ -10,6 +10,7 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use rmp::decode::{self as mp, ValueReadError};
 
@@ -114,7 +115,7 @@ MessagePack: https://msgpack.org/
             signals: engine_state.signals().clone(),
         };
         let metadata = input.metadata().map(|md| md.with_content_type(None));
-        let out = match input {
+        let out = match input.body() {
             // Deserialize from a byte buffer
             PipelineDataBody::Value(Value::Binary { val: bytes, .. }, _) => {
                 read_msgpack(Cursor::new(bytes), opts)
@@ -132,11 +133,14 @@ MessagePack: https://msgpack.org/
                     })
                 }
             }
-            input => Err(ShellError::PipelineMismatch {
-                exp_input_type: "binary or byte stream".into(),
-                dst_span: call.head,
-                src_span: input.span().unwrap_or(call.head),
-            }),
+            input => {
+                let pipeline_data: PipelineData = input.into();
+                Err(ShellError::PipelineMismatch {
+                    exp_input_type: "binary or byte stream".into(),
+                    dst_span: call.head,
+                    src_span: pipeline_data.span().unwrap_or(call.head),
+                })
+            }
         };
         out.map(|pd| pd.set_metadata(metadata))
     }

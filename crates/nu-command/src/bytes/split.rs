@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct BytesSplit;
@@ -72,15 +73,15 @@ impl Command for BytesSplit {
             });
         }
 
-        let (split_read, md) = match input {
+        let input_span = input.span().unwrap_or(head);
+        let (split_read, md) = match input.body() {
             PipelineDataBody::Value(Value::Binary { val, .. }, md) => (
                 ByteStream::read_binary(val, head, engine_state.signals().clone()).split(separator),
                 md,
             ),
             PipelineDataBody::ByteStream(stream, md) => (stream.split(separator), md),
             input => {
-                let span = input.span().unwrap_or(head);
-                return Err(input.unsupported_input_error("bytes", span));
+                return Err(PipelineData::from(input).unsupported_input_error("bytes", input_span));
             }
         };
         if let Some(split) = split_read {

@@ -9,7 +9,8 @@ use crate::values::NuDataFrame;
 use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, PipelineDataBody, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
@@ -264,7 +265,7 @@ impl PluginCommand for ToDataFrame {
         let df = if !maybe_as_columns {
             NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
         } else {
-            match &input {
+            match input.get_body() {
                 PipelineDataBody::Value(Value::Record { val, .. }, _) => {
                     let items: Result<Vec<(String, Vec<Value>)>, &str> = val
                         .iter()

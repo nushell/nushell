@@ -1,6 +1,7 @@
 use std::ops::Not;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone, Debug)]
 enum Location {
@@ -148,9 +149,11 @@ impl Command for Move {
         };
 
         let metadata = input.metadata();
+        let input_type = input.get_type();
 
-        match input {
-            PipelineDataBody::Value(Value::List { .. }, ..) | PipelineDataBody::ListStream { .. } => {
+        match input.get_body() {
+            PipelineDataBody::Value(Value::List { .. }, ..)
+            | PipelineDataBody::ListStream { .. } => {
                 let res = input.into_iter().map(move |x| match x.as_record() {
                     Ok(record) => match move_record_columns(record, &columns, &location, head) {
                         Ok(val) => val,
@@ -166,11 +169,11 @@ impl Command for Move {
                 ))
             }
             PipelineDataBody::Value(Value::Record { val, .. }, ..) => {
-                Ok(move_record_columns(&val, &columns, &location, head)?.into_pipeline_data())
+                Ok(move_record_columns(val, &columns, &location, head)?.into_pipeline_data())
             }
-            other => Err(ShellError::OnlySupportsThisInputType {
+            _ => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record or table".to_string(),
-                wrong_type: other.get_type().to_string(),
+                wrong_type: input_type.to_string(),
                 dst_span: head,
                 src_span: Span::new(head.start, head.start),
             }),

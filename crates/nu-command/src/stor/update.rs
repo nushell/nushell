@@ -1,5 +1,6 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
 
@@ -103,7 +104,7 @@ fn handle(
     update_record: Option<Record>,
     input: PipelineData,
 ) -> Result<Record, ShellError> {
-    match input {
+    match input.body() {
         PipelineDataBody::Empty => update_record.ok_or_else(|| ShellError::MissingParameter {
             param_name: "requires a record".into(),
             span,

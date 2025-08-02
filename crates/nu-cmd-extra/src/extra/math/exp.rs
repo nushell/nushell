@@ -38,7 +38,7 @@ impl Command for MathExp {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(move |value| operate(value, head), engine_state.signals())

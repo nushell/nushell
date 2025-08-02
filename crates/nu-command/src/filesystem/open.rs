@@ -1,7 +1,7 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, ast,
+    DataSource, NuGlob, PipelineDataBody, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
 };
@@ -76,7 +76,7 @@ impl Command for Open {
 
         if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
-            let (filename, span) = match input {
+            let (filename, span) = match input.body() {
                 PipelineDataBody::Value(val, ..) => {
                     let span = val.span();
                     (val.coerce_into_string()?, span)

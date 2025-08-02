@@ -1,6 +1,7 @@
 use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::shell_error::{self, io::IoError};
 use reedline::{FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal};
 
@@ -108,7 +109,7 @@ impl Command for Input {
             _ => "".to_string(),
         };
 
-        let history_entries = match input {
+        let history_entries = match input.body() {
             PipelineDataBody::Value(Value::List { vals, .. }, ..) => Some(vals),
             _ => None,
         };

@@ -5,6 +5,7 @@ use nu_engine::{
     env::{current_dir_str, current_dir_str_const},
 };
 use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
 
@@ -65,7 +66,7 @@ impl Command for PathExpand {
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -88,7 +89,7 @@ impl Command for PathExpand {
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

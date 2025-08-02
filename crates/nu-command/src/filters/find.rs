@@ -3,6 +3,7 @@ use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Find;
@@ -447,20 +448,23 @@ fn find_in_pipelinedata(
     let map_pattern = pattern.clone();
     let map_columns_to_search = columns_to_search.clone();
 
-    match input {
+    match input.body() {
         PipelineDataBody::Empty => Ok(PipelineData::empty()),
-        PipelineDataBody::Value(_, _) => input
-            .filter(
-                move |value| {
-                    value_should_be_printed(&pattern, value, &columns_to_search, &config)
-                        != pattern.invert
-                },
-                engine_state.signals(),
-            )?
-            .map(
-                move |x| highlight_matches_in_value(&map_pattern, x, &map_columns_to_search),
-                engine_state.signals(),
-            ),
+        PipelineDataBody::Value(value, metadata) => {
+            let reconstructed_input = PipelineData::value(value, metadata);
+            reconstructed_input
+                .filter(
+                    move |value| {
+                        value_should_be_printed(&pattern, value, &columns_to_search, &config)
+                            != pattern.invert
+                    },
+                    engine_state.signals(),
+                )?
+                .map(
+                    move |x| highlight_matches_in_value(&map_pattern, x, &map_columns_to_search),
+                    engine_state.signals(),
+                )
+        }
         PipelineDataBody::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| {
                 iter.filter(move |value| {
@@ -554,8 +558,9 @@ fn value_should_be_printed(
 
 fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
-    match input {
-        PipelineDataBody::Value(Value::String { ref val, .. }, _) => {
+    let metadata = input.metadata();
+    match input.body() {
+        PipelineDataBody::Value(Value::String { val, .. }, _) => {
             if val.contains('\n') {
                 Value::list(
                     val.lines()
@@ -563,12 +568,12 @@ fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineDa
                         .collect(),
                     span,
                 )
-                .into_pipeline_data_with_metadata(input.metadata())
+                .into_pipeline_data_with_metadata(metadata)
             } else {
-                input
+                PipelineData::value(Value::string(val, span), metadata)
             }
         }
-        _ => input,
+        other => PipelineData::from(other).set_metadata(metadata),
     }
 }
 

@@ -2,6 +2,7 @@ use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
 use nu_engine::command_prelude::*;
 
 use itertools::Itertools;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use std::path::Path;
 
@@ -192,7 +193,7 @@ fn action(
     span: Span,
     signals: &Signals,
 ) -> Result<Value, ShellError> {
-    match input {
+    match input.body() {
         PipelineDataBody::ListStream(stream, _) => {
             insert_in_transaction(stream.into_iter(), span, table, signals)
         }

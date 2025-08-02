@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, Signals, ast::PathMember};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, PipelineDataBody, ReportMode, Signals, ast::PathMember,
+};
 
 #[derive(Clone)]
 pub struct Get;
@@ -186,7 +188,7 @@ fn action(
         }
     }
 
-    if let PipelineDataBody::Empty = input {
+    if let PipelineDataBody::Empty = input.get_body() {
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
 
@@ -225,7 +227,7 @@ pub fn follow_cell_path_into_stream(
     let has_int_member = cell_path
         .iter()
         .any(|it| matches!(it, PathMember::Int { .. }));
-    match data {
+    match data.body() {
         PipelineDataBody::ListStream(stream, ..) if !has_int_member => {
             let result = stream
                 .into_iter()
@@ -242,7 +244,7 @@ pub fn follow_cell_path_into_stream(
             Ok(result)
         }
 
-        _ => data
+        other => PipelineData::from(other)
             .follow_cell_path(&cell_path, head)
             .map(|x| x.into_pipeline_data()),
     }

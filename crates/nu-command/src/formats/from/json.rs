@@ -1,7 +1,7 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals, shell_error::io::IoError};
+use nu_protocol::{ListStream, PipelineDataBody, Signals, shell_error::io::IoError};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -71,11 +71,13 @@ impl Command for FromJson {
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
         let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let input_type = input.get_type();
+        let input_span = input.span().unwrap_or(call.head);
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
-            match input {
+            match input.body() {
                 PipelineDataBody::Value(Value::String { val, .. }, ..) => {
                     Ok(PipelineData::list_stream(
                         read_json_lines(
@@ -101,9 +103,9 @@ impl Command for FromJson {
                 }
                 _ => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string".into(),
-                    wrong_type: input.get_type().to_string(),
+                    wrong_type: input_type.to_string(),
                     dst_span: call.head,
-                    src_span: input.span().unwrap_or(call.head),
+                    src_span: input_span,
                 }),
             }
         } else {

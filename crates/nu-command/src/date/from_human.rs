@@ -1,6 +1,7 @@
 use chrono::{Local, TimeZone};
 use human_date_parser::{ParseResult, from_human_time};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct DateFromHuman;
@@ -54,7 +55,7 @@ impl Command for DateFromHuman {
         }
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(move |value| helper(value, head), engine_state.signals())

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    HistoryFileFormat,
+    HistoryFileFormat, PipelineDataBody,
     shell_error::{self, io::IoError},
 };
 
@@ -83,7 +83,7 @@ Note that history item IDs are ignored when importing from file."#
         if let Some(bak_path) = backup(&current_history_path, span)? {
             println!("Backed history to {}", bak_path.display());
         }
-        match input {
+        match input.get_body() {
             PipelineDataBody::Empty => {
                 let other_format = match history.file_format {
                     HistoryFileFormat::Sqlite => HistoryFileFormat::Plaintext,

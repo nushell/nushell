@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    ListStream, ReportMode, ShellWarning, Signals,
+    ListStream, PipelineDataBody, ReportMode, ShellWarning, Signals,
     ast::{Expr, Expression},
     report_shell_warning,
 };
@@ -163,7 +163,10 @@ fn default(
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        if matches!(input, PipelineDataBody::Value(Value::Record { .. }, _)) {
+        if matches!(
+            input.get_body(),
+            PipelineDataBody::Value(Value::Record { .. }, _)
+        ) {
             let record = input.into_value(input_span)?.into_record()?;
             fill_record(
                 record,
@@ -174,7 +177,7 @@ fn default(
             )
             .map(|x| x.into_pipeline_data_with_metadata(metadata))
         } else if matches!(
-            input,
+            input.get_body(),
             PipelineDataBody::ListStream(..) | PipelineDataBody::Value(Value::List { .. }, _)
         ) {
             // Potential enhancement: add another branch for Value::List,
@@ -211,11 +214,11 @@ fn default(
     // or an empty string, list, or record when --empty is passed
     } else if input.is_nothing()
         || (default_when_empty
-            && matches!(input, PipelineDataBody::Value(ref value, _) if value.is_empty()))
+            && matches!(input.get_body(), PipelineDataBody::Value(value, _) if value.is_empty()))
     {
         default_value.single_run_pipeline_data()
-    } else if default_when_empty && matches!(input, PipelineDataBody::ListStream(..)) {
-        let PipelineDataBody::ListStream(ls, metadata) = input else {
+    } else if default_when_empty && matches!(input.get_body(), PipelineDataBody::ListStream(..)) {
+        let PipelineDataBody::ListStream(ls, metadata) = input.body() else {
             unreachable!()
         };
         let span = ls.span();

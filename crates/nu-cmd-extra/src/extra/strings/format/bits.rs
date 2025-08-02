@@ -3,7 +3,7 @@ use std::io::{self, Read, Write};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{PipelineDataBody, Signals, shell_error::io::IoError};
 use num_traits::ToPrimitive;
 
 struct Arguments {
@@ -112,14 +112,22 @@ fn format_bits(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineDataBody::ByteStream(stream, metadata) = input {
-        Ok(PipelineData::byte_stream(
+    let body = input.body();
+    match body {
+        PipelineDataBody::ByteStream(stream, metadata) => Ok(PipelineData::byte_stream(
             byte_stream_to_bits(stream, head),
             metadata,
-        ))
-    } else {
-        let args = Arguments { cell_paths };
-        operate(action, args, input, call.head, engine_state.signals())
+        )),
+        _ => {
+            let args = Arguments { cell_paths };
+            operate(
+                action,
+                args,
+                PipelineData::from(body),
+                call.head,
+                engine_state.signals(),
+            )
+        }
     }
 }
 

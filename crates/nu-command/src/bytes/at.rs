@@ -2,7 +2,7 @@ use std::ops::Bound;
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{IntRange, Range};
+use nu_protocol::{IntRange, PipelineDataBody, Range};
 
 #[derive(Clone)]
 pub struct BytesAt;
@@ -74,17 +74,18 @@ impl Command for BytesAt {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-        if let PipelineDataBody::ByteStream(stream, metadata) = input {
-            let stream = stream.slice(call.head, call.arguments_span(), range)?;
-            Ok(PipelineData::byte_stream(stream, metadata))
-        } else {
-            operate(
+        match input.body() {
+            PipelineDataBody::ByteStream(stream, metadata) => {
+                let stream = stream.slice(call.head, call.arguments_span(), range)?;
+                Ok(PipelineData::byte_stream(stream, metadata))
+            }
+            body => operate(
                 map_value,
                 Arguments { range, cell_paths },
-                input,
+                PipelineData::from(body),
                 call.head,
                 engine_state.signals(),
-            )
+            ),
         }
     }
 

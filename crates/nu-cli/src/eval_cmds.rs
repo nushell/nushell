@@ -2,7 +2,7 @@ use log::info;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, ShellError, Spanned, Value,
+    PipelineData, PipelineDataBody, ShellError, Spanned, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
@@ -84,8 +84,8 @@ pub fn evaluate_commands(
     // Run the block
     let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
 
-    if let PipelineDataBody::Value(Value::Error { error, .. }, ..) = pipeline {
-        return Err(*error);
+    if let PipelineDataBody::Value(Value::Error { error, .. }, ..) = pipeline.get_body() {
+        return Err(error.as_ref().clone());
     }
 
     if let Some(t_mode) = table_mode {

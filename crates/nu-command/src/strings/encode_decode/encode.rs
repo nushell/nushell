@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Encode;
@@ -104,8 +105,9 @@ fn run(
     ignore_errors: bool,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let input_span = input.span().unwrap_or(head);
 
-    match input {
+    match input.body() {
         PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             let s = stream.into_string()?;
@@ -134,7 +136,7 @@ fn run(
             msg: "non-string input".into(),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: input.span().unwrap_or(head),
+            input_span,
         }),
     }
 }

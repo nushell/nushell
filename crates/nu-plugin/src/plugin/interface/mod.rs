@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PipelineDataBody,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
     engine::{Closure, Sequence},
 };
 use nu_utils::SharedCow;
@@ -353,12 +353,12 @@ impl InterfaceManager for EngineInterfaceManager {
         &self.stream_manager
     }
 
-    fn prepare_pipeline_data(&self, mut data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError> {
         // Deserialize custom values in the pipeline data
-        match data {
-            PipelineDataBody::Value(ref mut value, _) => {
-                PluginCustomValue::deserialize_custom_values_in(value)?;
-                Ok(data)
+        match data.body() {
+            PipelineDataBody::Value(mut value, meta) => {
+                PluginCustomValue::deserialize_custom_values_in(&mut value)?;
+                Ok(PipelineData::value(value, meta))
             }
             PipelineDataBody::ListStream(stream, meta) => {
                 let stream = stream.map(|mut value| {
@@ -369,7 +369,10 @@ impl InterfaceManager for EngineInterfaceManager {
                 });
                 Ok(PipelineData::list_stream(stream, meta))
             }
-            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, meta) => {
+                Ok(PipelineData::byte_stream(stream, meta))
+            }
         }
     }
 }
@@ -565,8 +568,13 @@ impl EngineInterface {
     ) -> Result<Option<Value>, ShellError> {
         let name = engine_call.name();
         match self.engine_call(engine_call)? {
-            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(None),
-            EngineCallResponse::PipelineData(PipelineDataBody::Value(value, _)) => Ok(Some(value)),
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Empty => Ok(None),
+                PipelineDataBody::Value(value, _) => Ok(Some(value)),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: format!("Received unexpected response for EngineCall::{name}"),
+                }),
+            },
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response for EngineCall::{name}"),
@@ -627,9 +635,12 @@ impl EngineInterface {
     pub fn get_current_dir(&self) -> Result<String, ShellError> {
         match self.engine_call(EngineCall::GetCurrentDir)? {
             // Always a string, and the span doesn't matter.
-            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::String { val, .. }, _)) => {
-                Ok(val)
-            }
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Value(Value::String { val, .. }, _) => Ok(val),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::GetCurrentDir".into(),
+                }),
+            },
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetCurrentDir".into(),
@@ -702,9 +713,12 @@ impl EngineInterface {
     /// ```
     pub fn get_help(&self) -> Result<String, ShellError> {
         match self.engine_call(EngineCall::GetHelp)? {
-            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::String { val, .. }, _)) => {
-                Ok(val)
-            }
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Value(Value::String { val, .. }, _) => Ok(val),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::GetHelp".into(),
+                }),
+            },
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::GetHelp".into(),
             }),
@@ -721,16 +735,16 @@ impl EngineInterface {
     pub fn enter_foreground(&self) -> Result<ForegroundGuard, ShellError> {
         match self.engine_call(EngineCall::EnterForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineDataBody::Value(
-                Value::Int { val: pgrp, .. },
-                _,
-            )) => {
-                set_pgrp_from_enter_foreground(pgrp)?;
-                Ok(ForegroundGuard(Some(self.clone())))
-            }
-            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => {
-                Ok(ForegroundGuard(Some(self.clone())))
-            }
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Value(Value::Int { val: pgrp, .. }, _) => {
+                    set_pgrp_from_enter_foreground(pgrp)?;
+                    Ok(ForegroundGuard(Some(self.clone())))
+                }
+                PipelineDataBody::Empty => Ok(ForegroundGuard(Some(self.clone()))),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::SetForeground".into(),
+                }),
+            },
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::SetForeground".into(),
             }),
@@ -741,7 +755,12 @@ impl EngineInterface {
     fn leave_foreground(&self) -> Result<(), ShellError> {
         match self.engine_call(EngineCall::LeaveForeground)? {
             EngineCallResponse::Error(error) => Err(error),
-            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(()),
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Empty => Ok(()),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
+                }),
+            },
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::LeaveForeground".into(),
             }),
@@ -755,9 +774,12 @@ impl EngineInterface {
     /// offsets are byte-indexed. Use [`String::from_utf8_lossy()`] for display if necessary.
     pub fn get_span_contents(&self, span: Span) -> Result<Vec<u8>, ShellError> {
         match self.engine_call(EngineCall::GetSpanContents(span))? {
-            EngineCallResponse::PipelineData(PipelineDataBody::Value(Value::Binary { val, .. }, _)) => {
-                Ok(val)
-            }
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Value(Value::Binary { val, .. }, _) => Ok(val),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),
+                }),
+            },
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::GetSpanContents".into(),
             }),
@@ -904,7 +926,12 @@ impl EngineInterface {
         match self.engine_call(call)? {
             EngineCallResponse::Error(err) => Err(err),
             EngineCallResponse::Identifier(id) => Ok(Some(id)),
-            EngineCallResponse::PipelineData(PipelineDataBody::Empty) => Ok(None),
+            EngineCallResponse::PipelineData(data) => match data.body() {
+                PipelineDataBody::Empty => Ok(None),
+                _ => Err(ShellError::PluginFailedToDecode {
+                    msg: "Received unexpected response type for EngineCall::FindDecl".into(),
+                }),
+            },
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::FindDecl".into(),
             }),
@@ -1009,14 +1036,14 @@ impl Interface for EngineInterface {
 
     fn prepare_pipeline_data(
         &self,
-        mut data: PipelineData,
+        data: PipelineData,
         _context: &(),
     ) -> Result<PipelineData, ShellError> {
         // Serialize custom values in the pipeline data
-        match data {
-            PipelineDataBody::Value(ref mut value, _) => {
-                PluginCustomValue::serialize_custom_values_in(value)?;
-                Ok(data)
+        match data.body() {
+            PipelineDataBody::Value(mut value, meta) => {
+                PluginCustomValue::serialize_custom_values_in(&mut value)?;
+                Ok(PipelineData::value(value, meta))
             }
             PipelineDataBody::ListStream(stream, meta) => {
                 let stream = stream.map(|mut value| {
@@ -1027,7 +1054,10 @@ impl Interface for EngineInterface {
                 });
                 Ok(PipelineData::list_stream(stream, meta))
             }
-            PipelineDataBody::Empty | PipelineDataBody::ByteStream(..) => Ok(data),
+            PipelineDataBody::Empty => Ok(PipelineData::empty()),
+            PipelineDataBody::ByteStream(stream, meta) => {
+                Ok(PipelineData::byte_stream(stream, meta))
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
+    BlockId, ByteStreamSource, Category, PipelineDataBody, PipelineMetadata, Signature,
     engine::{Closure, StateWorkingSet},
 };
 use std::any::type_name;
@@ -240,7 +240,7 @@ fn run(
     let head = call.head;
     let metadata = input.metadata();
 
-    let description = match input {
+    let description = match input.body() {
         PipelineDataBody::ByteStream(stream, ..) => {
             let type_ = stream.type_().describe();
 

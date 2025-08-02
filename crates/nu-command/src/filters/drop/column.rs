@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::PipelineDataBody;
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -89,7 +90,7 @@ fn drop_cols(
     // This will drop the column "a" instead of "b" even though column "b"
     // is displayed farther to the right.
     let metadata = input.metadata();
-    match input {
+    match input.body() {
         PipelineDataBody::ListStream(stream, ..) => {
             let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {

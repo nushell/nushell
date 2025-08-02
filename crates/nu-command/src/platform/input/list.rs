@@ -2,6 +2,7 @@ use dialoguer::{FuzzySelect, MultiSelect, Select, console::Term};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 
+use nu_protocol::PipelineDataBody;
 use std::fmt::{Display, Formatter};
 
 enum InteractMode {
@@ -82,12 +83,12 @@ impl Command for InputList {
         let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
         let config = stack.get_config(engine_state);
 
-        let options: Vec<Options> = match input {
-            PipelineDataBody::Value(Value::Range { .. }, ..)
+        let options: Vec<Options> = match input.body() {
+            body @ (PipelineDataBody::Value(Value::Range { .. }, ..)
             | PipelineDataBody::Value(Value::List { .. }, ..)
-            | PipelineDataBody::ListStream { .. } => input
+            | PipelineDataBody::ListStream(..)) => PipelineData::from(body)
                 .into_iter()
-                .map(move |val| {
+                .map(move |val: Value| -> Result<Options, ShellError> {
                     let display_value = if let Some(ref cellpath) = display_path {
                         val.follow_cell_path(&cellpath.members)?
                             .to_expanded_string(", ", &config)
@@ -100,7 +101,6 @@ impl Command for InputList {
                     })
                 })
                 .collect::<Result<Vec<_>, ShellError>>()?,
-
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected a list, a table, or a range".to_string(),

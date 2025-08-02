@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{PipelineIterator, engine::Closure};
+use nu_protocol::{PipelineDataBody, PipelineIterator, engine::Closure};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -97,7 +97,7 @@ impl Command for UpdateCells {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        mut input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
@@ -113,26 +113,29 @@ impl Command for UpdateCells {
         };
 
         let metadata = input.metadata();
+        let body = input.body();
 
-        match input {
+        match body {
             PipelineDataBody::Value(
                 Value::Record {
-                    ref mut val,
+                    mut val,
                     internal_span,
                 },
                 ..,
             ) => {
-                let val = val.to_mut();
                 update_record(
-                    val,
+                    val.to_mut(),
                     &mut ClosureEval::new(engine_state, stack, closure),
                     internal_span,
                     columns.as_ref(),
                 );
-                Ok(input)
+                Ok(PipelineData::value(
+                    Value::record(val.into_owned(), internal_span),
+                    metadata,
+                ))
             }
             _ => Ok(UpdateCellIterator {
-                iter: input.into_iter(),
+                iter: PipelineData::from(body).into_iter(),
                 closure: ClosureEval::new(engine_state, stack, closure),
                 columns,
                 span: head,

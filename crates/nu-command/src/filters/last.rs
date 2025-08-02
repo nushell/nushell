@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::shell_error::io::IoError;
 use std::{collections::VecDeque, io::Read};
 
@@ -92,9 +93,10 @@ impl Command for Last {
             return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
         }
 
-        match input {
-            PipelineDataBody::ListStream(_, _) | PipelineDataBody::Value(Value::Range { .. }, _) => {
-                let iterator = input.into_iter_strict(head)?;
+        match input.body() {
+            body @ (PipelineDataBody::ListStream(_, _)
+            | PipelineDataBody::Value(Value::Range { .. }, _)) => {
+                let iterator = PipelineData::from(body).into_iter_strict(head)?;
 
                 // only keep the last `rows` in memory
                 let mut buf = VecDeque::new();

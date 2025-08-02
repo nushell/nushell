@@ -1,5 +1,6 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::{Component, Path};
 
@@ -46,7 +47,7 @@ impl Command for PathSplit {
         let args = Arguments;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -65,7 +66,7 @@ impl Command for PathSplit {
         let args = Arguments;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

@@ -3,6 +3,7 @@ use chrono::{Local, LocalResult, Offset, TimeZone, Utc};
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
+use nu_protocol::PipelineDataBody;
 use std::io::Cursor;
 
 #[derive(Clone)]
@@ -83,30 +84,31 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
 }
 
 fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
-    if let PipelineDataBody::ByteStream(stream, ..) = input {
-        stream.into_bytes()
-    } else {
-        let mut bytes = vec![];
-        let mut values = input.into_iter();
+    match input.body() {
+        PipelineDataBody::ByteStream(stream, ..) => stream.into_bytes(),
+        other => {
+            let mut bytes = vec![];
+            let mut values = PipelineData::from(other).into_iter();
 
-        loop {
-            match values.next() {
-                Some(Value::Binary { val: b, .. }) => {
-                    bytes.extend_from_slice(&b);
+            loop {
+                match values.next() {
+                    Some(Value::Binary { val: b, .. }) => {
+                        bytes.extend_from_slice(&b);
+                    }
+                    Some(x) => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "Expected binary from pipeline".to_string(),
+                            input: "value originates from here".into(),
+                            msg_span: span,
+                            input_span: x.span(),
+                        });
+                    }
+                    None => break,
                 }
-                Some(x) => {
-                    return Err(ShellError::UnsupportedInput {
-                        msg: "Expected binary from pipeline".to_string(),
-                        input: "value originates from here".into(),
-                        msg_span: span,
-                        input_span: x.span(),
-                    });
-                }
-                None => break,
             }
-        }
 
-        Ok(bytes)
+            Ok(bytes)
+        }
     }
 }
 

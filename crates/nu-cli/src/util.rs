@@ -4,7 +4,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    PipelineData, ShellError, Span, Value,
+    PipelineData, PipelineDataBody, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error::report_compile_error,
@@ -315,7 +315,7 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let no_newline = matches!(&pipeline, &PipelineDataBody::ByteStream(..));
+    let no_newline = matches!(pipeline.get_body(), PipelineDataBody::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline, no_newline)?;
 
     Ok(false)

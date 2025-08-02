@@ -817,6 +817,7 @@ impl From<PipelineDataBody> for PipelineData {
         }
     }
 }
+
 pub fn write_all_and_flush<T>(
     data: T,
     destination: &mut impl Write,

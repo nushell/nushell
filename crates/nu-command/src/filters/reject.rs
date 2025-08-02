@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, PipelineDataBody, ReportMode, ast::PathMember,
+    casing::Casing,
+};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -238,7 +241,7 @@ fn reject(
             .any(|member| matches!(member, PathMember::Int { .. }))
     });
 
-    match input {
+    match input.body() {
         PipelineDataBody::ListStream(stream, ..) if !has_integer_path_member => {
             let result = stream
                 .into_iter()
@@ -259,7 +262,7 @@ fn reject(
         }
 
         input => {
-            let mut val = input.into_value(span)?;
+            let mut val = PipelineData::from(input).into_value(span)?;
 
             for cell_path in new_columns {
                 val.remove_data_at_cell_path(&cell_path.members)?;

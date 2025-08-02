@@ -5,8 +5,8 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Type, Value,
+    Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData, PipelineDataBody,
+    Record, ShellError, Span, Type, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     extract_value,
@@ -172,7 +172,7 @@ pub(crate) fn add_menus(
     let new_engine_state_ref = Arc::new(engine_state);
 
     for res in menu_eval_results.into_iter() {
-        if let PipelineDataBody::Value(value, None) = res {
+        if let PipelineDataBody::Value(value, None) = res.body() {
             line_editor = add_menu(
                 line_editor,
                 &ParsedMenu::from_value(value)?,

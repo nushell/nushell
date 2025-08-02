@@ -1,7 +1,8 @@
 use core::slice;
 use indexmap::IndexMap;
 use nu_protocol::{
-    IntoPipelineData, PipelineData, Range, ShellError, Signals, Span, Value, engine::Call,
+    IntoPipelineData, PipelineData, PipelineDataBody, Range, ShellError, Signals, Span, Value,
+    engine::Call,
 };
 
 pub fn run_with_function(
@@ -69,18 +70,13 @@ pub fn calculate(
 ) -> Result<Value, ShellError> {
     // TODO implement spans for ListStream, thus negating the need for unwrap_or().
     let span = values.span().unwrap_or(name);
-    match values {
+    match values.body() {
         PipelineDataBody::ListStream(s, ..) => {
             helper_for_tables(&s.into_iter().collect::<Vec<Value>>(), span, name, mf)
         }
-        PipelineDataBody::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
-            [Value::Record { .. }, _end @ ..] => helper_for_tables(
-                vals,
-                values.span().expect("PipelineData::value had no span"),
-                name,
-                mf,
-            ),
-            _ => mf(vals, span, name),
+        PipelineDataBody::Value(Value::List { vals, .. }, ..) => match &vals[..] {
+            [Value::Record { .. }, _end @ ..] => helper_for_tables(&vals, span, name, mf),
+            _ => mf(&vals, span, name),
         },
         PipelineDataBody::Value(Value::Record { val, .. }, ..) => {
             let mut record = val.into_owned();
@@ -103,14 +99,17 @@ pub fn calculate(
         }
         PipelineDataBody::Value(val, ..) => mf(&[val], span, name),
         PipelineDataBody::Empty => Err(ShellError::PipelineEmpty { dst_span: name }),
-        val => Err(ShellError::UnsupportedInput {
-            msg: "Only ints, floats, lists, records, or ranges are supported".into(),
-            input: "value originates from here".into(),
-            msg_span: name,
-            input_span: val
-                .span()
-                .expect("non-Empty non-ListStream PipelineData had no span"),
-        }),
+        val => {
+            let pipeline_data: PipelineData = val.into();
+            Err(ShellError::UnsupportedInput {
+                msg: "Only ints, floats, lists, records, or ranges are supported".into(),
+                input: "value originates from here".into(),
+                msg_span: name,
+                input_span: pipeline_data
+                    .span()
+                    .expect("non-Empty non-ListStream PipelineData had no span"),
+            })
+        }
     }
 }
 

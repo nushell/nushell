@@ -1,5 +1,6 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::engine::StateWorkingSet;
 use std::path::{Path, PathBuf};
 
@@ -167,7 +168,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
 
     let metadata = input.metadata();
 
-    match input {
+    match input.body() {
         PipelineDataBody::Value(val, md) => {
             Ok(PipelineData::value(handle_value(val, args, head), md))
         }

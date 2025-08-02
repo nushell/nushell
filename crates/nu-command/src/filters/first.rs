@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, shell_error::io::IoError};
+use nu_protocol::{PipelineDataBody, Signals, shell_error::io::IoError};
 use std::io::Read;
 
 #[derive(Clone)]
@@ -105,7 +105,7 @@ fn first_helper(
         return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
-    match input {
+    match input.body() {
         PipelineDataBody::Value(val, _) => {
             let span = val.span();
             match val {

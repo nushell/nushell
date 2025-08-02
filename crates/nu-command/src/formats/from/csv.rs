@@ -1,5 +1,6 @@
 use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct FromCsv;
@@ -141,7 +142,7 @@ fn from_csv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-    if let PipelineDataBody::Value(Value::List { .. }, _) = input {
+    if let PipelineDataBody::Value(Value::List { .. }, _) = input.get_body() {
         return Err(ShellError::TypeMismatch {
             err_message: "received list stream, did you forget to open file with --raw flag?"
                 .into(),

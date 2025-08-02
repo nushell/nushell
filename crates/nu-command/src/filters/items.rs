@@ -1,5 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -41,7 +42,7 @@ impl Command for Items {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        match input {
+        match input.body() {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::Value(value, ..) => {
                 let span = value.span();

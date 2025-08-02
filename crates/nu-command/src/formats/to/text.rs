@@ -1,7 +1,9 @@
 use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
+use nu_protocol::{
+    ByteStream, PipelineDataBody, PipelineMetadata, format_duration, shell_error::io::IoError,
+};
 use nu_utils::ObviousFloat;
 use std::io::Write;
 
@@ -51,7 +53,7 @@ impl Command for ToText {
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let input = input.try_expand_range()?;
 
-        match input {
+        match input.body() {
             PipelineDataBody::Empty => Ok(Value::string(String::new(), head)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineDataBody::Value(value, ..) => {

@@ -8,8 +8,8 @@ use nu_plugin::{Plugin, PluginCommand};
 use nu_plugin_engine::{PluginCustomValueWithSource, PluginSource, WithSource};
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
-    CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData, ShellError, Signals, Span,
-    Value,
+    CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData, PipelineDataBody,
+    ShellError, Signals, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
@@ -137,7 +137,7 @@ impl PluginTest {
 
         // Serialize custom values in the input
         let source = self.source.clone();
-        let input = if matches!(input, PipelineDataBody::ByteStream(..)) {
+        let input = if matches!(input.get_body(), PipelineDataBody::ByteStream(..)) {
             input
         } else {
             input.map(
@@ -159,7 +159,7 @@ impl PluginTest {
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
         let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
-        if matches!(data, PipelineDataBody::ByteStream(..)) {
+        if matches!(data.get_body(), PipelineDataBody::ByteStream(..)) {
             Ok(data)
         } else {
             data.map(

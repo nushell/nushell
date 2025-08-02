@@ -39,7 +39,7 @@ impl Command for MathTan {
         let head = call.head;
         let use_degrees = call.has_flag(engine_state, stack, "degrees")?;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

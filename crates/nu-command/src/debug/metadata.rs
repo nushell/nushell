@@ -1,7 +1,7 @@
 use super::util::{build_metadata_record, extend_record_with_metadata};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    PipelineMetadata,
+    PipelineDataBody, PipelineMetadata,
     ast::{Expr, Expression},
 };
 
@@ -43,7 +43,7 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
-        if !matches!(input, PipelineDataBody::Empty) {
+        if !matches!(input.get_body(), PipelineDataBody::Empty) {
             if let Some(arg_expr) = arg {
                 return Err(ShellError::IncompatibleParameters {
                     left_message: "pipeline input was provided".into(),

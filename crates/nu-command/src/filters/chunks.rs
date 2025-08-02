@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, shell_error::io::IoError};
+use nu_protocol::{ListStream, PipelineDataBody, shell_error::io::IoError};
 use std::{
     io::{BufRead, Cursor, ErrorKind},
     num::NonZeroUsize,
@@ -120,7 +120,7 @@ pub fn chunks(
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let from_io_error = IoError::factory(span, None);
-    match input {
+    match input.body() {
         PipelineDataBody::Value(Value::List { vals, .. }, metadata) => {
             let chunks = ChunksIter::new(vals, chunk_size, span);
             let stream = ListStream::new(chunks, span, engine_state.signals().clone());
@@ -167,7 +167,7 @@ pub fn chunks(
             };
             Ok(pipeline_data)
         }
-        input => Err(input.unsupported_input_error("list", span)),
+        input => Err(PipelineData::from(input).unsupported_input_error("list", span)),
     }
 }
 

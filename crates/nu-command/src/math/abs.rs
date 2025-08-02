@@ -1,5 +1,6 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct MathAbs;
@@ -48,15 +49,8 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(move |value| abs_helper(value, head), engine_state.signals())
     }
@@ -68,15 +62,8 @@ impl Command for MathAbs {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(
             move |value| abs_helper(value, head),

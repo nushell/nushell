@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use oem_cp::decode_string_complete_table;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -109,8 +110,9 @@ fn run(
     encoding: Option<Spanned<String>>,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
+    let input_span = input.span().unwrap_or(head);
 
-    match input {
+    match input.body() {
         PipelineDataBody::ByteStream(stream, ..) => {
             let span = stream.span();
             let bytes = stream.into_bytes()?;
@@ -147,7 +149,7 @@ fn run(
             msg: "non-binary input".into(),
             input: "value originates from here".into(),
             msg_span: head,
-            input_span: input.span().unwrap_or(head),
+            input_span,
         }),
     }
 }

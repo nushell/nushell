@@ -1,5 +1,6 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct MathRound;
@@ -51,18 +52,11 @@ impl Command for MathRound {
         let precision_param: Option<i64> = call.get_flag(engine_state, stack, "precision")?;
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),
@@ -79,18 +73,11 @@ impl Command for MathRound {
         let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),

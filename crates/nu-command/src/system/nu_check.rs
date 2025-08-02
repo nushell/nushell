@@ -1,6 +1,7 @@
 use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
 use nu_protocol::{
+    PipelineDataBody,
     engine::{FileStack, StateWorkingSet},
     shell_error::io::IoError,
 };
@@ -55,7 +56,7 @@ impl Command for NuCheck {
 
         let input_span = input.span().unwrap_or(call.head);
 
-        match input {
+        match input.body() {
             PipelineDataBody::Value(Value::String { val, .. }, ..) => {
                 let contents = Vec::from(val);
                 if as_module {

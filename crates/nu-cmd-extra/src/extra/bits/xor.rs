@@ -74,7 +74,7 @@ impl Command for BitsXor {
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
 

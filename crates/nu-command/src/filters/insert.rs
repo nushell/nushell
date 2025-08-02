@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
@@ -146,7 +147,7 @@ fn insert(
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
 
-    match input {
+    match input.body() {
         // Propagate errors in the pipeline
         PipelineDataBody::Value(Value::Error { error, .. }, ..) => Err(*error),
         PipelineDataBody::Value(mut value, metadata) => {

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct StrExpand;
@@ -214,7 +215,7 @@ fn run(
     engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    if matches!(input, PipelineDataBody::Empty) {
+    if matches!(input.get_body(), PipelineDataBody::Empty) {
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
     input.map(

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStreamSource, OutDest, engine::StateWorkingSet};
+use nu_protocol::{ByteStreamSource, OutDest, PipelineDataBody, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -34,7 +34,7 @@ impl Command for Ignore {
         _call: &Call,
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if let PipelineDataBody::ByteStream(stream, _) = &mut input {
+        if let PipelineDataBody::ByteStream(stream, _) = input.get_body_mut() {
             #[cfg(feature = "os")]
             if let ByteStreamSource::Child(child) = stream.source_mut() {
                 child.ignore_error(true);

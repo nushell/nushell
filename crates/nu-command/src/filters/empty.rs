@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::shell_error::io::IoError;
 use std::io::Read;
 
@@ -27,7 +28,7 @@ pub fn empty(
             Ok(Value::bool(true, head).into_pipeline_data())
         }
     } else {
-        match input {
+        match input.body() {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::ByteStream(stream, ..) => {
                 let span = stream.span();

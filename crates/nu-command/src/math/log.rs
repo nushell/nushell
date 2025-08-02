@@ -1,5 +1,6 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
@@ -50,15 +51,8 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         log(base, call.head, input, engine_state.signals())
     }
@@ -71,15 +65,8 @@ impl Command for MathLog {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         log(base, call.head, input, working_set.permanent().signals())
     }
@@ -122,7 +109,7 @@ fn log(
         });
     }
     // This doesn't match explicit nulls
-    if matches!(input, PipelineDataBody::Empty) {
+    if input.is_nothing() {
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
     let base = base.item;

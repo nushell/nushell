@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing,
+    DeprecationEntry, DeprecationType, PipelineDataBody, PipelineIterator, ReportMode,
+    ast::PathMember, casing::Casing,
 };
 use std::collections::BTreeSet;
 
@@ -244,7 +244,7 @@ fn select(
         input
     };
 
-    match input {
+    match input.body() {
         PipelineDataBody::Value(v, metadata, ..) => {
             let span = v.span();
             match v {

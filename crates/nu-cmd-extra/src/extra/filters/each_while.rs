@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_protocol::{PipelineDataBody, engine::Closure};
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -71,13 +71,14 @@ impl Command for EachWhile {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        match input {
+        let body = input.body();
+        match body {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::Value(Value::Range { .. }, ..)
             | PipelineDataBody::Value(Value::List { .. }, ..)
             | PipelineDataBody::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(input
+                Ok(PipelineData::from(body)
                     .into_iter()
                     .map_while(move |value| {
                         match closure

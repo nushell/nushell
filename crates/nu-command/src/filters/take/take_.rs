@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 
 #[derive(Clone)]
@@ -48,7 +49,7 @@ impl Command for Take {
 
         let metadata = input.metadata();
 
-        match input {
+        match input.body() {
             PipelineDataBody::Value(val, _) => {
                 let span = val.span();
                 match val {

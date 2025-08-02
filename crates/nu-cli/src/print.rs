@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ByteStreamSource;
+use nu_protocol::{ByteStreamSource, PipelineDataBody};
 
 #[derive(Clone)]
 pub struct Print;
@@ -74,7 +74,7 @@ Since this command has no output, there is no point in piping it with other comm
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineDataBody::ByteStream(stream, _) = &mut input {
+            if let PipelineDataBody::ByteStream(stream, _) = input.get_body_mut() {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }

@@ -1,5 +1,6 @@
 use crate::math::utils::ensure_bounded;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct MathFloor;
@@ -44,18 +45,11 @@ impl Command for MathFloor {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
@@ -68,18 +62,11 @@ impl Command for MathFloor {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if input.is_nothing() {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        if let PipelineDataBody::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        if let PipelineDataBody::Value(Value::Range { val, internal_span }, ..) = input.get_body() {
+            ensure_bounded(val, *internal_span, head)?;
         }
         input.map(
             move |value| operate(value, head),

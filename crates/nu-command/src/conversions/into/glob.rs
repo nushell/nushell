@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -88,12 +89,22 @@ fn glob_helper(
     let head = call.head;
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    if let PipelineDataBody::ByteStream(stream, ..) = input {
-        // TODO: in the future, we may want this to stream out, converting each to bytes
-        Ok(Value::glob(stream.into_string()?, false, head).into_pipeline_data())
-    } else {
-        let args = Arguments { cell_paths };
-        operate(action, args, input, head, engine_state.signals())
+
+    match input.body() {
+        PipelineDataBody::ByteStream(stream, ..) => {
+            // TODO: in the future, we may want this to stream out, converting each to bytes
+            Ok(Value::glob(stream.into_string()?, false, head).into_pipeline_data())
+        }
+        body => {
+            let args = Arguments { cell_paths };
+            operate(
+                action,
+                args,
+                PipelineData::from(body),
+                head,
+                engine_state.signals(),
+            )
+        }
     }
 }
 

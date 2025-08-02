@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{Signals, engine::Closure};
+use nu_protocol::{PipelineDataBody, Signals, engine::Closure};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -129,7 +129,7 @@ impl Command for ParEach {
             vec.into_iter().map(|(_, val)| val)
         };
 
-        match input {
+        match input.body() {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
             PipelineDataBody::Value(value, ..) => {
                 let span = value.span();

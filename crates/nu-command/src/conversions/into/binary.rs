@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -127,18 +128,28 @@ fn into_binary(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineDataBody::ByteStream(stream, metadata) = input {
-        // Just set the type - that should be good enough
-        Ok(PipelineData::byte_stream(
-            stream.with_type(ByteStreamType::Binary),
-            metadata,
-        ))
-    } else {
-        let args = Arguments {
-            cell_paths,
-            compact: call.has_flag(engine_state, stack, "compact")?,
-        };
-        operate(action, args, input, head, engine_state.signals())
+    let body = input.body();
+    match body {
+        PipelineDataBody::ByteStream(stream, metadata) => {
+            // Just set the type - that should be good enough
+            Ok(PipelineData::byte_stream(
+                stream.with_type(ByteStreamType::Binary),
+                metadata,
+            ))
+        }
+        _ => {
+            let args = Arguments {
+                cell_paths,
+                compact: call.has_flag(engine_state, stack, "compact")?,
+            };
+            operate(
+                action,
+                args,
+                PipelineData::from(body),
+                head,
+                engine_state.signals(),
+            )
+        }
     }
 }
 

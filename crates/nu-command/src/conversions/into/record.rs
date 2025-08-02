@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_duration_as_timeperiod;
+use nu_protocol::{PipelineDataBody, format_duration_as_timeperiod};
 
 #[derive(Clone)]
 pub struct IntoRecord;
@@ -110,16 +110,18 @@ impl Command for IntoRecord {
 
 fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
-    match input {
+    let metadata = input.metadata();
+    let pipeline_type = input.get_type();
+    match input.body() {
         PipelineDataBody::Value(Value::Date { val, .. }, _) => {
             Ok(parse_date_into_record(val, span).into_pipeline_data())
         }
         PipelineDataBody::Value(Value::Duration { val, .. }, _) => {
             Ok(parse_duration_into_record(val, span).into_pipeline_data())
         }
-        PipelineDataBody::Value(Value::List { .. }, _) | PipelineDataBody::ListStream(..) => {
+        body @ (PipelineDataBody::Value(Value::List { .. }, _)
+        | PipelineDataBody::ListStream(..)) => {
             let mut record = Record::new();
-            let metadata = input.metadata();
 
             enum ExpectedType {
                 Record,
@@ -127,7 +129,7 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             }
             let mut expected_type = None;
 
-            for item in input.into_iter() {
+            for item in PipelineData::from(body).into_iter() {
                 let span = item.span();
                 match item {
                     Value::Record { val, .. }
@@ -177,10 +179,10 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             }
             Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
         }
-        PipelineDataBody::Value(Value::Record { .. }, _) => Ok(input),
+        record @ PipelineDataBody::Value(Value::Record { .. }, _) => Ok(PipelineData::from(record)),
         PipelineDataBody::Value(Value::Error { error, .. }, _) => Err(*error),
-        other => Err(ShellError::TypeMismatch {
-            err_message: format!("Can't convert {} to record", other.get_type()),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: format!("Can't convert {} to record", pipeline_type),
             span,
         }),
     }

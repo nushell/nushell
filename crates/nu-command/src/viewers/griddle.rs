@@ -3,6 +3,7 @@ use lscolors::Style;
 use nu_color_config::lookup_ansi_color_style;
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_protocol::Config;
+use nu_protocol::PipelineDataBody;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
@@ -75,7 +76,7 @@ prints out the list properly."#
         let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
         let cwd = engine_state.cwd(Some(stack))?;
 
-        match input {
+        match input.body() {
             PipelineDataBody::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
                 let data = convert_to_list(vals, config)?;
@@ -135,7 +136,7 @@ prints out the list properly."#
             x => {
                 // dbg!("other value");
                 // dbg!(x.get_type());
-                Ok(x)
+                Ok(x.into())
             }
         }
     }

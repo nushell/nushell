@@ -1,7 +1,7 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::AbsolutePathBuf;
-use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
+use nu_protocol::{PipelineDataBody, engine::StateWorkingSet, shell_error::io::IoError};
 use std::{io, path::Path};
 
 struct Arguments {
@@ -57,7 +57,7 @@ If the path does not exist, null will be returned."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -78,7 +78,7 @@ If the path does not exist, null will be returned."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineDataBody::Empty) {
+        if matches!(input.get_body(), PipelineDataBody::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

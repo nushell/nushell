@@ -1,6 +1,6 @@
 use fancy_regex::{Captures, Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
+use nu_protocol::{ListStream, PipelineDataBody, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -194,7 +194,7 @@ fn operate(
         })
         .collect::<Vec<_>>();
 
-    match input {
+    match input.body() {
         PipelineDataBody::Empty => Ok(PipelineData::empty()),
         PipelineDataBody::Value(value, ..) => match value {
             Value::String { val, .. } => {

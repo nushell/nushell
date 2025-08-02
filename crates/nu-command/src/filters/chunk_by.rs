@@ -1,5 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::PipelineDataBody;
 use nu_protocol::Signals;
 use nu_protocol::engine::Closure;
 
@@ -198,7 +199,7 @@ pub fn chunk_by(
 
     let metadata = input.metadata();
 
-    match input {
+    match input.get_body() {
         PipelineDataBody::Empty => Ok(PipelineData::empty()),
         PipelineDataBody::Value(Value::Range { .. }, ..)
         | PipelineDataBody::Value(Value::List { .. }, ..)

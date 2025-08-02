@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 
 #[derive(Clone)]
 pub struct Wrap;
@@ -35,11 +36,11 @@ impl Command for Wrap {
         let name: String = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 
-        match input {
+        match input.body() {
             PipelineDataBody::Empty => Ok(PipelineData::empty()),
-            PipelineDataBody::Value(Value::Range { .. }, ..)
+            body @ (PipelineDataBody::Value(Value::Range { .. }, ..)
             | PipelineDataBody::Value(Value::List { .. }, ..)
-            | PipelineDataBody::ListStream { .. } => Ok(input
+            | PipelineDataBody::ListStream(..)) => Ok(PipelineData::from(body)
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
                 .into_pipeline_data_with_metadata(span, engine_state.signals().clone(), metadata)),

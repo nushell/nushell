@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineDataBody;
 use std::{io::Write, marker::PhantomData};
 
 pub trait HashDigest: digest::Digest + Clone {
@@ -87,17 +88,26 @@ where
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let mut hasher = D::new();
 
-        if let PipelineDataBody::ByteStream(stream, ..) = input {
-            stream.write_to(&mut hasher)?;
-            let digest = hasher.finalize();
-            if binary {
-                Ok(Value::binary(digest.to_vec(), head).into_pipeline_data())
-            } else {
-                Ok(Value::string(format!("{digest:x}"), head).into_pipeline_data())
+        match input.body() {
+            PipelineDataBody::ByteStream(stream, ..) => {
+                stream.write_to(&mut hasher)?;
+                let digest = hasher.finalize();
+                if binary {
+                    Ok(Value::binary(digest.to_vec(), head).into_pipeline_data())
+                } else {
+                    Ok(Value::string(format!("{digest:x}"), head).into_pipeline_data())
+                }
             }
-        } else {
-            let args = Arguments { binary, cell_paths };
-            operate(action::<D>, args, input, head, engine_state.signals())
+            other => {
+                let args = Arguments { binary, cell_paths };
+                operate(
+                    action::<D>,
+                    args,
+                    PipelineData::from(other),
+                    head,
+                    engine_state.signals(),
+                )
+            }
         }
     }
 }

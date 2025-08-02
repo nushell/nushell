@@ -2,7 +2,8 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_e
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
+    ByteStream, ByteStreamSource, OutDest, PipelineDataBody, engine::Closure,
+    shell_error::io::IoError,
 };
 
 use std::{
@@ -78,119 +79,128 @@ impl Command for Do {
         }
 
         match result {
-            Ok(PipelineDataBody::ByteStream(stream, metadata)) if capture_errors => {
-                let span = stream.span();
-                #[cfg(not(feature = "os"))]
-                return Err(ShellError::DisabledOsSupport {
-                    msg: "Cannot create a thread to receive stdout message.".to_string(),
-                    span: Some(span),
-                });
+            Ok(data) => {
+                let body = data.body();
+                match body {
+                    PipelineDataBody::ByteStream(stream, metadata) if capture_errors => {
+                        let span = stream.span();
+                        #[cfg(not(feature = "os"))]
+                        return Err(ShellError::DisabledOsSupport {
+                            msg: "Cannot create a thread to receive stdout message.".to_string(),
+                            span: Some(span),
+                        });
 
-                #[cfg(feature = "os")]
-                match stream.into_child() {
-                    Ok(mut child) => {
-                        // Use a thread to receive stdout message.
-                        // Or we may get a deadlock if child process sends out too much bytes to stderr.
-                        //
-                        // For example: in normal linux system, stderr pipe's limit is 65535 bytes.
-                        // if child process sends out 65536 bytes, the process will be hanged because no consumer
-                        // consumes the first 65535 bytes
-                        // So we need a thread to receive stdout message, then the current thread can continue to consume
-                        // stderr messages.
-                        let stdout_handler = child
-                            .stdout
-                            .take()
-                            .map(|mut stdout| {
-                                thread::Builder::new()
-                                    .name("stdout consumer".to_string())
-                                    .spawn(move || {
-                                        let mut buf = Vec::new();
-                                        stdout.read_to_end(&mut buf).map_err(|err| {
-                                            IoError::new_internal(
-                                                err,
-                                                "Could not read stdout to end",
-                                                nu_protocol::location!(),
-                                            )
-                                        })?;
-                                        Ok::<_, ShellError>(buf)
+                        #[cfg(feature = "os")]
+                        match stream.into_child() {
+                            Ok(mut child) => {
+                                // Use a thread to receive stdout message.
+                                // Or we may get a deadlock if child process sends out too much bytes to stderr.
+                                //
+                                // For example: in normal linux system, stderr pipe's limit is 65535 bytes.
+                                // if child process sends out 65536 bytes, the process will be hanged because no consumer
+                                // consumes the first 65535 bytes
+                                // So we need a thread to receive stdout message, then the current thread can continue to consume
+                                // stderr messages.
+                                let stdout_handler = child
+                                    .stdout
+                                    .take()
+                                    .map(|mut stdout| {
+                                        thread::Builder::new()
+                                            .name("stdout consumer".to_string())
+                                            .spawn(move || {
+                                                let mut buf = Vec::new();
+                                                stdout.read_to_end(&mut buf).map_err(|err| {
+                                                    IoError::new_internal(
+                                                        err,
+                                                        "Could not read stdout to end",
+                                                        nu_protocol::location!(),
+                                                    )
+                                                })?;
+                                                Ok::<_, ShellError>(buf)
+                                            })
+                                            .map_err(|err| IoError::new(err, head, None))
                                     })
-                                    .map_err(|err| IoError::new(err, head, None))
-                            })
-                            .transpose()?;
+                                    .transpose()?;
 
-                        // Intercept stderr so we can return it in the error if the exit code is non-zero.
-                        // The threading issues mentioned above dictate why we also need to intercept stdout.
-                        let stderr_msg = match child.stderr.take() {
-                            None => String::new(),
-                            Some(mut stderr) => {
-                                let mut buf = String::new();
-                                stderr
-                                    .read_to_string(&mut buf)
-                                    .map_err(|err| IoError::new(err, span, None))?;
-                                buf
-                            }
-                        };
+                                // Intercept stderr so we can return it in the error if the exit code is non-zero.
+                                // The threading issues mentioned above dictate why we also need to intercept stdout.
+                                let stderr_msg = match child.stderr.take() {
+                                    None => String::new(),
+                                    Some(mut stderr) => {
+                                        let mut buf = String::new();
+                                        stderr
+                                            .read_to_string(&mut buf)
+                                            .map_err(|err| IoError::new(err, span, None))?;
+                                        buf
+                                    }
+                                };
 
-                        let stdout = if let Some(handle) = stdout_handler {
-                            match handle.join() {
-                                Err(err) => {
-                                    return Err(ShellError::ExternalCommand {
+                                let stdout = if let Some(handle) = stdout_handler {
+                                    match handle.join() {
+                                        Err(err) => {
+                                            return Err(ShellError::ExternalCommand {
                                         label: "Fail to receive external commands stdout message"
                                             .to_string(),
                                         help: format!("{err:?}"),
                                         span,
                                     });
+                                        }
+                                        Ok(res) => Some(res?),
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                child.ignore_error(false);
+                                child.wait()?;
+
+                                let mut child = ChildProcess::from_raw(None, None, None, span);
+                                if let Some(stdout) = stdout {
+                                    child.stdout =
+                                        Some(ChildPipe::Tee(Box::new(Cursor::new(stdout))));
                                 }
-                                Ok(res) => Some(res?),
+                                if !stderr_msg.is_empty() {
+                                    child.stderr =
+                                        Some(ChildPipe::Tee(Box::new(Cursor::new(stderr_msg))));
+                                }
+                                Ok(PipelineData::byte_stream(
+                                    ByteStream::child(child, span),
+                                    metadata,
+                                ))
                             }
-                        } else {
-                            None
-                        };
-
-                        child.ignore_error(false);
-                        child.wait()?;
-
-                        let mut child = ChildProcess::from_raw(None, None, None, span);
-                        if let Some(stdout) = stdout {
-                            child.stdout = Some(ChildPipe::Tee(Box::new(Cursor::new(stdout))));
+                            Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                         }
-                        if !stderr_msg.is_empty() {
-                            child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr_msg))));
-                        }
-                        Ok(PipelineData::byte_stream(
-                            ByteStream::child(child, span),
-                            metadata,
-                        ))
                     }
-                    Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
+                    PipelineDataBody::ByteStream(mut stream, metadata)
+                        if ignore_all_errors
+                            && !matches!(
+                                caller_stack.stdout(),
+                                OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
+                            ) =>
+                    {
+                        #[cfg(feature = "os")]
+                        if let ByteStreamSource::Child(child) = stream.source_mut() {
+                            child.ignore_error(true);
+                        }
+                        Ok(PipelineData::byte_stream(stream, metadata))
+                    }
+                    PipelineDataBody::Value(Value::Error { .. }, ..) if ignore_all_errors => {
+                        Ok(PipelineData::empty())
+                    }
+                    PipelineDataBody::ListStream(stream, metadata) if ignore_all_errors => {
+                        let stream = stream.map(move |value| {
+                            if let Value::Error { .. } = value {
+                                Value::nothing(head)
+                            } else {
+                                value
+                            }
+                        });
+                        Ok(PipelineData::list_stream(stream, metadata))
+                    }
+                    _ => Ok(PipelineData::from(body)),
                 }
             }
-            Ok(PipelineDataBody::ByteStream(mut stream, metadata))
-                if ignore_all_errors
-                    && !matches!(
-                        caller_stack.stdout(),
-                        OutDest::Pipe | OutDest::PipeSeparate | OutDest::Value
-                    ) =>
-            {
-                #[cfg(feature = "os")]
-                if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.ignore_error(true);
-                }
-                Ok(PipelineData::byte_stream(stream, metadata))
-            }
-            Ok(PipelineDataBody::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
-                Ok(PipelineData::empty())
-            }
-            Ok(PipelineDataBody::ListStream(stream, metadata)) if ignore_all_errors => {
-                let stream = stream.map(move |value| {
-                    if let Value::Error { .. } = value {
-                        Value::nothing(head)
-                    } else {
-                        value
-                    }
-                });
-                Ok(PipelineData::list_stream(stream, metadata))
-            }
+            Err(_err) if ignore_all_errors => Ok(PipelineData::empty()),
             r => r,
         }
     }

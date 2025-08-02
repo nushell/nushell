@@ -13,8 +13,8 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
-    ValueIterator, shell_error::io::IoError,
+    ByteStream, Config, DataSource, ListStream, PipelineDataBody, PipelineMetadata, Signals,
+    TableMode, ValueIterator, shell_error::io::IoError,
 };
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
@@ -421,12 +421,20 @@ impl<'a> CmdInput<'a> {
 
 fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
-    match input.data {
-        // Binary streams should behave as if they really are `binary` data, and printed as hex
-        PipelineDataBody::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
-        ),
-        PipelineDataBody::ByteStream(..) => Ok(input.data),
+
+    // Handle different pipeline data types
+    match input.data.body() {
+        PipelineDataBody::ByteStream(stream, _) => {
+            if stream.type_() == ByteStreamType::Binary {
+                Ok(PipelineData::byte_stream(
+                    pretty_hex_stream(stream, input.call.head),
+                    None,
+                ))
+            } else {
+                // For non-binary ByteStream, recreate PipelineData
+                Ok(PipelineData::byte_stream(stream, None))
+            }
+        }
         PipelineDataBody::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
@@ -467,7 +475,7 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
-        x => Ok(x),
+        x => Ok(x.into()),
     }
 }
 

@@ -1,5 +1,7 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{
+    ByteStream, ListStream, PipelineData, PipelineDataBody, ShellError, Signals, Span, Value,
+};
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     ShellError::DelimiterError {
@@ -94,7 +96,7 @@ pub(super) fn from_delimited_data(
     name: Span,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata().map(|md| md.with_content_type(None));
-    match input {
+    match input.body() {
         PipelineDataBody::Empty => Ok(PipelineData::empty()),
         PipelineDataBody::Value(value, ..) => {
             let string = value.into_string()?;
