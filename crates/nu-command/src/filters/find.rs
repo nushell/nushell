@@ -237,7 +237,7 @@ impl Command for Find {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "regex", "search", "condition"]
+        vec!["filter", "regex", "search", "condition", "grep"]
     }
 
     fn run(
