@@ -36,7 +36,7 @@ impl Command for Find {
             )
             .switch(
                 "multiline",
-                "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
+                "don't split multi-line strings into lists of lines. warning: this is not the same thing as (?m) for regex search.",
                 Some('m'),
             )
             .switch(
@@ -227,11 +227,25 @@ impl Command for Find {
     ) -> Result<PipelineData, ShellError> {
         let pattern = get_match_pattern_from_arguments(engine_state, stack, call)?;
 
+        let multiline = call.has_flag(engine_state, stack, "multiline")?;
+
         let columns_to_search: Vec<_> = call
             .get_flag(engine_state, stack, "columns")?
             .unwrap_or_default();
 
-        let input = split_string_if_multiline(input, call.head);
+        let input = if multiline {
+            if let PipelineData::ByteStream(..) = input {
+                // ByteStream inputs are processed by iterating over the lines, which necessarily
+                // breaks the multi-line text being streamed into a list of lines.
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Flag `--multiline` currently doesn't work for byte stream inputs. Consider using `collect`".into(),
+                    span: call.get_flag_span(stack, "multiline").expect("has flag"),
+                });
+            };
+            input
+        } else {
+            split_string_if_multiline(input, call.head)
+        };
 
         find_in_pipelinedata(pattern, columns_to_search, engine_state, stack, input)
     }
@@ -276,7 +290,6 @@ fn get_match_pattern_from_arguments(
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
 
     let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
-    let multiline = call.has_flag(engine_state, stack, "multiline")?;
 
     let dotall = call.has_flag(engine_state, stack, "dotall")?;
 
@@ -296,15 +309,11 @@ fn get_match_pattern_from_arguments(
             });
         }
 
-        let flags = match (ignore_case, multiline, dotall) {
-            (false, false, false) => "",
-            (true, false, false) => "(?i)", // case insensitive
-            (false, true, false) => "(?m)", // multi-line mode
-            (false, false, true) => "(?s)", // allow . to match \n
-            (true, true, false) => "(?im)", // case insensitive and multi-line mode
-            (true, false, true) => "(?is)", // case insensitive and allow . to match \n
-            (false, true, true) => "(?ms)", // multi-line mode and allow . to match \n
-            (true, true, true) => "(?ims)", // case insensitive, multi-line mode and allow . to match \n
+        let flags = match (ignore_case, dotall) {
+            (false, false) => "",
+            (true, false) => "(?i)", // case insensitive
+            (false, true) => "(?s)", // allow . to match \n
+            (true, true) => "(?is)", // case insensitive and allow . to match \n
         };
 
         (flags.to_string() + regex.as_str(), Vec::new())
