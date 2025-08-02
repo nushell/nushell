@@ -28,8 +28,9 @@ jobs:
       - name: Feature power set
         run: |
           cargo hack --all --feature-powerset --at-least-one-of rustls-tls,native-tls --mutually-exclusive-features rustls-tls,native-tls --mutually-exclusive-features rustls-tls,static-link-openssl --skip default-no-clipboard,stable,mimalloc check
-      - name: Build all crates
-        run: cargo hack --all build --clean-per-run
+      # Don't build fully for now as it will run out of disk space
+      # - name: Build all crates
+      #   run: cargo hack --all build --clean-per-run
 
       - name: Check for clean repo
         shell: bash
