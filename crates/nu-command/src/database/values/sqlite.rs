@@ -4,7 +4,7 @@ use super::definitions::{
 };
 use nu_protocol::{
     CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
-    shell_error::io::IoError,
+    engine::EngineState, shell_error::io::IoError,
 };
 use rusqlite::{
     Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql,
@@ -431,35 +431,44 @@ fn run_sql_query(
 }
 
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
-    Ok(match value {
-        Value::Bool { val, .. } => Box::new(val),
-        Value::Int { val, .. } => Box::new(val),
-        Value::Float { val, .. } => Box::new(val),
-        Value::Filesize { val, .. } => Box::new(val.get()),
-        Value::Duration { val, .. } => Box::new(val),
-        Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } => Box::new(val),
-        Value::Binary { val, .. } => Box::new(val),
-        Value::Nothing { .. } => Box::new(rusqlite::types::Null),
+pub fn value_to_sql(
+    engine_state: &EngineState,
+    value: Value,
+    call_span: Span,
+) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
+    match value {
+        Value::Bool { val, .. } => Ok(Box::new(val)),
+        Value::Int { val, .. } => Ok(Box::new(val)),
+        Value::Float { val, .. } => Ok(Box::new(val)),
+        Value::Filesize { val, .. } => Ok(Box::new(val.get())),
+        Value::Duration { val, .. } => Ok(Box::new(val)),
+        Value::Date { val, .. } => Ok(Box::new(val)),
+        Value::String { val, .. } => Ok(Box::new(val)),
+        Value::Binary { val, .. } => Ok(Box::new(val)),
+        Value::Nothing { .. } => Ok(Box::new(rusqlite::types::Null)),
         val => {
-            return Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type:
-                    "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
-                wrong_type: val.get_type().to_string(),
-                dst_span: Span::unknown(),
-                src_span: val.span(),
-            });
+            let json_value = crate::value_to_json_value(engine_state, &val, call_span, false)?;
+            match nu_json::to_string_raw(&json_value) {
+                Ok(s) => Ok(Box::new(s)),
+                Err(err) => Err(ShellError::CantConvert {
+                    to_type: "JSON".into(),
+                    from_type: val.get_type().to_string(),
+                    span: val.span(),
+                    help: Some(err.to_string()),
+                }),
+            }
         }
-    })
+    }
 }
 
 pub fn values_to_sql(
+    engine_state: &EngineState,
     values: impl IntoIterator<Item = Value>,
+    call_span: Span,
 ) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
     values
         .into_iter()
-        .map(value_to_sql)
+        .map(|v| value_to_sql(engine_state, v, call_span))
         .collect::<Result<Vec<_>, _>>()
 }
 
@@ -474,13 +483,17 @@ impl Default for NuSqlParams {
     }
 }
 
-pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
+pub fn nu_value_to_params(
+    engine_state: &EngineState,
+    value: Value,
+    call_span: Span,
+) -> Result<NuSqlParams, ShellError> {
     match value {
         Value::Record { val, .. } => {
             let mut params = Vec::with_capacity(val.len());
 
             for (mut column, value) in val.into_owned().into_iter() {
-                let sql_type_erased = value_to_sql(value)?;
+                let sql_type_erased = value_to_sql(engine_state, value, call_span)?;
 
                 if !column.starts_with([':', '@', '$']) {
                     column.insert(0, ':');
@@ -495,7 +508,7 @@ pub fn nu_value_to_params(value: Value) -> Result<NuSqlParams, ShellError> {
             let mut params = Vec::with_capacity(vals.len());
 
             for value in vals.into_iter() {
-                let sql_type_erased = value_to_sql(value)?;
+                let sql_type_erased = value_to_sql(engine_state, value, call_span)?;
 
                 params.push(sql_type_erased);
             }
@@ -557,17 +570,49 @@ fn read_single_table(
     prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
 }
 
+/// The SQLite type behind a query column returned as some raw type (e.g. 'text')
+#[derive(Clone, Copy)]
+pub enum DeclType {
+    Json,
+    Jsonb,
+}
+
+impl DeclType {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "JSON" => Some(DeclType::Json),
+            "JSONB" => Some(DeclType::Jsonb),
+            _ => None, // We are only special-casing JSON(B) columns for now
+        }
+    }
+}
+
+/// A column out of an SQLite query, together with its type
+pub struct TypedColumn {
+    pub name: String,
+    pub decl_type: Option<DeclType>,
+}
+
+impl TypedColumn {
+    pub fn from_rusqlite_column(c: &rusqlite::Column) -> Self {
+        Self {
+            name: c.name().to_owned(),
+            decl_type: c.decl_type().and_then(DeclType::from_str),
+        }
+    }
+}
+
 fn prepared_statement_to_nu_list(
     mut stmt: Statement,
     params: NuSqlParams,
     call_span: Span,
     signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
-    let column_names = stmt
-        .column_names()
-        .into_iter()
-        .map(String::from)
-        .collect::<Vec<String>>();
+    let columns: Vec<TypedColumn> = stmt
+        .columns()
+        .iter()
+        .map(TypedColumn::from_rusqlite_column)
+        .collect();
 
     // I'm very sorry for this repetition
     // I tried scoping the match arms to the query_map alone, but lifetime and closure reference escapes
@@ -577,11 +622,7 @@ fn prepared_statement_to_nu_list(
             let refs: Vec<&dyn ToSql> = params.iter().map(|value| (&**value)).collect();
 
             let row_results = stmt.query_map(refs.as_slice(), |row| {
-                Ok(convert_sqlite_row_to_nu_value(
-                    row,
-                    call_span,
-                    &column_names,
-                ))
+                Ok(convert_sqlite_row_to_nu_value(row, call_span, &columns))
             })?;
 
             // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
@@ -603,11 +644,7 @@ fn prepared_statement_to_nu_list(
                 .collect();
 
             let row_results = stmt.query_map(refs.as_slice(), |row| {
-                Ok(convert_sqlite_row_to_nu_value(
-                    row,
-                    call_span,
-                    &column_names,
-                ))
+                Ok(convert_sqlite_row_to_nu_value(row, call_span, &columns))
             })?;
 
             // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
@@ -650,14 +687,14 @@ fn read_entire_sqlite_db(
     Ok(Value::record(tables, call_span))
 }
 
-pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[String]) -> Value {
-    let record = column_names
+pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, columns: &[TypedColumn]) -> Value {
+    let record = columns
         .iter()
         .enumerate()
         .map(|(i, col)| {
             (
-                col.clone(),
-                convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), span),
+                col.name.clone(),
+                convert_sqlite_value_to_nu_value(row.get_ref_unwrap(i), col.decl_type, span),
             )
         })
         .collect();
@@ -665,18 +702,25 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: &[Str
     Value::record(record, span)
 }
 
-pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
+pub fn convert_sqlite_value_to_nu_value(
+    value: ValueRef,
+    decl_type: Option<DeclType>,
+    span: Span,
+) -> Value {
     match value {
         ValueRef::Null => Value::nothing(span),
         ValueRef::Integer(i) => Value::int(i, span),
         ValueRef::Real(f) => Value::float(f, span),
-        ValueRef::Text(buf) => {
-            let s = match std::str::from_utf8(buf) {
-                Ok(v) => v,
-                Err(_) => return Value::error(ShellError::NonUtf8 { span }, span),
-            };
-            Value::string(s.to_string(), span)
-        }
+        ValueRef::Text(buf) => match (std::str::from_utf8(buf), decl_type) {
+            (Ok(txt), Some(DeclType::Json | DeclType::Jsonb)) => {
+                match crate::convert_json_string_to_value(txt, span) {
+                    Ok(val) => val,
+                    Err(err) => Value::error(err, span),
+                }
+            }
+            (Ok(txt), _) => Value::string(txt.to_string(), span),
+            (Err(_), _) => Value::error(ShellError::NonUtf8 { span }, span),
+        },
         ValueRef::Blob(u) => Value::binary(u.to_vec(), span),
     }
 }

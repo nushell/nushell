@@ -43,7 +43,9 @@ pub use debug::*;
 pub use default_context::*;
 pub use env::*;
 #[cfg(test)]
-pub use example_test::{test_examples, test_examples_with_commands};
+pub use example_test::{
+    test_examples, test_examples_with_commands, test_examples_with_commands_and_cwd,
+};
 pub use experimental::*;
 #[cfg(feature = "os")]
 pub use filesystem::*;
