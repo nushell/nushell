@@ -31,12 +31,12 @@ impl Command for Find {
             )
             .switch(
                 "ignore-case",
-                "case-insensitive; for regex mode, equivalent to (?i)",
+                "case-insensitive; when in regex mode, this is equivalent to (?i)",
                 Some('i'),
             )
             .switch(
                 "multiline",
-                "don't split multi-line strings into lists of lines. warning: this is not the same thing as (?m) for regex search.",
+                "don't split multi-line strings into lists of lines. you should use this option when using the (?m) or (?s) flags in regex mode",
                 Some('m'),
             )
             .switch(
@@ -72,8 +72,8 @@ impl Command for Find {
                 result: None,
             },
             Example {
-                description: "Search and highlight text for a term in a string. Note that regular search is case insensitive",
-                example: r#"'Cargo.toml' | find cargo"#,
+                description: "Search and highlight text for a term in a string.",
+                example: r#"'Cargo.toml' | find Cargo"#,
                 result: Some(Value::test_string(
                     "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mCargo\u{1b}[0m\u{1b}[37m.toml\u{1b}[0m"
                         .to_owned(),
@@ -81,7 +81,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
-                example: r#"[1 5 3kb 4 3Mb] | find 5 3kb"#,
+                example: r#"[1 5 3kb 4 35 3Mb] | find 5 3kb"#,
                 result: Some(Value::list(
                     vec![Value::test_int(5), Value::test_filesize(3000)],
                     Span::test_data(),
@@ -103,16 +103,16 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find using regex",
-                example: r#"[abc bde arc abf] | find --regex "ab""#,
+                description: "Search using regex",
+                example: r#"[abc odb arc abf] | find --regex "b.""#,
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mab\u{1b}[0m\u{1b}[37mc\u{1b}[0m"
+                            "\u{1b}[37ma\u{1b}[0m\u{1b}[41;37mbc\u{1b}[0m\u{1b}[37m\u{1b}[0m"
                                 .to_string(),
                         ),
                         Value::test_string(
-                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mab\u{1b}[0m\u{1b}[37mf\u{1b}[0m"
+                            "\u{1b}[37ma\u{1b}[0m\u{1b}[41;37mbf\u{1b}[0m\u{1b}[37m\u{1b}[0m"
                                 .to_string(),
                         ),
                     ],
@@ -120,8 +120,8 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find using regex case insensitive",
-                example: r#"[aBc bde Arc abf] | find --regex "ab" -i"#,
+                description: "Case insensitive search",
+                example: r#"[aBc bde Arc abf] | find "ab" -i"#,
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
@@ -209,6 +209,28 @@ impl Command for Find {
                             "col3" => Value::test_string("curly".to_string()),
                     })],
                     Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Find in a multi-line string",
+                example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find "ue""#,
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string(
+                            "\u{1b}[37mAnd roses are bl\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
+                        ),
+                        Value::test_string(
+                            "\u{1b}[37mAlter their h\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
+                        ),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Find in a multi-line string without splitting the input into a list of lines",
+                example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find --multiline "ue""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[37mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
                 )),
             },
         ]
