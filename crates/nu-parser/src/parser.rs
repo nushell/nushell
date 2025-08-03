@@ -116,6 +116,21 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     is_range
 }
 
+fn is_env_variable_name(bytes: &[u8]) -> bool {
+    if bytes.is_empty() || !bytes.is_ascii() {
+        return false;
+    }
+
+    let first = bytes[0];
+    if !first.is_ascii_alphabetic() && first != b'_' {
+        return false;
+    }
+
+    bytes
+        .iter()
+        .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
 fn is_identifier(bytes: &[u8]) -> bool {
     bytes.iter().all(|x| is_identifier_byte(*x))
 }
@@ -5851,20 +5866,15 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
-        if !name.starts_with(b"^")
-            && split.len() == 2
-            && !split[0].is_empty()
-            && !split[0].ends_with(b"..")
-        // was range op ..=
-        {
+        if !name.starts_with(b"^") && split.len() == 2 && !split[0].is_empty() {
             let point = split[0].len() + 1;
 
-            let starting_error_count = working_set.parse_errors.len();
-
             let lhs_span = Span::new(spans[pos].start, spans[pos].start + point - 1);
-            if !is_identifier(working_set.get_span_contents(lhs_span)) {
+            if !is_env_variable_name(working_set.get_span_contents(lhs_span)) {
                 break;
             }
+
+            let starting_error_count = working_set.parse_errors.len();
 
             let lhs = parse_string_strict(working_set, lhs_span);
             let rhs = if spans[pos].start + point < spans[pos].end {

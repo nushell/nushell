@@ -1027,3 +1027,9 @@ fn not_panic_with_recursive_call() {
     );
     assert!(result.status.success());
 }
+
+// https://github.com/nushell/nushell/issues/16332
+#[test]
+fn quote_escape_but_not_env_shorthand() -> TestResult {
+    run_test(r#""\"=foo""#, "\"=foo")
+}
