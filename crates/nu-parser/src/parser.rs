@@ -117,7 +117,7 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 }
 
 fn is_env_variable_name(bytes: &[u8]) -> bool {
-    if bytes.is_empty() || !bytes.is_ascii() {
+    if bytes.is_empty() {
         return false;
     }
 
@@ -128,6 +128,7 @@ fn is_env_variable_name(bytes: &[u8]) -> bool {
 
     bytes
         .iter()
+        .skip(1)
         .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
