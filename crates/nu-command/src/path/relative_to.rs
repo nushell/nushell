@@ -184,7 +184,10 @@ fn try_case_insensitive_strip_prefix(lhs: &Path, rhs: &Path) -> Option<std::path
         match (lhs_components.next(), rhs_components.next()) {
             (Some(lhs_comp), Some(rhs_comp)) => {
                 match (lhs_comp, rhs_comp) {
-                    (std::path::Component::Normal(lhs_name), std::path::Component::Normal(rhs_name)) => {
+                    (
+                        std::path::Component::Normal(lhs_name),
+                        std::path::Component::Normal(rhs_name),
+                    ) => {
                         if lhs_name.to_string_lossy().to_lowercase()
                             != rhs_name.to_string_lossy().to_lowercase()
                         {
