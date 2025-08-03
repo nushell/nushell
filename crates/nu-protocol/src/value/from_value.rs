@@ -7,6 +7,7 @@ use crate::{
 use chrono::{DateTime, FixedOffset};
 use std::{
     any,
+    borrow::Cow,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
@@ -504,6 +505,20 @@ impl FromValue for String {
 
     fn expected_type() -> Type {
         Type::String
+    }
+}
+
+impl<B> FromValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        <B::Owned as FromValue>::from_value(v).map(Cow::Owned)
+    }
+
+    fn expected_type() -> Type {
+        <B::Owned as FromValue>::expected_type()
     }
 }
 

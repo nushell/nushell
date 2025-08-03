@@ -1,6 +1,9 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
-use std::{borrow::Borrow, collections::HashMap};
+use std::{
+    borrow::{Borrow, Cow},
+    collections::HashMap,
+};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -178,6 +181,16 @@ impl IntoValue for String {
 impl IntoValue for &str {
     fn into_value(self, span: Span) -> Value {
         Value::string(self, span)
+    }
+}
+
+impl<B> IntoValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: IntoValue,
+{
+    fn into_value(self, span: Span) -> Value {
+        <B::Owned as IntoValue>::into_value(self.into_owned(), span)
     }
 }
 
