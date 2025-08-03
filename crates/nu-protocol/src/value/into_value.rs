@@ -1,6 +1,9 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
-use std::{borrow::Borrow, collections::HashMap};
+use std::{
+    borrow::{Borrow, Cow},
+    collections::HashMap,
+};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -199,6 +202,21 @@ where
             Some(v) => v.into_value(span),
             None => Value::nothing(span),
         }
+    }
+}
+
+/// This blanket implementation permits the use of [`Cow<'_, B>`] ([`Cow<'_, str>`] etc) based on
+/// the [IntoValue] implementation of `B`'s owned form ([str] => [String]).
+///
+/// It's meant to make using the [IntoValue] derive macro on types that contain [Cow] fields
+/// possible.
+impl<B> IntoValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: IntoValue,
+{
+    fn into_value(self, span: Span) -> Value {
+        <B::Owned as IntoValue>::into_value(self.into_owned(), span)
     }
 }
 

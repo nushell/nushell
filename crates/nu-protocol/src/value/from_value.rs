@@ -7,6 +7,7 @@ use crate::{
 use chrono::{DateTime, FixedOffset};
 use std::{
     any,
+    borrow::Cow,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
@@ -561,6 +562,25 @@ where
 
     fn expected_type() -> Type {
         T::expected_type()
+    }
+}
+
+/// This blanket implementation permits the use of [`Cow<'_, B>`] ([`Cow<'_, str>`] etc) based on
+/// the [FromValue] implementation of `B`'s owned form ([str] => [String]).
+///
+/// It's meant to make using the [FromValue] derive macro on types that contain [Cow] fields
+/// possible.
+impl<B> FromValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        <B::Owned as FromValue>::from_value(v).map(Cow::Owned)
+    }
+
+    fn expected_type() -> Type {
+        <B::Owned as FromValue>::expected_type()
     }
 }
 
