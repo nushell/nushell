@@ -176,36 +176,50 @@ fn is_case_insensitive_filesystem() -> bool {
 
 /// Try to strip prefix in a case-insensitive manner
 fn try_case_insensitive_strip_prefix(lhs: &Path, rhs: &Path) -> Option<std::path::PathBuf> {
-    let lhs_components: Vec<_> = lhs.components().collect();
-    let rhs_components: Vec<_> = rhs.components().collect();
+    let mut lhs_components = lhs.components();
+    let mut rhs_components = rhs.components();
 
-    if rhs_components.len() > lhs_components.len() {
-        return None;
-    }
-
-    for (lhs_comp, rhs_comp) in lhs_components.iter().zip(rhs_components.iter()) {
-        match (lhs_comp, rhs_comp) {
-            (std::path::Component::Normal(lhs_name), std::path::Component::Normal(rhs_name)) => {
-                if lhs_name.to_string_lossy().to_lowercase()
-                    != rhs_name.to_string_lossy().to_lowercase()
-                {
-                    return None;
+    // Compare components case-insensitively
+    loop {
+        match (lhs_components.next(), rhs_components.next()) {
+            (Some(lhs_comp), Some(rhs_comp)) => {
+                match (lhs_comp, rhs_comp) {
+                    (std::path::Component::Normal(lhs_name), std::path::Component::Normal(rhs_name)) => {
+                        if lhs_name.to_string_lossy().to_lowercase()
+                            != rhs_name.to_string_lossy().to_lowercase()
+                        {
+                            return None;
+                        }
+                    }
+                    // Non-Normal components must match exactly
+                    _ if lhs_comp != rhs_comp => {
+                        return None;
+                    }
+                    _ => {}
                 }
             }
-            // Non-Normal components must match exactly
-            _ if lhs_comp != rhs_comp => {
+            (Some(lhs_comp), None) => {
+                // rhs is fully consumed, but lhs has more components
+                // This means rhs is a prefix of lhs, collect remaining lhs components
+                let mut result = std::path::PathBuf::new();
+                // Add the current lhs component that wasn't matched
+                result.push(lhs_comp);
+                // Add all remaining lhs components
+                for component in lhs_components {
+                    result.push(component);
+                }
+                return Some(result);
+            }
+            (None, Some(_)) => {
+                // lhs is shorter than rhs, so rhs cannot be a prefix of lhs
                 return None;
             }
-            _ => {}
+            (None, None) => {
+                // Both paths have the same components, relative path is empty
+                return Some(std::path::PathBuf::new());
+            }
         }
     }
-
-    let mut result = std::path::PathBuf::new();
-    for component in lhs_components.iter().skip(rhs_components.len()) {
-        result.push(component);
-    }
-
-    Some(result)
 }
 
 #[cfg(test)]
