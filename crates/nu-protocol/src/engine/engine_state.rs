@@ -249,6 +249,9 @@ impl EngineState {
         self.vars.extend(delta.vars);
         self.spans.extend(delta.spans);
         self.doccomments.merge_with(delta.doccomments);
+        
+        // Clean up unused variables to prevent memory leaks from variable shadowing
+        self.cleanup_unused_variables();
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
@@ -374,6 +377,47 @@ impl EngineState {
         }
 
         Ok(())
+    }
+
+    /// Clean up unused variables to prevent memory leaks from variable shadowing.
+    /// This removes Variable entries that are no longer referenced by any overlay.
+    fn cleanup_unused_variables(&mut self) {
+        use std::collections::HashSet;
+        
+        // Collect all VarIds that are still referenced by overlays
+        let mut referenced_vars = HashSet::new();
+        
+        for overlay_frame in self.scope.overlays.iter() {
+            for var_id in overlay_frame.1.vars.values() {
+                referenced_vars.insert(*var_id);
+            }
+        }
+        
+        // Find variables with large const_val that are no longer referenced
+        let mut vars_to_clear = Vec::new();
+        for (idx, var) in self.vars.iter().enumerate() {
+            let var_id = VarId::new(idx);
+            if !referenced_vars.contains(&var_id) {
+                // Check if this variable has a large const_val that should be freed
+                if let Some(_value) = &var.const_val {
+                    // Free memory for unreferenced variables with const values
+                    // We keep the Variable entry for potential future reference
+                    // but clear the const_val to free memory
+                    vars_to_clear.push(idx);
+                }
+            }
+        }
+        
+        // Clear const_val for unreferenced variables to free memory
+        for idx in vars_to_clear {
+            if let Some(var) = self.vars.get_mut(idx) {
+                // Clear the const_val to free memory while keeping the Variable entry
+                // This prevents issues with VarId indexing while still freeing memory
+                if var.const_val.is_some() {
+                    var.const_val = None;
+                }
+            }
+        }
     }
 
     pub fn active_overlay_ids<'a, 'b>(
