@@ -250,9 +250,6 @@ impl EngineState {
         self.spans.extend(delta.spans);
         self.doccomments.merge_with(delta.doccomments);
 
-        // Clean up unused variables to prevent memory leaks from variable shadowing
-        self.cleanup_unused_variables();
-
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
             Arc::make_mut(&mut self.decls).extend(delta.decls);
@@ -379,62 +376,7 @@ impl EngineState {
         Ok(())
     }
 
-    /// Clean up unused variables to prevent memory leaks from variable shadowing.
-    /// This clears const_val for large values that are no longer referenced,
-    /// but uses conservative heuristics to avoid breaking functionality.
-    fn cleanup_unused_variables(&mut self) {
-        use std::collections::HashSet;
 
-        // Collect all VarIds that are still referenced by overlays
-        let mut referenced_vars = HashSet::new();
-
-        for overlay_frame in self.scope.overlays.iter() {
-            for var_id in overlay_frame.1.vars.values() {
-                referenced_vars.insert(*var_id);
-            }
-        }
-
-        // Always preserve critical system variables regardless of reference status
-        referenced_vars.insert(NU_VARIABLE_ID);
-        referenced_vars.insert(IN_VARIABLE_ID);
-        referenced_vars.insert(ENV_VARIABLE_ID);
-
-        // Conservative approach: Only clear very large const_val that are clearly unused
-        // to avoid breaking standard library constants and other important variables
-        let mut vars_to_clear = Vec::new();
-        for (idx, var) in self.vars.iter().enumerate() {
-            let var_id = VarId::new(idx);
-            if !referenced_vars.contains(&var_id) {
-                if let Some(value) = &var.const_val {
-                    // Only clear values that are likely to be large user data
-                    // This is a conservative heuristic to avoid clearing important constants
-                    let should_clear = match value {
-                        // Clear large binary data (likely from commands like `random binary`)
-                        Value::Binary { val, .. } if val.len() > 1_000_000 => true, // > 1MB
-                        // Clear large strings
-                        Value::String { val, .. } if val.len() > 1_000_000 => true, // > 1MB
-                        // Clear large lists with many elements
-                        Value::List { vals, .. } if vals.len() > 10_000 => true, // > 10k items
-                        // Don't clear other types to be safe (records, small values, etc.)
-                        _ => false,
-                    };
-
-                    if should_clear {
-                        vars_to_clear.push(idx);
-                    }
-                }
-            }
-        }
-
-        // Clear const_val for large unreferenced variables to free memory
-        for idx in vars_to_clear {
-            if let Some(var) = self.vars.get_mut(idx) {
-                if var.const_val.is_some() {
-                    var.const_val = None;
-                }
-            }
-        }
-    }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
     /// This removes variables that are no longer referenced by any overlay.
