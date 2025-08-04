@@ -1027,3 +1027,12 @@ fn not_panic_with_recursive_call() {
     );
     assert!(result.status.success());
 }
+
+// https://github.com/nushell/nushell/issues/16040
+#[test]
+fn external_argument_with_subexpressions() -> TestResult {
+    run_test(r#"^echo foo( ('bar') | $in ++ 'baz' )"#, "foobarbaz")?;
+    run_test(r#"^echo foo( 'bar' )('baz')"#, "foobarbaz")?;
+    run_test(r#"^echo ")('foo')(""#, ")('foo')(")?;
+    fail_test(r#"^echo foo( 'bar'"#, "Unexpected end of code")
+}
