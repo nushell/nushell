@@ -376,8 +376,6 @@ impl EngineState {
         Ok(())
     }
 
-
-
     /// Clean up unused variables from a Stack to prevent memory leaks.
     /// This removes variables that are no longer referenced by any overlay.
     pub fn cleanup_stack_variables(&self, stack: &mut Stack) {
