@@ -209,11 +209,13 @@ pub fn evaluate_repl(
         }));
         match iteration_panic_state {
             Ok((continue_loop, es, s, le)) => {
+                // we apply the changes from the updated stack back onto our previous stack
+                let mut merged_stack = Stack::with_changes_from_child(previous_stack_arc, s);
+                // Clean up unused variables from stack to prevent memory leaks from variable shadowing
+                es.cleanup_stack_variables(&mut merged_stack);
+                previous_stack_arc = Arc::new(merged_stack);
                 // setup state for the next iteration of the repl loop
                 previous_engine_state = es;
-                // we apply the changes from the updated stack back onto our previous stack
-                previous_stack_arc =
-                    Arc::new(Stack::with_changes_from_child(previous_stack_arc, s));
                 line_editor = le;
                 if !continue_loop {
                     break;
