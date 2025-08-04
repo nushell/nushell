@@ -94,6 +94,7 @@ rusqlite = { workspace = true, features = [
 	"bundled",
 	"backup",
 	"chrono",
+	"column_decltype",
 ], optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }

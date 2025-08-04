@@ -186,7 +186,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 

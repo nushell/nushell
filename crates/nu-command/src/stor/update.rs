@@ -92,7 +92,14 @@ impl Command for StorUpdate {
         // Check if the record is being passed as input or using the update record parameter
         let columns = handle(span, update_record, input)?;
 
-        process(table_name, span, &db, columns, where_clause_opt)?;
+        process(
+            engine_state,
+            table_name,
+            span,
+            &db,
+            columns,
+            where_clause_opt,
+        )?;
 
         Ok(Value::custom(db, span).into_pipeline_data())
     }
@@ -150,6 +157,7 @@ fn handle(
 }
 
 fn process(
+    engine_state: &EngineState,
     table_name: Option<String>,
     span: Span,
     db: &SQLiteDatabase,
@@ -183,7 +191,7 @@ fn process(
         // dbg!(&update_stmt);
 
         // Get the params from the passed values
-        let params = values_to_sql(record.values().cloned())?;
+        let params = values_to_sql(engine_state, record.values().cloned(), span)?;
 
         conn.execute(&update_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
