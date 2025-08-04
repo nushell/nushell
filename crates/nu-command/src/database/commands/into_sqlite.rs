@@ -1,9 +1,12 @@
-use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
+use crate::{
+    MEMORY_DB,
+    database::values::sqlite::{open_sqlite_db, values_to_sql},
+};
 use nu_engine::command_prelude::*;
 
 use itertools::Itertools;
 use nu_protocol::Signals;
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
 pub const DEFAULT_TABLE_NAME: &str = "main";
 
@@ -100,15 +103,25 @@ impl Table {
     pub fn new(
         db_path: &Spanned<String>,
         table_name: Option<Spanned<String>>,
+        engine_state: &EngineState,
+        stack: &Stack,
     ) -> Result<Self, nu_protocol::ShellError> {
-        let table_name = if let Some(table_name) = table_name {
-            table_name.item
-        } else {
-            DEFAULT_TABLE_NAME.to_string()
+        let table_name = table_name
+            .map(|table_name| table_name.item)
+            .unwrap_or_else(|| DEFAULT_TABLE_NAME.to_string());
+
+        let span = db_path.span;
+        let db_path: Cow<'_, Path> = match db_path.item.as_str() {
+            MEMORY_DB => Cow::Borrowed(Path::new(&db_path.item)),
+            item => engine_state
+                .cwd(Some(stack))?
+                .join(item)
+                .to_std_path_buf()
+                .into(),
         };
 
         // create the sqlite database table
-        let conn = open_sqlite_db(Path::new(&db_path.item), db_path.span)?;
+        let conn = open_sqlite_db(&db_path, span)?;
 
         Ok(Self { conn, table_name })
     }
@@ -193,7 +206,7 @@ fn operate(
     let span = call.head;
     let file_name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table-name")?;
-    let table = Table::new(&file_name, table_name)?;
+    let table = Table::new(&file_name, table_name, engine_state, stack)?;
     Ok(action(engine_state, input, table, span, engine_state.signals())?.into_pipeline_data())
 }
 
