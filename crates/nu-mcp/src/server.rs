@@ -51,7 +51,10 @@ impl NushellMcpServer {
     }
 
     #[tool(description = "Evaluate Nushell source code")]
-    async fn evaluate(&self, Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>) -> Result<CallToolResult, McpError> {
+    async fn evaluate(
+        &self,
+        Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
+    ) -> Result<CallToolResult, McpError> {
         self.eval(&input, PipelineData::empty())
             .map(CallToolResult::success)
     }
@@ -81,7 +84,7 @@ impl NushellMcpServer {
 
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
-        let output = eval_block::<WithoutDebug>(&mut engine_state, &mut stack, &block, input)
+        let output = eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, input)
             .map_err(shell_error_to_mcp_error)?;
 
         pipeline_to_content(output, &engine_state)
