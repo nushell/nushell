@@ -381,19 +381,15 @@ impl EngineState {
     pub fn cleanup_stack_variables(&self, stack: &mut Stack) {
         use std::collections::HashSet;
 
-        // Collect all VarIds that are still referenced by overlays
-        let mut referenced_vars = HashSet::new();
-
-        for overlay_frame in self.scope.overlays.iter() {
-            for var_id in overlay_frame.1.vars.values() {
-                referenced_vars.insert(*var_id);
-            }
-        }
-
-        // Always preserve critical system variables
-        referenced_vars.insert(NU_VARIABLE_ID);
-        referenced_vars.insert(IN_VARIABLE_ID);
-        referenced_vars.insert(ENV_VARIABLE_ID);
+        // Collect all VarIds that are still referenced by overlays using functional style
+        let referenced_vars: HashSet<_> = self
+            .scope
+            .overlays
+            .iter()
+            .flat_map(|(_, overlay)| overlay.vars.values())
+            .copied()
+            .chain([NU_VARIABLE_ID, IN_VARIABLE_ID, ENV_VARIABLE_ID])
+            .collect();
 
         // Remove variables from stack that are no longer referenced
         stack
