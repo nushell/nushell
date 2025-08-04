@@ -211,8 +211,17 @@ pub fn evaluate_repl(
             Ok((continue_loop, es, s, le)) => {
                 // We apply the changes from the updated stack back onto our previous stack
                 let mut merged_stack = Stack::with_changes_from_child(previous_stack_arc, s);
-                // Clean up unused variables from stack to prevent memory leaks from variable shadowing
-                es.cleanup_stack_variables(&mut merged_stack);
+
+                // Check if new variables were created (indicating potential variable shadowing)
+                let prev_total_vars = previous_engine_state.num_vars();
+                let curr_total_vars = es.num_vars();
+                let new_variables_created = curr_total_vars > prev_total_vars;
+
+                if new_variables_created {
+                    // New variables created, clean up stack to prevent memory leaks
+                    es.cleanup_stack_variables(&mut merged_stack);
+                }
+
                 previous_stack_arc = Arc::new(merged_stack);
                 // setup state for the next iteration of the repl loop
                 previous_engine_state = es;
