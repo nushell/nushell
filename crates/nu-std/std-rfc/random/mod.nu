@@ -3,10 +3,16 @@ alias "random choice" = choice
 
 # Sample `k` elements from a list
 #
-# The function will return a list the length of `k` by randomly sampling
-# elements from the input.  Each element can only be picked once, all with the
-# same probability.  The order of the elements is also random: even if `a`
-# comes before `b` input, `random choice 2` can return `[b a]`.
+# This function will pick a simple random sample from input without replacement
+# (each element from the input can only be picked once).
+#
+# The sample is treated as a set.  This means that the combined probability of
+# `[1 2 3 4] | random choice 2` returning `[3, 4]` or `[4, 3]` equals that of
+# `[1, 2]`.  To ensure that all permutations are equally probable, use
+# `shuffle` or `sort`.
+#
+# The current implementation collects the input stream.  This might change in
+# the future.
 @example "Pick 2 random items" {
 	[1 2 3 4 5] | random choice 2
 }
