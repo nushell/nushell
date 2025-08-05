@@ -708,8 +708,9 @@ def build-command-page [command: record] {
             (if not ($example.result | is-empty) {
                 $example.result
                 | table -e
-                | to text
-                | if ($example.result | describe) == "binary" { str join } else { lines }
+                | str trim --right
+                | lines
+                | skip until { is-not-empty }
                 | each {|line|
                     $"  ($line)"
                 }
