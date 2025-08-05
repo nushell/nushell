@@ -149,6 +149,8 @@ export def align [
     --center (-C)       # Add padding at the beginning of the line instead of before the target
     --range (-r): range # The range of lines to align
 ]: [string -> string, list<string> -> string] {
+    # noop on empty string
+    if ($in | is-empty) { return "" }
     let $input = $in | to text | lines
 
     let $indexes = (

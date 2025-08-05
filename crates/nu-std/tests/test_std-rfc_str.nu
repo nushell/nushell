@@ -419,9 +419,11 @@ def str-align_empty_target_noop [] {
 }
 
 @test
-def str-align_error_empty [] {
+def str-align_empty_input_noop [] {
 
-    assert error {||
-        "" | str align '='
-    }
+    let expected = ""
+
+    let actual = [] | str align '='
+
+    assert equal $actual $expected
 }
