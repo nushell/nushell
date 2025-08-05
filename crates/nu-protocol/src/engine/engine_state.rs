@@ -381,13 +381,14 @@ impl EngineState {
     pub fn cleanup_stack_variables(&self, stack: &mut Stack) {
         use std::collections::HashSet;
 
-        // Collect all VarIds that are still referenced by overlays using functional style
+        // Collect all VarIds that are still referenced by overlays
         let referenced_vars: HashSet<_> = self
             .scope
             .overlays
             .iter()
             .flat_map(|(_, overlay)| overlay.vars.values())
             .copied()
+            // Always preserve critical system variables
             .chain([NU_VARIABLE_ID, IN_VARIABLE_ID, ENV_VARIABLE_ID])
             .collect();
 
