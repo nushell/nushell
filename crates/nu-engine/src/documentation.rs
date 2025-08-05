@@ -497,8 +497,9 @@ fn get_command_documentation(
                     long_desc,
                     "  {}",
                     item.to_expanded_string("", nu_config)
+                        .trim_end()
+                        .trim_start_matches(|c: char| c.is_whitespace() && c != ' ')
                         .replace('\n', "\n  ")
-                        .trim()
                 );
             }
         }
