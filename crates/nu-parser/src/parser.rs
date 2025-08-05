@@ -3506,7 +3506,7 @@ pub fn parse_var_with_opt_type(
             let type_bytes = working_set.get_span_contents(full_span).to_vec();
 
             let (tokens, parse_error) =
-                lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
+                lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
 
             if let Some(parse_error) = parse_error {
                 working_set.error(parse_error);
