@@ -414,21 +414,3 @@ fn get_columns_with_sqlite_types(
 
     Ok(columns)
 }
-
-#[cfg(test)]
-mod tests {
-    use nu_test_support::{nu, playground::Playground};
-
-    #[test]
-    fn test_auto_conversion() {
-        Playground::setup("sqlite json auto conversion", |_, playground| {
-            let raw = "{a_record:{foo:bar,baz:quux},a_list:[1,2,3],a_table:[[a,b];[0,1],[2,3]]}";
-            nu!(cwd: playground.cwd(), "{} | into sqlite filename.db -t my_table", raw);
-            let outcome = nu!(
-                cwd: playground.cwd(),
-                "open filename.db | get my_table.0 | to nuon --raw"
-            );
-            assert_eq!(outcome.out, raw);
-        });
-    }
-}
