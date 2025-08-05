@@ -138,11 +138,16 @@ two   = 2
 three = 3
 four  = 4
 five  = 5'#
+@example "Align variable assignments to the center" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' } --result r#'  one = 1
+  two = 2
+three = 3
+ four = 4
+ five = 5'#
 export def align [
-    target:string       # substring to align
-    --char (-c) = " "   # character to use for padding
-    --center (-C)       # add padding at the end of the line instead of before the target
-    --range (-r): range # the range of lines to align
+    target:string       # Substring to align
+    --char (-c) = " "   # Character to use for padding
+    --center (-C)       # Add padding at the beginning of the line instead of before the target
+    --range (-r): range # The range of lines to align
 ]: [string -> string, list<string> -> string] {
     let $input = $in | to text | lines
 
