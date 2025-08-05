@@ -138,7 +138,7 @@ two   = 2
 three = 3
 four  = 4
 five  = 5'#
-@example "Align variable assignments to the center" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' } --result r#'  one = 1
+@example "Align variable assignments to the center" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' --center } --result r#'  one = 1
   two = 2
 three = 3
  four = 4
