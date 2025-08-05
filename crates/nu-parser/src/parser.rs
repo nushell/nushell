@@ -2768,7 +2768,8 @@ pub fn parse_unit_value<'res>(
         return None;
     }
 
-    let value = transform(String::from_utf8_lossy(bytes).into());
+    // Bail if not UTF-8
+    let value = transform(str::from_utf8(bytes).ok()?.into());
 
     if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
         let lhs_len = value.len() - name.len();
