@@ -129,3 +129,54 @@ export def unindent [
     $text
     | str replace -r --all $"\(?m\)^($indent_chars)" ''
 }
+
+alias "str align" = align
+
+# Aligns each line in the input string to have the target in the same column through padding
+@example "Align variable assignments" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' } --result r#'one   = 1
+two   = 2
+three = 3
+four  = 4
+five  = 5'#
+@example "Align variable assignments to the center" { [ "one = 1", "two = 2", "three = 3", "four = 4", "five = 5" ] | str align '=' --center } --result r#'  one = 1
+  two = 2
+three = 3
+ four = 4
+ five = 5'#
+export def align [
+    target:string       # Substring to align
+    --char (-c) = " "   # Character to use for padding
+    --center (-C)       # Add padding at the beginning of the line instead of before the target
+    --range (-r): range # The range of lines to align
+]: [string -> string, list<string> -> string] {
+    # noop on empty string
+    if ($in | is-empty) { return "" }
+    let $input = $in | to text | lines
+
+    let $indexes = (
+        $input
+        | enumerate
+        | each {|x|
+            if $x.index in ($range | default 0..) {
+                $x.item | str index-of $target
+            } else {
+                -1
+            }
+        }
+    )
+    let $max = $indexes | math max
+
+    $input
+    | zip $indexes
+    | each {|x|
+        # Fold adding a `$char` at the index until they are in the same column
+        # If the substring is not in the line, the index is -1 and it is left as it is
+        seq 1 (if $x.1 == -1 { 0 } else { $max - $x.1 })
+        | reduce -f ($x.0 | split chars) {|_, acc|
+            let $idx = if $center { 0 } else { $x.1 }
+            $acc | insert $idx $char
+        }
+        | str join
+    }
+    | str join (char nl)
+}
