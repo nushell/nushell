@@ -55,13 +55,13 @@ impl Command for Input {
             .named(
                 "history-file",
                 SyntaxShape::Filepath,
-                "Path to a file to read and write command history. This is a text file and will be created if it doesn't exist. Will be used as the selection list. History requires `--reedline`.",
+                "Path to a file to read and write command history. This is a text file and will be created if it doesn't exist. Will be used as the selection list. Implies `--reedline`.",
                 None,
             )
             .named(
                 "max-history",
                 SyntaxShape::Int,
-                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. History requires `--reedline`.",
+                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. Implies `--reedline`.",
                 None,
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
