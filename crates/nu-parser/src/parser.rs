@@ -264,6 +264,10 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 quote_char: u8,
                 escaped: bool,
             },
+            Parenthesized {
+                from: usize,
+                depth: usize,
+            },
         }
         // Find the spans of parts of the string that can be parsed as their own strings for
         // concatenation.
@@ -315,6 +319,15 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                         }
                         state = State::BackTickQuote { from: index }
                     }
+                    b'(' => {
+                        if index != *from {
+                            spans.push(make_span(*from, index))
+                        }
+                        state = State::Parenthesized {
+                            from: index,
+                            depth: 1,
+                        }
+                    }
                     // Continue to consume
                     _ => (),
                 },
@@ -343,6 +356,18 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                         state = State::Bare { from: index + 1 };
                     }
                 }
+                State::Parenthesized { from, depth } => {
+                    if ch == b')' {
+                        if *depth == 1 {
+                            spans.push(make_span(*from, index + 1));
+                            state = State::Bare { from: index + 1 };
+                        } else {
+                            *depth -= 1;
+                        }
+                    } else if ch == b'(' {
+                        *depth += 1;
+                    }
+                }
             }
             index += 1;
         }
@@ -351,6 +376,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
         match state {
             State::Bare { from }
             | State::Quote { from, .. }
+            | State::Parenthesized { from, .. }
             | State::BackTickQuote { from, .. } => {
                 if from < contents.len() {
                     spans.push(make_span(from, contents.len()));
