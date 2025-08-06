@@ -208,7 +208,7 @@ pub fn evaluate_repl(
             )
         }));
         match iteration_panic_state {
-            Ok((continue_loop, es, s, le)) => {
+            Ok((continue_loop, mut es, s, le)) => {
                 // We apply the changes from the updated stack back onto our previous stack
                 let mut merged_stack = Stack::with_changes_from_child(previous_stack_arc, s);
 
