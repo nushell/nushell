@@ -188,8 +188,10 @@ impl NuTable {
 
     pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.cfg.set_color(pos.into(), style.into());
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.cfg.set_color(pos.into(), style.into());
+            }
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -202,8 +204,10 @@ impl NuTable {
 
     pub fn set_header_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.colors.header = style;
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.colors.header = style;
+            }
         }
 
         self.styles.alignments.header = convert_alignment(style.alignment);
@@ -211,8 +215,10 @@ impl NuTable {
 
     pub fn set_index_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.colors.index = style;
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.colors.index = style;
+            }
         }
 
         self.styles.alignments.index = convert_alignment(style.alignment);
@@ -374,14 +380,22 @@ impl TableStructure {
 struct HeadInfo {
     values: Vec<String>,
     align: AlignmentHorizontal,
+    #[allow(dead_code)]
+    align_index: AlignmentHorizontal,
     color: Option<Color>,
 }
 
 impl HeadInfo {
-    fn new(values: Vec<String>, align: AlignmentHorizontal, color: Option<Color>) -> Self {
+    fn new(
+        values: Vec<String>,
+        align: AlignmentHorizontal,
+        align_index: AlignmentHorizontal,
+        color: Option<Color>,
+    ) -> Self {
         Self {
             values,
             align,
+            align_index,
             color,
         }
     }
@@ -472,19 +486,20 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
     // move settings by one row down
     for row in 1..t.data.len() {
         for col in 0..t.count_cols {
-            let alignment = *t
-                .styles
-                .cfg
-                .get_alignment_horizontal(Position::new(row, col));
+            let from = Position::new(row, col);
+            let to = Position::new(row - 1, col);
+
+            let alignment = *t.styles.cfg.get_alignment_horizontal(from);
             if alignment != t.styles.alignments.data {
-                t.styles
-                    .cfg
-                    .set_alignment_horizontal(Entity::Cell(row - 1, col), alignment);
+                t.styles.cfg.set_alignment_horizontal(to.into(), alignment);
             }
 
-            let color = t.styles.cfg.get_color(Position::new(row, col)).cloned();
+            let color = t.styles.cfg.get_color(from);
             if let Some(color) = color {
-                t.styles.cfg.set_color(Entity::Cell(row - 1, col), color);
+                if !color.is_empty() {
+                    let color = color.clone();
+                    t.styles.cfg.set_color(to.into(), color);
+                }
             }
         }
     }
@@ -504,13 +519,18 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
     // Why we do it exactly??
     table_recalculate_widths(t);
 
-    let alignment = t.styles.alignments.header;
     let color = get_color_if_exists(&t.styles.colors.header);
+    let alignment = t.styles.alignments.header;
+    let alignment_index = if t.config.structure.with_index {
+        t.styles.alignments.index
+    } else {
+        t.styles.alignments.header
+    };
 
     t.styles.alignments.header = AlignmentHorizontal::Center;
     t.styles.colors.header = Color::empty();
 
-    HeadInfo::new(head, alignment, color)
+    HeadInfo::new(head, alignment, alignment_index, color)
 }
 
 fn draw_table(
@@ -550,7 +570,6 @@ fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &Tabl
 
     let theme = &cfg.theme;
     let with_footer = cfg.structure.with_footer;
-    let pad = cfg.indent.left + cfg.indent.right;
 
     if !theme.as_base().borders_has_top() {
         let line = theme.as_base().get_horizontal_line(1);
@@ -568,10 +587,10 @@ fn table_set_border_header(table: &mut Table, head: Option<HeadInfo>, cfg: &Tabl
     // todo: Move logic to SetLineHeaders - so it be faster - cleaner
     if with_footer {
         let last_row = table.count_rows();
-        table.with(SetLineHeaders::new(head.clone(), last_row, pad));
+        table.with(SetLineHeaders::new(head.clone(), last_row, cfg.indent));
     }
 
-    table.with(SetLineHeaders::new(head, 0, pad));
+    table.with(SetLineHeaders::new(head, 0, cfg.indent));
 }
 
 fn truncate_table(
@@ -1160,12 +1179,12 @@ fn build_width(
 // to speed up things a bit.
 struct SetLineHeaders {
     line: usize,
-    pad: usize,
+    pad: TableIndent,
     head: HeadInfo,
 }
 
 impl SetLineHeaders {
-    fn new(head: HeadInfo, line: usize, pad: usize) -> Self {
+    fn new(head: HeadInfo, line: usize, pad: TableIndent) -> Self {
         Self { line, head, pad }
     }
 }
@@ -1184,20 +1203,38 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders
             }
         };
 
-        let columns: Vec<_> = self
+        let pad = self.pad.left + self.pad.right;
+
+        let columns = self
             .head
             .values
             .into_iter()
             .zip(widths.iter().cloned()) // it must be always safe to do
-            .map(|(s, width)| Truncate::truncate(&s, width - self.pad).into_owned())
-            .collect();
+            .map(|(s, width)| Truncate::truncate(&s, width - pad).into_owned())
+            .collect::<Vec<_>>();
 
-        let mut names = ColumnNames::new(columns)
-            .line(self.line)
-            .alignment(Alignment::from(self.head.align));
+        // TODO: Isn't it too complicated interface for such a small feature?
+        let mut names = ColumnNames::new(columns).line(self.line);
+
         if let Some(color) = self.head.color {
             names = names.color(color);
         }
+
+        names = names.alignment(Alignment::from(self.head.align));
+
+        //  FIXME: because of bug in tabled(latest) we got to modify columns
+        //         because it fails to regognize right padding value
+        //  UNCOMMENT when fixed
+
+        // let alignment_head = Alignment::from(self.head.align);
+        // let alignment_index = Alignment::from(self.head.align_index);
+        // if self.head.align == self.head.align_index {
+        //     names = names.alignment(alignment_head);
+        // } else {
+        //     let mut v = vec![alignment_head; widths.len()];
+        //     v[0] = alignment_index;
+        //     names = names.alignment(v);
+        // }
 
         names.change(recs, cfg, dims);
     }
