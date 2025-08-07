@@ -1144,7 +1144,15 @@ pub fn parse_internal_call(
                             working_set.error(ParseError::MissingFlagParam(
                                 arg_shape.to_string(),
                                 arg_span,
-                            ))
+                            ));
+                            call.add_named((
+                                Spanned {
+                                    item: String::new(),
+                                    span: spans[spans_idx],
+                                },
+                                None,
+                                None,
+                            ));
                         }
                     } else if flag.long.is_empty() {
                         if let Some(short) = flag.short {
