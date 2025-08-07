@@ -188,8 +188,10 @@ impl NuTable {
 
     pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.cfg.set_color(pos.into(), style.into());
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.cfg.set_color(pos.into(), style.into());
+            }
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -202,8 +204,10 @@ impl NuTable {
 
     pub fn set_header_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.colors.header = style;
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.colors.header = style;
+            }
         }
 
         self.styles.alignments.header = convert_alignment(style.alignment);
@@ -211,8 +215,10 @@ impl NuTable {
 
     pub fn set_index_style(&mut self, style: TextStyle) {
         if let Some(style) = style.color_style {
-            let style = convert_style(style);
-            self.styles.colors.index = style;
+            if !style.is_plain() {
+                let style = convert_style(style);
+                self.styles.colors.index = style;
+            }
         }
 
         self.styles.alignments.index = convert_alignment(style.alignment);
@@ -477,11 +483,6 @@ fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> 
 }
 
 fn remove_header(t: &mut NuTable) -> HeadInfo {
-    // TODO: Whhy styles are empty?
-    // println!("{:?}", t.styles.cfg.get_color(Position::new(0, 0)).cloned());
-    // println!("{:?}", t.styles.cfg.get_color(Position::new(1, 0)).cloned());
-    // println!("{:?}", t.styles.cfg.get_color(Position::new(2, 0)).cloned());
-
     // move settings by one row down
     for row in 1..t.data.len() {
         for col in 0..t.count_cols {
@@ -493,9 +494,12 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
                 t.styles.cfg.set_alignment_horizontal(to.into(), alignment);
             }
 
-            let color = t.styles.cfg.get_color(from).cloned();
+            let color = t.styles.cfg.get_color(from);
             if let Some(color) = color {
-                t.styles.cfg.set_color(to.into(), color);
+                if !color.is_empty() {
+                    let color = color.clone();
+                    t.styles.cfg.set_color(to.into(), color);
+                }
             }
         }
     }
