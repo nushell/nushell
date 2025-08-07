@@ -737,9 +737,10 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
+        use nu_command::ToXml;
 
-        test_examples(ToHtml {})
+        test_examples_with_commands(ToHtml {}, &[&ToXml])
     }
 
     #[test]
