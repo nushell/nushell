@@ -72,12 +72,20 @@ impl Command for Fill {
                 "The width of the output. Defaults to 1",
                 Some('w'),
             )
-            .named(
-                "alignment",
-                SyntaxShape::String,
-                "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), \
-                 MiddleRight(cr/mr))",
-                Some('a'),
+            .add_flag(
+                Flag::new("alignment")
+                    .short('a')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The alignment of the output. Defaults to Left (Left(l), Right(r), \
+                         Center(c/m), MiddleRight(cr/mr))",
+                    )
+                    .completion(Completion::new_list(&[
+                        "left",
+                        "right",
+                        "middle",
+                        "middleright",
+                    ])),
             )
             .named(
                 "character",
