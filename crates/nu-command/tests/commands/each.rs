@@ -63,3 +63,10 @@ fn errors_in_nested_each_show() {
     let actual = nu!("[[1,2]] | each {|x| $x | each {|y| error make {msg: \"oh noes\"} } }");
     assert!(actual.err.contains("oh noes"))
 }
+
+#[test]
+fn each_noop_on_single_null() {
+    let actual = nu!("null | each { \"test\" } | describe");
+
+    assert_eq!(actual.out, "nothing");
+}
