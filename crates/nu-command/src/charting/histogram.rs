@@ -1,6 +1,7 @@
 use super::hashable_value::HashableValue;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 
 use std::collections::HashMap;
 
@@ -23,6 +24,7 @@ impl Command for Histogram {
             .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
             .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
+            .add_named_completion(Completion::new_list(&["normalize", "relative"]))
             .category(Category::Chart)
     }
 
