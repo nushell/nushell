@@ -58,11 +58,14 @@ impl Command for IntoDuration {
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .named(
-                "unit",
-                SyntaxShape::String,
-                "Unit to convert number into (will have an effect only with integer input)",
-                Some('u'),
+            .param(
+                Flag::new("unit")
+                    .short('u')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Unit to convert number into (will have an effect only with integer input)",
+                    )
+                    .completion(Completion::new_list(SUPPORTED_DURATION_UNITS.as_slice())),
             )
             .rest(
                 "rest",
