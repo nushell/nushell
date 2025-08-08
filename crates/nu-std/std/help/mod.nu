@@ -708,6 +708,7 @@ def build-command-page [command: record] {
             (if not ($example.result | is-empty) {
                 $example.result
                 | table -e
+                | to text
                 | str trim --right
                 | lines
                 | skip until { is-not-empty }
