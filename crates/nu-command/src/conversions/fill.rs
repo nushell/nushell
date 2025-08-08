@@ -1,6 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::Completion;
 use print_positions::print_positions;
 
 #[derive(Clone)]
@@ -63,6 +64,7 @@ impl Command for Fill {
                 "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr))",
                 Some('a'),
             )
+            .add_named_completion(Completion::new_list(&["left", "right", "middle", "middleright"]))
             .named(
                 "character",
                 SyntaxShape::String,
