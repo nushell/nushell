@@ -1194,9 +1194,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help(
-            "Only a subset of builtin commands can run at parse time."
-        )
+        help("Only a subset of builtin commands can run at parse time.")
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
