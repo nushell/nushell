@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 use uuid::{Timestamp, Uuid};
 
 #[derive(Clone)]
@@ -19,12 +20,14 @@ impl Command for RandomUuid {
                 "The UUID version to generate (1, 3, 4, 5, 7). Defaults to 4 if not specified.",
                 Some('v'),
             )
+            .add_named_completion(Completion::new_list(&["1", "3", "4", "5", "7"]))
             .named(
                 "namespace",
                 SyntaxShape::String,
                 "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). Required for v3 and v5.",
                 Some('n'),
             )
+            .add_named_completion(Completion::new_list(&["dns", "url", "oid", "x500"]))
             .named(
                 "name",
                 SyntaxShape::String,
