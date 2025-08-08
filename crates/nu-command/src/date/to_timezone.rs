@@ -1,7 +1,13 @@
+use std::sync::LazyLock;
+
 use super::parser::datetime_in_timezone;
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
+
+static TIMEZONES: LazyLock<Vec<&'static str>> =
+    LazyLock::new(|| chrono_tz::TZ_VARIANTS.iter().map(|tz| tz.name()).collect());
 
 #[derive(Clone)]
 pub struct DateToTimezone;
@@ -16,6 +22,7 @@ impl Command for DateToTimezone {
             .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .required("time zone", SyntaxShape::String, "Time zone description.")
+            .add_positional_completion(Completion::new_list(TIMEZONES.as_slice()))
             .category(Category::Date)
     }
 
