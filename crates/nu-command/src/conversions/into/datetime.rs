@@ -44,6 +44,7 @@ enum Zone {
 }
 
 impl Zone {
+    const OPTIONS: &[&str] = &["utc", "local"];
     fn new(i: i64) -> Self {
         if i.abs() <= 12 {
             // guaranteed here
@@ -93,12 +94,15 @@ impl Command for IntoDatetime {
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .named(
-                "timezone",
-                SyntaxShape::String,
-                "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or \
-                 'LOCAL' ('l')",
-                Some('z'),
+            .add_flag(
+                Flag::new("timezone")
+                    .short('z')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' \
+                         ('u') or 'LOCAL' ('l')",
+                    )
+                    .completion(Completion::new_list(Zone::OPTIONS)),
             )
             .named(
                 "offset",
