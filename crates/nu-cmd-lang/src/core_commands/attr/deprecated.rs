@@ -38,11 +38,11 @@ impl Command for AttrDeprecated {
                 "Denote a version when this item will be removed",
                 Some('r'),
             )
-            .named(
-                "report",
-                SyntaxShape::String,
-                "How to warn about this item. One of: first (default), every",
-                None,
+            .param(
+                Flag::new("report")
+                    .arg(SyntaxShape::String)
+                    .desc("How to warn about this item. One of: first (default), every")
+                    .completion(Completion::new_list(&["first", "every"])),
             )
             .category(Category::Core)
     }
