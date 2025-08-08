@@ -1,5 +1,6 @@
 use super::common::{ListMerge, MergeStrategy, do_merge, typecheck_merge};
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 
 #[derive(Clone)]
 pub struct MergeDeep;
@@ -43,6 +44,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             )
             .category(Category::Filters)
             .named("strategy", SyntaxShape::String, "The list merging strategy to use. One of: table (default), overwrite, append, prepend", Some('s'))
+            .add_named_completion(Completion::new_list(&["table", "overwrite", "append", "prepend"]))
     }
 
     fn examples(&self) -> Vec<Example> {
