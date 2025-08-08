@@ -3,7 +3,7 @@ use std::str::FromStr;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_parser::{DURATION_UNIT_GROUPS, parse_unit_value};
-use nu_protocol::{SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
+use nu_protocol::{Completion, SUPPORTED_DURATION_UNITS, Unit, ast::Expr};
 
 const NS_PER_US: i64 = 1_000;
 const NS_PER_MS: i64 = 1_000_000;
@@ -64,6 +64,7 @@ impl Command for IntoDuration {
                 "Unit to convert number into (will have an effect only with integer input)",
                 Some('u'),
             )
+            .add_named_completion(Completion::new_list(SUPPORTED_DURATION_UNITS.as_slice()))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
