@@ -73,6 +73,10 @@ pub enum RedirectMode {
     Manual,
 }
 
+impl RedirectMode {
+    pub(crate) const MODES: &[&str] = &["follow", "error", "manual"];
+}
+
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
