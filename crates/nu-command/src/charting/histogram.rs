@@ -30,12 +30,15 @@ impl Command for Histogram {
                 SyntaxShape::String,
                 "Histogram's frequency column, default to be frequency column output.",
             )
-            .named(
-                "percentage-type",
-                SyntaxShape::String,
-                "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', \
-                 defaults to be 'normalize'",
-                Some('t'),
+            .add_flag(
+                Flag::new("percentage-type")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "percentage calculate method, can be 'normalize' or 'relative', in \
+                         'normalize', defaults to be 'normalize'",
+                    )
+                    .completion(Completion::new_list(&["normalize", "relative"])),
             )
             .category(Category::Chart)
     }
