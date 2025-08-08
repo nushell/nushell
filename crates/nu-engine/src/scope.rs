@@ -100,7 +100,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             record! {
                                 "description" => Value::string(x.description, span),
                                 "example" => Value::string(x.example, span),
-                                "result" => x.result.unwrap_or(Value::nothing(span)),
+                                "result" => x.result.unwrap_or(Value::nothing(span)).with_span(span),
                             },
                             span,
                         )
