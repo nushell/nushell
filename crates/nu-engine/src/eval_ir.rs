@@ -1194,19 +1194,19 @@ fn gather_arguments(
                 vals,
                 span: spread_span,
                 ..
-            } => {
-                if let Value::List { vals, .. } = vals {
+            } => match vals {
+                Value::List { vals, .. } => {
                     rest.extend(vals);
-                    // Rest variable should span the spread syntax, not the list values
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
-                    // All further positional args should go to spread
                     always_spread = true;
-                } else if let Value::Error { error, .. } = vals {
-                    return Err(*error);
-                } else {
-                    return Err(ShellError::CannotSpreadAsList { span: vals.span() });
                 }
-            }
+                Value::Nothing { .. } => {
+                    rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
+                    always_spread = true;
+                }
+                Value::Error { error, .. } => return Err(*error),
+                _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
+            },
             Argument::Flag {
                 data,
                 name,
