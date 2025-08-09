@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{FromValue, Signals};
+use nu_protocol::{Completion, FromValue, Signals};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -26,6 +26,7 @@ impl Command for SubCommand {
                 "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))
             .named("split", SyntaxShape::String, "Whether to split lists before, after, or on (default) the separator", None)
+            .add_named_completion(Completion::new_list(&["before", "after", "on"]))
             .category(Category::Filters)
     }
 

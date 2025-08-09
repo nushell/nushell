@@ -1,5 +1,6 @@
 use super::delimited::{DelimitedReaderConfig, from_delimited_data, trim_from_str};
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 
 #[derive(Clone)]
 pub struct FromTsv;
@@ -47,6 +48,7 @@ impl Command for FromTsv {
                 "drop leading and trailing whitespaces around headers names and/or field values",
                 Some('t'),
             )
+            .add_named_completion(Completion::new_list(&["all", "fields", "headers", "none"]))
             .category(Category::Formats)
     }
 
