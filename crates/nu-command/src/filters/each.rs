@@ -90,6 +90,11 @@ with 'transpose' first."#
                     Value::nothing(Span::test_data()),
                 ])),
             },
+            Example {
+                example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
+                description: "Update value if not null, otherwise do nothing",
+                result: None,
+            },
         ]
     }
 
