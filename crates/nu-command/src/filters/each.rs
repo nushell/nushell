@@ -90,6 +90,11 @@ with 'transpose' first."#
                     Value::nothing(Span::test_data()),
                 ])),
             },
+            Example {
+                example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
+                description: "Update value if not null, otherwise do nothing",
+                result: None,
+            },
         ]
     }
 
@@ -107,6 +112,7 @@ with 'transpose' first."#
         let metadata = input.metadata();
         match input {
             PipelineData::Empty => Ok(PipelineData::empty()),
+            PipelineData::Value(Value::Nothing { .. }, ..) => Ok(input),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {

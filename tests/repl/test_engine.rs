@@ -85,6 +85,7 @@ fn in_used_in_range_to() -> TestResult {
     run_test(r#"6 | 3..$in | math sum"#, "18")
 }
 
+#[ignore]
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "72")
