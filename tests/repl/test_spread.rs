@@ -200,3 +200,9 @@ fn respect_shape() -> TestResult {
     run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2").unwrap();
     run_test(r#"match "...$foo" { ...$foo => 5 }"#, "5")
 }
+
+#[test]
+fn spread_null() -> TestResult {
+    run_test(r#"[1, 2, ...(null)] | to nuon --raw"#, r#"[1,2]"#)?;
+    run_test(r#"{a: 1, b: 2, ...(null)} | to nuon --raw"#, r#"{a:1,b:2}"#)
+}
