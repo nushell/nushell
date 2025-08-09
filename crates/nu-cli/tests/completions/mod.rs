@@ -1563,9 +1563,7 @@ fn flag_completions() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
-
     assert_eq!(18, suggestions.len());
-
     let expected: Vec<_> = vec![
         "--all",
         "--directory",
@@ -1586,9 +1584,12 @@ fn flag_completions() {
         "-s",
         "-t",
     ];
-
     // Match results
     match_suggestions(&expected, &suggestions);
+
+    // https://github.com/nushell/nushell/issues/16375
+    let suggestions = completer.complete("table -", 7);
+    assert_eq!(20, suggestions.len());
 }
 
 #[test]
