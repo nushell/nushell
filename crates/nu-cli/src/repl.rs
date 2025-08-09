@@ -325,7 +325,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Right before we start our prompt and take input from the user, fire the "pre_prompt" hook
+    // Check all the environment variables they ask for
+    // fire the "env_change" hook
+    if let Err(error) = hook::eval_env_change_hook(
+        &engine_state.get_config().hooks.env_change.clone(),
+        engine_state,
+        &mut stack,
+    ) {
+        report_shell_error(engine_state, &error)
+    }
+    perf!("env-change hook", start_time, use_color);
+
+    start_time = std::time::Instant::now();
+    // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
     if let Err(err) = hook::eval_hooks(
         engine_state,
         &mut stack,
@@ -336,18 +348,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         report_shell_error(engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
-
-    start_time = std::time::Instant::now();
-    // Next, check all the environment variables they ask for
-    // fire the "env_change" hook
-    if let Err(error) = hook::eval_env_change_hook(
-        &engine_state.get_config().hooks.env_change.clone(),
-        engine_state,
-        &mut stack,
-    ) {
-        report_shell_error(engine_state, &error)
-    }
-    perf!("env-change hook", start_time, use_color);
 
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
