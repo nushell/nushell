@@ -49,7 +49,8 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
-        .input_output_types(vec![(Type::Nothing, Type::table())])
+        // actually `watch` never returns normally, but we don't have `noreturn` / `never` type yet
+        .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
