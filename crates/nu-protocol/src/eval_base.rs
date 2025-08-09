@@ -78,6 +78,7 @@ pub trait Eval {
                         ListItem::Item(expr) => output.push(Self::eval::<D>(state, mut_state, expr)?),
                         ListItem::Spread(_, expr) => match Self::eval::<D>(state, mut_state, expr)? {
                             Value::List { vals, .. } => output.extend(vals),
+                            Value::Nothing { .. } => (),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr_span }),
                         },
                     }

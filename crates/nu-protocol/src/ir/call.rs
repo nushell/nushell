@@ -187,6 +187,7 @@ impl Call {
             if spread {
                 match rest_val {
                     Value::List { vals, .. } => acc.extend(vals.iter().cloned()),
+                    Value::Nothing { .. } => (),
                     Value::Error { error, .. } => return Err(ShellError::clone(error)),
                     _ => {
                         return Err(ShellError::CannotSpreadAsList {

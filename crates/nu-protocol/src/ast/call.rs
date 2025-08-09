@@ -316,6 +316,7 @@ impl Call {
             if spread {
                 match result {
                     Value::List { mut vals, .. } => output.append(&mut vals),
+                    Value::Nothing { .. } => (),
                     _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                 }
             } else {
