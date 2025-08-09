@@ -612,12 +612,13 @@ fn eval_instruction<D: DebugContext>(
             let items = ctx.collect_reg(*items, *span)?;
             let list_span = list_value.span();
             let items_span = items.span();
+            let items = match items {
+                Value::List { vals, .. } => vals,
+                Value::Nothing { .. } => Vec::new(),
+                _ => return Err(ShellError::CannotSpreadAsList { span: items_span }),
+            };
             let mut list = list_value.into_list()?;
-            list.extend(
-                items
-                    .into_list()
-                    .map_err(|_| ShellError::CannotSpreadAsList { span: items_span })?,
-            );
+            list.extend(items);
             ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
             Ok(Continue)
         }
@@ -649,11 +650,13 @@ fn eval_instruction<D: DebugContext>(
             let record_span = record_value.span();
             let items_span = items.span();
             let mut record = record_value.into_record()?;
+            let items = match items {
+                Value::Record { val, .. } => val.into_owned(),
+                Value::Nothing { .. } => Record::new(),
+                _ => return Err(ShellError::CannotSpreadAsRecord { span: items_span }),
+            };
             // Not using .extend() here because it doesn't handle duplicates
-            for (key, val) in items
-                .into_record()
-                .map_err(|_| ShellError::CannotSpreadAsRecord { span: items_span })?
-            {
+            for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
