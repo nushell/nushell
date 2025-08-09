@@ -601,6 +601,8 @@ fn parse_long_flag(
                             arg_shape.to_string(),
                             arg_span,
                         ));
+                        // NOTE: still need to cover this incomplete flag in the final expression
+                        // see https://github.com/nushell/nushell/issues/16375
                         (
                             Some(Spanned {
                                 item: long_name,
@@ -1145,6 +1147,8 @@ pub fn parse_internal_call(
                                 arg_shape.to_string(),
                                 arg_span,
                             ));
+                            // NOTE: still need to cover this incomplete flag in the final expression
+                            // see https://github.com/nushell/nushell/issues/16375
                             call.add_named((
                                 Spanned {
                                     item: String::new(),
