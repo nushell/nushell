@@ -109,16 +109,24 @@ impl Command for ToHtml {
                 "produce a color table of all available themes",
                 Some('l'),
             )
+            .switch("raw", "do not escape html tags", Some('r'))
             .category(Category::Formats)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs an  HTML string representing the contents of this table",
+                description: "Outputs an HTML string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to html",
                 result: Some(Value::test_string(
                     r#"<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
+                )),
+            },
+            Example {
+                description: "Outputs an HTML string using a record of xml data",
+                example: r#"{tag: a attributes: { style: "color: red" } content: ["hello!"] } | to xml | to html --raw"#,
+                result: Some(Value::test_string(
+                    r#"<html><style>body { background-color:white;color:black; }</style><body><a style="color: red">hello!</a></body></html>"#,
                 )),
             },
             Example {
@@ -254,6 +262,7 @@ fn to_html(
     let dark = call.has_flag(engine_state, stack, "dark")?;
     let partial = call.has_flag(engine_state, stack, "partial")?;
     let list = call.has_flag(engine_state, stack, "list")?;
+    let raw = call.has_flag(engine_state, stack, "raw")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = &stack.get_config(engine_state);
 
@@ -319,15 +328,15 @@ fn to_html(
     let inner_value = match vec_of_values.len() {
         0 => String::default(),
         1 => match headers {
-            Some(headers) => html_table(vec_of_values, headers, config),
+            Some(headers) => html_table(vec_of_values, headers, raw, config),
             None => {
                 let value = &vec_of_values[0];
-                html_value(value.clone(), config)
+                html_value(value.clone(), raw, config)
             }
         },
         _ => match headers {
-            Some(headers) => html_table(vec_of_values, headers, config),
-            None => html_list(vec_of_values, config),
+            Some(headers) => html_table(vec_of_values, headers, raw, config),
+            None => html_list(vec_of_values, raw, config),
         },
     };
 
@@ -395,19 +404,19 @@ fn theme_demo(span: Span) -> PipelineData {
     })
 }
 
-fn html_list(list: Vec<Value>, config: &Config) -> String {
+fn html_list(list: Vec<Value>, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
     output_string.push_str("<ol>");
     for value in list {
         output_string.push_str("<li>");
-        output_string.push_str(&html_value(value, config));
+        output_string.push_str(&html_value(value, raw, config));
         output_string.push_str("</li>");
     }
     output_string.push_str("</ol>");
     output_string
 }
 
-fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> String {
+fn html_table(table: Vec<Value>, headers: Vec<String>, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
 
     output_string.push_str("<table>");
@@ -430,7 +439,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
                     .cloned()
                     .unwrap_or_else(|| Value::nothing(span));
                 output_string.push_str("<td>");
-                output_string.push_str(&html_value(data, config));
+                output_string.push_str(&html_value(data, raw, config));
                 output_string.push_str("</td>");
             }
             output_string.push_str("</tr>");
@@ -441,7 +450,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string
 }
 
-fn html_value(value: Value, config: &Config) -> String {
+fn html_value(value: Value, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
     match value {
         Value::Binary { val, .. } => {
@@ -450,11 +459,22 @@ fn html_value(value: Value, config: &Config) -> String {
             output_string.push_str(&output);
             output_string.push_str("</pre>");
         }
-        other => output_string.push_str(
-            &v_htmlescape::escape(&other.to_abbreviated_string(config))
-                .to_string()
-                .replace('\n', "<br>"),
-        ),
+        other => {
+            if raw {
+                output_string.push_str(
+                    &other
+                        .to_abbreviated_string(config)
+                        .to_string()
+                        .replace('\n', "<br>"),
+                )
+            } else {
+                output_string.push_str(
+                    &v_htmlescape::escape(&other.to_abbreviated_string(config))
+                        .to_string()
+                        .replace('\n', "<br>"),
+                )
+            }
+        }
     }
     output_string
 }
@@ -717,9 +737,10 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
+        use nu_command::ToXml;
 
-        test_examples(ToHtml {})
+        test_examples_with_commands(ToHtml {}, &[&ToXml])
     }
 
     #[test]
