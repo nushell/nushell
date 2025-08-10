@@ -50,12 +50,23 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
-        // actually `watch` never returns normally, but we don't have `noreturn` / `never` type yet
-        .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (
+                    Type::Nothing,
+                    Type::Table(vec![
+                        ("operation".into(), Type::String),
+                        ("path".into(), Type::String),
+                        ("new_path".into(), Type::String),
+                    ].into_boxed_slice())
+                ),
+            ])
             .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
-            .required("closure",
-            SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.")
+            .optional(
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
+            )
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
@@ -108,10 +119,8 @@ impl Command for Watch {
             ))
         })?;
 
-        let closure: Closure = call.req(engine_state, stack, 1)?;
-
+        let closure: Option<Closure> = call.opt(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
-
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
         let debounce_duration: Duration = resolve_duration_arguments(
             call.get_flag(engine_state, stack, "debounce-ms")?,
@@ -175,48 +184,46 @@ impl Command for Watch {
             eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
         }
 
-        let mut closure = ClosureEval::new(engine_state, stack, closure);
-
-        let mut event_handler = move |event: WatchEvent| -> Result<(), ShellError> {
-            let matches_glob = match &glob_pattern {
-                Some(glob) => glob.matches_path(&event.path),
-                None => true,
-            };
-            if verbose && glob_pattern.is_some() {
-                eprintln!("Matches glob: {matches_glob}");
-            }
-
-            if matches_glob {
-                let result = closure
-                    .add_arg(Value::string(event.operation, head))
-                    .add_arg(Value::string(event.path.to_string_lossy(), head))
-                    .add_arg(Value::string(
-                        event
-                            .new_path
-                            .unwrap_or_else(|| "".into())
-                            .to_string_lossy(),
-                        head,
-                    ))
-                    .run_with_input(PipelineData::empty());
-
-                match result {
-                    Ok(val) => val.print_table(engine_state, stack, false, false)?,
-                    Err(err) => report_shell_error(engine_state, &err),
-                };
-            }
-
-            Ok(())
-        };
-
         let iter = WatchIterator::new(debouncer, rx, engine_state.signals().clone());
 
-        for events in iter {
-            for event in events? {
-                event_handler(event)?;
-            }
-        }
+        if let Some(closure) = closure {
+            let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        Ok(PipelineData::empty())
+            for events in iter {
+                for event in events? {
+                    let matches_glob = match &glob_pattern {
+                        Some(glob) => glob.matches_path(&event.path),
+                        None => true,
+                    };
+                    if verbose && glob_pattern.is_some() {
+                        eprintln!("Matches glob: {matches_glob}");
+                    }
+
+                    if matches_glob {
+                        let result = closure
+                            .add_arg(Value::string(event.operation, head))
+                            .add_arg(Value::string(event.path.to_string_lossy(), head))
+                            .add_arg(Value::string(
+                                event
+                                    .new_path
+                                    .unwrap_or_else(|| "".into())
+                                    .to_string_lossy(),
+                                head,
+                            ))
+                            .run_with_input(PipelineData::empty());
+
+                        match result {
+                            Ok(val) => val.print_table(engine_state, stack, false, false)?,
+                            Err(err) => report_shell_error(engine_state, &err),
+                        };
+                    }
+                }
+            }
+
+            Ok(PipelineData::empty())
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
