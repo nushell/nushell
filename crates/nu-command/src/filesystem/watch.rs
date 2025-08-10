@@ -208,40 +208,11 @@ impl Command for Watch {
             Ok(())
         };
 
-        loop {
-            match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
-                Ok(Ok(events)) => {
-                    if verbose {
-                        eprintln!("{events:?}");
-                    }
-                    for mut one_event in events {
-                        if let Ok(event) = WatchEvent::try_from(one_event) {
-                            event_handler(event)?;
-                        };
-                    }
-                }
-                Ok(Err(_)) => {
-                    return Err(ShellError::GenericError {
-                        error: "Receiving events failed".to_string(),
-                        msg: "Unexpected errors when receiving events".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    });
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::GenericError {
-                        error: "Disconnected".to_string(),
-                        msg: "Unexpected disconnect from file watcher".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    });
-                }
-                Err(RecvTimeoutError::Timeout) => {}
-            }
-            if engine_state.signals().interrupted() {
-                break;
+        let iter = WatchIterator::new(debouncer, rx, engine_state.signals().clone());
+
+        for events in iter {
+            for event in events? {
+                event_handler(event)?;
             }
         }
 
