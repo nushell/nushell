@@ -121,25 +121,21 @@ impl Command for Watch {
         )?;
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
-        let glob_pattern = match glob_flag {
-            Some(glob) => {
+        let glob_pattern = glob_flag
+            .map(|glob| {
                 let absolute_path = path.join(glob.item);
                 if verbose {
                     eprintln!("Absolute glob path: {absolute_path:?}");
                 }
 
-                match nu_glob::Pattern::new(&absolute_path.to_string_lossy()) {
-                    Ok(pattern) => Some(pattern),
-                    Err(_) => {
-                        return Err(ShellError::TypeMismatch {
-                            err_message: "Glob pattern is invalid".to_string(),
-                            span: glob.span,
-                        });
+                nu_glob::Pattern::new(&absolute_path.to_string_lossy()).map_err(|_| {
+                    ShellError::TypeMismatch {
+                        err_message: "Glob pattern is invalid".to_string(),
+                        span: glob.span,
                     }
-                }
-            }
-            None => None,
-        };
+                })
+            })
+            .transpose()?;
 
         let recursive_flag: Option<Spanned<bool>> =
             call.get_flag(engine_state, stack, "recursive")?;
