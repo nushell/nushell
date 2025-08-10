@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File, sync::Arc};
+use std::{borrow::Cow, fs::File, ops::Deref, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
@@ -12,6 +12,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    process::ExitStatusFuture,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -19,6 +20,30 @@ use nu_utils::IgnoreCaseExt;
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
+
+struct TmpPipelineData {
+    inner: PipelineData,
+    // NOTE: use Vec<ExitStatusFuture> for now
+    // maybe it's necessary to optimize it.
+    exit: Vec<ExitStatusFuture>,
+}
+
+impl Deref for TmpPipelineData {
+    type Target = PipelineData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl TmpPipelineData {
+    fn empty() -> Self {
+        Self {
+            inner: PipelineData::empty(),
+            exit: vec![],
+        }
+    }
+}
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -49,7 +74,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // the heap allocation here by reusing buffers - our allocator is fast enough
         let mut registers = Vec::with_capacity(ir_block.register_count as usize);
         for _ in 0..ir_block.register_count {
-            registers.push(PipelineData::empty());
+            registers.push(TmpPipelineData::empty());
         }
 
         // Initialize file storage.
@@ -109,7 +134,7 @@ struct EvalContext<'a> {
     /// Scratch space to use for `match`
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
-    registers: &'a mut [PipelineData],
+    registers: &'a mut [TmpPipelineData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
 }
@@ -117,7 +142,7 @@ struct EvalContext<'a> {
 impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with a new value
     #[inline]
-    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
+    fn put_reg(&mut self, reg_id: RegId, new_value: TmpPipelineData) {
         // log::trace!("{reg_id} <- {new_value:?}");
         self.registers[reg_id.get() as usize] = new_value;
     }
@@ -130,17 +155,19 @@ impl<'a> EvalContext<'a> {
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
-    fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
+    fn take_reg(&mut self, reg_id: RegId) -> TmpPipelineData {
         // log::trace!("<- {reg_id}");
         std::mem::replace(
             &mut self.registers[reg_id.get() as usize],
-            PipelineData::empty(),
+            TmpPipelineData::empty(),
         )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.get() as usize] {
+        // NOTE: here just clone the inner PipelineData
+        // it's suitable for current usage.
+        match &self.registers[reg_id.get() as usize].inner {
             PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(val, meta) => Ok(PipelineData::value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
@@ -162,7 +189,9 @@ impl<'a> EvalContext<'a> {
 
     /// Take and implicitly collect a register to a value
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        let data = self.take_reg(reg_id);
+        // NOTE: in collect, it maybe good to pick the inner PipelineData
+        // directly, and drop the ExitStatus queue.
+        let data = self.take_reg(reg_id).inner;
         let span = data.span().unwrap_or(fallback_span);
         data.into_value(span)
     }

@@ -58,7 +58,7 @@ pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<()
 }
 
 #[derive(Debug)]
-enum ExitStatusFuture {
+pub enum ExitStatusFuture {
     Finished(Result<ExitStatus, Box<ShellError>>),
     Running(Receiver<io::Result<ExitStatus>>),
 }
