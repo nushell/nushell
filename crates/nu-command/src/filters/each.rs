@@ -44,6 +44,12 @@ with 'transpose' first."#
                 "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
+            .switch(
+                "flatten",
+                "combine outputs into a single stream instead of\
+                    collecting them to separate values",
+                Some('f'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -108,6 +114,7 @@ with 'transpose' first."#
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
+        let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
         let metadata = input.metadata();
         let result = match input {
@@ -119,13 +126,25 @@ with 'transpose' first."#
             | PipelineData::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-                Ok(input
-                    .into_iter()
-                    .map(move |val| {
-                        each_map(val, &mut closure, head)
-                            .unwrap_or_else(|error| Value::error(error, head))
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+                let out = if flatten {
+                    input
+                        .into_iter()
+                        .flat_map(move |value| {
+                            closure.run_with_value(value).unwrap_or_else(|error| {
+                                Value::error(error, head).into_pipeline_data()
+                            })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    input
+                        .into_iter()
+                        .map(move |value| {
+                            each_map(value, &mut closure, head)
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             PipelineData::ByteStream(stream, ..) => {
                 let Some(chunks) = stream.chunks() else {
@@ -133,13 +152,26 @@ with 'transpose' first."#
                 };
 
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(chunks
-                    .map(move |result| {
-                        result
-                            .and_then(|value| each_map(value, &mut closure, head))
-                            .unwrap_or_else(|error| Value::error(error, head))
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+                let out = if flatten {
+                    chunks
+                        .flat_map(move |result| {
+                            result
+                                .and_then(|value| closure.run_with_value(value))
+                                .unwrap_or_else(|error| {
+                                    Value::error(error, head).into_pipeline_data()
+                                })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    chunks
+                        .map(move |result| {
+                            result
+                                .and_then(|value| each_map(value, &mut closure, head))
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
