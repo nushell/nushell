@@ -1,20 +1,20 @@
 use itertools::Itertools;
 use notify_debouncer_full::{
-    DebouncedEvent, new_debouncer,
+    DebouncedEvent, Debouncer, FileIdMap, new_debouncer,
     notify::{
-        EventKind, RecursiveMode, Watcher,
+        self, EventKind, INotifyWatcher, RecursiveMode, Watcher,
         event::{DataChange, ModifyKind, RenameMode},
     },
 };
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    DeprecationEntry, DeprecationType, ReportMode, engine::Closure, report_shell_error,
+    DeprecationEntry, DeprecationType, ReportMode, Signals, engine::Closure, report_shell_error,
     shell_error::io::IoError,
 };
 
 use std::{
     path::PathBuf,
-    sync::mpsc::{RecvTimeoutError, channel},
+    sync::mpsc::{Receiver, RecvTimeoutError, channel},
     time::Duration,
 };
 
@@ -344,5 +344,70 @@ impl TryFrom<DebouncedEvent> for WatchEvent {
             _ => None,
         }
         .ok_or(())
+    }
+}
+
+struct WatchIterator {
+    /// Debouncer needs to be kept alive for `rx` to keep receiving events.
+    _debouncer: Debouncer<INotifyWatcher, FileIdMap>,
+    rx: Option<Receiver<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>>,
+    signals: Signals,
+}
+
+impl WatchIterator {
+    fn new(
+        debouncer: Debouncer<INotifyWatcher, FileIdMap>,
+        rx: Receiver<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>,
+        signals: Signals,
+    ) -> Self {
+        Self {
+            _debouncer: debouncer,
+            rx: Some(rx),
+            signals,
+        }
+    }
+}
+
+impl Iterator for WatchIterator {
+    type Item = Result<Vec<WatchEvent>, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let rx = self.rx.as_ref()?;
+        while !self.signals.interrupted() {
+            let x = match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
+                Ok(x) => x,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    self.rx = None;
+                    return Some(Err(ShellError::GenericError {
+                        error: "Disconnected".to_string(),
+                        msg: "Unexpected disconnect from file watcher".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    }));
+                }
+            };
+
+            let Ok(events) = x else {
+                self.rx = None;
+                return Some(Err(ShellError::GenericError {
+                    error: "Receiving events failed".to_string(),
+                    msg: "Unexpected errors when receiving events".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                }));
+            };
+
+            let watch_events = events
+                .into_iter()
+                .filter_map(|ev| WatchEvent::try_from(ev).ok())
+                .collect::<Vec<_>>();
+
+            return Some(Ok(watch_events));
+        }
+        self.rx = None;
+        None
     }
 }
