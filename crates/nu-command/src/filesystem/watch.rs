@@ -1,5 +1,6 @@
+use itertools::Itertools;
 use notify_debouncer_full::{
-    new_debouncer,
+    DebouncedEvent, new_debouncer,
     notify::{
         EventKind, RecursiveMode, Watcher,
         event::{DataChange, ModifyKind, RenameMode},
@@ -328,5 +329,50 @@ fn resolve_duration_arguments(
             }),
         },
         (Some(v), None) => Ok(v.item),
+    }
+}
+
+struct WatchEvent {
+    operation: &'static str,
+    path: PathBuf,
+    new_path: Option<PathBuf>,
+}
+
+impl TryFrom<DebouncedEvent> for WatchEvent {
+    type Error = ();
+
+    fn try_from(mut ev: DebouncedEvent) -> Result<Self, Self::Error> {
+        // TODO: Maybe we should handle all event kinds?
+        match ev.event.kind {
+            EventKind::Create(_) => ev.paths.pop().map(|p| WatchEvent {
+                operation: "Create",
+                path: p,
+                new_path: None,
+            }),
+            EventKind::Remove(_) => ev.paths.pop().map(|p| WatchEvent {
+                operation: "Remove",
+                path: p,
+                new_path: None,
+            }),
+            EventKind::Modify(
+                ModifyKind::Data(DataChange::Content | DataChange::Any) | ModifyKind::Any,
+            ) => ev.paths.pop().map(|p| WatchEvent {
+                operation: "Write",
+                path: p,
+                new_path: None,
+            }),
+            EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => ev
+                .paths
+                .drain(..)
+                .rev()
+                .next_array()
+                .map(|[from, to]| WatchEvent {
+                    operation: "Rename",
+                    path: from,
+                    new_path: Some(to),
+                }),
+            _ => None,
+        }
+        .ok_or(())
     }
 }
