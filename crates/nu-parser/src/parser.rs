@@ -1009,11 +1009,25 @@ pub struct ParsedInternalCall {
     pub call_kind: CallKind,
 }
 
+/// Sometimes the arguments of an internal command need to be parsed
+/// in dedicated functions, e.g. `parse_module`/`parse_use`.
+/// If so, `parse_internal_call` should be called with the appropriate parsing level to avoid repetition.
+///
+/// Defaults to `ArgumentParsingLevel::Full`
+#[derive(Default)]
+pub enum ArgumentParsingLevel {
+    #[default]
+    Full,
+    /// Parse only the first `k` arguments
+    FirstK { k: usize },
+}
+
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
     spans: &[Span],
     decl_id: DeclId,
+    arg_parsing_level: ArgumentParsingLevel,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -1299,12 +1313,31 @@ pub fn parse_internal_call(
 
             let compile_error_count = working_set.compile_errors.len();
 
-            let arg = parse_multispan_value(
-                working_set,
-                &spans[..end],
-                &mut spans_idx,
-                &positional.shape,
-            );
+            // HACK: avoid repeated parsing of argument values in special cases
+            // see https://github.com/nushell/nushell/issues/16398
+            let arg = match arg_parsing_level {
+                ArgumentParsingLevel::FirstK { k } if k <= positional_idx => {
+                    Expression::garbage(working_set, spans[spans_idx])
+                }
+                _ => {
+                    let arg = parse_multispan_value(
+                        working_set,
+                        &spans[..end],
+                        &mut spans_idx,
+                        &positional.shape,
+                    );
+                    if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+                        working_set.error(ParseError::TypeMismatch(
+                            positional.shape.to_type(),
+                            arg.ty,
+                            arg.span,
+                        ));
+                        Expression::garbage(working_set, arg.span)
+                    } else {
+                        arg
+                    }
+                }
+            };
 
             // HACK: try-catch's signature defines the catch block as a Closure, even though it's
             // used like a Block. Because closures are compiled eagerly, this ends up making the
@@ -1331,6 +1364,7 @@ pub fn parse_internal_call(
             } else {
                 arg
             };
+
             call.add_positional(arg);
             positional_idx += 1;
         } else if signature.allows_unknown_args {
@@ -1440,6 +1474,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     Span::concat(&spans[cmd_start..pos]),
                     &spans[pos..],
                     decl_id,
+                    ArgumentParsingLevel::Full,
                 )
             }
         } else {
@@ -1449,6 +1484,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 Span::concat(&spans[cmd_start..pos]),
                 &spans[pos..],
                 decl_id,
+                ArgumentParsingLevel::Full,
             )
         };
 
@@ -1623,12 +1659,24 @@ pub fn parse_attribute(
             }
             _ => {
                 trace!("parsing: alias of internal call");
-                parse_internal_call(working_set, name_span, &spans[cmd_end..], decl_id)
+                parse_internal_call(
+                    working_set,
+                    name_span,
+                    &spans[cmd_end..],
+                    decl_id,
+                    ArgumentParsingLevel::Full,
+                )
             }
         },
         None => {
             trace!("parsing: internal call");
-            parse_internal_call(working_set, name_span, &spans[cmd_end..], decl_id)
+            parse_internal_call(
+                working_set,
+                name_span,
+                &spans[cmd_end..],
+                decl_id,
+                ArgumentParsingLevel::Full,
+            )
         }
     };
 
