@@ -119,42 +119,11 @@ impl Command for Watch {
         let debounce_duration_flag_ms: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;
 
-        let debounce_duration_flag: Option<Spanned<Value>> =
+        let debounce_duration_flag: Option<Spanned<Duration>> =
             call.get_flag(engine_state, stack, "debounce")?;
 
-        let debounce_duration: Duration = match (debounce_duration_flag, debounce_duration_flag_ms)
-        {
-            (None, None) => DEFAULT_WATCH_DEBOUNCE_DURATION,
-            (Some(l), Some(r)) => {
-                return Err(ShellError::IncompatibleParameters {
-                    left_message: "Here".to_string(),
-                    left_span: l.span,
-                    right_message: "and here".to_string(),
-                    right_span: r.span,
-                });
-            }
-            (None, Some(val)) => match u64::try_from(val.item) {
-                Ok(v) => Duration::from_millis(v),
-                Err(_) => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "Debounce duration is invalid".to_string(),
-                        span: val.span,
-                    });
-                }
-            },
-            (Some(v), None) => {
-                let Value::Duration { val, .. } = v.item else {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "Debounce duration must be a duration".to_string(),
-                        span: v.item.span(),
-                    });
-                };
-                Duration::from_nanos(u64::try_from(val).map_err(|_| ShellError::TypeMismatch {
-                    err_message: "Debounce duration is invalid".to_string(),
-                    span: v.item.span(),
-                })?)
-            }
-        };
+        let debounce_duration: Duration =
+            resolve_duration_arguments(debounce_duration_flag_ms, debounce_duration_flag)?;
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
         let glob_pattern = match glob_flag {
@@ -351,5 +320,28 @@ impl Command for Watch {
                 result: None,
             },
         ]
+    }
+}
+
+fn resolve_duration_arguments(
+    debounce_duration_flag_ms: Option<Spanned<i64>>,
+    debounce_duration_flag: Option<Spanned<Duration>>,
+) -> Result<Duration, ShellError> {
+    match (debounce_duration_flag, debounce_duration_flag_ms) {
+        (None, None) => Ok(DEFAULT_WATCH_DEBOUNCE_DURATION),
+        (Some(l), Some(r)) => Err(ShellError::IncompatibleParameters {
+            left_message: "Here".to_string(),
+            left_span: l.span,
+            right_message: "and here".to_string(),
+            right_span: r.span,
+        }),
+        (None, Some(val)) => match u64::try_from(val.item) {
+            Ok(v) => Ok(Duration::from_millis(v)),
+            Err(_) => Err(ShellError::TypeMismatch {
+                err_message: "Debounce duration is invalid".to_string(),
+                span: val.span,
+            }),
+        },
+        (Some(v), None) => Ok(v.item),
     }
 }
