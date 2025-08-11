@@ -5204,7 +5204,7 @@ pub fn parse_value(
             if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
                 return Expression::new(working_set, Expr::Bool(true), span, Type::Bool);
             } else {
-                working_set.error(ParseError::Expected("non-boolean value", span));
+                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                 return Expression::garbage(working_set, span);
             }
         }
@@ -5212,7 +5212,7 @@ pub fn parse_value(
             if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
                 return Expression::new(working_set, Expr::Bool(false), span, Type::Bool);
             } else {
-                working_set.error(ParseError::Expected("non-boolean value", span));
+                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                 return Expression::garbage(working_set, span);
             }
         }
