@@ -115,15 +115,10 @@ impl Command for Watch {
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
 
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
-
-        let debounce_duration_flag_ms: Option<Spanned<i64>> =
-            call.get_flag(engine_state, stack, "debounce-ms")?;
-
-        let debounce_duration_flag: Option<Spanned<Duration>> =
-            call.get_flag(engine_state, stack, "debounce")?;
-
-        let debounce_duration: Duration =
-            resolve_duration_arguments(debounce_duration_flag_ms, debounce_duration_flag)?;
+        let debounce_duration: Duration = resolve_duration_arguments(
+            call.get_flag(engine_state, stack, "debounce-ms")?,
+            call.get_flag(engine_state, stack, "debounce")?,
+        )?;
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
         let glob_pattern = match glob_flag {
