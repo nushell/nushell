@@ -39,7 +39,7 @@ Make sure you've run and fixed any issues with these commands:
 - `cargo test --workspace` to check that all tests pass (on Windows make sure to enable developer mode [1])
 - `cargo run -- -c "use toolkit.nu; toolkit test stdlib"` to run the tests for the standard library
 
-From Nushell, you can also use the `toolkit` as follows
+From Nushell, you can also use the `toolkit` as follows:
 > use toolkit.nu  # or use an `env_change` hook to activate it automatically
 > toolkit check
 
