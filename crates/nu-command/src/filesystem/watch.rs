@@ -95,20 +95,17 @@ impl Command for Watch {
         let cwd = engine_state.cwd_as_string(Some(stack))?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        let path_no_whitespace = &path_arg
+        let path_no_whitespace = path_arg
             .item
             .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-        let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
-            Ok(p) => p,
-            Err(err) => {
-                return Err(ShellError::Io(IoError::new(
-                    err,
-                    path_arg.span,
-                    PathBuf::from(path_no_whitespace),
-                )));
-            }
-        };
+        let path = nu_path::canonicalize_with(path_no_whitespace, cwd).map_err(|err| {
+            ShellError::Io(IoError::new(
+                err,
+                path_arg.span,
+                PathBuf::from(path_no_whitespace),
+            ))
+        })?;
 
         let closure: Closure = call.req(engine_state, stack, 1)?;
 
@@ -152,22 +149,19 @@ impl Command for Watch {
 
         let (tx, rx) = channel();
 
-        let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: "Failed to create watcher".to_string(),
-                    msg: e.to_string(),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-        };
-        if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
+        let mut debouncer =
+            new_debouncer(debounce_duration, None, tx).map_err(|err| ShellError::GenericError {
+                error: "Failed to create watcher".to_string(),
+                msg: err.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
+
+        if let Err(err) = debouncer.watcher().watch(&path, recursive_mode) {
             return Err(ShellError::GenericError {
                 error: "Failed to create watcher".to_string(),
-                msg: e.to_string(),
+                msg: err.to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
