@@ -568,6 +568,7 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str) {
 fn can_run_external_without_path_env(#[case] prefix: &str) {
     Playground::setup("can run external without path env", |dirs, _| {
         let actual = nu!(
+            cwd: dirs.test(),
             r#"
                 hide-env PATH
                 {} `--testbin` cococo
