@@ -5254,33 +5254,6 @@ pub fn parse_value(
         return garbage(working_set, span);
     }
 
-    // Check for reserved keyword values
-    match bytes {
-        b"true" => {
-            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                return Expression::new(working_set, Expr::Bool(true), span, Type::Bool);
-            } else {
-                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                return Expression::garbage(working_set, span);
-            }
-        }
-        b"false" => {
-            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                return Expression::new(working_set, Expr::Bool(false), span, Type::Bool);
-            } else {
-                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                return Expression::garbage(working_set, span);
-            }
-        }
-        b"null" => {
-            return Expression::new(working_set, Expr::Nothing, span, Type::Nothing);
-        }
-        b"-inf" | b"inf" | b"NaN" => {
-            return parse_float(working_set, span);
-        }
-        _ => {}
-    }
-
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
@@ -5312,6 +5285,10 @@ pub fn parse_value(
             return parse_raw_string(working_set, span);
         }
         _ => {}
+    }
+
+    if bytes == b"null" {
+        return Expression::new(working_set, Expr::Nothing, span, Type::Nothing);
     }
 
     match shape {
@@ -5357,15 +5334,15 @@ pub fn parse_value(
             }
         }
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
+        SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"true" => {
+            Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
+        }
+        SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"false" => {
+            Expression::new(working_set, Expr::Bool(false), span, Type::Bool)
+        }
         SyntaxShape::Boolean => {
-            // Redundant, though we catch bad boolean parses here
-            if bytes == b"true" || bytes == b"false" {
-                Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
-            } else {
-                working_set.error(ParseError::Expected("bool", span));
-
-                Expression::garbage(working_set, span)
-            }
+            working_set.error(ParseError::Expected("bool", span));
+            Expression::garbage(working_set, span)
         }
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
