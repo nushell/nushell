@@ -4,7 +4,6 @@ use nu_test_support::playground::Playground;
 use rstest::rstest;
 use rstest_reuse::*;
 
-// Get full path to nu, so we don't use the nu extern
 fn nu_path(prefix: &str) -> String {
     let binary = nu_test_support::fs::executable_path()
         .to_string_lossy()
@@ -561,6 +560,22 @@ fn can_run_ps1_files_with_space_in_path(prefix: &str) {
         let actual = nu!(cwd: dirs.test().join("path with space"), "{}foo.ps1", prefix);
         assert!(actual.out.contains("Hello World"));
     });
+}
+
+#[rstest]
+#[case("^")]
+#[case("run-external ")]
+fn can_run_external_without_path_env(#[case] prefix: &str) {
+    Playground::setup("can run external without path env", |dirs, _| {
+        let actual = nu!(
+            r#"
+                hide-env PATH
+                {} `--testbin` cococo
+            "#,
+            nu_path(prefix)
+        );
+        assert_eq!(actual.out, "cococo");
+    })
 }
 
 #[rstest]
