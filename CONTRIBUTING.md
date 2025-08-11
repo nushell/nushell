@@ -3,6 +3,7 @@
 Welcome to Nushell and thank you for considering contributing!
 
 ## Table of contents
+- [Tips for submitting PRs](#tips-for-submitting-prs)
 - [Proposing design changes](#proposing-design-changes)
 - [Developing](#developing)
   - [Setup](#setup)
