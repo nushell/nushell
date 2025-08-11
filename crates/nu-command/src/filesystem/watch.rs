@@ -1,4 +1,4 @@
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use notify_debouncer_full::{
     DebouncedEvent, Debouncer, FileIdMap, new_debouncer,
     notify::{
@@ -223,7 +223,23 @@ impl Command for Watch {
 
             Ok(PipelineData::empty())
         } else {
-            Ok(PipelineData::empty())
+            fn glob_filter(glob: Option<&nu_glob::Pattern>, path: &Path) -> bool {
+                let Some(glob) = glob else { return true };
+                glob.matches_path(path)
+            }
+
+            let out = iter
+                .flat_map(|e| match e {
+                    Ok(events) => Either::Right(events.into_iter().map(Ok)),
+                    Err(err) => Either::Left(std::iter::once(Err(err))),
+                })
+                .filter_map(move |e| match e {
+                    Ok(ev) => glob_filter(glob_pattern.as_ref(), &ev.path)
+                        .then(|| WatchEventRecord::from(&ev).into_value(head)),
+                    Err(err) => Some(Value::error(err, head)),
+                })
+                .into_pipeline_data(head, engine_state.signals().clone());
+            Ok(out)
         }
     }
 
