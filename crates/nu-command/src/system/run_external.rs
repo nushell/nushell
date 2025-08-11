@@ -87,8 +87,8 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
-        let paths =
-            nu_engine::env::path_str(engine_state, stack, call.head).unwrap_or(String::new());
+        let paths = nu_engine::env::path_str(engine_state, stack, call.head)
+            .unwrap_or_default(String::new());
 
         // On Windows, the user could have run the cmd.exe built-in commands "assoc"
         // and "ftype" to create a file association for an arbitrary file extension.
