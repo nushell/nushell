@@ -13,7 +13,8 @@ use nu_protocol::{
 };
 
 use std::{
-    path::PathBuf,
+    borrow::Cow,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, RecvTimeoutError, channel},
     time::Duration,
 };
@@ -284,6 +285,23 @@ struct WatchEvent {
     operation: &'static str,
     path: PathBuf,
     new_path: Option<PathBuf>,
+}
+
+#[derive(IntoValue)]
+struct WatchEventRecord<'a> {
+    operation: &'static str,
+    path: Cow<'a, str>,
+    new_path: Option<Cow<'a, str>>,
+}
+
+impl<'a> From<&'a WatchEvent> for WatchEventRecord<'a> {
+    fn from(value: &'a WatchEvent) -> Self {
+        Self {
+            operation: value.operation,
+            path: value.path.to_string_lossy(),
+            new_path: value.new_path.as_deref().map(Path::to_string_lossy),
+        }
+    }
 }
 
 impl TryFrom<DebouncedEvent> for WatchEvent {
