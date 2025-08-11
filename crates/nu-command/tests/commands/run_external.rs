@@ -570,7 +570,8 @@ fn can_run_external_without_path_env(#[case] prefix: &str) {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                hide-env PATH
+                hide-env -i PATH
+                hide-env -i Path
                 {} `--testbin` cococo
             "#,
             nu_path(prefix)
