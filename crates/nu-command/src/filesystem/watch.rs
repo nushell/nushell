@@ -35,6 +35,10 @@ impl Command for Watch {
         "Watch for file changes and execute Nu code when they happen."
     }
 
+    fn extra_description(&self) -> &str {
+        "When run without a closure, `watch` returns a stream of events instead."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["watcher", "reload", "filesystem"]
     }
@@ -256,8 +260,13 @@ impl Command for Watch {
                 result: None,
             },
             Example {
-                description: "Log all changes in a directory",
-                example: r#"watch /foo/bar { |op, path| $"($op) - ($path)(char nl)" | save --append changes_in_bar.log }"#,
+                description: "`watch` (when run without a closure) can also emit a stream of events it detects.",
+                example: r#"watch /foo/bar
+    | where operation == Create
+    | first 5
+    | each {|e| $"New file!: ($e.path)" }
+    | to text
+    | save --append changes_in_bar.log"#,
                 result: None,
             },
             Example {
