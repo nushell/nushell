@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, ReportMode, ShellWarning, report_shell_warning};
+use nu_protocol::{DeprecationEntry, DeprecationType, ListStream, ReportMode};
 use rand::random_range;
 use std::num::NonZeroUsize;
 
@@ -38,6 +38,16 @@ impl Command for RandomDice {
         vec!["generate", "die", "1-6"]
     }
 
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.107.0".to_owned()),
+            expected_removal: Some("0.108.0".to_owned()),
+            help: Some("Use `random dice` from std/random instead.".to_owned()),
+        }]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -45,19 +55,6 @@ impl Command for RandomDice {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        report_shell_warning(
-            engine_state,
-            &ShellWarning::Deprecated {
-                dep_type: "Command".to_owned(),
-                label: "deprecated".to_owned(),
-                span: call.span(),
-                help: Some(
-                    r"Deprecated since 0.107.0.  Use std/random/random-dice instead.".to_string(),
-                ),
-                report_mode: ReportMode::FirstUse,
-            },
-        );
-
         dice(engine_state, stack, call)
     }
 
