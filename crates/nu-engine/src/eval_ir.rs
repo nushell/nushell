@@ -45,6 +45,16 @@ impl PipelineDataWithExit {
     }
 }
 
+impl From<PipelineData> for PipelineDataWithExit {
+    fn from(value: PipelineData) -> Self {
+        Self {
+            inner: value,
+            // TODO: take value's PipelineData's exit status future out.
+            exit: vec![],
+        }
+    }
+}
+
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
     engine_state: &EngineState,
@@ -212,19 +222,20 @@ fn eval_ir_block_impl<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     if !ctx.registers.is_empty() {
-        ctx.registers[0] = input;
+        ctx.registers[0] = PipelineDataWithExit::from(input);
     }
 
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
+    let register_data: Vec<&PipelineData> = ctx.registers.iter().map(|d| &d.inner).collect();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
+        D::enter_instruction(ctx.engine_state, ir_block, pc, &register_data);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
@@ -232,7 +243,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             ctx.engine_state,
             ir_block,
             pc,
-            ctx.registers,
+            &register_data,
             result.as_ref().err(),
         );
 
