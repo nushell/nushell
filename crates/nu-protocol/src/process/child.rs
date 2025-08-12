@@ -444,6 +444,10 @@ impl ChildProcess {
             exit_status,
         })
     }
+
+    pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {
+        self.exit_status.clone()
+    }
 }
 
 fn collect_bytes(pipe: ChildPipe) -> io::Result<Vec<u8>> {

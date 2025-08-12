@@ -30,7 +30,7 @@ struct PipelineDataWithExit {
     inner: PipelineData,
     // NOTE: use Vec<ExitStatusFuture> for now
     // maybe it's necessary to optimize it.
-    exit: Vec<Arc<Mutex<ExitStatusFuture>>>,
+    exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
 }
 
 impl Deref for PipelineDataWithExit {
@@ -52,10 +52,10 @@ impl PipelineDataWithExit {
 
 impl From<PipelineData> for PipelineDataWithExit {
     fn from(value: PipelineData) -> Self {
+        let exit_status_future = value.clone_exit_status_future();
         Self {
             inner: value,
-            // TODO: take value's PipelineData's exit status future out.
-            exit: vec![],
+            exit: vec![exit_status_future],
         }
     }
 }

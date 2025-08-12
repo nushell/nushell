@@ -1,12 +1,17 @@
 use crate::{
-    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
+    process::ExitStatusFuture,
     shell_error::{io::IoError, location::Location},
 };
-use std::{borrow::Cow, io::Write};
+use std::{
+    borrow::Cow,
+    io::Write,
+    sync::{Arc, Mutex},
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -769,6 +774,17 @@ impl PipelineData {
                 wrong_type: stream.type_().describe().into(),
                 dst_span: span,
                 src_span: stream.span(),
+            },
+        }
+    }
+
+    pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
+        match self {
+            PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
+            PipelineData::ByteStream(stream, ..) => match stream.source() {
+                ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
+                #[cfg(feature = "os")]
+                ByteStreamSource::Child(c) => Some(c.clone_exit_status_future()),
             },
         }
     }
