@@ -275,6 +275,29 @@ impl FromValue for i64 {
     }
 }
 
+/// This implementation supports **positive** durations only.
+impl FromValue for std::time::Duration {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Duration { val, .. } => {
+                let nanos = u64::try_from(val)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: v.span() })?;
+                Ok(Self::from_nanos(nanos))
+            }
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Duration
+    }
+}
+
 //
 // We can not use impl<T: FromValue> FromValue for NonZero<T> as NonZero requires an unstable trait
 // As a result, we use this macro to implement FromValue for each NonZero type.

@@ -78,9 +78,7 @@ in no particular order, regardless of the specified timeout parameter.
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
 
-        let duration: Option<i64> = call.get_flag(engine_state, stack, "timeout")?;
-
-        let timeout = duration.map(|it| Duration::from_nanos(it as u64));
+        let timeout: Option<Duration> = call.get_flag(engine_state, stack, "timeout")?;
 
         let mut mailbox = engine_state
             .current_job
