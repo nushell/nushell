@@ -11,6 +11,7 @@ use std::{
     fmt::Debug,
     io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
+    sync::{Arc, Mutex},
     thread,
 };
 
@@ -166,7 +167,7 @@ impl Read for ChildPipe {
 pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
     pub stderr: Option<ChildPipe>,
-    exit_status: ExitStatusFuture,
+    exit_status: Arc<Mutex<ExitStatusFuture>>,
     ignore_error: bool,
     span: Span,
 }

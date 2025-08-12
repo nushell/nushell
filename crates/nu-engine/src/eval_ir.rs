@@ -1,4 +1,9 @@
-use std::{borrow::Cow, fs::File, ops::Deref, sync::Arc};
+use std::{
+    borrow::Cow,
+    fs::File,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
@@ -25,7 +30,7 @@ struct PipelineDataWithExit {
     inner: PipelineData,
     // NOTE: use Vec<ExitStatusFuture> for now
     // maybe it's necessary to optimize it.
-    exit: Vec<ExitStatusFuture>,
+    exit: Vec<Arc<Mutex<ExitStatusFuture>>>,
 }
 
 impl Deref for PipelineDataWithExit {
