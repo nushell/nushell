@@ -21,14 +21,14 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-struct TmpPipelineData {
+struct PipelineDataWithExit {
     inner: PipelineData,
     // NOTE: use Vec<ExitStatusFuture> for now
     // maybe it's necessary to optimize it.
     exit: Vec<ExitStatusFuture>,
 }
 
-impl Deref for TmpPipelineData {
+impl Deref for PipelineDataWithExit {
     type Target = PipelineData;
 
     fn deref(&self) -> &Self::Target {
@@ -36,7 +36,7 @@ impl Deref for TmpPipelineData {
     }
 }
 
-impl TmpPipelineData {
+impl PipelineDataWithExit {
     fn empty() -> Self {
         Self {
             inner: PipelineData::empty(),
@@ -74,7 +74,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // the heap allocation here by reusing buffers - our allocator is fast enough
         let mut registers = Vec::with_capacity(ir_block.register_count as usize);
         for _ in 0..ir_block.register_count {
-            registers.push(TmpPipelineData::empty());
+            registers.push(PipelineDataWithExit::empty());
         }
 
         // Initialize file storage.
@@ -134,7 +134,7 @@ struct EvalContext<'a> {
     /// Scratch space to use for `match`
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
-    registers: &'a mut [TmpPipelineData],
+    registers: &'a mut [PipelineDataWithExit],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
 }
@@ -142,7 +142,7 @@ struct EvalContext<'a> {
 impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with a new value
     #[inline]
-    fn put_reg(&mut self, reg_id: RegId, new_value: TmpPipelineData) {
+    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineDataWithExit) {
         // log::trace!("{reg_id} <- {new_value:?}");
         self.registers[reg_id.get() as usize] = new_value;
     }
@@ -155,11 +155,11 @@ impl<'a> EvalContext<'a> {
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
-    fn take_reg(&mut self, reg_id: RegId) -> TmpPipelineData {
+    fn take_reg(&mut self, reg_id: RegId) -> PipelineDataWithExit {
         // log::trace!("<- {reg_id}");
         std::mem::replace(
             &mut self.registers[reg_id.get() as usize],
-            TmpPipelineData::empty(),
+            PipelineDataWithExit::empty(),
         )
     }
 
