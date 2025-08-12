@@ -177,12 +177,9 @@ impl Command for Watch {
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        let mut event_handler = move |operation: &str,
-                                      path: PathBuf,
-                                      new_path: Option<PathBuf>|
-              -> Result<(), ShellError> {
+        let mut event_handler = move |event: WatchEvent| -> Result<(), ShellError> {
             let matches_glob = match &glob_pattern {
-                Some(glob) => glob.matches_path(&path),
+                Some(glob) => glob.matches_path(&event.path),
                 None => true,
             };
             if verbose && glob_pattern.is_some() {
@@ -191,10 +188,13 @@ impl Command for Watch {
 
             if matches_glob {
                 let result = closure
-                    .add_arg(Value::string(operation, head))
-                    .add_arg(Value::string(path.to_string_lossy(), head))
+                    .add_arg(Value::string(event.operation, head))
+                    .add_arg(Value::string(event.path.to_string_lossy(), head))
                     .add_arg(Value::string(
-                        new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                        event
+                            .new_path
+                            .unwrap_or_else(|| "".into())
+                            .to_string_lossy(),
                         head,
                     ))
                     .run_with_input(PipelineData::empty());
@@ -215,39 +215,9 @@ impl Command for Watch {
                         eprintln!("{events:?}");
                     }
                     for mut one_event in events {
-                        let handle_result = match one_event.event.kind {
-                            // only want to handle event if relative path exists.
-                            EventKind::Create(_) => one_event
-                                .paths
-                                .pop()
-                                .map(|path| event_handler("Create", path, None))
-                                .unwrap_or(Ok(())),
-                            EventKind::Remove(_) => one_event
-                                .paths
-                                .pop()
-                                .map(|path| event_handler("Remove", path, None))
-                                .unwrap_or(Ok(())),
-                            EventKind::Modify(ModifyKind::Data(DataChange::Content))
-                            | EventKind::Modify(ModifyKind::Data(DataChange::Any))
-                            | EventKind::Modify(ModifyKind::Any) => one_event
-                                .paths
-                                .pop()
-                                .map(|path| event_handler("Write", path, None))
-                                .unwrap_or(Ok(())),
-                            EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => one_event
-                                .paths
-                                .pop()
-                                .map(|to| {
-                                    one_event
-                                        .paths
-                                        .pop()
-                                        .map(|from| event_handler("Rename", from, Some(to)))
-                                        .unwrap_or(Ok(()))
-                                })
-                                .unwrap_or(Ok(())),
-                            _ => Ok(()),
+                        if let Ok(event) = WatchEvent::try_from(one_event) {
+                            event_handler(event)?;
                         };
-                        handle_result?;
                     }
                 }
                 Ok(Err(_)) => {
