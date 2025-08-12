@@ -201,15 +201,15 @@ impl Command for Watch {
 
                     if matches_glob {
                         let result = closure
-                            .add_arg(Value::string(event.operation, head))
-                            .add_arg(Value::string(event.path.to_string_lossy(), head))
-                            .add_arg(Value::string(
+                            .add_arg(event.operation.into_value(head))
+                            .add_arg(event.path.to_string_lossy().into_value(head))
+                            .add_arg(
                                 event
                                     .new_path
-                                    .unwrap_or_else(|| "".into())
-                                    .to_string_lossy(),
-                                head,
-                            ))
+                                    .as_deref()
+                                    .map(Path::to_string_lossy)
+                                    .into_value(head),
+                            )
                             .run_with_input(PipelineData::empty());
 
                         match result {
