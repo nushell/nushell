@@ -5,6 +5,7 @@ use chrono::{
 };
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 
 const HOUR: i32 = 60 * 60;
 const ALLOWED_COLUMNS: [&str; 10] = [
@@ -44,6 +45,7 @@ enum Zone {
 }
 
 impl Zone {
+    const OPTIONS: &[&str] = &["utc", "local"];
     fn new(i: i64) -> Self {
         if i.abs() <= 12 {
             // guaranteed here
@@ -96,6 +98,7 @@ impl Command for IntoDatetime {
                 "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",
                 Some('z'),
             )
+        .add_named_completion(Completion::new_list(Zone::OPTIONS))
             .named(
                 "offset",
                 SyntaxShape::Int,

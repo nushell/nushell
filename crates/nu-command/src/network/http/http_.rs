@@ -90,6 +90,7 @@ impl Command for Http {
                 "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
                 Some('R')
             )
+            .add_named_completion(nu_protocol::Completion::new_list(super::client::RedirectMode::MODES))
             .category(Category::Network)
     }
 
