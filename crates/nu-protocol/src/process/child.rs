@@ -296,9 +296,11 @@ impl ChildProcess {
         Self {
             stdout: stdout.map(Into::into),
             stderr: stderr.map(Into::into),
-            exit_status: exit_status
-                .map(ExitStatusFuture::Running)
-                .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
+            exit_status: Arc::new(Mutex::new(
+                exit_status
+                    .map(ExitStatusFuture::Running)
+                    .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
+            )),
             ignore_error: false,
             span,
         }
@@ -313,7 +315,7 @@ impl ChildProcess {
         self.span
     }
 
-    pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
+    pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
             return Err(ShellError::GenericError {
@@ -331,11 +333,11 @@ impl ChildProcess {
             Vec::new()
         };
 
-        check_ok(
-            self.exit_status.wait(self.span)?,
-            self.ignore_error,
-            self.span,
-        )?;
+        let mut exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success");
+        check_ok(exit_status.wait(self.span)?, self.ignore_error, self.span)?;
 
         Ok(bytes)
     }
@@ -376,19 +378,22 @@ impl ChildProcess {
         } else if let Some(stderr) = self.stderr.take() {
             consume_pipe(stderr).map_err(&from_io_error)?;
         }
-
-        check_ok(
-            self.exit_status.wait(self.span)?,
-            self.ignore_error,
-            self.span,
-        )
+        let mut exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success");
+        check_ok(exit_status.wait(self.span)?, self.ignore_error, self.span)
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {
-        self.exit_status.try_wait(self.span)
+        let mut exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success");
+        exit_status.try_wait(self.span)
     }
 
-    pub fn wait_with_output(mut self) -> Result<ProcessOutput, ShellError> {
+    pub fn wait_with_output(self) -> Result<ProcessOutput, ShellError> {
         let from_io_error = IoError::factory(self.span, None);
         let (stdout, stderr) = if let Some(stdout) = self.stdout {
             let stderr = self
@@ -427,7 +432,11 @@ impl ChildProcess {
             (None, stderr)
         };
 
-        let exit_status = self.exit_status.wait(self.span)?;
+        let mut exit_status = self
+            .exit_status
+            .lock()
+            .expect("lock exit_status future should success");
+        let exit_status = exit_status.wait(self.span)?;
 
         Ok(ProcessOutput {
             stdout,
