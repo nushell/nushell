@@ -68,6 +68,16 @@ impl Handlers {
         })
     }
 
+    /// Registers a new handler without an RAII guard.
+    pub fn register_unguarded(&self, handler: Handler) -> Result<(), ShellError> {
+        let id = self.next_id.next()?;
+        if let Ok(mut handlers) = self.handlers.lock() {
+            handlers.push((id, handler));
+        }
+
+        Ok(())
+    }
+
     /// Runs all registered handlers.
     pub fn run(&self, action: SignalAction) {
         if let Ok(handlers) = self.handlers.lock() {

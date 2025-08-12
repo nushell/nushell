@@ -1,7 +1,7 @@
 use crate::{
-    BlockId, Category, Config, DeclId, FileId, GetSpan, HandlerGuard, Handlers, HistoryConfig,
-    JobId, Module, ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId,
-    Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
+    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
+    VarId, VirtualPathId,
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
@@ -95,7 +95,6 @@ pub struct EngineState {
     pub scope: ScopeFrame,
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
-    signal_handler_guards: Vec<HandlerGuard>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -174,7 +173,6 @@ impl EngineState {
                 false,
             ),
             signal_handlers: None,
-            signal_handler_guards: Vec::new(),
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -230,10 +228,6 @@ impl EngineState {
 
     pub fn set_signals(&mut self, signals: Signals) {
         self.signals = signals;
-    }
-
-    pub fn register_signal_handler_guard(&mut self, guard: HandlerGuard) {
-        self.signal_handler_guards.push(guard);
     }
 
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that

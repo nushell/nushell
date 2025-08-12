@@ -11,8 +11,8 @@ pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
     let signal_handlers = Handlers::new();
 
     // Register a handler to kill all background jobs on interrupt.
-    let interrupt_handler_guard = signal_handlers
-        .register({
+    signal_handlers
+        .register_unguarded({
             let jobs = engine_state.jobs.clone();
             Box::new(move |action| {
                 if action == SignalAction::Interrupt {
@@ -23,7 +23,6 @@ pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
             })
         })
         .expect("Failed to register interrupt signal handler");
-    engine_state.register_signal_handler_guard(interrupt_handler_guard);
 
     engine_state.signal_handlers = Some(signal_handlers.clone());
 
