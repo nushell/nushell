@@ -652,7 +652,7 @@ fn list_ignores_ansi() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                ls | find .txt | each {|| ls $in.name } 
+                ls | find .txt | each {|| ls $in.name }
             "
         ));
 
@@ -661,14 +661,17 @@ fn list_ignores_ansi() {
 }
 
 #[test]
-fn list_unknown_flag() {
+fn list_unknown_long_flag() {
+    let actual = nu!("ls --full-path");
+
+    assert!(actual.err.contains("Did you mean: `--full-paths`?"));
+}
+
+#[test]
+fn list_unknown_short_flag() {
     let actual = nu!("ls -r");
 
-    assert!(
-        actual
-            .err
-            .contains("Available flags: --help(-h), --all(-a),")
-    );
+    assert!(actual.err.contains("Use `--help` to see available flags"));
 }
 
 #[test]
