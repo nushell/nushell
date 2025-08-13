@@ -1,3 +1,5 @@
+use std/assert greater
+
 # for examples
 alias "random dice" = dice
 
@@ -11,6 +13,9 @@ export def dice [
     --dice = 1  # The amount of dice being rolled
     --sides = 6  # The amount of sides a die has
 ]: nothing -> list<int> {
+    greater $dice 0 "The amount of dice must be greater than 0"
+    greater $sides 0 "The amount of sides must be greater than 0"
+
     mut out = []
     for _ in 1..$dice {
     	$out ++= [(random int 1..$sides)]
