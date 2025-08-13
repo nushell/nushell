@@ -4,7 +4,7 @@
 //! profiling Nushell code.
 
 use crate::{
-    PipelineData, ShellError, Span, Value,
+    PipelineData, PipelineDataWithExit, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
@@ -205,7 +205,7 @@ impl Debugger for Profiler {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        _registers: &[&PipelineData],
+        _registers: &[PipelineDataWithExit],
     ) {
         if self.depth > self.opts.max_depth {
             return;
@@ -249,7 +249,7 @@ impl Debugger for Profiler {
         _engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[&PipelineData],
+        registers: &[PipelineDataWithExit],
         error: Option<&ShellError>,
     ) {
         if self.depth > self.opts.max_depth {

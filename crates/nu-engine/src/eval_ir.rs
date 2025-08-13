@@ -8,8 +8,8 @@ use std::{
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    PipelineData, PipelineDataWithExit, PipelineMetadata, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -25,40 +25,6 @@ use nu_utils::IgnoreCaseExt;
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
-
-struct PipelineDataWithExit {
-    inner: PipelineData,
-    // NOTE: use Vec<ExitStatusFuture> for now
-    // maybe it's necessary to optimize it.
-    exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
-}
-
-impl Deref for PipelineDataWithExit {
-    type Target = PipelineData;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl PipelineDataWithExit {
-    fn empty() -> Self {
-        Self {
-            inner: PipelineData::empty(),
-            exit: vec![],
-        }
-    }
-}
-
-impl From<PipelineData> for PipelineDataWithExit {
-    fn from(value: PipelineData) -> Self {
-        let exit_status_future = value.clone_exit_status_future();
-        Self {
-            inner: value,
-            exit: vec![exit_status_future],
-        }
-    }
-}
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -233,7 +199,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let register_data: Vec<&PipelineData> = ctx.registers.iter().map(|d| &d.inner).collect();
+    let register_data: Vec<&PipelineData> = ctx.registers.iter().map(|d| d.inner).collect();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
