@@ -3754,8 +3754,6 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
-            // Is this the right call to be using here?
-            // Some of the others (`parse_let`) use it, some of them (`parse_hide`) don't.
             let ParsedInternalCall { call, output } = parse_internal_call(
                 working_set,
                 spans[0],
@@ -3778,10 +3776,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             }
 
             // Command and one file name
-            if spans.len() >= 2 {
-                let expr = parse_value(working_set, spans[1], &SyntaxShape::Any);
-
-                let val = match eval_constant(working_set, &expr) {
+            if let Some(expr) = call.positional_nth(0) {
+                let val = match eval_constant(working_set, expr) {
                     Ok(val) => val,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
