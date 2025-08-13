@@ -5272,12 +5272,12 @@ pub fn parse_value(
                     .iter()
                     .any(|s| matches!(s, SyntaxShape::List(_)))
                 {
-                    working_set.error(ParseError::Expected("non-[] value", span));
+                    working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                     return Expression::garbage(working_set, span);
                 }
             }
             _ => {
-                working_set.error(ParseError::Expected("non-[] value", span));
+                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                 return Expression::garbage(working_set, span);
             }
         },
@@ -5285,10 +5285,6 @@ pub fn parse_value(
             return parse_raw_string(working_set, span);
         }
         _ => {}
-    }
-
-    if bytes == b"null" {
-        return Expression::new(working_set, Expr::Nothing, span, Type::Nothing);
     }
 
     match shape {
@@ -5301,49 +5297,38 @@ pub fn parse_value(
         SyntaxShape::Range => {
             parse_range(working_set, span).unwrap_or_else(|| garbage(working_set, span))
         }
-        SyntaxShape::Filepath => parse_filepath(working_set, span),
-        SyntaxShape::Directory => parse_directory(working_set, span),
-        SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
-        SyntaxShape::String => parse_string(working_set, span),
-        SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::Signature => {
-            if bytes.starts_with(b"[") {
-                parse_signature(working_set, span)
-            } else {
-                working_set.error(ParseError::Expected("signature", span));
-
-                Expression::garbage(working_set, span)
-            }
+        // Check for reserved keyword values
+        SyntaxShape::Nothing | SyntaxShape::Any if bytes == b"null" => {
+            Expression::new(working_set, Expr::Nothing, span, Type::Nothing)
         }
-        SyntaxShape::List(elem) => {
-            if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span, elem)
-            } else {
-                working_set.error(ParseError::Expected("list", span));
-
-                Expression::garbage(working_set, span)
-            }
-        }
-        SyntaxShape::Table(_) => {
-            if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span, &SyntaxShape::Any)
-            } else {
-                working_set.error(ParseError::Expected("table", span));
-
-                Expression::garbage(working_set, span)
-            }
-        }
-        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
         SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"true" => {
             Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
         }
         SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"false" => {
             Expression::new(working_set, Expr::Bool(false), span, Type::Bool)
         }
-        SyntaxShape::Boolean => {
-            working_set.error(ParseError::Expected("bool", span));
-            Expression::garbage(working_set, span)
+        SyntaxShape::Filepath
+        | SyntaxShape::Directory
+        | SyntaxShape::GlobPattern
+        | SyntaxShape::String
+            if matches!(bytes, b"true" | b"false" | b"null") =>
+        {
+            working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
+            garbage(working_set, span)
         }
+        SyntaxShape::Filepath => parse_filepath(working_set, span),
+        SyntaxShape::Directory => parse_directory(working_set, span),
+        SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
+        SyntaxShape::String => parse_string(working_set, span),
+        SyntaxShape::Binary => parse_binary(working_set, span),
+        SyntaxShape::Signature if bytes.starts_with(b"[") => parse_signature(working_set, span),
+        SyntaxShape::List(elem) if bytes.starts_with(b"[") => {
+            parse_table_expression(working_set, span, elem)
+        }
+        SyntaxShape::Table(_) if bytes.starts_with(b"[") => {
+            parse_table_expression(working_set, span, &SyntaxShape::Any)
+        }
+        SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
@@ -5399,11 +5384,8 @@ pub fn parse_value(
                 garbage(working_set, span)
             }
         }
-        x => {
-            working_set.error(ParseError::ExpectedWithStringMsg(
-                x.to_type().to_string(),
-                span,
-            ));
+        _ => {
+            working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
             garbage(working_set, span)
         }
     }
