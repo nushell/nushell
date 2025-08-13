@@ -48,16 +48,17 @@ If you're not sure what to put here, or need some help, a core team member would
 
 Our CI system automatically checks formatting and runs our tests. If you're running into an issue, or just want to make sure everything is ready to go before creating your PR, you can run the checks yourself:
 
+```nushell
+use toolkit.nu # or use an `env_change` hook to activate it automatically
+toolkit check pr
+```
+
+Furthermore, you can also runs these checks individually with the subcommands of `toolkit`, or run the underlying commands yourself:
+
 - `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
 - `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used` to check that you're using the standard code style
 - `cargo test --workspace` to check that all tests pass (on Windows make sure to enable [developer mode](https://learn.microsoft.com/en-us/windows/apps/get-started/developer-mode-features-and-debugging))
 - `cargo run -- -c "use toolkit.nu; toolkit test stdlib"` to run the tests for the standard library
-
-Furthermore, you can also runs these checks all together using the `toolkit` module within Nushell as follows:
-```nushell
-use toolkit.nu # or use an `env_change` hook to activate it automatically
-toolkit check
-```
 
 If the checks are passing on your local system, but CI just won't pass, feel free to ask for help from the core team.
 
