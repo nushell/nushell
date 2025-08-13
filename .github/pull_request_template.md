@@ -5,7 +5,7 @@ Please, read our contributing guide: https://github.com/nushell/nushell/blob/mai
 Use the following space to include the motivation and any technical details behind this PR.
 -->
 
-## Release notes summary
+## Release notes summary - What our users need to know
 <!--
 This section will be included as part of our release notes. See the contributing guide for more details.
 If you're not confident about this, a core team member would be glad to help!
