@@ -14,7 +14,7 @@ export def dice [
     --sides = 6  # The amount of sides a die has
 ]: nothing -> list<int> {
     greater $dice 0 "The amount of dice must be greater than 0"
-    greater $sides 0 "The amount of sides must be greater than 0"
+    greater $sides 1 "The amount of sides must be greater than 1"
 
     mut out = []
     for _ in 1..$dice {
