@@ -2,7 +2,7 @@ use itertools::{Either, Itertools};
 use notify_debouncer_full::{
     DebouncedEvent, Debouncer, FileIdMap, new_debouncer,
     notify::{
-        self, EventKind, INotifyWatcher, RecursiveMode, Watcher,
+        self, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
         event::{DataChange, ModifyKind, RenameMode},
     },
 };
@@ -370,14 +370,14 @@ impl TryFrom<DebouncedEvent> for WatchEvent {
 
 struct WatchIterator {
     /// Debouncer needs to be kept alive for `rx` to keep receiving events.
-    _debouncer: Debouncer<INotifyWatcher, FileIdMap>,
+    _debouncer: Debouncer<RecommendedWatcher, FileIdMap>,
     rx: Option<Receiver<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>>,
     signals: Signals,
 }
 
 impl WatchIterator {
     fn new(
-        debouncer: Debouncer<INotifyWatcher, FileIdMap>,
+        debouncer: Debouncer<RecommendedWatcher, FileIdMap>,
         rx: Receiver<Result<Vec<DebouncedEvent>, Vec<notify::Error>>>,
         signals: Signals,
     ) -> Self {
