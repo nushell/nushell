@@ -40,7 +40,7 @@ use crate::{
     parser::{
         ParsedInternalCall, check_call, garbage, garbage_pipeline, parse, parse_call,
         parse_expression, parse_full_signature, parse_import_pattern, parse_internal_call,
-        parse_string, parse_value, parse_var_with_opt_type, trim_quotes,
+        parse_string, parse_var_with_opt_type, trim_quotes,
     },
     unescape_unquote_string,
 };
