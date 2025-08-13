@@ -69,7 +69,7 @@ impl Handlers {
     }
 
     /// Registers a new handler which persists for the entire process lifetime.
-    /// 
+    ///
     /// Only use this for handlers which should exist for the lifetime of the program.
     /// You should prefer to use `register` with a `HandlerGuard` when possible.
     pub fn register_unguarded(&self, handler: Handler) -> Result<(), ShellError> {
