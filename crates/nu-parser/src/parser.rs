@@ -15,7 +15,7 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    casing::Casing, engine::StateWorkingSet, eval_const::eval_constant,
+    casing::Casing, did_you_mean, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -641,11 +641,14 @@ fn parse_long_flag(
                     }
                 }
             } else {
+                let suggestion = did_you_mean(sig.get_names(), &long_name)
+                    .map(|name| format!("Did you mean: `--{name}`?"))
+                    .unwrap_or("Use `--help` to see available flags".to_owned());
                 working_set.error(ParseError::UnknownFlag(
                     sig.name.clone(),
                     long_name.clone(),
                     arg_span,
-                    sig.clone().formatted_flags(),
+                    suggestion,
                 ));
                 (
                     Some(Spanned {
@@ -725,7 +728,7 @@ fn parse_short_flags(
                     sig.name.clone(),
                     format!("-{}", String::from_utf8_lossy(contents)),
                     *first,
-                    sig.clone().formatted_flags(),
+                    "Use `--help` to see available flags".to_owned(),
                 ));
             }
 
