@@ -3,6 +3,7 @@
 Welcome to Nushell and thank you for considering contributing!
 
 ## Table of contents
+- [Tips for submitting PRs](#tips-for-submitting-prs)
 - [Proposing design changes](#proposing-design-changes)
 - [Developing](#developing)
   - [Setup](#setup)
@@ -19,6 +20,51 @@ More resources can be found in the nascent [developer documentation](devdocs/REA
 - [Developer FAQ](devdocs/FAQ.md)
 - [Platform support policy](devdocs/PLATFORM_SUPPORT.md)
 - [Our Rust style](devdocs/rust_style.md)
+
+## Tips for submitting PRs
+
+Thank you for improving Nushell! We are always glad to see contributions, and we are absolutely willing to talk through the design or implementation of your PR. Come talk with us in [Discord](https://discordapp.com/invite/NtAbbGn), or create a GitHub discussion or draft PR and we can help you work out the details from there.
+
+**Please talk to the core team before making major changes!** See the [proposing design changes](#proposing-design-changes) for more details.
+
+### Release notes section
+
+In our PR template, we have a "Release notes summary" section which will be included in our release notes for our blog.
+
+This section should include all information about your change which is relevant to a user of Nushell. You should try to keep it **brief and simple to understand**, and focus on the ways your change directly impacts the user experience. We highly encourage adding examples and, when relevant, screenshots in this section.
+
+Please make sure to consider both the *intended changes*, such as additions or deliberate breaking changes **and** possible *side effects* that might change how users interact with a command or feature. It's important to think carefully about the ways that your PR might affect any aspect of the user experience, and to document these changes even if they seem minor or aren't directly related to the main purpose of the PR.
+
+This section might not be relevant for all PRs. If your PR is a work in progress, feel free to write "WIP"/"TODO"/etc in this section. You can also write "N/A" if this is a technical change which doesn't impact the user experience.
+
+If you're not sure what to put here, or need some help, **a core team member would be glad to help you out**. We may also makes some tweaks to your release notes section. Please don't take it personally, we just want to make sure our release notes are polished and easy to understand. Once the release notes section is ready, we'll add the (TODO label name) label to indicate that the release notes section is ready to be included in the actual release notes.
+
+### Tests and formatting checks
+
+Our CI system automatically checks formatting and runs our tests. If you're running into an issue, or just want to make sure everything is ready to go before creating your PR, you can run the checks yourself:
+
+```nushell
+use toolkit.nu # or use an `env_change` hook to activate it automatically
+toolkit check pr
+```
+
+Furthermore, you can also runs these checks individually with the subcommands of `toolkit`, or run the underlying commands yourself:
+
+- `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
+- `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used` to check that you're using the standard code style
+- `cargo test --workspace` to check that all tests pass (on Windows make sure to enable [developer mode](https://learn.microsoft.com/en-us/windows/apps/get-started/developer-mode-features-and-debugging))
+- `cargo run -- -c "use toolkit.nu; toolkit test stdlib"` to run the tests for the standard library
+
+If the checks are passing on your local system, but CI just won't pass, feel free to ask for help from the core team.
+
+### Linking and mentioning issues
+
+If your PR closes one or more issues, you can automatically link the PR with them by using one of the [linking keywords](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword):
+
+- This PR should close #xxxx
+- Fixes #xxxx
+
+You can also mention related issues, PRs or discussions!
 
 ## Proposing design changes
 
