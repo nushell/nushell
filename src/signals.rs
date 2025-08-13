@@ -17,7 +17,7 @@ pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
             Box::new(move |action| {
                 if action == SignalAction::Interrupt {
                     if let Ok(mut jobs) = jobs.lock() {
-                        jobs.kill_all().ok();
+                        let _ = jobs.kill_all();
                     }
                 }
             })
