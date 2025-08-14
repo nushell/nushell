@@ -158,28 +158,28 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
 
 fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
     if let Some(v) = num.to_i8() {
-        let bytes = v.to_ne_bytes();
+        let bytes = v.to_be_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i16() {
-        let bytes = v.to_ne_bytes();
+        let bytes = v.to_be_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i32() {
-        let bytes = v.to_ne_bytes();
+        let bytes = v.to_be_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else {
-        let bytes = num.to_ne_bytes();
+        let bytes = num.to_be_bytes();
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{ch:08b} "));
