@@ -210,7 +210,7 @@ impl Command for SubCommand {
 enum Matcher {
     Regex(Regex),
     Direct(Value),
-    Closure(ClosureEval),
+    Closure(Box<ClosureEval>),
 }
 
 enum Split {
@@ -257,7 +257,7 @@ impl Matcher {
     }
 
     pub fn from_closure(closure: ClosureEval) -> Self {
-        Self::Closure(closure)
+        Self::Closure(Box::new(closure))
     }
 
     pub fn compare(&mut self, rhs: &Value) -> Result<bool, ShellError> {

@@ -1,7 +1,7 @@
-use std::cmp::Ordering;
-
+#![allow(clippy::result_large_err)]
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {

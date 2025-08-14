@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.86.0"
+rust-version = "1.87.0"
 version = "0.106.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -203,6 +203,7 @@ webpki-roots = "1.0"
 # todo = "warn"
 unchecked_duration_subtraction = "warn"
 used_underscore_binding = "warn"
+result_large_err = "allow"
 
 [lints]
 workspace = true

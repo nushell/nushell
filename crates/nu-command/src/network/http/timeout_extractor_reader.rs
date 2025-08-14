@@ -28,7 +28,7 @@ impl<R: Read> Read for UreqTimeoutExtractorReader<R> {
                     std::io::Error::new(std::io::ErrorKind::TimedOut, ureq_err)
                 }
                 // package it back
-                e => std::io::Error::new(std::io::ErrorKind::Other, e),
+                e => std::io::Error::other(e),
             }
         })
     }
