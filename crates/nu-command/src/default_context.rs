@@ -457,6 +457,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobId,
             JobTag,
             Job,
+
+            Self_,
+            Landlock,
         };
 
         #[cfg(not(target_family = "wasm"))]

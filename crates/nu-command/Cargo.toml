@@ -66,6 +66,7 @@ human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
 itertools = { workspace = true }
+landlock = { workspace = true }
 log = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
 	"nu-ansi-term",
