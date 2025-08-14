@@ -76,6 +76,11 @@ impl Command for FormatBits {
                 result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
+                description: "convert an int into a string, padded to 8 places with 0s (big endian)",
+                example: "258 | format bits",
+                result: Some(Value::string("00000001 00000010", Span::test_data())),
+            },
+            Example {
                 description: "convert a filesize value into a string, padded to 8 places with 0s",
                 example: "1b | format bits",
                 result: Some(Value::string("00000001", Span::test_data())),
