@@ -236,7 +236,7 @@ fn default(
 
 /// A wrapper around the default value to handle closures and caching values
 enum DefaultValue {
-    Uncalculated(Spanned<ClosureEval>),
+    Uncalculated(Box<Spanned<ClosureEval>>),
     Calculated(Value),
 }
 
@@ -258,7 +258,7 @@ impl DefaultValue {
         match value {
             Value::Closure { val, .. } => {
                 let closure_eval = ClosureEval::new(engine_state, stack, *val);
-                DefaultValue::Uncalculated(closure_eval.into_spanned(span))
+                DefaultValue::Uncalculated(Box::new(closure_eval.into_spanned(span)))
             }
             _ => DefaultValue::Calculated(value),
         }
