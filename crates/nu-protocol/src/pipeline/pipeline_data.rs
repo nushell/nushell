@@ -976,7 +976,7 @@ pub struct PipelineDataWithExit {
     pub inner: PipelineData,
     // NOTE: use Vec<ExitStatusFuture> for now
     // maybe it's necessary to optimize it.
-    exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
+    pub exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
 }
 
 impl Deref for PipelineDataWithExit {
@@ -988,7 +988,7 @@ impl Deref for PipelineDataWithExit {
 }
 
 impl PipelineDataWithExit {
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             inner: PipelineData::empty(),
             exit: vec![],

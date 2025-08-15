@@ -270,7 +270,7 @@ impl Debugger for Profiler {
                             .output_register()
                             .map(|register| Ok(&registers[register.get() as usize]))
                     })
-                    .map(|result| format_result(result.map(|r| *r), span))
+                    .map(|result| format_result(result.map(|r| &r.inner), span))
             })
             .flatten();
 

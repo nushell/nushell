@@ -65,7 +65,7 @@ pub enum ExitStatusFuture {
 }
 
 impl ExitStatusFuture {
-    fn wait(&mut self, span: Span) -> Result<ExitStatus, ShellError> {
+    pub fn wait(&mut self, span: Span) -> Result<ExitStatus, ShellError> {
         match self {
             ExitStatusFuture::Finished(Ok(status)) => Ok(*status),
             ExitStatusFuture::Finished(Err(err)) => Err(err.as_ref().clone()),

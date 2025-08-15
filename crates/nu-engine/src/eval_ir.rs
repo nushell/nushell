@@ -199,14 +199,13 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let register_data: Vec<&PipelineData> = ctx.registers.iter().map(|d| d.inner).collect();
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, &register_data);
+        D::enter_instruction(ctx.engine_state, ir_block, pc, &ctx.registers);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
@@ -214,7 +213,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             ctx.engine_state,
             ir_block,
             pc,
-            &register_data,
+            &ctx.registers,
             result.as_ref().err(),
         );
 
@@ -342,9 +341,9 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Span { src_dst } => {
-            let data = ctx.take_reg(*src_dst);
-            let spanned = data.with_span(*span);
-            ctx.put_reg(*src_dst, PipelineDataWithExit::from(spanned));
+            let mut data = ctx.take_reg(*src_dst);
+            data.inner = data.inner.with_span(*span);
+            ctx.put_reg(*src_dst, data);
             Ok(Continue)
         }
         Instruction::Drop { src } => {
@@ -363,7 +362,7 @@ fn eval_instruction<D: DebugContext>(
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.drain_to_out_dests(ctx.engine_state, stack)?
+                data.inner.drain_to_out_dests(ctx.engine_state, stack)?
             };
             ctx.put_reg(*src, PipelineDataWithExit::from(res));
             Ok(Continue)
@@ -554,7 +553,7 @@ fn eval_instruction<D: DebugContext>(
             } else {
                 false
             };
-            if let Err(err) = src.write_to(file.as_ref()) {
+            if let Err(err) = src.inner.write_to(file.as_ref()) {
                 if is_external {
                     ctx.stack.set_last_error(&err);
                 }
@@ -575,6 +574,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
+            let (input, mut exit) = (input.inner, input.exit);
             // TODO: carefully handle for call, it's the key to implement
             // pipefail.
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
@@ -585,7 +585,14 @@ fn eval_instruction<D: DebugContext>(
                     _ => (),
                 };
             }
-            ctx.put_reg(*src_dst, result);
+            exit.push(result.clone_exit_status_future());
+            ctx.put_reg(
+                *src_dst,
+                PipelineDataWithExit {
+                    inner: result,
+                    exit: exit,
+                },
+            );
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -718,8 +725,11 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.inner {
-                let value = data.follow_cell_path(&path.members, *span)?;
-                ctx.put_reg(*src_dst, value.into_pipeline_data());
+                let value = data.inner.follow_cell_path(&path.members, *span)?;
+                ctx.put_reg(
+                    *src_dst,
+                    PipelineDataWithExit::from(value.into_pipeline_data()),
+                );
                 Ok(Continue)
             } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.inner {
                 Err(*error)
@@ -757,7 +767,7 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let metadata = data.metadata();
             // Change the span because we're modifying it
-            let mut value = data.into_value(*span)?;
+            let mut value = data.inner.into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.inner {
@@ -1508,7 +1518,9 @@ fn drain(
     data: PipelineDataWithExit,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    match data {
+    let exit_status = data.exit;
+
+    match data.inner {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             let callback_spans = stream.get_caller_spans().clone();
@@ -1546,6 +1558,13 @@ fn drain(
             }
         }
         PipelineData::Value(..) | PipelineData::Empty => {}
+    }
+
+    for one_exit in exit_status.into_iter().rev() {
+        if let Some(future) = one_exit {
+            let mut future = future.lock().unwrap();
+            let wait_result = future.wait(Span::unknown());
+        }
     }
     Ok(Continue)
 }
