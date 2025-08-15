@@ -11,6 +11,76 @@ pub struct Record {
     inner: Vec<(String, Value)>,
 }
 
+/// A wrapper around [`Record`] that handles lookups. Whether the keys are compared case sensitively
+/// or not is controlled with the `SENSITIVE` parameter.
+///
+/// It is never actually constructed as a value and only used as a reference to an existing
+/// [`Record`].
+#[repr(transparent)]
+pub struct CaseTypedRecord<const SENSITIVE: bool>(Record);
+
+impl<const SENSITIVE: bool> CaseTypedRecord<SENSITIVE> {
+    #[inline]
+    const fn from_record(record: &Record) -> &Self {
+        // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
+        unsafe { &*(record as *const Record as *const Self) }
+    }
+
+    #[inline]
+    const fn from_record_mut(record: &mut Record) -> &mut Self {
+        // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
+        unsafe { &mut *(record as *mut Record as *mut Self) }
+    }
+
+    #[inline]
+    fn keys_eq(lhs: &str, rhs: &str) -> bool {
+        match SENSITIVE {
+            true => lhs == rhs,
+            false => lhs.eq_ignore_case(rhs),
+        }
+    }
+
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+        let col = col.as_ref();
+        self.0.columns().rposition(|k| Self::keys_eq(k, col))
+    }
+
+    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+        self.index_of(col.as_ref()).is_some()
+    }
+
+    pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
+        let index = self.index_of(col.as_ref())?;
+        Some(self.0.get_index(index)?.1)
+    }
+
+    pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
+        let index = self.index_of(col.as_ref())?;
+        Some(self.0.get_index_mut(index)?.1)
+    }
+
+    /// Remove single value by key and return it
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let index = self.index_of(col.as_ref())?;
+        Some(self.0.remove_index(index))
+    }
+
+    /// Insert into the record, replacing preexisting value if found.
+    ///
+    /// Returns `Some(previous_value)` if found. Else `None`
+    pub fn insert<K>(&mut self, col: K, val: Value) -> Option<Value>
+    where
+        K: AsRef<str> + Into<String>,
+    {
+        if let Some(curr_val) = self.get_mut(col.as_ref()) {
+            Some(std::mem::replace(curr_val, val))
+        } else {
+            self.0.push(col, val);
+            None
+        }
+    }
+}
+
 /// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
 ///
 /// Implements commonly used methods of [`Record`].
@@ -194,6 +264,11 @@ impl Record {
         let idx = self.index_of(col)?;
         let (_, val) = self.inner.remove(idx);
         Some(val)
+    }
+
+    /// Remove single value by index
+    fn remove_index(&mut self, index: usize) -> Value {
+        self.inner.remove(index).1
     }
 
     /// Remove elements in-place that do not satisfy `keep`
