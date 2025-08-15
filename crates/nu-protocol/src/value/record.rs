@@ -81,6 +81,53 @@ impl<const SENSITIVE: bool> CaseTypedRecord<SENSITIVE> {
     }
 }
 
+/// Extension trait for [`Record`]. Enables separate implementations for `&Record` and `&mut Record`
+pub trait RecordExt {
+    type Ref<const S: bool>;
+    fn case_sensitive(self) -> Self::Ref<true>;
+    fn case_insensitive(self) -> Self::Ref<false>;
+}
+
+impl<'a> RecordExt for &'a Record {
+    type Ref<const S: bool> = &'a CaseTypedRecord<S>;
+
+    #[inline]
+    fn case_sensitive(self) -> Self::Ref<true> {
+        CaseTypedRecord::<true>::from_record(self)
+    }
+
+    #[inline]
+    fn case_insensitive(self) -> Self::Ref<false> {
+        CaseTypedRecord::<false>::from_record(self)
+    }
+}
+
+impl<'a> RecordExt for &'a mut Record {
+    type Ref<const S: bool> = &'a mut CaseTypedRecord<S>;
+
+    #[inline]
+    fn case_sensitive(self) -> Self::Ref<true> {
+        CaseTypedRecord::<true>::from_record_mut(self)
+    }
+
+    #[inline]
+    fn case_insensitive(self) -> Self::Ref<false> {
+        CaseTypedRecord::<false>::from_record_mut(self)
+    }
+}
+
+impl AsRef<Record> for Record {
+    fn as_ref(&self) -> &Record {
+        self
+    }
+}
+
+impl AsMut<Record> for Record {
+    fn as_mut(&mut self) -> &mut Record {
+        self
+    }
+}
+
 /// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
 ///
 /// Implements commonly used methods of [`Record`].
