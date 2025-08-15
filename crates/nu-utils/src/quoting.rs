@@ -6,8 +6,9 @@ use std::sync::LazyLock;
 // • Any digit (\d)
 // • Any whitespace (\s)
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
+// • lone `=`
 static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s!?]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
+    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s!?]|(?i)^[+\-]?(inf(inity)?|nan)$|^=$"#)
         .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });
 

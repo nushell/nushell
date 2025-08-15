@@ -516,6 +516,17 @@ fn quotes_some_strings_necessarily() {
 }
 
 #[test]
+fn quotes_equal_sign_in_record_keys() {
+    let actual = nu!(pipeline(
+        r#"
+        {"=": 42} | to nuon | from nuon | columns | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
 fn read_code_should_fail_rather_than_panic() {
     let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
         r#"open code.nu | from nuon"#
