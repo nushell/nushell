@@ -154,19 +154,27 @@ pub struct CasedRecord<R> {
     casing: Casing,
 }
 
+impl Clone for CasedRecord<&Record> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl Copy for CasedRecord<&Record> {}
+
 impl<'a> CasedRecord<&'a Record> {
-    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+    pub fn index_of(self, col: impl AsRef<str>) -> Option<usize> {
         match self.casing {
             Casing::Sensitive => self.record.case_sensitive().index_of(col.as_ref()),
             Casing::Insensitive => self.record.case_insensitive().index_of(col.as_ref()),
         }
     }
 
-    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+    pub fn contains(self, col: impl AsRef<str>) -> bool {
         self.get(col.as_ref()).is_some()
     }
 
-    pub fn get(&self, col: impl AsRef<str>) -> Option<&'a Value> {
+    pub fn get(self, col: impl AsRef<str>) -> Option<&'a Value> {
         match self.casing {
             Casing::Sensitive => self.record.case_sensitive().get(col.as_ref()),
             Casing::Insensitive => self.record.case_insensitive().get(col.as_ref()),
@@ -175,21 +183,77 @@ impl<'a> CasedRecord<&'a Record> {
 }
 
 impl<'a> CasedRecord<&'a mut Record> {
-    fn shared(&'a self) -> CasedRecord<&'a Record> {
+    /// Explicit reborrowing. See [Self::reborrow_mut()]
+    pub fn reborrow(&self) -> CasedRecord<&Record> {
         CasedRecord {
             record: &*self.record,
             casing: self.casing,
         }
     }
 
-    pub fn get_mut(&'a mut self, col: impl AsRef<str>) -> Option<&'a mut Value> {
+    /// Explicit reborrowing. Using this before methods that receive `self` is necessary to avoid
+    /// consuming the `CasedRecord` instance.
+    ///
+    /// ```
+    /// use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    ///
+    /// let mut rec = record!{
+    ///     "A" => Value::test_nothing(),
+    ///     "B" => Value::test_int(42),
+    ///     "C" => Value::test_nothing(),
+    ///     "D" => Value::test_int(42),
+    /// };
+    /// let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// ```
+    ///
+    /// The following will fail to compile:
+    ///
+    /// ```compile_fail
+    /// # use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    /// # let mut rec = record!{};
+    /// # let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// let a = cased_rec.get_mut("a");
+    /// let b = cased_rec.get_mut("b");
+    /// ```
+    ///
+    /// This is due to the fact `.get_mut()` receives `self`[^self] _by value_, which limits its use to
+    /// just once, unless we construct a new `CasedRecord`.
+    ///
+    /// [^self]: Receiving `&mut self` works, but has an undesirable effect on the return value's
+    /// lifetime. With `Self == &'wrapper mut CasedRecord<&'source mut Record>`, return value's
+    /// lifetime will be `'wrapper` rather than `'source`.
+    ///
+    /// We can create a new `CasedRecord<&mut Record>` from an existing one even though `&mut T` is
+    /// not [`Copy`]. This is accomplished with [reborrowing] which happens implicitly with native
+    /// references. Reborrowing also happens to be a tragically under documented feature of rust.
+    ///
+    /// Though there isn't a trait for it yet, it's possible and simple to implement, it just has
+    /// to be called explicitly:
+    ///
+    /// ```
+    /// # use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    /// # let mut rec = record!{};
+    /// # let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// let a = cased_rec.reborrow_mut().get_mut("a");
+    /// let b = cased_rec.reborrow_mut().get_mut("b");
+    /// ```
+    ///
+    /// [reborrowing]: https://quinedot.github.io/rust-learning/st-reborrow.html
+    pub fn reborrow_mut(&mut self) -> CasedRecord<&mut Record> {
+        CasedRecord {
+            record: &mut *self.record,
+            casing: self.casing,
+        }
+    }
+
+    pub fn get_mut(self, col: impl AsRef<str>) -> Option<&'a mut Value> {
         match self.casing {
             Casing::Sensitive => self.record.case_sensitive().get_mut(col.as_ref()),
             Casing::Insensitive => self.record.case_insensitive().get_mut(col.as_ref()),
         }
     }
 
-    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+    pub fn remove(self, col: impl AsRef<str>) -> Option<Value> {
         match self.casing {
             Casing::Sensitive => self.record.case_sensitive().remove(col.as_ref()),
             Casing::Insensitive => self.record.case_insensitive().remove(col.as_ref()),
