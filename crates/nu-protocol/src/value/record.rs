@@ -63,7 +63,7 @@ impl<'a> CasedRecord<&'a mut Record> {
 
     pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
         let idx = self.shared().index_of(col)?;
-        let (_, val) = self.record.inner.remove(idx);
+        let val = self.record.remove_index(idx);
         Some(val)
     }
 }
@@ -165,16 +165,13 @@ impl Record {
     }
 
     pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
-        self.inner
-            .iter()
-            .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
+        let idx = self.index_of(col)?;
+        self.get_index(idx).map(|(_, val)| val)
     }
 
     pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
-        self.inner
-            .make_mut()
-            .iter_mut()
-            .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
+        let idx = self.index_of(col)?;
+        self.get_index_mut(idx).map(|(_, val)| val)
     }
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
@@ -195,8 +192,11 @@ impl Record {
     /// Note: makes strong assumption that keys are unique
     pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
         let idx = self.index_of(col)?;
-        let (_, val) = self.inner.remove(idx);
-        Some(val)
+        Some(self.remove_index(idx))
+    }
+
+    fn remove_index(&mut self, idx: usize) -> Value {
+        self.inner.remove(idx).1
     }
 
     /// Remove elements in-place that do not satisfy `keep`
