@@ -394,8 +394,10 @@ mod tests {
     fn new_record(rec: &[(&'static str, Value)]) -> Value {
         let span = Span::unknown();
         let rec = Record::from_raw_cols_vals(
-            rec.iter().map(|(col, _)| col.to_string()).collect(),
-            rec.iter().map(|(_, val)| val.clone()).collect(),
+            rec.iter()
+                .map(|(col, _)| col.to_string())
+                .collect::<Vec<_>>(),
+            rec.iter().map(|(_, val)| val.clone()).collect::<Vec<_>>(),
             span,
             span,
         )
