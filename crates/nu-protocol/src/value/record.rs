@@ -283,60 +283,12 @@ impl Record {
         self.inner.push((col.into(), val));
     }
 
-    /// Insert into the record, replacing preexisting value if found.
-    ///
-    /// Returns `Some(previous_value)` if found. Else `None`
-    pub fn insert<K>(&mut self, col: K, val: Value) -> Option<Value>
-    where
-        K: AsRef<str> + Into<String>,
-    {
-        if let Some(curr_val) = self.get_mut(&col) {
-            Some(std::mem::replace(curr_val, val))
-        } else {
-            self.push(col, val);
-            None
-        }
-    }
-
-    pub fn contains(&self, col: impl AsRef<str>) -> bool {
-        self.columns().any(|k| k == col.as_ref())
-    }
-
-    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
-        self.columns().position(|k| k == col.as_ref())
-    }
-
-    pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
-        self.inner
-            .iter()
-            .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
-    }
-
-    pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
-        self.inner
-            .iter_mut()
-            .find_map(|(k, v)| if k == col.as_ref() { Some(v) } else { None })
-    }
-
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
         self.inner.get(idx).map(|(col, val): &(_, _)| (col, val))
     }
 
     pub fn get_index_mut(&mut self, idx: usize) -> Option<(&mut String, &mut Value)> {
-        self.inner
-            .get_mut(idx)
-            .map(|(col, val): &mut (_, _)| (col, val))
-    }
-
-    /// Remove single value by key
-    ///
-    /// Returns `None` if key not found
-    ///
-    /// Note: makes strong assumption that keys are unique
-    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
-        let idx = self.index_of(col)?;
-        let (_, val) = self.inner.remove(idx);
-        Some(val)
+        self.inner.get_mut(idx).map(|(col, val)| (col, val))
     }
 
     /// Remove single value by index
