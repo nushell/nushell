@@ -4163,6 +4163,7 @@ dependencies = [
  "nu-utils",
  "num-format",
  "os_pipe",
+ "permutation",
  "pretty_assertions",
  "rmp-serde",
  "rstest",
@@ -4894,6 +4895,12 @@ name = "peresil"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f658886ed52e196e850cfbbfddab9eaa7f6d90dd0929e264c31e5cec07e09e57"
+
+[[package]]
+name = "permutation"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df202b0b0f5b8e389955afd5f27b007b00fb948162953f1db9c70d2c7e3157d7"
 
 [[package]]
 name = "pest"
