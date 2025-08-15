@@ -112,7 +112,7 @@ impl Command for Describe {
                                     "value" => Value::test_int(10),
                                 )),
                             )),
-                            "rust_type" => Value::test_string("&nu_utils::shared_cow::SharedCow<nu_protocol::value::record::Record>"),
+                            "rust_type" => Value::test_string("nu_protocol::value::record::Record"),
                         )),
                         "fib" => Value::test_record(record!(
                             "type" => Value::test_string("list"),
@@ -184,7 +184,7 @@ impl Command for Describe {
                             "value" => Value::test_duration(260_000_000_000),
                         ))
                     )),
-                    "rust_type" => Value::test_string("&nu_utils::shared_cow::SharedCow<nu_protocol::value::record::Record>"),
+                    "rust_type" => Value::test_string("nu_protocol::value::record::Record"),
                 ))),
             },
             Example {
