@@ -199,6 +199,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
+    let pipefail = ctx.engine_state.get_config().pipefail;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -225,7 +226,27 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
-                return Ok(ctx.take_reg(reg_id).inner);
+                let result = ctx.take_reg(reg_id);
+                let (result_data, exit_status) = (result.inner, result.exit);
+                let mut final_result = Ok(result_data);
+                for one_exit in exit_status.into_iter().rev() {
+                    if let Some(future) = one_exit {
+                        let mut future = future.lock().unwrap();
+                        let wait_result = future.wait(Span::unknown());
+                        match wait_result {
+                            Err(err) if pipefail => final_result = Err(err),
+                            Ok(status) => {
+                                if let Err(e) = check_ok(status, false, Span::unknown()) {
+                                    if pipefail {
+                                        final_result = Err(e)
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                return final_result;
             }
             Err(
                 err @ (ShellError::Return { .. }
@@ -1560,21 +1581,26 @@ fn drain(
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
 
+    let pipefail = ctx.engine_state.get_config().pipefail;
+    let mut result = Ok(Continue);
     for one_exit in exit_status.into_iter().rev() {
         if let Some(future) = one_exit {
             let mut future = future.lock().unwrap();
             let wait_result = future.wait(Span::unknown());
             match wait_result {
-                Err(err) => ctx.stack.set_last_error(&err),
+                Err(err) if pipefail => result = Err(err),
                 Ok(status) => {
                     if let Err(e) = check_ok(status, false, Span::unknown()) {
-                        ctx.stack.set_last_error(&e);
+                        if pipefail {
+                            result = Err(e)
+                        }
                     }
                 }
+                _ => {}
             }
         }
     }
-    Ok(Continue)
+    result
 }
 
 enum RedirectionStream {

@@ -14,7 +14,7 @@
 //! `Debugger::report()` to get some output from the debugger, if necessary.
 
 use crate::{
-    PipelineData, PipelineDataWithExit, ShellError, Span, Value,
+    PipelineData, ShellError, Span, Value,
     ast::{Block, PipelineElement},
     engine::EngineState,
     ir::IrBlock,
@@ -55,7 +55,7 @@ pub trait DebugContext: Clone + Copy + Debug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
     ) {
     }
 
@@ -65,7 +65,7 @@ pub trait DebugContext: Clone + Copy + Debug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
         error: Option<&ShellError>,
     ) {
     }
@@ -112,7 +112,7 @@ impl DebugContext for WithDebug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
     ) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger.deref_mut().enter_instruction(
@@ -128,7 +128,7 @@ impl DebugContext for WithDebug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
         error: Option<&ShellError>,
     ) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
@@ -195,7 +195,7 @@ pub trait Debugger: Send + Debug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
     ) {
     }
 
@@ -206,7 +206,7 @@ pub trait Debugger: Send + Debug {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineDataWithExit],
+        registers: &[PipelineData],
         error: Option<&ShellError>,
     ) {
     }

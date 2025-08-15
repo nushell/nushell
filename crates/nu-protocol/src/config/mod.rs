@@ -63,6 +63,7 @@ pub struct Config {
     pub buffer_editor: Value,
     pub show_banner: BannerKind,
     pub bracketed_paste: bool,
+    pub pipefail: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
     pub cursor_shape: CursorShapeConfig,
@@ -110,6 +111,7 @@ impl Default for Config {
             buffer_editor: Value::nothing(Span::unknown()),
             use_ansi_coloring: UseAnsiColoring::default(),
             bracketed_paste: true,
+            pipefail: false,
             edit_mode: EditBindings::default(),
 
             shell_integration: ShellIntegrationConfig::default(),
@@ -184,6 +186,7 @@ impl UpdateFromValue for Config {
                     .render_right_prompt_on_last_line
                     .update(val, path, errors),
                 "bracketed_paste" => self.bracketed_paste.update(val, path, errors),
+                "pipefail" => self.pipefail.update(val, path, errors),
                 "use_kitty_protocol" => self.use_kitty_protocol.update(val, path, errors),
                 "highlight_resolved_externals" => {
                     self.highlight_resolved_externals.update(val, path, errors)
