@@ -165,7 +165,13 @@ mod tests {
     #[test]
     fn macro_works() {
         assert!(sformat!("").is_empty());
-        assert_eq!(sformat!("Hello World"), SharedString::from_static_str("Hello World"));
-        assert_eq!(sformat!("Hello {}", "World"), SharedString::from_static_str("Hello World"));
+        assert_eq!(
+            sformat!("Hello World"),
+            SharedString::from_static_str("Hello World")
+        );
+        assert_eq!(
+            sformat!("Hello {}", "World"),
+            SharedString::from_static_str("Hello World")
+        );
     }
 }

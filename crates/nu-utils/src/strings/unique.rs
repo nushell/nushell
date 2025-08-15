@@ -162,7 +162,13 @@ mod tests {
     #[test]
     fn macro_works() {
         assert!(uformat!("").is_empty());
-        assert_eq!(uformat!("Hello World"), UniqueString::from_static_str("Hello World"));
-        assert_eq!(uformat!("Hello {}", "World"), UniqueString::from_static_str("Hello World"));
+        assert_eq!(
+            uformat!("Hello World"),
+            UniqueString::from_static_str("Hello World")
+        );
+        assert_eq!(
+            uformat!("Hello {}", "World"),
+            UniqueString::from_static_str("Hello World")
+        );
     }
 }
