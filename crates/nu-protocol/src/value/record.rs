@@ -154,30 +154,23 @@ pub struct CasedRecord<R> {
     casing: Casing,
 }
 
-impl<R> CasedRecord<R> {
-    fn cmp(&self, lhs: &str, rhs: &str) -> bool {
+impl<'a> CasedRecord<&'a Record> {
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
         match self.casing {
-            Casing::Sensitive => lhs == rhs,
-            Casing::Insensitive => lhs.eq_ignore_case(rhs),
+            Casing::Sensitive => self.record.case_sensitive().index_of(col.as_ref()),
+            Casing::Insensitive => self.record.case_insensitive().index_of(col.as_ref()),
         }
     }
-}
 
-impl<'a> CasedRecord<&'a Record> {
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
-        self.record.columns().any(|k| self.cmp(k, col.as_ref()))
+        self.get(col.as_ref()).is_some()
     }
 
-    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
-        self.record
-            .columns()
-            .rposition(|k| self.cmp(k, col.as_ref()))
-    }
-
-    pub fn get(self, col: impl AsRef<str>) -> Option<&'a Value> {
-        let idx = self.index_of(col)?;
-        let (_, value) = self.record.get_index(idx)?;
-        Some(value)
+    pub fn get(&self, col: impl AsRef<str>) -> Option<&'a Value> {
+        match self.casing {
+            Casing::Sensitive => self.record.case_sensitive().get(col.as_ref()),
+            Casing::Insensitive => self.record.case_insensitive().get(col.as_ref()),
+        }
     }
 }
 
@@ -189,16 +182,31 @@ impl<'a> CasedRecord<&'a mut Record> {
         }
     }
 
-    pub fn get_mut(self, col: impl AsRef<str>) -> Option<&'a mut Value> {
-        let idx = self.shared().index_of(col)?;
-        let (_, value) = self.record.get_index_mut(idx)?;
-        Some(value)
+    pub fn get_mut(&'a mut self, col: impl AsRef<str>) -> Option<&'a mut Value> {
+        match self.casing {
+            Casing::Sensitive => self.record.case_sensitive().get_mut(col.as_ref()),
+            Casing::Insensitive => self.record.case_insensitive().get_mut(col.as_ref()),
+        }
     }
 
     pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
-        let idx = self.shared().index_of(col)?;
-        let (_, val) = self.record.inner.remove(idx);
-        Some(val)
+        match self.casing {
+            Casing::Sensitive => self.record.case_sensitive().remove(col.as_ref()),
+            Casing::Insensitive => self.record.case_insensitive().remove(col.as_ref()),
+        }
+    }
+
+    /// Insert into the record, replacing preexisting value if found.
+    ///
+    /// Returns `Some(previous_value)` if found. Else `None`
+    pub fn insert<K>(self, col: K, val: Value) -> Option<Value>
+    where
+        K: AsRef<str> + Into<String>,
+    {
+        match self.casing {
+            Casing::Sensitive => self.record.case_sensitive().insert(col.as_ref(), val),
+            Casing::Insensitive => self.record.case_insensitive().insert(col.as_ref(), val),
+        }
     }
 }
 
