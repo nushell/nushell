@@ -17,7 +17,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    process::ExitStatusFuture,
+    process::{ExitStatusFuture, check_ok},
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -1564,6 +1564,14 @@ fn drain(
         if let Some(future) = one_exit {
             let mut future = future.lock().unwrap();
             let wait_result = future.wait(Span::unknown());
+            match wait_result {
+                Err(err) => ctx.stack.set_last_error(&err),
+                Ok(status) => {
+                    if let Err(e) = check_ok(status, false, Span::unknown()) {
+                        ctx.stack.set_last_error(&e);
+                    }
+                }
+            }
         }
     }
     Ok(Continue)
