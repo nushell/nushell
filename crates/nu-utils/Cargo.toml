@@ -17,6 +17,8 @@ bench = false
 bench = false
 
 [dependencies]
+byteyarn.workspace = true
+compact_str.workspace = true
 crossterm = { workspace = true, optional = true }
 fancy-regex = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
