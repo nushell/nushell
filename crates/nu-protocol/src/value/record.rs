@@ -1,5 +1,9 @@
 //! Our insertion ordered map-type [`Record`]
-use std::{iter::FusedIterator, ops::RangeBounds};
+use std::{
+    iter::FusedIterator,
+    ops::RangeBounds,
+    ops::{Deref, DerefMut},
+};
 
 use crate::{ShellError, Span, Value, casing::Casing};
 
@@ -125,6 +129,20 @@ impl AsRef<Record> for Record {
 impl AsMut<Record> for Record {
     fn as_mut(&mut self) -> &mut Record {
         self
+    }
+}
+
+impl Deref for Record {
+    type Target = CaseTypedRecord<true>;
+
+    fn deref(&self) -> &Self::Target {
+        self.case_sensitive()
+    }
+}
+
+impl DerefMut for Record {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.case_sensitive()
     }
 }
 
