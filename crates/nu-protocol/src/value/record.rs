@@ -13,6 +13,41 @@ pub struct Record {
     vals: EcoVec<Value>,
 }
 
+#[repr(transparent)]
+pub struct RecordTemplate(EcoVec<String>);
+
+impl Record {
+    pub fn new_template<I>(cols: I) -> RecordTemplate
+    where
+        I: IntoIterator,
+        I::Item: Into<String>,
+    {
+        RecordTemplate(cols.into_iter().map(Into::into).collect())
+    }
+}
+
+impl RecordTemplate {
+    // TODO: Use a proper error type
+    pub fn add_values<I>(&self, vals: I) -> Record
+    where
+        I: IntoIterator<Item = Value>,
+    {
+        let vals: EcoVec<Value> = vals.into_iter().collect();
+        debug_assert_eq!(self.len(), vals.len());
+        let cols = self.0.clone();
+        Record { cols, vals }
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
 ///
 /// Implements commonly used methods of [`Record`].
