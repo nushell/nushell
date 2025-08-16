@@ -1,3 +1,4 @@
+use super::helpers::{SplitWhere, split_str};
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
 
@@ -24,13 +25,20 @@ impl Command for SplitRow {
                 SyntaxShape::String,
                 "A character or regex that denotes what separates rows.",
             )
+            .switch("collapse-empty", "remove empty columns", Some('c'))
             .named(
                 "number",
                 SyntaxShape::Int,
-                "Split into maximum number of items",
+                "SplitWhere into maximum number of items",
                 Some('n'),
             )
             .switch("regex", "use regex syntax for separator", Some('r'))
+            .named(
+                "split",
+                SyntaxShape::String,
+                "Whether to split lists before, after, or on (default) the separator",
+                None,
+            )
             .category(Category::Strings)
     }
 
@@ -96,6 +104,26 @@ impl Command for SplitRow {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Split into rows, keeping the delimiter as part of the output",
+                example: r#""7 oranges 3 bananas 5 green apples" | split row -r '\d' --split before --collapse-empty"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("7 oranges "),
+                    Value::test_string("3 bananas "),
+                    Value::test_string("5 green apples"),
+                ])),
+            },
+            Example {
+                description: "Split into 5 rows, collapsing the empty rows and not counting them",
+                example: r#""first|second||fourth|fifth|sixth|seventh" | split row "|" --number 5 --collapse-empty"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_string("first"),
+                    Value::test_string("second"),
+                    Value::test_string("fourth"),
+                    Value::test_string("fifth"),
+                    Value::test_string("sixth|seventh"),
+                ])),
+            },
         ]
     }
 
@@ -113,11 +141,16 @@ impl Command for SplitRow {
         let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
         let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
+        let collapse_empty = call.has_flag(engine_state, stack, "collapse-empty")?;
+        let split: Option<SplitWhere> = call.get_flag(engine_state, stack, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
 
         let args = Arguments {
             separator,
             max_split,
             has_regex,
+            collapse_empty,
+            split,
         };
         split_row(engine_state, call, input, args)
     }
@@ -131,11 +164,16 @@ impl Command for SplitRow {
         let separator: Spanned<String> = call.req_const(working_set, 0)?;
         let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
         let has_regex = call.has_flag_const(working_set, "regex")?;
+        let collapse_empty = call.has_flag_const(working_set, "collapse-empty")?;
+        let split: Option<SplitWhere> = call.get_flag_const(working_set, "split")?;
+        let split = split.unwrap_or(SplitWhere::On);
 
         let args = Arguments {
             separator,
             max_split,
             has_regex,
+            collapse_empty,
+            split,
         };
         split_row(working_set.permanent(), call, input, args)
     }
@@ -145,6 +183,8 @@ struct Arguments {
     has_regex: bool,
     separator: Spanned<String>,
     max_split: Option<usize>,
+    collapse_empty: bool,
+    split: SplitWhere,
 }
 
 fn split_row(
@@ -168,65 +208,43 @@ fn split_row(
         inner: vec![],
     })?;
     input.flat_map(
-        move |x| split_row_helper(&x, &regex, args.max_split, name_span),
+        move |x| match split_row_helper(
+            &x,
+            &regex,
+            args.max_split,
+            args.collapse_empty,
+            args.split,
+            name_span,
+        ) {
+            Ok(v) => v,
+            Err(err) => vec![Value::error(err, x.span())],
+        },
         engine_state.signals(),
     )
 }
 
-fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
-    let span = v.span();
+fn split_row_helper(
+    v: &Value,
+    regex: &Regex,
+    max_split: Option<usize>,
+    collapse_empty: bool,
+    split: SplitWhere,
+    name: Span,
+) -> Result<Vec<Value>, ShellError> {
     match v {
-        Value::Error { error, .. } => {
-            vec![Value::error(*error.clone(), span)]
-        }
+        Value::Error { error, .. } => Err(*error.clone()),
         v => {
             let v_span = v.span();
 
             if let Ok(s) = v.coerce_str() {
-                match max_split {
-                    Some(max_split) => regex
-                        .splitn(&s, max_split)
-                        .map(|x| match x {
-                            Ok(val) => Value::string(val, v_span),
-                            Err(err) => Value::error(
-                                ShellError::GenericError {
-                                    error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
-                                    span: Some(v_span),
-                                    help: None,
-                                    inner: vec![],
-                                },
-                                v_span,
-                            ),
-                        })
-                        .collect(),
-                    None => regex
-                        .split(&s)
-                        .map(|x| match x {
-                            Ok(val) => Value::string(val, v_span),
-                            Err(err) => Value::error(
-                                ShellError::GenericError {
-                                    error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
-                                    span: Some(v_span),
-                                    help: None,
-                                    inner: vec![],
-                                },
-                                v_span,
-                            ),
-                        })
-                        .collect(),
-                }
+                split_str(&s, regex, max_split, collapse_empty, split, v_span)
             } else {
-                vec![Value::error(
-                    ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string".into(),
-                        wrong_type: v.get_type().to_string(),
-                        dst_span: name,
-                        src_span: v_span,
-                    },
-                    name,
-                )]
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string".into(),
+                    wrong_type: v.get_type().to_string(),
+                    dst_span: name,
+                    src_span: v_span,
+                })
             }
         }
     }
