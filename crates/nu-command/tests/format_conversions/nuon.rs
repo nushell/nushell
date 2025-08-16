@@ -516,6 +516,19 @@ fn quotes_some_strings_necessarily() {
 }
 
 #[test]
+fn quotes_some_strings_necessarily_in_record_keys() {
+    let actual = nu!(pipeline(
+        r#"
+        ['=', 'a=', '=a'] | each {
+           {$in : 42}
+        } | reduce {|elt, acc| $acc | merge $elt} | to nuon | from nuon | columns | describe
+        "#
+    ));
+
+    assert_eq!(actual.out, "list<string>");
+}
+
+#[test]
 fn read_code_should_fail_rather_than_panic() {
     let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
         r#"open code.nu | from nuon"#
