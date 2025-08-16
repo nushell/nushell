@@ -270,7 +270,37 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
-        self.inner.retain(|(k, v)| keep(k, v));
+        let Self { cols, vals } = self;
+
+        let keep_idx = cols
+            .iter()
+            .map(AsRef::<str>::as_ref)
+            .zip(vals.make_mut().iter_mut())
+            .map(|(k, v)| keep(k, v))
+            .enumerate()
+            .filter_map(|(idx, keep)| keep.then_some(idx))
+            .collect::<Vec<_>>();
+
+        fn make_keep_fn<T>(keep_idx: &[usize]) -> impl FnMut(&mut T) -> bool {
+            let mut idx = 0usize;
+            let mut keep_idx_iter = keep_idx.iter().peekable();
+
+            move |_| {
+                let keep = match keep_idx_iter.peek() {
+                    Some(&k) if k == &idx => {
+                        let _ = keep_idx_iter.next();
+                        true
+                    }
+                    _ => false,
+                };
+
+                idx += 1;
+                keep
+            }
+        }
+
+        cols.retain(make_keep_fn(&keep_idx));
+        vals.retain(make_keep_fn(&keep_idx));
     }
 
     /// Truncate record to the first `len` elements.
@@ -375,7 +405,12 @@ impl Record {
     /// );
     /// ```
     pub fn sort_cols(&mut self) {
-        self.inner.make_mut().sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        let cols = self.cols.make_mut();
+        let vals = self.vals.make_mut();
+
+        let mut perm = permutation::sort(&*cols);
+        perm.apply_slice_in_place(cols);
+        perm.apply_slice_in_place(vals);
     }
 }
 
