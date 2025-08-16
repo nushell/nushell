@@ -11,7 +11,6 @@ use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
-use nu_utils::uformat;
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,

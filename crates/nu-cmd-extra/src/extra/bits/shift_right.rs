@@ -1,7 +1,6 @@
 use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 struct Arguments {
     signed: bool,

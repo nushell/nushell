@@ -1,7 +1,6 @@
 use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 use nu_utils::get_system_locale;
 

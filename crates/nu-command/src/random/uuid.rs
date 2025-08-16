@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 use uuid::{Timestamp, Uuid};
 
 #[derive(Clone)]

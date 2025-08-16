@@ -1,6 +1,5 @@
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct MathVariance;

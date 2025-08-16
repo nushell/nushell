@@ -4,7 +4,6 @@ use crossterm::event::{
 };
 use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 use nu_protocol::shell_error::io::IoError;
 use num_traits::AsPrimitive;

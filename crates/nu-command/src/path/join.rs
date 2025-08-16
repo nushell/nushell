@@ -1,7 +1,6 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
-use nu_utils::uformat;
 use std::path::{Path, PathBuf};
 
 struct Arguments {

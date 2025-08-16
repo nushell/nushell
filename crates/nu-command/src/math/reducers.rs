@@ -1,5 +1,4 @@
 use nu_protocol::{ShellError, Span, Value};
-use nu_utils::uformat;
 use std::cmp::Ordering;
 
 pub enum Reduce {

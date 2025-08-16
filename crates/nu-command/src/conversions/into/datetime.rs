@@ -5,7 +5,6 @@ use chrono::{
 };
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 const HOUR: i32 = 60 * 60;
 const ALLOWED_COLUMNS: [&str; 10] = [

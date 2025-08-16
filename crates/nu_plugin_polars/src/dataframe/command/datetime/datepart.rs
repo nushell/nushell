@@ -12,7 +12,6 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use nu_utils::uformat;
 use polars::{
     datatypes::{DataType, TimeUnit},
     prelude::{Field, NamedFrom, Schema},

@@ -1,7 +1,6 @@
 use fancy_regex::{NoExpand, Regex};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_utils::uformat;
 
 struct Arguments {
     all: bool,
