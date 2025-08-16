@@ -990,6 +990,7 @@ impl PipelineExecutionData {
     pub fn empty() -> Self {
         Self {
             body: PipelineData::empty(),
+            #[cfg(feature = "os")]
             exit: vec![],
         }
     }
@@ -1016,5 +1017,10 @@ impl From<PipelineData> for PipelineExecutionData {
             body: value,
             exit: vec![exit_status_future],
         }
+    }
+
+    #[cfg(not(feature = "os"))]
+    fn from(value: PipelineData) -> Self {
+        Self { body: value }
     }
 }
