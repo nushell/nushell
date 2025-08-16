@@ -1010,6 +1010,7 @@ pub fn check_exit_status_future(
 }
 
 impl From<PipelineData> for PipelineExecutionData {
+    #[cfg(feature = "os")]
     fn from(value: PipelineData) -> Self {
         let value_span = value.span().unwrap_or_else(Span::unknown);
         let exit_status_future = value.clone_exit_status_future().map(|f| (f, value_span));
