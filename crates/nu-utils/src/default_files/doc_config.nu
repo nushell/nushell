@@ -254,7 +254,7 @@ $env.config.bracketed_paste = true
 # true/false to enable/disable the pipefail feature
 # If set, the LAST_EXIT_CODE will be set to any command which exit with a non-zero status
 # or zero if all commands in the pipeline exit successfully.
-$env.config.bracketed_paste = false
+$env.config.pipefail = false
 
 # use_ansi_coloring ("auto" or bool):
 # The default value `"auto"` dynamically determines if ANSI coloring is used.
