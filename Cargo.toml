@@ -124,7 +124,7 @@ nu-ansi-term = "0.50.1"
 nucleo-matcher = "0.3"
 num-format = "0.4"
 num-traits = "0.2"
-oem_cp = "2.0.0"
+oem_cp = "2.1.0"
 omnipath = "0.1"
 open = "5.3"
 os_pipe = { version = "1.2", features = ["io_safety"] }
