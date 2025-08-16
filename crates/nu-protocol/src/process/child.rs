@@ -19,7 +19,9 @@ pub fn check_exit_status_future_ok(
     exit_status_future: Arc<Mutex<ExitStatusFuture>>,
     span: Span,
 ) -> Result<(), ShellError> {
-    let mut future = exit_status_future.lock().unwrap();
+    let mut future = exit_status_future
+        .lock()
+        .expect("lock exit_status_future should success");
     let exit_status = future.wait(span)?;
     check_ok(exit_status, false, span)
 }
