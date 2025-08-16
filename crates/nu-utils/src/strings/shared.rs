@@ -82,7 +82,7 @@ impl SharedString {
         Self(lean_string::LeanString::from_static_str(string))
     }
 
-    /// Builds a new `SharedSTring` from the given formatting arguments.
+    /// Builds a new `SharedString` from the given formatting arguments.
     ///
     /// You can get an [`Arguments`] instance by calling [`format_args!`].
     /// This function is used when using [`sformat!`](crate::sformat) instead of [`format!`] to
