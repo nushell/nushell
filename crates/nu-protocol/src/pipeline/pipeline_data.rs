@@ -1,10 +1,11 @@
+#[cfg(feature = "os")]
+use crate::process::ExitStatusFuture;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
     Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
-    process::ExitStatusFuture,
     shell_error::{io::IoError, location::Location},
 };
 use std::{
