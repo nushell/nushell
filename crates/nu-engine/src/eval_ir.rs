@@ -1583,11 +1583,12 @@ fn drain(
     if !pipefail {
         return Ok(Continue);
     }
-    if cfg!(feature = "os") {
+    #[cfg(feature = "os")]
+    {
         check_exit_status_future(data.exit).map(|_| Continue)
-    } else {
-        Ok(Continue)
     }
+    #[cfg(not(feature = "os"))]
+    Ok(Continue)
 }
 
 enum RedirectionStream {
