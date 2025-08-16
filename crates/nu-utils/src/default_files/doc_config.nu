@@ -250,6 +250,12 @@ $env.config.shell_integration.reset_application_mode = true
 # Nushell.
 $env.config.bracketed_paste = true
 
+# pipefail (bool):
+# true/false to enable/disable the pipefail feature
+# If set, the LAST_EXIT_CODE will be set to any command which exit with a non-zero status
+# or zero if all commands in the pipeline exit successfully.
+$env.config.bracketed_paste = false
+
 # use_ansi_coloring ("auto" or bool):
 # The default value `"auto"` dynamically determines if ANSI coloring is used.
 # It evaluates the following environment variables in decreasingly priority:
