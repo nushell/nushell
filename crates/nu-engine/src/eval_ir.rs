@@ -581,8 +581,8 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             // take out exit status future first.
-            let (input, mut original_exit) = (input.body, input.exit);
-            let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            let input_data = input.body;
+            let mut result = eval_call::<D>(ctx, *decl_id, *span, input_data)?;
             if need_backtrace {
                 match &mut result {
                     PipelineData::ByteStream(s, ..) => s.push_caller_span(*span),
@@ -593,15 +593,22 @@ fn eval_instruction<D: DebugContext>(
             // After eval_call, attach result's exit_status_future
             // to `original_exit`, so all exit_status_future are tracked
             // in the new PipelineData, and wrap it into `PipelineExecutionData`
-            let result_exit_status_future = result.clone_exit_status_future().map(|f| (f, *span));
-            original_exit.push(result_exit_status_future);
-            ctx.put_reg(
-                *src_dst,
-                PipelineExecutionData {
-                    body: result,
-                    exit: original_exit,
-                },
-            );
+            #[cfg(feature = "os")]
+            {
+                let mut original_exit = input.exit;
+                let result_exit_status_future =
+                    result.clone_exit_status_future().map(|f| (f, *span));
+                original_exit.push(result_exit_status_future);
+                ctx.put_reg(
+                    *src_dst,
+                    PipelineExecutionData {
+                        body: result,
+                        exit: original_exit,
+                    },
+                );
+            }
+            #[cfg(not(feature = "os"))]
+            ctx.put_reg(*src_dst, PipelineExecutionData { body: result });
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {

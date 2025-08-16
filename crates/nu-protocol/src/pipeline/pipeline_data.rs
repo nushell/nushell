@@ -780,12 +780,12 @@ impl PipelineData {
         }
     }
 
+    #[cfg(feature = "os")]
     pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
         match self {
             PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
             PipelineData::ByteStream(stream, ..) => match stream.source() {
                 ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
-                #[cfg(feature = "os")]
                 ByteStreamSource::Child(c) => Some(c.clone_exit_status_future()),
             },
         }
