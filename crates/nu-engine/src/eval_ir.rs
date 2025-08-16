@@ -590,7 +590,7 @@ fn eval_instruction<D: DebugContext>(
                 };
             }
             // After eval_call, attach result's exit_status_future
-            // to `original_exit`, so all exit_stauts_future are tracked
+            // to `original_exit`, so all exit_status_future are tracked
             // in the new PipelineData, and wrap it into `PipelineExecutionData`
             let result_exit_status_future = result.clone_exit_status_future().map(|f| (f, *span));
             original_exit.push(result_exit_status_future);
