@@ -34,7 +34,7 @@ jobs:
       nightly_tag: ${{ steps.vars.outputs.nightly_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -158,7 +158,7 @@ jobs:
 
     runs-on: ${{matrix.os}}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ref: main
         fetch-depth: 0
@@ -256,7 +256,7 @@ jobs:
     needs: [release, sha256sum]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
 
