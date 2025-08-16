@@ -1,9 +1,9 @@
 #[allow(deprecated)]
 use crate::get_full_help;
-use crate::{eval_ir::eval_ir_block_keep_exit, eval_ir_block};
+use crate::{eval_ir::eval_ir_block_track_exits, eval_ir_block};
 use nu_protocol::{
     BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
-    PipelineDataWithExit, PipelineMetadata, ShellError, Span, Value, VarId,
+    PipelineExecutionData, PipelineMetadata, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
@@ -293,7 +293,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    eval_block_with_early_return_keep_exit::<D>(engine_state, stack, block, input).map(|p| p.inner)
+    eval_block_with_early_return_track_exits::<D>(engine_state, stack, block, input).map(|p| p.body)
 }
 
 pub fn eval_block<D: DebugContext>(
@@ -302,30 +302,30 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    eval_block_keep_exit::<D>(engine_state, stack, block, input).map(|p| p.inner)
+    eval_block_track_exits::<D>(engine_state, stack, block, input).map(|p| p.body)
 }
 
-pub fn eval_block_keep_exit<D: DebugContext>(
+pub fn eval_block_track_exits<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineDataWithExit, ShellError> {
-    let result = eval_ir_block_keep_exit::<D>(engine_state, stack, block, input);
+) -> Result<PipelineExecutionData, ShellError> {
+    let result = eval_ir_block_track_exits::<D>(engine_state, stack, block, input);
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
     result
 }
 
-pub fn eval_block_with_early_return_keep_exit<D: DebugContext>(
+pub fn eval_block_with_early_return_track_exits<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineDataWithExit, ShellError> {
-    match eval_block_keep_exit::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineDataWithExit::from(
+) -> Result<PipelineExecutionData, ShellError> {
+    match eval_block_track_exits::<D>(engine_state, stack, block, input) {
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
             PipelineData::value(*value, None),
         )),
         x => x,

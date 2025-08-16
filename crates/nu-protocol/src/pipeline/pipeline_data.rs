@@ -968,39 +968,35 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
     Ok(bytes)
 }
 
-// TODO: define here, but it's good to define it in `eval_ir.rs`
-// But currently it can't be done because debugger/debugger_trait.rs
-// required &[PipelineData], here I have to change to &[PipelineDataWithExit]
-// to make compiler happy.
-pub struct PipelineDataWithExit {
-    pub inner: PipelineData,
+pub struct PipelineExecutionData {
+    pub body: PipelineData,
     // NOTE: use Vec<ExitStatusFuture> for now
     // maybe it's necessary to optimize it.
     pub exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
 }
 
-impl Deref for PipelineDataWithExit {
+impl Deref for PipelineExecutionData {
     type Target = PipelineData;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.body
     }
 }
 
-impl PipelineDataWithExit {
+impl PipelineExecutionData {
     pub fn empty() -> Self {
         Self {
-            inner: PipelineData::empty(),
+            body: PipelineData::empty(),
             exit: vec![],
         }
     }
 }
 
-impl From<PipelineData> for PipelineDataWithExit {
+impl From<PipelineData> for PipelineExecutionData {
     fn from(value: PipelineData) -> Self {
         let exit_status_future = value.clone_exit_status_future();
         Self {
-            inner: value,
+            body: value,
             exit: vec![exit_status_future],
         }
     }
