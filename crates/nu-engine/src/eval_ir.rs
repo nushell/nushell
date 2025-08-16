@@ -12,7 +12,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    process::{check_exit_status_future_ok, check_ok},
+    process::check_exit_status_future_ok,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -202,14 +202,13 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
-    let pipefail = ctx.engine_state.get_config().pipefail;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
 
-        D::enter_instruction(ctx.engine_state, ir_block, pc, &ctx.registers);
+        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
 
         let result = eval_instruction::<D>(ctx, instruction, span, ast, need_backtrace);
 
@@ -217,7 +216,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             ctx.engine_state,
             ir_block,
             pc,
-            &ctx.registers,
+            ctx.registers,
             result.as_ref().err(),
         );
 
@@ -1578,11 +1577,9 @@ fn drain(
         return Ok(Continue);
     }
     let mut result = Ok(Continue);
-    for one_exit in exit_status.into_iter().rev() {
-        if let Some((future, span)) = one_exit {
-            if let Err(err) = check_exit_status_future_ok(future, span) {
-                result = Err(err)
-            }
+    for (future, span) in exit_status.into_iter().rev().flatten() {
+        if let Err(err) = check_exit_status_future_ok(future, span) {
+            result = Err(err)
         }
     }
     result

@@ -326,11 +326,9 @@ fn evaluate_source(
     }
     // After print pipeline, need to check exit status to implement pipeline feature.
     let mut result = Ok(false);
-    for one_exit in exit_status.into_iter().rev() {
-        if let Some((future, span)) = one_exit {
-            if let Err(err) = check_exit_status_future_ok(future, span) {
-                result = Err(err)
-            }
+    for (future, span) in exit_status.into_iter().rev().flatten() {
+        if let Err(err) = check_exit_status_future_ok(future, span) {
+            result = Err(err)
         }
     }
     result

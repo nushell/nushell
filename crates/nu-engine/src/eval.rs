@@ -1,6 +1,6 @@
+use crate::eval_ir::eval_ir_block_track_exits;
 #[allow(deprecated)]
 use crate::get_full_help;
-use crate::{eval_ir::eval_ir_block_track_exits, eval_ir_block};
 use nu_protocol::{
     BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
     PipelineExecutionData, PipelineMetadata, ShellError, Span, Value, VarId,
