@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    fs::File,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 use nu_protocol::{
@@ -17,7 +12,7 @@ use nu_protocol::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    process::{ExitStatusFuture, check_ok},
+    process::{check_exit_status_future_ok, check_ok},
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -358,8 +353,6 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Drain { src } => {
-            // TODO: Carefully handle drain, it's the key instruction
-            // to implement pipefail.
             let data = ctx.take_reg(*src);
             drain(ctx, data)
         }
@@ -587,7 +580,8 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
-            let (input, mut exit) = (input.body, input.exit);
+            // take out exit status future first.
+            let (input, mut original_exit) = (input.body, input.exit);
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             if need_backtrace {
                 match &mut result {
@@ -596,9 +590,18 @@ fn eval_instruction<D: DebugContext>(
                     _ => (),
                 };
             }
+            // After eval_call, attach result's exit_status_future
+            // to `original_exit`, so all exit_stauts_future are tracked
+            // in the new PipelineData, and wrap it into `PipelineExecutionData`
             let result_exit_status_future = result.clone_exit_status_future().map(|f| (f, *span));
-            exit.push(result_exit_status_future);
-            ctx.put_reg(*src_dst, PipelineExecutionData { body: result, exit });
+            original_exit.push(result_exit_status_future);
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData {
+                    body: result,
+                    exit: original_exit,
+                },
+            );
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -1571,21 +1574,14 @@ fn drain(
     }
 
     let pipefail = ctx.engine_state.get_config().pipefail;
+    if !pipefail {
+        return Ok(Continue);
+    }
     let mut result = Ok(Continue);
     for one_exit in exit_status.into_iter().rev() {
         if let Some((future, span)) = one_exit {
-            let mut future = future.lock().unwrap();
-            let wait_result = future.wait(span);
-            match wait_result {
-                Err(err) if pipefail => result = Err(err),
-                Ok(status) => {
-                    if let Err(e) = check_ok(status, false, span) {
-                        if pipefail {
-                            result = Err(e)
-                        }
-                    }
-                }
-                _ => {}
+            if let Err(err) = check_exit_status_future_ok(future, span) {
+                result = Err(err)
             }
         }
     }
