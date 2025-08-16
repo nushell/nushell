@@ -1,3 +1,5 @@
+const default_table_name = 'std_kv_store'
+const valid_table_regex = '^[a-zA-Z0-9_]+$'
 # kv module
 #
 # use std-rfc/kv *
@@ -34,6 +36,7 @@ export def "kv set" [
   value_or_closure?: any
   --return (-r): string   # Whether and what to return to the pipeline output
   --universal (-u)        # Store the key-value pair in a universal database
+  --table (-t): string = $default_table_name    # Optional table name
 ] {
   # Pipeline input is preferred, but prioritize
   # parameter if present. This allows $in to be
@@ -54,15 +57,15 @@ export def "kv set" [
     value: ($value | to nuon)
   }
 
-  let db_open = (db_setup --universal=$universal)
+  let db_open = (db_setup --universal=$universal --table=$table)
   try {
     # Delete the existing key if it does exist
-    do $db_open | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $key }
+    do $db_open | query db $"DELETE FROM ($table) WHERE key = :key" --params { key: $key }
   }
 
   match $universal {
-    true  => { $kv_pair | into sqlite (universal_db_path) -t std_kv_store }
-    false => { $kv_pair | stor insert -t std_kv_store }
+    true  => { $kv_pair | into sqlite (universal_db_path) -t $table }
+    false => { $kv_pair | stor insert -t $table }
   }
 
   # The value that should be returned from `kv set`
@@ -108,10 +111,11 @@ export def "kv set" [
 export def "kv get" [
   key: string       # Key of the kv-pair to retrieve
   --universal (-u)  # Whether to use the universal db
+  --table (-t): string = $default_table_name    # Optional table name
 ] {
-  let db_open = (db_setup --universal=$universal)
+  let db_open = (db_setup --universal=$universal --table=$table)
   do $db_open
-    | query db "SELECT value FROM std_kv_store WHERE key = :key" --params { key: $key }
+    | query db $"SELECT value FROM ($table) WHERE key = :key" --params { key: $key }
     | match $in {
       # Match should be exactly one row
       [$el] => { $el.value | from nuon }
@@ -125,10 +129,10 @@ export def "kv get" [
 # Returns results as the Nushell value rather than the stored nuon.
 export def "kv list" [
   --universal (-u)  # Whether to use the universal db
+  --table (-t): string = $default_table_name    # Optional table name
 ] {
-  let db_open = (db_setup --universal=$universal)
-
-  do $db_open | $in.std_kv_store? | each {|kv_pair|
+  let db_open = (db_setup --universal=$universal --table=$table)
+  do $db_open | $in | get -o $table | each {|kv_pair|
     {
       key: $kv_pair.key
       value: ($kv_pair.value | from nuon )
@@ -140,15 +144,16 @@ export def "kv list" [
 export def --env "kv drop" [
   key: string       # Key of the kv-pair to drop
   --universal (-u)  # Whether to use the universal db
+  --table (-t): string = $default_table_name    # Optional table name
 ] {
-  let db_open = (db_setup --universal=$universal)
+  let db_open = (db_setup --universal=$universal --table=$table)
 
-  let value = (kv get --universal=$universal $key)
+  let value = (kv get --universal=$universal --table=$table $key)
 
   try {
     do $db_open
       # Hack to turn a SQLiteDatabase into a table
-      | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $key }
+      | query db $"DELETE FROM ($table) WHERE key = :key" --params { key: $key }
   }
 
   if $universal and ($env.NU_KV_UNIVERSALS? | default false) {
@@ -166,8 +171,20 @@ def universal_db_path [] {
 }
 
 def db_setup [
-  --universal   # Whether to use the universal db
+  --universal       # Whether to use the universal db
+  --table: string   # The table name to use
 ] : nothing -> closure {
+
+  if $table not-like $valid_table_regex {
+    error make {
+      msg: "Invalid table name"
+      label: {
+        text: "Table name must match regex: ${valid_table_regex}"
+        span: (metadata $table).span
+      }
+    }
+  }
+
   try {
     match $universal {
       true  => {
@@ -178,12 +195,12 @@ def db_setup [
           key: $uuid
           value: ''
         }
-        $dummy_record | into sqlite (universal_db_path) -t std_kv_store
-        open (universal_db_path) | query db "DELETE FROM std_kv_store WHERE key = :key" --params { key: $uuid }
+        $dummy_record | into sqlite (universal_db_path) -t $table
+        open (universal_db_path) | query db $"DELETE FROM ($table) WHERE key = :key" --params { key: $uuid }
       }
       false => {
         # Create the stor table if it doesn't exist
-        stor create -t std_kv_store -c {session: str, key: str, value: str} | ignore
+        stor create -t $table -c {session: str, key: str, value: str} | ignore
       }
     }
   }
