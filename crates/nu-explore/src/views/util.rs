@@ -2,6 +2,7 @@ use crate::nu_common::{NuColor, NuStyle, NuText, truncate_str};
 use nu_color_config::{Alignment, StyleComputer};
 use nu_protocol::{ShellError, Value};
 use nu_table::{TextStyle, string_width};
+use nu_utils::uformat;
 use ratatui::{
     buffer::Buffer,
     style::{Color, Modifier, Style},
@@ -151,10 +152,10 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
         Ok(f) => f,
         Err(e) => {
             return Err(ShellError::GenericError {
-                error: format!("error converting string [{}] to f64", &val),
+                error: uformat!("error converting string [{}] to f64", &val),
                 msg: "".into(),
                 span: None,
-                help: Some(e.to_string()),
+                help: Some(e.to_string().into()),
                 inner: vec![],
             });
         }

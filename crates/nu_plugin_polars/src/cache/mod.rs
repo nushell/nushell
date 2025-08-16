@@ -11,6 +11,7 @@ use chrono::{DateTime, FixedOffset, Local};
 pub use list::ListDF;
 use nu_plugin::{EngineInterface, PluginCommand};
 use nu_protocol::{LabeledError, ShellError, Span};
+use nu_utils::uformat;
 use uuid::Uuid;
 
 use crate::{EngineWrapper, PolarsPlugin, values::PolarsPluginObject};
@@ -34,7 +35,7 @@ pub struct Cache {
 impl Cache {
     fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, CacheValue>>, ShellError> {
         self.cache.lock().map_err(|e| ShellError::GenericError {
-            error: format!("error acquiring cache lock: {e}"),
+            error: uformat!("error acquiring cache lock: {e}"),
             msg: "".into(),
             span: None,
             help: None,

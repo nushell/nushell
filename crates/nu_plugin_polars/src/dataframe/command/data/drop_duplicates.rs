@@ -109,7 +109,7 @@ fn command(
         .unique_stable(subset_slice, keep_strategy, None)
         .map_err(|e| ShellError::GenericError {
             error: "Error dropping duplicates".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(col_span),
             help: None,
             inner: vec![],

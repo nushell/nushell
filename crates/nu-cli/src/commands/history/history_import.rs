@@ -6,6 +6,7 @@ use nu_protocol::{
     shell_error::{self, io::IoError},
 };
 
+use nu_utils::uformat;
 use reedline::{
     FileBackedHistory, History, HistoryItem, ReedlineError, SearchQuery, SqliteBackedHistory,
 };
@@ -158,8 +159,8 @@ fn import(
 fn error_from_reedline(e: ReedlineError) -> ShellError {
     // TODO: Should we add a new ShellError variant?
     ShellError::GenericError {
-        error: "Reedline error".to_owned(),
-        msg: format!("{e}"),
+        error: "Reedline error".into(),
+        msg: uformat!("{e}"),
         span: None,
         help: None,
         inner: Vec::new(),
@@ -243,8 +244,8 @@ fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
     let Ok(mut bak_path) = path.to_path_buf().into_os_string().into_string() else {
         // This isn't fundamentally problem, but trying to work with OsString is a nightmare.
         return Err(ShellError::GenericError {
-            error: "History path not UTF-8".to_string(),
-            msg: "History path must be representable as UTF-8".to_string(),
+            error: "History path not UTF-8".into(),
+            msg: "History path must be representable as UTF-8".into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -264,8 +265,8 @@ fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
         }
     }
     Err(ShellError::GenericError {
-        error: "Too many backup files".to_string(),
-        msg: "Found too many existing backup files".to_string(),
+        error: "Too many backup files".into(),
+        msg: "Found too many existing backup files".into(),
         span: Some(span),
         help: None,
         inner: vec![],

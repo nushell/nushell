@@ -145,7 +145,7 @@ fn extract_formatting_operations(
 
         if column_span_end < column_span_start {
             return Err(ShellError::DelimiterError {
-                msg: "there are unmatched curly braces".to_string(),
+                msg: "there are unmatched curly braces".into(),
                 span: error_span,
             });
         }

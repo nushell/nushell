@@ -1,5 +1,6 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct Generate;
@@ -171,12 +172,12 @@ fn get_initial_state(
                     .expect("Already checked default value"))
             } else {
                 Err(ShellError::GenericError {
-                    error: "The initial value is missing".to_string(),
-                    msg: "Missing initial value".to_string(),
+                    error: "The initial value is missing".into(),
+                    msg: "Missing initial value".into(),
                     span: Some(span),
                     help: Some(
                         "Provide an <initial> value as an argument to generate, or assign a default value to the closure parameter"
-                            .to_string(),
+                            .into(),
                     ),
                     inner: vec![],
                 })
@@ -211,7 +212,7 @@ fn parse_closure_result(
                         } else {
                             let error = ShellError::GenericError {
                                 error: "Invalid block return".into(),
-                                msg: format!("Unexpected record key '{k}'"),
+                                msg: uformat!("Unexpected record key '{k}'"),
                                 span: Some(span),
                                 help: None,
                                 inner: vec![],
@@ -232,7 +233,7 @@ fn parse_closure_result(
                 _ => {
                     let error = ShellError::GenericError {
                         error: "Invalid block return".into(),
-                        msg: format!("Expected record, found {}", value.get_type()),
+                        msg: uformat!("Expected record, found {}", value.get_type()),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -248,7 +249,7 @@ fn parse_closure_result(
                 .into_value(head)
                 .map(|val| ShellError::GenericError {
                     error: "Invalid block return".into(),
-                    msg: format!("Expected record, found {}", val.get_type()),
+                    msg: uformat!("Expected record, found {}", val.get_type()),
                     span: Some(val.span()),
                     help: None,
                     inner: vec![],

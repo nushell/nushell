@@ -11,6 +11,7 @@ use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
+use nu_utils::uformat;
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -115,7 +116,7 @@ pub fn http_parse_url(
         Ok(u) => u,
         Err(_e) => {
             return Err(ShellError::UnsupportedInput {
-                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".to_string(),
+                msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com".into(),
                 input: format!("value: '{requested_url:?}'"),
                 msg_span: call.head,
                 input_span: span,
@@ -544,7 +545,7 @@ fn send_cancellable_request_bytes(
                 .reader()
                 .ok_or_else(|| {
                     ShellErrorOrRequestError::ShellError(ShellError::GenericError {
-                        error: "Could not read byte stream".to_string(),
+                        error: "Could not read byte stream".into(),
                         msg: "".into(),
                         span: None,
                         help: None,
@@ -713,7 +714,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
         )),
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
         e => ShellError::NetworkFailure {
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span,
         },
     }

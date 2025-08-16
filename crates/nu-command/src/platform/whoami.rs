@@ -35,7 +35,7 @@ impl Command for Whoami {
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "Failed to get username".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],

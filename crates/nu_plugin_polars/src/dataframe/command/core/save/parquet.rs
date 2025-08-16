@@ -41,7 +41,7 @@ pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), 
     let file_span = resource.span;
     let file = File::create(file_path).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(file_span),
         help: None,
         inner: vec![],
@@ -51,7 +51,7 @@ pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), 
         .finish(&mut polars_df)
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],

@@ -44,8 +44,8 @@ impl Command for ViewSpan {
             )
         } else {
             Err(ShellError::GenericError {
-                error: "Cannot view span".to_string(),
-                msg: "this start and end does not correspond to a viewable value".to_string(),
+                error: "Cannot view span".into(),
+                msg: "this start and end does not correspond to a viewable value".into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

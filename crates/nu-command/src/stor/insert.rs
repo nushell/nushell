@@ -199,7 +199,7 @@ fn process(
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to insert using the SQLite connection in memory from insert.rs."
                     .into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(Span::test_data()),
                 help: None,
                 inner: vec![],

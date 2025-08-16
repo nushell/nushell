@@ -196,7 +196,7 @@ fn process(
         conn.execute(&update_stmt, params_from_iter(params))
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open SQLite connection in memory from update".into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(Span::test_data()),
                 help: None,
                 inner: vec![],

@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{Value, record};
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct UName;
@@ -45,8 +46,8 @@ impl Command for UName {
             os: false,
         };
         let output = uu_uname::UNameOutput::new(&opts).map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
-            msg: format!("{e}"),
+            error: uformat!("{e}"),
+            msg: uformat!("{e}"),
             span: None,
             help: None,
             inner: Vec::new(),

@@ -10,6 +10,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value, record,
 };
+use nu_utils::uformat;
 use polars::prelude::*;
 
 #[derive(Clone)]
@@ -161,7 +162,7 @@ fn command_eager(
     let column = df
         .column(&column_nm)
         .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
+            error: uformat!("{e}"),
             msg: "".into(),
             span: Some(call.head),
             help: None,
@@ -169,7 +170,7 @@ fn command_eager(
         })?;
 
     let casted = column.cast(&dtype).map_err(|e| ShellError::GenericError {
-        error: format!("{e}"),
+        error: uformat!("{e}"),
         msg: "".into(),
         span: Some(call.head),
         help: None,
@@ -179,7 +180,7 @@ fn command_eager(
     let _ = df
         .with_column(casted)
         .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
+            error: uformat!("{e}"),
             msg: "".into(),
             span: Some(call.head),
             help: None,

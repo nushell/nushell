@@ -2,6 +2,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Type, Value, record,
 };
+use nu_utils::uformat;
 
 use crate::{
     PolarsPlugin,
@@ -88,7 +89,7 @@ fn command_lazy(
         .to_polars()
         .profile()
         .map_err(|e| ShellError::GenericError {
-            error: format!("Could not profile dataframe: {e}"),
+            error: uformat!("Could not profile dataframe: {e}"),
             msg: "".into(),
             span: Some(call.head),
             help: None,

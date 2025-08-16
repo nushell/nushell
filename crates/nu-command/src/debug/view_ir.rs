@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{BlockId, DeclId};
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct ViewIr;
@@ -66,7 +67,7 @@ the declaration may not be in scope.
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     let decl = engine_state.get_decl(decl_id);
                     decl.block_id().ok_or_else(|| ShellError::GenericError {
-                        error: format!("Can't view IR for `{val}`"),
+                        error: uformat!("Can't view IR for `{val}`"),
                         msg: "not a custom command".into(),
                         span: Some(target.span()),
                         help: Some("internal commands don't have Nushell source code".into()),
@@ -74,7 +75,7 @@ the declaration may not be in scope.
                     })?
                 } else {
                     return Err(ShellError::GenericError {
-                        error: format!("Can't view IR for `{val}`"),
+                        error: uformat!("Can't view IR for `{val}`"),
                         msg: "can't find a command with this name".into(),
                         span: Some(target.span()),
                         help: None,
@@ -96,7 +97,7 @@ the declaration may not be in scope.
                     })?;
                 let decl = engine_state.get_decl(decl_id);
                 decl.block_id().ok_or_else(|| ShellError::GenericError {
-                    error: format!("Can't view IR for `{}`", decl.name()),
+                    error: uformat!("Can't view IR for `{}`", decl.name()),
                     msg: "not a custom command".into(),
                     span: Some(target.span()),
                     help: Some("internal commands don't have Nushell source code".into()),
@@ -125,7 +126,7 @@ the declaration may not be in scope.
 
         let Some(block) = engine_state.try_get_block(block_id) else {
             return Err(ShellError::GenericError {
-                error: format!("Unknown block ID: {}", block_id.get()),
+                error: uformat!("Unknown block ID: {}", block_id.get()),
                 msg: "ensure the block ID is correct and try again".into(),
                 span: Some(target.span()),
                 help: None,
@@ -163,7 +164,7 @@ the declaration may not be in scope.
             }))
             .map_err(|err| ShellError::GenericError {
                 error: "JSON serialization failed".into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

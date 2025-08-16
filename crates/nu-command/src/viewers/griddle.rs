@@ -4,6 +4,7 @@ use nu_color_config::lookup_ansi_color_style;
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
+use nu_utils::uformat;
 use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
 
@@ -260,7 +261,7 @@ fn create_grid_output(
         Ok(Value::string(grid_display.to_string(), call.head).into_pipeline_data())
     } else {
         Err(ShellError::GenericError {
-            error: format!("Couldn't fit grid into {cols} columns"),
+            error: uformat!("Couldn't fit grid into {cols} columns"),
             msg: "too few columns to fit the grid into".into(),
             span: Some(call.head),
             help: Some("try rerunning with a different --width".into()),

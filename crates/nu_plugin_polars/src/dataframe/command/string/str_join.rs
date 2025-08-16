@@ -144,7 +144,7 @@ fn command_df(
     let other_series = other_df.as_series(other_span)?;
     let other_chunked = other_series.str().map_err(|e| ShellError::GenericError {
         error: "The str-join command only works with string columns".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(other_span),
         help: None,
         inner: vec![],
@@ -153,7 +153,7 @@ fn command_df(
     let series = df.as_series(call.head)?;
     let chunked = series.str().map_err(|e| ShellError::GenericError {
         error: "The str-join command only works only with string columns".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(call.head),
         help: None,
         inner: vec![],

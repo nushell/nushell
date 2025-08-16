@@ -185,7 +185,7 @@ pub fn rotate(
         }
     } else {
         return Err(ShellError::UnsupportedInput {
-            msg: "list input is empty".to_string(),
+            msg: "list input is empty".into(),
             input: "value originates from here".into(),
             msg_span: call.head,
             input_span,

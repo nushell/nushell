@@ -61,7 +61,7 @@ impl NuLazyFrame {
                     .collect()
                     .map_err(|e| ShellError::GenericError {
                         error: "Error collecting lazy frame".into(),
-                        msg: e.to_string(),
+                        msg: e.to_string().into(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -87,7 +87,7 @@ impl NuLazyFrame {
             .collect_schema()
             .map_err(|e| ShellError::GenericError {
                 error: "Error getting schema from lazy frame".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: None,
                 help: None,
                 inner: vec![],
@@ -170,7 +170,7 @@ impl CustomValueSupport for NuLazyFrame {
                 "plan" => Value::string(
                     self.lazy.describe_plan().map_err(|e| ShellError::GenericError {
                         error: "Error getting plan".into(),
-                        msg: e.to_string(),
+                        msg: e.to_string().into(),
                         span: Some(span),
                         help: None,
                         inner: vec![],

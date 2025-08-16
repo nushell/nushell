@@ -205,7 +205,6 @@ webpki-roots = "1.0"
 # todo = "warn"
 unchecked_duration_subtraction = "warn"
 used_underscore_binding = "warn"
-result_large_err = "allow"
 
 [lints]
 workspace = true

@@ -2,6 +2,7 @@ use nu_protocol::{
     Range, ShellError, Span, Value,
     engine::{EngineState, Stack},
 };
+use nu_utils::uformat;
 use std::ops::Bound;
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
@@ -51,7 +52,7 @@ fn get_editor_commandline(
             }
         }
         Value::String { .. } | Value::List { .. } => Err(ShellError::GenericError {
-            error: format!("{var_name} should be a non-empty string or list<String>"),
+            error: uformat!("{var_name} should be a non-empty string or list<String>"),
             msg: "Specify an executable here".into(),
             span: Some(value.span()),
             help: Some(HELP_MSG.into()),

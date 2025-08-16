@@ -82,7 +82,7 @@ impl Command for Do {
                 let span = stream.span();
                 #[cfg(not(feature = "os"))]
                 return Err(ShellError::DisabledOsSupport {
-                    msg: "Cannot create a thread to receive stdout message.".to_string(),
+                    msg: "Cannot create a thread to receive stdout message.".into(),
                     span: Some(span),
                 });
 

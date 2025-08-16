@@ -242,7 +242,7 @@ impl Matcher {
             Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
                 |e| ShellError::GenericError {
                     error: "Error with regular expression".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: match lhs {
                         Value::Error { .. } => None,
                         _ => Some(lhs.span()),

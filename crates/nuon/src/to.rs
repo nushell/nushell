@@ -124,7 +124,7 @@ fn value_to_string(
         }
         Value::CellPath { val, .. } => Ok(val.to_string()),
         Value::Custom { .. } => Err(ShellError::UnsupportedInput {
-            msg: "custom values are currently not nuon-compatible".to_string(),
+            msg: "custom values are currently not nuon-compatible".into(),
             input: "value originates from here".into(),
             msg_span: span,
             input_span: v.span(),

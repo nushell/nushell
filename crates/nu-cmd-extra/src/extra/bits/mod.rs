@@ -72,7 +72,7 @@ fn get_number_bytes(
         Some(Spanned { item: 4, .. }) => Ok(NumberBytes::Four),
         Some(Spanned { item: 8, .. }) => Ok(NumberBytes::Eight),
         Some(Spanned { span, .. }) => Err(ShellError::UnsupportedInput {
-            msg: "Only 1, 2, 4, or 8 bytes are supported as word sizes".to_string(),
+            msg: "Only 1, 2, 4, or 8 bytes are supported as word sizes".into(),
             input: "value originates from here".to_string(),
             msg_span: head,
             input_span: span,

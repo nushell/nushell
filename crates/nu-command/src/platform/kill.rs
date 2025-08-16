@@ -101,7 +101,7 @@ impl Command for Kill {
 
         let output = cmd.output().map_err(|e| ShellError::GenericError {
             error: "failed to execute shell command".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(call.head),
             help: None,
             inner: vec![],
@@ -110,7 +110,7 @@ impl Command for Kill {
         if !quiet && !output.status.success() {
             return Err(ShellError::GenericError {
                 error: "process didn't terminate successfully".into(),
-                msg: String::from_utf8(output.stderr).unwrap_or_default(),
+                msg: String::from_utf8(output.stderr).unwrap_or_default().into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -120,7 +120,7 @@ impl Command for Kill {
         let mut output =
             String::from_utf8(output.stdout).map_err(|e| ShellError::GenericError {
                 error: "failed to convert output to string".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

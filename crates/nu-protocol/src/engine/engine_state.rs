@@ -16,7 +16,7 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
-use nu_utils::IgnoreCaseExt;
+use nu_utils::{IgnoreCaseExt, strings::UniqueString, uformat};
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -987,10 +987,10 @@ impl EngineState {
     /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<AbsolutePathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> ShellError {
+        fn error(msg: impl Into<UniqueString>, cwd: impl AsRef<nu_path::Path>) -> ShellError {
             ShellError::GenericError {
                 error: msg.into(),
-                msg: format!("$env.PWD = {}", cwd.as_ref().display()),
+                msg: uformat!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
                 help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],

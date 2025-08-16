@@ -14,6 +14,7 @@ use nu_protocol::{
 };
 
 use chrono::DateTime;
+use nu_utils::uformat;
 use polars::prelude::{DataType, Expr, Field, LiteralValue, PlSmallStr, Schema, TimeUnit};
 use polars_plan::plans::DynLiteralValue;
 

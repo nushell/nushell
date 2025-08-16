@@ -1332,7 +1332,7 @@ fn check_input_types(
         }),
         // expected_string didn't generate properly, so we can't show the proper error
         (_, None) => Err(ShellError::NushellFailed {
-            msg: "Command input type strings is empty, despite being non-zero earlier".to_string(),
+            msg: "Command input type strings is empty, despite being non-zero earlier".into(),
         }),
     }
 }

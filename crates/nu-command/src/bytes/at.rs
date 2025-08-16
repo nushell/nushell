@@ -1,3 +1,4 @@
+use nu_utils::uformat;
 use std::ops::Bound;
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};

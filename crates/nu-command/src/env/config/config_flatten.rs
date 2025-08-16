@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
-use nu_utils::JsonFlattener; // Ensure this import is present // Ensure this import is present
+use nu_utils::JsonFlattener;
+use nu_utils::uformat; // Ensure this import is present // Ensure this import is present
 
 #[derive(Clone)]
 pub struct ConfigFlatten;
@@ -39,7 +40,7 @@ impl Command for ConfigFlatten {
         // Serialize the Config instance to JSON
         let serialized_config =
             serde_json::to_value(&**config).map_err(|err| ShellError::GenericError {
-                error: format!("Failed to serialize config to json: {err}"),
+                error: uformat!("Failed to serialize config to json: {err}"),
                 msg: "".into(),
                 span: Some(call.head),
                 help: None,

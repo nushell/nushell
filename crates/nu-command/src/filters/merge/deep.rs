@@ -130,7 +130,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             Some("overwrite") => MergeStrategy::Deep(ListMerge::Overwrite),
             Some(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "The list merging strategy must be one one of: table, overwrite, append, prepend".to_string(),
+                    msg: "The list merging strategy must be one one of: table, overwrite, append, prepend".into(),
                     val_span: call.get_flag_span(stack, "strategy").unwrap_or(head),
                     call_span: head,
                 })

@@ -3751,6 +3751,7 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-utils",
 ]
 
 [[package]]
@@ -3805,6 +3806,7 @@ dependencies = [
  "nu-path",
  "nu-plugin-engine",
  "nu-protocol",
+ "nu-utils",
 ]
 
 [[package]]
@@ -4095,6 +4097,7 @@ dependencies = [
  "log",
  "nu-plugin-protocol",
  "nu-protocol",
+ "nu-utils",
  "rmp-serde",
  "serde",
  "serde_json",

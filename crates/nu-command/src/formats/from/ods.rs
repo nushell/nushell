@@ -72,7 +72,7 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
-                msg: "Incorrect column format, Only string as column name".to_string(),
+                msg: "Incorrect column format, Only string as column name".into(),
                 span: value.span(),
             }),
         })
@@ -96,7 +96,7 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
                 Some(Value::Error { error, .. }) => return Err(*error),
                 Some(x) => {
                     return Err(ShellError::UnsupportedInput {
-                        msg: "Expected binary from pipeline".to_string(),
+                        msg: "Expected binary from pipeline".into(),
                         input: "value originates from here".into(),
                         msg_span: span,
                         input_span: x.span(),
@@ -119,7 +119,7 @@ fn from_ods(
     let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
     let mut ods = Ods::<_>::new(buf).map_err(|_| ShellError::UnsupportedInput {
-        msg: "Could not load ODS file".to_string(),
+        msg: "Could not load ODS file".into(),
         input: "value originates from here".into(),
         msg_span: head,
         input_span: span.unwrap_or(head),
@@ -160,7 +160,7 @@ fn from_ods(
             dict.insert(sheet_name, Value::list(sheet_output, head));
         } else {
             return Err(ShellError::UnsupportedInput {
-                msg: "Could not load sheet".to_string(),
+                msg: "Could not load sheet".into(),
                 input: "value originates from here".into(),
                 msg_span: head,
                 input_span: span.unwrap_or(head),

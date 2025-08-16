@@ -1,6 +1,7 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, engine::StateWorkingSet};
+use nu_utils::uformat;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -831,7 +832,7 @@ fn heavy_lifting(
                 Err(err) => {
                     return Err(ShellError::GenericError {
                         error: "error parsing hex color".into(),
-                        msg: format!("{err}"),
+                        msg: uformat!("{err}"),
                         span: Some(code.span()),
                         help: None,
                         inner: vec![],

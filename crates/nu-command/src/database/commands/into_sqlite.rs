@@ -6,6 +6,7 @@ use nu_engine::command_prelude::*;
 
 use itertools::Itertools;
 use nu_protocol::Signals;
+use nu_utils::uformat;
 use std::{borrow::Cow, path::Path};
 
 pub const DEFAULT_TABLE_NAME: &str = "main";
@@ -146,8 +147,8 @@ impl Table {
             .conn
             .query_row(&table_exists_query, [], |row| row.get(0))
             .map_err(|err| ShellError::GenericError {
-                error: format!("{err:#?}"),
-                msg: format!("{err:#?}"),
+                error: uformat!("{err:#?}"),
+                msg: uformat!("{err:#?}"),
                 span: None,
                 help: None,
                 inner: Vec::new(),
@@ -178,7 +179,7 @@ If this is undesirable, you can create the table first with your desired schema.
                 .execute(&create_statement, [])
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to create table".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: None,
                     help: None,
                     inner: Vec::new(),
@@ -189,7 +190,7 @@ If this is undesirable, you can create the table first with your desired schema.
             .transaction()
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open transaction".into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: None,
                 help: None,
                 inner: Vec::new(),
@@ -256,7 +257,7 @@ fn insert_in_transaction(
     if first_val.is_empty() {
         Err(ShellError::GenericError {
             error: "Failed to create table".into(),
-            msg: "Cannot create table without columns".to_string(),
+            msg: "Cannot create table without columns".into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -270,7 +271,7 @@ fn insert_in_transaction(
         if let Err(err) = signals.check(&span) {
             tx.rollback().map_err(|e| ShellError::GenericError {
                 error: "Failed to rollback SQLite transaction".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: None,
                 help: None,
                 inner: Vec::new(),
@@ -292,7 +293,7 @@ fn insert_in_transaction(
             tx.prepare(&insert_statement)
                 .map_err(|e| ShellError::GenericError {
                     error: "Failed to prepare SQLite statement".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: None,
                     help: None,
                     inner: Vec::new(),
@@ -304,7 +305,7 @@ fn insert_in_transaction(
             .finalize()
             .map_err(|e| ShellError::GenericError {
                 error: "Failed to finalize SQLite prepared statement".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: None,
                 help: None,
                 inner: Vec::new(),
@@ -315,7 +316,7 @@ fn insert_in_transaction(
 
     tx.commit().map_err(|e| ShellError::GenericError {
         error: "Failed to commit SQLite transaction".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: None,
         help: None,
         inner: Vec::new(),
@@ -339,7 +340,7 @@ fn insert_value(
                 .execute(rusqlite::params_from_iter(sql_vals))
                 .map_err(|e| ShellError::GenericError {
                     error: "Failed to execute SQLite statement".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: None,
                     help: None,
                     inner: Vec::new(),

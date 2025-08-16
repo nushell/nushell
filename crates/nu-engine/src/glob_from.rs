@@ -94,7 +94,7 @@ pub fn glob_from(
     let glob = nu_glob::glob_with(&pattern, glob_options, signals).map_err(|e| {
         nu_protocol::ShellError::GenericError {
             error: "Error extracting glob pattern".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -107,7 +107,7 @@ pub fn glob_from(
             Ok(v) => Ok(v),
             Err(e) => Err(nu_protocol::ShellError::GenericError {
                 error: "Error extracting glob pattern".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(span),
                 help: None,
                 inner: vec![],

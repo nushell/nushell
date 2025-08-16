@@ -5,6 +5,7 @@ use nu_protocol::{
     NuGlob,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
@@ -116,7 +117,7 @@ impl Command for UMv {
             // expand path for better error message
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!(
+                msg: uformat!(
                     "Missing destination path operand after {}",
                     expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
                         .to_string_lossy()
@@ -195,8 +196,8 @@ impl Command for UMv {
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
-                error: format!("{error}"),
-                msg: format!("{error}"),
+                error: uformat!("{error}"),
+                msg: uformat!("{error}"),
                 span: None,
                 help: None,
                 inner: Vec::new(),

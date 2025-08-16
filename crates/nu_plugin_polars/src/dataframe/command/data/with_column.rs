@@ -241,7 +241,7 @@ fn command_eager(
             .with_column(series)
             .map_err(|e| ShellError::GenericError {
                 error: "Error adding column to dataframe".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(column_span),
                 help: None,
                 inner: vec![],

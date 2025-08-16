@@ -380,7 +380,7 @@ impl ByteStream {
     #[cfg(not(feature = "os"))]
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         Err(ShellError::DisabledOsSupport {
-            msg: "Stdin is not supported".to_string(),
+            msg: "Stdin is not supported".into(),
             span: Some(span),
         })
     }

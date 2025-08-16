@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 use serde::de::Deserialize;
 
 #[derive(Clone)]
@@ -77,7 +78,7 @@ fn convert_yaml_value_to_nu_value(
     val_span: Span,
 ) -> Result<Value, ShellError> {
     let err_not_compatible_number = ShellError::UnsupportedInput {
-        msg: "Expected a nu-compatible number in YAML input".to_string(),
+        msg: "Expected a nu-compatible number in YAML input".into(),
         input: "value originates from here".into(),
         msg_span: span,
         input_span: val_span,

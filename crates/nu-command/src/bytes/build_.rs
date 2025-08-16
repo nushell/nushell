@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct BytesBuild;

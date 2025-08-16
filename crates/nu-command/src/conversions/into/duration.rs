@@ -1,3 +1,4 @@
+use nu_utils::uformat;
 use std::str::FromStr;
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};
@@ -365,7 +366,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
                 if !ALLOWED_SIGNS.contains(&val.as_str()) {
                     let allowed_signs = ALLOWED_SIGNS.join(", ");
                     return Err(ShellError::IncorrectValue {
-                        msg: format!("Invalid sign. Allowed signs are {allowed_signs}").to_string(),
+                        msg: uformat!("Invalid sign. Allowed signs are {allowed_signs}")
+                            .to_string(),
                         val_span: sign.span(),
                         call_span: head,
                     });
@@ -393,7 +395,7 @@ fn parse_number_from_record(col_val: &Value, head: &Span) -> Result<i64, ShellEr
         Value::Int { val, .. } => {
             if *val < 0 {
                 return Err(ShellError::IncorrectValue {
-                    msg: "number should be positive".to_string(),
+                    msg: "number should be positive".into(),
                     val_span: col_val.span(),
                     call_span: *head,
                 });

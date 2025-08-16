@@ -4,6 +4,7 @@ use nu_protocol::{
     engine::{FileStack, StateWorkingSet},
     shell_error::io::IoError,
 };
+use nu_utils::{strings::UniqueString, uformat};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
@@ -191,7 +192,7 @@ fn parse_module(
         is_debug,
         Some(
             "If the content is intended to be a script, please try to remove `--as-module` flag "
-                .to_string(),
+                .into(),
         ),
         call_head,
     )
@@ -213,11 +214,11 @@ fn check_parse(
     starting_error_count: usize,
     working_set: &StateWorkingSet,
     is_debug: bool,
-    help: Option<String>,
+    help: impl Into<Option<UniqueString>>,
     call_head: Span,
 ) -> Result<PipelineData, ShellError> {
     if starting_error_count != working_set.parse_errors.len() {
-        let msg = format!(
+        let msg = uformat!(
             r#"Found : {}"#,
             working_set
                 .parse_errors
@@ -230,7 +231,7 @@ fn check_parse(
                 error: "Failed to parse content".into(),
                 msg,
                 span: Some(call_head),
-                help,
+                help: help.into(),
                 inner: vec![],
             })
         } else {
@@ -274,7 +275,7 @@ fn parse_file_or_dir_module(
 
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
-            let msg = format!(
+            let msg = uformat!(
                 r#"Found : {}"#,
                 working_set
                     .parse_errors
@@ -305,10 +306,10 @@ fn check_path(
     let (filename, err) = unescape_unquote_string(bytes, path_span);
     if let Some(e) = err {
         Err(ShellError::GenericError {
-            error: "Could not escape filename".to_string(),
-            msg: "could not escape filename".to_string(),
+            error: "Could not escape filename".into(),
+            msg: "could not escape filename".into(),
             span: Some(call_head),
-            help: Some(format!("Returned error: {e}")),
+            help: Some(uformat!("Returned error: {e}")),
             inner: vec![],
         })
     } else {

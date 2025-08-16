@@ -75,14 +75,14 @@ impl Command for OverlayUse {
                     *module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
-                        msg: "Not an overlay".to_string(),
+                        msg: "Not an overlay".into(),
                         label: "requires an overlay (path or a string)".to_string(),
                         span: overlay_expr.span,
                     });
                 }
             } else {
                 return Err(ShellError::NushellFailedSpanned {
-                    msg: "Missing positional".to_string(),
+                    msg: "Missing positional".into(),
                     label: "missing required overlay".to_string(),
                     span: call.head,
                 });

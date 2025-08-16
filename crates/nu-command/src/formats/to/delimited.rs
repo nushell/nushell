@@ -4,6 +4,7 @@ use nu_protocol::{
     ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
     shell_error::io::IoError,
 };
+use nu_utils::uformat;
 use std::{iter, sync::Arc};
 
 fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellError {
@@ -11,8 +12,8 @@ fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellErro
         IoError::new(error, head, None).into()
     } else {
         ShellError::GenericError {
-            error: format!("Failed to generate {format_name} data"),
-            msg: error.to_string(),
+            error: uformat!("Failed to generate {format_name} data"),
+            msg: error.to_string().into(),
             span: Some(head),
             help: None,
             inner: vec![],
@@ -49,7 +50,7 @@ fn make_unsupported_input_error(
     span: Span,
 ) -> ShellError {
     ShellError::UnsupportedInput {
-        msg: "expected table or record".to_string(),
+        msg: "expected table or record".into(),
         input: format!("input type: {type}"),
         msg_span: head,
         input_span: span,

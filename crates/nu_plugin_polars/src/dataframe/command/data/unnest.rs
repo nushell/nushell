@@ -2,6 +2,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
+use nu_utils::uformat;
 use polars::df;
 
 use crate::{
@@ -111,7 +112,7 @@ fn command_eager(
     let result: NuDataFrame = polars
         .unnest(cols)
         .map_err(|e| ShellError::GenericError {
-            error: format!("Error unnesting dataframe: {e}"),
+            error: uformat!("Error unnesting dataframe: {e}"),
             msg: "".into(),
             span: Some(call.head),
             help: None,

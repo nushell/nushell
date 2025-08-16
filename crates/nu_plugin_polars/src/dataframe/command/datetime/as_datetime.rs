@@ -353,7 +353,7 @@ fn command_eager(
     let series = df.as_series(call.head)?;
     let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(call.head),
         help: None,
         inner: vec![],
@@ -381,7 +381,7 @@ fn command_eager(
     let mut res = res
         .map_err(|e| ShellError::GenericError {
             error: "Error creating datetime".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(call.head),
             help: None,
             inner: vec![],

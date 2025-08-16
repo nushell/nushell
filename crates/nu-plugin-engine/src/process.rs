@@ -55,7 +55,7 @@ impl PluginProcess {
             let guard = ForegroundGuard::new(pid, pipeline_state).map_err(|err| {
                 ShellError::GenericError {
                     error: "Failed to enter foreground".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],

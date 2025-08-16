@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct Rename;

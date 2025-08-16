@@ -1,7 +1,7 @@
 use crate::{TableOutput, TableTheme, clean_charset, colorize_space_str, string_wrap};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
-use nu_utils::terminal_size;
+use nu_utils::{terminal_size, uformat};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -157,10 +157,10 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
         Ok(f) => f,
         Err(e) => {
             return Err(ShellError::GenericError {
-                error: format!("error converting string [{}] to f64", &val),
+                error: uformat!("error converting string [{}] to f64", &val),
                 msg: "".into(),
                 span: None,
-                help: Some(e.to_string()),
+                help: Some(e.to_string().into()),
                 inner: vec![],
             });
         }

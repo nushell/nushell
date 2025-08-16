@@ -4,6 +4,7 @@ use crossterm::event::{
 };
 use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 use nu_protocol::shell_error::io::IoError;
 use num_traits::AsPrimitive;
@@ -217,7 +218,7 @@ impl EventTypeFilter {
 
     fn bad_list_error(head: Span, value: &Value) -> ShellError {
         ShellError::UnsupportedInput {
-            msg: "--types expects a list of strings".to_string(),
+            msg: "--types expects a list of strings".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: value.span(),

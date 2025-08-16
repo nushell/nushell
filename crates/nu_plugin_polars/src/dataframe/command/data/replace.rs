@@ -9,6 +9,7 @@ use nu_protocol::{
     Value,
 };
 
+use nu_utils::uformat;
 use polars::{df, prelude::*};
 
 #[derive(Clone)]
@@ -309,7 +310,7 @@ fn values_to_expr(
             error: "Cannot convert input to expression".into(),
             msg: "".into(),
             span: Some(span),
-            help: Some(format!("Unexpected type: {x:?}")),
+            help: Some(uformat!("Unexpected type: {x:?}")),
             inner: vec![],
         }),
 

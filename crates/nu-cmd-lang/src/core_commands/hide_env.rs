@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::did_you_mean;
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct HideEnv;

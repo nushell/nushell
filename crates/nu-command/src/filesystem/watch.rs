@@ -165,8 +165,8 @@ impl Command for Watch {
             Ok(d) => d,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: "Failed to create watcher".to_string(),
-                    msg: e.to_string(),
+                    error: "Failed to create watcher".into(),
+                    msg: e.to_string().into(),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],
@@ -175,8 +175,8 @@ impl Command for Watch {
         };
         if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
             return Err(ShellError::GenericError {
-                error: "Failed to create watcher".to_string(),
-                msg: e.to_string(),
+                error: "Failed to create watcher".into(),
+                msg: e.to_string().into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -266,7 +266,7 @@ impl Command for Watch {
                 }
                 Ok(Err(_)) => {
                     return Err(ShellError::GenericError {
-                        error: "Receiving events failed".to_string(),
+                        error: "Receiving events failed".into(),
                         msg: "Unexpected errors when receiving events".into(),
                         span: None,
                         help: None,
@@ -275,7 +275,7 @@ impl Command for Watch {
                 }
                 Err(RecvTimeoutError::Disconnected) => {
                     return Err(ShellError::GenericError {
-                        error: "Disconnected".to_string(),
+                        error: "Disconnected".into(),
                         msg: "Unexpected disconnect from file watcher".into(),
                         span: None,
                         help: None,

@@ -51,7 +51,7 @@ impl Command for KeybindingsListen {
                     error: "Error with input".into(),
                     msg: "".into(),
                     span: None,
-                    help: Some(e.to_string()),
+                    help: Some(e.to_string().into()),
                     inner: vec![],
                 })
             }

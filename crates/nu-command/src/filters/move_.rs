@@ -280,7 +280,7 @@ fn insert_moved(
             out.push(col.clone(), val.clone());
         } else {
             return Err(ShellError::NushellFailedSpanned {
-                msg: "Error indexing input columns".to_string(),
+                msg: "Error indexing input columns".into(),
                 label: "originates from here".to_string(),
                 span,
             });

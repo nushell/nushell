@@ -5,7 +5,7 @@ use crate::{
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
 };
 use log::debug;
-use nu_utils::perf;
+use nu_utils::{perf, uformat};
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -227,7 +227,7 @@ fn from_parquet(
         let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -240,7 +240,7 @@ fn from_parquet(
 
         let r = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],
@@ -256,7 +256,7 @@ fn from_parquet(
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -283,7 +283,7 @@ fn from_avro(
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
     let r = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(file_span),
         help: None,
         inner: vec![],
@@ -299,7 +299,7 @@ fn from_avro(
         .finish()
         .map_err(|e| ShellError::GenericError {
             error: "Avro reader error".into(),
-            msg: format!("{e:?}"),
+            msg: uformat!("{e:?}"),
             span: Some(call.head),
             help: None,
             inner: vec![],
@@ -333,7 +333,7 @@ fn from_arrow(
         let df: NuLazyFrame = LazyFrame::scan_ipc(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -346,7 +346,7 @@ fn from_arrow(
 
         let r = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],
@@ -362,7 +362,7 @@ fn from_arrow(
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -387,7 +387,7 @@ fn from_json(
     }
     let file = File::open(file_path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(file_span),
         help: None,
         inner: vec![],
@@ -409,7 +409,7 @@ fn from_json(
         .finish()
         .map_err(|e| ShellError::GenericError {
             error: "Json reader error".into(),
-            msg: format!("{e:?}"),
+            msg: uformat!("{e:?}"),
             span: Some(call.head),
             help: None,
             inner: vec![],
@@ -445,7 +445,7 @@ fn from_ndjson(
             .with_cloud_options(resource.cloud_options.clone())
             .finish()
             .map_err(|e| ShellError::GenericError {
-                error: format!("NDJSON reader error: {e}"),
+                error: uformat!("NDJSON reader error: {e}"),
                 msg: "".into(),
                 span: Some(call.head),
                 help: None,
@@ -459,7 +459,7 @@ fn from_ndjson(
     } else {
         let file = File::open(file_path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],
@@ -480,7 +480,7 @@ fn from_ndjson(
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: "Json lines reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -556,7 +556,7 @@ fn from_csv(
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: "CSV reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -592,7 +592,7 @@ fn from_csv(
             .try_into_reader_with_file_path(Some(file_path.into()))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(file_span),
                 help: None,
                 inner: vec![],
@@ -600,7 +600,7 @@ fn from_csv(
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: "CSV reader error".into(),
-                msg: format!("{e:?}"),
+                msg: uformat!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -615,7 +615,7 @@ fn from_csv(
 
 fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: format!(
+        error: uformat!(
             "Cloud operations not supported for file type {}",
             file_type.to_str()
         ),

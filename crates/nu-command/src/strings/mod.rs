@@ -41,13 +41,13 @@ pub fn grapheme_flags(
     // so this function can be reused for both the --utf-8-bytes commands and the --code-points commands.
     if g_flag && call.has_flag(engine_state, stack, "utf-8-bytes")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".into(),
             span: call.head,
         })?
     }
     if g_flag && call.has_flag(engine_state, stack, "code-points")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".into(),
             span: call.head,
         })?
     }
@@ -63,13 +63,13 @@ pub fn grapheme_flags_const(
     let g_flag = call.has_flag_const(working_set, "grapheme-clusters")?;
     if g_flag && call.has_flag_const(working_set, "utf-8-bytes")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".into(),
             span: call.head,
         })?
     }
     if g_flag && call.has_flag_const(working_set, "code-points")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".into(),
             span: call.head,
         })?
     }

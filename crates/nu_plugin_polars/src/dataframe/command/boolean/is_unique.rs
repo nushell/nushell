@@ -107,7 +107,7 @@ fn command(
         .is_unique()
         .map_err(|e| ShellError::GenericError {
             error: "Error finding unique values".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(call.head),
             help: None,
             inner: vec![],

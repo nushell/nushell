@@ -14,7 +14,7 @@ use nu_protocol::{
     CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
     SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
 };
-use nu_utils::SharedCow;
+use nu_utils::{SharedCow, uformat};
 use std::{
     collections::{BTreeMap, btree_map},
     sync::{Arc, OnceLock, mpsc},
@@ -382,9 +382,8 @@ impl PluginInterfaceManager {
                 this.state.writer.write(&PluginInput::EngineCallResponse(
                     engine_call_id,
                     EngineCallResponse::Error(ShellError::GenericError {
-                        error: "Caller hung up".to_string(),
-                        msg: "Can't make engine call because the original caller hung up"
-                            .to_string(),
+                        error: "Caller hung up".into(),
+                        msg: "Can't make engine call because the original caller hung up".into(),
                         span: None,
                         help: None,
                         inner: vec![],
@@ -770,10 +769,10 @@ impl PluginInterface {
             .map_err(|_| {
                 let existing_error = self.state.error.get().cloned();
                 ShellError::GenericError {
-                    error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                    error: uformat!("Plugin `{}` closed unexpectedly", self.state.source.name()),
                     msg: "can't complete this operation because the plugin is closed".into(),
                     span: call.span(),
-                    help: Some(format!(
+                    help: Some(uformat!(
                         "the plugin may have experienced an error. Try loading the plugin again \
                         with `{}`",
                         self.state.source.identity.use_command(),
@@ -848,13 +847,13 @@ impl PluginInterface {
         // set. This is probably a much more helpful error than 'failed to receive response' alone
         let existing_error = self.state.error.get().cloned();
         Err(ShellError::GenericError {
-            error: format!(
+            error: uformat!(
                 "Failed to receive response to plugin call from `{}`",
                 self.state.source.identity.name()
             ),
             msg: "while waiting for this operation to complete".into(),
             span: state.span,
-            help: Some(format!(
+            help: Some(uformat!(
                 "try restarting the plugin with `{}`",
                 self.state.source.identity.use_command()
             )),
@@ -905,14 +904,14 @@ impl PluginInterface {
         // Check for an error in the state first, and return it if set.
         if let Some(error) = self.state.error.get() {
             return Err(ShellError::GenericError {
-                error: format!(
+                error: uformat!(
                     "Failed to send plugin call to `{}`",
                     self.state.source.identity.name()
                 ),
                 msg: "the plugin encountered an error before this operation could be attempted"
                     .into(),
                 span: call.span(),
-                help: Some(format!(
+                help: Some(uformat!(
                     "try loading the plugin again with `{}`",
                     self.state.source.identity.use_command(),
                 )),
@@ -1261,7 +1260,7 @@ pub(crate) fn handle_engine_call(
 
     let context = context.ok_or_else(|| ShellError::GenericError {
         error: "A plugin execution context is required for this engine call".into(),
-        msg: format!("attempted to call {call_name} outside of a command invocation"),
+        msg: uformat!("attempted to call {call_name} outside of a command invocation"),
         span: None,
         help: Some("this is probably a bug with the plugin".into()),
         inner: vec![],

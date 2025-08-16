@@ -178,7 +178,7 @@ fn operate(
         .build()
         .map_err(|e| ShellError::GenericError {
             error: "Error with regular expression".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(pattern_span),
             help: None,
             inner: vec![],
@@ -388,7 +388,7 @@ fn captures_to_value(
 ) -> Result<Value, ShellError> {
     let captures = captures.map_err(|err| ShellError::GenericError {
         error: "Error with regular expression captures".into(),
-        msg: err.to_string(),
+        msg: err.to_string().into(),
         span: Some(span),
         help: None,
         inner: vec![],

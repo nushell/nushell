@@ -41,8 +41,8 @@ impl Command for CommandlineGetCursor {
         match i64::try_from(char_pos) {
             Ok(pos) => Ok(Value::int(pos, call.head).into_pipeline_data()),
             Err(e) => Err(ShellError::GenericError {
-                error: "Failed to convert cursor position to int".to_string(),
-                msg: e.to_string(),
+                error: "Failed to convert cursor position to int".into(),
+                msg: e.to_string().into(),
                 span: None,
                 help: None,
                 inner: vec![],

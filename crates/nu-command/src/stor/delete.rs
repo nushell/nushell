@@ -112,7 +112,7 @@ impl Command for StorDelete {
                         error:
                             "Failed to delete using the SQLite connection in memory from delete.rs."
                                 .into(),
-                        msg: err.to_string(),
+                        msg: err.to_string().into(),
                         span: Some(Span::test_data()),
                         help: None,
                         inner: vec![],

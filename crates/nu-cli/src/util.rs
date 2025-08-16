@@ -12,7 +12,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::{escape_quote_string, perf};
+use nu_utils::{escape_quote_string, perf, strings::UniqueString, uformat};
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -42,11 +42,15 @@ fn gather_env_vars(
     engine_state: &mut EngineState,
     init_cwd: &Path,
 ) {
-    fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
+    fn report_capture_error(
+        engine_state: &EngineState,
+        env_str: &str,
+        msg: impl Into<UniqueString>,
+    ) {
         report_shell_error(
             engine_state,
             &ShellError::GenericError {
-                error: format!("Environment variable was not captured: {env_str}"),
+                error: uformat!("Environment variable was not captured: {env_str}"),
                 msg: "".into(),
                 span: None,
                 help: Some(msg.into()),
@@ -80,7 +84,7 @@ fn gather_env_vars(
                     error: "Current directory is not a valid utf-8 path".into(),
                     msg: "".into(),
                     span: None,
-                    help: Some(format!(
+                    help: Some(uformat!(
                         "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
                     )),
                     inner: vec![],

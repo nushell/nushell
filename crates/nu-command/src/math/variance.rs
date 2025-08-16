@@ -1,5 +1,6 @@
 use crate::math::utils::run_with_function;
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct MathVariance;
@@ -51,7 +52,7 @@ impl Command for MathVariance {
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
+                    msg: "Range must be bounded".into(),
                     val_span: span,
                     call_span: name,
                 });
@@ -73,7 +74,7 @@ impl Command for MathVariance {
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
+                    msg: "Range must be bounded".into(),
                     val_span: span,
                     call_span: name,
                 });

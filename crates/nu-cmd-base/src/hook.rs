@@ -7,6 +7,7 @@ use nu_protocol::{
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
 };
+use nu_utils::uformat;
 use std::{collections::HashMap, sync::Arc};
 
 pub fn eval_env_change_hook(
@@ -93,7 +94,7 @@ pub fn eval_hook(
                 if let Some(err) = working_set.parse_errors.first() {
                     report_parse_error(&working_set, err);
                     return Err(ShellError::GenericError {
-                        error: format!("Failed to run {hook_name} hook"),
+                        error: uformat!("Failed to run {hook_name} hook"),
                         msg: "source code has errors".into(),
                         span: Some(span),
                         help: None,
@@ -217,7 +218,7 @@ pub fn eval_hook(
                             if let Some(err) = working_set.parse_errors.first() {
                                 report_parse_error(&working_set, err);
                                 return Err(ShellError::GenericError {
-                                    error: format!("Failed to run {hook_name} hook"),
+                                    error: uformat!("Failed to run {hook_name} hook"),
                                     msg: "source code has errors".into(),
                                     span: Some(span),
                                     help: None,

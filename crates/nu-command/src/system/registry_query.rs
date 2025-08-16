@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 use nu_protocol::shell_error::io::IoError;
 use windows::{Win32::System::Environment::ExpandEnvironmentStringsW, core::PCWSTR};
@@ -130,7 +131,7 @@ fn registry_query(
                     }
                     Err(_) => Err(ShellError::GenericError {
                         error: "Unable to find registry key/value".into(),
-                        msg: format!("Registry value: {} was not found", value.item),
+                        msg: uformat!("Registry value: {} was not found", value.item),
                         span: Some(value.span),
                         help: None,
                         inner: vec![],

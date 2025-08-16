@@ -162,7 +162,7 @@ fn split_row(
     }
     .map_err(|e| ShellError::GenericError {
         error: "Error with regular expression".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(args.separator.span),
         help: None,
         inner: vec![],
@@ -191,7 +191,7 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                             Err(err) => Value::error(
                                 ShellError::GenericError {
                                     error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
+                                    msg: err.to_string().into(),
                                     span: Some(v_span),
                                     help: None,
                                     inner: vec![],
@@ -207,7 +207,7 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                             Err(err) => Value::error(
                                 ShellError::GenericError {
                                     error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
+                                    msg: err.to_string().into(),
                                     span: Some(v_span),
                                     help: None,
                                     inner: vec![],

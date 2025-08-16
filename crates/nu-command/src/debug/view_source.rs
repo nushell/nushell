@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, DataSource, PipelineMetadata};
+use nu_utils::uformat;
 
 use std::fmt::Write;
 
@@ -43,8 +44,8 @@ impl Command for ViewSource {
                             .into_pipeline_data())
                     } else {
                         Err(ShellError::GenericError {
-                            error: "Cannot view int value".to_string(),
-                            msg: "the block does not have a viewable span".to_string(),
+                            error: "Cannot view int value".into(),
+                            msg: "the block does not have a viewable span".into(),
                             span: Some(arg_span),
                             help: None,
                             inner: vec![],
@@ -52,8 +53,8 @@ impl Command for ViewSource {
                     }
                 } else {
                     Err(ShellError::GenericError {
-                        error: format!("Block Id {} does not exist", arg.coerce_into_string()?),
-                        msg: "this number does not correspond to a block".to_string(),
+                        error: uformat!("Block Id {} does not exist", arg.coerce_into_string()?),
+                        msg: "this number does not correspond to a block".into(),
                         span: Some(arg_span),
                         help: None,
                         inner: vec![],
@@ -158,8 +159,8 @@ impl Command for ViewSource {
                             Ok(Value::string(final_contents, call.head).into_pipeline_data())
                         } else {
                             Err(ShellError::GenericError {
-                                error: "Cannot view string value".to_string(),
-                                msg: "the command does not have a viewable block span".to_string(),
+                                error: "Cannot view string value".into(),
+                                msg: "the command does not have a viewable block span".into(),
                                 span: Some(arg_span),
                                 help: None,
                                 inner: vec![],
@@ -167,8 +168,8 @@ impl Command for ViewSource {
                         }
                     } else {
                         Err(ShellError::GenericError {
-                            error: "Cannot view string decl value".to_string(),
-                            msg: "the command does not have a viewable block".to_string(),
+                            error: "Cannot view string decl value".into(),
+                            msg: "the command does not have a viewable block".into(),
                             span: Some(arg_span),
                             help: None,
                             inner: vec![],
@@ -183,8 +184,8 @@ impl Command for ViewSource {
                             .into_pipeline_data())
                     } else {
                         Err(ShellError::GenericError {
-                            error: "Cannot view string module value".to_string(),
-                            msg: "the module does not have a viewable block".to_string(),
+                            error: "Cannot view string module value".into(),
+                            msg: "the module does not have a viewable block".into(),
                             span: Some(arg_span),
                             help: None,
                             inner: vec![],
@@ -192,8 +193,8 @@ impl Command for ViewSource {
                     }
                 } else {
                     Err(ShellError::GenericError {
-                        error: "Cannot view string value".to_string(),
-                        msg: "this name does not correspond to a viewable value".to_string(),
+                        error: "Cannot view string value".into(),
+                        msg: "this name does not correspond to a viewable value".into(),
                         span: Some(arg_span),
                         help: None,
                         inner: vec![],
@@ -213,8 +214,8 @@ impl Command for ViewSource {
                     }
                 } else {
                     Err(ShellError::GenericError {
-                        error: "Cannot view value".to_string(),
-                        msg: "this value cannot be viewed".to_string(),
+                        error: "Cannot view value".into(),
+                        msg: "this value cannot be viewed".into(),
                         span: Some(arg_span),
                         help: None,
                         inner: vec![],

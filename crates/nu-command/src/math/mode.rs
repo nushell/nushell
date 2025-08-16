@@ -131,7 +131,7 @@ pub fn mode(values: &[Value], span: Span, head: Span) -> Result<Value, ShellErro
             )),
             Value::Error { error, .. } => Err(*error.clone()),
             _ => Err(ShellError::UnsupportedInput {
-                msg: "Unable to give a result with this input".to_string(),
+                msg: "Unable to give a result with this input".into(),
                 input: "value originates from here".into(),
                 msg_span: head,
                 input_span: span,

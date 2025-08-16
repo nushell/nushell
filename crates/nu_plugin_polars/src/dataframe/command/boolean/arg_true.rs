@@ -96,7 +96,7 @@ fn command(
                 .collect()
                 .map_err(|err| ShellError::GenericError {
                     error: "Error creating index column".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],
@@ -106,7 +106,7 @@ fn command(
             res.to_pipeline_data(plugin, engine, call.head)
         }
         _ => Err(ShellError::UnsupportedInput {
-            msg: "Expected the dataframe to have a column".to_string(),
+            msg: "Expected the dataframe to have a column".into(),
             input: "".to_string(),
             msg_span: call.head,
             input_span: call.head,

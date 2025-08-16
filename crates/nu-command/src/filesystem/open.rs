@@ -5,6 +5,7 @@ use nu_protocol::{
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -218,10 +219,10 @@ impl Command for Open {
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
-                                        error: format!("Error while parsing as {ext}"),
-                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        error: uformat!("Error while parsing as {ext}"),
+                                        msg: uformat!("Could not parse '{}' with `from {}`", path.display(), ext),
                                         span: Some(arg_span),
-                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        help: Some(uformat!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
                                         inner: vec![inner],
                                 }
                                 })?);

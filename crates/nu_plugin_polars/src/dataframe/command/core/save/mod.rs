@@ -19,6 +19,7 @@ use nu_protocol::{
     Signature, Span, Spanned, SyntaxShape, Type,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use polars::{error::PolarsError, prelude::SinkTarget};
 
 #[derive(Clone)]
@@ -254,7 +255,7 @@ fn write_into_source_error(span: Span) -> ShellError {
 
 pub(crate) fn polars_file_save_error(e: PolarsError, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: format!("Error saving file: {e}"),
+        error: uformat!("Error saving file: {e}"),
         msg: "".into(),
         span: Some(span),
         help: None,

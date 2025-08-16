@@ -2,6 +2,7 @@ use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
 use nu_protocol::shell_error::io::IoError;
 use nu_system::ForegroundChild;
+use nu_utils::uformat;
 
 #[cfg(feature = "os")]
 use nu_protocol::process::PostWaitCallback;
@@ -51,7 +52,7 @@ pub(super) fn start_editor(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     Err(ShellError::DisabledOsSupport {
-        msg: "Running external commands is not available without OS support.".to_string(),
+        msg: "Running external commands is not available without OS support.".into(),
         span: Some(call.head),
     })
 }
@@ -77,8 +78,8 @@ pub(super) fn start_editor(
 
     let Some(config_path) = engine_state.get_config_path(config_path) else {
         return Err(ShellError::GenericError {
-            error: format!("Could not find $nu.{config_path}"),
-            msg: format!("Could not find $nu.{config_path}"),
+            error: uformat!("Could not find $nu.{config_path}"),
+            msg: uformat!("Could not find $nu.{config_path}"),
             span: None,
             help: None,
             inner: vec![],

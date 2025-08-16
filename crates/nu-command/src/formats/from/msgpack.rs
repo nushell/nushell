@@ -1,3 +1,4 @@
+use nu_utils::uformat;
 // Credit to https://github.com/hulthe/nu_plugin_msgpack for the original idea, though the
 // implementation here is unique.
 
@@ -192,14 +193,14 @@ impl From<ReadError> for ShellError {
         match value {
             ReadError::MaxDepth(span) => ShellError::GenericError {
                 error: "MessagePack data is nested too deeply".into(),
-                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
+                msg: uformat!("exceeded depth limit ({MAX_DEPTH})"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
             },
             ReadError::Io(err, span) => ShellError::GenericError {
                 error: "Error while reading MessagePack data".into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(span),
                 help: None,
                 // Take the inner ShellError
@@ -212,7 +213,7 @@ impl From<ReadError> for ShellError {
             },
             ReadError::TypeMismatch(marker, span) => ShellError::GenericError {
                 error: "Invalid marker while reading MessagePack data".into(),
-                msg: format!("unexpected {marker:?} in data"),
+                msg: uformat!("unexpected {marker:?} in data"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -305,7 +306,7 @@ fn read_value(input: &mut impl io::Read, span: Span, depth: usize) -> Result<Val
                 .map_err(|err| {
                     ShellError::GenericError {
                         error: "MessagePack integer too big for Nushell".into(),
-                        msg: err.to_string(),
+                        msg: err.to_string().into(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -460,7 +461,7 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
         }
         _ => Err(ShellError::GenericError {
             error: "Unknown MessagePack extension".into(),
-            msg: format!("encountered extension type {ty}, length {len}"),
+            msg: uformat!("encountered extension type {ty}, length {len}"),
             span: Some(span),
             help: Some("only the timestamp extension (-1) is supported".into()),
             inner: vec![],

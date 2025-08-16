@@ -20,6 +20,7 @@ mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator};
+use nu_utils::uformat;
 use tokio::runtime::Runtime;
 use values::CustomValueType;
 
@@ -69,7 +70,7 @@ impl PolarsPlugin {
             cache: Cache::default(),
             disable_cache_drop: false,
             runtime: Runtime::new().map_err(|e| ShellError::GenericError {
-                error: format!("Could not instantiate tokio: {e}"),
+                error: uformat!("Could not instantiate tokio: {e}"),
                 msg: "".into(),
                 span: None,
                 help: None,

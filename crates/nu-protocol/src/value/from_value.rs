@@ -5,6 +5,7 @@ use crate::{
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
+use nu_utils::uformat;
 use std::{
     any,
     borrow::Cow,
@@ -379,8 +380,8 @@ macro_rules! impl_from_value_for_uint {
                             0..=MAX => Ok(val as $type),
                             #[allow(unreachable_patterns)] // u64 will max out the i64 number range
                             n => Err(ShellError::GenericError {
-                                error: "Integer too large".to_string(),
-                                msg: format!("{n} is larger than {MAX}"),
+                                error: "Integer too large".into(),
+                                msg: uformat!("{n} is larger than {MAX}"),
                                 span: Some(span),
                                 help: None,
                                 inner: vec![],
@@ -838,8 +839,8 @@ impl FromValue for bytes::Bytes {
 // Use generics with `fmt::Display` to allow passing different kinds of integer
 fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: "Integer too small".to_string(),
-        msg: format!("{int} is smaller than {min}"),
+        error: "Integer too small".into(),
+        msg: uformat!("{int} is smaller than {min}"),
         span: Some(span),
         help: None,
         inner: vec![],
@@ -848,8 +849,8 @@ fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Spa
 
 fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: "Integer too large".to_string(),
-        msg: format!("{int} is larger than {max}"),
+        error: "Integer too large".into(),
+        msg: uformat!("{int} is larger than {max}"),
         span: Some(span),
         help: None,
         inner: vec![],

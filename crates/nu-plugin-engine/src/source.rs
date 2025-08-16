@@ -1,5 +1,6 @@
 use super::GetPlugin;
 use nu_protocol::{PluginIdentity, ShellError, Span};
+use nu_utils::uformat;
 use std::sync::{Arc, Weak};
 
 /// The source of a custom value or plugin command. Includes a weak reference to the persistent
@@ -40,7 +41,7 @@ impl PluginSource {
         self.persistent
             .upgrade()
             .ok_or_else(|| ShellError::GenericError {
-                error: format!("The `{}` plugin is no longer present", self.identity.name()),
+                error: uformat!("The `{}` plugin is no longer present", self.identity.name()),
                 msg: "removed since this object was created".into(),
                 span,
                 help: Some("try recreating the object that came from the plugin".into()),

@@ -8,6 +8,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use nu_utils::uformat;
 use polars::df;
 
 #[derive(Clone)]
@@ -97,7 +98,7 @@ impl PluginCommand for Over {
                     .into_polars()
                     .over_with_options(Some(expressions), None, Default::default())
                     .map_err(|e| ShellError::GenericError {
-                        error: format!("Error applying over expression: {e}"),
+                        error: uformat!("Error applying over expression: {e}"),
                         msg: "".into(),
                         span: Some(call.head),
                         help: None,

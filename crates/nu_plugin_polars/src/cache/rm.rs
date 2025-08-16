@@ -3,6 +3,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use nu_utils::uformat;
 use uuid::Uuid;
 
 use crate::PolarsPlugin;
@@ -71,7 +72,7 @@ fn remove_cache_entry(
 
 fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
     Uuid::parse_str(s).map_err(|e| ShellError::GenericError {
-        error: format!("Failed to convert key string to UUID: {e}"),
+        error: uformat!("Failed to convert key string to UUID: {e}"),
         msg: "".into(),
         span: Some(span),
         help: None,

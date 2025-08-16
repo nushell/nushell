@@ -8,6 +8,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct LazyCollect;
@@ -85,7 +86,7 @@ impl PluginCommand for LazyCollect {
                         .cache
                         .get(&df.id, true)?
                         .ok_or_else(|| ShellError::GenericError {
-                            error: format!("Failed to get cached value {}", df.id),
+                            error: uformat!("Failed to get cached value {}", df.id),
                             msg: "".into(),
                             span: Some(call.head),
                             help: None,

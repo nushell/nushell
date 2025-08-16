@@ -2,6 +2,7 @@ use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLU
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
+use nu_utils::strings::UniqueString;
 use roxmltree::{NodeType, ParsingOptions, TextPos};
 
 #[derive(Clone)]
@@ -346,7 +347,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
     }
 }
 
-fn make_xml_error(msg: impl Into<String>, span: Span) -> ShellError {
+fn make_xml_error(msg: impl Into<UniqueString>, span: Span) -> ShellError {
     ShellError::GenericError {
         error: "Failed to parse XML".into(),
         msg: msg.into(),

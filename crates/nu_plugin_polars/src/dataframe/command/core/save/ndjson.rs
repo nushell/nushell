@@ -3,6 +3,7 @@ use std::{fs::File, io::BufWriter};
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
+use nu_utils::uformat;
 use polars::prelude::{JsonWriter, SerWriter, SinkOptions};
 use polars_io::json::JsonWriterOptions;
 
@@ -39,7 +40,7 @@ pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), 
     let file_path = resource.path;
     let file_span = resource.span;
     let file = File::create(file_path).map_err(|e| ShellError::GenericError {
-        error: format!("Error with file name: {e}"),
+        error: uformat!("Error with file name: {e}"),
         msg: "".into(),
         span: Some(file_span),
         help: None,
@@ -51,7 +52,7 @@ pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), 
         .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],

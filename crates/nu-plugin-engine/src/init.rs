@@ -18,6 +18,7 @@ use nu_protocol::{
     PluginIdentity, PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData,
     RegisteredPlugin, ShellError, Span, engine::StateWorkingSet, report_shell_error,
 };
+use nu_utils::uformat;
 
 use crate::{
     PersistentPlugin, PluginDeclaration, PluginGc, PluginInterface, PluginInterfaceManager,
@@ -242,7 +243,7 @@ pub fn load_plugin_registry_item(
                 error: "Invalid plugin filename in plugin registry file".into(),
                 msg: "loaded from here".into(),
                 span,
-                help: Some(format!(
+                help: Some(uformat!(
                     "the filename for `{}` is not a valid nushell plugin: {}",
                     plugin.name,
                     plugin.filename.display()

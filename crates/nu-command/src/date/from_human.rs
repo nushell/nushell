@@ -123,7 +123,7 @@ fn helper(value: Value, head: Span) -> Value {
                     chrono::LocalResult::Ambiguous(_, _) => {
                         return Value::error(
                             ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
+                                msg: "Ambiguous datetime".into(),
                                 span,
                             },
                             span,
@@ -132,7 +132,7 @@ fn helper(value: Value, head: Span) -> Value {
                     chrono::LocalResult::None => {
                         return Value::error(
                             ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
+                                msg: "Invalid datetime".into(),
                                 span,
                             },
                             span,
@@ -171,7 +171,7 @@ fn helper(value: Value, head: Span) -> Value {
                     chrono::LocalResult::Ambiguous(_, _) => {
                         return Value::error(
                             ShellError::DatetimeParseError {
-                                msg: "Ambiguous datetime".to_string(),
+                                msg: "Ambiguous datetime".into(),
                                 span,
                             },
                             span,
@@ -180,7 +180,7 @@ fn helper(value: Value, head: Span) -> Value {
                     chrono::LocalResult::None => {
                         return Value::error(
                             ShellError::DatetimeParseError {
-                                msg: "Invalid datetime".to_string(),
+                                msg: "Invalid datetime".into(),
                                 span,
                             },
                             span,
@@ -201,7 +201,7 @@ fn helper(value: Value, head: Span) -> Value {
         },
         Err(_) => Value::error(
             ShellError::IncorrectValue {
-                msg: "Cannot parse as humanized date".to_string(),
+                msg: "Cannot parse as humanized date".into(),
                 val_span: head,
                 call_span: span,
             },

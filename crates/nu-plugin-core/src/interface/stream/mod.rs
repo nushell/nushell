@@ -1,5 +1,6 @@
 use nu_plugin_protocol::{StreamData, StreamId, StreamMessage};
 use nu_protocol::{ShellError, Span, Value};
+use nu_utils::uformat;
 use std::{
     collections::{BTreeMap, btree_map},
     iter::FusedIterator,
@@ -216,7 +217,7 @@ where
         } else {
             Err(ShellError::GenericError {
                 error: "Wrote to a stream after it ended".into(),
-                msg: format!(
+                msg: uformat!(
                     "tried to write to stream {} after it was already ended",
                     self.id
                 ),
@@ -580,7 +581,7 @@ impl StreamManagerHandle {
                 Ok(())
             } else {
                 Err(ShellError::GenericError {
-                    error: format!("Failed to acquire reader for stream {id}"),
+                    error: uformat!("Failed to acquire reader for stream {id}"),
                     msg: "tried to get a reader for a stream that's already being read".into(),
                     span: None,
                     help: Some("this may be a bug in the nu-plugin crate".into()),
@@ -618,7 +619,7 @@ impl StreamManagerHandle {
                 Ok(())
             } else {
                 Err(ShellError::GenericError {
-                    error: format!("Failed to acquire writer for stream {id}"),
+                    error: uformat!("Failed to acquire writer for stream {id}"),
                     msg: "tried to get a writer for a stream that's already being written".into(),
                     span: None,
                     help: Some("this may be a bug in the nu-plugin crate".into()),

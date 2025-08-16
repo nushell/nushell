@@ -4,6 +4,7 @@ use nu_protocol::{
     NuGlob,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
@@ -163,7 +164,7 @@ impl Command for UCp {
         if paths.len() == 1 {
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!(
+                msg: uformat!(
                     "Missing destination path operand after {}",
                     paths[0].item.as_ref()
                 ),
@@ -272,8 +273,8 @@ impl Command for UCp {
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: format!("{error}"),
-                        msg: format!("{error}"),
+                        error: uformat!("{error}"),
+                        msg: uformat!("{error}"),
                         span: None,
                         help: None,
                         inner: vec![],

@@ -4,6 +4,7 @@ use nu_engine::command_prelude::*;
 use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
 use nu_protocol::{NuGlob, shell_error::io::IoError};
+use nu_utils::uformat;
 use std::path::PathBuf;
 use uu_touch::{ChangeTimes, InputFile, Options, Source, error::TouchError};
 
@@ -178,15 +179,15 @@ impl Command for UTouch {
 
                     if is_glob(&file_name.to_string_lossy()) {
                         return Err(ShellError::GenericError {
-                            error: format!(
+                            error: uformat!(
                                 "No matches found for glob {}",
                                 file_name.to_string_lossy()
                             ),
                             msg: "No matches found for glob".into(),
                             span: Some(file_glob.span),
-                            help: Some(format!(
+                            help: Some(uformat!(
                                 "Use quotes if you want to create a file named {}",
-                                file_name.to_string_lossy()
+                                file_name.display()
                             )),
                             inner: vec![],
                         });
@@ -213,8 +214,8 @@ impl Command for UTouch {
         ) {
             let nu_err = match err {
                 TouchError::TouchFileError { path, index, error } => ShellError::GenericError {
-                    error: format!("Could not touch {}", path.display()),
-                    msg: error.to_string(),
+                    error: uformat!("Could not touch {}", path.display()),
+                    msg: error.to_string().into(),
                     span: Some(file_globs[index].span),
                     help: None,
                     inner: Vec::new(),
@@ -234,8 +235,8 @@ impl Command for UTouch {
                     ))
                 }
                 _ => ShellError::GenericError {
-                    error: err.to_string(),
-                    msg: err.to_string(),
+                    error: err.to_string().into(),
+                    msg: err.to_string().into(),
                     span: Some(call.head),
                     help: None,
                     inner: Vec::new(),

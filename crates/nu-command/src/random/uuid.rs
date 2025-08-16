@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 use uuid::{Timestamp, Uuid};
 
 #[derive(Clone)]
@@ -160,7 +161,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "version 1 uuid does not take namespace as a parameter".to_string(),
+                    msg: "version 1 uuid does not take namespace as a parameter".into(),
                     span,
                 });
             }
@@ -169,7 +170,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "version 1 uuid does not take name as a parameter".to_string(),
+                    msg: "version 1 uuid does not take name as a parameter".into(),
                     span,
                 });
             }
@@ -180,7 +181,7 @@ fn validate_flags(
                 .is_some()
             {
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "version 3 and 5 uuids do not take mac as a parameter".to_string(),
+                    msg: "version 3 and 5 uuids do not take mac as a parameter".into(),
                     span,
                 });
             }
@@ -248,7 +249,7 @@ fn get_mac_address(
     let mac_parts = mac_str.split(':').collect::<Vec<&str>>();
     if mac_parts.len() != 6 {
         return Err(ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".into(),
             val_span: span,
             call_span: span,
         });
@@ -259,13 +260,13 @@ fn get_mac_address(
         .map(|x| u8::from_str_radix(x, 16))
         .collect::<Result<Vec<u8>, _>>()
         .map_err(|_| ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".into(),
             val_span: span,
             call_span: span,
         })?
         .try_into()
         .map_err(|_| ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".into(),
             val_span: span,
             call_span: span,
         })?;

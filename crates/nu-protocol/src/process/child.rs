@@ -6,6 +6,7 @@ use crate::{
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
+use nu_utils::uformat;
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
@@ -87,7 +88,7 @@ impl ExitStatusFuture {
                         "failed to get exit code",
                     ))),
                     Err(err @ RecvError) => Err(ShellError::GenericError {
-                        error: err.to_string(),
+                        error: err.to_string().into(),
                         msg: "failed to get exit code".into(),
                         span: span.into(),
                         help: None,
@@ -110,14 +111,14 @@ impl ExitStatusFuture {
                 let code = match receiver.try_recv() {
                     Ok(Ok(status)) => Ok(Some(status)),
                     Ok(Err(err)) => Err(ShellError::GenericError {
-                        error: err.to_string(),
-                        msg: "failed to get exit code".to_string(),
+                        error: err.to_string().into(),
+                        msg: "failed to get exit code".into(),
                         span: span.into(),
                         help: None,
                         inner: vec![],
                     }),
                     Err(TryRecvError::Disconnected) => Err(ShellError::GenericError {
-                        error: "receiver disconnected".to_string(),
+                        error: "receiver disconnected".into(),
                         msg: "failed to get exit code".into(),
                         span: span.into(),
                         help: None,
@@ -362,7 +363,7 @@ impl ChildProcess {
                         Ok(io) => from_io_error(*io).into(),
                         Err(err) => ShellError::GenericError {
                             error: "Unknown error".into(),
-                            msg: format!("{err:?}"),
+                            msg: uformat!("{err:?}"),
                             span: Some(self.span),
                             help: None,
                             inner: Vec::new(),
@@ -404,7 +405,7 @@ impl ChildProcess {
                         Ok(io) => from_io_error(*io).into(),
                         Err(err) => ShellError::GenericError {
                             error: "Unknown error".into(),
-                            msg: format!("{err:?}"),
+                            msg: uformat!("{err:?}"),
                             span: Some(self.span),
                             help: None,
                             inner: Vec::new(),
