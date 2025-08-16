@@ -324,13 +324,13 @@ fn evaluate_source(
     let mut final_result = Ok(false);
     let pipefail = engine_state.get_config().pipefail;
     for one_exit in exit_status.into_iter().rev() {
-        if let Some(future) = one_exit {
+        if let Some((future, span)) = one_exit {
             let mut future = future.lock().unwrap();
-            let wait_result = future.wait(Span::unknown());
+            let wait_result = future.wait(span);
             match wait_result {
                 Err(err) if pipefail => final_result = Err(err),
                 Ok(status) => {
-                    if let Err(e) = check_ok(status, false, Span::unknown()) {
+                    if let Err(e) = check_ok(status, false, span) {
                         if pipefail {
                             final_result = Err(e)
                         }

@@ -588,8 +588,6 @@ fn eval_instruction<D: DebugContext>(
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             let (input, mut exit) = (input.body, input.exit);
-            // TODO: carefully handle for call, it's the key to implement
-            // pipefail.
             let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             if need_backtrace {
                 match &mut result {
@@ -598,14 +596,9 @@ fn eval_instruction<D: DebugContext>(
                     _ => (),
                 };
             }
-            exit.push(result.clone_exit_status_future());
-            ctx.put_reg(
-                *src_dst,
-                PipelineExecutionData {
-                    body: result,
-                    exit: exit,
-                },
-            );
+            let result_exit_status_future = result.clone_exit_status_future().map(|f| (f, *span));
+            exit.push(result_exit_status_future);
+            ctx.put_reg(*src_dst, PipelineExecutionData { body: result, exit });
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -1580,13 +1573,13 @@ fn drain(
     let pipefail = ctx.engine_state.get_config().pipefail;
     let mut result = Ok(Continue);
     for one_exit in exit_status.into_iter().rev() {
-        if let Some(future) = one_exit {
+        if let Some((future, span)) = one_exit {
             let mut future = future.lock().unwrap();
-            let wait_result = future.wait(Span::unknown());
+            let wait_result = future.wait(span);
             match wait_result {
                 Err(err) if pipefail => result = Err(err),
                 Ok(status) => {
-                    if let Err(e) = check_ok(status, false, Span::unknown()) {
+                    if let Err(e) = check_ok(status, false, span) {
                         if pipefail {
                             result = Err(e)
                         }

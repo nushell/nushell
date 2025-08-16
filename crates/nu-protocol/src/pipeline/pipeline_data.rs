@@ -970,9 +970,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 
 pub struct PipelineExecutionData {
     pub body: PipelineData,
-    // NOTE: use Vec<ExitStatusFuture> for now
-    // maybe it's necessary to optimize it.
-    pub exit: Vec<Option<Arc<Mutex<ExitStatusFuture>>>>,
+    pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
 }
 
 impl Deref for PipelineExecutionData {
@@ -994,10 +992,17 @@ impl PipelineExecutionData {
 
 impl From<PipelineData> for PipelineExecutionData {
     fn from(value: PipelineData) -> Self {
+        let value_span = value.span().unwrap_or_else(|| Span::unknown());
         let exit_status_future = value.clone_exit_status_future();
-        Self {
-            body: value,
-            exit: vec![exit_status_future],
+        match exit_status_future {
+            None => Self {
+                body: value,
+                exit: vec![None],
+            },
+            Some(future) => Self {
+                body: value,
+                exit: vec![Some((future, value_span))],
+            },
         }
     }
 }
