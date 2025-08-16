@@ -5,6 +5,36 @@ use std::{
     ops::Deref,
 };
 
+/// An owned, immutable string with compact storage.
+///
+/// `UniqueString` is designed for immutable strings that are not frequently cloned and hold ownership.
+/// It offers similar characteristics to `Box<str>` but with several key
+/// optimizations for improved efficiency and memory usage:
+///
+/// - **Efficient for Unique Strings:**
+///   When strings are not frequently cloned, `UniqueString` can be more performant than
+///   reference-counted alternatives like [`SharedString`](super::SharedString) as it avoids the
+///   overhead of atomic reference counting.
+///
+/// - **Small String Optimization (SSO):**
+///   For shorter strings, the data is stored directly within the `UniqueString` struct, keeping
+///   the data on the stack and avoiding indirection.
+///
+/// - **Static String Re-use:**
+///   Strings with a `'static` lifetime are directly referenced, avoiding unnecessary copies or
+///   allocations.
+///
+/// - **Niche Optimization:**
+///   `UniqueString` allows niche-optimization, meaning that [`Option<UniqueString>`] has the same
+///   memory footprint as `UniqueString`.
+///
+/// - **Compact Size:**
+///   On 64-bit systems, `UniqueString` is 16 bytes.
+///   This is achieved by disregarding the capacity of a `String` since we only hold the string as
+///   immutable.
+///
+/// Internally, `UniqueString` is powered by [`byteyarn::Yarn`], which provides the
+/// underlying implementation for these optimizations.
 pub struct UniqueString(byteyarn::Yarn);
 
 const _: () = const {
@@ -13,36 +43,50 @@ const _: () = const {
 };
 
 impl UniqueString {
+    /// Returns a string slice containing the entire `UniqueString`.
     #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 
+    /// Returns a byte slice of this `UniqueString`'s contents.
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }
 
+    /// Returns the length of this `UniqueString`, in bytes.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns `true` if the `UniqueString` has a length of 0, `false` otherwise.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Returns a `UniqueString` by taking ownership of an allocation.
     #[inline]
     pub fn from_string(string: String) -> Self {
         Self(byteyarn::Yarn::from_string(string))
     }
 
+    /// Returns a `UniqueString` pointing to the given slice, without copying.
+    ///
+    /// By using this function instead of [`from_string`](Self::from_string), we can avoid any
+    /// copying and always refer to the provided static string slice.
     #[inline]
     pub fn from_static_str(string: &'static str) -> Self {
         Self(byteyarn::Yarn::from_static(string))
     }
 
+    /// Builds a new `UniqueString` from the given formatting arguments.
+    ///
+    /// You can get an [`Arguments`] instance by calling [`format_args!`].
+    /// This function is used when using [`uformat!`](crate::uformat) instead of [`format!`] to
+    /// create a `UniqueString`.
     #[inline]
     pub fn from_fmt(arguments: Arguments) -> Self {
         Self(byteyarn::Yarn::from_fmt(arguments))
@@ -144,6 +188,10 @@ impl PartialOrd for UniqueString {
     }
 }
 
+/// A macro for creating [`UniqueString`] instances from format arguments.
+///
+/// This macro works similarly to [`format!`] but returns a [`UniqueString`] instead of a [`String`].
+/// It attempts to optimize for `'static` string literals.
 #[macro_export]
 macro_rules! uformat {
     ($fmt:expr) => {
