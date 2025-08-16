@@ -2,10 +2,9 @@ use log::info;
 use nu_engine::eval_block_track_exits;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, ShellError, Spanned, Value,
+    PipelineData, ShellError, Spanned, Value, check_exit_status_future,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    process::check_exit_status_future_ok,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning,
 };
@@ -85,7 +84,7 @@ pub fn evaluate_commands(
     // Run the block
     let pipeline = eval_block_track_exits::<WithoutDebug>(engine_state, stack, &block, input)?;
 
-    let (pipeline_data, exit_status) = (pipeline.body, pipeline.exit);
+    let pipeline_data = pipeline.body;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline_data {
         return Err(*error);
     }
@@ -100,14 +99,7 @@ pub fn evaluate_commands(
     if !pipefail {
         return Ok(());
     }
-    // After print pipeline, need to check exit status to implement pipeline feature.
-    let mut result = Ok(());
-    for (future, span) in exit_status.into_iter().rev().flatten() {
-        if let Err(err) = check_exit_status_future_ok(future, span) {
-            result = Err(err)
-        }
-    }
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
-
-    result
+    // After print pipeline, need to check exit status to implement pipeline feature.
+    check_exit_status_future(pipeline.exit)
 }

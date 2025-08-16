@@ -1,6 +1,8 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
+#[cfg(feature = "os")]
+use nu_protocol::check_exit_status_future;
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
     PipelineData, PipelineExecutionData, PipelineMetadata, PositionalArg, Range, Record, RegId,
@@ -12,7 +14,6 @@ use nu_protocol::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    process::check_exit_status_future_ok,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -1530,7 +1531,6 @@ fn drain(
     data: PipelineExecutionData,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    let exit_status = data.exit;
 
     match data.body {
         PipelineData::ByteStream(stream, ..) => {
@@ -1576,13 +1576,11 @@ fn drain(
     if !pipefail {
         return Ok(Continue);
     }
-    let mut result = Ok(Continue);
-    for (future, span) in exit_status.into_iter().rev().flatten() {
-        if let Err(err) = check_exit_status_future_ok(future, span) {
-            result = Err(err)
-        }
+    if cfg!(feature = "os") {
+        check_exit_status_future(data.exit).map(|_| Continue)
+    } else {
+        Ok(Continue)
     }
-    result
 }
 
 enum RedirectionStream {

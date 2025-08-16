@@ -4,10 +4,9 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block_track_exits, eval_block_with_early_return_track_exits};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
-    PipelineData, ShellError, Span, Value,
+    PipelineData, ShellError, Span, Value, check_exit_status_future,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    process::check_exit_status_future_ok,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
 };
@@ -315,7 +314,7 @@ fn evaluate_source(
     } else {
         eval_block_track_exits::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
-    let (pipeline_data, exit_status) = (pipeline.body, pipeline.exit);
+    let pipeline_data = pipeline.body;
 
     let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
@@ -325,13 +324,7 @@ fn evaluate_source(
         return Ok(false);
     }
     // After print pipeline, need to check exit status to implement pipeline feature.
-    let mut result = Ok(false);
-    for (future, span) in exit_status.into_iter().rev().flatten() {
-        if let Err(err) = check_exit_status_future_ok(future, span) {
-            result = Err(err)
-        }
-    }
-    result
+    check_exit_status_future(pipeline.exit).map(|_| false)
 }
 
 #[cfg(test)]

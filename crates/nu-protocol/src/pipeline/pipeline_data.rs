@@ -974,6 +974,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 /// Sometimes it's required to check exit status to implement `pipefail` feature.
 pub struct PipelineExecutionData {
     pub body: PipelineData,
+    #[cfg(feature = "os")]
     pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
 }
 
@@ -992,6 +993,19 @@ impl PipelineExecutionData {
             exit: vec![],
         }
     }
+}
+
+#[cfg(feature = "os")]
+pub fn check_exit_status_future(
+    exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+) -> Result<(), ShellError> {
+    let mut result = Ok(());
+    for (future, span) in exit_status.into_iter().rev().flatten() {
+        if let Err(err) = crate::process::check_exit_status_future_ok(future, span) {
+            result = Err(err)
+        }
+    }
+    result
 }
 
 impl From<PipelineData> for PipelineExecutionData {

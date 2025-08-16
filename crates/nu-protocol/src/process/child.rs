@@ -15,7 +15,7 @@ use std::{
     thread,
 };
 
-pub fn check_exit_status_future_ok(
+pub(crate) fn check_exit_status_future_ok(
     exit_status_future: Arc<Mutex<ExitStatusFuture>>,
     span: Span,
 ) -> Result<(), ShellError> {
