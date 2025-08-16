@@ -23,6 +23,9 @@ const valid_table_regex = '^[a-zA-Z0-9_]+$'
 @example "Store a number" {
   kv set foo 5
 }
+@example "Store a number in a custom table named foo" {
+  kv set -t foo bar 5
+}
 @example "Update a number and return it" {
   let $new_foo = (kv get foo | kv set foo { $in + 1 } --return value)
 }
@@ -83,8 +86,8 @@ export def "kv set" [
   # ---
   # all: The entire contents of the existing kv table are returned
   match ($return | default 'input') {
-    'all' => (kv list --universal=$universal)
-    'a' => (kv list --universal=$universal)
+    'all' => (kv list --universal=$universal --table=$table)
+    'a' => (kv list --universal=$universal --table=$table)
     'value' => $value
     'v' => $value
     'input' => $input
