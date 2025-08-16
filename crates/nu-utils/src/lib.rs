@@ -8,6 +8,7 @@ pub mod float;
 pub mod locale;
 mod quoting;
 mod shared_cow;
+pub mod strings;
 pub mod utils;
 
 pub use locale::get_system_locale;
