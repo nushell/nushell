@@ -1,12 +1,19 @@
+#[cfg(feature = "os")]
+use crate::process::ExitStatusFuture;
 use crate::{
-    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
     shell_error::{io::IoError, location::Location},
 };
-use std::{borrow::Cow, io::Write};
+use std::{
+    borrow::Cow,
+    io::Write,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -772,6 +779,17 @@ impl PipelineData {
             },
         }
     }
+
+    #[cfg(feature = "os")]
+    pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
+        match self {
+            PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
+            PipelineData::ByteStream(stream, ..) => match stream.source() {
+                ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
+                ByteStreamSource::Child(c) => Some(c.clone_exit_status_future()),
+            },
+        }
+    }
 }
 
 pub fn write_all_and_flush<T>(
@@ -949,4 +967,61 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         value => value.coerce_into_string()?.into_bytes(),
     };
     Ok(bytes)
+}
+
+/// A wrapper to [`PipelineData`] which can also track exit status.
+///
+/// Sometimes it's required to check exit status to implement `pipefail` feature.
+pub struct PipelineExecutionData {
+    pub body: PipelineData,
+    #[cfg(feature = "os")]
+    pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+}
+
+impl Deref for PipelineExecutionData {
+    type Target = PipelineData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl PipelineExecutionData {
+    pub fn empty() -> Self {
+        Self {
+            body: PipelineData::empty(),
+            #[cfg(feature = "os")]
+            exit: vec![],
+        }
+    }
+}
+
+#[cfg(feature = "os")]
+pub fn check_exit_status_future(
+    exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+) -> Result<(), ShellError> {
+    let mut result = Ok(());
+    for (future, span) in exit_status.into_iter().rev().flatten() {
+        if let Err(err) = crate::process::check_exit_status_future_ok(future, span) {
+            result = Err(err)
+        }
+    }
+    result
+}
+
+impl From<PipelineData> for PipelineExecutionData {
+    #[cfg(feature = "os")]
+    fn from(value: PipelineData) -> Self {
+        let value_span = value.span().unwrap_or_else(Span::unknown);
+        let exit_status_future = value.clone_exit_status_future().map(|f| (f, value_span));
+        Self {
+            body: value,
+            exit: vec![exit_status_future],
+        }
+    }
+
+    #[cfg(not(feature = "os"))]
+    fn from(value: PipelineData) -> Self {
+        Self { body: value }
+    }
 }

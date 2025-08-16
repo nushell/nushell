@@ -4,7 +4,7 @@
 //! profiling Nushell code.
 
 use crate::{
-    PipelineData, ShellError, Span, Value,
+    PipelineData, PipelineExecutionData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
@@ -205,7 +205,7 @@ impl Debugger for Profiler {
         engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        _registers: &[PipelineData],
+        _registers: &[PipelineExecutionData],
     ) {
         if self.depth > self.opts.max_depth {
             return;
@@ -249,7 +249,7 @@ impl Debugger for Profiler {
         _engine_state: &EngineState,
         ir_block: &IrBlock,
         instruction_index: usize,
-        registers: &[PipelineData],
+        registers: &[PipelineExecutionData],
         error: Option<&ShellError>,
     ) {
         if self.depth > self.opts.max_depth {
@@ -270,7 +270,7 @@ impl Debugger for Profiler {
                             .output_register()
                             .map(|register| Ok(&registers[register.get() as usize]))
                     })
-                    .map(|result| format_result(&result, span))
+                    .map(|result| format_result(result.map(|r| &r.body), span))
             })
             .flatten();
 
@@ -364,11 +364,11 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
 }
 
 fn format_result(
-    result: &Result<impl Borrow<PipelineData>, impl Borrow<ShellError>>,
+    result: Result<&PipelineData, impl Borrow<ShellError>>,
     element_span: Span,
 ) -> Value {
     match result {
-        Ok(pipeline_data) => match pipeline_data.borrow() {
+        Ok(pipeline_data) => match pipeline_data {
             PipelineData::Value(val, ..) => val.clone(),
             PipelineData::ListStream(..) => Value::string("list stream", element_span),
             PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
