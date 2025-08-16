@@ -1,4 +1,3 @@
-#![allow(clippy::result_large_err)]
 use std::{
     cmp::Ordering,
     panic::{AssertUnwindSafe, catch_unwind},

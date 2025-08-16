@@ -1,4 +1,3 @@
-#![allow(clippy::result_large_err)]
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
