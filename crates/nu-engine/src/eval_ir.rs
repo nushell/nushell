@@ -26,13 +26,12 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// Evaluate the compiled representation of a [`Block`].
-pub fn eval_ir_block<D: DebugContext>(
+pub fn eval_ir_block_keep_exit<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineDataWithExit, ShellError> {
     // Rust does not check recursion limits outside of const evaluation.
     // But nu programs run in the same process as the shell.
     // To prevent a stack overflow in user code from crashing the shell,
@@ -95,6 +94,15 @@ pub fn eval_ir_block<D: DebugContext>(
             inner: vec![],
         })
     }
+}
+/// Evaluate the compiled representation of a [`Block`].
+pub fn eval_ir_block<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    eval_ir_block_keep_exit::<D>(engine_state, stack, block, input).map(|p| p.inner)
 }
 
 /// All of the pointers necessary for evaluation
@@ -191,7 +199,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     ir_block: &IrBlock,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineDataWithExit, ShellError> {
     if !ctx.registers.is_empty() {
         ctx.registers[0] = PipelineDataWithExit::from(input);
     }
@@ -225,29 +233,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            Ok(InstructionResult::Return(reg_id)) => {
-                let result = ctx.take_reg(reg_id);
-                let (result_data, exit_status) = (result.inner, result.exit);
-                let mut final_result = Ok(result_data);
-                for one_exit in exit_status.into_iter().rev() {
-                    if let Some(future) = one_exit {
-                        let mut future = future.lock().unwrap();
-                        let wait_result = future.wait(Span::unknown());
-                        match wait_result {
-                            Err(err) if pipefail => final_result = Err(err),
-                            Ok(status) => {
-                                if let Err(e) = check_ok(status, false, Span::unknown()) {
-                                    if pipefail {
-                                        final_result = Err(e)
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                return final_result;
-            }
+            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
             Err(
                 err @ (ShellError::Return { .. }
                 | ShellError::Continue { .. }

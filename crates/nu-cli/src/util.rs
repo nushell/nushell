@@ -1,12 +1,13 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block_keep_exit, eval_block_with_early_return_keep_exit};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    process::check_ok,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
 };
@@ -310,15 +311,36 @@ fn evaluate_source(
     engine_state.merge_delta(delta)?;
 
     let pipeline = if allow_return {
-        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block_with_early_return_keep_exit::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
-        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block_keep_exit::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
+    let (pipeline_data, exit_status) = (pipeline.inner, pipeline.exit);
 
-    let no_newline = matches!(&pipeline, &PipelineData::ByteStream(..));
-    print_pipeline(engine_state, stack, pipeline, no_newline)?;
+    let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
+    print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
 
-    Ok(false)
+    // After print pipeline, need to check exit status to implement pipeline feature.
+    let mut final_result = Ok(false);
+    let pipefail = engine_state.get_config().pipefail;
+    for one_exit in exit_status.into_iter().rev() {
+        if let Some(future) = one_exit {
+            let mut future = future.lock().unwrap();
+            let wait_result = future.wait(Span::unknown());
+            match wait_result {
+                Err(err) if pipefail => final_result = Err(err),
+                Ok(status) => {
+                    if let Err(e) = check_ok(status, false, Span::unknown()) {
+                        if pipefail {
+                            final_result = Err(e)
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    final_result
 }
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
-use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
+use crate::{eval_ir::eval_ir_block_keep_exit, eval_ir_block};
 use nu_protocol::{
-    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Span, Value, VarId,
+    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
+    PipelineDataWithExit, PipelineMetadata, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
@@ -293,10 +293,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    match eval_block::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::value(*value, None)),
-        x => x,
-    }
+    eval_block_with_early_return_keep_exit::<D>(engine_state, stack, block, input).map(|p| p.inner)
 }
 
 pub fn eval_block<D: DebugContext>(
@@ -305,11 +302,34 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let result = eval_ir_block::<D>(engine_state, stack, block, input);
+    eval_block_keep_exit::<D>(engine_state, stack, block, input).map(|p| p.inner)
+}
+
+pub fn eval_block_keep_exit<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineDataWithExit, ShellError> {
+    let result = eval_ir_block_keep_exit::<D>(engine_state, stack, block, input);
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
     result
+}
+
+pub fn eval_block_with_early_return_keep_exit<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineDataWithExit, ShellError> {
+    match eval_block_keep_exit::<D>(engine_state, stack, block, input) {
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineDataWithExit::from(
+            PipelineData::value(*value, None),
+        )),
+        x => x,
+    }
 }
 
 pub fn eval_collect<D: DebugContext>(
