@@ -5,6 +5,8 @@ use std::{
     ops::Deref,
 };
 
+use serde::{Deserialize, Serialize};
+
 /// An owned, immutable string with compact storage.
 ///
 /// `UniqueString` is designed for immutable strings that are not frequently cloned and hold ownership.
@@ -185,6 +187,25 @@ impl PartialOrd for UniqueString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Serialize for UniqueString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for UniqueString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from_string(s))
     }
 }
 

@@ -5,6 +5,8 @@ use std::{
     ops::Deref,
 };
 
+use serde::{Deserialize, Serialize};
+
 /// An owned, immutable string with compact storage and efficient cloning.
 ///
 /// `SharedString` is designed for immutable strings that are frequently cloned and hold ownership.
@@ -188,6 +190,24 @@ impl PartialOrd for SharedString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Serialize for SharedString {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SharedString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self(lean_string::LeanString::deserialize(deserializer)?))
     }
 }
 
