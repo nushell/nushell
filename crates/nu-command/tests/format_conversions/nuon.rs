@@ -516,10 +516,12 @@ fn quotes_some_strings_necessarily() {
 }
 
 #[test]
-fn quotes_equal_sign_in_record_keys() {
+fn quotes_some_strings_necessarily_in_record_keys() {
     let actual = nu!(pipeline(
         r#"
-        {"=": 42} | to nuon | from nuon | columns | describe
+        ['=', 'a=', '=a'] | each {
+           {$in : 42}
+        } | reduce {|elt, acc| $acc | merge $elt} | to nuon | from nuon | columns | describe
         "#
     ));
 
