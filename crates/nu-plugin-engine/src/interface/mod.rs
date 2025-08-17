@@ -126,7 +126,7 @@ impl Drop for PluginCallState {
     fn drop(&mut self) {
         // Clear the keep custom values channel, so drop notifications can be sent
         for value in self.keep_plugin_custom_values.1.try_iter() {
-            log::trace!("Dropping custom value that was kept: {:?}", value);
+            log::trace!("Dropping custom value that was kept: {value:?}");
             drop(value);
         }
     }
@@ -467,7 +467,7 @@ impl InterfaceManager for PluginInterfaceManager {
     }
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
-        log::trace!("from plugin: {:?}", input);
+        log::trace!("from plugin: {input:?}");
 
         match input {
             PluginOutput::Hello(info) => {
@@ -1066,9 +1066,9 @@ impl Interface for PluginInterface {
     type DataContext = CurrentCallState;
 
     fn write(&self, input: PluginInput) -> Result<(), ShellError> {
-        log::trace!("to plugin: {:?}", input);
+        log::trace!("to plugin: {input:?}");
         self.state.writer.write(&input).map_err(|err| {
-            log::warn!("write() error: {}", err);
+            log::warn!("write() error: {err}");
             // If there's an error in the state, return that instead because it's likely more
             // descriptive
             self.state.error.get().cloned().unwrap_or(err)
@@ -1077,7 +1077,7 @@ impl Interface for PluginInterface {
 
     fn flush(&self) -> Result<(), ShellError> {
         self.state.writer.flush().map_err(|err| {
-            log::warn!("flush() error: {}", err);
+            log::warn!("flush() error: {err}");
             // If there's an error in the state, return that instead because it's likely more
             // descriptive
             self.state.error.get().cloned().unwrap_or(err)
@@ -1186,7 +1186,7 @@ impl CurrentCallState {
                 .downcast_ref::<PluginCustomValueWithSource>()
             {
                 if custom_value.notify_on_drop() {
-                    log::trace!("Keeping custom value for drop later: {:?}", custom_value);
+                    log::trace!("Keeping custom value for drop later: {custom_value:?}");
                     keep_tx
                         .send(custom_value.clone())
                         .map_err(|_| ShellError::NushellFailed {

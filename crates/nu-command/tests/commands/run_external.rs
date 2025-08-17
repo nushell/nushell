@@ -8,7 +8,7 @@ fn nu_path(prefix: &str) -> String {
     let binary = nu_test_support::fs::executable_path()
         .to_string_lossy()
         .to_string();
-    format!("{prefix}{}", binary)
+    format!("{prefix}{binary}")
 }
 
 // Template for run-external test to ensure tests work when calling

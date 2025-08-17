@@ -320,7 +320,7 @@ impl Theme for NuTheme {
             if indices.contains(&idx) {
                 write!(f, "{prefix}{c}{suffix}")?;
             } else {
-                write!(f, "{}", c)?;
+                write!(f, "{c}")?;
             }
         }
         write!(f, "{RESET}")
