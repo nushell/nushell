@@ -69,6 +69,12 @@ impl UniqueString {
         self.0.is_empty()
     }
 
+    /// Consumes `self` and returns an owned `String`.
+    #[inline]
+    pub fn into_string(self) -> String {
+        self.0.into_string()
+    }
+
     /// Returns a `UniqueString` by taking ownership of an allocation.
     #[inline]
     pub fn from_string(string: String) -> Self {
