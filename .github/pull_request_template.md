@@ -1,9 +1,8 @@
 <!--
 Thank you for improving Nushell!
 Please, read our contributing guide: https://github.com/nushell/nushell/blob/main/CONTRIBUTING.md
-
-Use the following space to include the motivation and any technical details behind this PR.
 -->
+## Motivation and technical details
 
 ## Release notes summary - What our users need to know
 <!--
