@@ -5,7 +5,10 @@ use crate::{
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
-use nu_utils::{strings::{SharedString, UniqueString}, uformat};
+use nu_utils::{
+    strings::{SharedString, UniqueString},
+    uformat,
+};
 use std::{
     any,
     borrow::Cow,

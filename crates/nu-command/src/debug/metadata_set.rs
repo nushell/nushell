@@ -48,7 +48,8 @@ impl Command for MetadataSet {
         let head = call.head;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
-        let content_type: Option<SharedString> = call.get_flag(engine_state, stack, "content-type")?;
+        let content_type: Option<SharedString> =
+            call.get_flag(engine_state, stack, "content-type")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -62,7 +63,9 @@ impl Command for MetadataSet {
         }
 
         match (ds_fp, ds_ls) {
-            (Some(path), false) => metadata.data_source = DataSource::FilePath(Box::new(path.into())),
+            (Some(path), false) => {
+                metadata.data_source = DataSource::FilePath(Box::new(path.into()))
+            }
             (None, true) => metadata.data_source = DataSource::Ls,
             (Some(_), true) => {
                 return Err(ShellError::IncompatibleParameters {

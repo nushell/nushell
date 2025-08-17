@@ -234,9 +234,7 @@ fn local_into_string(
 fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
     metadata
         .map(|md| md.with_content_type(mime::TEXT_PLAIN.as_ref()))
-        .or_else(|| {
-            Some(PipelineMetadata::default().with_content_type(mime::TEXT_PLAIN.as_ref()))
-        })
+        .or_else(|| Some(PipelineMetadata::default().with_content_type(mime::TEXT_PLAIN.as_ref())))
 }
 
 #[cfg(test)]

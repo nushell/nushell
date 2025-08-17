@@ -9,7 +9,12 @@ use nu_protocol::{
 };
 use nu_utils::uformat;
 use std::{
-    fs::File, io::{self, BufRead, BufReader, Read, Write}, ops::Deref, path::{Path, PathBuf}, thread, time::{Duration, Instant}
+    fs::File,
+    io::{self, BufRead, BufReader, Read, Write},
+    ops::Deref,
+    path::{Path, PathBuf},
+    thread,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone)]

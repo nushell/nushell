@@ -1,7 +1,8 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, PipelineMetadata, ShellError, Signals, Span, Spanned, Value
+    ByteStream, ByteStreamType, Config, PipelineData, PipelineMetadata, ShellError, Signals, Span,
+    Spanned, Value, shell_error::io::IoError,
 };
 use nu_utils::{strings::SharedString, uformat};
 use std::{iter, sync::Arc};
@@ -91,12 +92,10 @@ pub fn to_delimited_data(
 ) -> Result<PipelineData, ShellError> {
     let mut input = input;
     let span = input.span().unwrap_or(head);
-    let metadata = Some(
-        PipelineMetadata {
-            content_type,
-            ..input.metadata().unwrap_or_default()
-        }
-    );
+    let metadata = Some(PipelineMetadata {
+        content_type,
+        ..input.metadata().unwrap_or_default()
+    });
 
     let separator = u8::try_from(separator.item).map_err(|_| ShellError::IncorrectValue {
         msg: "separator must be an ASCII character".into(),
