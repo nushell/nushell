@@ -43,7 +43,7 @@ If you're not sure what to put here, or need some help, **a core team member wou
 
 For smaller changes, **a simple one to two sentence explanation** is sufficient. If that's all you need to explain the impact of the change, keep any further details out of the release notes summary. Summaries which are a single line will appear as a bullet point in our release notes.
 
-For larger changes, you can use multiple lines to fully explain your change. We highly encourage adding examples and/or screenshots in this section.
+For larger changes, you can use multiple lines to fully explain your change. We highly encourage adding examples and/or screenshots if this is the case.
 
 Summaries which are multiple lines will appear under their own heading in the release notes. By default, the title for the heading will be the title of your PR. If you'd like to add a more user-friendly title, or your PR encompasses multiple changes that should appear in their own sections, you can manually add one or more third-level headings to your release notes summary section. For example:
 
