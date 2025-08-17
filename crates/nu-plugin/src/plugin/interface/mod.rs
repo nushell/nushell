@@ -1081,7 +1081,7 @@ fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
             error: "Failed to set process group for foreground".into(),
             msg: "".into(),
             span: None,
-            help: Some(err.to_string()),
+            help: Some(err.to_string().into()),
             inner: vec![],
         })
     } else {
