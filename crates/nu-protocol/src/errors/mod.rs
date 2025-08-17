@@ -11,7 +11,7 @@ pub mod shell_warning;
 pub use compile_error::CompileError;
 pub use config::{ConfigError, ConfigWarning};
 pub use labeled_error::{ErrorLabel, LabeledError};
-pub use parse_error::{DidYouMean, ParseError};
+pub use parse_error::{DidYouMean, ParseError, OperatorIncompatibleTypesParseError};
 pub use parse_warning::ParseWarning;
 pub use report_error::{
     ReportMode, Reportable, format_cli_error, report_parse_error, report_parse_warning,
