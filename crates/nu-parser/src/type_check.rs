@@ -1,5 +1,8 @@
 use nu_protocol::{
-    ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range}, combined_type_string, engine::StateWorkingSet, OperatorIncompatibleTypesParseError, ParseError, Span, Type
+    OperatorIncompatibleTypesParseError, ParseError, Span, Type,
+    ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
+    combined_type_string,
+    engine::StateWorkingSet,
 };
 
 fn type_error(
@@ -19,7 +22,8 @@ fn type_error(
             lhs_span: lhs.span,
             rhs_span: rhs.span,
             help: None,
-        }.into(),
+        }
+        .into(),
         (true, false) => ParseError::OperatorUnsupportedType {
             op: op.as_str(),
             unsupported: rhs.ty.clone(),
@@ -384,7 +388,8 @@ pub fn math_result_type(
                         lhs_span: lhs.span,
                         rhs_span: rhs.span,
                         help,
-                    }.into(),
+                    }
+                    .into(),
                     (true, false) => ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
                         unsupported: rhs.ty.clone(),
@@ -656,7 +661,8 @@ pub fn math_result_type(
                         lhs_span: lhs.span,
                         rhs_span: rhs.span,
                         help: None,
-                    }.into()
+                    }
+                    .into()
                 } else {
                     ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
@@ -698,7 +704,8 @@ pub fn math_result_type(
                         lhs_span: lhs.span,
                         rhs_span: rhs.span,
                         help: None,
-                    }.into()
+                    }
+                    .into()
                 } else {
                     ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
@@ -740,15 +747,18 @@ pub fn math_result_type(
                 None
             } else {
                 *op = Expression::garbage(working_set, op.span);
-                Some(OperatorIncompatibleTypesParseError {
-                    op: operator.as_str(),
-                    lhs: lhs.ty.clone(),
-                    rhs: rhs.ty.clone(),
-                    op_span: op.span,
-                    lhs_span: lhs.span,
-                    rhs_span: rhs.span,
-                    help: None,
-                }.into())
+                Some(
+                    OperatorIncompatibleTypesParseError {
+                        op: operator.as_str(),
+                        lhs: lhs.ty.clone(),
+                        rhs: rhs.ty.clone(),
+                        op_span: op.span,
+                        lhs_span: lhs.span,
+                        rhs_span: rhs.span,
+                        help: None,
+                    }
+                    .into(),
+                )
             };
             (Type::Nothing, err)
         }
