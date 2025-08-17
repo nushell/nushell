@@ -484,13 +484,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
-    line_editor = if engine_state.immediately_accept {
-        engine_state.immediately_accept = false;
-        line_editor.with_immediately_accept(true)
-    } else {
-        line_editor
-    };
-
     let input = line_editor.read_line(nu_prompt);
     // we got our inputs, we can now drop our stack references
     // This lists all of the stack references that we have cleaned up
@@ -680,7 +673,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 run_shell_integration_reset_application_mode();
             }
 
-            flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+            line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
@@ -1135,7 +1128,10 @@ fn run_shell_integration_reset_application_mode() {
 ///
 /// Clear the screen and output anything remaining in the EngineState buffer.
 ///
-fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &mut Reedline) {
+fn flush_engine_state_repl_buffer(
+    engine_state: &mut EngineState,
+    mut line_editor: Reedline,
+) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     line_editor.run_edit_commands(&[
         EditCommand::Clear,
@@ -1145,10 +1141,13 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
             select: false,
         },
     ]);
-    engine_state.immediately_accept = repl.accept;
+    if repl.accept {
+        line_editor = line_editor.with_immediately_accept(true)
+    }
     repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    line_editor
 }
 
 ///

@@ -102,7 +102,6 @@ pub struct EngineState {
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
-    pub immediately_accept: bool,
     pub table_decl_id: Option<DeclId>,
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
@@ -190,7 +189,6 @@ impl EngineState {
                 cursor_pos: 0,
                 accept: false,
             })),
-            immediately_accept: Default::default(),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_path: None,
