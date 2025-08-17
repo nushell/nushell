@@ -5,7 +5,7 @@ use crate::{
     engine::Closure,
 };
 use chrono::{DateTime, FixedOffset};
-use nu_utils::uformat;
+use nu_utils::{strings::{SharedString, UniqueString}, uformat};
 use std::{
     any,
     borrow::Cow,
@@ -659,6 +659,26 @@ impl FromValue for Value {
 
     fn expected_type() -> Type {
         Type::Any
+    }
+}
+
+impl FromValue for UniqueString {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        Ok(String::from_value(v)?.into())
+    }
+
+    fn expected_type() -> Type {
+        Type::String
+    }
+}
+
+impl FromValue for SharedString {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        Ok(String::from_value(v)?.into())
+    }
+
+    fn expected_type() -> Type {
+        Type::String
     }
 }
 

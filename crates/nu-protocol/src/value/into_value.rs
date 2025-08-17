@@ -1,5 +1,6 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
+use nu_utils::strings::{SharedString, UniqueString};
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
@@ -242,6 +243,18 @@ where
 }
 
 // Nu Types
+
+impl IntoValue for UniqueString {
+    fn into_value(self, span: Span) -> Value {
+        self.into_string().into_value(span)
+    }
+}
+
+impl IntoValue for SharedString {
+    fn into_value(self, span: Span) -> Value {
+        self.into_string().into_value(span)
+    }
+}
 
 impl IntoValue for Range {
     fn into_value(self, span: Span) -> Value {
