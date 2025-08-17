@@ -713,7 +713,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
         )),
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
         e => ShellError::NetworkFailure {
-            msg: e.to_string().into(),
+            msg: e.to_string(),
             span,
         },
     }

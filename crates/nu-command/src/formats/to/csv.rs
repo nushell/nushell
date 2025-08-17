@@ -126,7 +126,7 @@ fn to_csv(
             format_name: "CSV",
             input,
             head,
-            content_type: Some(mime::TEXT_CSV.to_string()),
+            content_type: Some(mime::TEXT_CSV.as_ref().into()),
         },
         config,
     )

@@ -8,6 +8,7 @@ use crate::{
     IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
     shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
+use ecow::EcoVec;
 use serde::{Deserialize, Serialize};
 use std::ops::Bound;
 #[cfg(unix)]
@@ -193,7 +194,7 @@ pub struct ByteStream {
     signals: Signals,
     type_: ByteStreamType,
     known_size: Option<u64>,
-    caller_spans: Vec<Span>,
+    caller_spans: EcoVec<Span>,
 }
 
 impl ByteStream {
@@ -210,7 +211,7 @@ impl ByteStream {
             signals,
             type_,
             known_size: None,
-            caller_spans: vec![],
+            caller_spans: EcoVec::new(),
         }
     }
 
@@ -222,7 +223,7 @@ impl ByteStream {
     }
 
     /// Get all caller [`Span`], it's useful to construct a backtrace.
-    pub fn get_caller_spans(&self) -> &Vec<Span> {
+    pub fn get_caller_spans(&self) -> &[Span] {
         &self.caller_spans
     }
 

@@ -179,7 +179,7 @@ fn to_yaml(
         .metadata()
         .unwrap_or_default()
         // Per RFC-9512, application/yaml should be used
-        .with_content_type(Some("application/yaml".into()));
+        .with_content_type("application/yaml");
     let value = input.into_value(head)?;
 
     let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;

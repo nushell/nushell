@@ -1,10 +1,9 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
-    shell_error::io::IoError,
+    shell_error::io::IoError, ByteStream, ByteStreamType, Config, PipelineData, PipelineMetadata, ShellError, Signals, Span, Spanned, Value
 };
-use nu_utils::uformat;
+use nu_utils::{strings::SharedString, uformat};
 use std::{iter, sync::Arc};
 
 fn make_csv_error(error: csv::Error, format_name: &str, head: Span) -> ShellError {
@@ -75,7 +74,7 @@ pub struct ToDelimitedDataArgs {
     pub format_name: &'static str,
     pub input: PipelineData,
     pub head: Span,
-    pub content_type: Option<String>,
+    pub content_type: Option<SharedString>,
 }
 
 pub fn to_delimited_data(
@@ -93,10 +92,10 @@ pub fn to_delimited_data(
     let mut input = input;
     let span = input.span().unwrap_or(head);
     let metadata = Some(
-        input
-            .metadata()
-            .unwrap_or_default()
-            .with_content_type(content_type),
+        PipelineMetadata {
+            content_type,
+            ..input.metadata().unwrap_or_default()
+        }
     );
 
     let separator = u8::try_from(separator.item).map_err(|_| ShellError::IncorrectValue {

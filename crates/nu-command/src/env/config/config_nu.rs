@@ -73,7 +73,7 @@ impl Command for ConfigNu {
             return Ok(Value::string(nu_utils::get_default_config(), head)
                 .into_pipeline_data_with_metadata(
                     PipelineMetadata::default()
-                        .with_content_type("application/x-nuscript".to_string().into()),
+                        .with_content_type("application/x-nuscript"),
                 ));
         }
 
@@ -83,7 +83,7 @@ impl Command for ConfigNu {
             return Ok(Value::string(nu_utils::get_doc_config(), head)
                 .into_pipeline_data_with_metadata(
                     PipelineMetadata::default()
-                        .with_content_type("application/x-nuscript".to_string().into()),
+                        .with_content_type("application/x-nuscript"),
                 ));
         }
 

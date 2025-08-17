@@ -180,7 +180,7 @@ impl Command for Open {
                     let stream = PipelineData::byte_stream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(path.to_path_buf()),
+                            data_source: DataSource::FilePath(path.to_path_buf().into()),
                             content_type: None,
                         }),
                     );
@@ -232,11 +232,12 @@ impl Command for Open {
                             let content_type = path
                                 .extension()
                                 .map(|ext| ext.to_string_lossy().to_string())
-                                .and_then(|ref s| detect_content_type(s));
+                                .and_then(|ref s| detect_content_type(s))
+                                .map(Into::into);
 
                             let stream_with_content_type =
                                 stream.set_metadata(Some(PipelineMetadata {
-                                    data_source: DataSource::FilePath(path.to_path_buf()),
+                                    data_source: DataSource::FilePath(path.to_path_buf().into()),
                                     content_type,
                                 }));
                             output.push(stream_with_content_type);

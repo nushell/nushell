@@ -28,6 +28,7 @@ bytes = { workspace = true }
 chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
 chrono-humanize = { workspace = true }
 dirs = { workspace = true }
+ecow = { workspace = true }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
 indexmap = { workspace = true }

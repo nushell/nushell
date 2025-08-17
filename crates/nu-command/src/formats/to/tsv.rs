@@ -92,7 +92,7 @@ fn to_tsv(
             format_name: "TSV",
             input,
             head,
-            content_type: Some(mime::TEXT_TAB_SEPARATED_VALUES.to_string()),
+            content_type: Some(mime::TEXT_TAB_SEPARATED_VALUES.as_ref().into()),
         },
         config,
     )

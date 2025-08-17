@@ -89,6 +89,7 @@ digest = { default-features = false, version = "0.10" }
 dirs = "5.0"
 dirs-sys = "0.4"
 dtparse = "2.0"
+ecow = { version = "0.2", features = ["serde"] }
 encoding_rs = "0.8"
 fancy-regex = "0.16"
 filesize = "0.2"

@@ -4,6 +4,7 @@ use crate::network::http::client::{
     request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
+use nu_utils::strings::SharedString;
 
 #[derive(Clone)]
 pub struct HttpPost;
@@ -150,7 +151,7 @@ struct Arguments {
     url: Value,
     headers: Option<Value>,
     data: HttpBody,
-    content_type: Option<String>,
+    content_type: Option<SharedString>,
     raw: bool,
     insecure: bool,
     user: Option<String>,
@@ -232,7 +233,7 @@ fn helper(
         engine_state,
         request,
         args.data,
-        args.content_type,
+        args.content_type.map(|s| s.into_string()),
         call.head,
         engine_state.signals(),
     );

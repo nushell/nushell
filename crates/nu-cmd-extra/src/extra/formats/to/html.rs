@@ -359,7 +359,7 @@ fn to_html(
 
     let metadata = PipelineMetadata {
         data_source: nu_protocol::DataSource::None,
-        content_type: Some(mime::TEXT_HTML_UTF_8.to_string()),
+        content_type: Some(mime::TEXT_HTML_UTF_8.as_ref().into()),
     };
 
     Ok(Value::string(output_string, head).into_pipeline_data_with_metadata(metadata))

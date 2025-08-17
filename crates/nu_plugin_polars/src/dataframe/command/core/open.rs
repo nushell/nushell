@@ -167,7 +167,7 @@ fn command(
     let hive_options = build_hive_options(plugin, call)?;
 
     let uri = spanned_file.item.clone();
-    let data_source = DataSource::FilePath(uri.into());
+    let data_source = DataSource::FilePath(Box::new(uri.into()));
 
     let metadata = PipelineMetadata::default().with_data_source(data_source);
 

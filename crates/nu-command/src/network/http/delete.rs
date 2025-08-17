@@ -5,6 +5,7 @@ use crate::network::http::client::{
     send_request_no_body,
 };
 use nu_engine::command_prelude::*;
+use nu_utils::strings::SharedString;
 
 #[derive(Clone)]
 pub struct HttpDelete;
@@ -150,7 +151,7 @@ struct Arguments {
     url: Value,
     headers: Option<Value>,
     data: Option<HttpBody>,
-    content_type: Option<String>,
+    content_type: Option<SharedString>,
     raw: bool,
     insecure: bool,
     user: Option<String>,
@@ -229,7 +230,7 @@ fn helper(
             // see [force_send_body] documentation.
             request.force_send_body(),
             body,
-            args.content_type,
+            args.content_type.map(|s| s.into_string()),
             span,
             engine_state.signals(),
         ),

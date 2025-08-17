@@ -58,7 +58,7 @@ impl Command for FromNuon {
 
         match nuon::from_nuon(&string_input, Some(head)) {
             Ok(result) => Ok(result
-                .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None)))),
+                .into_pipeline_data_with_metadata(metadata.map(|md| md.remove_content_type()))),
             Err(err) => Err(ShellError::GenericError {
                 error: "error when loading nuon text".into(),
                 msg: "could not load nuon text".into(),

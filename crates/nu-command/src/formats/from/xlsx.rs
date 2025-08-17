@@ -47,7 +47,7 @@ impl Command for FromXlsx {
             vec![]
         };
 
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.metadata().map(|md| md.remove_content_type());
         from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 

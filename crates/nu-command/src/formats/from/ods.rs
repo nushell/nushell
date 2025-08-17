@@ -46,7 +46,7 @@ impl Command for FromOds {
             vec![]
         };
 
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.metadata().map(|md| md.remove_content_type());
         from_ods(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 

@@ -83,7 +83,7 @@ MessagePack: https://msgpack.org/
         let metadata = input
             .metadata()
             .unwrap_or_default()
-            .with_content_type(Some("application/x-msgpack".into()));
+            .with_content_type("application/x-msgpack");
 
         let value_span = input.span().unwrap_or(call.head);
         let value = input.into_value(value_span)?;

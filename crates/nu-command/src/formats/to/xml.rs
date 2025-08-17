@@ -131,7 +131,7 @@ impl Job {
         let metadata = input
             .metadata()
             .unwrap_or_default()
-            .with_content_type(Some("application/xml".into()));
+            .with_content_type("application/xml");
         let value = input.into_value(head)?;
 
         self.write_xml_entry(value, true).and_then(|_| {

@@ -4,7 +4,7 @@ mod csv;
 mod ndjson;
 mod parquet;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{ops::Deref, path::PathBuf, sync::Arc};
 
 use crate::{
     PolarsPlugin,
@@ -239,7 +239,7 @@ fn check_writing_into_source_file(
         return Ok(());
     };
 
-    if &dest.item == source {
+    if &dest.item == source.deref() {
         return Err(write_into_source_error(dest.span));
     }
 

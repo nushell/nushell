@@ -109,7 +109,7 @@ fn to_md(
     let metadata = input
         .metadata()
         .unwrap_or_default()
-        .with_content_type(Some("text/markdown".into()));
+        .with_content_type("text/markdown");
 
     let (grouped_input, single_list) = group_by(input, head, config);
     if per_element || single_list {

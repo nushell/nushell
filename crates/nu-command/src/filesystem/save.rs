@@ -9,11 +9,7 @@ use nu_protocol::{
 };
 use nu_utils::uformat;
 use std::{
-    fs::File,
-    io::{self, BufRead, BufReader, Read, Write},
-    path::{Path, PathBuf},
-    thread,
-    time::{Duration, Instant},
+    fs::File, io::{self, BufRead, BufReader, Read, Write}, ops::Deref, path::{Path, PathBuf}, thread, time::{Duration, Instant}
 };
 
 #[derive(Clone)]
@@ -309,12 +305,12 @@ fn check_saving_to_source_file(
         return Ok(());
     };
 
-    if &dest.item == source {
+    if &dest.item == source.deref() {
         return Err(saving_to_source_file_error(dest));
     }
 
     if let Some(dest) = stderr_dest {
-        if &dest.item == source {
+        if &dest.item == source.deref() {
             return Err(saving_to_source_file_error(dest));
         }
     }
