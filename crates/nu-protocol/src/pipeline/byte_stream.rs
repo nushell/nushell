@@ -1097,7 +1097,7 @@ impl Chunks {
         self.span
     }
 
-    fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
+    fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, Box<ShellError>)> {
         let from_io_error = |err: std::io::Error| match ShellErrorBridge::try_from(err) {
             Ok(err) => err.0,
             Err(err) => IoError::new(err, self.span, None).into(),
@@ -1108,7 +1108,7 @@ impl Chunks {
             .reader
             .fill_buf()
             .map_err(from_io_error)
-            .map_err(|err| (vec![], err))?;
+            .map_err(|err| (vec![], err.into()))?;
 
         // If empty, this is EOF
         if buf.is_empty() {
@@ -1124,7 +1124,7 @@ impl Chunks {
             self.reader.consume(buf.len());
             match self.reader.fill_buf() {
                 Ok(more_bytes) => buf.extend_from_slice(more_bytes),
-                Err(err) => return Err((buf, from_io_error(err))),
+                Err(err) => return Err((buf, from_io_error(err).into())),
             }
         }
 
@@ -1163,7 +1163,7 @@ impl Chunks {
                     self.reader.consume(buf.len() - consumed);
                 }
                 self.pos += buf.len() as u64;
-                Err((buf, shell_error))
+                Err((buf, shell_error.into()))
             }
         }
     }
@@ -1201,7 +1201,7 @@ impl Iterator for Chunks {
                     Ok(string) => Some(Ok(Value::string(string, self.span))),
                     Err((_, err)) => {
                         self.error = true;
-                        Some(Err(err))
+                        Some(Err(*err))
                     }
                 },
                 // For Unknown, we try to create strings, but we switch to binary mode if we
@@ -1216,7 +1216,7 @@ impl Iterator for Chunks {
                         }
                         Err((_, err)) => {
                             self.error = true;
-                            Some(Err(err))
+                            Some(Err(*err))
                         }
                     }
                 }
