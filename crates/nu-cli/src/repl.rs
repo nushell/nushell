@@ -491,7 +491,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // CLEAR STACK-REFERENCE 1
         .with_highlighter(Box::<NoOpHighlighter>::default())
         // CLEAR STACK-REFERENCE 2
-        .with_completer(Box::<DefaultCompleter>::default());
+        .with_completer(Box::<DefaultCompleter>::default())
+        // Ensure immediately accept is always cleared
+        .with_immediately_accept(false);
 
     // Let's grab the shell_integration configs
     let shell_integration_osc2 = config.shell_integration.osc2;
@@ -671,7 +673,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 run_shell_integration_reset_application_mode();
             }
 
-            flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+            line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
@@ -1126,7 +1128,10 @@ fn run_shell_integration_reset_application_mode() {
 ///
 /// Clear the screen and output anything remaining in the EngineState buffer.
 ///
-fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &mut Reedline) {
+fn flush_engine_state_repl_buffer(
+    engine_state: &mut EngineState,
+    mut line_editor: Reedline,
+) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     line_editor.run_edit_commands(&[
         EditCommand::Clear,
@@ -1136,8 +1141,13 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
             select: false,
         },
     ]);
+    if repl.accept {
+        line_editor = line_editor.with_immediately_accept(true)
+    }
+    repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    line_editor
 }
 
 ///
