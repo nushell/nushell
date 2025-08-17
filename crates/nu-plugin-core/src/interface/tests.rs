@@ -15,7 +15,7 @@ use std::{path::Path, sync::Arc};
 
 fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {
-        data_source: DataSource::FilePath("/test/path".into()),
+        data_source: DataSource::FilePath(Box::new("/test/path".into())),
         content_type: None,
     }
 }
@@ -138,7 +138,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
     let value = Value::test_int(4);
     let metadata = Some(PipelineMetadata {
-        data_source: DataSource::FilePath("/test/path".into()),
+        data_source: DataSource::FilePath(Box::new("/test/path".into())),
         content_type: None,
     });
     let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
@@ -285,7 +285,7 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
         PipelineData::ListStream(_, meta) => match meta {
             Some(PipelineMetadata { data_source, .. }) => match data_source {
                 DataSource::FilePath(path) => {
-                    assert_eq!(Path::new("/test/path"), path);
+                    assert_eq!(Path::new("/test/path"), *path);
                     Ok(())
                 }
                 _ => panic!("wrong metadata: {data_source:?}"),
