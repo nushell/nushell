@@ -268,6 +268,9 @@ fn select(
         input
     };
 
+    let template = Record::new_template(columns.iter().map(CellPath::to_column_name));
+    let mut val_buffer = Vec::with_capacity(template.len());
+
     match input {
         PipelineData::Value(v, metadata, ..) => {
             let span = v.span();
@@ -278,15 +281,16 @@ fn select(
                     .into_iter()
                     .map(move |input_val| {
                         if !columns.is_empty() {
-                            let mut record = Record::new();
+                            val_buffer.clear();
                             for path in &columns {
                                 match input_val.follow_cell_path(&path.members) {
                                     Ok(fetcher) => {
-                                        record.push(path.to_column_name(), fetcher.into_owned());
+                                        val_buffer.push(fetcher.into_owned());
                                     }
                                     Err(e) => return Value::error(e, call_span),
                                 }
                             }
+                            let record = template.add_values(val_buffer.drain(..));
 
                             Value::record(record, span)
                         } else {
@@ -300,13 +304,14 @@ fn select(
                     )),
                 _ => {
                     if !columns.is_empty() {
-                        let mut record = Record::new();
+                        val_buffer.clear();
 
                         for cell_path in columns {
                             let result = v.follow_cell_path(&cell_path.members)?;
-                            record.push(cell_path.to_column_name(), result.into_owned());
+                            val_buffer.push(result.into_owned());
                         }
 
+                        let record = template.add_values(val_buffer.drain(..));
                         Ok(Value::record(record, call_span)
                             .into_pipeline_data_with_metadata(metadata))
                     } else {
@@ -318,15 +323,16 @@ fn select(
         PipelineData::ListStream(stream, metadata, ..) => Ok(stream
             .map(move |x| {
                 if !columns.is_empty() {
-                    let mut record = Record::new();
+                    val_buffer.clear();
                     for path in &columns {
                         match x.follow_cell_path(&path.members) {
                             Ok(value) => {
-                                record.push(path.to_column_name(), value.into_owned());
+                                val_buffer.push(value.into_owned());
                             }
                             Err(e) => return Value::error(e, call_span),
                         }
                     }
+                    let record = template.add_values(val_buffer.drain(..));
                     Value::record(record, call_span)
                 } else {
                     x
