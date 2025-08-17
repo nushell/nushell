@@ -93,10 +93,13 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             cargo-build-nu
         }
         'loongarch64-unknown-linux-gnu' => {
-            aria2c https://github.com/loongson/build-tools/releases/download/2024.08.08/x86_64-cross-tools-loongarch64-binutils_2.43-gcc_14.2.0-glibc_2.40.tar.xz
+            aria2c https://github.com/loongson/build-tools/releases/download/2024.11.01/x86_64-cross-tools-loongarch64-binutils_2.43.1-gcc_14.2.0-glibc_2.40.tar.xz
             tar xf x86_64-cross-tools-loongarch64-*.tar.xz
             $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/cross-tools/bin')
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
+            # Workaround for Rust 1.87 TLS issues with glibc 2.40 toolchain
+            $env.RUSTFLAGS = "-C panic=abort -C target-feature=+crt-static -C link-arg=-Wl,--allow-multiple-definition"
+            $env.CARGO_PROFILE_RELEASE_PANIC = "abort"
             cargo-build-nu
         }
         'loongarch64-unknown-linux-musl' => {
@@ -105,6 +108,10 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             tar -xf loongarch64-linux-musl-cross.tgz
             $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/loongarch64-linux-musl-cross/bin')
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_MUSL_LINKER = "loongarch64-linux-musl-gcc"
+            # Workaround for Rust 1.87 TLS issues: use abort panic strategy and simplified codegen
+            $env.RUSTFLAGS = "-C target-feature=+crt-static -C panic=abort -C codegen-units=1 -C link-arg=-Wl,--allow-multiple-definition"
+            # Use release profile with panic=abort for all targets to avoid TLS-dependent panic handling
+            $env.CARGO_PROFILE_RELEASE_PANIC = "abort"
             cargo-build-nu
         }
         _ => {
