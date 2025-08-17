@@ -1415,7 +1415,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
     } else {
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
-        trace!("parsing: range {:?} ", bytes);
+        trace!("parsing: range {bytes:?}");
         if let (Some(b'.'), Some(b'.')) = (bytes.first(), bytes.get(1)) {
             trace!("-- found leading range indicator");
             let starting_error_count = working_set.parse_errors.len();
@@ -1906,7 +1906,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         Some(parse_value(working_set, to_span, &SyntaxShape::Number))
     };
 
-    trace!("-- from: {:?} to: {:?}", from, to);
+    trace!("-- from: {from:?} to: {to:?}");
 
     if let (None, None) = (&from, &to) {
         working_set.error(ParseError::Expected("at least one range bound set", span));
@@ -2664,7 +2664,7 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
     trace!("parsing: directory");
 
     if err.is_none() {
-        trace!("-- found {}", token);
+        trace!("-- found {token}");
 
         Expression::new(
             working_set,
@@ -2686,7 +2686,7 @@ pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     trace!("parsing: filepath");
 
     if err.is_none() {
-        trace!("-- found {}", token);
+        trace!("-- found {token}");
 
         Expression::new(
             working_set,
@@ -2875,7 +2875,7 @@ pub fn parse_unit_value<'res>(
             None => num_float as i64,
         };
 
-        trace!("-- found {} {:?}", num, unit);
+        trace!("-- found {num} {unit:?}");
         let value = ValueWithUnit {
             expr: Expression::new_unknown(Expr::Int(num), lhs_span, Type::Number),
             unit: Spanned {
@@ -3056,7 +3056,7 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
     trace!("parsing: glob pattern");
 
     if err.is_none() {
-        trace!("-- found {}", token);
+        trace!("-- found {token}");
 
         Expression::new(
             working_set,
@@ -3363,7 +3363,7 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     };
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
-        trace!("-- found {}", token);
+        trace!("-- found {token}");
 
         if quoted {
             Expression::new(working_set, Expr::String(token), span, Type::String)
@@ -5192,7 +5192,7 @@ pub fn parse_value(
     span: Span,
     shape: &SyntaxShape,
 ) -> Expression {
-    trace!("parsing: value: {}", shape);
+    trace!("parsing: value: {shape}");
 
     let bytes = working_set.get_span_contents(span);
 
@@ -6563,7 +6563,7 @@ pub fn parse_block(
         working_set.error(err);
     }
 
-    trace!("parsing block: {:?}", lite_block);
+    trace!("parsing block: {lite_block:?}");
 
     if scoped {
         working_set.enter_scope();

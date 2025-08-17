@@ -132,7 +132,7 @@ impl SQLiteDatabase {
     }
 
     fn sleeper(attempts: i32) -> bool {
-        log::warn!("SQLITE_BUSY, retrying after 250ms (attempt {})", attempts);
+        log::warn!("SQLITE_BUSY, retrying after 250ms (attempt {attempts})");
         std::thread::sleep(std::time::Duration::from_millis(250));
         true
     }
@@ -202,7 +202,7 @@ impl SQLiteDatabase {
                     (p.pagecount - p.remaining) * 100 / p.pagecount
                 };
                 if percent % 10 == 0 {
-                    log::trace!("Restoring: {} %", percent);
+                    log::trace!("Restoring: {percent} %");
                 }
             }),
         )?;

@@ -450,7 +450,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         start_time = std::time::Instant::now();
         if history.sync_on_enter {
             if let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {}", e);
+                warn!("Failed to sync history: {e}");
             }
         }
 
@@ -934,7 +934,7 @@ fn do_run_cmd(
     entry_num: usize,
     use_color: bool,
 ) -> Reedline {
-    trace!("eval source: {}", s);
+    trace!("eval source: {s}");
 
     let mut cmds = s.split_whitespace();
 

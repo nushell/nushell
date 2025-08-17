@@ -38,7 +38,7 @@ pub(crate) fn highlight_syntax(
     line: &str,
     cursor: usize,
 ) -> HighlightResult {
-    trace!("highlighting: {}", line);
+    trace!("highlighting: {line}");
 
     let config = stack.get_config(engine_state);
     let highlight_resolved_externals = config.highlight_resolved_externals;

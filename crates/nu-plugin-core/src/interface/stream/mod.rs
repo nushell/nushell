@@ -526,7 +526,7 @@ impl Default for StreamManager {
 impl Drop for StreamManager {
     fn drop(&mut self) {
         if let Err(err) = self.drop_all_writers() {
-            log::warn!("error during Drop for StreamManager: {}", err)
+            log::warn!("error during Drop for StreamManager: {err}")
         }
     }
 }
