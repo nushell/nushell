@@ -37,13 +37,15 @@ The release notes summary section doesn't need to be filled until your PR is fin
 
 Please make sure to consider both the *intended changes*, such as additions or deliberate breaking changes **and** possible *side effects* that might change how users interact with a command or feature. It's important to think carefully about the ways that your PR might affect any aspect of the user experience, and to document these changes even if they seem minor or aren't directly related to the main purpose of the PR.
 
-If you're not sure what to put here, or need some help, **a core team member would be glad to help you out**. We may also makes some tweaks to your release notes section. Please don't take it personally, we just want to make sure our release notes are polished and easy to understand. Once the release notes section is ready, we'll add the `notes:ready` label to indicate that the release notes section is ready to be included in the actual release notes.
+If you're not sure what to put here, or need some help, **a core team member would be glad to help you out**. We may also make some tweaks to your release notes section. Please don't take it personally, we just want to make sure our release notes are polished and easy to understand. Once the release notes section is finalized, we'll add the `notes:ready` label to indicate that your summary section is ready to be included in the actual release notes.
 
 #### Structuring your summary
 
-For smaller changes, **a simple one to two sentence explanation** is sufficient. If that's all you need to explain the impact of the change, keep the details out of the release notes summary. Summaries which are a single line will appear as a bullet point in our release notes.
+For smaller changes, **a simple one to two sentence explanation** is sufficient. If that's all you need to explain the impact of the change, keep any further details out of the release notes summary. Summaries which are a single line will appear as a bullet point in our release notes.
 
-For larger changes, you can use multiple lines to fully explain your change. For more complex changes, highly encourage adding examples and/or screenshots in this section. Summaries which are multiple lines will appear under their own heading in the release notes. By default, the title for the heading will be the title of your PR. If you'd like to add a more user-friendly title, or your PR encompasses multiple changes that should appear in their own sections, you can manually add a third-level heading to your release notes summary section. For example:
+For larger changes, you can use multiple lines to fully explain your change. We highly encourage adding examples and/or screenshots in this section.
+
+Summaries which are multiple lines will appear under their own heading in the release notes. By default, the title for the heading will be the title of your PR. If you'd like to add a more user-friendly title, or your PR encompasses multiple changes that should appear in their own sections, you can manually add one or more third-level headings to your release notes summary section. For example:
 
 ````md
 ## Release notes summary - What our users need to know
@@ -57,7 +59,7 @@ my-cool-command
 ```
 ````
 
-In the release notes, this will appear under a heading titled simply "Cool command". A concise title like this might be more appropriate than the PR title, which may have more info than is necessary for a heading title.
+In the release notes, this will appear under a heading titled simply "Cool command". A concise title like this might be more appropriate than the PR title, which may have more info than is necessary for the release notes.
 
 This section might not be relevant for all PRs. If your PR is a work in progress, feel free to write "WIP"/"TODO"/etc in this section. You can also write "N/A" or simply leave this section blank if this is a purely technical change which doesn't impact the user experience.
 
