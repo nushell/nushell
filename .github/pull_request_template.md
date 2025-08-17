@@ -8,7 +8,7 @@ Please, read our contributing guide: https://github.com/nushell/nushell/blob/mai
 This section will be included as part of our release notes. See the contributing guide for more details.
 Please include only details relevant for users here. Motivation and technical details can be added above or below this section.
 
-You may leave this section blank if your PR isn't finalized. Ask a core team member if you need help filling this section.
+You may leave this section blank until your PR is finalized. Ask a core team member if you need help filling this section.
 -->
 
 ## Tasks after submitting
