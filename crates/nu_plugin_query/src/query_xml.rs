@@ -89,19 +89,10 @@ pub fn execute_xpath_query(
         Ok(sxd_xpath::Value::Number(n)) => Ok(Value::float(n, call.head)),
         Ok(sxd_xpath::Value::String(s)) => Ok(Value::string(s, call.head)),
         Ok(sxd_xpath::Value::Nodeset(ns)) => {
-            // Some xpath statements can be long, so let's truncate it with ellipsis
-            let mut key = query_string.clone();
-            if query_string.len() >= 20 {
-                key.truncate(17);
-                key += "...";
-            } else {
-                key = query_string.to_string();
-            };
-
             let mut records: Vec<Value> = vec![];
             for n in ns.document_order() {
                 records.push(Value::record(
-                    record! {key.clone() => Value::string(n.string_value(), call.head)},
+                    record! {"string_value" => Value::string(n.string_value(), call.head)},
                     call.head,
                 ));
             }
@@ -205,7 +196,7 @@ mod tests {
 
         let expected = Value::list(
             vec![Value::test_record(record! {
-                "//qp:b/text()" => Value::string("yay", Span::test_data()),
+                "string_value" => Value::string("yay", Span::test_data()),
             })],
             Span::test_data(),
         );
@@ -293,7 +284,7 @@ mod tests {
 
         let expected = Value::list(
             vec![Value::test_record(record! {
-                "/elt" => Value::string("hello", Span::test_data()),
+                "string_value" => Value::string("hello", Span::test_data()),
             })],
             Span::test_data(),
         );
