@@ -4,7 +4,7 @@ mod csv;
 mod ndjson;
 mod parquet;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{ops::Deref, path::PathBuf, sync::Arc};
 
 use crate::{
     PolarsPlugin,
@@ -19,6 +19,7 @@ use nu_protocol::{
     Signature, Span, Spanned, SyntaxShape, Type,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use polars::{error::PolarsError, prelude::SinkTarget};
 
 #[derive(Clone)]
@@ -238,7 +239,7 @@ fn check_writing_into_source_file(
         return Ok(());
     };
 
-    if &dest.item == source {
+    if &dest.item == source.deref() {
         return Err(write_into_source_error(dest.span));
     }
 
@@ -254,7 +255,7 @@ fn write_into_source_error(span: Span) -> ShellError {
 
 pub(crate) fn polars_file_save_error(e: PolarsError, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: format!("Error saving file: {e}"),
+        error: uformat!("Error saving file: {e}"),
         msg: "".into(),
         span: Some(span),
         help: None,

@@ -9,6 +9,7 @@ use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, Signals,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use pathdiff::diff_paths;
 use rayon::prelude::*;
 #[cfg(unix)]
@@ -228,7 +229,7 @@ fn ls_for_one_pattern(
         {
             Err(e) => Err(e).map_err(|e| ShellError::GenericError {
                 error: "Error creating thread pool".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(Span::unknown()),
                 help: None,
                 inner: vec![],
@@ -344,7 +345,7 @@ fn ls_for_one_pattern(
     signals.check(&call_span)?;
     if no_matches {
         return Err(ShellError::GenericError {
-            error: format!("No matches found for {:?}", path.item),
+            error: uformat!("No matches found for {:?}", path.item),
             msg: "Pattern, file or folder not found".into(),
             span: Some(p_tag),
             help: Some("no matches found".into()),
@@ -433,7 +434,7 @@ fn ls_for_one_pattern(
                             Some(path.to_string_lossy().to_string())
                         }
                         .ok_or_else(|| ShellError::GenericError {
-                            error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                            error: uformat!("Invalid file name: {:}", path.to_string_lossy()),
                             msg: "invalid file name".into(),
                             span: Some(call_span),
                             help: None,
@@ -466,7 +467,7 @@ fn ls_for_one_pattern(
                 .try_for_each(|stream| {
                     tx.send(stream).map_err(|e| ShellError::GenericError {
                         error: "Error streaming data".into(),
-                        msg: e.to_string(),
+                        msg: e.to_string().into(),
                         span: Some(call_span),
                         help: None,
                         inner: vec![],
@@ -474,7 +475,7 @@ fn ls_for_one_pattern(
                 })
                 .map_err(|err| ShellError::GenericError {
                     error: "Unable to create a rayon pool".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(call_span),
                     help: None,
                     inner: vec![],

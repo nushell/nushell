@@ -1,4 +1,5 @@
 use nu_protocol::{ShellError, Span};
+use nu_utils::uformat;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PolarsFileType {
@@ -25,7 +26,7 @@ impl PolarsFileType {
             .join(", ");
 
         ShellError::GenericError {
-            error: format!("Unsupported type {extension} expected {type_string}"),
+            error: uformat!("Unsupported type {extension} expected {type_string}"),
             msg: "".into(),
             span: Some(span),
             help: None,

@@ -119,7 +119,7 @@ fn command_eager(
             .as_series(mask_span)?;
         let mask = mask.bool().map_err(|e| ShellError::GenericError {
             error: "Error casting to bool".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(mask_span),
             help: Some("Perhaps you want to use a series with booleans as mask".into()),
             inner: vec![],
@@ -130,7 +130,7 @@ fn command_eager(
             .filter(mask)
             .map_err(|e| ShellError::GenericError {
                 error: "Error filtering dataframe".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(call.head),
                 help: Some("The only allowed column types for dummies are String or Int".into()),
                 inner: vec![],

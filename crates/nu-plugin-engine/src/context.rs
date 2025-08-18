@@ -7,6 +7,7 @@ use nu_protocol::{
     engine::{Call, Closure, EngineState, Redirection, Stack},
     ir,
 };
+use nu_utils::uformat;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -179,7 +180,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             .try_get_block(closure.item.block_id)
             .ok_or_else(|| ShellError::GenericError {
                 error: "Plugin misbehaving".into(),
-                msg: format!(
+                msg: uformat!(
                     "Tried to evaluate unknown block id: {}",
                     closure.item.block_id.get()
                 ),
@@ -233,7 +234,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
         if decl_id.get() >= self.engine_state.num_decls() {
             return Err(ShellError::GenericError {
                 error: "Plugin misbehaving".into(),
-                msg: format!("Tried to call unknown decl id: {}", decl_id.get()),
+                msg: uformat!("Tried to call unknown decl id: {}", decl_id.get()),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

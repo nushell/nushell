@@ -2,6 +2,7 @@ pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
 use nu_protocol::{ShellError, Span, Value, record};
+use nu_utils::uformat;
 use polars::prelude::{DataType, Field, TimeUnit, UnknownKind};
 use uuid::Uuid;
 
@@ -249,7 +250,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
                     next.parse::<usize>()
                         .map_err(|e| ShellError::GenericError {
                             error: "Invalid polars data type".into(),
-                            msg: format!("Error in parsing decimal precision: {e}"),
+                            msg: uformat!("Error in parsing decimal precision: {e}"),
                             span: Some(span),
                             help: None,
                             inner: vec![],
@@ -280,7 +281,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
                     .map(Some)
                     .map_err(|e| ShellError::GenericError {
                         error: "Invalid polars data type".into(),
-                        msg: format!("Error in parsing decimal precision: {e}"),
+                        msg: uformat!("Error in parsing decimal precision: {e}"),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -290,7 +291,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
         }
         _ => Err(ShellError::GenericError {
             error: "Invalid polars data type".into(),
-            msg: format!("Unknown type: {dtype}"),
+            msg: uformat!("Unknown type: {dtype}"),
             span: Some(span),
             help: None,
             inner: vec![],

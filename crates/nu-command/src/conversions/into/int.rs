@@ -309,7 +309,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             {
                 Value::error (
                     ShellError::IncorrectValue {
-                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".into(),
                         val_span,
                         call_span: head,
                     },

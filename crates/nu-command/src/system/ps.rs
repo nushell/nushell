@@ -112,7 +112,7 @@ fn run_ps(
                     .stat()
                     .map_err(|e| ShellError::GenericError {
                         error: "Error getting process stat".into(),
-                        msg: e.to_string(),
+                        msg: e.to_string().into(),
                         span: Some(Span::unknown()),
                         help: None,
                         inner: vec![],

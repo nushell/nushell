@@ -217,7 +217,7 @@ impl EventTypeFilter {
 
     fn bad_list_error(head: Span, value: &Value) -> ShellError {
         ShellError::UnsupportedInput {
-            msg: "--types expects a list of strings".to_string(),
+            msg: "--types expects a list of strings".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: value.span(),

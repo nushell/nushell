@@ -52,7 +52,7 @@ fn helper_for_tables(
     }
     if column_totals.keys().len() == 0 {
         return Err(ShellError::UnsupportedInput {
-            msg: "Unable to give a result with this input".to_string(),
+            msg: "Unable to give a result with this input".into(),
             input: "value originates from here".into(),
             msg_span: name,
             input_span: val_span,
@@ -119,7 +119,7 @@ pub fn ensure_bounded(range: &Range, val_span: Span, call_span: Span) -> Result<
         return Ok(());
     }
     Err(ShellError::IncorrectValue {
-        msg: "Range must be bounded".to_string(),
+        msg: "Range must be bounded".into(),
         val_span,
         call_span,
     })

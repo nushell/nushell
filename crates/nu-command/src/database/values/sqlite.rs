@@ -6,6 +6,7 @@ use nu_protocol::{
     CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
     engine::EngineState, shell_error::io::IoError,
 };
+use nu_utils::{strings::UniqueString, uformat};
 use rusqlite::{
     Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql,
     types::ValueRef,
@@ -52,7 +53,7 @@ impl SQLiteDatabase {
                 } else {
                     Err(ShellError::GenericError {
                         error: "Not a SQLite file".into(),
-                        msg: format!("Could not read '{}' as SQLite file", path.display()),
+                        msg: uformat!("Could not read '{}' as SQLite file", path.display()),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -114,7 +115,7 @@ impl SQLiteDatabase {
         } else {
             let conn = Connection::open(&self.path).map_err(|e| ShellError::GenericError {
                 error: "Failed to open SQLite database from open_connection".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: None,
                 help: None,
                 inner: vec![],
@@ -122,7 +123,7 @@ impl SQLiteDatabase {
             conn.busy_handler(Some(SQLiteDatabase::sleeper))
                 .map_err(|e| ShellError::GenericError {
                     error: "Failed to set busy handler for SQLite database".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: None,
                     help: None,
                     inner: vec![],
@@ -412,7 +413,7 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
         let path = path.to_string_lossy().to_string();
         Connection::open(path).map_err(|err| ShellError::GenericError {
             error: "Failed to open SQLite database".into(),
-            msg: err.to_string(),
+            msg: err.to_string().into(),
             span: Some(call_span),
             help: None,
             inner: Vec::new(),
@@ -545,11 +546,11 @@ impl From<ShellError> for SqliteOrShellError {
 }
 
 impl SqliteOrShellError {
-    fn into_shell_error(self, span: Span, msg: &str) -> ShellError {
+    fn into_shell_error(self, span: Span, msg: impl Into<UniqueString>) -> ShellError {
         match self {
             Self::SqliteError(err) => ShellError::GenericError {
                 error: msg.into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(span),
                 help: None,
                 inner: Vec::new(),
@@ -730,7 +731,7 @@ pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let conn =
         Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
             error: "Failed to open SQLite custom connection in memory".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(Span::test_data()),
             help: None,
             inner: vec![],
@@ -738,7 +739,7 @@ pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     conn.busy_handler(Some(SQLiteDatabase::sleeper))
         .map_err(|e| ShellError::GenericError {
             error: "Failed to set busy handler for SQLite custom connection in memory".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(Span::test_data()),
             help: None,
             inner: vec![],
@@ -749,7 +750,7 @@ pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
     Connection::open_in_memory().map_err(|e| ShellError::GenericError {
         error: "Failed to open SQLite standard connection in memory".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(Span::test_data()),
         help: None,
         inner: vec![],

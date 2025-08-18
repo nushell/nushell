@@ -3,6 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use crate::{PolarsPlugin, cloud::build_cloud_options};
 use nu_path::expand_path_with;
 use nu_protocol::{ShellError, Span, Spanned};
+use nu_utils::uformat;
 use polars_io::cloud::CloudOptions;
 use url::Url;
 
@@ -38,7 +39,7 @@ impl Resource {
             Ok(url) if !is_windows_path(&path) => {
                 let cloud_options =
                     build_cloud_options(plugin, &url)?.ok_or(ShellError::GenericError {
-                        error: format!(
+                        error: uformat!(
                             "Could not determine a supported cloud type from url: {url}"
                         ),
                         msg: "".into(),

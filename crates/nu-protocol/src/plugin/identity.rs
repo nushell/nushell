@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use nu_utils::uformat;
+
 use crate::{ParseError, ShellError, Spanned};
 
 /// Error when an invalid plugin filename was encountered.
@@ -25,7 +27,7 @@ impl From<Spanned<InvalidPluginFilename>> for ParseError {
 impl From<Spanned<InvalidPluginFilename>> for ShellError {
     fn from(error: Spanned<InvalidPluginFilename>) -> ShellError {
         ShellError::GenericError {
-            error: format!("Invalid plugin filename: {}", error.item.0.display()),
+            error: uformat!("Invalid plugin filename: {}", error.item.0.display()),
             msg: "not a valid plugin filename".into(),
             span: Some(error.span),
             help: Some("valid Nushell plugin filenames must start with `nu_plugin_`".into()),

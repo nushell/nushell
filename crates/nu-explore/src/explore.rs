@@ -94,7 +94,7 @@ impl Command for Explore {
                 let shell_error = match err.downcast::<ShellError>() {
                     Ok(e) => e,
                     Err(e) => ShellError::GenericError {
-                        error: e.to_string(),
+                        error: e.to_string().into(),
                         msg: "".into(),
                         span: None,
                         help: None,

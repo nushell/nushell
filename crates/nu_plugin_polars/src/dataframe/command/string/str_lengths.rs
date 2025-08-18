@@ -135,7 +135,7 @@ fn command_df(
 
     let chunked = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(call.head),
         help: Some("The str-lengths command can only be used with string columns".into()),
         inner: vec![],

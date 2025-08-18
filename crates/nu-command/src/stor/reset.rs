@@ -52,7 +52,7 @@ impl Command for StorReset {
             conn.execute("PRAGMA foreign_keys = OFF", [])
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to turn off foreign_key protections for reset".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(Span::test_data()),
                     help: None,
                     inner: vec![],
@@ -60,7 +60,7 @@ impl Command for StorReset {
             db.drop_all_tables(&conn)
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to drop all tables in memory from reset".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(Span::test_data()),
                     help: None,
                     inner: vec![],
@@ -68,7 +68,7 @@ impl Command for StorReset {
             conn.execute("PRAGMA foreign_keys = ON", [])
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to turn on foreign_key protections for reset".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(Span::test_data()),
                     help: None,
                     inner: vec![],

@@ -2,6 +2,7 @@ use std::fs::File;
 
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
+use nu_utils::uformat;
 use polars_io::SerWriter;
 use polars_io::avro::{AvroCompression, AvroWriter};
 
@@ -18,7 +19,7 @@ fn get_compression(call: &EvaluatedCall) -> Result<Option<AvroCompression>, Shel
             "snappy" => Ok(Some(AvroCompression::Snappy)),
             "deflate" => Ok(Some(AvroCompression::Deflate)),
             _ => Err(ShellError::IncorrectValue {
-                msg: "compression must be one of deflate or snappy".to_string(),
+                msg: "compression must be one of deflate or snappy".into(),
                 val_span: span,
                 call_span: span,
             }),
@@ -38,7 +39,7 @@ pub(crate) fn command_eager(
     let compression = get_compression(call)?;
 
     let file = File::create(file_path).map_err(|e| ShellError::GenericError {
-        error: format!("Error with file name: {e}"),
+        error: uformat!("Error with file name: {e}"),
         msg: "".into(),
         span: Some(file_span),
         help: None,
@@ -50,7 +51,7 @@ pub(crate) fn command_eager(
         .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],

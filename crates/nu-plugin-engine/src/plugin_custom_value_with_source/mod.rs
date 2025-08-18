@@ -3,6 +3,7 @@ use std::{cmp::Ordering, sync::Arc};
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator};
+use nu_utils::uformat;
 use serde::Serialize;
 
 use crate::{PluginInterface, PluginSource};
@@ -47,11 +48,11 @@ impl PluginCustomValueWithSource {
     /// Helper to get the plugin to implement an op
     fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
         let wrap_err = |err: ShellError| ShellError::GenericError {
-            error: format!(
+            error: uformat!(
                 "Unable to spawn plugin `{}` to {for_op}",
                 self.source.name()
             ),
-            msg: err.to_string(),
+            msg: err.to_string().into(),
             span,
             help: None,
             inner: vec![err],

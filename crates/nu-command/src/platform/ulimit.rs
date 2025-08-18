@@ -402,8 +402,8 @@ fn print_limits(
 fn setrlimit(res: Resource, soft_limit: rlim_t, hard_limit: rlim_t) -> Result<(), ShellError> {
     nix::sys::resource::setrlimit(res, soft_limit, hard_limit).map_err(|e| {
         ShellError::GenericError {
-            error: e.to_string(),
-            msg: String::new(),
+            error: e.to_string().into(),
+            msg: "".into(),
             span: None,
             help: None,
             inner: vec![],
@@ -414,8 +414,8 @@ fn setrlimit(res: Resource, soft_limit: rlim_t, hard_limit: rlim_t) -> Result<()
 /// Wrap `nix::sys::resource::setrlimit`
 fn getrlimit(res: Resource) -> Result<(rlim_t, rlim_t), ShellError> {
     nix::sys::resource::getrlimit(res).map_err(|e| ShellError::GenericError {
-        error: e.to_string(),
-        msg: String::new(),
+        error: e.to_string().into(),
+        msg: "".into(),
         span: None,
         help: None,
         inner: vec![],

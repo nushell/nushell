@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{Call, EngineState, Stack, StateWorkingSet},
     shell_error::io::{IoError, IoErrorExt, NotFound},
 };
+use nu_utils::uformat;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -308,7 +309,7 @@ pub fn find_in_dirs_env(
                 } else {
                     return Err(ShellError::GenericError {
                         error: "Invalid current directory".into(),
-                        msg: format!(
+                        msg: uformat!(
                             "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
                         ),
                         span: Some(pwd.span()),
@@ -398,10 +399,10 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
                 if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                     error = error.or_else(|| {
                         Some(ShellError::GenericError {
-                            error: format!(
+                            error: uformat!(
                                 "Incorrect {preserve_case_name} environment variable value"
                             ),
-                            msg: format!("{preserve_case_name} must be a list of strings"),
+                            msg: uformat!("{preserve_case_name} must be a list of strings"),
                             span: Some(span),
                             help: None,
                             inner: vec![],
@@ -416,8 +417,10 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
 
                 error = error.or_else(|| {
                     Some(ShellError::GenericError {
-                        error: format!("Incorrect {preserve_case_name} environment variable value"),
-                        msg: format!("{preserve_case_name} must be a list of strings"),
+                        error: uformat!(
+                            "Incorrect {preserve_case_name} environment variable value"
+                        ),
+                        msg: uformat!("{preserve_case_name} must be a list of strings"),
                         span: Some(span),
                         help: None,
                         inner: vec![],

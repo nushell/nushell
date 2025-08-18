@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 use super::query::{record_to_query_string, table_to_query_string};
 
@@ -119,7 +120,7 @@ impl Command for UrlJoin {
                     }
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::UnsupportedInput {
-                        msg: "Expected a record from pipeline".to_string(),
+                        msg: "Expected a record from pipeline".into(),
                         input: "value originates from here".into(),
                         msg_span: head,
                         input_span: other.span(),
@@ -292,8 +293,8 @@ impl UrlComponents {
                 nu_protocol::report_shell_error(
                     engine_state,
                     &ShellError::GenericError {
-                        error: format!("'{key}' is not a valid URL field"),
-                        msg: format!("remove '{key}' col from input record"),
+                        error: uformat!("'{key}' is not a valid URL field"),
+                        msg: uformat!("remove '{key}' col from input record"),
                         span: Some(value_span),
                         help: None,
                         inner: vec![],

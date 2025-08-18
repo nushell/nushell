@@ -7,9 +7,11 @@ use nu_protocol::{
     ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
     byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
 };
+use nu_utils::uformat;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
+    ops::Deref,
     path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
@@ -287,7 +289,7 @@ impl Command for Save {
 fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
     ShellError::GenericError {
         error: "pipeline input and output are the same file".into(),
-        msg: format!(
+        msg: uformat!(
             "can't save output to '{}' while it's being read",
             dest.item.display()
         ),
@@ -308,12 +310,12 @@ fn check_saving_to_source_file(
         return Ok(());
     };
 
-    if &dest.item == source {
+    if &dest.item == source.deref() {
         return Err(saving_to_source_file_error(dest));
     }
 
     if let Some(dest) = stderr_dest {
-        if &dest.item == source {
+        if &dest.item == source.deref() {
             return Err(saving_to_source_file_error(dest));
         }
     }
@@ -412,7 +414,7 @@ fn prepare_path(
     if !(force || append) && path.exists() {
         Err(ShellError::GenericError {
             error: "Destination file already exists".into(),
-            msg: format!(
+            msg: uformat!(
                 "Destination file '{}' already exists",
                 path.to_string_lossy()
             ),

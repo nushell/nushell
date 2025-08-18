@@ -17,7 +17,7 @@ pub fn record_to_query_string(
                         v_item
                             .coerce_str()
                             .map_err(|_| ShellError::UnsupportedInput {
-                                msg: "Expected a record with list of string values".to_string(),
+                                msg: "Expected a record with list of string values".into(),
                                 input: "value originates from here".into(),
                                 msg_span: head,
                                 input_span: span,
@@ -28,7 +28,7 @@ pub fn record_to_query_string(
             _ => row_vec.push((
                 k.as_str(),
                 v.coerce_str().map_err(|_| ShellError::UnsupportedInput {
-                    msg: "Expected a record with string or list of string values".to_string(),
+                    msg: "Expected a record with string or list of string values".into(),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: span,
@@ -97,7 +97,7 @@ fn key_value_from_record(record: &Record, span: Span) -> Result<(Cow<str>, Cow<s
 pub fn query_string_to_table(query: &str, head: Span, span: Span) -> Result<Value, ShellError> {
     let params = serde_urlencoded::from_str::<Vec<(String, String)>>(query)
         .map_err(|_| ShellError::UnsupportedInput {
-            msg: "String not compatible with url-encoding".to_string(),
+            msg: "String not compatible with url-encoding".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,

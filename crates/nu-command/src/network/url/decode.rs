@@ -84,7 +84,7 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
                 Err(e) => Value::error(
                     ShellError::GenericError {
                         error: "Failed to decode string".into(),
-                        msg: e.to_string(),
+                        msg: e.to_string().into(),
                         span: Some(input_span),
                         help: None,
                         inner: vec![],

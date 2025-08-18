@@ -168,10 +168,10 @@ fn command(
         HorizontalType::Mean => mean_horizontal(exprs, ignore_nulls),
     }
     .map_err(|e| ShellError::GenericError {
-        error: "Cannot apply horizontal aggregation".to_string(),
+        error: "Cannot apply horizontal aggregation".into(),
         msg: "".into(),
         span: Some(call.head),
-        help: Some(e.to_string()),
+        help: Some(e.to_string().into()),
         inner: vec![],
     })?
     .into();

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 use crate::util::{canonicalize_possible_filename_arg, modify_plugin_file};
 
@@ -99,7 +100,7 @@ fixed with `plugin add`.
                 Ok(())
             } else {
                 Err(ShellError::GenericError {
-                    error: format!("Failed to remove the `{}` plugin", name.item),
+                    error: uformat!("Failed to remove the `{}` plugin", name.item),
                     msg: "couldn't find a plugin with this name in the registry file".into(),
                     span: Some(name.span),
                     help: None,

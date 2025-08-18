@@ -11,6 +11,7 @@ use crate::{
     ir::IrBlock,
     record,
 };
+use nu_utils::strings::UniqueString;
 use std::{borrow::Borrow, io::BufRead};
 use web_time::Instant;
 
@@ -299,9 +300,9 @@ impl Debugger for Profiler {
     }
 }
 
-fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
+fn profiler_error(msg: impl Into<UniqueString>, span: Span) -> ShellError {
     ShellError::GenericError {
-        error: "Profiler Error".to_string(),
+        error: "Profiler Error".into(),
         msg: msg.into(),
         span: Some(span),
         help: None,

@@ -313,7 +313,7 @@ pub fn run_seq_dates(
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: e.to_string(),
+                    error: e.to_string().into(),
                     msg: "".into(),
                     span: None,
                     help: Some("error with input_format as_string".into()),
@@ -329,7 +329,7 @@ pub fn run_seq_dates(
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: e.to_string(),
+                    error: e.to_string().into(),
                     msg: "".into(),
                     span: None,
                     help: Some("error with output_format as_string".into()),
@@ -345,7 +345,7 @@ pub fn run_seq_dates(
             Ok(nd) => nd,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: e.to_string(),
+                    error: e.to_string().into(),
                     msg: "Failed to parse date".into(),
                     span: Some(call_span),
                     help: None,
@@ -361,7 +361,7 @@ pub fn run_seq_dates(
             Ok(nd) => nd,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: e.to_string(),
+                    error: e.to_string().into(),
                     msg: "Failed to parse date".into(),
                     span: Some(call_span),
                     help: None,
@@ -448,7 +448,7 @@ pub fn run_seq_dates(
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "Invalid output format".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(call_span),
                     help: None,
                     inner: vec![],

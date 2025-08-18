@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
 };
 
+use nu_utils::uformat;
 use serde::{Deserialize, Serialize};
 
 use crate::{PluginIdentity, PluginMetadata, PluginSignature, ShellError, Span};
@@ -47,7 +48,7 @@ impl PluginRegistryFile {
         let brotli_reader = brotli::Decompressor::new(reader, BUFFER_SIZE);
 
         rmp_serde::from_read(brotli_reader).map_err(|err| ShellError::GenericError {
-            error: format!("Failed to load plugin file: {err}"),
+            error: uformat!("Failed to load plugin file: {err}"),
             msg: "plugin file load attempted here".into(),
             span: error_span,
             help: Some(
@@ -79,7 +80,7 @@ impl PluginRegistryFile {
                 error: "Failed to save plugin file".into(),
                 msg: "plugin file save attempted here".into(),
                 span: error_span,
-                help: Some(err.to_string()),
+                help: Some(err.into()),
                 inner: vec![],
             })
     }

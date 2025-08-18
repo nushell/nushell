@@ -1,3 +1,4 @@
+use nu_utils::uformat;
 // Credit to https://github.com/hulthe/nu_plugin_msgpack for the original idea, though the
 // implementation here is unique.
 
@@ -82,7 +83,7 @@ MessagePack: https://msgpack.org/
         let metadata = input
             .metadata()
             .unwrap_or_default()
-            .with_content_type(Some("application/x-msgpack".into()));
+            .with_content_type("application/x-msgpack");
 
         let value_span = input.span().unwrap_or(call.head);
         let value = input.into_value(value_span)?;
@@ -140,14 +141,14 @@ impl From<WriteError> for ShellError {
         match value {
             WriteError::MaxDepth(span) => ShellError::GenericError {
                 error: "MessagePack data is nested too deeply".into(),
-                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
+                msg: uformat!("exceeded depth limit ({MAX_DEPTH})"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
             },
             WriteError::Rmp(err, span) => ShellError::GenericError {
                 error: "Failed to encode MessagePack data".into(),
-                msg: err.to_string(),
+                msg: err.to_string().into(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -307,7 +308,7 @@ where
         .try_into()
         .map_err(|err: <U as TryFrom<T>>::Error| ShellError::GenericError {
             error: "Value not compatible with MessagePack".into(),
-            msg: err.to_string(),
+            msg: err.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],

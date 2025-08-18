@@ -24,7 +24,7 @@ pub fn max(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     let mut biggest = data
         .first()
         .ok_or_else(|| ShellError::UnsupportedInput {
-            msg: "Empty input".to_string(),
+            msg: "Empty input".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,
@@ -43,7 +43,7 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
     let mut smallest = data
         .first()
         .ok_or_else(|| ShellError::UnsupportedInput {
-            msg: "Empty input".to_string(),
+            msg: "Empty input".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,
@@ -73,7 +73,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
         }
 
         None => Err(ShellError::UnsupportedInput {
-            msg: "Empty input".to_string(),
+            msg: "Empty input".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,
@@ -118,7 +118,7 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             }
         }
         None => Err(ShellError::UnsupportedInput {
-            msg: "Empty input".to_string(),
+            msg: "Empty input".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,

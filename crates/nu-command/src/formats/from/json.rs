@@ -70,7 +70,7 @@ impl Command for FromJson {
         let span = call.head;
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.metadata().map(|md| md.remove_content_type());
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {

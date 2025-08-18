@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_utils::uformat;
 
 use crate::util::canonicalize_possible_filename_arg;
 
@@ -69,7 +70,7 @@ impl Command for PluginStop {
             Ok(PipelineData::empty())
         } else {
             Err(ShellError::GenericError {
-                error: format!("Failed to stop the `{}` plugin", name.item),
+                error: uformat!("Failed to stop the `{}` plugin", name.item),
                 msg: "couldn't find a plugin with this name".into(),
                 span: Some(name.span),
                 help: Some("you may need to `plugin add` the plugin first".into()),

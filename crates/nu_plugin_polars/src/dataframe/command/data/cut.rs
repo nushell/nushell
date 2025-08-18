@@ -82,7 +82,7 @@ fn command(
     let new_series = polars_ops::series::cut(&series, breaks, labels, left_closed, include_breaks)
         .map_err(|e| ShellError::GenericError {
             error: "Error cutting series".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(call.head),
             help: None,
             inner: vec![],

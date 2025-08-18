@@ -48,7 +48,7 @@ impl Command for Alias {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::NushellFailedSpanned {
-            msg: "Can't run alias directly. Unwrap it first".to_string(),
+            msg: "Can't run alias directly. Unwrap it first".into(),
             label: "originates from here".to_string(),
             span: call.head,
         })

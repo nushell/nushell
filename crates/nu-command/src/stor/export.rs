@@ -70,7 +70,7 @@ impl Command for StorExport {
             db.export_in_memory_database_to_file(&conn, file_name)
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to open SQLite connection in memory from export".into(),
-                    msg: err.to_string(),
+                    msg: err.to_string().into(),
                     span: Some(Span::test_data()),
                     help: None,
                     inner: vec![],

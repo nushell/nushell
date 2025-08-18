@@ -1,5 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
+use nu_utils::uformat;
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -112,8 +113,8 @@ impl Command for Mktemp {
                 .map_err(|_| ShellError::NonUtf8 { span })?,
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: format!("{e}"),
-                    msg: format!("{e}"),
+                    error: uformat!("{e}"),
+                    msg: uformat!("{e}"),
                     span: None,
                     help: None,
                     inner: vec![],

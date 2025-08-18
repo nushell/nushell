@@ -133,7 +133,7 @@ fn toml_into_pipeline_data(
     let new_md = Some(
         metadata
             .unwrap_or_default()
-            .with_content_type(Some("text/x-toml".into())),
+            .with_content_type("text/x-toml"),
     );
 
     match toml::to_string_pretty(&toml_value) {

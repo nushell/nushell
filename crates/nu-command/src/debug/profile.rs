@@ -138,8 +138,8 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         );
 
         let lock_err = |_| ShellError::GenericError {
-            error: "Profiler Error".to_string(),
-            msg: "could not lock debugger, poisoned mutex".to_string(),
+            error: "Profiler Error".into(),
+            msg: "could not lock debugger, poisoned mutex".into(),
             span: Some(call.head),
             help: None,
             inner: vec![],

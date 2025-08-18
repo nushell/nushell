@@ -1,6 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
+use nu_utils::uformat;
 use std::sync::Arc;
 
 use crate::{GetPlugin, PluginExecutionCommandContext, PluginSource};
@@ -90,8 +91,8 @@ impl Command for PluginDeclaration {
             .map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);
                 ShellError::GenericError {
-                    error: format!("Unable to spawn plugin for `{}`", decl.name()),
-                    msg: err.to_string(),
+                    error: uformat!("Unable to spawn plugin for `{}`", decl.name()),
+                    msg: err.to_string().into(),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],

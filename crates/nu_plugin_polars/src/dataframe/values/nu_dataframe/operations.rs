@@ -1,4 +1,5 @@
 use nu_protocol::{ShellError, Span, Spanned, Value, ast::Operator};
+use nu_utils::uformat;
 use polars::prelude::{Column as PolarsColumn, DataFrame};
 
 use crate::PolarsPlugin;
@@ -141,7 +142,7 @@ impl NuDataFrame {
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error creating dataframe".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -187,7 +188,7 @@ impl NuDataFrame {
                             Err(e) => Err({
                                 ShellError::GenericError {
                                     error: "Error appending dataframe".into(),
-                                    msg: format!("Unable to append: {e}"),
+                                    msg: uformat!("Unable to append: {e}"),
                                     span: Some(span),
                                     help: None,
                                     inner: vec![],
@@ -199,7 +200,7 @@ impl NuDataFrame {
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error appending dataframe".into(),
-                    msg: format!("Unable to append dataframes: {e}"),
+                    msg: uformat!("Unable to append dataframes: {e}"),
                     span: Some(span),
                     help: None,
                     inner: vec![],

@@ -1,4 +1,3 @@
-#![allow(clippy::result_large_err)]
 use nu_protocol::{
     CustomValue, ShellError, Span, Type, Value,
     ast::{self, Math, Operator},

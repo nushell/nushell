@@ -129,21 +129,9 @@ pub enum ParseError {
     },
 
     /// The operator supports the types of both values, but not the specific combination of their types.
-    #[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+    #[error(transparent)]
     #[diagnostic(code(nu::parser::operator_incompatible_types))]
-    OperatorIncompatibleTypes {
-        op: &'static str,
-        lhs: Type,
-        rhs: Type,
-        #[label = "does not operate between '{lhs}' and '{rhs}'"]
-        op_span: Span,
-        #[label("{lhs}")]
-        lhs_span: Span,
-        #[label("{rhs}")]
-        rhs_span: Span,
-        #[help]
-        help: Option<&'static str>,
-    },
+    OperatorIncompatibleTypes(Box<OperatorIncompatibleTypesParseError>),
 
     #[error("Capture of mutable variable.")]
     #[diagnostic(code(nu::parser::expected_keyword))]
@@ -565,6 +553,28 @@ pub enum ParseError {
     AttributeRequiresDefinition(#[label("must be followed by a definition")] Span),
 }
 
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
+#[error("Types '{lhs}' and '{rhs}' are not compatible for the '{op}' operator.")]
+pub struct OperatorIncompatibleTypesParseError {
+    pub op: &'static str,
+    pub lhs: Type,
+    pub rhs: Type,
+    #[label = "does not operate between '{lhs}' and '{rhs}'"]
+    pub op_span: Span,
+    #[label("{lhs}")]
+    pub lhs_span: Span,
+    #[label("{rhs}")]
+    pub rhs_span: Span,
+    #[help]
+    pub help: Option<&'static str>,
+}
+
+impl From<OperatorIncompatibleTypesParseError> for ParseError {
+    fn from(value: OperatorIncompatibleTypesParseError) -> Self {
+        ParseError::OperatorIncompatibleTypes(Box::new(value))
+    }
+}
+
 impl ParseError {
     pub fn span(&self) -> Span {
         match self {
@@ -578,7 +588,7 @@ impl ParseError {
             ParseError::ExpectedWithDidYouMean(_, _, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::OperatorUnsupportedType { op_span, .. } => *op_span,
-            ParseError::OperatorIncompatibleTypes { op_span, .. } => *op_span,
+            ParseError::OperatorIncompatibleTypes(inner) => inner.op_span,
             ParseError::ExpectedKeyword(_, s) => *s,
             ParseError::UnexpectedKeyword(_, s) => *s,
             ParseError::CantAliasKeyword(_, s) => *s,

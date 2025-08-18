@@ -3,6 +3,7 @@ use std::fs::File;
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{ShellError, Spanned};
+use nu_utils::uformat;
 use polars::prelude::{CsvWriter, SerWriter, SinkOptions};
 use polars_io::csv::write::{CsvWriterOptions, SerializeOptions};
 
@@ -62,7 +63,7 @@ pub(crate) fn command_eager(
     let no_header: bool = call.has_flag("csv-no-header")?;
 
     let mut file = File::create(file_path).map_err(|e| ShellError::GenericError {
-        error: format!("Error with file name: {e}"),
+        error: uformat!("Error with file name: {e}"),
         msg: "".into(),
         span: Some(file_span),
         help: None,
@@ -102,8 +103,8 @@ pub(crate) fn command_eager(
     writer
         .finish(&mut df.to_polars())
         .map_err(|e| ShellError::GenericError {
-            error: format!("Error writing to file: {e}"),
-            msg: e.to_string(),
+            error: uformat!("Error writing to file: {e}"),
+            msg: e.to_string().into(),
             span: Some(file_span),
             help: None,
             inner: vec![],

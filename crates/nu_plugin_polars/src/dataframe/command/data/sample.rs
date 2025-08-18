@@ -119,7 +119,7 @@ fn command(
             )
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(rows.span),
                 help: None,
                 inner: vec![],
@@ -134,7 +134,7 @@ fn command(
             )
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(frac.span),
                 help: None,
                 inner: vec![],

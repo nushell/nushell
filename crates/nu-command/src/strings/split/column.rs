@@ -186,7 +186,7 @@ fn split_column(
     }
     .map_err(|e| ShellError::GenericError {
         error: "Error with regular expression".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(args.separator.span),
         help: None,
         inner: vec![],

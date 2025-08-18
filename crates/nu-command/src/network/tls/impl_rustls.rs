@@ -65,10 +65,10 @@ impl NuCryptoProvider {
         match self.0.get() {
             Some(val) => val.clone(),
             None => Err(ShellError::GenericError {
-                error: "tls crypto provider not found".to_string(),
-                msg: "no crypto provider for rustls was defined".to_string(),
+                error: "tls crypto provider not found".into(),
+                msg: "no crypto provider for rustls was defined".into(),
                 span: None,
-                help: Some("ensure that nu_command::tls::CRYPTO_PROVIDER is set".to_string()),
+                help: Some("ensure that nu_command::tls::CRYPTO_PROVIDER is set".into()),
                 inner: vec![],
             }),
         }

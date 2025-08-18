@@ -3,6 +3,7 @@ use std::error::Error;
 use aws_config::{BehaviorVersion, SdkConfig};
 use aws_credential_types::{Credentials, provider::ProvideCredentials};
 use nu_protocol::ShellError;
+use nu_utils::uformat;
 use object_store::aws::AmazonS3ConfigKey;
 use polars_io::cloud::CloudOptions;
 
@@ -16,7 +17,7 @@ async fn aws_creds(aws_config: &SdkConfig) -> Result<Option<Credentials>, ShellE
     if let Some(provider) = aws_config.credentials_provider() {
         Ok(Some(provider.provide_credentials().await.map_err(|e| {
             ShellError::GenericError {
-                error: format!(
+                error: uformat!(
                     "Could not fetch AWS credentials: {} - {}",
                     e,
                     e.source().map(|e| format!("{e}")).unwrap_or("".to_string())

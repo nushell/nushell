@@ -93,7 +93,7 @@ fn command(
             .to_dummies(None, drop_first)
             .map_err(|e| ShellError::GenericError {
                 error: "Error calculating dummies".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(call.head),
                 help: Some("The only allowed column types for dummies are String or Int".into()),
                 inner: vec![],

@@ -7,6 +7,7 @@ use nu_protocol::{
     NuGlob, report_shell_error,
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{collections::HashMap, io::Error, path::PathBuf};
@@ -282,8 +283,8 @@ fn rm(
                         }
                         Err(e) => {
                             return Err(ShellError::GenericError {
-                                error: format!("Could not remove {:}", path.to_string_lossy()),
-                                msg: e.to_string(),
+                                error: uformat!("Could not remove {:}", path.to_string_lossy()),
+                                msg: e.to_string().into(),
                                 span: Some(target.span),
                                 help: None,
                                 inner: vec![],
@@ -332,7 +333,7 @@ fn rm(
         );
         if let Err(e) = interaction {
             return Err(ShellError::GenericError {
-                error: format!("Error during interaction: {e:}"),
+                error: uformat!("Error during interaction: {e:}"),
                 msg: "could not move".into(),
                 span: None,
                 help: None,
@@ -427,12 +428,12 @@ fn rm(
                     } else {
                         "deleted"
                     };
-                    Ok(Some(format!("{} {:}", msg, f.to_string_lossy())))
+                    Ok(Some(format!("{} {:}", msg, f.display())))
                 } else {
                     Ok(None)
                 }
             } else {
-                let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
+                let error = uformat!("Cannot remove {:}. try --recursive", f.display());
                 Err(ShellError::GenericError {
                     error,
                     msg: "cannot remove non-empty directory".into(),
@@ -442,7 +443,7 @@ fn rm(
                 })
             }
         } else {
-            let error = format!("no such file or directory: {:}", f.to_string_lossy());
+            let error = uformat!("no such file or directory: {:}", f.to_string_lossy());
             Err(ShellError::GenericError {
                 error,
                 msg: "no such file or directory".into(),

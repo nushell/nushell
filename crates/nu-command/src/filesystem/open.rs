@@ -5,6 +5,7 @@ use nu_protocol::{
     debugger::{WithDebug, WithoutDebug},
     shell_error::{self, io::IoError},
 };
+use nu_utils::uformat;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -179,7 +180,7 @@ impl Command for Open {
                     let stream = PipelineData::byte_stream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(path.to_path_buf()),
+                            data_source: DataSource::FilePath(path.to_path_buf().into()),
                             content_type: None,
                         }),
                     );
@@ -218,10 +219,10 @@ impl Command for Open {
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
-                                        error: format!("Error while parsing as {ext}"),
-                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        error: uformat!("Error while parsing as {ext}"),
+                                        msg: uformat!("Could not parse '{}' with `from {}`", path.display(), ext),
                                         span: Some(arg_span),
-                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        help: Some(uformat!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
                                         inner: vec![inner],
                                 }
                                 })?);
@@ -231,11 +232,12 @@ impl Command for Open {
                             let content_type = path
                                 .extension()
                                 .map(|ext| ext.to_string_lossy().to_string())
-                                .and_then(|ref s| detect_content_type(s));
+                                .and_then(|ref s| detect_content_type(s))
+                                .map(Into::into);
 
                             let stream_with_content_type =
                                 stream.set_metadata(Some(PipelineMetadata {
-                                    data_source: DataSource::FilePath(path.to_path_buf()),
+                                    data_source: DataSource::FilePath(path.to_path_buf().into()),
                                     content_type,
                                 }));
                             output.push(stream_with_content_type);

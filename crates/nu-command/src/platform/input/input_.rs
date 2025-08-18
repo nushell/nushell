@@ -140,7 +140,7 @@ impl Command for Input {
                         }
                         _ => {
                             return Err(ShellError::IncorrectValue {
-                                msg: "unable to create history".to_string(),
+                                msg: "unable to create history".into(),
                                 val_span: call.head,
                                 call_span: call.head,
                             });

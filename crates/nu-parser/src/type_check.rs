@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ParseError, Span, Type,
+    OperatorIncompatibleTypesParseError, ParseError, Span, Type,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -14,7 +14,7 @@ fn type_error(
 ) -> (Type, Option<ParseError>) {
     let is_supported = |ty| is_supported(ty) || matches!(ty, Type::Any | Type::Custom(_));
     let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
-        (true, true) => ParseError::OperatorIncompatibleTypes {
+        (true, true) => OperatorIncompatibleTypesParseError {
             op: op.as_str(),
             lhs: lhs.ty.clone(),
             rhs: rhs.ty.clone(),
@@ -22,7 +22,8 @@ fn type_error(
             lhs_span: lhs.span,
             rhs_span: rhs.span,
             help: None,
-        },
+        }
+        .into(),
         (true, false) => ParseError::OperatorUnsupportedType {
             op: op.as_str(),
             unsupported: rhs.ty.clone(),
@@ -379,7 +380,7 @@ pub fn math_result_type(
                     None
                 };
                 let err = match (is_supported(&lhs.ty), is_supported(&rhs.ty)) {
-                    (true, true) => ParseError::OperatorIncompatibleTypes {
+                    (true, true) => OperatorIncompatibleTypesParseError {
                         op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -387,7 +388,8 @@ pub fn math_result_type(
                         lhs_span: lhs.span,
                         rhs_span: rhs.span,
                         help,
-                    },
+                    }
+                    .into(),
                     (true, false) => ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
                         unsupported: rhs.ty.clone(),
@@ -651,7 +653,7 @@ pub fn math_result_type(
                         | Type::Custom(_)
                         | Type::Any
                 ) {
-                    ParseError::OperatorIncompatibleTypes {
+                    OperatorIncompatibleTypesParseError {
                         op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -660,6 +662,7 @@ pub fn math_result_type(
                         rhs_span: rhs.span,
                         help: None,
                     }
+                    .into()
                 } else {
                     ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
@@ -693,7 +696,7 @@ pub fn math_result_type(
                         | Type::Custom(_)
                         | Type::Any
                 ) {
-                    ParseError::OperatorIncompatibleTypes {
+                    OperatorIncompatibleTypesParseError {
                         op: operator.as_str(),
                         lhs: lhs.ty.clone(),
                         rhs: rhs.ty.clone(),
@@ -702,6 +705,7 @@ pub fn math_result_type(
                         rhs_span: rhs.span,
                         help: None,
                     }
+                    .into()
                 } else {
                     ParseError::OperatorUnsupportedType {
                         op: operator.as_str(),
@@ -743,15 +747,18 @@ pub fn math_result_type(
                 None
             } else {
                 *op = Expression::garbage(working_set, op.span);
-                Some(ParseError::OperatorIncompatibleTypes {
-                    op: operator.as_str(),
-                    lhs: lhs.ty.clone(),
-                    rhs: rhs.ty.clone(),
-                    op_span: op.span,
-                    lhs_span: lhs.span,
-                    rhs_span: rhs.span,
-                    help: None,
-                })
+                Some(
+                    OperatorIncompatibleTypesParseError {
+                        op: operator.as_str(),
+                        lhs: lhs.ty.clone(),
+                        rhs: rhs.ty.clone(),
+                        op_span: op.span,
+                        lhs_span: lhs.span,
+                        rhs_span: rhs.span,
+                        help: None,
+                    }
+                    .into(),
+                )
             };
             (Type::Nothing, err)
         }
@@ -970,7 +977,7 @@ fn compound_assignment_result_type(
         // The math expression is fine, but we can't store the result back into the variable due to type mismatch
         (_, None) => {
             *op = Expression::garbage(working_set, op.span);
-            let err = ParseError::OperatorIncompatibleTypes {
+            let err = OperatorIncompatibleTypesParseError {
                 op: operator.as_str(),
                 lhs: lhs.ty.clone(),
                 rhs: rhs.ty.clone(),
@@ -980,7 +987,7 @@ fn compound_assignment_result_type(
                 help: Some(
                     "The result type of this operation is not compatible with the type of the variable.",
                 ),
-            };
+            }.into();
             (Type::Nothing, Some(err))
         }
     }

@@ -162,7 +162,7 @@ fn command_df(
     let series = df.as_series(call.head)?;
     let chunked = series.str().map_err(|e| ShellError::GenericError {
         error: "Error conversion to string".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(call.head),
         help: None,
         inner: vec![],
@@ -172,7 +172,7 @@ fn command_df(
         .replace(&pattern, &replace)
         .map_err(|e| ShellError::GenericError {
             error: "Error finding pattern other".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(call.head),
             help: None,
             inner: vec![],

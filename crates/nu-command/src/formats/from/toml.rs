@@ -30,7 +30,7 @@ impl Command for FromToml {
         let (mut string_input, span, metadata) = input.collect_string_strict(span)?;
         string_input.push('\n');
         Ok(convert_string_to_value(string_input, span)?
-            .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
+            .into_pipeline_data_with_metadata(metadata.map(|md| md.remove_content_type())))
     }
 
     fn examples(&self) -> Vec<Example> {

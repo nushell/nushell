@@ -69,6 +69,12 @@ impl SharedString {
         self.0.is_empty()
     }
 
+    /// Consumes `self` and returns an owned `String`.
+    #[inline]
+    pub fn into_string(self) -> String {
+        String::from(self.0)
+    }
+
     /// Returns a `SharedString` by taking ownership of an allocation.
     #[inline]
     pub fn from_string(string: String) -> Self {

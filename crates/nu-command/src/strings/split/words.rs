@@ -161,13 +161,13 @@ fn split_words(
     if args.word_length.is_none() {
         if args.has_grapheme {
             return Err(ShellError::IncompatibleParametersSingle {
-                msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
+                msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".into(),
                 span,
             });
         }
         if args.has_utf8 {
             return Err(ShellError::IncompatibleParametersSingle {
-                msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
+                msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".into(),
                 span,
             });
         }

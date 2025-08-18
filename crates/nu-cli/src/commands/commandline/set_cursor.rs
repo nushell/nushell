@@ -54,8 +54,8 @@ impl Command for CommandlineSetCursor {
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
             Err(ShellError::GenericError {
-                error: "Required a positional argument or a flag".to_string(),
-                msg: "".to_string(),
+                error: "Required a positional argument or a flag".into(),
+                msg: "".into(),
                 span: None,
                 help: None,
                 inner: vec![],

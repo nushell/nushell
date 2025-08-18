@@ -4,6 +4,7 @@ mod custom_value;
 mod operations;
 
 pub use conversion::{Column, ColumnMap};
+use nu_utils::uformat;
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
@@ -148,7 +149,7 @@ impl NuDataFrame {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -205,7 +206,7 @@ impl NuDataFrame {
         let dataframe =
             DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
                 error: "Error creating dataframe".into(),
-                msg: format!("Unable to create DataFrame: {e}"),
+                msg: uformat!("Unable to create DataFrame: {e}"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -279,7 +280,7 @@ impl NuDataFrame {
 
         let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],

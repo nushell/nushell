@@ -5,6 +5,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
 };
+use nu_utils::uformat;
 
 #[derive(Clone)]
 pub struct Use;
@@ -87,7 +88,7 @@ This command is a parser keyword. For details, check:
                     caller_stack.add_var(*var_id, constval.clone());
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
-                        msg: "Missing Constant".to_string(),
+                        msg: "Missing Constant".into(),
                         label: "constant not added by the parser".to_string(),
                         span: var.declaration_span,
                     });
@@ -152,11 +153,11 @@ This command is a parser keyword. For details, check:
             }
         } else {
             return Err(ShellError::GenericError {
-                error: format!(
+                error: uformat!(
                     "Could not import from '{}'",
                     String::from_utf8_lossy(&import_pattern.head.name)
                 ),
-                msg: "module does not exist".to_string(),
+                msg: "module does not exist".into(),
                 span: Some(import_pattern.head.span),
                 help: None,
                 inner: vec![],

@@ -1,6 +1,7 @@
 use chardetng::EncodingDetector;
 use encoding_rs::Encoding;
 use nu_protocol::{ShellError, Span, Spanned, Value};
+use nu_utils::uformat;
 
 pub fn detect_encoding_name(
     head: Span,
@@ -55,7 +56,7 @@ pub fn encode(
     // Check if the encoding is one of them and return an error
     if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
         return Err(ShellError::GenericError {
-            error: format!(r#"{} encoding is not supported"#, &encoding_name.item),
+            error: uformat!(r#"{} encoding is not supported"#, &encoding_name.item),
             msg: "invalid encoding".into(),
             span: Some(encoding_name.span),
             help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
@@ -70,7 +71,7 @@ pub fn encode(
         // TODO: make GenericError accept two spans (including head)
         Err(ShellError::GenericError {
             error: "error while encoding string".into(),
-            msg: format!("string contained characters not in {}", &encoding_name.item),
+            msg: uformat!("string contained characters not in {}", &encoding_name.item),
             span: Some(s_span),
             help: None,
             inner: vec![],
@@ -89,7 +90,7 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
     };
     match Encoding::for_label_no_replacement(label.as_bytes()) {
         None => Err(ShellError::GenericError{
-            error: format!(
+            error: uformat!(
                 r#"{label} is not a valid encoding"#
             ),
             msg: "invalid encoding".into(),

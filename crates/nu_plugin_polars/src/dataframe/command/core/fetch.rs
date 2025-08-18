@@ -76,7 +76,7 @@ impl PluginCommand for LazyFetch {
             .fetch(rows as usize)
             .map_err(|e| ShellError::GenericError {
                 error: "Error fetching rows".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

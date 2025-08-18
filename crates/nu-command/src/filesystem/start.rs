@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, env_to_strings};
 use nu_protocol::ShellError;
+use nu_utils::uformat;
 use std::{
     ffi::{OsStr, OsString},
     process::Stdio,
@@ -58,7 +59,7 @@ impl Command for Start {
         }
         // If neither file nor URL, return an error
         Err(ShellError::GenericError {
-            error: format!("Cannot find file or URL: {}", &path.item),
+            error: uformat!("Cannot find file or URL: {}", &path.item),
             msg: "".into(),
             span: Some(path.span),
             help: Some("Ensure the path or URL is correct and try again.".into()),

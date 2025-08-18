@@ -96,7 +96,7 @@ fn parse(value: Value, head: Span, config: &Config) -> Result<PipelineData, Shel
 
     let params = query_string_to_table(url.query().unwrap_or(""), head, span).map_err(|_| {
         ShellError::UnsupportedInput {
-            msg: "String not compatible with url-encoding".to_string(),
+            msg: "String not compatible with url-encoding".into(),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: span,

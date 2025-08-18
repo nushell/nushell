@@ -60,7 +60,7 @@ impl Command for KnownExternal {
             String::from_utf8_lossy(name_bytes)
         } else {
             return Err(ShellError::NushellFailedSpanned {
-                msg: "known external name not found".to_string(),
+                msg: "known external name not found".into(),
                 label: "could not find name for this command".to_string(),
                 span: call.head,
             });

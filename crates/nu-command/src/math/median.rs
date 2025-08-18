@@ -104,7 +104,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
             Ok(sorted
                 .get(idx)
                 .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
+                    msg: "Empty input".into(),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: span,
@@ -119,7 +119,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
             let left = sorted
                 .get(idx_start)
                 .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
+                    msg: "Empty input".into(),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: span,
@@ -130,7 +130,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
             let right = sorted
                 .get(idx_end)
                 .ok_or_else(|| ShellError::UnsupportedInput {
-                    msg: "Empty input".to_string(),
+                    msg: "Empty input".into(),
                     input: "value originates from here".into(),
                     msg_span: head,
                     input_span: span,

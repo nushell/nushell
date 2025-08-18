@@ -9,6 +9,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use nu_utils::uformat;
 use polars::{
     df,
     prelude::{LazyFrame, UnionArgs},
@@ -147,7 +148,7 @@ fn command_lazy(
 
         let res: NuLazyFrame = polars::prelude::concat(&dataframes, args)
             .map_err(|e| ShellError::GenericError {
-                error: format!("Failed to concatenate dataframes: {e}"),
+                error: uformat!("Failed to concatenate dataframes: {e}"),
                 msg: "".into(),
                 span: Some(call.head),
                 help: None,

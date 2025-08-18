@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, Signals};
+use nu_utils::uformat;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -199,7 +200,7 @@ impl Command for Glob {
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "error with glob pattern".into(),
-                    msg: format!("{e}"),
+                    msg: uformat!("{e}"),
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
@@ -218,7 +219,7 @@ impl Command for Glob {
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "error in canonicalize".into(),
-                    msg: format!("{e}"),
+                    msg: uformat!("{e}"),
                     span: Some(glob_span),
                     help: None,
                     inner: vec![],
@@ -245,7 +246,7 @@ impl Command for Glob {
                 .not(np)
                 .map_err(|err| ShellError::GenericError {
                     error: "error with glob's not pattern".into(),
-                    msg: format!("{err}"),
+                    msg: uformat!("{err}"),
                     span: Some(not_pattern_span),
                     help: None,
                     inner: vec![],
@@ -310,7 +311,7 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
         .map(|value| match &value {
             Value::String { val: s, .. } => Ok(s.clone()),
             _ => Err(ShellError::IncompatibleParametersSingle {
-                msg: "Incorrect column format, Only string as column name".to_string(),
+                msg: "Incorrect column format, Only string as column name".into(),
                 span: value.span(),
             }),
         })

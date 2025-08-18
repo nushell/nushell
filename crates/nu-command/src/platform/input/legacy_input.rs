@@ -32,7 +32,7 @@ pub trait LegacyInput {
 
         if numchar.item < 1 {
             return Err(ShellError::UnsupportedInput {
-                msg: "Number of characters to read has to be positive".to_string(),
+                msg: "Number of characters to read has to be positive".into(),
                 input: "value originated from here".to_string(),
                 msg_span: call.head,
                 input_span: numchar.span,

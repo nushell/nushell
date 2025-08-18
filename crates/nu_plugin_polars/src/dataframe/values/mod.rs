@@ -15,6 +15,7 @@ use nu_protocol::{
     CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value, ast::Operator,
 };
 use nu_schema::custom_value::NuSchemaCustomValue;
+use nu_utils::uformat;
 use std::{cmp::Ordering, fmt};
 use uuid::Uuid;
 
@@ -324,7 +325,7 @@ pub trait CustomValueSupport: Cacheable {
             Ok(internal.clone())
         } else {
             Self::get_cached(plugin, cv.id())?.ok_or_else(|| ShellError::GenericError {
-                error: format!("Dataframe {:?} not found in cache", cv.id()),
+                error: uformat!("Dataframe {:?} not found in cache", cv.id()),
                 msg: "".into(),
                 span: None,
                 help: None,

@@ -5,6 +5,7 @@ use crate::{
 };
 use job::JobError;
 use miette::Diagnostic;
+use nu_utils::{strings::UniqueString, uformat};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
 use thiserror::Error;
@@ -1020,12 +1021,12 @@ pub enum ShellError {
     #[error("{error}")]
     #[diagnostic()]
     GenericError {
-        error: String,
-        msg: String,
+        error: UniqueString,
+        msg: UniqueString,
         #[label("{msg}")]
         span: Option<Span>,
         #[help]
-        help: Option<String>,
+        help: Option<UniqueString>,
         #[related]
         inner: Vec<ShellError>,
     },
@@ -1453,8 +1454,8 @@ impl ShellError {
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {
         ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
+            error: uformat!("{error:?}"),
+            msg: uformat!("{error}"),
             span: None,
             help: None,
             inner: vec![],
@@ -1465,8 +1466,8 @@ impl From<Box<dyn std::error::Error>> for ShellError {
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(error: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
         ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
+            error: uformat!("{error:?}"),
+            msg: uformat!("{error}"),
             span: None,
             help: None,
             inner: vec![],

@@ -48,7 +48,7 @@ impl Command for SchemaDb {
             .get_tables(&conn)
             .map_err(|e| ShellError::GenericError {
                 error: "Error reading tables".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -86,7 +86,7 @@ impl Command for SchemaDb {
 fn open_sqlite_db_connection(db: &SQLiteDatabase, span: Span) -> Result<Connection, ShellError> {
     db.open_connection().map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.to_string(),
+        msg: e.to_string().into(),
         span: Some(span),
         help: None,
         inner: vec![],
@@ -103,7 +103,7 @@ fn get_table_columns(
         .get_columns(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting database columns".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -135,7 +135,7 @@ fn get_table_constraints(
         .get_constraints(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB constraints".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -166,7 +166,7 @@ fn get_table_foreign_keys(
         .get_foreign_keys(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB Foreign Keys".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -196,7 +196,7 @@ fn get_table_indexes(
         .get_indexes(conn, table)
         .map_err(|e| ShellError::GenericError {
             error: "Error getting DB Indexes".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],

@@ -51,7 +51,7 @@ impl Command for MathVariance {
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
+                    msg: "Range must be bounded".into(),
                     val_span: span,
                     call_span: name,
                 });
@@ -73,7 +73,7 @@ impl Command for MathVariance {
         let input: PipelineData = match input.try_expand_range() {
             Err(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "Range must be bounded".to_string(),
+                    msg: "Range must be bounded".into(),
                     val_span: span,
                     call_span: name,
                 });

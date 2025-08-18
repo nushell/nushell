@@ -1,6 +1,7 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_protocol::NuGlob;
+use nu_utils::uformat;
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
 use uucore::mode;
@@ -77,8 +78,8 @@ impl Command for UMkdir {
         for dir in directories {
             if let Err(error) = mkdir(&dir, IS_RECURSIVE, get_mode(), is_verbose) {
                 return Err(ShellError::GenericError {
-                    error: format!("{error}"),
-                    msg: format!("{error}"),
+                    error: uformat!("{error}"),
+                    msg: uformat!("{error}"),
                     span: None,
                     help: None,
                     inner: vec![],

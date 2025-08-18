@@ -50,7 +50,7 @@ impl Command for ToNuon {
         let metadata = input
             .metadata()
             .unwrap_or_default()
-            .with_content_type(Some("application/x-nuon".into()));
+            .with_content_type("application/x-nuon");
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {

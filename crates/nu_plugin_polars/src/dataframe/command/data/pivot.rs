@@ -5,6 +5,7 @@ use nu_protocol::{
 };
 
 use chrono::DateTime;
+use nu_utils::uformat;
 use polars_ops::pivot::{PivotAgg, pivot_stable};
 
 use crate::{
@@ -247,7 +248,7 @@ fn command_eager(
         separator.as_deref(),
     )
     .map_err(|e| ShellError::GenericError {
-        error: format!("Pivot error: {e}"),
+        error: uformat!("Pivot error: {e}"),
         msg: "".into(),
         span: Some(call.head),
         help: None,
@@ -281,7 +282,7 @@ fn check_column_datatypes<T: AsRef<str>>(
                 .column(w[0].as_ref())
                 .map_err(|e| ShellError::GenericError {
                     error: "Error selecting columns".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(col_span),
                     help: None,
                     inner: vec![],
@@ -291,7 +292,7 @@ fn check_column_datatypes<T: AsRef<str>>(
                 .column(w[1].as_ref())
                 .map_err(|e| ShellError::GenericError {
                     error: "Error selecting columns".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(col_span),
                     help: None,
                     inner: vec![],
@@ -302,7 +303,7 @@ fn check_column_datatypes<T: AsRef<str>>(
                     error: "Merge error".into(),
                     msg: "found different column types in list".into(),
                     span: Some(col_span),
-                    help: Some(format!(
+                    help: Some(uformat!(
                         "datatypes {} and {} are incompatible",
                         l_series.dtype(),
                         r_series.dtype()
@@ -327,7 +328,7 @@ fn pivot_agg_for_str(agg: impl AsRef<str>) -> Result<PivotAgg, ShellError> {
         "count" => Ok(PivotAgg::Count),
         "last" => Ok(PivotAgg::Last),
         s => Err(ShellError::GenericError {
-            error: format!("{s} is not a valid aggregation"),
+            error: uformat!("{s} is not a valid aggregation"),
             msg: "".into(),
             span: None,
             help: Some(

@@ -91,7 +91,7 @@ fn command(
                 .drop(&col.item)
                 .map_err(|e| ShellError::GenericError {
                     error: "Error dropping column".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(col.span),
                     help: None,
                     inner: vec![],
@@ -105,7 +105,7 @@ fn command(
             .drop(&col.item)
             .map_err(|e| ShellError::GenericError {
                 error: "Error dropping column".into(),
-                msg: e.to_string(),
+                msg: e.to_string().into(),
                 span: Some(col.span),
                 help: None,
                 inner: vec![],

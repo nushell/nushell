@@ -72,7 +72,7 @@ impl Command for UrlBuildQuery {
             // Propagate existing errors
             Value::Error { error, .. } => Err(*error),
             other => Err(ShellError::UnsupportedInput {
-                msg: "Expected a record or table from pipeline".to_string(),
+                msg: "Expected a record or table from pipeline".into(),
                 input: "value originates from here".into(),
                 msg_span: head,
                 input_span: other.span(),

@@ -1332,7 +1332,7 @@ fn check_input_types(
         }),
         // expected_string didn't generate properly, so we can't show the proper error
         (_, None) => Err(ShellError::NushellFailed {
-            msg: "Command input type strings is empty, despite being non-zero earlier".to_string(),
+            msg: "Command input type strings is empty, despite being non-zero earlier".into(),
         }),
     }
 }
@@ -1463,7 +1463,7 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
     match data {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
-            let callback_spans = stream.get_caller_spans().clone();
+            let callback_spans = Vec::from(stream.get_caller_spans());
             if let Err(mut err) = stream.drain() {
                 ctx.stack.set_last_error(&err);
                 if callback_spans.is_empty() {

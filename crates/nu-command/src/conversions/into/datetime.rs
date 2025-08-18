@@ -634,7 +634,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         Some(d) => d,
         None => {
             return Err(ShellError::IncorrectValue {
-                msg: "one of more values are incorrect and do not represent valid date".to_string(),
+                msg: "one of more values are incorrect and do not represent valid date".into(),
                 val_span: head,
                 call_span: span,
             });
@@ -644,7 +644,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         Some(t) => t,
         None => {
             return Err(ShellError::IncorrectValue {
-                msg: "one of more values are incorrect and do not represent valid time".to_string(),
+                msg: "one of more values are incorrect and do not represent valid time".into(),
                 val_span: head,
                 call_span: span,
             });
@@ -656,7 +656,7 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         Some(d) => d,
         None => {
             return Err(ShellError::IncorrectValue {
-                msg: "Ambiguous or invalid timezone conversion".to_string(),
+                msg: "Ambiguous or invalid timezone conversion".into(),
                 val_span: head,
                 call_span: span,
             });
@@ -705,7 +705,7 @@ fn parse_timezone_from_record(
                 Ok(offset) => offset,
                 Err(_) => {
                     return Err(ShellError::IncorrectValue {
-                        msg: "invalid timezone".to_string(),
+                        msg: "invalid timezone".into(),
                         val_span: *span,
                         call_span: *head,
                     });

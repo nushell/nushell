@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::LabeledError;
+use nu_utils::{strings::UniqueString, uformat};
 
 #[derive(Clone)]
 pub struct ErrorMake;
@@ -150,10 +151,10 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
         // correct return: no label
         None => {
             return ShellError::GenericError {
-                error: msg,
+                error: msg.into(),
                 msg: "originates from here".into(),
                 span: throw_span,
-                help,
+                help: help.map(UniqueString::from),
                 inner: vec![],
             };
         }
@@ -206,10 +207,10 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
         // correct return: label, no span
         None => {
             return ShellError::GenericError {
-                error: msg,
-                msg: text,
+                error: msg.into(),
+                msg: text.into(),
                 span: throw_span,
-                help,
+                help: help.map(UniqueString::from),
                 inner: vec![],
             };
         }
@@ -229,7 +230,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
             error: "invalid error format.".into(),
             msg: "`$.label.start` should be smaller than `$.label.end`".into(),
             span: Some(label_span),
-            help: Some(format!("{span_start} > {span_end}")),
+            help: Some(uformat!("{span_start} > {span_end}")),
             inner: vec![],
         };
     }
@@ -246,14 +247,14 @@ fn get_span_sides(span: &Record, span_span: Span, side: &str) -> Result<i64, She
         Some(Value::Int { val, .. }) => Ok(*val),
         Some(_) => Err(ShellError::GenericError {
             error: UNABLE_TO_PARSE.into(),
-            msg: format!("`$.span.{side}` must be int"),
+            msg: uformat!("`$.span.{side}` must be int"),
             span: Some(span_span),
             help: None,
             inner: vec![],
         }),
         None => Err(ShellError::GenericError {
             error: UNABLE_TO_PARSE.into(),
-            msg: format!("`$.span.{side}` must be present, if span is specified."),
+            msg: uformat!("`$.span.{side}` must be present, if span is specified."),
             span: Some(span_span),
             help: None,
             inner: vec![],

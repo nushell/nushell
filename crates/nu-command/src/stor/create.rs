@@ -137,7 +137,7 @@ fn process(
                 conn.execute(&create_stmt, [])
                     .map_err(|err| ShellError::GenericError {
                         error: "Failed to open SQLite connection in memory from create".into(),
-                        msg: err.to_string(),
+                        msg: err.to_string().into(),
                         span: Some(Span::test_data()),
                         help: None,
                         inner: vec![],

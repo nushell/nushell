@@ -77,7 +77,7 @@ fn convert_yaml_value_to_nu_value(
     val_span: Span,
 ) -> Result<Value, ShellError> {
     let err_not_compatible_number = ShellError::UnsupportedInput {
-        msg: "Expected a nu-compatible number in YAML input".to_string(),
+        msg: "Expected a nu-compatible number in YAML input".into(),
         input: "value originates from here".into(),
         msg_span: span,
         input_span: val_span,
@@ -235,7 +235,7 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
 
     match from_yaml_string_to_value(&concat_string, head, span) {
         Ok(x) => {
-            Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
+            Ok(x.into_pipeline_data_with_metadata(metadata.map(|md| md.remove_content_type())))
         }
         Err(other) => Err(other),
     }

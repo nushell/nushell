@@ -10,6 +10,7 @@ use nu_protocol::{
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
+use nu_utils::uformat;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -108,7 +109,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                 report_shell_error(
                     engine_state,
                     &ShellError::GenericError {
-                        error: format!(
+                        error: uformat!(
                             "Error while reading plugin registry file: {}",
                             plugin_path.display()
                         ),
@@ -261,7 +262,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
                     error: "Can't read old plugin file to migrate".into(),
                     msg: "".into(),
                     span: None,
-                    help: Some(err.to_string()),
+                    help: Some(err.to_string().into()),
                     inner: vec![],
                 },
             );

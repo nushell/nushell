@@ -3,6 +3,7 @@ use nu_protocol::{
     ShellError, Span, Spanned, Value,
     ast::{Boolean, Comparison, Math, Operator},
 };
+use nu_utils::uformat;
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompareEq, ChunkCompareIneq, ChunkedArray, DataType, Float64Type, Int64Type,
@@ -42,7 +43,7 @@ pub(super) fn compute_between_series(
     match operator.item {
         Operator::Math(Math::Add) => {
             let mut res = (lhs + rhs).map_err(|e| ShellError::GenericError {
-                error: format!("Addition error: {e}"),
+                error: uformat!("Addition error: {e}"),
                 msg: "".into(),
                 span: Some(operation_span),
                 help: None,
@@ -54,7 +55,7 @@ pub(super) fn compute_between_series(
         }
         Operator::Math(Math::Subtract) => {
             let mut res = (lhs - rhs).map_err(|e| ShellError::GenericError {
-                error: format!("Subtraction error: {e}"),
+                error: uformat!("Subtraction error: {e}"),
                 msg: "".into(),
                 span: Some(operation_span),
                 help: None,
@@ -66,7 +67,7 @@ pub(super) fn compute_between_series(
         }
         Operator::Math(Math::Multiply) => {
             let mut res = (lhs * rhs).map_err(|e| ShellError::GenericError {
-                error: format!("Multiplication error: {e}"),
+                error: uformat!("Multiplication error: {e}"),
                 msg: "".into(),
                 span: Some(operation_span),
                 help: None,
@@ -86,7 +87,7 @@ pub(super) fn compute_between_series(
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Division error".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(right.span()),
                     help: None,
                     inner: vec![],
@@ -204,7 +205,7 @@ where
     let mut res = f(lhs, rhs)
         .map_err(|e| ShellError::GenericError {
             error: "Equality error".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -483,7 +484,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to i64".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -496,7 +497,7 @@ where
         }
         _ => Err(ShellError::GenericError {
             error: "Incorrect type".into(),
-            msg: format!(
+            msg: uformat!(
                 "Series of type {} can not be used for operations with an i64 value",
                 series.dtype()
             ),
@@ -524,7 +525,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -552,7 +553,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -565,7 +566,7 @@ where
         }
         _ => Err(ShellError::GenericError {
             error: "Incorrect type".into(),
-            msg: format!(
+            msg: uformat!(
                 "Series of type {} can not be used for operations with a float value",
                 series.dtype()
             ),
@@ -593,7 +594,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -621,7 +622,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -642,7 +643,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -655,7 +656,7 @@ where
         }
         _ => Err(ShellError::GenericError {
             error: "Incorrect type".into(),
-            msg: format!(
+            msg: uformat!(
                 "Series of type {} can not be used for operations with an i64 value",
                 series.dtype()
             ),
@@ -683,7 +684,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -711,7 +712,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to i64".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -724,7 +725,7 @@ where
         }
         _ => Err(ShellError::GenericError {
             error: "Incorrect type".into(),
-            msg: format!(
+            msg: uformat!(
                 "Series of type {} can not be used for operations with a float value",
                 series.dtype()
             ),
@@ -752,7 +753,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -773,7 +774,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<NuDataF
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Error using contains".into(),
-                    msg: e.to_string(),
+                    msg: e.to_string().into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -782,7 +783,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<NuDataF
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to string".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -801,7 +802,7 @@ fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<NuData
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to string".into(),
-            msg: e.to_string(),
+            msg: e.to_string().into(),
             span: Some(span),
             help: None,
             inner: vec![],

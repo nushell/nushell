@@ -6,7 +6,7 @@ use crate::{
     },
     report_shell_warning,
 };
-use nu_utils::IgnoreCaseExt;
+use nu_utils::{IgnoreCaseExt, strings::UniqueString, uformat};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -774,7 +774,7 @@ impl Stack {
     pub fn set_cwd(&mut self, path: impl AsRef<std::path::Path>) -> Result<(), ShellError> {
         // Helper function to create a simple generic error.
         // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
-        fn error(msg: &str) -> Result<(), ShellError> {
+        fn error(msg: impl Into<UniqueString>) -> Result<(), ShellError> {
             Err(ShellError::GenericError {
                 error: msg.into(),
                 msg: "".into(),
@@ -789,10 +789,10 @@ impl Stack {
         if !path.is_absolute() {
             if matches!(path.components().next(), Some(Component::Prefix(_))) {
                 return Err(ShellError::GenericError {
-                    error: "Cannot set $env.PWD to a prefix-only path".to_string(),
+                    error: "Cannot set $env.PWD to a prefix-only path".into(),
                     msg: "".into(),
                     span: None,
-                    help: Some(format!(
+                    help: Some(uformat!(
                         "Try to use {}{MAIN_SEPARATOR} instead",
                         path.display()
                     )),
