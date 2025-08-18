@@ -98,7 +98,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/cross-tools/bin')
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
             # Workaround for Rust 1.87 TLS issues: abort strategy to bypass TLS-dependent panic handling
-            $env.RUSTFLAGS = "-C panic=abort -C target-feature=+crt-static -C link-arg=-Wl,--allow-multiple-definition"
+            $env.RUSTFLAGS = "-C panic=abort -C target-feature=+crt-static"
             cargo-build-nu
         }
         'loongarch64-unknown-linux-musl' => {
@@ -108,7 +108,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/loongarch64-linux-musl-cross/bin')
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_MUSL_LINKER = "loongarch64-linux-musl-gcc"
             # Workaround for Rust 1.87 TLS issues: abort strategy to bypass TLS-dependent panic handling
-            $env.RUSTFLAGS = "-C panic=abort -C target-feature=+crt-static -C link-arg=-Wl,--allow-multiple-definition"
+            $env.RUSTFLAGS = "-C panic=abort -C target-feature=+crt-static"
             cargo-build-nu
         }
         _ => {
