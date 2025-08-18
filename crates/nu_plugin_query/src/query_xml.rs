@@ -84,43 +84,27 @@ pub fn execute_xpath_query(
     // build_namespaces(&arguments, &mut context);
     let res = xpath.evaluate(&context, document.root());
 
-    // Some xpath statements can be long, so let's truncate it with ellipsis
-    let mut key = query_string.clone();
-    if query_string.len() >= 20 {
-        key.truncate(17);
-        key += "...";
-    } else {
-        key = query_string.to_string();
-    };
-
     match res {
-        Ok(r) => {
-            let mut record = Record::new();
-            let mut records: Vec<Value> = vec![];
-
-            match r {
-                sxd_xpath::Value::Nodeset(ns) => {
-                    for n in ns.document_order() {
-                        record.push(key.clone(), Value::string(n.string_value(), call.head));
-                    }
-                }
-                sxd_xpath::Value::Boolean(b) => {
-                    record.push(key, Value::bool(b, call.head));
-                }
-                sxd_xpath::Value::Number(n) => {
-                    record.push(key, Value::float(n, call.head));
-                }
-                sxd_xpath::Value::String(s) => {
-                    record.push(key, Value::string(s, call.head));
-                }
+        Ok(sxd_xpath::Value::Boolean(b)) => Ok(Value::bool(b, call.head)),
+        Ok(sxd_xpath::Value::Number(n)) => Ok(Value::float(n, call.head)),
+        Ok(sxd_xpath::Value::String(s)) => Ok(Value::string(s, call.head)),
+        Ok(sxd_xpath::Value::Nodeset(ns)) => {
+            // Some xpath statements can be long, so let's truncate it with ellipsis
+            let mut key = query_string.clone();
+            if query_string.len() >= 20 {
+                key.truncate(17);
+                key += "...";
+            } else {
+                key = query_string.to_string();
             };
 
-            // convert the cols and vecs to a table by creating individual records
-            // for each item so we can then use a list to make a table
-            for (k, v) in record {
-                records.push(Value::record(record! { k => v }, call.head))
+            let mut records: Vec<Value> = vec![];
+            for n in ns.document_order() {
+                records.push(Value::record(
+                    record! {key.clone() => Value::string(n.string_value(), call.head)},
+                    call.head,
+                ));
             }
-
             Ok(Value::list(records, call.head))
         }
         Err(err) => {
@@ -166,14 +150,7 @@ mod tests {
 
         let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
 
-        let expected = Value::list(
-            vec![Value::test_record(record! {
-                "count(//a/*[posit..." => Value::test_float(1.0),
-            })],
-            Span::test_data(),
-        );
-
-        assert_eq!(actual, expected);
+        assert_eq!(actual, Value::test_float(1.0));
     }
 
     #[test]
@@ -196,14 +173,7 @@ mod tests {
 
         let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
 
-        let expected = Value::list(
-            vec![Value::test_record(record! {
-                "count(//*[contain..." => Value::test_float(1.0),
-            })],
-            Span::test_data(),
-        );
-
-        assert_eq!(actual, expected);
+        assert_eq!(actual, Value::test_float(1.0));
     }
 
     #[test]
@@ -241,6 +211,93 @@ mod tests {
         );
 
         // and yet it should work regardless
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn number_returns_float() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        let text = Value::test_string(r#"<?xml version="1.0" encoding="UTF-8"?><elt/>"#);
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "count(/elt)".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
+        assert_eq!(actual, Value::test_float(1.0));
+    }
+
+    #[test]
+    fn boolean_returns_bool() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        let text = Value::test_string(r#"<?xml version="1.0" encoding="UTF-8"?><elt/>"#);
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "false()".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
+        assert_eq!(actual, Value::test_bool(false));
+    }
+
+    #[test]
+    fn string_returns_string() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        let text = Value::test_string(r#"<?xml version="1.0" encoding="UTF-8"?><elt/>"#);
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "local-name(/elt)".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
+        assert_eq!(actual, Value::test_string("elt"));
+    }
+
+    #[test]
+    fn nodeset_returns_table() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        let text = Value::test_string(r#"<?xml version="1.0" encoding="UTF-8"?><elt>hello</elt>"#);
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "/elt".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
+        let expected = Value::list(
+            vec![Value::test_record(record! {
+                "/elt" => Value::string("hello", Span::test_data()),
+            })],
+            Span::test_data(),
+        );
+
         assert_eq!(actual, expected);
     }
 }
