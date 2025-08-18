@@ -319,7 +319,7 @@ fn evaluate_source(
     let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
 
-    let pipefail = engine_state.get_config().pipefail;
+    let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
         return Ok(false);
     }

@@ -1579,7 +1579,7 @@ fn drain(
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
 
-    let pipefail = ctx.engine_state.get_config().pipefail;
+    let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
         return Ok(Continue);
     }

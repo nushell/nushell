@@ -732,15 +732,10 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
 
 #[test]
 fn pipefail_feature() {
-    Playground::setup("normal_pipefail", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.config.pipefail = true")]);
-
-        let actual = nu!(
-            env_config: "tmp_env.nu",
-            cwd: dirs.test(),
-            "nu --testbin fail | print aa"
-        );
-        assert_eq!(actual.out, "aa");
-        assert!(!actual.status.success());
-    });
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "nu --testbin fail | print aa"
+    );
+    assert_eq!(actual.out, "aa");
+    assert!(!actual.status.success());
 }

@@ -95,7 +95,7 @@ pub fn evaluate_commands(
     }
 
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
-    let pipefail = engine_state.get_config().pipefail;
+    let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
         return Ok(());
     }
