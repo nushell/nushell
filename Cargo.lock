@@ -4688,9 +4688,9 @@ dependencies = [
 
 [[package]]
 name = "oem_cp"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330138902ab4dab09a86e6b7ab7ddeffb5f8435d52fe0df1bce8b06a17b10ee4"
+checksum = "7da228ac17ec7684952ec38d602222d7ec74c1255b2505b716c9ed621ab0340a"
 dependencies = [
  "phf",
  "phf_codegen",
