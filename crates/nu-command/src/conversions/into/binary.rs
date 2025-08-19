@@ -157,27 +157,22 @@ fn into_binary(
             metadata,
         ))
     } else {
-        let endian = call.get_flag::<Value>(engine_state, stack, "endian")?;
-        let little_endian = match endian {
-            Some(val) => {
-                let span = val.span();
-                match val {
-                    Value::String { val, .. } => match val.as_str() {
-                        "native" => cfg!(target_endian = "little"),
-                        "little" => true,
-                        "big" => false,
-                        _ => {
-                            return Err(ShellError::TypeMismatch {
-                                err_message: "Endian must be one of native, little, big"
-                                    .to_string(),
-                                span,
-                            });
-                        }
-                    },
-                    _ => false,
+        let endian = call.get_flag::<Spanned<String>>(engine_state, stack, "endian")?;
+
+        let little_endian = if let Some(endian) = endian {
+            match endian.item.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Endian must be one of native, little, big".to_string(),
+                        span: endian.span,
+                    });
                 }
             }
-            None => cfg!(target_endian = "little"),
+        } else {
+            cfg!(target_endian = "little")
         };
 
         let args = Arguments {
