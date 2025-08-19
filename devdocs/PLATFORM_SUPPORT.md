@@ -30,7 +30,7 @@ Those target **additional build targets**:
 
 We will try to provide builds for all of them but a standard configuration for x86-64 or aarch64 will take priority for us should we face technical challenges in a release cycle.
 
-[^1]: The build for loongarch64 currently lacks support for the Nushell internal error recovery, thus bugs raising panics will abort your shell, while our other platforms have a limited capability to recover from non-fatal panics to provide a stable login shell.
+[^1]: The build for loongarch64 currently lacks support for the Nushell internal error recovery, as it doesn't compile with `rustc -C panic=unwind`. It has to use `panic=abort` thus bugs raising panics will abort your shell. Our other platforms by default have a limited capability to recover from non-fatal panics to provide a stable login shell.
 
 ### Supported feature flags
 
