@@ -1114,13 +1114,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Operation interrupted by user
-    #[error("Operation interrupted by user")]
-    InterruptedByUser {
-        #[label("This operation was interrupted")]
-        span: Option<Span>,
-    },
-
     /// An attempt to use, as a match guard, an expression that
     /// does not resolve into a boolean
     #[error("Match guard not bool")]

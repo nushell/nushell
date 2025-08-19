@@ -152,9 +152,7 @@ The `prefix` is not included in the output."
                     .map_err(|err| IoError::new(err, call.head, None))?;
 
                 if b[0] == CTRL_C {
-                    return Err(ShellError::InterruptedByUser {
-                        span: Some(call.head),
-                    });
+                    return Err(ShellError::Interrupted { span: call.head });
                 }
 
                 buf.push(b[0]);
