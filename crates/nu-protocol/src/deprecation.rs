@@ -90,7 +90,7 @@ impl DeprecationEntry {
             DeprecationType::Flag(flag) => {
                 // Make sure we don't accidentally have dashes in the flag
                 debug_assert!(
-                    !flag.starts_with("--"),
+                    !flag.starts_with('-'),
                     "DeprecationEntry for {} should not include dashes in the flag name!",
                     flag
                 );
