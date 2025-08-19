@@ -66,14 +66,14 @@ Output of the nodeset results depends on the flags used:
             Example {
                 description: "Query namespaces on the root element of an SVG file",
                 example: r#"http get --raw https://www.w3.org/TR/SVG/images/conform/smiley.svg
-    | query xml '/svg:svg/namespace::*' --output-string-value --output-names --namespaces {svg: "http://www.w3.org/2000/svg"}"#,
+    | query xml '/svg:svg/namespace::*' --output-string-value --output-names --output-type --namespaces {svg: "http://www.w3.org/2000/svg"}"#,
                 result: None,
             },
             // scalar output
             Example {
-                description: "Query number of stylesheets SVG file has",
-                example: r#"http get --raw https://www.w3.org/TR/SVG/images/conform/smiley.svg
-    | query xml 'count(//svg:style)' --namespaces {svg: "http://www.w3.org/2000/svg"}"#,
+                description: "Query the language of Nushell blog (`xml:` prefix is always available)",
+                example: r#"http get --raw https://www.nushell.sh/atom.xml
+    | query xml 'string(/*/@xml:lang)'"#,
                 result: None,
             },
             // query attributes
@@ -85,9 +85,9 @@ Output of the nodeset results depends on the flags used:
             },
             // default output
             Example {
-                description: "Get recent Debian news",
-                example: r#"http get --raw https://www.debian.org/News/news
-    | query xml '//item/title|//item/link'
+                description: "Get recent Nushell news",
+                example: r#"http get --raw https://www.nushell.sh/atom.xml
+    | query xml '//atom:entry/atom:title|//atom:entry/atom:link/@href' --namespaces {atom: "http://www.w3.org/2005/Atom"}
     | window 2 --stride 2
     | each { {title: $in.0.string_value, link: $in.1.string_value} }"#,
                 result: None,
@@ -141,7 +141,22 @@ pub fn execute_xpath_query(
     let document = package.as_document();
     let mut context = Context::new();
 
-    for (prefix, uri) in namespaces.unwrap_or_default().into_iter() {
+    let mut namespaces = namespaces.unwrap_or_default();
+
+    if namespaces.get("xml").is_none() {
+        // XML namespace is always present, so we add it explicitly
+        // it's used in attributes like `xml:lang`, `xml:base`, etc.
+        namespaces.insert(
+            "xml",
+            Value::string("http://www.w3.org/XML/1998/namespace", call.head),
+        );
+    }
+
+    // NB: `xmlns:whatever=` or `xmlns=` may look like an attribute, but XPath doesn't treat it as such.
+    // Those are namespaces, and they are available through a separate axis (`namespace::`)
+    // Thus we don't need to register a namespace for `xmlns` prefix
+
+    for (prefix, uri) in namespaces.into_iter() {
         context.set_namespace(prefix.as_str(), uri.into_string()?.as_str());
     }
 
@@ -546,5 +561,27 @@ mod tests {
         })]);
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn xml_namespace_is_always_present() {
+        let call = EvaluatedCall {
+            head: Span::test_data(),
+            positional: vec![],
+            named: vec![],
+        };
+
+        let text = Value::test_string(
+            r#"<?xml version="1.0" encoding="UTF-8"?><elt xml:lang="en">hello</elt>"#,
+        );
+
+        let spanned_str: Spanned<String> = Spanned {
+            item: "string(/elt/@xml:lang)".to_string(),
+            span: Span::test_data(),
+        };
+
+        let actual = query(&call, &text, Some(spanned_str), None).expect("test should not fail");
+
+        assert_eq!(actual, Value::test_string("en"));
     }
 }
