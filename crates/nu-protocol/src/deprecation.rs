@@ -87,7 +87,16 @@ impl DeprecationEntry {
     fn check(&self, call: &Call) -> bool {
         match &self.ty {
             DeprecationType::Command => true,
-            DeprecationType::Flag(flag) => call.get_named_arg(flag).is_some(),
+            DeprecationType::Flag(flag) => {
+                // Make sure we don't accidentally have dashes in the flag
+                debug_assert!(
+                    !flag.starts_with('-'),
+                    "DeprecationEntry for {} should not include dashes in the flag name!",
+                    flag
+                );
+
+                call.get_named_arg(flag).is_some()
+            }
         }
     }
 
