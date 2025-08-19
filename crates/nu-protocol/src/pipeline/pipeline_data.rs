@@ -996,6 +996,9 @@ impl PipelineExecutionData {
     }
 }
 
+/// Check the exit status of each pipeline element.
+///
+/// This is used to implement pipefail.
 #[cfg(feature = "os")]
 pub fn check_exit_status_future(
     exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
