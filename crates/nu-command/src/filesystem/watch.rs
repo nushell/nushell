@@ -45,7 +45,7 @@ impl Command for Watch {
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
         vec![DeprecationEntry {
-            ty: DeprecationType::Flag("--debounce-ms".into()),
+            ty: DeprecationType::Flag("debounce-ms".into()),
             report_mode: ReportMode::FirstUse,
             since: Some("0.107.0".into()),
             expected_removal: Some("0.109.0".into()),
@@ -76,13 +76,13 @@ impl Command for Watch {
                 "debounce-ms",
                 SyntaxShape::Int,
                 "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated)",
-                None,
+                Some('d'),
             )
             .named(
                 "debounce",
                 SyntaxShape::Duration,
                 "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events",
-                Some('d'),
+                None,
             )
             .named(
                 "glob",
