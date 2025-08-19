@@ -2197,7 +2197,8 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
                 0
             };
 
-            if current_byte == b'(' && (!double_quote || preceding_consecutive_backslashes % 2 == 0)
+            if current_byte == b'('
+                && (!double_quote || preceding_consecutive_backslashes.is_multiple_of(2))
             {
                 mode = InterpolationMode::Expression;
                 if token_start < b {
