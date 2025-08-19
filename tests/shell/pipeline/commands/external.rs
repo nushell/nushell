@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn shows_error_for_command_not_found() {
@@ -730,12 +731,27 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
     )
 }
 
-#[test]
-fn pipefail_feature() {
+// FIXME: ignore these cases for now, the value inside a pipeline
+// makes all previous exit status untracked.
+// #[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 10)]
+// #[case("nu --testbin fail 20 | 10 | nu --testbin fail", 20)]
+// #[case("30 | nu --testbin fail | nu --testbin fail 30", 1)]
+#[rstest]
+#[case("nu --testbin fail | print aa", 1)]
+#[case("nu --testbin nonu a | print bb", 0)]
+#[case("nu --testbin fail 20 | print aa | nu --testbin fail", 20)]
+#[case("nu --testbin fail 30 | nu --testbin nonu a | print aa", 30)]
+#[case("print aa | print cc | nu --testbin fail 40", 40)]
+fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i32) {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
-        "nu --testbin fail | print aa"
+        inp
     );
-    assert_eq!(actual.out, "aa");
-    assert!(!actual.status.success());
+    assert_eq!(
+        actual
+            .status
+            .code()
+            .expect("exit_status should not be none"),
+        expect_code
+    );
 }

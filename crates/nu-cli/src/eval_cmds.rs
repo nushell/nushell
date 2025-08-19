@@ -95,11 +95,11 @@ pub fn evaluate_commands(
     }
 
     print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
+    info!("evaluate {}:{}:{}", file!(), line!(), column!());
     let pipefail = nu_experimental::PIPE_FAIL.get();
     if !pipefail {
         return Ok(());
     }
-    info!("evaluate {}:{}:{}", file!(), line!(), column!());
     // After print pipeline, need to check exit status to implement pipeline feature.
     check_exit_status_future(pipeline.exit)
 }

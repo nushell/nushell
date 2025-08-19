@@ -324,6 +324,7 @@ fn evaluate_source(
         return Ok(false);
     }
     // After print pipeline, need to check exit status to implement pipeline feature.
+    println!("debug exit: {:?}", pipeline.exit);
     check_exit_status_future(pipeline.exit).map(|_| false)
 }
 
