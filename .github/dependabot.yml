@@ -38,3 +38,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "wednesday"
+  - package-ecosystem: "rust-toolchain"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
