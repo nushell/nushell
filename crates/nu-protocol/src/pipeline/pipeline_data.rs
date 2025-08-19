@@ -971,7 +971,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 
 /// A wrapper to [`PipelineData`] which can also track exit status.
 ///
-/// Sometimes it's required to check exit status to implement `pipefail` feature.
+/// We use exit status tracking to implement the `pipefail` feature.
 pub struct PipelineExecutionData {
     pub body: PipelineData,
     #[cfg(feature = "os")]
