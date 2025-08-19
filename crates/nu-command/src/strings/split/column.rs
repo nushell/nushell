@@ -215,7 +215,7 @@ fn split_column_helper(
     max_split: Option<usize>,
     head: Span,
 ) -> Vec<Value> {
-    if let Ok(s) = v.coerce_str() {
+    if let Ok(s) = v.as_str() {
         let split_result: Vec<_> = match max_split {
             Some(max_split) => separator
                 .splitn(&s, max_split)
