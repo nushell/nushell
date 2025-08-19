@@ -619,7 +619,7 @@ fn prepared_statement_to_nu_list(
     // got heavily in the way
     let row_values = match params {
         NuSqlParams::List(params) => {
-            let refs: Vec<&dyn ToSql> = params.iter().map(|value| (&**value)).collect();
+            let refs: Vec<&dyn ToSql> = params.iter().map(|value| &**value).collect();
 
             let row_results = stmt.query_map(refs.as_slice(), |row| {
                 Ok(convert_sqlite_row_to_nu_value(row, call_span, &columns))
