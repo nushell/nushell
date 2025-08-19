@@ -192,12 +192,12 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
         Value::Error { error, .. } => Value::error(*error.clone(), v_span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.coerce_str() {
+            if let Ok(s) = v.as_str() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
                 // let words: Vec<&str> = s.split_whitespace().collect();
 
-                let replaced_string = regex_replace.replace_all(&s, " ").to_string();
+                let replaced_string = regex_replace.replace_all(s, " ").to_string();
                 let words = replaced_string
                     .split(' ')
                     .filter_map(|s| {
