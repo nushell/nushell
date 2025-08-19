@@ -1186,7 +1186,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    /// TODO: Update help text once custom const commands are supported
+    // TODO: Update help text once custom const commands are supported
     /// Tried running a command that is not const-compatible
     ///
     /// ## Resolution
