@@ -1338,7 +1338,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
-        span: Option<Span>,
+        span: Span,
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
