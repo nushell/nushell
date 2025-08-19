@@ -23,7 +23,7 @@ As an additional layer of validation we perform [nightly builds](https://github.
 
 Those target **additional build targets**:
 - **aarch64 for all platforms**
-- musl as an alternative to libc on linux
+- musl as an alternative to Glibc on linux
 - riscv only for linux
 - armv7 only for linux
 - loongarch64 only for linux (with limitations [^1])
