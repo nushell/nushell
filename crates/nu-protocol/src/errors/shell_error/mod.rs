@@ -1378,7 +1378,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     DisabledOsSupport {
         msg: String,
         #[label = "while running this code"]
-        span: Option<Span>,
+        span: Span,
     },
 
     #[error(transparent)]
