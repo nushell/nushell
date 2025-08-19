@@ -4,14 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Resource {
-    pub at: usize,
-    pub location: PathBuf,
-}
-
-impl Resource {}
-
 pub fn try_interaction(
     interactive: bool,
     prompt: String,
