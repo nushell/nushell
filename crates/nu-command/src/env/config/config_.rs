@@ -52,7 +52,7 @@ pub(super) fn start_editor(
 ) -> Result<PipelineData, ShellError> {
     Err(ShellError::DisabledOsSupport {
         msg: "Running external commands is not available without OS support.".to_string(),
-        span: Some(call.head),
+        span: call.head,
     })
 }
 

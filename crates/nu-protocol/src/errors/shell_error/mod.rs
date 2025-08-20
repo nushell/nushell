@@ -1114,13 +1114,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Operation interrupted by user
-    #[error("Operation interrupted by user")]
-    InterruptedByUser {
-        #[label("This operation was interrupted")]
-        span: Option<Span>,
-    },
-
     /// An attempt to use, as a match guard, an expression that
     /// does not resolve into a boolean
     #[error("Match guard not bool")]
@@ -1338,7 +1331,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
-        span: Option<Span>,
+        span: Span,
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
@@ -1378,7 +1371,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     DisabledOsSupport {
         msg: String,
         #[label = "while running this code"]
-        span: Option<Span>,
+        span: Span,
     },
 
     #[error(transparent)]
