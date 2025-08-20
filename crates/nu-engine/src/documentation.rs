@@ -782,7 +782,6 @@ where
 {
     let mut flags = signature.named.iter();
     let Some(help) = flags.next() else {
-        eprintln!("{:?}", signature);
         return "".to_owned();
     };
 
@@ -792,6 +791,19 @@ where
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
+
+    // The for loop won't write the help flag when --help is the only flag
+    if signature.named.len() == 1 {
+        write_flag_to_long_desc(
+            help,
+            &mut long_desc,
+            help_subcolor_one,
+            help_subcolor_two,
+            &mut formatter,
+        );
+
+        return long_desc;
+    }
 
     let mut help_written = false;
     // Write named flags to long_desc
