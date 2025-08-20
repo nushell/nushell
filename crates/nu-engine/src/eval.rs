@@ -1,4 +1,4 @@
-use crate::eval_ir::eval_ir_block_track_exits;
+use crate::eval_ir::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
 use nu_protocol::{
@@ -149,7 +149,8 @@ pub fn eval_call<D: DebugContext>(
         }
 
         let result =
-            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                .map(|p| p.body);
 
         if block.redirect_env {
             redirect_env(engine_state, caller_stack, &callee_stack);
@@ -287,44 +288,26 @@ pub fn eval_expression_with_input<D: DebugContext>(
     Ok(input)
 }
 
-pub fn eval_block_with_early_return<D: DebugContext>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    eval_block_with_early_return_track_exits::<D>(engine_state, stack, block, input).map(|p| p.body)
-}
-
 pub fn eval_block<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    eval_block_track_exits::<D>(engine_state, stack, block, input).map(|p| p.body)
-}
-
-pub fn eval_block_track_exits<D: DebugContext>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
-    let result = eval_ir_block_track_exits::<D>(engine_state, stack, block, input);
+    let result = eval_ir_block::<D>(engine_state, stack, block, input);
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
     result
 }
 
-pub fn eval_block_with_early_return_track_exits<D: DebugContext>(
+pub fn eval_block_with_early_return<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
-    match eval_block_track_exits::<D>(engine_state, stack, block, input) {
+    match eval_block::<D>(engine_state, stack, block, input) {
         Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
             PipelineData::value(*value, None),
         )),
@@ -375,7 +358,7 @@ pub fn eval_subexpression<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    eval_block::<D>(engine_state, stack, block, input)
+    eval_block::<D>(engine_state, stack, block, input).map(|p| p.body)
 }
 
 pub fn eval_variable(

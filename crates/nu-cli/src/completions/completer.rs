@@ -741,7 +741,8 @@ impl NuCompleter {
             &mut callee_stack,
             block,
             PipelineData::empty(),
-        );
+        )
+        .map(|p| p.body);
 
         match result.and_then(|data| data.into_value(span)) {
             Ok(Value::List { vals, .. }) => {

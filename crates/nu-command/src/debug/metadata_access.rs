@@ -49,7 +49,7 @@ impl Command for MetadataAccess {
         }
 
         let eval = get_eval_block_with_early_return(engine_state);
-        eval(engine_state, &mut callee_stack, block, input)
+        eval(engine_state, &mut callee_stack, block, input).map(|p| p.body)
     }
 
     fn examples(&self) -> Vec<Example> {

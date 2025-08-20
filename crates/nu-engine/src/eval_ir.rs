@@ -22,7 +22,7 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-pub fn eval_ir_block_track_exits<D: DebugContext>(
+pub fn eval_ir_block<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
@@ -90,15 +90,6 @@ pub fn eval_ir_block_track_exits<D: DebugContext>(
             inner: vec![],
         })
     }
-}
-/// Evaluate the compiled representation of a [`Block`].
-pub fn eval_ir_block<D: DebugContext>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    eval_ir_block_track_exits::<D>(engine_state, stack, block, input).map(|p| p.body)
 }
 
 /// All of the pointers necessary for evaluation
@@ -1125,7 +1116,8 @@ fn eval_call<D: DebugContext>(
             callee_stack.recursion_count += 1;
 
             let result =
-                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                    .map(|p| p.body);
 
             // Move environment variables back into the caller stack scope if requested to do so
             if block.redirect_env {

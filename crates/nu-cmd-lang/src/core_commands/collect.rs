@@ -78,7 +78,8 @@ is particularly large, this can cause high memory usage."#
                 &mut stack_captures,
                 block,
                 input.into_pipeline_data_with_metadata(metadata),
-            );
+            )
+            .map(|p| p.body);
 
             if call.has_flag(engine_state, stack, "keep-env")? {
                 redirect_env(engine_state, stack, &stack_captures);

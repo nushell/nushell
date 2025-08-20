@@ -1,5 +1,5 @@
 use log::info;
-use nu_engine::eval_block_track_exits;
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     PipelineData, ShellError, Spanned, Value, check_exit_status_future,
@@ -82,7 +82,7 @@ pub fn evaluate_commands(
     engine_state.merge_delta(delta)?;
 
     // Run the block
-    let pipeline = eval_block_track_exits::<WithoutDebug>(engine_state, stack, &block, input)?;
+    let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
 
     let pipeline_data = pipeline.body;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline_data {

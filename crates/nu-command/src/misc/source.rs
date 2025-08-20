@@ -77,7 +77,8 @@ impl Command for Source {
         );
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-        let return_result = eval_block_with_early_return(engine_state, stack, &block, input);
+        let return_result =
+            eval_block_with_early_return(engine_state, stack, &block, input).map(|p| p.body);
 
         // After the script has ran, restore the old values unless they didn't exist.
         // If they didn't exist prior, remove the env vars

@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block_track_exits, eval_block_with_early_return_track_exits};
+use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     PipelineData, ShellError, Span, Value, check_exit_status_future,
@@ -310,9 +310,9 @@ fn evaluate_source(
     engine_state.merge_delta(delta)?;
 
     let pipeline = if allow_return {
-        eval_block_with_early_return_track_exits::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
-        eval_block_track_exits::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
     let pipeline_data = pipeline.body;
 
