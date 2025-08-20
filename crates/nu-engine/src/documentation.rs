@@ -828,6 +828,17 @@ where
         );
     }
 
+    // The for loop above wouldn't write the --help flag description when all flags are required
+    if !help_written {
+        write_flag_to_long_desc(
+            help,
+            &mut long_desc,
+            help_subcolor_one,
+            help_subcolor_two,
+            &mut formatter,
+        );
+    }
+
     long_desc
 }
 
