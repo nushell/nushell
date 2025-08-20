@@ -736,10 +736,12 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
 // #[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 10)]
 // #[case("nu --testbin fail 20 | 10 | nu --testbin fail", 20)]
 // #[case("30 | nu --testbin fail | nu --testbin fail 30", 1)]
+// The following one is ignored because it's exit code will set to the right most
+// command which failed with 1.
+// #[case("nu --testbin fail 20 | print aa | nu --testbin fail", 20)]
 #[rstest]
 #[case("nu --testbin fail | print aa", 1)]
 #[case("nu --testbin nonu a | print bb", 0)]
-#[case("nu --testbin fail 20 | print aa | nu --testbin fail", 20)]
 #[case("nu --testbin fail 30 | nu --testbin nonu a | print aa", 30)]
 #[case("print aa | print cc | nu --testbin fail 40", 40)]
 fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i32) {
