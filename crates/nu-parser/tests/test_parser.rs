@@ -293,6 +293,21 @@ pub fn parse_filesize() {
 }
 
 #[test]
+pub fn parse_non_utf8_fails() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    // Panic when parsing units was triggered by non-UTF8 characters
+    // due to bad handling via `String::from_utf8_lossy`
+    //
+    // See https://github.com/nushell/nushell/pull/16355
+    let _block = parse(&mut working_set, None, b"0\xffB", true);
+
+    // Asserting on the exact error doesn't make as much sense as
+    assert!(!working_set.parse_errors.is_empty());
+}
+
+#[test]
 pub fn parse_cell_path() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);

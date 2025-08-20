@@ -27,6 +27,11 @@ impl Command for Select {
                 Some('o'),
             )
             .switch(
+                "ignore-case",
+                "make all cell path members case insensitive",
+                None,
+            )
+            .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
@@ -110,11 +115,18 @@ produce a table, a list will produce a list, and a record will produce a record.
         }
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         let span = call.head;
 
         if optional {
             for cell_path in &mut new_columns {
                 cell_path.make_optional();
+            }
+        }
+
+        if ignore_case {
+            for cell_path in &mut new_columns {
+                cell_path.make_insensitive();
             }
         }
 
@@ -142,6 +154,18 @@ produce a table, a list will produce a list, and a record will produce a record.
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_string("a")
                 })])),
+            },
+            Example {
+                description: "Select a column even if some rows are missing that column",
+                example: "[{a: a0 b: b0} {b: b1}] | select -o a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_string("a0")
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_nothing()
+                    }),
+                ])),
             },
             Example {
                 description: "Select a field in a record",

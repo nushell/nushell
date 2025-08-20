@@ -1,4 +1,4 @@
-use crate::repl::tests::{TestResult, fail_test, run_test};
+use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
 use rstest::rstest;
 
 #[test]
@@ -87,7 +87,8 @@ fn in_used_in_range_to() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "72")
+    fail_test(r#"each"#, "missing_positional")?;
+    run_test_contains(r#"each --help"#, "Usage")
 }
 
 #[rstest]

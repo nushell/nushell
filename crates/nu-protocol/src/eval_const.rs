@@ -38,10 +38,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     let config_path = match nu_path::nu_config_dir() {
         Some(path) => Ok(canonicalize_path(engine_state, path.as_ref())),
-        None => Err(Value::error(
-            ShellError::ConfigDirNotFound { span: Some(span) },
-            span,
-        )),
+        None => Err(Value::error(ShellError::ConfigDirNotFound { span }, span)),
     };
 
     record.push(

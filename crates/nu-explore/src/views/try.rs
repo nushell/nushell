@@ -16,6 +16,7 @@ use ratatui::{
     widgets::{BorderType, Borders, Paragraph},
 };
 use std::cmp::min;
+use unicode_width::UnicodeWidthStr;
 
 pub struct TryView {
     input: Value,
@@ -87,8 +88,8 @@ impl View for TryView {
 
         let mut input = self.command.as_str();
 
-        let max_cmd_len = min(input.len() as u16, cmd_input_area.width);
-        if input.len() as u16 > max_cmd_len {
+        let max_cmd_len = min(input.width() as u16, cmd_input_area.width);
+        if input.width() as u16 > max_cmd_len {
             // in such case we take last max_cmd_len chars
             let take_bytes = input
                 .chars()

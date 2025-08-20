@@ -67,6 +67,11 @@ impl Command for StorInsert {
                 example: "ls | stor insert --table-name files",
                 result: None,
             },
+            Example {
+                description: "Insert nu records as json data",
+                example: "ls -l | each {{file: $in.name, metadata: ($in | reject name)}} | stor insert --table-name files_with_md",
+                result: None,
+            },
         ]
     }
 
@@ -89,7 +94,7 @@ impl Command for StorInsert {
         let records = handle(span, data_record, input)?;
 
         for record in records {
-            process(table_name.clone(), span, &db, record)?;
+            process(engine_state, table_name.clone(), span, &db, record)?;
         }
 
         Ok(Value::custom(db, span).into_pipeline_data())
@@ -151,6 +156,7 @@ fn handle(
 }
 
 fn process(
+    engine_state: &EngineState,
     table_name: Option<String>,
     span: Span,
     db: &SQLiteDatabase,
@@ -186,7 +192,7 @@ fn process(
     // dbg!(&create_stmt);
 
     // Get the params from the passed values
-    let params = values_to_sql(record.values().cloned())?;
+    let params = values_to_sql(engine_state, record.values().cloned(), span)?;
 
     if let Ok(conn) = db.open_connection() {
         conn.execute(&create_stmt, params_from_iter(params))
@@ -253,7 +259,7 @@ mod test {
             ),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
 
         assert!(result.is_ok());
     }
@@ -281,7 +287,7 @@ mod test {
             Value::test_string("String With Spaces".to_string()),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
 
         assert!(result.is_ok());
     }
@@ -309,7 +315,7 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
         // SQLite uses dynamic typing, making any length acceptable for a varchar column
         assert!(result.is_ok());
     }
@@ -337,7 +343,7 @@ mod test {
             Value::test_string("ThisIsTheWrongType".to_string()),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
         // SQLite uses dynamic typing, making any type acceptable for a column
         assert!(result.is_ok());
     }
@@ -365,7 +371,7 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
 
         assert!(result.is_err());
     }
@@ -385,8 +391,52 @@ mod test {
             Value::test_string("ThisIsALongString".to_string()),
         );
 
-        let result = process(table_name, span, &db, columns);
+        let result = process(&EngineState::new(), table_name, span, &db, columns);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_insert_json() {
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
+
+        let create_stmt = "CREATE TABLE test_insert_json (
+            json_field JSON,
+            jsonb_field JSONB 
+        )";
+
+        let conn = db
+            .open_connection()
+            .expect("Test was unable to open connection.");
+        conn.execute(create_stmt, [])
+            .expect("Failed to create table as part of test.");
+
+        let mut record = Record::new();
+        record.insert("x", Value::test_int(89));
+        record.insert("y", Value::test_int(12));
+        record.insert(
+            "z",
+            Value::test_list(vec![
+                Value::test_string("hello"),
+                Value::test_string("goodbye"),
+            ]),
+        );
+
+        let mut row = Record::new();
+        row.insert("json_field", Value::test_record(record.clone()));
+        row.insert("jsonb_field", Value::test_record(record));
+
+        let result = process(
+            &EngineState::new(),
+            Some("test_insert_json".to_owned()),
+            Span::unknown(),
+            &db,
+            row,
+        );
+
+        assert!(result.is_ok());
     }
 }

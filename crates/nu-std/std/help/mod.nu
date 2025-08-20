@@ -126,7 +126,7 @@ def build-help-header [
 }
 
 def build-module-page [module: record] {
-    let description = (if not ($module.description? | is-empty) {[
+    let description = (if ($module.description? | is-not-empty) {[
         $module.description
         ""
     ]} else { [] })
@@ -136,7 +136,7 @@ def build-module-page [module: record] {
         ""
     ]
 
-    let commands = (if not ($module.commands? | is-empty) {[
+    let commands = (if ($module.commands? | is-not-empty) {[
         (build-help-header -n "Exported commands")
         $"    (
             $module.commands | each {|command|
@@ -147,7 +147,7 @@ def build-module-page [module: record] {
         ""
     ]} else { [] })
 
-    let aliases = (if not ($module.aliases? | is-empty) {[
+    let aliases = (if ($module.aliases? | is-not-empty) {[
         (build-help-header -n "Exported aliases")
         $"    ($module.aliases | str join ', ')"
         ""
@@ -255,9 +255,9 @@ export def modules [
 ] {
     let modules = (scope modules)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $modules | find $find --columns [name description]
-    } else if not ($module | is-empty) {
+    } else if ($module | is-not-empty) {
         let found_module = ($modules | where name == ($module | str join " "))
 
         if ($found_module | is-empty) {
@@ -271,7 +271,7 @@ export def modules [
 }
 
 def build-alias-page [alias: record] {
-    let description = (if not ($alias.description? | is-empty) {[
+    let description = (if ($alias.description? | is-not-empty) {[
         $alias.description
         ""
     ]} else { [] })
@@ -361,9 +361,9 @@ export def aliases [
 ] {
     let aliases = (scope aliases | sort-by name)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $aliases | find $find --columns [name description]
-    } else if not ($alias | is-empty) {
+    } else if ($alias | is-not-empty) {
         let found_alias = ($aliases | where name == ($alias | str join " "))
 
         if ($found_alias | is-empty) {
@@ -377,7 +377,7 @@ export def aliases [
 }
 
 def build-extern-page [extern: record] {
-    let description = (if not ($extern.description? | is-empty) {[
+    let description = (if ($extern.description? | is-not-empty) {[
         $extern.description
         ""
     ]} else { [] })
@@ -403,9 +403,9 @@ export def externs [
         | str trim
     )
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $externs | find $find --columns [name description]
-    } else if not ($extern | is-empty) {
+    } else if ($extern | is-not-empty) {
         let found_extern = ($externs | where name == ($extern | str join " "))
 
         if ($found_extern | is-empty) {
@@ -469,9 +469,9 @@ export def operators [
 ] {
     let operators = (get-all-operators)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $operators | find $find --columns [type name]
-    } else if not ($operator | is-empty) {
+    } else if ($operator | is-not-empty) {
         let found_operator = ($operators | where name == ($operator | str join " "))
 
         if ($found_operator | is-empty) {
@@ -541,25 +541,25 @@ def get-command-extensions [command: string] {
 }
 
 def build-command-page [command: record] {
-    let description = (if not ($command.description? | is-empty) {[
+    let description = (if ($command.description? | is-not-empty) {[
         $command.description
     ]} else { [] })
-    let extra_description = (if not ($command.extra_description? | is-empty) {[
+    let extra_description = (if ($command.extra_description? | is-not-empty) {[
         ""
         $command.extra_description
     ]} else { [] })
 
-    let search_terms = (if not ($command.search_terms? | is-empty) {[
+    let search_terms = (if ($command.search_terms? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Search terms') ($command.search_terms)"
     ]} else { [] })
 
-    let module = (if not ($command.module_name? | is-empty) {[
+    let module = (if ($command.module_name? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Module') ($command.module_name)"
     ]} else { [] })
 
-    let category = (if not ($command.category? | is-empty) {[
+    let category = (if ($command.category? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Category') ($command.category)"
     ]} else { [] })
@@ -585,7 +585,7 @@ def build-command-page [command: record] {
 
     let signatures = ($command.signatures | transpose | get column1)
 
-    let cli_usage = (if not ($signatures | is-empty) {
+    let cli_usage = (if ($signatures | is-not-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
         let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
@@ -596,7 +596,7 @@ def build-command-page [command: record] {
             (build-help-header -n "Usage")
             ([
                 $"  > ($command.name) "
-                (if not ($flags | is-empty) { "{flags} " } else "")
+                (if ($flags | is-not-empty) { "{flags} " } else "")
                 ($positionals | each {|param|
                     $"<($param.parameter_name)> "
                 })
@@ -606,14 +606,14 @@ def build-command-page [command: record] {
     } else { [] })
 
     let subcommands = (scope commands | where name =~ $"^($command.name) " | select name description)
-    let subcommands = (if not ($subcommands | is-empty) {[
+    let subcommands = (if ($subcommands | is-not-empty) {[
         (build-help-header "Subcommands")
         ($subcommands | each {|subcommand |
             $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.description)"
         } | str join "\n")
     ]} else { [] })
 
-    let rest = (if not ($signatures | is-empty) {
+    let rest = (if ($signatures | is-not-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
         let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
@@ -699,17 +699,19 @@ def build-command-page [command: record] {
       } else {}
     )
 
-    let examples = (if not ($command.examples | is-empty) {[
+    let examples = (if ($command.examples | is-not-empty) {[
         ""
         (build-help-header -n "Examples")
         ($command.examples | each {|example| [
             $"  ($example.description)"
             $"  > ($example.example | nu-highlight)"
-            (if not ($example.result | is-empty) {
+            (if ($example.result | is-not-empty) {
                 $example.result
                 | table -e
                 | to text
-                | if ($example.result | describe) == "binary" { str join } else { lines }
+                | str trim --right
+                | lines
+                | skip until { is-not-empty }
                 | each {|line|
                     $"  ($line)"
                 }
@@ -740,10 +742,10 @@ def scope-commands [
 ] {
     let commands = (scope commands | sort-by name)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         # TODO: impl find for external commands
         $commands | find $find --columns [name description search_terms] | select name category description signatures search_terms
-    } else if not ($command | is-empty) {
+    } else if ($command | is-not-empty) {
         let target_command = ($command | str join " ")
         let found_command = ($commands | where name == $target_command)
 
@@ -837,13 +839,13 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
     let target_item = ($item | str join " ")
 
     let commands = (try { scope-commands $target_item --find $find })
-    if not ($commands | is-empty) { return $commands }
+    if ($commands | is-not-empty) { return $commands }
 
     let aliases = (try { aliases $target_item --find $find })
-    if not ($aliases | is-empty) { return $aliases }
+    if ($aliases | is-not-empty) { return $aliases }
 
     let modules = (try { modules $target_item --find $find })
-    if not ($modules | is-empty) { return $modules }
+    if ($modules | is-not-empty) { return $modules }
 
     if ($find | is-not-empty) {
         print -e $"No help results found mentioning: ($find)"

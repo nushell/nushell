@@ -85,7 +85,7 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
-    let take = if values.len() % 2 == 0 {
+    let take = if values.len().is_multiple_of(2) {
         Pick::MedianAverage
     } else {
         Pick::Median

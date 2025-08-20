@@ -45,7 +45,7 @@ impl Command for ConfigReset {
         let no_backup = call.has_flag(engine_state, stack, "without-backup")?;
         let span = call.head;
         let Some(config_path) = nu_path::nu_config_dir() else {
-            return Err(ShellError::ConfigDirNotFound { span: None });
+            return Err(ShellError::ConfigDirNotFound { span: call.head });
         };
         if !only_env {
             let mut nu_config = config_path.clone();

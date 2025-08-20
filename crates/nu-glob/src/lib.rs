@@ -1259,8 +1259,7 @@ mod test {
                 .ok()
                 .map(|p| match p.components().next().unwrap() {
                     Component::Prefix(prefix_component) => {
-                        let path = Path::new(prefix_component.as_os_str()).join("*");
-                        path
+                        Path::new(prefix_component.as_os_str()).join("*")
                     }
                     _ => panic!("no prefix in this path"),
                 })

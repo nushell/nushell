@@ -82,7 +82,7 @@ pub fn evaluate_file(
         .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
-    trace!("parsing file: {}", file_path_str);
+    trace!("parsing file: {file_path_str}");
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
     if let Some(warning) = working_set.parse_warnings.first() {

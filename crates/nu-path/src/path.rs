@@ -2861,7 +2861,7 @@ impl<Form: PathForm> Eq for Path<Form> {}
 
 impl<Form: PathForm> PartialOrd for Path<Form> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.inner.cmp(&other.inner))
+        Some(self.cmp(other))
     }
 }
 
@@ -2887,7 +2887,7 @@ impl<Form: PathForm> Eq for PathBuf<Form> {}
 
 impl<Form: PathForm> PartialOrd for PathBuf<Form> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.inner.cmp(&other.inner))
+        Some(self.cmp(other))
     }
 }
 

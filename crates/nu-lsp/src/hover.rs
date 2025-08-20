@@ -1,5 +1,6 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
 use nu_protocol::{PositionalArg, engine::Command};
+use std::borrow::Cow;
 
 use crate::{
     Id, LanguageServer,
@@ -188,6 +189,15 @@ impl LanguageServer {
             }
             Id::Value(t) => markdown_hover(format!("`{t}`")),
             Id::External(cmd) => {
+                fn fix_manpage_ascii_shenanigans(text: &str) -> Cow<str> {
+                    if cfg!(windows) {
+                        Cow::Borrowed(text)
+                    } else {
+                        let re =
+                            fancy_regex::Regex::new(r".\x08").expect("regular expression error");
+                        re.replace_all(text, "")
+                    }
+                }
                 let command_output = if cfg!(windows) {
                     std::process::Command::new("powershell.exe")
                         .args(["-NoProfile", "-Command", "help", &cmd])
@@ -197,7 +207,10 @@ impl LanguageServer {
                 };
                 let manpage_str = match command_output {
                     Ok(output) => nu_utils::strip_ansi_likely(
-                        String::from_utf8_lossy(&output.stdout).as_ref(),
+                        fix_manpage_ascii_shenanigans(
+                            String::from_utf8_lossy(&output.stdout).as_ref(),
+                        )
+                        .as_ref(),
                     )
                     .to_string(),
                     Err(_) => format!("No command help found for {}", &cmd),

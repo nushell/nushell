@@ -2,16 +2,16 @@
 //!
 //! This module provides for Hjson deserialization with the type `Deserializer`.
 
-use std::char;
-use std::io;
-use std::marker::PhantomData;
-use std::str;
-
-use serde::de;
-
 use super::error::{Error, ErrorCode, Result};
 use super::util::StringReader;
 use super::util::{Number, ParseNumber};
+use serde::de;
+use std::{
+    char, io,
+    io::{BufReader, Read},
+    marker::PhantomData,
+    str,
+};
 
 enum State {
     Normal,
@@ -804,7 +804,10 @@ where
     R: io::Read,
     T: de::DeserializeOwned,
 {
-    from_iter(rdr.bytes())
+    // Use a buffered reader so that calling `.bytes()` is efficient and
+    // doesn't trigger clippy's `unbuffered_bytes` lint when the input
+    // comes from a non-memory source.
+    from_iter(BufReader::new(rdr).bytes())
 }
 
 /// Decodes a Hjson value from a byte slice `&[u8]`.
