@@ -727,8 +727,6 @@ pub enum FormatterValue<'a> {
     CodeString(&'a str),
 }
 
-// fn to help me reason about the code 
-// will remove once done
 fn write_flag_to_long_desc<F>(
     flag: &nu_protocol::Flag, 
     long_desc: &mut String, 
@@ -781,9 +779,10 @@ pub fn get_flags_section<F>(
 where
     F: FnMut(FormatterValue) -> String,
 {
-    if signature.named.is_empty() {
+    let  mut flags = signature.named.iter();
+    let Some(help) = flags.next() else {
         return "".to_owned();
-    }
+    };
 
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
@@ -792,23 +791,19 @@ where
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
 
-    let mut flags = signature.named.iter();
     let mut help_written = false;
-
-    // safe unwrap, since we know signature.named is not empty
-    let help = flags.next().unwrap();
+    // Write named flags to long_desc
     while let Some(flag) = flags.next() {
         if !help_written && !flag.required {
             help_written = true;
-
             write_flag_to_long_desc(
                 help, &mut long_desc, help_subcolor_one, help_subcolor_two, &mut formatter
-            )
+            );
         }
 
         write_flag_to_long_desc(
             flag, &mut long_desc, help_subcolor_one, help_subcolor_two, &mut formatter
-        )
+        );
     }
     
     long_desc
