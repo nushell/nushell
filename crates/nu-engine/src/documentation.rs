@@ -728,12 +728,13 @@ pub enum FormatterValue<'a> {
 }
 
 fn write_flag_to_long_desc<F>(
-    flag: &nu_protocol::Flag, 
-    long_desc: &mut String, 
-    help_subcolor_one: &str, 
+    flag: &nu_protocol::Flag,
+    long_desc: &mut String,
+    help_subcolor_one: &str,
     help_subcolor_two: &str,
     formatter: &mut F,
-) where F: FnMut(FormatterValue) -> String,
+) where
+    F: FnMut(FormatterValue) -> String,
 {
     // Indentation
     long_desc.push_str("  ");
@@ -779,8 +780,9 @@ pub fn get_flags_section<F>(
 where
     F: FnMut(FormatterValue) -> String,
 {
-    let  mut flags = signature.named.iter();
+    let mut flags = signature.named.iter();
     let Some(help) = flags.next() else {
+        eprintln!("{:?}", signature);
         return "".to_owned();
     };
 
@@ -793,19 +795,27 @@ where
 
     let mut help_written = false;
     // Write named flags to long_desc
-    while let Some(flag) = flags.next() {
+    for flag in flags {
         if !help_written && !flag.required {
             help_written = true;
             write_flag_to_long_desc(
-                help, &mut long_desc, help_subcolor_one, help_subcolor_two, &mut formatter
+                help,
+                &mut long_desc,
+                help_subcolor_one,
+                help_subcolor_two,
+                &mut formatter,
             );
         }
 
         write_flag_to_long_desc(
-            flag, &mut long_desc, help_subcolor_one, help_subcolor_two, &mut formatter
+            flag,
+            &mut long_desc,
+            help_subcolor_one,
+            help_subcolor_two,
+            &mut formatter,
         );
     }
-    
+
     long_desc
 }
 
