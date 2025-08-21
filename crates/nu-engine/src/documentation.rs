@@ -787,12 +787,14 @@ where
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
 
+    let help = signature.named.iter().find(|flag| flag.long == "help");
     let required = signature.named.iter().filter(|flag| flag.required);
-    let Some(help) = signature.named.iter().find(|flag| flag.long == "help") else {
-        unreachable!("we're writing the help message, yet there is no --help flag");
-    };
-    let optional = signature.named.iter().filter(|flag| !flag.required && flag.long != "help");
-    let flags = required.chain([help]).chain(optional);
+    let optional = signature
+        .named
+        .iter()
+        .filter(|flag| !flag.required && flag.long != "help");
+
+    let flags = required.chain(help).chain(optional);
 
     for flag in flags {
         write_flag_to_long_desc(
