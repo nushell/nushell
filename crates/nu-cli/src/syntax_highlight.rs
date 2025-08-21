@@ -66,9 +66,8 @@ pub(crate) fn highlight_syntax(
         // externals may slow down things too much.
         if highlight_resolved_externals {
             for (span, shape) in shapes.iter_mut() {
-                if let FlatShape::External(aliased_command_span) = *shape {
-                    let str_contents = working_set.get_span_contents(aliased_command_span);
-
+                if let FlatShape::External(aliased_command_span) = shape {
+                    let str_contents = working_set.get_span_contents(**aliased_command_span);
                     let str_word = String::from_utf8_lossy(str_contents).to_string();
                     let paths = env::path_str(engine_state, stack, *span).ok();
                     let res = if let Ok(cwd) = engine_state.cwd(Some(stack)) {

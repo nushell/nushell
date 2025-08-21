@@ -18,7 +18,10 @@ pub enum FlatShape {
     Custom(DeclId),
     DateTime,
     Directory,
-    External(Span),
+    // The stored span contains the name of the called external command:
+    // This is only different from the span containing the call's head if this
+    // call is through an alias, and is only useful for its contents (not its location).
+    External(Box<Span>),
     ExternalArg,
     ExternalResolved,
     Filepath,
@@ -329,7 +332,7 @@ fn flatten_expression_into(
                     // The parser actually created this head by cloning from the alias's definition
                     // and then just overwriting the `span` field - but `span_id` still points to
                     // the original span, so we can recover it from there.
-                    FlatShape::External(working_set.get_span(head.span_id)),
+                    FlatShape::External(Box::new(working_set.get_span(head.span_id))),
                 ));
             } else {
                 flatten_expression_into(working_set, head, output);
