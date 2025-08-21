@@ -25,5 +25,9 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.6"
 
+[features]
+default = []
+mcp = []
+
 [lints]
 workspace = true
