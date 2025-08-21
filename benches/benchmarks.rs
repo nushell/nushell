@@ -139,6 +139,30 @@ fn bench_load_standard_lib() -> impl IntoBenchmarks {
     })]
 }
 
+/// Load all modules of standard library into the engine through a general `use`.
+fn bench_load_use_standard_lib() -> impl IntoBenchmarks {
+    [benchmark_fn("load_use_standard_lib", move |b| {
+        // We need additional commands like `format number` for the standard library
+        let engine = nu_cmd_extra::add_extra_command_context(setup_engine());
+        let commands = Spanned {
+            item: "use std".into(),
+            span: Span::unknown(),
+        };
+        b.iter(move || {
+            let mut engine = engine.clone();
+            let mut stack = Stack::new();
+            let _ = load_standard_library(&mut engine);
+            evaluate_commands(
+                &commands,
+                &mut engine,
+                &mut stack,
+                PipelineData::empty(),
+                Default::default(),
+            )
+        })
+    })]
+}
+
 fn create_flat_record_string(n: usize) -> String {
     let mut s = String::from("let record = { ");
     for i in 0..n {
@@ -437,6 +461,7 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
 
 tango_benchmarks!(
     bench_load_standard_lib(),
+    bench_load_use_standard_lib(),
     // Data types
     // Record
     bench_record_create(1),
