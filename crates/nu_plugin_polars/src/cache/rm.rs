@@ -50,7 +50,7 @@ impl PluginCommand for CacheRemove {
             .map(|ref key| remove_cache_entry(plugin, engine, key, call.head))
             .collect::<Result<Vec<Value>, ShellError>>()?;
 
-        Ok(PipelineData::Value(Value::list(msgs, call.head), None))
+        Ok(PipelineData::value(Value::list(msgs, call.head), None))
     }
 }
 

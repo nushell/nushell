@@ -200,3 +200,29 @@ fn respect_shape() -> TestResult {
     run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2").unwrap();
     run_test(r#"match "...$foo" { ...$foo => 5 }"#, "5")
 }
+
+#[test]
+fn spread_null() -> TestResult {
+    // Spread in list
+    run_test(r#"[1, 2, ...(null)] | to nuon --raw"#, r#"[1,2]"#)?;
+
+    // Spread in record
+    run_test(r#"{a: 1, b: 2, ...(null)} | to nuon --raw"#, r#"{a:1,b:2}"#)?;
+
+    // Spread to built-in command's ...rest
+    run_test(r#"echo 1 2 ...(null) | to nuon --raw"#, r#"[1,2]"#)?;
+
+    // Spread to custom command's ...rest
+    run_test(
+        r#"
+            def foo [...rest] { $rest }
+            foo ...(null) 1 2 ...(null) 3 | to nuon --raw
+        "#,
+        r#"[1,2,3]"#,
+    )?;
+
+    // Spread to external command's arguments
+    assert_eq!(nu!(r#"nu --testbin cococo 1 ...(null) 2"#).out, "1 2");
+
+    Ok(())
+}

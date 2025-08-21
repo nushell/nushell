@@ -199,7 +199,7 @@ pub fn chunk_by(
     let metadata = input.metadata();
 
     match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(Value::Range { .. }, ..)
         | PipelineData::Value(Value::List { .. }, ..)
         | PipelineData::ListStream(..) => {

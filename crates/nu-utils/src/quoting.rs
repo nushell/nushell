@@ -2,12 +2,12 @@ use fancy_regex::Regex;
 use std::sync::LazyLock;
 
 // This hits, in order:
-// • Any character of []:`{}#'";()|$,.!?
+// • Any character of []:`{}#'";()|$,.!?=
 // • Any digit (\d)
 // • Any whitespace (\s)
 // • Case-insensitive sign-insensitive float "keywords" inf, infinity and nan.
 static NEEDS_QUOTING_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s!?]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
+    Regex::new(r#"[\[\]:`\{\}#'";\(\)\|\$,\.\d\s!?=]|(?i)^[+\-]?(inf(inity)?|nan)$"#)
         .expect("internal error: NEEDS_QUOTING_REGEX didn't compile")
 });
 

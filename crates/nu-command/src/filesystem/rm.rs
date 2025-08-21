@@ -339,7 +339,7 @@ fn rm(
                 inner: vec![],
             });
         } else if !confirmed {
-            return Ok(PipelineData::Empty);
+            return Ok(PipelineData::empty());
         }
     }
 

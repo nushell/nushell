@@ -46,6 +46,8 @@ pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
     pub cursor_pos: usize,
+    /// Immediately accept the buffer on the next loop.
+    pub accept: bool,
 }
 
 pub struct IsDebugging(AtomicBool);
@@ -185,6 +187,7 @@ impl EngineState {
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
+                accept: false,
             })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
@@ -1078,6 +1081,7 @@ impl EngineState {
             self.repl_state = Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
+                accept: false,
             }));
         }
         if Mutex::is_poisoned(&self.jobs) {

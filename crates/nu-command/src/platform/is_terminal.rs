@@ -63,7 +63,7 @@ impl Command for IsTerminal {
             }
         };
 
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             Value::bool(is_terminal, call.head),
             None,
         ))

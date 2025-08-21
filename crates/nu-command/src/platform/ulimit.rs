@@ -474,11 +474,11 @@ fn parse_limit(
             } else if val == "hard" {
                 Ok(hard_limit)
             } else {
-                return Err(ShellError::IncorrectValue {
+                Err(ShellError::IncorrectValue {
                     msg: "Only unlimited, soft and hard are supported for strings".into(),
                     val_span,
                     call_span,
-                });
+                })
             }
         }
         _ => Err(ShellError::TypeMismatch {
@@ -555,7 +555,7 @@ impl Command for ULimit {
                 set_limits(&limit_value, &res, hard, soft, call.head)?;
             }
 
-            Ok(PipelineData::Empty)
+            Ok(PipelineData::empty())
         } else {
             print_limits(call, engine_state, stack, all, soft, hard)
         }

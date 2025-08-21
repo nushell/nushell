@@ -412,7 +412,7 @@ fn get_command_documentation(
                     ))],
                     parser_info: HashMap::new(),
                 },
-                PipelineData::Value(Value::list(vals, span), None),
+                PipelineData::value(Value::list(vals, span), None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
@@ -487,7 +487,7 @@ fn get_command_documentation(
                             engine_state,
                             stack,
                             &(&table_call).into(),
-                            PipelineData::Value(result.clone(), None),
+                            PipelineData::value(result.clone(), None),
                         )
                         .ok()
                 });
@@ -497,8 +497,9 @@ fn get_command_documentation(
                     long_desc,
                     "  {}",
                     item.to_expanded_string("", nu_config)
+                        .trim_end()
+                        .trim_start_matches(|c: char| c.is_whitespace() && c != ' ')
                         .replace('\n', "\n  ")
-                        .trim()
                 );
             }
         }
@@ -532,7 +533,7 @@ fn update_ansi_from_config(
                         arguments: vec![argument],
                         parser_info: HashMap::new(),
                     },
-                    PipelineData::Empty,
+                    PipelineData::empty(),
                 ) {
                     if let Ok((str, ..)) = result.collect_string_strict(span) {
                         *ansi_code = str;
@@ -726,6 +727,51 @@ pub enum FormatterValue<'a> {
     CodeString(&'a str),
 }
 
+fn write_flag_to_long_desc<F>(
+    flag: &nu_protocol::Flag,
+    long_desc: &mut String,
+    help_subcolor_one: &str,
+    help_subcolor_two: &str,
+    formatter: &mut F,
+) where
+    F: FnMut(FormatterValue) -> String,
+{
+    // Indentation
+    long_desc.push_str("  ");
+    // Short flag shown before long flag
+    if let Some(short) = flag.short {
+        let _ = write!(long_desc, "{help_subcolor_one}-{short}{RESET}");
+        if !flag.long.is_empty() {
+            let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
+        }
+    }
+    if !flag.long.is_empty() {
+        let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
+    }
+    if flag.required {
+        long_desc.push_str(" (required parameter)")
+    }
+    // Type/Syntax shape info
+    if let Some(arg) = &flag.arg {
+        let _ = write!(long_desc, " <{help_subcolor_two}{arg}{RESET}>");
+    }
+    if !flag.desc.is_empty() {
+        let _ = write!(
+            long_desc,
+            ": {}",
+            &formatter(FormatterValue::CodeString(&flag.desc))
+        );
+    }
+    if let Some(value) = &flag.default_value {
+        let _ = write!(
+            long_desc,
+            " (default: {})",
+            &formatter(FormatterValue::DefaultValue(value))
+        );
+    }
+    long_desc.push('\n');
+}
+
 pub fn get_flags_section<F>(
     signature: &Signature,
     help_style: &HelpStyle,
@@ -740,42 +786,26 @@ where
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
-    for flag in &signature.named {
-        // Indentation
-        long_desc.push_str("  ");
-        // Short flag shown before long flag
-        if let Some(short) = flag.short {
-            let _ = write!(long_desc, "{help_subcolor_one}-{short}{RESET}");
-            if !flag.long.is_empty() {
-                let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
-            }
-        }
-        if !flag.long.is_empty() {
-            let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
-        }
-        if flag.required {
-            long_desc.push_str(" (required parameter)")
-        }
-        // Type/Syntax shape info
-        if let Some(arg) = &flag.arg {
-            let _ = write!(long_desc, " <{help_subcolor_two}{arg}{RESET}>");
-        }
-        if !flag.desc.is_empty() {
-            let _ = write!(
-                long_desc,
-                ": {}",
-                &formatter(FormatterValue::CodeString(&flag.desc))
-            );
-        }
-        if let Some(value) = &flag.default_value {
-            let _ = write!(
-                long_desc,
-                " (default: {})",
-                &formatter(FormatterValue::DefaultValue(value))
-            );
-        }
-        long_desc.push('\n');
+
+    let help = signature.named.iter().find(|flag| flag.long == "help");
+    let required = signature.named.iter().filter(|flag| flag.required);
+    let optional = signature
+        .named
+        .iter()
+        .filter(|flag| !flag.required && flag.long != "help");
+
+    let flags = required.chain(help).chain(optional);
+
+    for flag in flags {
+        write_flag_to_long_desc(
+            flag,
+            &mut long_desc,
+            help_subcolor_one,
+            help_subcolor_two,
+            &mut formatter,
+        );
     }
+
     long_desc
 }
 

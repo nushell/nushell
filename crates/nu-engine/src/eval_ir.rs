@@ -6,6 +6,7 @@ use nu_protocol::{
     PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
     Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
+    combined_type_string,
     debugger::DebugContext,
     engine::{
         Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
@@ -48,7 +49,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // the heap allocation here by reusing buffers - our allocator is fast enough
         let mut registers = Vec::with_capacity(ir_block.register_count as usize);
         for _ in 0..ir_block.register_count {
-            registers.push(PipelineData::Empty);
+            registers.push(PipelineData::empty());
         }
 
         // Initialize file storage.
@@ -133,15 +134,15 @@ impl<'a> EvalContext<'a> {
         // log::trace!("<- {reg_id}");
         std::mem::replace(
             &mut self.registers[reg_id.get() as usize],
-            PipelineData::Empty,
+            PipelineData::empty(),
         )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
         match &self.registers[reg_id.get() as usize] {
-            PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
+            PipelineData::Empty => Ok(PipelineData::empty()),
+            PipelineData::Value(val, meta) => Ok(PipelineData::value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
                 msg: "Must collect to value before using instruction that clones from a register"
                     .into(),
@@ -269,7 +270,7 @@ fn prepare_error_handler(
             );
         } else {
             // Set the register to empty
-            ctx.put_reg(reg_id, PipelineData::Empty);
+            ctx.put_reg(reg_id, PipelineData::empty());
         }
     }
 }
@@ -611,12 +612,13 @@ fn eval_instruction<D: DebugContext>(
             let items = ctx.collect_reg(*items, *span)?;
             let list_span = list_value.span();
             let items_span = items.span();
+            let items = match items {
+                Value::List { vals, .. } => vals,
+                Value::Nothing { .. } => Vec::new(),
+                _ => return Err(ShellError::CannotSpreadAsList { span: items_span }),
+            };
             let mut list = list_value.into_list()?;
-            list.extend(
-                items
-                    .into_list()
-                    .map_err(|_| ShellError::CannotSpreadAsList { span: items_span })?,
-            );
+            list.extend(items);
             ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
             Ok(Continue)
         }
@@ -648,11 +650,13 @@ fn eval_instruction<D: DebugContext>(
             let record_span = record_value.span();
             let items_span = items.span();
             let mut record = record_value.into_record()?;
+            let items = match items {
+                Value::Record { val, .. } => val.into_owned(),
+                Value::Nothing { .. } => Record::new(),
+                _ => return Err(ShellError::CannotSpreadAsRecord { span: items_span }),
+            };
             // Not using .extend() here because it doesn't handle duplicates
-            for (key, val) in items
-                .into_record()
-                .map_err(|_| ShellError::CannotSpreadAsRecord { span: items_span })?
-            {
+            for (key, val) in items {
                 if let Some(first_value) = record.insert(&key, val) {
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key,
@@ -838,7 +842,7 @@ fn load_literal(
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(dst, PipelineData::Value(value, None));
+    ctx.put_reg(dst, PipelineData::value(value, None));
     Ok(InstructionResult::Continue)
 }
 
@@ -993,7 +997,7 @@ fn binary_op(
         }
     };
 
-    ctx.put_reg(lhs_dst, PipelineData::Value(result, None));
+    ctx.put_reg(lhs_dst, PipelineData::value(result, None));
 
     Ok(InstructionResult::Continue)
 }
@@ -1190,19 +1194,19 @@ fn gather_arguments(
                 vals,
                 span: spread_span,
                 ..
-            } => {
-                if let Value::List { vals, .. } = vals {
+            } => match vals {
+                Value::List { vals, .. } => {
                     rest.extend(vals);
-                    // Rest variable should span the spread syntax, not the list values
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
-                    // All further positional args should go to spread
                     always_spread = true;
-                } else if let Value::Error { error, .. } = vals {
-                    return Err(*error);
-                } else {
-                    return Err(ShellError::CannotSpreadAsList { span: vals.span() });
                 }
-            }
+                Value::Nothing { .. } => {
+                    rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
+                    always_spread = true;
+                }
+                Value::Error { error, .. } => return Err(*error),
+                _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
+            },
             Argument::Flag {
                 data,
                 name,
@@ -1315,36 +1319,20 @@ fn check_input_types(
         return Ok(());
     }
 
-    let mut input_types = io_types
-        .iter()
-        .map(|(input, _)| input.to_string())
-        .collect::<Vec<String>>();
+    let input_types: Vec<Type> = io_types.iter().map(|(input, _)| input.clone()).collect();
+    let expected_string = combined_type_string(&input_types, "and");
 
-    let expected_string = match input_types.len() {
-        0 => {
-            return Err(ShellError::NushellFailed {
-                msg: "Command input type strings is empty, despite being non-zero earlier"
-                    .to_string(),
-            });
-        }
-        1 => input_types.swap_remove(0),
-        2 => input_types.join(" and "),
-        _ => {
-            input_types
-                .last_mut()
-                .expect("Vector with length >2 has no elements")
-                .insert_str(0, "and ");
-            input_types.join(", ")
-        }
-    };
-
-    match input {
-        PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
-        _ => Err(ShellError::OnlySupportsThisInputType {
+    match (input, expected_string) {
+        (PipelineData::Empty, _) => Err(ShellError::PipelineEmpty { dst_span: head }),
+        (_, Some(expected_string)) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: expected_string,
             wrong_type: input.get_type().to_string(),
             dst_span: head,
             src_span: input.span().unwrap_or(Span::unknown()),
+        }),
+        // expected_string didn't generate properly, so we can't show the proper error
+        (_, None) => Err(ShellError::NushellFailed {
+            msg: "Command input type strings is empty, despite being non-zero earlier".to_string(),
         }),
     }
 }
@@ -1466,7 +1454,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
         other => other,
     };
     let value = data.into_value(span)?;
-    Ok(PipelineData::Value(value, metadata))
+    Ok(PipelineData::value(value, metadata))
 }
 
 /// Helper for drain behavior.
@@ -1584,7 +1572,7 @@ fn eval_iterate(
             ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
             Ok(InstructionResult::Continue)
         } else {
-            ctx.put_reg(dst, PipelineData::Empty);
+            ctx.put_reg(dst, PipelineData::empty());
             Ok(InstructionResult::Branch(end_index))
         }
     } else {
@@ -1594,7 +1582,7 @@ fn eval_iterate(
         let span = data.span().unwrap_or(Span::unknown());
         ctx.put_reg(
             stream,
-            PipelineData::ListStream(
+            PipelineData::list_stream(
                 ListStream::new(data.into_iter(), span, Signals::EMPTY),
                 metadata,
             ),

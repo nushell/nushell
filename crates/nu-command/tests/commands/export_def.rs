@@ -10,3 +10,14 @@ fn export_subcommands_help() {
             .contains("Define a custom command and export it from a module")
     );
 }
+
+#[test]
+fn export_should_not_expose_arguments() {
+    // issue #16211
+    let actual = nu!(r#"
+            export def foo [bar: int] {}
+            scope variables
+        "#);
+
+    assert!(!actual.out.contains("bar"));
+}

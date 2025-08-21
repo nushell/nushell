@@ -201,7 +201,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                             continue;
                         }
                         let path = autoload_dir.join(entry);
-                        warn!("AutoLoading: {:?}", path);
+                        warn!("AutoLoading: {path:?}");
                         eval_config_contents(path, engine_state, stack);
                     }
                 }
@@ -215,7 +215,7 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
-    warn!("eval_default_config() is_env_config: {}", is_env_config);
+    warn!("eval_default_config() is_env_config: {is_env_config}");
     eval_source(
         engine_state,
         stack,

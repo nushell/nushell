@@ -159,7 +159,7 @@ pub(crate) fn add_menus(
             engine_state.merge_delta(delta)?;
 
             let mut temp_stack = Stack::new().collect_value();
-            let input = PipelineData::Empty;
+            let input = PipelineData::empty();
             menu_eval_results.push(eval_block::<WithoutDebug>(
                 &engine_state,
                 &mut temp_stack,
@@ -1047,6 +1047,10 @@ fn event_from_record(
             ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         "openeditor" => ReedlineEvent::OpenEditor,
+        "vichangemode" => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
+        }
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline event".into(),

@@ -19,6 +19,11 @@ impl Command for Reject {
             ])
             .switch("optional", "make all cell path members optional", Some('o'))
             .switch(
+                "ignore-case",
+                "make all cell path members case insensitive",
+                None,
+            )
+            .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
@@ -93,9 +98,17 @@ impl Command for Reject {
 
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+
         if optional {
             for cell_path in &mut new_columns {
                 cell_path.make_optional();
+            }
+        }
+
+        if ignore_case {
+            for cell_path in &mut new_columns {
+                cell_path.make_insensitive();
             }
         }
 

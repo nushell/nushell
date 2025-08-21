@@ -619,6 +619,11 @@ fn single_value_row_condition() -> TestResult {
 }
 
 #[test]
+fn row_condition_non_boolean() -> TestResult {
+    fail_test(r#"[1 2 3] | where 1"#, "expected bool")
+}
+
+#[test]
 fn performance_nested_lists() -> TestResult {
     // Parser used to be exponential on deeply nested lists
     // TODO: Add a timeout
@@ -1021,4 +1026,19 @@ fn not_panic_with_recursive_call() {
         "nu recursive_func_with_alias.nu"
     );
     assert!(result.status.success());
+}
+
+// https://github.com/nushell/nushell/issues/16040
+#[test]
+fn external_argument_with_subexpressions() -> TestResult {
+    run_test(r#"^echo foo( ('bar') | $in ++ 'baz' )"#, "foobarbaz")?;
+    run_test(r#"^echo foo( 'bar' )('baz')"#, "foobarbaz")?;
+    run_test(r#"^echo ")('foo')(""#, ")('foo')(")?;
+    fail_test(r#"^echo foo( 'bar'"#, "Unexpected end of code")
+}
+
+// https://github.com/nushell/nushell/issues/16332
+#[test]
+fn quote_escape_but_not_env_shorthand() -> TestResult {
+    run_test(r#""\"=foo""#, "\"=foo")
 }

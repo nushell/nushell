@@ -143,7 +143,7 @@ fn uuid(
         }
     };
 
-    Ok(PipelineData::Value(Value::string(uuid_str, span), None))
+    Ok(PipelineData::value(Value::string(uuid_str, span), None))
 }
 
 fn validate_flags(

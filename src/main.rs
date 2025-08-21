@@ -367,28 +367,18 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
-        // Call out to the correct testbin
-        match testbin.item.as_str() {
-            "echo_env" => test_bins::echo_env(true),
-            "echo_env_stderr" => test_bins::echo_env(false),
-            "echo_env_stderr_fail" => test_bins::echo_env_and_fail(false),
-            "echo_env_mixed" => test_bins::echo_env_mixed(),
-            "cococo" => test_bins::cococo(),
-            "meow" => test_bins::meow(),
-            "meowb" => test_bins::meowb(),
-            "relay" => test_bins::relay(),
-            "iecho" => test_bins::iecho(),
-            "fail" => test_bins::fail(),
-            "nonu" => test_bins::nonu(),
-            "chop" => test_bins::chop(),
-            "repeater" => test_bins::repeater(),
-            "repeat_bytes" => test_bins::repeat_bytes(),
-            // Important: nu_repl must be called with `--testbin=nu_repl`
-            // `--testbin nu_repl` will not work due to argument count logic
-            // in test_bins.rs
-            "nu_repl" => test_bins::nu_repl(),
-            "input_bytes_length" => test_bins::input_bytes_length(),
-            _ => std::process::exit(1),
+        let dispatcher = test_bins::new_testbin_dispatcher();
+        let test_bin = testbin.item.as_str();
+        match dispatcher.get(test_bin) {
+            Some(test_bin) => test_bin.run(),
+            None => {
+                if ["-h", "--help"].contains(&test_bin) {
+                    test_bins::show_help(&dispatcher);
+                } else {
+                    eprintln!("ERROR: Unknown testbin '{test_bin}'");
+                    std::process::exit(1);
+                }
+            }
         }
         std::process::exit(0)
     } else {
@@ -403,7 +393,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
-        PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
+        PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()

@@ -320,9 +320,9 @@ where
         // simpler signature in Plugin
         let span = input.span().unwrap_or(call.head);
         let input_value = input.into_value(span)?;
-        // Wrap the output in PipelineData::Value
+        // Wrap the output in PipelineData::value
         <Self as SimplePluginCommand>::run(self, plugin, engine, call, &input_value)
-            .map(|value| PipelineData::Value(value, None))
+            .map(|value| PipelineData::value(value, None))
     }
 
     fn search_terms(&self) -> Vec<&str> {

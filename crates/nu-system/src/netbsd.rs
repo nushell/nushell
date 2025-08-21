@@ -93,25 +93,36 @@ fn check(err: libc::c_int) -> std::io::Result<()> {
     }
 }
 
-/// Call `sysctl()` in read mode (i.e. the last two arguments are NULL and zero)
+/// Call `sysctl()` in read mode (i.e. the last two arguments to set new values are NULL and zero)
+///
+/// `name` is a flag array.
+///
+/// # Safety
+/// `data` needs to be writable for `data_len` or be a `ptr::null()` paired with `data_len = 0` to
+/// poll for the expected length in the `data_len` out parameter.
+///
+/// For more details see: https://man.netbsd.org/sysctl.3
 unsafe fn sysctl_get(
     name: *const i32,
     name_len: u32,
     data: *mut libc::c_void,
     data_len: *mut usize,
 ) -> i32 {
-    sysctl(
-        name,
-        name_len,
-        data,
-        data_len,
-        // NetBSD and OpenBSD differ in mutability for this pointer, but it's null anyway
-        #[cfg(target_os = "netbsd")]
-        ptr::null(),
-        #[cfg(target_os = "openbsd")]
-        ptr::null_mut(),
-        0,
-    )
+    // Safety: Call to unsafe function `libc::sysctl`
+    unsafe {
+        sysctl(
+            name,
+            name_len,
+            data,
+            data_len,
+            // NetBSD and OpenBSD differ in mutability for this pointer, but it's null anyway
+            #[cfg(target_os = "netbsd")]
+            ptr::null(),
+            #[cfg(target_os = "openbsd")]
+            ptr::null_mut(),
+            0,
+        )
+    }
 }
 
 fn get_procs() -> io::Result<Vec<KInfoProc>> {
@@ -247,17 +258,37 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
     }
 }
 
-// For getting simple values from the sysctl interface
+/// For getting simple values from the sysctl interface
+///
+/// # Safety
+/// `T` needs to be of the structure that is expected to be returned by `sysctl` for the given
+/// `ctl_name` sequence and will then be assumed to be of correct layout.
+/// Thus only use it for primitive types or well defined fixed size types. For variable length
+/// arrays that can be returned from `sysctl` use it directly (or write a proper wrapper handling
+/// capacity management)
+///
+/// # Panics
+/// If the size of the returned data diverges from the size of the expected `T`
 unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
     let mut value: MaybeUninit<T> = MaybeUninit::uninit();
     let mut value_len = mem::size_of_val(&value);
-    check(sysctl_get(
-        ctl_name.as_ptr(),
-        ctl_name.len() as u32,
-        value.as_mut_ptr() as *mut libc::c_void,
-        &mut value_len,
-    ))?;
-    Ok(value.assume_init())
+    // SAFETY: lengths to the pointers is provided, uninitialized data with checked length provided
+    // Only assume initialized when the written data doesn't diverge in length, layout is the
+    // safety responsibility of the caller.
+    check(unsafe {
+        sysctl_get(
+            ctl_name.as_ptr(),
+            ctl_name.len() as u32,
+            value.as_mut_ptr() as *mut libc::c_void,
+            &mut value_len,
+        )
+    })?;
+    assert_eq!(
+        value_len,
+        mem::size_of_val(&value),
+        "Data requested from from `sysctl` diverged in size from the expected return type. For variable length data you need to manually truncate the data to the valid returned size!"
+    );
+    Ok(unsafe { value.assume_init() })
 }
 
 fn get_pagesize() -> io::Result<libc::c_int> {

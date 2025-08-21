@@ -186,7 +186,7 @@ impl Command for Last {
                             }
                         }
                     } else {
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {

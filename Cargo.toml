@@ -10,8 +10,8 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.86.0"
-version = "0.106.1"
+rust-version = "1.87.0"
+version = "0.106.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -72,6 +72,7 @@ brotli = "7.0"
 byteorder = "1.5"
 bytes = "1"
 bytesize = "1.3.3"
+byteyarn = "0.5"
 calamine = "0.28"
 chardetng = "0.1.17"
 chrono = { default-features = false, version = "0.4.34" }
@@ -83,21 +84,24 @@ csv = "1.3"
 ctrlc = "3.4"
 devicons = "0.6.12"
 dialoguer = { default-features = false, version = "0.11" }
+fuzzy-matcher = { version = "^0.3.7" }
 digest = { default-features = false, version = "0.10" }
 dirs = "5.0"
 dirs-sys = "0.4"
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.14"
+fancy-regex = "0.16"
 filesize = "0.2"
 filetime = "0.2"
 heck = "0.5.0"
+http = "1.3.1"
 human-date-parser = "0.3.0"
 indexmap = "2.10"
 indicatif = "0.17"
 interprocess = "2.2.0"
 is_executable = "1.0"
 itertools = "0.14"
+lean_string = { version = "0.5", features = ["serde"] }
 libc = "0.2"
 libproc = "0.14"
 log = "0.4"
@@ -120,7 +124,7 @@ nu-ansi-term = "0.50.1"
 nucleo-matcher = "0.3"
 num-format = "0.4"
 num-traits = "0.2"
-oem_cp = "2.0.0"
+oem_cp = "2.1.0"
 omnipath = "0.1"
 open = "5.3"
 os_pipe = { version = "1.2", features = ["io_safety"] }
@@ -140,7 +144,7 @@ rand = "0.9"
 getrandom = "0.2" # pick same version that rand requires
 rand_chacha = "0.9"
 ratatui = "0.29"
-rayon = "1.10"
+rayon = "1.11"
 reedline = "0.41.0"
 rmp = "0.8"
 rmp-serde = "1.3"
@@ -149,7 +153,10 @@ rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.31"
 rust-embed = "8.7.0"
-rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+# We have to fix rustls and ureq versions
+# because we use unversioned api to allow users set up their own
+# crypto providers (grep for "unversioned")
+rustls = { version = "=0.23.28", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0" }
@@ -163,7 +170,7 @@ strum_macros = "0.26"
 syn = "2.0"
 sysinfo = "0.36"
 tabled = { version = "0.20", default-features = false }
-tempfile = "3.20"
+tempfile = "3.21"
 thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.8"
@@ -172,7 +179,7 @@ update-informer = { version = "1.3.0", default-features = false, features = ["gi
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
-ureq = { version = "2.12", default-features = false, features = ["socks-proxy"] }
+ureq = { version = "=3.0.12", default-features = false, features = ["socks-proxy"] }
 url = "2.2"
 uu_cp = "0.0.30"
 uu_mkdir = "0.0.30"
@@ -198,28 +205,29 @@ webpki-roots = "1.0"
 # todo = "warn"
 unchecked_duration_subtraction = "warn"
 used_underscore_binding = "warn"
+result_large_err = "allow"
 
 [lints]
 workspace = true
 
 [dependencies]
-nu-cli = { path = "./crates/nu-cli", version = "0.106.1" }
-nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.106.1" }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.106.1" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.106.1" }
-nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.106.1", optional = true }
-nu-command = { path = "./crates/nu-command", version = "0.106.1", default-features = false, features = ["os"] }
-nu-engine = { path = "./crates/nu-engine", version = "0.106.1" }
-nu-experimental = { path = "./crates/nu-experimental", version = "0.106.1" }
-nu-explore = { path = "./crates/nu-explore", version = "0.106.1" }
-nu-lsp = { path = "./crates/nu-lsp/", version = "0.106.1" }
-nu-parser = { path = "./crates/nu-parser", version = "0.106.1" }
-nu-path = { path = "./crates/nu-path", version = "0.106.1" }
-nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.106.1" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.106.1" }
-nu-std = { path = "./crates/nu-std", version = "0.106.1" }
-nu-system = { path = "./crates/nu-system", version = "0.106.1" }
-nu-utils = { path = "./crates/nu-utils", version = "0.106.1" }
+nu-cli = { path = "./crates/nu-cli", version = "0.106.2" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.106.2" }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.106.2" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.106.2" }
+nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.106.2", optional = true }
+nu-command = { path = "./crates/nu-command", version = "0.106.2", default-features = false, features = ["os"] }
+nu-engine = { path = "./crates/nu-engine", version = "0.106.2" }
+nu-experimental = { path = "./crates/nu-experimental", version = "0.106.2" }
+nu-explore = { path = "./crates/nu-explore", version = "0.106.2" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.106.2" }
+nu-parser = { path = "./crates/nu-parser", version = "0.106.2" }
+nu-path = { path = "./crates/nu-path", version = "0.106.2" }
+nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.106.2" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.106.2" }
+nu-std = { path = "./crates/nu-std", version = "0.106.2" }
+nu-system = { path = "./crates/nu-system", version = "0.106.2" }
+nu-utils = { path = "./crates/nu-utils", version = "0.106.2" }
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
 crossterm = { workspace = true }
@@ -248,9 +256,9 @@ nix = { workspace = true, default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.106.1" }
-nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.106.1" }
-nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.106.1" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.106.2" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.106.2" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.106.2" }
 assert_cmd = "2.0"
 dirs = { workspace = true }
 tango-bench = "0.6"
@@ -337,7 +345,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`

@@ -45,6 +45,6 @@ impl PluginCommand for Ctrlc {
         eprintln!("interrupt status: {:?}", engine.signals().interrupted());
         eprintln!("peace.");
 
-        Ok(PipelineData::Empty)
+        Ok(PipelineData::empty())
     }
 }

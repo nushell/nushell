@@ -291,3 +291,139 @@ def str-unindent_whitespace_works_with_tabs [] {
 
     assert equal $actual $expected
 }
+
+@test
+def str-align_simple [] {
+    let actual = [
+        "let a = 1"
+        "let max = 2"
+        "let very_long_variable_name = 3"
+    ] | str align '='
+
+    let expected = [
+        "let a                       = 1"
+        "let max                     = 2"
+        "let very_long_variable_name = 3"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_center [] {
+    let actual = [
+        "a = 1"
+        "max = 2"
+        "very_long_variable_name = 3"
+    ] | str align '=' --center
+
+    let expected = [
+        "                      a = 1"
+        "                    max = 2"
+        "very_long_variable_name = 3"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_with_range [] {
+    let actual = r#'match 5 {
+    1.. => { print "More than zero" }
+    0 => { print "Zero" }
+    -1 => { print "Negative one" }
+    -119283 => { print "Very negative" }
+}'# | str align '=>' --range 2..
+
+    let expected = r#'match 5 {
+    1.. => { print "More than zero" }
+    0       => { print "Zero" }
+    -1      => { print "Negative one" }
+    -119283 => { print "Very negative" }
+}'# | lines | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_ignore_lines_with_no_target [] {
+    let actual = [
+        "let a = 1"
+        "let max = 2"
+        "# comment"
+    ] | str align '='
+
+    let expected = [
+        "let a   = 1"
+        "let max = 2"
+        "# comment"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_use_different_char [] {
+    let actual = [
+        "=>"
+        "=====>"
+    ] | str align '>' -c '='
+
+    let expected = [
+        "=====>"
+        "=====>"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_multiple_target_in_line [] {
+    let actual = [
+        "print test # Hello # World"
+        "print hello there # test"
+    ] | str align '#'
+
+    let expected = [
+        "print test        # Hello # World"
+        "print hello there # test"
+    ] | str join "\n"
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_no_target [] {
+
+    let expected = [
+        "print test # Hello # World"
+        "print hello there # test"
+    ] | str join "\n"
+
+    let actual = $expected | str align '='
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_empty_target_noop [] {
+
+    let expected = [
+        "print test # Hello # World"
+        "print hello there # test"
+    ] | str join "\n"
+
+    let actual = $expected | str align ''
+
+    assert equal $actual $expected
+}
+
+@test
+def str-align_empty_input_noop [] {
+
+    let expected = ""
+
+    let actual = [] | str align '='
+
+    assert equal $actual $expected
+}

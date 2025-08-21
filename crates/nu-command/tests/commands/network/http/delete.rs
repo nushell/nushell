@@ -57,7 +57,11 @@ fn http_delete_failed_due_to_server_error() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Bad request (400)"))
+    assert!(
+        actual.err.contains("Bad request (400)"),
+        "unexpected error: {:?}",
+        actual.err
+    )
 }
 
 #[test]
@@ -140,6 +144,14 @@ fn http_delete_timeout() {
         format!("http delete --max-time 100ms {url}", url = server.url()).as_str()
     ));
 
-    assert!(&actual.err.contains("nu::shell::io::timed_out"));
-    assert!(&actual.err.contains("Timed out"));
+    assert!(
+        &actual.err.contains("nu::shell::io::timed_out"),
+        "unexpected error : {:?}",
+        actual.err
+    );
+    assert!(
+        &actual.err.contains("Timed out"),
+        "unexpected error : {:?}",
+        actual.err
+    );
 }

@@ -72,7 +72,7 @@ impl PluginCommand for CacheGet {
             Value::nothing(call.head)
         };
 
-        Ok(PipelineData::Value(value, None))
+        Ok(PipelineData::value(value, None))
     }
 }
 

@@ -187,6 +187,7 @@ impl PartialEq for Signature {
 impl Eq for Signature {}
 
 impl Signature {
+    /// Creates a new signature for a command with `name`
     pub fn new(name: impl Into<String>) -> Signature {
         Signature {
             name: name.into(),
@@ -206,7 +207,12 @@ impl Signature {
         }
     }
 
-    // Gets the input type from the signature
+    /// Gets the input type from the signature
+    ///
+    /// If the input was unspecified or the signature has several different
+    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
+    /// one or same input types, this type is returned.
+    // XXX: remove?
     pub fn get_input_type(&self) -> Type {
         match self.input_output_types.len() {
             0 => Type::Any,
@@ -226,7 +232,12 @@ impl Signature {
         }
     }
 
-    // Gets the output type from the signature
+    /// Gets the output type from the signature
+    ///
+    /// If the output was unspecified or the signature has several different
+    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
+    /// one or same output types, this type is returned.
+    // XXX: remove?
     pub fn get_output_type(&self) -> Type {
         match self.input_output_types.len() {
             0 => Type::Any,
@@ -246,7 +257,7 @@ impl Signature {
         }
     }
 
-    // Add a default help option to a signature
+    /// Add a default help option to a signature
     pub fn add_help(mut self) -> Signature {
         // default help flag
         let flag = Flag {
@@ -263,7 +274,9 @@ impl Signature {
         self
     }
 
-    // Build an internal signature with default help option
+    /// Build an internal signature with default help option
+    ///
+    /// This is equivalent to `Signature::new(name).add_help()`.
     pub fn build(name: impl Into<String>) -> Signature {
         Signature::new(name.into()).add_help()
     }
@@ -347,6 +360,13 @@ impl Signature {
         self
     }
 
+    /// Add a rest positional parameter
+    ///
+    /// Rest positionals (also called [rest parameters][rp]) are treated as
+    /// optional: passing 0 arguments is a valid call.  If the command requires
+    /// at least one argument, it must be checked by the implementation.
+    ///
+    /// [rp]: https://www.nushell.sh/book/custom_commands.html#rest-parameters
     pub fn rest(
         mut self,
         name: &str,
@@ -483,6 +503,10 @@ impl Signature {
         self
     }
 
+    /// A string rendering of the command signature
+    ///
+    /// If the command has flags, all of them will be shown together as
+    /// `{flags}`.
     pub fn call_signature(&self) -> String {
         let mut one_liner = String::new();
         one_liner.push_str(&self.name);
@@ -524,8 +548,12 @@ impl Signature {
         self.named.iter().map(|f| f.long.as_str()).collect()
     }
 
-    /// Checks if short or long are already present
-    /// Panics if one of them is found
+    /// Checks if short or long options are already present
+    ///
+    /// ## Panics
+    ///
+    /// Panics if one of them is found.
+    // XXX: return result instead of a panic
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
         let s = short.inspect(|c| {
             assert!(
@@ -546,6 +574,10 @@ impl Signature {
         (name, s)
     }
 
+    /// Returns an argument with the index `position`
+    ///
+    /// It will index, in order, required arguments, then optional, then the
+    /// trailing `...rest` argument.
     pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
             self.required_positional.get(position)
@@ -557,6 +589,9 @@ impl Signature {
         }
     }
 
+    /// Returns the number of (optional) positional parameters in a signature
+    ///
+    /// This does _not_ include the `...rest` parameter, even if it's present.
     pub fn num_positionals(&self) -> usize {
         let mut total = self.required_positional.len() + self.optional_positional.len();
 
@@ -623,37 +658,6 @@ impl Signature {
             attributes,
             examples,
         })
-    }
-
-    pub fn formatted_flags(self) -> String {
-        if self.named.len() < 11 {
-            let mut s = "Available flags:".to_string();
-            for flag in self.named {
-                if let Some(short) = flag.short {
-                    let _ = write!(s, " --{}(-{}),", flag.long, short);
-                } else {
-                    let _ = write!(s, " --{},", flag.long);
-                }
-            }
-            s.remove(s.len() - 1);
-            let _ = write!(s, ". Use `--help` for more information.");
-            s
-        } else {
-            let mut s = "Some available flags:".to_string();
-            for flag in self.named {
-                if let Some(short) = flag.short {
-                    let _ = write!(s, " --{}(-{}),", flag.long, short);
-                } else {
-                    let _ = write!(s, " --{},", flag.long);
-                }
-            }
-            s.remove(s.len() - 1);
-            let _ = write!(
-                s,
-                "... Use `--help` for a full list of flags and more information."
-            );
-            s
-        }
     }
 }
 

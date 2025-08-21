@@ -53,7 +53,7 @@ impl PluginCommand for ForEach {
             let result = engine.eval_closure(&closure, vec![value.clone()], Some(value))?;
             eprintln!("{}", result.to_expanded_string(", ", &config));
         }
-        Ok(PipelineData::Empty)
+        Ok(PipelineData::empty())
     }
 }
 

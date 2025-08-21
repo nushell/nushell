@@ -181,7 +181,7 @@ fn from_xlsx(
         }
     }
 
-    Ok(PipelineData::Value(
+    Ok(PipelineData::value(
         Value::record(dict.into_iter().collect(), head),
         None,
     ))

@@ -17,7 +17,7 @@ impl Command for JobSend {
         r#"
 This command sends a message to a background job, which can then read sent messages
 in a first-in-first-out fashion with `job recv`. When it does so, it may additionally specify a numeric filter tag,
-in which case it will only read messages sent with the exact same filter tag. 
+in which case it will only read messages sent with the exact same filter tag.
 In particular, the id 0 refers to the main/initial nushell thread.
 
 A message can be any nushell value, and streams are always collected before being sent.
@@ -101,10 +101,17 @@ This command never blocks.
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",
-            description: "Send a message to a newly spawned job",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",
+                description: "Send a message from the main thread to a newly-spawned job",
+                result: None,
+            },
+            Example {
+                example: "job spawn { sleep 1sec; 'hi' | job send 0 }; job recv",
+                description: "Send a message from a newly-spawned job to the main thread (which always has an ID of 0)",
+                result: None,
+            },
+        ]
     }
 }

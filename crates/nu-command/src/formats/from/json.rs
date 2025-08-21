@@ -76,25 +76,27 @@ impl Command for FromJson {
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, ..) => Ok(PipelineData::ListStream(
-                    read_json_lines(
-                        Cursor::new(val),
-                        span,
-                        strict,
-                        engine_state.signals().clone(),
-                    ),
-                    metadata,
-                )),
+                PipelineData::Value(Value::String { val, .. }, ..) => {
+                    Ok(PipelineData::list_stream(
+                        read_json_lines(
+                            Cursor::new(val),
+                            span,
+                            strict,
+                            engine_state.signals().clone(),
+                        ),
+                        metadata,
+                    ))
+                }
                 PipelineData::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {
-                        Ok(PipelineData::ListStream(
+                        Ok(PipelineData::list_stream(
                             read_json_lines(reader, span, strict, Signals::empty()),
                             metadata,
                         ))
                     } else {
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
                 _ => Err(ShellError::OnlySupportsThisInputType {
@@ -184,7 +186,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 

@@ -69,7 +69,7 @@ impl Command for UName {
                     .to_string())
             })
             .collect::<Result<Vec<String>, ShellError>>()?;
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             Value::record(
                 record! {
                     "kernel-name" => Value::string(outputs[0].clone(), span),
