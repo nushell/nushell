@@ -780,11 +780,6 @@ pub fn get_flags_section<F>(
 where
     F: FnMut(FormatterValue) -> String,
 {
-    let mut flags = signature.named.iter();
-    let Some(help) = flags.next() else {
-        return "".to_owned();
-    };
-
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
     let help_subcolor_two = &help_style.subcolor_two;
@@ -792,46 +787,16 @@ where
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
 
-    // The for loop won't write the help flag when --help is the only flag
-    if signature.named.len() == 1 {
-        write_flag_to_long_desc(
-            help,
-            &mut long_desc,
-            help_subcolor_one,
-            help_subcolor_two,
-            &mut formatter,
-        );
+    let required = signature.named.iter().filter(|flag| flag.required);
+    let Some(help) = signature.named.iter().find(|flag| flag.long == "help") else {
+        unreachable!("we're writing the help message, yet there is no --help flag");
+    };
+    let optional = signature.named.iter().filter(|flag| !flag.required && flag.long != "help");
+    let flags = required.chain([help]).chain(optional);
 
-        return long_desc;
-    }
-
-    let mut help_written = false;
-    // Write named flags to long_desc
     for flag in flags {
-        if !help_written && !flag.required {
-            help_written = true;
-            write_flag_to_long_desc(
-                help,
-                &mut long_desc,
-                help_subcolor_one,
-                help_subcolor_two,
-                &mut formatter,
-            );
-        }
-
         write_flag_to_long_desc(
             flag,
-            &mut long_desc,
-            help_subcolor_one,
-            help_subcolor_two,
-            &mut formatter,
-        );
-    }
-
-    // The for loop above wouldn't write the --help flag description when all flags are required
-    if !help_written {
-        write_flag_to_long_desc(
-            help,
             &mut long_desc,
             help_subcolor_one,
             help_subcolor_two,
