@@ -23,6 +23,22 @@ impl Highlighter for NuHighlighter {
     }
 }
 
+// <<<<<<< HEAD
+// =======
+//         let config = self.stack.get_config(&self.engine_state);
+//         let highlight_resolved_externals = config.highlight_resolved_externals;
+//         let mut working_set = StateWorkingSet::new(&self.engine_state);
+//         let block = parse(&mut working_set, None, line.as_bytes(), false);
+//         let (shapes, global_span_offset) = {
+//             let mut shapes = flatten_block(&working_set, &block);
+//             // Highlighting externals has a config point because of concerns that using which to resolve
+//             // externals may slow down things too much.
+//             if highlight_resolved_externals {
+//                 for (span, shape) in shapes.iter_mut() {
+//                     if let FlatShape::External(aliased_command_span) = *shape {
+//                         let str_contents = working_set.get_span_contents(aliased_command_span);
+// >>>>>>> df798b657 (Fix highlighting of aliases to external commands)
+
 /// Result of a syntax highlight operation
 #[derive(Default)]
 pub(crate) struct HighlightResult {
@@ -50,10 +66,8 @@ pub(crate) fn highlight_syntax(
         // externals may slow down things too much.
         if highlight_resolved_externals {
             for (span, shape) in shapes.iter_mut() {
-                if *shape == FlatShape::External {
-                    let str_contents =
-                        working_set.get_span_contents(Span::new(span.start, span.end));
-
+                if let FlatShape::External(aliased_command_span) = shape {
+                    let str_contents = working_set.get_span_contents(**aliased_command_span);
                     let str_word = String::from_utf8_lossy(str_contents).to_string();
                     let paths = env::path_str(engine_state, stack, *span).ok();
                     let res = if let Ok(cwd) = engine_state.cwd(Some(stack)) {
@@ -126,7 +140,7 @@ pub(crate) fn highlight_syntax(
             FlatShape::Float => add_colored_token(&shape.1, next_token),
             FlatShape::Range => add_colored_token(&shape.1, next_token),
             FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-            FlatShape::External => add_colored_token(&shape.1, next_token),
+            FlatShape::External(_) => add_colored_token(&shape.1, next_token),
             FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
             FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
             FlatShape::Keyword => add_colored_token(&shape.1, next_token),
