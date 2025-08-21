@@ -445,3 +445,20 @@ fn main_script_subcommand_help_uses_script_name2() {
         assert!(!actual.err.contains("Usage: main foo"));
     })
 }
+
+#[test]
+fn script_file_not_found() {
+    let actual = nu!(r#"nu non-existent-script.nu foo bar"#);
+    assert!(
+        !actual.err.contains(".rs"),
+        "internal rust source was mentioned"
+    );
+    assert!(
+        actual.err.contains("non-existent-script.nu"),
+        "error did not include script name"
+    );
+    assert!(
+        actual.err.contains("commandline"),
+        "source file for the error was not commandline"
+    );
+}
