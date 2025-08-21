@@ -323,9 +323,12 @@ fn flatten_expression_into(
             if let Expr::String(..) | Expr::GlobPattern(..) = &head.expr {
                 output.push((
                     head.span,
-                    // If this external call is through an alias, then head.span points to the
-                    // name of the alias, but we also need the name of the aliased command. We
-                    // recover this from the span referenced by head.span_id.
+                    // If this external call is through an alias, then head.span contains the
+                    // name of the alias (needed to highlight the right thing), but we also need
+                    // the name of the aliased command (to decide *how* to highlight the call).
+                    // The parser actually created this head by cloning from the alias's definition
+                    // and then just overwriting the `span` field - but `span_id` still points to
+                    // the original span, so we can recover it from there.
                     FlatShape::External(working_set.get_span(head.span_id)),
                 ));
             } else {
