@@ -23,6 +23,7 @@ fancy-regex = { workspace = true }
 lean_string.workspace = true
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 log = { workspace = true }
+memchr = { workspace = true }
 num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 serde = { workspace = true }

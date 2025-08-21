@@ -6,8 +6,10 @@ pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
 pub mod locale;
+mod multilife;
 mod quoting;
 mod shared_cow;
+mod split_read;
 pub mod strings;
 pub mod utils;
 
@@ -25,8 +27,10 @@ pub use deansi::{
 pub use emoji::contains_emoji;
 pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;
+pub use multilife::MultiLife;
 pub use quoting::{escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
+pub use split_read::SplitRead;
 
 #[cfg(unix)]
 pub use filesystem::users;
