@@ -780,6 +780,8 @@ impl PipelineData {
         }
     }
 
+    // PipelineData might connect to a running process which has an exit status future
+    // Use this method to retrieve that future, it's useful for implementing `pipefail` feature.
     #[cfg(feature = "os")]
     pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
         match self {
