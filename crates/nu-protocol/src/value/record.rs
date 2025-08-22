@@ -276,9 +276,11 @@ impl Record {
 
     /// Naive push to the end of the datastructure.
     ///
+    /// <div class="warning">
     /// May duplicate data!
     ///
-    /// Consider to use [`Record::insert`] instead
+    /// Consider using [`CaseTypedRecord::insert`] or [`CasedRecord::insert`] instead.
+    /// </div>
     pub fn push(&mut self, col: impl Into<String>, val: Value) {
         self.inner.push((col.into(), val));
     }
