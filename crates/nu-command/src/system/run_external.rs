@@ -34,7 +34,7 @@ impl Command for External {
     }
 
     fn extra_description(&self) -> &str {
-        r#"All externals are run with this command, wether you call it directly with `run-external external` or use `external` or `^external`.
+        r#"All externals are run with this command, whether you call it directly with `run-external external` or use `external` or `^external`.
 If you create a custom command with this name, that will be used instead."#
     }
 
