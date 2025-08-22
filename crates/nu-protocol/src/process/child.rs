@@ -15,7 +15,25 @@ use std::{
     thread,
 };
 
-pub(crate) fn check_exit_status_future_ok(
+/// Check the exit status of each pipeline element.
+///
+/// This is used to implement pipefail.
+#[cfg(feature = "os")]
+pub fn check_exit_status_future(
+    exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+) -> Result<(), ShellError> {
+    let mut result = Ok(());
+    for (future, span) in exit_status.into_iter().rev().flatten() {
+        if let Err(err) = check_exit_status_future_ok(future, span) {
+            if result.is_ok() {
+                result = Err(err)
+            }
+        }
+    }
+    result
+}
+
+fn check_exit_status_future_ok(
     exit_status_future: Arc<Mutex<ExitStatusFuture>>,
     span: Span,
 ) -> Result<(), ShellError> {

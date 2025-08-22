@@ -2,7 +2,7 @@ use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
-use nu_protocol::check_exit_status_future;
+use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
     PipelineData, PipelineExecutionData, PipelineMetadata, PositionalArg, Range, Record, RegId,

@@ -2,9 +2,10 @@ use log::info;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, ShellError, Spanned, Value, check_exit_status_future,
+    PipelineData, ShellError, Spanned, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning,
 };
