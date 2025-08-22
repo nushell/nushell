@@ -1,13 +1,15 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{
     iter::FusedIterator,
-    ops::RangeBounds,
-    ops::{Deref, DerefMut},
+    marker::PhantomData,
+    ops::{Deref, DerefMut, RangeBounds},
 };
 
-use crate::{ShellError, Span, Value, casing::Casing};
+use crate::{
+    ShellError, Span, Value,
+    casing::{CaseInsensitive, CaseSensitive, Casing, CasingCmp},
+};
 
-use nu_utils::IgnoreCaseExt;
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
 #[derive(Debug, Clone, Default)]
@@ -16,14 +18,13 @@ pub struct Record {
 }
 
 /// A wrapper around [`Record`] that handles lookups. Whether the keys are compared case sensitively
-/// or not is controlled with the `SENSITIVE` parameter.
+/// or not is controlled with the `Sensitivity` parameter.
 ///
-/// It is never actually constructed as a value and only used as a reference to an existing
-/// [`Record`].
+/// It is never actually constructed as a value and only used as a reference to an existing [`Record`].
 #[repr(transparent)]
-pub struct CaseTypedRecord<const SENSITIVE: bool>(Record);
+pub struct CaseTypedRecord<Sensitivity: CasingCmp>(Record, PhantomData<Sensitivity>);
 
-impl<const SENSITIVE: bool> CaseTypedRecord<SENSITIVE> {
+impl<Sensitivity: CasingCmp> CaseTypedRecord<Sensitivity> {
     #[inline]
     const fn from_record(record: &Record) -> &Self {
         // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
@@ -36,17 +37,9 @@ impl<const SENSITIVE: bool> CaseTypedRecord<SENSITIVE> {
         unsafe { &mut *(record as *mut Record as *mut Self) }
     }
 
-    #[inline]
-    fn keys_eq(lhs: &str, rhs: &str) -> bool {
-        match SENSITIVE {
-            true => lhs == rhs,
-            false => lhs.eq_ignore_case(rhs),
-        }
-    }
-
     pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
         let col = col.as_ref();
-        self.0.columns().rposition(|k| Self::keys_eq(k, col))
+        self.0.columns().rposition(|k| Sensitivity::eq(k, col))
     }
 
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
@@ -87,36 +80,36 @@ impl<const SENSITIVE: bool> CaseTypedRecord<SENSITIVE> {
 
 /// Extension trait for [`Record`]. Enables separate implementations for `&Record` and `&mut Record`
 pub trait RecordExt {
-    type Ref<const S: bool>;
-    fn case_sensitive(self) -> Self::Ref<true>;
-    fn case_insensitive(self) -> Self::Ref<false>;
+    type Ref<S: CasingCmp>;
+    fn case_sensitive(self) -> Self::Ref<CaseSensitive>;
+    fn case_insensitive(self) -> Self::Ref<CaseInsensitive>;
 }
 
 impl<'a> RecordExt for &'a Record {
-    type Ref<const S: bool> = &'a CaseTypedRecord<S>;
+    type Ref<S: CasingCmp> = &'a CaseTypedRecord<S>;
 
     #[inline]
-    fn case_sensitive(self) -> Self::Ref<true> {
-        CaseTypedRecord::<true>::from_record(self)
+    fn case_sensitive(self) -> Self::Ref<CaseSensitive> {
+        CaseTypedRecord::<CaseSensitive>::from_record(self)
     }
 
     #[inline]
-    fn case_insensitive(self) -> Self::Ref<false> {
-        CaseTypedRecord::<false>::from_record(self)
+    fn case_insensitive(self) -> Self::Ref<CaseInsensitive> {
+        CaseTypedRecord::<CaseInsensitive>::from_record(self)
     }
 }
 
 impl<'a> RecordExt for &'a mut Record {
-    type Ref<const S: bool> = &'a mut CaseTypedRecord<S>;
+    type Ref<S: CasingCmp> = &'a mut CaseTypedRecord<S>;
 
     #[inline]
-    fn case_sensitive(self) -> Self::Ref<true> {
-        CaseTypedRecord::<true>::from_record_mut(self)
+    fn case_sensitive(self) -> Self::Ref<CaseSensitive> {
+        CaseTypedRecord::<CaseSensitive>::from_record_mut(self)
     }
 
     #[inline]
-    fn case_insensitive(self) -> Self::Ref<false> {
-        CaseTypedRecord::<false>::from_record_mut(self)
+    fn case_insensitive(self) -> Self::Ref<CaseInsensitive> {
+        CaseTypedRecord::<CaseInsensitive>::from_record_mut(self)
     }
 }
 
@@ -133,7 +126,7 @@ impl AsMut<Record> for Record {
 }
 
 impl Deref for Record {
-    type Target = CaseTypedRecord<true>;
+    type Target = CaseTypedRecord<CaseSensitive>;
 
     fn deref(&self) -> &Self::Target {
         self.case_sensitive()
