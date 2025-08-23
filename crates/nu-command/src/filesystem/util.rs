@@ -1,16 +1,5 @@
 use dialoguer::Input;
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-};
-
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Resource {
-    pub at: usize,
-    pub location: PathBuf,
-}
-
-impl Resource {}
+use std::error::Error;
 
 pub fn try_interaction(
     interactive: bool,
@@ -54,36 +43,5 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
         Ok(true)
     } else {
         Ok(false)
-    }
-}
-
-/// Return `Some(true)` if the last change time of the `src` old than the `dst`,
-/// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't exist.
-#[allow(dead_code)]
-pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
-    if !dst.exists() || !src.exists() {
-        return None;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let src_ctime = std::fs::metadata(src)
-            .map(|m| m.ctime())
-            .unwrap_or(i64::MIN);
-        let dst_ctime = std::fs::metadata(dst)
-            .map(|m| m.ctime())
-            .unwrap_or(i64::MAX);
-        Some(src_ctime <= dst_ctime)
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        let src_ctime = std::fs::metadata(src)
-            .map(|m| m.last_write_time())
-            .unwrap_or(u64::MIN);
-        let dst_ctime = std::fs::metadata(dst)
-            .map(|m| m.last_write_time())
-            .unwrap_or(u64::MAX);
-        Some(src_ctime <= dst_ctime)
     }
 }

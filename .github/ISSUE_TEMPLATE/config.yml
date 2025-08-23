@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question
+    url: https://github.com/nushell/nushell/discussions/new?category=q-a
+    about: Create a new Q&A discussion post

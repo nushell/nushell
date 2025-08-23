@@ -1114,13 +1114,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Operation interrupted by user
-    #[error("Operation interrupted by user")]
-    InterruptedByUser {
-        #[label("This operation was interrupted")]
-        span: Option<Span>,
-    },
-
     /// An attempt to use, as a match guard, an expression that
     /// does not resolve into a boolean
     #[error("Match guard not bool")]
@@ -1186,18 +1179,16 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    // TODO: Update help text once custom const commands are supported
     /// Tried running a command that is not const-compatible
     ///
     /// ## Resolution
     ///
-    /// Only a subset of builtin commands, and custom commands built only from those commands, can
-    /// run at parse time.
+    /// Only a subset of builtin commands can run at parse time.
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help(
-            "Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time."
-        )
+        help("Only a subset of builtin commands can run at parse time.")
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
@@ -1340,7 +1331,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
-        span: Option<Span>,
+        span: Span,
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
@@ -1380,7 +1371,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     DisabledOsSupport {
         msg: String,
         #[label = "while running this code"]
-        span: Option<Span>,
+        span: Span,
     },
 
     #[error(transparent)]

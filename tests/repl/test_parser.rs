@@ -1036,3 +1036,9 @@ fn external_argument_with_subexpressions() -> TestResult {
     run_test(r#"^echo ")('foo')(""#, ")('foo')(")?;
     fail_test(r#"^echo foo( 'bar'"#, "Unexpected end of code")
 }
+
+// https://github.com/nushell/nushell/issues/16332
+#[test]
+fn quote_escape_but_not_env_shorthand() -> TestResult {
+    run_test(r#""\"=foo""#, "\"=foo")
+}

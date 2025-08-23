@@ -816,6 +816,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "buf-trait"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21eaafc770e8c073d6c3facafe7617e774305d4954aa6351b9c452eb37ee17b4"
+dependencies = [
+ "zerocopy 0.7.35",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -877,6 +886,15 @@ name = "bytesize"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e93abca9e28e0a1b9877922aacb20576e05d4679ffa78c3d6dc22a26a216659"
+
+[[package]]
+name = "byteyarn"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b93e51d26468a15ea59f8525e0c13dc405db43e644a0b1e6d44346c72cf4cf7b"
+dependencies = [
+ "buf-trait",
+]
 
 [[package]]
 name = "calamine"
@@ -3049,6 +3067,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "lean_string"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75e49998bd00bfb567a44a6d3c3d1a970ce35665b5ebf68d64e5e96410be58ae"
+dependencies = [
+ "castaway",
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.174"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3995,6 +4025,7 @@ version = "0.106.2"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
+ "fancy-regex",
  "lsp-server",
  "lsp-textdocument",
  "lsp-types",
@@ -4236,11 +4267,14 @@ dependencies = [
 name = "nu-utils"
 version = "0.106.2"
 dependencies = [
+ "byteyarn",
  "crossterm",
  "crossterm_winapi",
  "fancy-regex",
+ "lean_string",
  "log",
  "lscolors",
+ "memchr",
  "nix 0.29.0",
  "num-format",
  "serde",
@@ -4658,9 +4692,9 @@ dependencies = [
 
 [[package]]
 name = "oem_cp"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330138902ab4dab09a86e6b7ab7ddeffb5f8435d52fe0df1bce8b06a17b10ee4"
+checksum = "7da228ac17ec7684952ec38d602222d7ec74c1255b2505b716c9ed621ab0340a"
 dependencies = [
  "phf",
  "phf_codegen",
@@ -6086,7 +6120,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.41.0"
-source = "git+https://github.com/nushell/reedline?branch=main#faee143a688846d98e260407b4e09f653eb31307"
+source = "git+https://github.com/nushell/reedline?branch=main#adeb8ea52ff78917bb5f48d8904adf6cbd29bcf9"
 dependencies = [
  "arboard",
  "chrono",
@@ -7289,9 +7323,9 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.20.0"
+version = "3.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8a64e3985349f2441a1a9ef0b853f869006c3855f2cda6862a94d26ebb9d6a1"
+checksum = "15b61f8f20e3a6f7e0649d825294eaf317edce30f82cf6026e7e4cb9222a7d1e"
 dependencies = [
  "fastrand",
  "getrandom 0.3.1",

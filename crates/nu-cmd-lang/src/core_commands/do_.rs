@@ -84,7 +84,7 @@ impl Command for Do {
                 #[cfg(not(feature = "os"))]
                 return Err(ShellError::DisabledOsSupport {
                     msg: "Cannot create a thread to receive stdout message.".to_string(),
-                    span: Some(span),
+                    span,
                 });
 
                 #[cfg(feature = "os")]

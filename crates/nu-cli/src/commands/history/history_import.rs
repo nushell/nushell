@@ -78,7 +78,7 @@ Note that history item IDs are ignored when importing from file."#
             return ok;
         };
         let Some(current_history_path) = history.file_path() else {
-            return Err(ShellError::ConfigDirNotFound { span: span.into() });
+            return Err(ShellError::ConfigDirNotFound { span });
         };
         if let Some(bak_path) = backup(&current_history_path, span)? {
             println!("Backed history to {}", bak_path.display());
@@ -89,8 +89,9 @@ Note that history item IDs are ignored when importing from file."#
                     HistoryFileFormat::Sqlite => HistoryFileFormat::Plaintext,
                     HistoryFileFormat::Plaintext => HistoryFileFormat::Sqlite,
                 };
-                let src = new_backend(other_format, None)?;
-                let mut dst = new_backend(history.file_format, Some(current_history_path))?;
+                let src = new_backend(other_format, None, call.head)?;
+                let mut dst =
+                    new_backend(history.file_format, Some(current_history_path), call.head)?;
                 let items = src
                     .search(SearchQuery::everything(
                         reedline::SearchDirection::Forward,
@@ -104,7 +105,8 @@ Note that history item IDs are ignored when importing from file."#
             _ => {
                 let input = input.into_iter().map(item_from_value);
                 import(
-                    new_backend(history.file_format, Some(current_history_path))?.as_mut(),
+                    new_backend(history.file_format, Some(current_history_path), call.head)?
+                        .as_mut(),
                     input,
                 )
             }
@@ -117,12 +119,13 @@ Note that history item IDs are ignored when importing from file."#
 fn new_backend(
     format: HistoryFileFormat,
     path: Option<PathBuf>,
+    span: Span,
 ) -> Result<Box<dyn History>, ShellError> {
     let path = match path {
         Some(path) => path,
         None => {
             let Some(mut path) = nu_path::nu_config_dir() else {
-                return Err(ShellError::ConfigDirNotFound { span: None });
+                return Err(ShellError::ConfigDirNotFound { span });
             };
             path.push(format.default_file_name());
             path.into_std_path_buf()

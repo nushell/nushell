@@ -88,8 +88,8 @@ impl HexConfig {
     }
 
     fn delimiter(&self, i: usize) -> &'static str {
-        if i > 0 && self.chunk > 0 && i % self.chunk == 0 {
-            if self.group > 0 && i % (self.group * self.chunk) == 0 {
+        if i > 0 && self.chunk > 0 && i.is_multiple_of(self.chunk) {
+            if self.group > 0 && i.is_multiple_of(self.group * self.chunk) {
                 "  "
             } else {
                 " "

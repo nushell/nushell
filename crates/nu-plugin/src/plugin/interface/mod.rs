@@ -242,7 +242,7 @@ impl InterfaceManager for EngineInterfaceManager {
     }
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
-        log::trace!("from engine: {:?}", input);
+        log::trace!("from engine: {input:?}");
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -991,7 +991,7 @@ impl Interface for EngineInterface {
     type DataContext = ();
 
     fn write(&self, output: PluginOutput) -> Result<(), ShellError> {
-        log::trace!("to engine: {:?}", output);
+        log::trace!("to engine: {output:?}");
         self.state.writer.write(&output)
     }
 

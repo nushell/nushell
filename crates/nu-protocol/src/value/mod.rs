@@ -15,6 +15,7 @@ pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
+pub use nu_utils::MultiLife;
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
@@ -36,7 +37,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
-    ops::{Bound, ControlFlow, Deref},
+    ops::{Bound, ControlFlow},
     path::PathBuf,
 };
 
@@ -1083,30 +1084,6 @@ impl Value {
         &'out self,
         cell_path: &[PathMember],
     ) -> Result<Cow<'out, Value>, ShellError> {
-        enum MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            Out(&'out T),
-            Local(&'local T),
-        }
-
-        impl<'out, 'local, T> Deref for MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            type Target = T;
-
-            fn deref(&self) -> &Self::Target {
-                match *self {
-                    MultiLife::Out(x) => x,
-                    MultiLife::Local(x) => x,
-                }
-            }
-        }
-
         // A dummy value is required, otherwise rust doesn't allow references, which we need for
         // the `std::ptr::eq` comparison
         let mut store: Value = Value::test_nothing();

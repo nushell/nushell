@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Actions Repository
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v5
 
       - name: Check spelling
-        uses: crate-ci/typos@v1.35.4
+        uses: crate-ci/typos@v1.35.5
