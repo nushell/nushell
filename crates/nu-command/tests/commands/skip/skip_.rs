@@ -20,3 +20,12 @@ fn fail_on_non_iterator() {
 
     assert!(actual.err.contains("command doesn't support"));
 }
+
+#[test]
+fn skips_bytes_and_drops_content_type() {
+    let actual = nu!(format!(
+        "open {} | skip 3 | metadata | get content_type? | describe",
+        file!(),
+    ));
+    assert_eq!(actual.out, "nothing");
+}

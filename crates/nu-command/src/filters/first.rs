@@ -98,7 +98,8 @@ fn first_helper(
         1
     };
 
-    let metadata = input.metadata();
+    // first 5 bytes of an image/png are not image/png themselves
+    let metadata = input.metadata().map(|m| m.with_content_type(None));
 
     // early exit for `first 0`
     if rows == 0 {
@@ -176,6 +177,7 @@ fn first_helper(
         PipelineData::ByteStream(stream, metadata) => {
             if stream.type_().is_binary_coercible() {
                 let span = stream.span();
+                let metadata = metadata.map(|m| m.with_content_type(None));
                 if let Some(mut reader) = stream.reader() {
                     if return_single_element {
                         // Take a single byte
