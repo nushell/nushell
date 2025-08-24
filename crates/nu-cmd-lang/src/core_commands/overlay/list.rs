@@ -45,11 +45,22 @@ impl Command for OverlayList {
             .map(|overlay| (overlay.clone(), true));
 
         // Get all overlay names from engine state
-        let rows: Vec<Value> = engine_state
+        let output_rows: Vec<Value> = engine_state
             .scope
-            .removed_overlays
+            .overlays
             .iter()
-            .map(|name| (String::from_utf8_lossy(name).to_string(), false))
+            .filter_map(|(name, _)| {
+                let name = String::from_utf8_lossy(name).to_string();
+                if stack
+                    .active_overlays
+                    .iter()
+                    .any(|active_name| active_name == &name)
+                {
+                    None
+                } else {
+                    Some((name, false))
+                }
+            })
             .chain(active_overlays)
             .map(|(name, active)| {
                 Value::record(
@@ -62,7 +73,7 @@ impl Command for OverlayList {
             })
             .collect();
 
-        Ok(Value::list(rows, call.head).into_pipeline_data())
+        Ok(Value::list(output_rows, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
