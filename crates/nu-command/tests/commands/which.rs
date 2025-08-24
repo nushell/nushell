@@ -118,3 +118,33 @@ fn which_accepts_spread_list() {
 
     assert_eq!(actual.out, "ls");
 }
+
+#[test]
+fn which_regex_single_match() {
+    let actual = nu!("which -r '^ls$' | get command.0");
+    assert_eq!(actual.out, "ls");
+}
+
+#[test]
+fn which_regex_multiple_matches() {
+    let actual = nu!("which -a -r '^l' | length");
+
+    let length: i32 = actual.out.parse().unwrap();
+    assert!(length >= 1);
+}
+
+#[test]
+fn which_regex_no_match() {
+    let actual = nu!("which -r '^zzz_nonexistent_cmd$' | length");
+
+    let length: i32 = actual.out.parse().unwrap();
+    assert_eq!(length, 0);
+}
+
+#[test]
+fn which_regex_invalid_pattern() {
+    // Test that invalid regex patterns return an error
+    let actual = nu!("which -r '[invalid'");
+
+    assert!(actual.err.contains("regex") || actual.err.contains("pattern"));
+}
