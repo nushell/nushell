@@ -138,6 +138,7 @@ unicode-width = { workspace = true }
 data-encoding = { version = "2.9.0", features = ["alloc"] }
 web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
+regex = "1.11.1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }

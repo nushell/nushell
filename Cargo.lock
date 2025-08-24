@@ -3896,6 +3896,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "rayon",
  "reedline",
+ "regex",
  "rmp",
  "roxmltree",
  "rstest",
@@ -8443,6 +8444,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fabb953106c3c8eea8306e4393700d7657561cb43122571b172bbfb7c7ba1d"
 dependencies = [
  "env_home",
+ "regex",
  "rustix 1.0.7",
  "winsafe",
 ]

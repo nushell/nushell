@@ -193,7 +193,7 @@ uuid = "1.16.0"
 v_htmlescape = "0.15.0"
 wax = "0.6"
 web-time = "1.1.0"
-which = "8.0.0"
+which = { version = "8.0.0", features = ["regex"] }
 windows = "0.56"
 windows-sys = "0.48"
 winreg = "0.52"

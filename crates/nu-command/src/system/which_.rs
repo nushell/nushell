@@ -1,5 +1,6 @@
 use nu_engine::{command_prelude::*, env};
 use nu_protocol::engine::CommandType;
+use regex::Regex;
 use std::{ffi::OsStr, path::Path};
 
 #[derive(Clone)]
@@ -16,6 +17,7 @@ impl Command for Which {
             .allow_variants_without_examples(true)
             .rest("applications", SyntaxShape::String, "Application(s).")
             .switch("all", "list all executables", Some('a'))
+            .switch("regex", "list executables by regex", Some('r'))
             .category(Category::System)
     }
 
@@ -45,11 +47,18 @@ impl Command for Which {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Find if the 'myapp' application is available",
-            example: "which myapp",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Find if the 'myapp' application is available",
+                example: "which myapp",
+                result: None,
+            },
+            Example {
+                description: "Find all python versions",
+                example: "which -a -r python[0-9]+",
+                result: None,
+            },
+        ]
     }
 }
 
@@ -79,25 +88,6 @@ fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> 
     }
 }
 
-fn get_entries_in_nu(
-    engine_state: &EngineState,
-    name: &str,
-    span: Span,
-    skip_after_first_found: bool,
-) -> Vec<Value> {
-    let mut all_entries = vec![];
-
-    if !all_entries.is_empty() && skip_after_first_found {
-        return all_entries;
-    }
-
-    if let Some(ent) = get_entry_in_commands(engine_state, name, span) {
-        all_entries.push(ent);
-    }
-
-    all_entries
-}
-
 fn get_first_entry_in_path(
     item: &str,
     span: Span,
@@ -123,19 +113,40 @@ fn get_all_entries_in_path(
         .unwrap_or_default()
 }
 
-#[derive(Debug)]
-struct WhichArgs {
-    applications: Vec<Spanned<String>>,
-    all: bool,
+fn get_entries_regex(regex: &Regex, span: Span, return_first_match: bool) -> Vec<Value> {
+    let Ok(paths) = which::which_re(regex) else {
+        return vec![];
+    };
+
+    let matches = paths.filter_map(|path| {
+        Path::new(&path)
+            .file_name()
+            .and_then(OsStr::to_str)
+            .map(|filename| {
+                entry(
+                    filename,
+                    path.to_string_lossy(),
+                    CommandType::External,
+                    span,
+                )
+            })
+    });
+
+    if return_first_match {
+        matches.take(1).collect()
+    } else {
+        matches.collect()
+    }
 }
 
 fn which_single(
     application: Spanned<String>,
     all: bool,
+    regex: bool,
     engine_state: &EngineState,
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
-) -> Vec<Value> {
+) -> Result<Vec<Value>, ShellError> {
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -146,42 +157,54 @@ fn which_single(
     //If all is false, we can save some time by only searching for the first matching
     //program
     //This match handles all different cases
+    if regex {
+        let regex = Regex::new(&application.item).map_err(|e| ShellError::IncorrectValue {
+            msg: e.to_string(),
+            val_span: application.span,
+            call_span: application.span,
+        })?;
+        return Ok(get_entries_regex(&regex, application.span, !all));
+    }
+
     match (all, external) {
-        (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
+        (true, true) => Ok(get_all_entries_in_path(
+            &prog_name,
+            application.span,
+            cwd,
+            paths,
+        )),
         (true, false) => {
             let mut output: Vec<Value> = vec![];
-            output.extend(get_entries_in_nu(
-                engine_state,
-                &prog_name,
-                application.span,
-                false,
-            ));
+            if let Some(entry) = get_entry_in_commands(engine_state, &prog_name, application.span) {
+                output.push(entry);
+            }
             output.extend(get_all_entries_in_path(
                 &prog_name,
                 application.span,
                 cwd,
                 paths,
             ));
-            output
+            Ok(output)
         }
-        (false, true) => {
-            if let Some(entry) = get_first_entry_in_path(&prog_name, application.span, cwd, paths) {
-                return vec![entry];
-            }
-            vec![]
-        }
-        (false, false) => {
-            let nu_entries = get_entries_in_nu(engine_state, &prog_name, application.span, true);
-            if !nu_entries.is_empty() {
-                return vec![nu_entries[0].clone()];
-            } else if let Some(entry) =
-                get_first_entry_in_path(&prog_name, application.span, cwd, paths)
-            {
-                return vec![entry];
-            }
-            vec![]
-        }
+        (false, true) => Ok(
+            get_first_entry_in_path(&prog_name, application.span, cwd, paths)
+                .into_iter()
+                .collect(),
+        ),
+        (false, false) => Ok(
+            get_entry_in_commands(engine_state, &prog_name, application.span)
+                .or_else(|| get_first_entry_in_path(&prog_name, application.span, cwd, paths))
+                .into_iter()
+                .collect(),
+        ),
     }
+}
+
+#[derive(Debug)]
+struct WhichArgs {
+    applications: Vec<Spanned<String>>,
+    all: bool,
+    regex: bool,
 }
 
 fn which(
@@ -193,6 +216,7 @@ fn which(
     let which_args = WhichArgs {
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag(engine_state, stack, "all")?,
+        regex: call.has_flag(engine_state, stack, "regex")?,
     };
 
     if which_args.applications.is_empty() {
@@ -212,10 +236,11 @@ fn which(
         let values = which_single(
             app,
             which_args.all,
+            which_args.regex,
             engine_state,
             cwd.clone(),
             paths.clone(),
-        );
+        )?;
         output.extend(values);
     }
 
