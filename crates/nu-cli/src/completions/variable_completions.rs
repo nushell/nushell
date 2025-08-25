@@ -57,8 +57,6 @@ impl Completer for VariableCompletion {
             })
         };
 
-        // TODO: smarter scope-aware variable completion
-        let mut variables_defined_before_cursor = HashMap::new();
         // Permanent state vars
         for overlay_frame in working_set.permanent_state.active_overlays(&[]).rev() {
             for (name, var_id) in &overlay_frame.vars {
@@ -67,8 +65,10 @@ impl Completer for VariableCompletion {
             }
         }
 
+        // TODO: smarter scope-aware variable completion
         // A superset of valid variables in current scope,
         // A workaround for https://github.com/nushell/nushell/issues/15291
+        let mut variables_defined_before_cursor = HashMap::new();
         let working_span = working_set
             .files()
             .last()
