@@ -25,7 +25,7 @@ export def dark-theme [] {
         list: default
         block: default
         hints: dark_gray
-        search_result: { bg: red fg: default }
+        search_result: { bg: red fg: white }
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan
@@ -40,7 +40,7 @@ export def dark-theme [] {
         shape_flag: blue_bold
         shape_float: purple_bold
         # shapes are used to change the cli syntax highlighting
-        shape_garbage: { fg: default bg: red attr: b }
+        shape_garbage: { fg: white bg: red attr: b }
         shape_glob_interpolation: cyan_bold
         shape_globpattern: cyan_bold
         shape_int: purple_bold
@@ -93,7 +93,7 @@ export def light-theme [] {
         list: dark_gray
         block: dark_gray
         hints: dark_gray
-        search_result: { fg: default bg: red }
+        search_result: { fg: white bg: red }
         shape_binary: purple_bold
         shape_block: blue_bold
         shape_bool: light_cyan
@@ -108,7 +108,7 @@ export def light-theme [] {
         shape_flag: blue_bold
         shape_float: purple_bold
         # shapes are used to change the cli syntax highlighting
-        shape_garbage: { fg: default bg: red attr: b }
+        shape_garbage: { fg: white bg: red attr: b }
         shape_glob_interpolation: cyan_bold
         shape_globpattern: cyan_bold
         shape_int: purple_bold
