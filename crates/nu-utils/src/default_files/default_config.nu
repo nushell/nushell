@@ -2,29 +2,29 @@
 #
 # version = "0.106.2"
 $env.config.color_config = {
-    separator: white
+    separator: default
     leading_trailing_space_bg: { attr: n }
     header: green_bold
     empty: blue
     bool: light_cyan
-    int: white
+    int: default
     filesize: cyan
-    duration: white
+    duration: default
     datetime: purple
-    range: white
-    float: white
-    string: white
-    nothing: white
-    binary: white
-    cell-path: white
+    range: default
+    float: default
+    string: default
+    nothing: default
+    binary: default
+    cell-path: default
     row_index: green_bold
-    record: white
-    list: white
+    record: default
+    list: default
     closure: green_bold
     glob:cyan_bold
-    block: white
+    block: default
     hints: dark_gray
-    search_result: { bg: red fg: white }
+    search_result: { bg: red fg: default }
     shape_binary: purple_bold
     shape_block: blue_bold
     shape_bool: light_cyan
@@ -61,7 +61,7 @@ $env.config.color_config = {
     shape_vardecl: purple
     shape_raw_string: light_purple
     shape_garbage: {
-        fg: white
+        fg: default
         bg: red
         attr: b
     }

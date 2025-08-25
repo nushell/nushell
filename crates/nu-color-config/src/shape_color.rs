@@ -18,7 +18,7 @@ pub fn default_shape_color(shape: &str) -> Style {
         "shape_filepath" => Style::new().fg(Color::Cyan),
         "shape_flag" => Style::new().fg(Color::Blue).bold(),
         "shape_float" => Style::new().fg(Color::Purple).bold(),
-        "shape_garbage" => Style::new().fg(Color::White).on(Color::Red).bold(),
+        "shape_garbage" => Style::new().fg(Color::Default).on(Color::Red).bold(),
         "shape_glob_interpolation" => Style::new().fg(Color::Cyan).bold(),
         "shape_globpattern" => Style::new().fg(Color::Cyan).bold(),
         "shape_int" => Style::new().fg(Color::Purple).bold(),
