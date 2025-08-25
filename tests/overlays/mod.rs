@@ -212,7 +212,7 @@ fn hide_overlay_from_const_name() {
         "const mod = 'spam'",
         "overlay new $mod",
         "overlay hide $mod",
-        "overlay list | str join ' '",
+        "overlay list | where active == true | get name | str join ' '",
     ];
 
     let actual = nu!(&inp.join("; "));
