@@ -121,8 +121,8 @@ fn which_accepts_spread_list() {
 
 #[test]
 fn which_regex_single_match() {
-    let actual = nu!("which -r '^ls$' | get command.0");
-    assert_eq!(actual.out, "ls");
+    let actual = nu!("which -r '^cd$' | get command.0");
+    assert_eq!(actual.out, "cd");
 }
 
 #[test]
@@ -143,7 +143,6 @@ fn which_regex_no_match() {
 
 #[test]
 fn which_regex_invalid_pattern() {
-    // Test that invalid regex patterns return an error
     let actual = nu!("which -r '[invalid'");
 
     assert!(actual.err.contains("regex") || actual.err.contains("pattern"));
