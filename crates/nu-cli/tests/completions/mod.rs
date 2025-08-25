@@ -1985,11 +1985,12 @@ fn local_variable_completion() {
     let (_, _, engine, stack) = new_engine();
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = "def test [foo: string] { let fooo = 1; $foo";
+    let completion_str =
+        "def test [foo?: string, --fooo: bool, ...foooo] { let fooooo = true; $foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // https://github.com/nushell/nushell/issues/15291
-    let expected: Vec<_> = vec!["$foo", "$fooo"];
+    let expected: Vec<_> = vec!["$foo", "$fooo", "$foooo", "$fooooo"];
     match_suggestions(&expected, &suggestions);
 }
 
