@@ -1,6 +1,7 @@
 use nu_engine::{command_prelude::*, env};
 use nu_protocol::engine::CommandType;
 use regex::Regex;
+use std::string::String as DefaultString;
 use std::{ffi::OsStr, path::Path};
 
 #[derive(Clone)]
@@ -55,7 +56,7 @@ impl Command for Which {
             },
             Example {
                 description: "Find all python versions",
-                example: "which -a -r python[0-9]+",
+                example: "which -a -r 'python[0-9]+'",
                 result: None,
             },
         ]
@@ -147,6 +148,33 @@ fn which_single(
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Result<Vec<Value>, ShellError> {
+    if regex {
+        let regex = Regex::new(&application.item).map_err(|e| ShellError::IncorrectValue {
+            msg: e.to_string(),
+            val_span: application.span,
+            call_span: application.span,
+        })?;
+
+        let mut internal_commands: Vec<Value> = engine_state
+            .get_decls_sorted(false)
+            .iter()
+            .map(|x| {
+                let decl = engine_state.get_decl(x.1);
+                (DefaultString::from_utf8_lossy(&x.0), decl.command_type())
+            })
+            .filter(|x| regex.is_match(&x.0))
+            .map(|x| entry(x.0, "", x.1, application.span))
+            .collect();
+
+        if !all && !internal_commands.is_empty() {
+            return Ok(internal_commands.into_iter().take(1).collect());
+        }
+
+        internal_commands.extend(get_entries_regex(&regex, application.span, !all));
+
+        return Ok(internal_commands);
+    }
+
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
@@ -157,15 +185,6 @@ fn which_single(
     //If all is false, we can save some time by only searching for the first matching
     //program
     //This match handles all different cases
-    if regex {
-        let regex = Regex::new(&application.item).map_err(|e| ShellError::IncorrectValue {
-            msg: e.to_string(),
-            val_span: application.span,
-            call_span: application.span,
-        })?;
-        return Ok(get_entries_regex(&regex, application.span, !all));
-    }
-
     match (all, external) {
         (true, true) => Ok(get_all_entries_in_path(
             &prog_name,
