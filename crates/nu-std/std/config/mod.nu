@@ -2,7 +2,7 @@
 export def dark-theme [] {
     {
         # color for nushell primitives
-        separator: white
+        separator: default
         leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
         header: green_bold
         empty: blue
@@ -10,20 +10,20 @@ export def dark-theme [] {
         # The value (in this case, a bool) is piped into the closure.
         # eg) {|| if $in { 'light_cyan' } else { 'light_gray' } }
         bool: light_cyan
-        int: white
+        int: default
         filesize: cyan
-        duration: white
+        duration: default
         datetime: purple
-        range: white
-        float: white
-        string: white
-        nothing: white
-        binary: white
-        cell-path: white
+        range: default
+        float: default
+        string: default
+        nothing: default
+        binary: default
+        cell-path: default
         row_index: green_bold
-        record: white
-        list: white
-        block: white
+        record: default
+        list: default
+        block: default
         hints: dark_gray
         search_result: { bg: red fg: white }
         shape_binary: purple_bold

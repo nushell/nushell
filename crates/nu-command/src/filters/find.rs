@@ -75,7 +75,7 @@ impl Command for Find {
                 description: "Search and highlight text for a term in a string.",
                 example: r#"'Cargo.toml' | find Cargo"#,
                 result: Some(Value::test_string(
-                    "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mCargo\u{1b}[0m\u{1b}[37m.toml\u{1b}[0m"
+                    "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mCargo\u{1b}[0m\u{1b}[39m.toml\u{1b}[0m"
                         .to_owned(),
                 )),
             },
@@ -93,10 +93,10 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m",
+                            "\u{1b}[39m\u{1b}[0m\u{1b}[41;39ml\u{1b}[0m\u{1b}[39marry\u{1b}[0m",
                         ),
                         Value::test_string(
-                            "\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m",
+                            "\u{1b}[39mcur\u{1b}[0m\u{1b}[41;39ml\u{1b}[0m\u{1b}[39my\u{1b}[0m",
                         ),
                     ],
                     Span::test_data(),
@@ -108,11 +108,11 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[37ma\u{1b}[0m\u{1b}[41;37mbc\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+                            "\u{1b}[39ma\u{1b}[0m\u{1b}[41;39mbc\u{1b}[0m\u{1b}[39m\u{1b}[0m"
                                 .to_string(),
                         ),
                         Value::test_string(
-                            "\u{1b}[37ma\u{1b}[0m\u{1b}[41;37mbf\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+                            "\u{1b}[39ma\u{1b}[0m\u{1b}[41;39mbf\u{1b}[0m\u{1b}[39m\u{1b}[0m"
                                 .to_string(),
                         ),
                     ],
@@ -125,11 +125,11 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37maB\u{1b}[0m\u{1b}[37mc\u{1b}[0m"
+                            "\u{1b}[39m\u{1b}[0m\u{1b}[41;39maB\u{1b}[0m\u{1b}[39mc\u{1b}[0m"
                                 .to_string(),
                         ),
                         Value::test_string(
-                            "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mab\u{1b}[0m\u{1b}[37mf\u{1b}[0m"
+                            "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mab\u{1b}[0m\u{1b}[39mf\u{1b}[0m"
                                 .to_string(),
                         ),
                     ],
@@ -141,7 +141,7 @@ impl Command for Find {
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "version" => Value::test_string("0.1.0"),
-                        "name" => Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37mnu\u{1b}[0m\u{1b}[37mshell\u{1b}[0m".to_string()),
+                        "name" => Value::test_string("\u{1b}[39m\u{1b}[0m\u{1b}[41;39mnu\u{1b}[0m\u{1b}[39mshell\u{1b}[0m".to_string()),
                 })])),
             },
             Example {
@@ -165,7 +165,7 @@ impl Command for Find {
                     vec![Value::list(
                         vec![
                             Value::test_string(
-                                "\u{1b}[37mLa\u{1b}[0m\u{1b}[41;37mrr\u{1b}[0m\u{1b}[37my\u{1b}[0m",
+                                "\u{1b}[39mLa\u{1b}[0m\u{1b}[41;39mrr\u{1b}[0m\u{1b}[39my\u{1b}[0m",
                             ),
                             Value::test_string("Moe"),
                         ],
@@ -202,7 +202,7 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                             "col1" => Value::test_string(
-                                "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+                                "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mmoe\u{1b}[0m\u{1b}[39m\u{1b}[0m"
                                     .to_string(),
                             ),
                             "col2" => Value::test_string("larry".to_string()),
@@ -217,10 +217,10 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[37mAnd roses are bl\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
+                            "\u{1b}[39mAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                         ),
                         Value::test_string(
-                            "\u{1b}[37mAlter their h\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
+                            "\u{1b}[39mAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                         ),
                     ],
                     Span::test_data(),
@@ -230,7 +230,7 @@ impl Command for Find {
                 description: "Find in a multi-line string without splitting the input into a list of lines",
                 example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find --multiline "ue""#,
                 result: Some(Value::test_string(
-                    "\u{1b}[37mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;37mue\u{1b}[0m\u{1b}[37m\u{1b}[0m",
+                    "\u{1b}[39mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
             },
         ]
