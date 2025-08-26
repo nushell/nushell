@@ -22,18 +22,18 @@ pub struct Record {
 ///
 /// It is never actually constructed as a value and only used as a reference to an existing [`Record`].
 #[repr(transparent)]
-pub struct CaseTypedRecord<Sensitivity: CaseSensitivity>(Record, PhantomData<Sensitivity>);
+pub struct CasedRecord<Sensitivity: CaseSensitivity>(Record, PhantomData<Sensitivity>);
 
-impl<Sensitivity: CaseSensitivity> CaseTypedRecord<Sensitivity> {
+impl<Sensitivity: CaseSensitivity> CasedRecord<Sensitivity> {
     #[inline]
     const fn from_record(record: &Record) -> &Self {
-        // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
+        // SAFETY: `CasedRecord` has the same memory layout as `Record`.
         unsafe { &*(record as *const Record as *const Self) }
     }
 
     #[inline]
     const fn from_record_mut(record: &mut Record) -> &mut Self {
-        // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
+        // SAFETY: `CasedRecord` has the same memory layout as `Record`.
         unsafe { &mut *(record as *mut Record as *mut Self) }
     }
 
@@ -79,30 +79,30 @@ impl<Sensitivity: CaseSensitivity> CaseTypedRecord<Sensitivity> {
 }
 
 impl<'a> WrapCased for &'a Record {
-    type Wrapper<S: CaseSensitivity> = &'a CaseTypedRecord<S>;
+    type Wrapper<S: CaseSensitivity> = &'a CasedRecord<S>;
 
     #[inline]
     fn case_sensitive(self) -> Self::Wrapper<CaseSensitive> {
-        CaseTypedRecord::<CaseSensitive>::from_record(self)
+        CasedRecord::<CaseSensitive>::from_record(self)
     }
 
     #[inline]
     fn case_insensitive(self) -> Self::Wrapper<CaseInsensitive> {
-        CaseTypedRecord::<CaseInsensitive>::from_record(self)
+        CasedRecord::<CaseInsensitive>::from_record(self)
     }
 }
 
 impl<'a> WrapCased for &'a mut Record {
-    type Wrapper<S: CaseSensitivity> = &'a mut CaseTypedRecord<S>;
+    type Wrapper<S: CaseSensitivity> = &'a mut CasedRecord<S>;
 
     #[inline]
     fn case_sensitive(self) -> Self::Wrapper<CaseSensitive> {
-        CaseTypedRecord::<CaseSensitive>::from_record_mut(self)
+        CasedRecord::<CaseSensitive>::from_record_mut(self)
     }
 
     #[inline]
     fn case_insensitive(self) -> Self::Wrapper<CaseInsensitive> {
-        CaseTypedRecord::<CaseInsensitive>::from_record_mut(self)
+        CasedRecord::<CaseInsensitive>::from_record_mut(self)
     }
 }
 
@@ -119,7 +119,7 @@ impl AsMut<Record> for Record {
 }
 
 impl Deref for Record {
-    type Target = CaseTypedRecord<CaseSensitive>;
+    type Target = CasedRecord<CaseSensitive>;
 
     fn deref(&self) -> &Self::Target {
         self.case_sensitive()
@@ -135,20 +135,20 @@ impl DerefMut for Record {
 /// A wrapper around [`Record`] that affects whether key comparisons are case sensitive or not.
 ///
 /// Implements commonly used methods of [`Record`].
-pub struct CasedRecord<R> {
+pub struct DynCasedRecord<R> {
     record: R,
     casing: Casing,
 }
 
-impl Clone for CasedRecord<&Record> {
+impl Clone for DynCasedRecord<&Record> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl Copy for CasedRecord<&Record> {}
+impl Copy for DynCasedRecord<&Record> {}
 
-impl<'a> CasedRecord<&'a Record> {
+impl<'a> DynCasedRecord<&'a Record> {
     pub fn index_of(self, col: impl AsRef<str>) -> Option<usize> {
         match self.casing {
             Casing::Sensitive => self.record.case_sensitive().index_of(col.as_ref()),
@@ -168,20 +168,20 @@ impl<'a> CasedRecord<&'a Record> {
     }
 }
 
-impl<'a> CasedRecord<&'a mut Record> {
+impl<'a> DynCasedRecord<&'a mut Record> {
     /// Explicit reborrowing. See [Self::reborrow_mut()]
-    pub fn reborrow(&self) -> CasedRecord<&Record> {
-        CasedRecord {
+    pub fn reborrow(&self) -> DynCasedRecord<&Record> {
+        DynCasedRecord {
             record: &*self.record,
             casing: self.casing,
         }
     }
 
     /// Explicit reborrowing. Using this before methods that receive `self` is necessary to avoid
-    /// consuming the `CasedRecord` instance.
+    /// consuming the `DynCasedRecord` instance.
     ///
     /// ```
-    /// use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    /// use nu_protocol::{record, record::{Record, DynCasedRecord}, Value, casing::Casing};
     ///
     /// let mut rec = record!{
     ///     "A" => Value::test_nothing(),
@@ -189,27 +189,27 @@ impl<'a> CasedRecord<&'a mut Record> {
     ///     "C" => Value::test_nothing(),
     ///     "D" => Value::test_int(42),
     /// };
-    /// let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// let mut cased_rec: DynCasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
     /// ```
     ///
     /// The following will fail to compile:
     ///
     /// ```compile_fail
-    /// # use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    /// # use nu_protocol::{record, record::{Record, DynCasedRecord}, Value, casing::Casing};
     /// # let mut rec = record!{};
-    /// # let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// # let mut cased_rec: DynCasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
     /// let a = cased_rec.get_mut("a");
     /// let b = cased_rec.get_mut("b");
     /// ```
     ///
     /// This is due to the fact `.get_mut()` receives `self`[^self] _by value_, which limits its use to
-    /// just once, unless we construct a new `CasedRecord`.
+    /// just once, unless we construct a new `DynCasedRecord`.
     ///
     /// [^self]: Receiving `&mut self` works, but has an undesirable effect on the return value's
-    /// lifetime. With `Self == &'wrapper mut CasedRecord<&'source mut Record>`, return value's
+    /// lifetime. With `Self == &'wrapper mut DynCasedRecord<&'source mut Record>`, return value's
     /// lifetime will be `'wrapper` rather than `'source`.
     ///
-    /// We can create a new `CasedRecord<&mut Record>` from an existing one even though `&mut T` is
+    /// We can create a new `DynCasedRecord<&mut Record>` from an existing one even though `&mut T` is
     /// not [`Copy`]. This is accomplished with [reborrowing] which happens implicitly with native
     /// references. Reborrowing also happens to be a tragically under documented feature of rust.
     ///
@@ -217,16 +217,16 @@ impl<'a> CasedRecord<&'a mut Record> {
     /// to be called explicitly:
     ///
     /// ```
-    /// # use nu_protocol::{record, record::{Record, CasedRecord}, Value, casing::Casing};
+    /// # use nu_protocol::{record, record::{Record, DynCasedRecord}, Value, casing::Casing};
     /// # let mut rec = record!{};
-    /// # let mut cased_rec: CasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
+    /// # let mut cased_rec: DynCasedRecord<&mut Record> = rec.cased_mut(Casing::Insensitive);
     /// let a = cased_rec.reborrow_mut().get_mut("a");
     /// let b = cased_rec.reborrow_mut().get_mut("b");
     /// ```
     ///
     /// [reborrowing]: https://quinedot.github.io/rust-learning/st-reborrow.html
-    pub fn reborrow_mut(&mut self) -> CasedRecord<&mut Record> {
-        CasedRecord {
+    pub fn reborrow_mut(&mut self) -> DynCasedRecord<&mut Record> {
+        DynCasedRecord {
             record: &mut *self.record,
             casing: self.casing,
         }
@@ -271,15 +271,15 @@ impl Record {
         }
     }
 
-    pub fn cased(&self, casing: Casing) -> CasedRecord<&Record> {
-        CasedRecord {
+    pub fn cased(&self, casing: Casing) -> DynCasedRecord<&Record> {
+        DynCasedRecord {
             record: self,
             casing,
         }
     }
 
-    pub fn cased_mut(&mut self, casing: Casing) -> CasedRecord<&mut Record> {
-        CasedRecord {
+    pub fn cased_mut(&mut self, casing: Casing) -> DynCasedRecord<&mut Record> {
+        DynCasedRecord {
             record: self,
             casing,
         }
@@ -329,7 +329,7 @@ impl Record {
     /// <div class="warning">
     /// May duplicate data!
     ///
-    /// Consider using [`CaseTypedRecord::insert`] or [`CasedRecord::insert`] instead.
+    /// Consider using [`CasedRecord::insert`] or [`DynCasedRecord::insert`] instead.
     /// </div>
     pub fn push(&mut self, col: impl Into<String>, val: Value) {
         self.inner.push((col.into(), val));
