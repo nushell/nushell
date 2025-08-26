@@ -87,16 +87,9 @@ impl Command for StrSubstring {
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.signals()).map(|pipeline| {
-            match pipeline {
-                // a substring of text/json is not necessarily text/json
-                PipelineData::ByteStream(stream, Some(metadata)) => {
-                    PipelineData::byte_stream(stream, metadata.with_content_type(None))
-                }
-                PipelineData::Value(val, Some(metadata)) => {
-                    PipelineData::Value(val, Some(metadata.with_content_type(None)))
-                }
-                _ => pipeline,
-            }
+            // a substring of text/json is not necessarily text/json itself
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
         })
     }
 
@@ -123,16 +116,9 @@ impl Command for StrSubstring {
             working_set.permanent().signals(),
         )
         .map(|pipeline| {
-            match pipeline {
-                // a substring of text/json is not necessarily text/json
-                PipelineData::ByteStream(stream, Some(metadata)) => {
-                    PipelineData::byte_stream(stream, metadata.with_content_type(None))
-                }
-                PipelineData::Value(val, Some(metadata)) => {
-                    PipelineData::Value(val, Some(metadata.with_content_type(None)))
-                }
-                _ => pipeline,
-            }
+            // a substring of text/json is not necessarily text/json itself
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
         })
     }
 

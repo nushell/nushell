@@ -74,16 +74,9 @@ impl Command for BytesRemove {
         };
 
         operate(remove, arg, input, call.head, engine_state.signals()).map(|pipeline| {
-            match pipeline {
-                // image/png with bytes removed is not a valid image/png anymore
-                PipelineData::ByteStream(stream, Some(metadata)) => {
-                    PipelineData::byte_stream(stream, metadata.with_content_type(None))
-                }
-                PipelineData::Value(val, Some(metadata)) => {
-                    PipelineData::Value(val, Some(metadata.with_content_type(None)))
-                }
-                _ => pipeline,
-            }
+            // image/png with some bytes removed is likely not a valid image/png anymore
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
         })
     }
 
