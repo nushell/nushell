@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     ShellError, Span, Value,
-    casing::{CaseInsensitive, CaseSensitive, Casing, CasingCmp},
+    casing::{CaseInsensitive, CaseSensitive, CaseSensitivity, Casing, WrapCased},
 };
 
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
@@ -22,9 +22,9 @@ pub struct Record {
 ///
 /// It is never actually constructed as a value and only used as a reference to an existing [`Record`].
 #[repr(transparent)]
-pub struct CaseTypedRecord<Sensitivity: CasingCmp>(Record, PhantomData<Sensitivity>);
+pub struct CaseTypedRecord<Sensitivity: CaseSensitivity>(Record, PhantomData<Sensitivity>);
 
-impl<Sensitivity: CasingCmp> CaseTypedRecord<Sensitivity> {
+impl<Sensitivity: CaseSensitivity> CaseTypedRecord<Sensitivity> {
     #[inline]
     const fn from_record(record: &Record) -> &Self {
         // SAFETY: `CaseTypedRecord` has the same memory layout as `Record`.
@@ -78,37 +78,30 @@ impl<Sensitivity: CasingCmp> CaseTypedRecord<Sensitivity> {
     }
 }
 
-/// Extension trait for [`Record`]. Enables separate implementations for `&Record` and `&mut Record`
-pub trait RecordExt {
-    type Ref<S: CasingCmp>;
-    fn case_sensitive(self) -> Self::Ref<CaseSensitive>;
-    fn case_insensitive(self) -> Self::Ref<CaseInsensitive>;
-}
-
-impl<'a> RecordExt for &'a Record {
-    type Ref<S: CasingCmp> = &'a CaseTypedRecord<S>;
+impl<'a> WrapCased for &'a Record {
+    type Wrapper<S: CaseSensitivity> = &'a CaseTypedRecord<S>;
 
     #[inline]
-    fn case_sensitive(self) -> Self::Ref<CaseSensitive> {
+    fn case_sensitive(self) -> Self::Wrapper<CaseSensitive> {
         CaseTypedRecord::<CaseSensitive>::from_record(self)
     }
 
     #[inline]
-    fn case_insensitive(self) -> Self::Ref<CaseInsensitive> {
+    fn case_insensitive(self) -> Self::Wrapper<CaseInsensitive> {
         CaseTypedRecord::<CaseInsensitive>::from_record(self)
     }
 }
 
-impl<'a> RecordExt for &'a mut Record {
-    type Ref<S: CasingCmp> = &'a mut CaseTypedRecord<S>;
+impl<'a> WrapCased for &'a mut Record {
+    type Wrapper<S: CaseSensitivity> = &'a mut CaseTypedRecord<S>;
 
     #[inline]
-    fn case_sensitive(self) -> Self::Ref<CaseSensitive> {
+    fn case_sensitive(self) -> Self::Wrapper<CaseSensitive> {
         CaseTypedRecord::<CaseSensitive>::from_record_mut(self)
     }
 
     #[inline]
-    fn case_insensitive(self) -> Self::Ref<CaseInsensitive> {
+    fn case_insensitive(self) -> Self::Wrapper<CaseInsensitive> {
         CaseTypedRecord::<CaseInsensitive>::from_record_mut(self)
     }
 }

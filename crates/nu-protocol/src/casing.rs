@@ -14,7 +14,7 @@ pub(crate) mod private {
     pub trait Seal {}
 }
 
-pub trait CasingCmp: private::Seal + 'static {
+pub trait CaseSensitivity: private::Seal + 'static {
     fn eq(lhs: &str, rhs: &str) -> bool;
 
     fn cmp(lhs: &str, rhs: &str) -> Ordering;
@@ -26,7 +26,7 @@ pub struct CaseInsensitive;
 impl private::Seal for CaseSensitive {}
 impl private::Seal for CaseInsensitive {}
 
-impl CasingCmp for CaseSensitive {
+impl CaseSensitivity for CaseSensitive {
     #[inline]
     fn eq(lhs: &str, rhs: &str) -> bool {
         lhs == rhs
@@ -38,7 +38,7 @@ impl CasingCmp for CaseSensitive {
     }
 }
 
-impl CasingCmp for CaseInsensitive {
+impl CaseSensitivity for CaseInsensitive {
     #[inline]
     fn eq(lhs: &str, rhs: &str) -> bool {
         lhs.eq_ignore_case(rhs)
@@ -48,4 +48,16 @@ impl CasingCmp for CaseInsensitive {
     fn cmp(lhs: &str, rhs: &str) -> Ordering {
         lhs.cmp_ignore_case(rhs)
     }
+}
+
+/// Wraps `Self` in a type that affects the case sensitivity of operations
+///
+/// Using methods of [`CaseSensitivity`] in `Wrapper` implementations are not mandotary.
+/// They are provided mostly for convenience and to have a common implementation for comparisons
+pub trait WrapCased {
+    /// Wrapper type generic over case sensitivity.
+    type Wrapper<S: CaseSensitivity>;
+
+    fn case_sensitive(self) -> Self::Wrapper<CaseSensitive>;
+    fn case_insensitive(self) -> Self::Wrapper<CaseInsensitive>;
 }
