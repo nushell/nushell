@@ -86,13 +86,14 @@ impl Completer for VariableCompletion {
 }
 
 fn trim_variable_name(name: &[u8]) -> String {
-    let mut name = String::from_utf8_lossy(name)
-        .trim_start_matches('-')
-        .trim_start_matches("...")
-        .trim_end_matches("?")
-        .to_string();
+    let mut name = String::from_utf8_lossy(name).to_string();
     if !name.starts_with('$') {
-        name.insert(0, '$');
+        name = format!(
+            "${}",
+            name.trim_start_matches('-')
+                .trim_start_matches("...")
+                .trim_end_matches("?")
+        );
     }
     name
 }
