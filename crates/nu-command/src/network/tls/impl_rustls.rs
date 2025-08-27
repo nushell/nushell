@@ -95,7 +95,7 @@ impl NuCryptoProvider {
 }
 
 #[doc = include_str!("./tls.rustdoc.md")]
-pub fn tls(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
+pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
     let crypto_provider = CRYPTO_PROVIDER.get()?;
     let config = match allow_insecure {
         false => {
