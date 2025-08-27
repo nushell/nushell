@@ -11,15 +11,15 @@ use std::{borrow::Cow, path::Path};
 pub const DEFAULT_TABLE_NAME: &str = "main";
 
 #[derive(Clone)]
-pub struct IntoSqliteDb;
+pub struct ToSqliteDb;
 
-impl Command for IntoSqliteDb {
+impl Command for ToSqliteDb {
     fn name(&self) -> &str {
-        "into sqlite"
+        "to sqlite"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into sqlite")
+        Signature::build(self.name())
             .category(Category::Conversions)
             .input_output_types(vec![
                 (Type::table(), Type::Nothing),
@@ -61,28 +61,28 @@ impl Command for IntoSqliteDb {
         vec![
             Example {
                 description: "Convert ls entries into a SQLite database with 'main' as the table name",
-                example: "ls | into sqlite my_ls.db",
+                example: "ls | to sqlite my_ls.db",
                 result: None,
             },
             Example {
                 description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
-                example: "ls | into sqlite my_ls.db -t my_table",
+                example: "ls | to sqlite my_ls.db -t my_table",
                 result: None,
             },
             Example {
                 description: "Convert table literal into a SQLite database with 'main' as the table name",
-                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
+                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | to sqlite filename.db",
                 result: None,
             },
             Example {
                 description: "Insert a single record into a SQLite database",
-                example: "{ foo: bar, baz: quux } | into sqlite filename.db",
+                example: "{ foo: bar, baz: quux } | to sqlite filename.db",
                 result: None,
             },
             Example {
                 description: "Insert data that contains records, lists or tables, that will be stored as JSONB columns
 These columns will be automatically turned back into nu objects when read directly via cell-path",
-                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: [[a b]; [0 1] [2 3]]} | into sqlite filename.db -t my_table
+                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: [[a b]; [0 1] [2 3]]} | to sqlite filename.db -t my_table
 (open filename.db).my_table.0.a_list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
