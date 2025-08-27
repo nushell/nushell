@@ -1,7 +1,9 @@
+mod into_sqlite;
 mod query_db;
 mod schema;
 mod to_sqlite;
 
+use into_sqlite::IntoSqliteDb;
 use nu_protocol::engine::StateWorkingSet;
 use query_db::QueryDb;
 use schema::SchemaDb;
@@ -18,5 +20,11 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Series commands
-    bind_command!(ToSqliteDb, QueryDb, SchemaDb);
+    bind_command!(
+        // deprecated, use ToSqliteDb instead
+        IntoSqliteDb(ToSqliteDb),
+        ToSqliteDb,
+        QueryDb,
+        SchemaDb
+    );
 }
