@@ -67,7 +67,7 @@ export def "kv set" [
   }
 
   match $universal {
-    true  => { $kv_pair | into sqlite (universal_db_path) -t $table }
+    true  => { $kv_pair | to sqlite (universal_db_path) -t $table }
     false => { $kv_pair | stor insert -t $table }
   }
 
@@ -198,7 +198,7 @@ def db_setup [
           key: $uuid
           value: ''
         }
-        $dummy_record | into sqlite (universal_db_path) -t $table
+        $dummy_record | to sqlite (universal_db_path) -t $table
         open (universal_db_path) | query db $"DELETE FROM ($table) WHERE key = :key" --params { key: $uuid }
       }
       false => {
