@@ -1,11 +1,11 @@
 [package]
 name = "nu-mcp"
-version = "0.105.2"
+version = "0.106.2"
 edition = "2024"
 
 [dependencies]
 futures = "0.3.31"
-nu-protocol = { path = "../nu-protocol", version = "0.105.2", features = ["plugin"] }
+nu-protocol = { path = "../nu-protocol", version = "0.106.2", features = ["plugin"] }
 nu-engine = { path = "../nu-engine", version = "0.106.2" }
 nu-parser = { path = "../nu-parser", version = "0.106.2" }
 
