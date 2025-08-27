@@ -1,5 +1,5 @@
 name: Feature Request
-description: "When you want to propose new feature for something that doesn't already exist"
+description: "When you want to propose a new feature for something that doesn't already exist"
 labels: ["needs-triage", "enhancement"]
 body:
   - type: checkboxes
