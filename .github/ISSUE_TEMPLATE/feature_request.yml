@@ -12,7 +12,7 @@ body:
     id: problem
     attributes:
       label: Related problem
-      description: A clear and concise description of what the thing is, that Nushell could do better.
+      description: A clear and concise description of what specifically Nushell could do to improve.
       placeholder: |
         Example: I am trying to do [...] but [...]
     validations:
