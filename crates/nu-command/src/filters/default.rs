@@ -187,7 +187,7 @@ fn default(
                     let span = item.span();
                     if let Value::Record { val, .. } = item {
                         fill_record(
-                            val.into_owned(),
+                            val,
                             span,
                             &mut default_value,
                             columns.as_slice(),

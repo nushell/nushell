@@ -148,7 +148,6 @@ fn rename(
                     Value::Record { val: record, .. } => {
                         let record = if let Some(closure) = &mut closure {
                             record
-                                .into_owned()
                                 .into_iter()
                                 .map(|(col, val)| {
                                     let col = Value::string(col, span);
@@ -164,7 +163,6 @@ fn rename(
                                     // of renamed columns to check if any were missed
                                     let mut renamed = 0;
                                     let record = record
-                                        .into_owned()
                                         .into_iter()
                                         .map(|(col, val)| {
                                             let col = if let Some(col) = columns.get(&col) {
@@ -200,7 +198,6 @@ fn rename(
                                     }
                                 }
                                 None => Ok(record
-                                    .into_owned()
                                     .into_iter()
                                     .enumerate()
                                     .map(|(i, (col, val))| {

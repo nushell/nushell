@@ -1,10 +1,10 @@
 use nu_protocol::{
-    DeclId, ModuleId, Signature, Span, Type, Value, VarId,
+    DeclId, ModuleId, Record, Signature, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
-    record,
+    record::RecordTemplate,
 };
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::HashMap, mem::take, sync::LazyLock};
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
@@ -48,6 +48,14 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_vars(&self, span: Span) -> Vec<Value> {
+        static VAR_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                ["name", "type", "value", "is_const", "var_id"]
+                    .iter()
+                    .copied(),
+            )
+        });
+
         let mut vars = vec![];
 
         for (var_name, var_id) in &self.vars_map {
@@ -66,16 +74,12 @@ impl<'e, 's> ScopeData<'e, 's> {
 
             let var_id_val = Value::int(var_id.get() as i64, span);
 
-            vars.push(Value::record(
-                record! {
-                    "name" => var_name,
-                    "type" => var_type,
-                    "value" => var_value,
-                    "is_const" => is_const,
-                    "var_id" => var_id_val,
-                },
-                span,
-            ));
+            let record = VAR_TEMPLATE.add_values(
+                [var_name, var_type, var_value, is_const, var_id_val]
+                    .iter_mut()
+                    .map(take),
+            );
+            vars.push(Value::record(record, span));
         }
 
         sort_rows(&mut vars);
@@ -83,6 +87,33 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_commands(&self, span: Span) -> Vec<Value> {
+        static EXAMPLE_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(["description", "example", "result"].iter().copied())
+        });
+        static ATTRIBUTES_TEMPLATE: LazyLock<RecordTemplate> =
+            LazyLock::new(|| Record::new_template(["name", "value"].iter().copied()));
+        static ROW_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                [
+                    "name",
+                    "category",
+                    "signatures",
+                    "description",
+                    "examples",
+                    "attributes",
+                    "type",
+                    "is_sub",
+                    "is_const",
+                    "creates_scope",
+                    "extra_description",
+                    "search_terms",
+                    "decl_id",
+                ]
+                .iter()
+                .copied(),
+            )
+        });
+
         let mut commands = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
@@ -97,11 +128,15 @@ impl<'e, 's> ScopeData<'e, 's> {
                     .into_iter()
                     .map(|x| {
                         Value::record(
-                            record! {
-                                "description" => Value::string(x.description, span),
-                                "example" => Value::string(x.example, span),
-                                "result" => x.result.unwrap_or(Value::nothing(span)).with_span(span),
-                            },
+                            EXAMPLE_TEMPLATE.add_values(
+                                [
+                                    Value::string(x.description, span),
+                                    Value::string(x.example, span),
+                                    x.result.unwrap_or(Value::nothing(span)).with_span(span),
+                                ]
+                                .iter_mut()
+                                .map(take),
+                            ),
                             span,
                         )
                     })
@@ -112,30 +147,46 @@ impl<'e, 's> ScopeData<'e, 's> {
                     .into_iter()
                     .map(|(name, value)| {
                         Value::record(
-                            record! {
-                                "name" => Value::string(name, span),
-                                "value" => value,
-                            },
+                            ATTRIBUTES_TEMPLATE.add_values(
+                                [Value::string(name, span), value].iter_mut().map(take),
+                            ),
                             span,
                         )
                     })
                     .collect();
 
-                let record = record! {
-                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
-                    "category" => Value::string(signature.category.to_string(), span),
-                    "signatures" => self.collect_signatures(&signature, span),
-                    "description" => Value::string(decl.description(), span),
-                    "examples" => Value::list(examples, span),
-                    "attributes" => Value::list(attributes, span),
-                    "type" => Value::string(decl.command_type().to_string(), span),
-                    "is_sub" => Value::bool(decl.is_sub(), span),
-                    "is_const" => Value::bool(decl.is_const(), span),
-                    "creates_scope" => Value::bool(signature.creates_scope, span),
-                    "extra_description" => Value::string(decl.extra_description(), span),
-                    "search_terms" => Value::string(decl.search_terms().join(", "), span),
-                    "decl_id" => Value::int(decl_id.get() as i64, span),
-                };
+                let record = ROW_TEMPLATE.add_values(
+                    [
+                        // name
+                        Value::string(String::from_utf8_lossy(command_name), span),
+                        // category
+                        Value::string(signature.category.to_string(), span),
+                        // signatures
+                        self.collect_signatures(&signature, span),
+                        // description
+                        Value::string(decl.description(), span),
+                        // examples
+                        Value::list(examples, span),
+                        // attributes
+                        Value::list(attributes, span),
+                        // type
+                        Value::string(decl.command_type().to_string(), span),
+                        // is_sub
+                        Value::bool(decl.is_sub(), span),
+                        // is_const
+                        Value::bool(decl.is_const(), span),
+                        // creates_scope
+                        Value::bool(signature.creates_scope, span),
+                        // extra_description
+                        Value::string(decl.extra_description(), span),
+                        // search_terms
+                        Value::string(decl.search_terms().join(", "), span),
+                        // decl_id
+                        Value::int(decl_id.get() as i64, span),
+                    ]
+                    .iter_mut()
+                    .map(take),
+                );
 
                 commands.push(Value::record(record, span))
             }
@@ -195,20 +246,41 @@ impl<'e, 's> ScopeData<'e, 's> {
         signature: &Signature,
         span: Span,
     ) -> Vec<Value> {
+        static SIGNATURE_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                [
+                    "parameter_name",
+                    "parameter_type",
+                    "syntax_shape",
+                    "is_optional",
+                    "short_flag",
+                    "description",
+                    "custom_completion",
+                    "parameter_default",
+                ]
+                .iter()
+                .copied(),
+            )
+        });
+
         let mut sig_records = vec![];
 
         // input
         sig_records.push(Value::record(
-            record! {
-                "parameter_name" => Value::nothing(span),
-                "parameter_type" => Value::string("input", span),
-                "syntax_shape" => Value::string(input_type.to_shape().to_string(), span),
-                "is_optional" => Value::bool(false, span),
-                "short_flag" => Value::nothing(span),
-                "description" => Value::nothing(span),
-                "custom_completion" => Value::nothing(span),
-                "parameter_default" => Value::nothing(span),
-            },
+            SIGNATURE_TEMPLATE.add_values(
+                [
+                    Value::nothing(span),
+                    Value::string("input", span),
+                    Value::string(input_type.to_shape().to_string(), span),
+                    Value::bool(false, span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                ]
+                .iter_mut()
+                .map(take),
+            ),
             span,
         ));
 
@@ -218,16 +290,20 @@ impl<'e, 's> ScopeData<'e, 's> {
                 extract_custom_completion_from_arg(self.engine_state, &req.custom_completion);
 
             sig_records.push(Value::record(
-                record! {
-                    "parameter_name" => Value::string(&req.name, span),
-                    "parameter_type" => Value::string("positional", span),
-                    "syntax_shape" => Value::string(req.shape.to_string(), span),
-                    "is_optional" => Value::bool(false, span),
-                    "short_flag" => Value::nothing(span),
-                    "description" => Value::string(&req.desc, span),
-                    "custom_completion" => Value::string(custom, span),
-                    "parameter_default" => Value::nothing(span),
-                },
+                SIGNATURE_TEMPLATE.add_values(
+                    [
+                        Value::string(&req.name, span),
+                        Value::string("positional", span),
+                        Value::string(req.shape.to_string(), span),
+                        Value::bool(false, span),
+                        Value::nothing(span),
+                        Value::string(&req.desc, span),
+                        Value::string(custom, span),
+                        Value::nothing(span),
+                    ]
+                    .iter_mut()
+                    .map(take),
+                ),
                 span,
             ));
         }
@@ -243,16 +319,20 @@ impl<'e, 's> ScopeData<'e, 's> {
             };
 
             sig_records.push(Value::record(
-                record! {
-                    "parameter_name" => Value::string(&opt.name, span),
-                    "parameter_type" => Value::string("positional", span),
-                    "syntax_shape" => Value::string(opt.shape.to_string(), span),
-                    "is_optional" => Value::bool(true, span),
-                    "short_flag" => Value::nothing(span),
-                    "description" => Value::string(&opt.desc, span),
-                    "custom_completion" => Value::string(custom, span),
-                    "parameter_default" => default,
-                },
+                SIGNATURE_TEMPLATE.add_values(
+                    [
+                        Value::string(&opt.name, span),
+                        Value::string("positional", span),
+                        Value::string(opt.shape.to_string(), span),
+                        Value::bool(true, span),
+                        Value::nothing(span),
+                        Value::string(&opt.desc, span),
+                        Value::string(custom, span),
+                        default,
+                    ]
+                    .iter_mut()
+                    .map(take),
+                ),
                 span,
             ));
         }
@@ -264,17 +344,20 @@ impl<'e, 's> ScopeData<'e, 's> {
                 extract_custom_completion_from_arg(self.engine_state, &rest.custom_completion);
 
             sig_records.push(Value::record(
-                record! {
-                    "parameter_name" => Value::string(name, span),
-                    "parameter_type" => Value::string("rest", span),
-                    "syntax_shape" => Value::string(rest.shape.to_string(), span),
-                    "is_optional" => Value::bool(true, span),
-                    "short_flag" => Value::nothing(span),
-                    "description" => Value::string(&rest.desc, span),
-                    "custom_completion" => Value::string(custom, span),
-                    // rest_positional does have default, but parser prohibits specifying it?!
-                    "parameter_default" => Value::nothing(span),
-                },
+                SIGNATURE_TEMPLATE.add_values(
+                    [
+                        Value::string(name, span),
+                        Value::string("rest", span),
+                        Value::string(rest.shape.to_string(), span),
+                        Value::bool(true, span),
+                        Value::nothing(span),
+                        Value::string(&rest.desc, span),
+                        Value::string(custom, span),
+                        Value::nothing(span),
+                    ]
+                    .iter_mut()
+                    .map(take),
+                ),
                 span,
             ));
         }
@@ -311,32 +394,40 @@ impl<'e, 's> ScopeData<'e, 's> {
             };
 
             sig_records.push(Value::record(
-                record! {
-                    "parameter_name" => Value::string(&named.long, span),
-                    "parameter_type" => flag_type,
-                    "syntax_shape" => shape,
-                    "is_optional" => Value::bool(!named.required, span),
-                    "short_flag" => short_flag,
-                    "description" => Value::string(&named.desc, span),
-                    "custom_completion" => Value::string(custom_completion_command_name, span),
-                    "parameter_default" => default,
-                },
+                SIGNATURE_TEMPLATE.add_values(
+                    [
+                        Value::string(&named.long, span),
+                        flag_type,
+                        shape,
+                        Value::bool(!named.required, span),
+                        short_flag,
+                        Value::string(&named.desc, span),
+                        Value::string(custom_completion_command_name, span),
+                        default,
+                    ]
+                    .iter_mut()
+                    .map(take),
+                ),
                 span,
             ));
         }
 
         // output
         sig_records.push(Value::record(
-            record! {
-                "parameter_name" => Value::nothing(span),
-                "parameter_type" => Value::string("output", span),
-                "syntax_shape" => Value::string(output_type.to_shape().to_string(), span),
-                "is_optional" => Value::bool(false, span),
-                "short_flag" => Value::nothing(span),
-                "description" => Value::nothing(span),
-                "custom_completion" => Value::nothing(span),
-                "parameter_default" => Value::nothing(span),
-            },
+            SIGNATURE_TEMPLATE.add_values(
+                [
+                    Value::nothing(span),
+                    Value::string("output", span),
+                    Value::string(output_type.to_shape().to_string(), span),
+                    Value::bool(false, span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                    Value::nothing(span),
+                ]
+                .iter_mut()
+                .map(take),
+            ),
             span,
         ));
 
@@ -344,17 +435,25 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_externs(&self, span: Span) -> Vec<Value> {
+        static EXTERN_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(["name", "description", "decl_id"].iter().copied())
+        });
+
         let mut externals = vec![];
 
         for (command_name, decl_id) in &self.decls_map {
             let decl = self.engine_state.get_decl(**decl_id);
 
             if decl.is_known_external() {
-                let record = record! {
-                    "name" => Value::string(String::from_utf8_lossy(command_name), span),
-                    "description" => Value::string(decl.description(), span),
-                    "decl_id" => Value::int(decl_id.get() as i64, span),
-                };
+                let record = EXTERN_TEMPLATE.add_values(
+                    [
+                        Value::string(String::from_utf8_lossy(command_name), span),
+                        Value::string(decl.description(), span),
+                        Value::int(decl_id.get() as i64, span),
+                    ]
+                    .iter_mut()
+                    .map(take),
+                );
 
                 externals.push(Value::record(record, span))
             }
@@ -365,6 +464,20 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_aliases(&self, span: Span) -> Vec<Value> {
+        static ALIAS_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                [
+                    "name",
+                    "expansion",
+                    "description",
+                    "decl_id",
+                    "aliased_decl_id",
+                ]
+                .iter()
+                .copied(),
+            )
+        });
+
         let mut aliases = vec![];
 
         for (decl_name, decl_id) in self.engine_state.get_decls_sorted(false) {
@@ -383,13 +496,17 @@ impl<'e, 's> ScopeData<'e, 's> {
                     );
 
                     aliases.push(Value::record(
-                        record! {
-                            "name" => Value::string(String::from_utf8_lossy(&decl_name), span),
-                            "expansion" => Value::string(expansion, span),
-                            "description" => Value::string(alias.description(), span),
-                            "decl_id" => Value::int(decl_id.get() as i64, span),
-                            "aliased_decl_id" => aliased_decl_id,
-                        },
+                        ALIAS_TEMPLATE.add_values(
+                            [
+                                Value::string(String::from_utf8_lossy(&decl_name), span),
+                                Value::string(expansion, span),
+                                Value::string(alias.description(), span),
+                                Value::int(decl_id.get() as i64, span),
+                                aliased_decl_id,
+                            ]
+                            .iter_mut()
+                            .map(take),
+                        ),
                         span,
                     ));
                 }
@@ -402,6 +519,9 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     fn collect_module(&self, module_name: &[u8], module_id: &ModuleId, span: Span) -> Value {
+        static DECL_TEMPLATE: LazyLock<RecordTemplate> =
+            LazyLock::new(|| Record::new_template(["name", "decl_id"].iter().copied()));
+
         let module = self.engine_state.get_module(*module_id);
 
         let all_decls = module.decls();
@@ -413,10 +533,14 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 if !decl.is_alias() && !decl.is_known_external() {
                     Some(Value::record(
-                        record! {
-                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(decl_id.get() as i64, span),
-                        },
+                        DECL_TEMPLATE.add_values(
+                            [
+                                Value::string(String::from_utf8_lossy(name_bytes), span),
+                                Value::int(decl_id.get() as i64, span),
+                            ]
+                            .iter_mut()
+                            .map(take),
+                        ),
                         span,
                     ))
                 } else {
@@ -432,10 +556,14 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 if decl.is_alias() {
                     Some(Value::record(
-                        record! {
-                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(decl_id.get() as i64, span),
-                        },
+                        DECL_TEMPLATE.add_values(
+                            [
+                                Value::string(String::from_utf8_lossy(name_bytes), span),
+                                Value::int(decl_id.get() as i64, span),
+                            ]
+                            .iter_mut()
+                            .map(take),
+                        ),
                         span,
                     ))
                 } else {
@@ -451,10 +579,14 @@ impl<'e, 's> ScopeData<'e, 's> {
 
                 if decl.is_known_external() {
                     Some(Value::record(
-                        record! {
-                            "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                            "decl_id" => Value::int(decl_id.get() as i64, span),
-                        },
+                        DECL_TEMPLATE.add_values(
+                            [
+                                Value::string(String::from_utf8_lossy(name_bytes), span),
+                                Value::int(decl_id.get() as i64, span),
+                            ]
+                            .iter_mut()
+                            .map(take),
+                        ),
                         span,
                     ))
                 } else {
@@ -469,16 +601,23 @@ impl<'e, 's> ScopeData<'e, 's> {
             .map(|(name_bytes, submodule_id)| self.collect_module(name_bytes, submodule_id, span))
             .collect();
 
+        static CONST_TEMPLATE: LazyLock<RecordTemplate> =
+            LazyLock::new(|| Record::new_template(["name", "type", "var_id"].iter().copied()));
+
         let mut export_consts: Vec<Value> = module
             .consts()
             .iter()
             .map(|(name_bytes, var_id)| {
                 Value::record(
-                    record! {
-                        "name" => Value::string(String::from_utf8_lossy(name_bytes), span),
-                        "type" => Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
-                        "var_id" => Value::int(var_id.get() as i64, span),
-                    },
+                    CONST_TEMPLATE.add_values(
+                        [
+                            Value::string(String::from_utf8_lossy(name_bytes), span),
+                            Value::string(self.engine_state.get_var(*var_id).ty.to_string(), span),
+                            Value::int(var_id.get() as i64, span),
+                        ]
+                        .iter_mut()
+                        .map(take),
+                    ),
                     span,
                 )
             })
@@ -495,20 +634,49 @@ impl<'e, 's> ScopeData<'e, 's> {
             .build_module_desc(*module_id)
             .unwrap_or_default();
 
+        static MODULE_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                [
+                    "name",
+                    "commands",
+                    "aliases",
+                    "externs",
+                    "submodules",
+                    "constants",
+                    "has_env_block",
+                    "description",
+                    "extra_description",
+                    "module_id",
+                    "file",
+                ]
+                .iter()
+                .copied(),
+            )
+        });
+
         Value::record(
-            record! {
-                "name" => Value::string(String::from_utf8_lossy(module_name), span),
-                "commands" => Value::list(export_commands, span),
-                "aliases" => Value::list(export_aliases, span),
-                "externs" => Value::list(export_externs, span),
-                "submodules" => Value::list(export_submodules, span),
-                "constants" => Value::list(export_consts, span),
-                "has_env_block" => Value::bool(module.env_block.is_some(), span),
-                "description" => Value::string(module_desc, span),
-                "extra_description" => Value::string(module_extra_desc, span),
-                "module_id" => Value::int(module_id.get() as i64, span),
-                "file" => Value::string(module.file.clone().map_or("unknown".to_string(), |(p, _)| p.path().to_string_lossy().to_string()), span),
-            },
+            MODULE_TEMPLATE.add_values(
+                [
+                    Value::string(String::from_utf8_lossy(module_name), span),
+                    Value::list(export_commands, span),
+                    Value::list(export_aliases, span),
+                    Value::list(export_externs, span),
+                    Value::list(export_submodules, span),
+                    Value::list(export_consts, span),
+                    Value::bool(module.env_block.is_some(), span),
+                    Value::string(module_desc, span),
+                    Value::string(module_extra_desc, span),
+                    Value::int(module_id.get() as i64, span),
+                    Value::string(
+                        module.file.clone().map_or("unknown".to_string(), |(p, _)| {
+                            p.path().to_string_lossy().to_string()
+                        }),
+                        span,
+                    ),
+                ]
+                .iter_mut()
+                .map(take),
+            ),
             span,
         )
     }
@@ -525,6 +693,21 @@ impl<'e, 's> ScopeData<'e, 's> {
     }
 
     pub fn collect_engine_state(&self, span: Span) -> Value {
+        static ENGINE_TEMPLATE: LazyLock<RecordTemplate> = LazyLock::new(|| {
+            Record::new_template(
+                [
+                    "source_bytes",
+                    "num_vars",
+                    "num_decls",
+                    "num_blocks",
+                    "num_modules",
+                    "num_env_vars",
+                ]
+                .iter()
+                .copied(),
+            )
+        });
+
         let num_env_vars = self
             .engine_state
             .env_vars
@@ -533,14 +716,18 @@ impl<'e, 's> ScopeData<'e, 's> {
             .sum();
 
         Value::record(
-            record! {
-                "source_bytes" => Value::int(self.engine_state.next_span_start() as i64, span),
-                "num_vars" => Value::int(self.engine_state.num_vars() as i64, span),
-                "num_decls" => Value::int(self.engine_state.num_decls() as i64, span),
-                "num_blocks" => Value::int(self.engine_state.num_blocks() as i64, span),
-                "num_modules" => Value::int(self.engine_state.num_modules() as i64, span),
-                "num_env_vars" => Value::int(num_env_vars, span),
-            },
+            ENGINE_TEMPLATE.add_values(
+                [
+                    Value::int(self.engine_state.next_span_start() as i64, span),
+                    Value::int(self.engine_state.num_vars() as i64, span),
+                    Value::int(self.engine_state.num_decls() as i64, span),
+                    Value::int(self.engine_state.num_blocks() as i64, span),
+                    Value::int(self.engine_state.num_modules() as i64, span),
+                    Value::int(num_env_vars, span),
+                ]
+                .iter_mut()
+                .map(take),
+            ),
             span,
         )
     }

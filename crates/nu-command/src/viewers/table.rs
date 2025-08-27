@@ -449,7 +449,7 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::empty();
-            handle_record(input, val.into_owned())
+            handle_record(input, val)
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -692,7 +692,7 @@ fn handle_row_stream(
             stream.map(move |mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
                     // Only the name column gets special colors, for now
-                    if let Some(value) = record.to_mut().get_mut("name") {
+                    if let Some(value) = record.get_mut("name") {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
                             if let Some(val) =
@@ -713,7 +713,7 @@ fn handle_row_stream(
         }) => {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
-                    for (rec_col, rec_val) in record.to_mut().iter_mut() {
+                    for (rec_col, rec_val) in record.iter_mut() {
                         // Every column in the HTML theme table except 'name' is colored
                         if rec_col != "name" {
                             continue;

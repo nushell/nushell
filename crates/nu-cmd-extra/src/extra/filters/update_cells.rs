@@ -122,7 +122,6 @@ impl Command for UpdateCells {
                 },
                 ..,
             ) => {
-                let val = val.to_mut();
                 update_record(
                     val,
                     &mut ClosureEval::new(engine_state, stack, closure),
@@ -176,8 +175,8 @@ impl Iterator for UpdateCellIterator {
         let mut value = self.iter.next()?;
 
         let value = if let Value::Record { val, .. } = &mut value {
-            let val = val.to_mut();
             update_record(val, &mut self.closure, self.span, self.columns.as_ref());
+
             value
         } else {
             eval_value(&mut self.closure, self.span, value)

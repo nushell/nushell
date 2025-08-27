@@ -297,8 +297,14 @@ mod test {
     fn get_test_record(columns: Vec<&str>, values: Vec<i64>) -> Record {
         let test_span = Span::test_data();
         Record::from_raw_cols_vals(
-            columns.iter().map(|col| col.to_string()).collect(),
-            values.iter().map(|val| Value::test_int(*val)).collect(),
+            columns
+                .iter()
+                .map(|col| col.to_string())
+                .collect::<Vec<_>>(),
+            values
+                .iter()
+                .map(|val| Value::test_int(*val))
+                .collect::<Vec<_>>(),
             test_span,
             test_span,
         )

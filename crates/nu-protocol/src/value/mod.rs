@@ -29,7 +29,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
-    ObviousFloat, SharedCow, contains_emoji,
+    ObviousFloat, contains_emoji,
     locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
 };
 use serde::{Deserialize, Serialize};
@@ -112,7 +112,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: SharedCow<Record>,
+        val: Record,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -171,7 +171,7 @@ pub enum Value {
 // This is to document/enforce the size of `Value` in bytes.
 // We should try to avoid increasing the size of `Value`,
 // and PRs that do so will have to change the number below so that it's noted in review.
-const _: () = assert!(std::mem::size_of::<Value>() <= 48);
+const _: () = assert!(std::mem::size_of::<Value>() <= 56);
 
 impl Clone for Value {
     fn clone(&self) -> Self {
@@ -542,7 +542,7 @@ impl Value {
     /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
     pub fn into_record(self) -> Result<Record, ShellError> {
         if let Value::Record { val, .. } = self {
-            Ok(val.into_owned())
+            Ok(val)
         } else {
             self.cant_convert_to("record")
         }
@@ -1213,7 +1213,6 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
                                     if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
@@ -1234,7 +1233,6 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let record = record.to_mut();
                         if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
@@ -1315,9 +1313,7 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) =
-                                        record.to_mut().cased_mut(*casing).get_mut(col_name)
-                                    {
+                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         return Err(ShellError::CantFindColumn {
@@ -1339,7 +1335,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name) {
+                        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             val.update_data_at_cell_path(path, new_val)?;
                         } else {
                             return Err(ShellError::CantFindColumn {
@@ -1405,8 +1401,7 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let value =
-                                            record.to_mut().cased_mut(*casing).remove(col_name);
+                                        let value = record.cased_mut(*casing).remove(col_name);
                                         if value.is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
@@ -1427,13 +1422,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if record
-                                .to_mut()
-                                .cased_mut(*casing)
-                                .remove(col_name)
-                                .is_none()
-                                && !optional
-                            {
+                            if record.cased_mut(*casing).remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
                                     span: Some(*span),
@@ -1489,8 +1478,7 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let val =
-                                            record.to_mut().cased_mut(*casing).get_mut(col_name);
+                                        let val = record.cased_mut(*casing).get_mut(col_name);
                                         if let Some(val) = val {
                                             val.remove_data_at_cell_path(path)?;
                                         } else if !optional {
@@ -1513,8 +1501,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name)
-                            {
+                            if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                 val.remove_data_at_cell_path(path)?;
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
@@ -1579,7 +1566,6 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
                                     if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
@@ -1613,7 +1599,6 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let record = record.to_mut();
                         if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
@@ -1717,7 +1702,6 @@ impl Value {
         // Check for contained values
         match self {
             Value::Record { val, .. } => val
-                .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
             Value::List { vals, .. } => vals
@@ -1852,7 +1836,7 @@ impl Value {
 
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
-            val: SharedCow::new(val),
+            val,
             internal_span: span,
         }
     }
@@ -2431,8 +2415,8 @@ impl PartialOrd for Value {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
-                    let mut lhs = lhs.clone().into_owned();
-                    let mut rhs = rhs.clone().into_owned();
+                    let mut lhs = lhs.clone();
+                    let mut rhs = rhs.clone();
                     lhs.sort_cols();
                     rhs.sort_cols();
 

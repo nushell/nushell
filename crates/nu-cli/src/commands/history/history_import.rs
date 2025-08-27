@@ -172,7 +172,7 @@ fn error_from_reedline(e: ReedlineError) -> ShellError {
 fn item_from_value(v: Value) -> Result<HistoryItem, ShellError> {
     let span = v.span();
     match v {
-        Value::Record { val, .. } => item_from_record(val.into_owned(), span),
+        Value::Record { val, .. } => item_from_record(val, span),
         Value::String { val, .. } => Ok(HistoryItem {
             command_line: val,
             id: None,
@@ -397,8 +397,10 @@ mod tests {
     fn new_record(rec: &[(&'static str, Value)]) -> Value {
         let span = Span::unknown();
         let rec = Record::from_raw_cols_vals(
-            rec.iter().map(|(col, _)| col.to_string()).collect(),
-            rec.iter().map(|(_, val)| val.clone()).collect(),
+            rec.iter()
+                .map(|(col, _)| col.to_string())
+                .collect::<Vec<_>>(),
+            rec.iter().map(|(_, val)| val.clone()).collect::<Vec<_>>(),
             span,
             span,
         )

@@ -41,10 +41,12 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 typetag = "0.2"
+ecow = {workspace = true }
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
 web-time = { workspace = true }
 memchr = { workspace = true }
+permutation = "0.4.1"
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["signal"] }

@@ -112,7 +112,7 @@ impl Command for Describe {
                                     "value" => Value::test_int(10),
                                 )),
                             )),
-                            "rust_type" => Value::test_string("&nu_utils::shared_cow::SharedCow<nu_protocol::value::record::Record>"),
+                            "rust_type" => Value::test_string("nu_protocol::value::record::Record"),
                         )),
                         "fib" => Value::test_record(record!(
                             "type" => Value::test_string("list"),
@@ -184,7 +184,7 @@ impl Command for Describe {
                             "value" => Value::test_duration(260_000_000_000),
                         ))
                     )),
-                    "rust_type" => Value::test_string("&nu_utils::shared_cow::SharedCow<nu_protocol::value::record::Record>"),
+                    "rust_type" => Value::test_string("nu_protocol::value::record::Record"),
                 ))),
             },
             Example {
@@ -400,18 +400,17 @@ fn describe_value_inner(
             "rust_type" => Value::string("", head),
             "value" => value,
         }),
-        Value::Record { ref val, .. } => {
-            let mut columns = val.clone().into_owned();
-            for (_, val) in &mut columns {
+        Value::Record { mut val, .. } => {
+            for (_, val) in val.iter_mut() {
                 *val =
                     describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
             }
-
+            let rust_type = type_of(&val);
             Description::Record(record! {
                 "type" => Value::string("record", head),
                 "detailed_type" => Value::string(value_type, head),
-                "columns" => Value::record(columns.clone(), head),
-                "rust_type" => Value::string(type_of(&val), head),
+                "columns" => Value::record(val, head),
+                "rust_type" => Value::string(rust_type, head),
             })
         }
         Value::List { ref mut vals, .. } => {

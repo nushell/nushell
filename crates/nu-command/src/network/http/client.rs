@@ -392,7 +392,7 @@ fn send_form_request(
         Value::Record { val, .. } => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in val.into_owned() {
+            for (col, val) in val {
                 data.push((col, val.coerce_into_string()?))
             }
 
@@ -423,7 +423,7 @@ fn send_multipart_request(
                 ShellErrorOrRequestError::ShellError(IoError::new(e, span, None).into())
             };
 
-            for (col, val) in val.into_owned() {
+            for (col, val) in val {
                 if let Value::Binary { val, .. } = val {
                     let headers = [
                         "Content-Type: application/octet-stream".to_string(),
@@ -611,7 +611,7 @@ pub fn request_add_custom_headers<B>(
 
         match &headers {
             Value::Record { val, .. } => {
-                for (k, v) in &**val {
+                for (k, v) in val {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
@@ -621,7 +621,7 @@ pub fn request_add_custom_headers<B>(
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
                         Value::Record { val, .. } => {
-                            for (k, v) in &**val {
+                            for (k, v) in val {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
                         }

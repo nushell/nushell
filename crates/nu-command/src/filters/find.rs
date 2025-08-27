@@ -460,11 +460,12 @@ fn highlight_matches_in_value(
     let span = value.span();
 
     match value {
-        Value::Record { val: record, .. } => {
+        Value::Record {
+            val: mut record, ..
+        } => {
             let col_select = !columns_to_search.is_empty();
 
             // TODO: change API to mutate in place
-            let mut record = record.into_owned();
 
             for (col, val) in record.iter_mut() {
                 if col_select && !columns_to_search.contains(col) {
