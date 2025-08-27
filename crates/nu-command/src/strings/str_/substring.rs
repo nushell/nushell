@@ -86,7 +86,11 @@ impl Command for StrSubstring {
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
-        operate(action, args, input, call.head, engine_state.signals())
+        operate(action, args, input, call.head, engine_state.signals()).map(|pipeline| {
+            // a substring of text/json is not necessarily text/json itself
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
+        })
     }
 
     fn run_const(
@@ -111,6 +115,11 @@ impl Command for StrSubstring {
             call.head,
             working_set.permanent().signals(),
         )
+        .map(|pipeline| {
+            // a substring of text/json is not necessarily text/json itself
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
+        })
     }
 
     fn examples(&self) -> Vec<Example> {

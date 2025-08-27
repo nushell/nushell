@@ -73,7 +73,11 @@ impl Command for BytesRemove {
             all: call.has_flag(engine_state, stack, "all")?,
         };
 
-        operate(remove, arg, input, call.head, engine_state.signals())
+        operate(remove, arg, input, call.head, engine_state.signals()).map(|pipeline| {
+            // image/png with some bytes removed is likely not a valid image/png anymore
+            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+            pipeline.set_metadata(metadata)
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
