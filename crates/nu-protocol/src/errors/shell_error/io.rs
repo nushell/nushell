@@ -1,3 +1,5 @@
+#[cfg(doc)] // allow mentioning this in doc comments
+use super::ShellError;
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
     error::Error as StdError,
@@ -5,8 +7,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-#[cfg(doc)] // allow mentioning this in doc comments
-use super::ShellError;
 
 use crate::Span;
 

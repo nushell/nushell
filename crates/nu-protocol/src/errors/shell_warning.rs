@@ -10,7 +10,7 @@ use crate::{ConfigWarning, ReportMode, Reportable};
 pub enum ShellWarning {
     /// A parse-time deprectaion. Indicates that something will be removed in a future release.
     ///
-    /// Use [`ParseWarning::Deprecated`](crate::ParseWarning::Deprecated) if this is a deprecation 
+    /// Use [`ParseWarning::Deprecated`](crate::ParseWarning::Deprecated) if this is a deprecation
     /// which is detectable at parse-time.
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::shell::deprecated))]

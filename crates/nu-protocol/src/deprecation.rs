@@ -7,9 +7,9 @@ use crate::{self as nu_protocol, ReportMode, Span};
 
 /// A entry which indicates that some part of, or all of, a command is deprecated
 ///
-/// Commands can implement [`Command::deprecation_info`](crate::engine::Command::deprecation_info) 
-/// to return deprecation entries, which will cause a parse-time warning. 
-/// Additionally, custom commands can use the `@deprecated` attribute to add a 
+/// Commands can implement [`Command::deprecation_info`](crate::engine::Command::deprecation_info)
+/// to return deprecation entries, which will cause a parse-time warning.
+/// Additionally, custom commands can use the `@deprecated` attribute to add a
 /// `DeprecationEntry`.
 #[derive(FromValue)]
 pub struct DeprecationEntry {
