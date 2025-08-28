@@ -3,11 +3,12 @@ description: "Propose a new feature, or a change to existing functionality"
 labels: ["needs-triage", "enhancement"]
 body:
   - type: checkboxes
-    label: Basics
-    description: Thank you for your feature request.
-    options:
-      - label: I have done a basic search through the issue tracker to find similar or related issues.
-      - label: I have made myself familiar with the available features of Nushell for the particular area this enhancement request touches.
+    attributes:
+      label: Basics
+      description: Thank you for your feature request.
+      options:
+        - label: I have done a basic search through the issue tracker to find similar or related issues.
+        - label: I have made myself familiar with the available features of Nushell for the particular area this enhancement request touches.
   - type: textarea
     id: problem
     attributes:
