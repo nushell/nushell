@@ -279,11 +279,22 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             return garbage(working_set, spans[0]);
         }
         Some(decl_id) => {
+            let starting_error_count = working_set.parse_errors.len();
             working_set.enter_scope();
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-            working_set.exit_scope();
+            if working_set
+                .parse_errors
+                .get(starting_error_count..)
+                .is_none_or(|new_erros| {
+                    new_erros
+                        .iter()
+                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+                })
+            {
+                working_set.exit_scope();
+            }
 
             let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);

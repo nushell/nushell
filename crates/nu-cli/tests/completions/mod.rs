@@ -1992,6 +1992,11 @@ fn local_variable_completion() {
     // https://github.com/nushell/nushell/issues/15291
     let expected: Vec<_> = vec!["$foo", "$fooo", "$foooo", "$fooooo"];
     match_suggestions(&expected, &suggestions);
+
+    let completion_str = "if true { let foo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
