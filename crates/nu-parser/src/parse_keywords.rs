@@ -287,8 +287,8 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             if working_set
                 .parse_errors
                 .get(starting_error_count..)
-                .is_none_or(|new_erros| {
-                    new_erros
+                .is_none_or(|new_errors| {
+                    new_errors
                         .iter()
                         .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
                 })
