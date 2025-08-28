@@ -595,7 +595,12 @@ fn parse_def_inner(
             let mut new_errors = working_set.parse_errors[starting_error_count..].to_vec();
             working_set.parse_errors.truncate(starting_error_count);
 
-            working_set.exit_scope();
+            if new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+            {
+                working_set.exit_scope();
+            }
 
             let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);

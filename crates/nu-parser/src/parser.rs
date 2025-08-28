@@ -5090,6 +5090,7 @@ pub fn parse_closure_expression(
 
     let mut start = span.start;
     let mut end = span.end;
+    let mut is_unclosed = false;
 
     if bytes.starts_with(b"{") {
         start += 1;
@@ -5101,6 +5102,7 @@ pub fn parse_closure_expression(
         end -= 1;
     } else {
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        is_unclosed = true;
     }
 
     let inner_span = Span::new(start, end);
@@ -5197,7 +5199,9 @@ pub fn parse_closure_expression(
 
     output.span = Some(span);
 
-    working_set.exit_scope();
+    if !is_unclosed {
+        working_set.exit_scope();
+    }
 
     let block_id = working_set.add_block(Arc::new(output));
 
