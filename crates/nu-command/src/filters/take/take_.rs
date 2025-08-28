@@ -46,7 +46,7 @@ impl Command for Take {
         let head = call.head;
         let rows_desired: usize = call.req(engine_state, stack, 0)?;
 
-        let metadata = input.metadata();
+        let metadata = input.metadata().map(|m| m.with_content_type(None));
 
         match input {
             PipelineData::Value(val, _) => {
@@ -91,7 +91,8 @@ impl Command for Take {
                     let span = stream.span();
                     Ok(PipelineData::byte_stream(
                         stream.take(span, rows_desired as u64)?,
-                        metadata,
+                        // first 5 bytes of an image/png stream are not image/png themselves
+                        metadata.map(|m| m.with_content_type(None)),
                     ))
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {

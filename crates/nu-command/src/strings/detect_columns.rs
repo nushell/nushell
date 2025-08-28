@@ -237,6 +237,7 @@ fn detect_columns(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
+    let input_span = input.span().unwrap_or(Span::unknown());
     let input = input.collect_string("", &args.config)?;
 
     let input: Vec<_> = input
@@ -311,11 +312,20 @@ fn detect_columns(
                     }
                 }
 
-                match &args.range {
+                let has_column_duplicates = record.columns().duplicates().count() > 0;
+                if has_column_duplicates {
+                    return Err(ShellError::ColumnDetectionFailure {
+                        bad_value: input_span,
+                        failure_site: name_span,
+                    });
+                }
+
+                Ok(match &args.range {
                     Some(range) => merge_record(record, range, name_span),
                     None => Value::record(record, name_span),
-                }
+                })
             })
+            .collect::<Result<Vec<_>, _>>()?
             .into_pipeline_data(call.head, engine_state.signals().clone()))
     } else {
         Ok(PipelineData::empty())

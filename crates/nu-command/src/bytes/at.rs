@@ -76,6 +76,8 @@ impl Command for BytesAt {
 
         if let PipelineData::ByteStream(stream, metadata) = input {
             let stream = stream.slice(call.head, call.arguments_span(), range)?;
+            // bytes 3..5 of an image/png stream are not image/png themselves
+            let metadata = metadata.map(|m| m.with_content_type(None));
             Ok(PipelineData::byte_stream(stream, metadata))
         } else {
             operate(
@@ -85,6 +87,11 @@ impl Command for BytesAt {
                 call.head,
                 engine_state.signals(),
             )
+            .map(|pipeline| {
+                // bytes 3..5 of an image/png stream are not image/png themselves
+                let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
+                pipeline.set_metadata(metadata)
+            })
         }
     }
 

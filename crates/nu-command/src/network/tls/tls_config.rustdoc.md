@@ -1,4 +1,4 @@
-Provide a [`TlsConnector`] for [`ureq`].
+Provide a [`TlsConfig`] for [`ureq`].
 
 This is used by Nushell's networking commands (`http`) to handle secure 
 (or optionally insecure) HTTP connections.

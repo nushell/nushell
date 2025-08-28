@@ -1,3 +1,5 @@
+#[cfg(doc)] // allow mentioning this in doc comments
+use super::ShellError;
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
     error::Error as StdError,
@@ -103,7 +105,7 @@ pub struct IoError {
     /// and is part of [`std::io::Error`].
     /// If a kind cannot be represented by it, consider adding a new variant to [`ErrorKind`].
     ///
-    /// Only in very rare cases should [`std::io::ErrorKind::other()`] be used, make sure you provide
+    /// Only in very rare cases should [`std::io::Error::other()`] be used, make sure you provide
     /// `additional_context` to get useful errors in these cases.
     pub kind: ErrorKind,
 
@@ -181,8 +183,9 @@ pub enum ErrorKind {
     /// The file or directory is in use by another program.
     ///
     /// On Windows, this maps to
-    /// [`ERROR_SHARING_VIOLATION`](windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
+    /// [`ERROR_SHARING_VIOLATION`](::windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
     /// prevents access like deletion or modification.
+    #[cfg_attr(not(windows), allow(rustdoc::broken_intra_doc_links))]
     AlreadyInUse,
 
     // use these variants in cases where we know precisely whether a file or directory was expected
