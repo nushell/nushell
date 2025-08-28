@@ -1997,6 +1997,11 @@ fn local_variable_completion() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["$foo"];
     match_suggestions(&expected, &suggestions);
+
+    let completion_str = "for foo in [1] { let fooo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo", "$fooo"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
