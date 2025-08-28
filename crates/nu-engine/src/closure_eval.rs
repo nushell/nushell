@@ -146,7 +146,7 @@ impl ClosureEval {
     pub fn run_with_input(&mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
         self.arg_index = 0;
         self.stack.with_env(&self.env_vars, &self.env_hidden);
-        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input)
+        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
@@ -261,7 +261,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        (self.eval)(self.engine_state, &mut self.stack, self.block, input)
+        (self.eval)(self.engine_state, &mut self.stack, self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.

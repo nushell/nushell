@@ -131,6 +131,7 @@ pub fn eval_block(
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
+        .map(|p| p.body)
         .and_then(|data| data.into_value(Span::test_data()))
         .unwrap_or_else(|err| {
             report_shell_error(engine_state, &err);

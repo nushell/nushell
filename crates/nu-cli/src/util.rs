@@ -7,6 +7,7 @@ use nu_protocol::{
     PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
 };
@@ -314,11 +315,17 @@ fn evaluate_source(
     } else {
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
+    let pipeline_data = pipeline.body;
 
-    let no_newline = matches!(&pipeline, &PipelineData::ByteStream(..));
-    print_pipeline(engine_state, stack, pipeline, no_newline)?;
+    let no_newline = matches!(&pipeline_data, &PipelineData::ByteStream(..));
+    print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
 
-    Ok(false)
+    let pipefail = nu_experimental::PIPE_FAIL.get();
+    if !pipefail {
+        return Ok(false);
+    }
+    // After print pipeline, need to check exit status to implement pipeline feature.
+    check_exit_status_future(pipeline.exit).map(|_| false)
 }
 
 #[cfg(test)]

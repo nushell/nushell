@@ -57,7 +57,8 @@ impl Completer for NuMenuCompleter {
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
-        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
+        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
+            .map(|p| p.body);
 
         if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
             convert_to_suggestions(values, line, pos, self.only_buffer_difference)

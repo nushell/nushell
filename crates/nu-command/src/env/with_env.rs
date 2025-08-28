@@ -76,7 +76,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input)
+    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input).map(|p| p.body)
 }
 
 #[cfg(test)]

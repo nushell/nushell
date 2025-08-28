@@ -5,6 +5,7 @@ use nu_protocol::{
     PipelineData, ShellError, Spanned, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning,
 };
@@ -84,7 +85,8 @@ pub fn evaluate_commands(
     // Run the block
     let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
 
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
+    let pipeline_data = pipeline.body;
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline_data {
         return Err(*error);
     }
 
@@ -93,9 +95,12 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    print_pipeline(engine_state, stack, pipeline, no_newline)?;
-
+    print_pipeline(engine_state, stack, pipeline_data, no_newline)?;
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
-
-    Ok(())
+    let pipefail = nu_experimental::PIPE_FAIL.get();
+    if !pipefail {
+        return Ok(());
+    }
+    // After print pipeline, need to check exit status to implement pipeline feature.
+    check_exit_status_future(pipeline.exit)
 }
