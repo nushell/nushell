@@ -16,7 +16,7 @@ use rand::{
 use std::io::Write;
 
 #[test]
-fn into_sqlite_schema() {
+fn to_sqlite_schema() {
     Playground::setup("schema", |dirs, _| {
         let testdb = make_sqlite_db(
             &dirs,
@@ -56,7 +56,7 @@ fn into_sqlite_schema() {
 }
 
 #[test]
-fn into_sqlite_values() {
+fn to_sqlite_values() {
     Playground::setup("values", |dirs, _| {
         insert_test_rows(
             &dirs,
@@ -98,7 +98,7 @@ fn into_sqlite_values() {
 /// table. In the event that a column is null, we can't know what type the row
 /// should be, so we just assume TEXT.
 #[test]
-fn into_sqlite_values_first_column_null() {
+fn to_sqlite_values_first_column_null() {
     Playground::setup("values", |dirs, _| {
         insert_test_rows(
             &dirs,
@@ -139,7 +139,7 @@ fn into_sqlite_values_first_column_null() {
 /// If the DB / table already exist, then the insert should end up with the
 /// right data types no matter if the first row is null or not.
 #[test]
-fn into_sqlite_values_first_column_null_preexisting_db() {
+fn to_sqlite_values_first_column_null_preexisting_db() {
     Playground::setup("values", |dirs, _| {
         insert_test_rows(
             &dirs,
@@ -235,7 +235,7 @@ fn into_sqlite_values_first_column_null_preexisting_db() {
 
 /// Opening a preexisting database should append to it
 #[test]
-fn into_sqlite_existing_db_append() {
+fn to_sqlite_existing_db_append() {
     Playground::setup("existing_db_append", |dirs, _| {
         // create a new DB with only one row
         insert_test_rows(
@@ -298,7 +298,7 @@ fn into_sqlite_existing_db_append() {
 /// Test inserting a good number of randomly generated rows to test an actual
 /// streaming pipeline instead of a simple value
 #[test]
-fn into_sqlite_big_insert() {
+fn to_sqlite_big_insert() {
     let engine_state = EngineState::new();
     // don't serialize closures
     let serialize_types = false;
@@ -363,7 +363,7 @@ fn into_sqlite_big_insert() {
 
 /// empty in, empty out
 #[test]
-fn into_sqlite_empty() {
+fn to_sqlite_empty() {
     Playground::setup("empty", |dirs, _| {
         insert_test_rows(&dirs, r#"[]"#, Some("SELECT * FROM sqlite_schema;"), vec![]);
     });
@@ -473,7 +473,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> AbsolutePathBuf {
 
     let nucmd = nu!(
         cwd: testdir,
-        pipeline(&format!("{nu_table} | into sqlite {testdb}"))
+        pipeline(&format!("{nu_table} | to sqlite {testdb}"))
     );
 
     assert!(nucmd.status.success());
@@ -500,7 +500,7 @@ fn insert_test_rows(dirs: &Dirs, nu_table: &str, sql_query: Option<&str>, expect
 fn test_auto_conversion() {
     Playground::setup("sqlite json auto conversion", |_, playground| {
         let raw = "{a_record:{foo:bar,baz:quux},a_list:[1,2,3],a_table:[[a,b];[0,1],[2,3]]}";
-        nu!(cwd: playground.cwd(), "{} | into sqlite filename.db -t my_table", raw);
+        nu!(cwd: playground.cwd(), "{} | to sqlite filename.db -t my_table", raw);
         let outcome = nu!(
             cwd: playground.cwd(),
             "open filename.db | get my_table.0 | to nuon --raw"
