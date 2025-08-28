@@ -4360,6 +4360,7 @@ dependencies = [
  "nu-utils",
  "num",
  "object_store",
+ "planus",
  "polars",
  "polars-arrow",
  "polars-io",
