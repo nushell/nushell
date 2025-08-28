@@ -1,13 +1,14 @@
 name: Bug Report
-description: Create a report of behavior that doesn't seem to be intended and help us improve
+description: "Create a report of behavior that doesn't seem to be intended and help us improve"
 labels: ["needs-triage"]
 body: 
   - type: checkboxes
-    label: Bug report form
-    description: Thank you for your bug report.
-    options:
-      - label: I have done a basic search of the issue tracker to find any existing issues that are similar.
-      - label: I have checked that my version is at least the latest stable release available via my installation method.
+    attributes:
+      label: Bug report form
+      description: Thank you for your bug report.
+      options:
+        - label: I have done a basic search of the issue tracker to find any existing issues that are similar.
+        - label: I have checked that my version is at least the latest stable release available via my installation method.
   - type: textarea
     id: description
     attributes:
