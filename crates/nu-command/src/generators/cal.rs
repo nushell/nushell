@@ -1,9 +1,14 @@
 use chrono::{Datelike, Local, NaiveDate};
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{self, Expr, Expression};
+use nu_protocol::{
+    Completion,
+    ast::{self, Expr, Expression},
+};
 
 use std::collections::VecDeque;
+
+static DAYS_OF_THE_WEEK: [&str; 7] = ["su", "mo", "tu", "we", "th", "fr", "sa"];
 
 #[derive(Clone)]
 pub struct Cal;
@@ -41,6 +46,7 @@ impl Command for Cal {
                 "Display the calendar with the specified day as the first day of the week",
                 None,
             )
+            .add_named_completion(Completion::new_list(DAYS_OF_THE_WEEK.as_slice()))
             .switch(
                 "month-names",
                 "Display the month names instead of integers",
@@ -296,7 +302,7 @@ fn add_month_to_table(
         },
     };
 
-    let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+    let mut days_of_the_week = DAYS_OF_THE_WEEK;
     let mut total_start_offset: u32 = month_helper.day_number_of_week_month_starts_on;
 
     if let Some(week_start_day) = &arguments.week_start {
@@ -309,7 +315,9 @@ fn add_month_to_table(
             total_start_offset %= days_of_the_week.len() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
-                err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
+                err_message: format!(
+                    "The specified week start day is invalid, expected one of {DAYS_OF_THE_WEEK:?}"
+                ),
                 span: week_start_day.span,
             });
         }

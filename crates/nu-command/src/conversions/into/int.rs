@@ -2,6 +2,7 @@ use chrono::{FixedOffset, TimeZone};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::Completion;
 use nu_utils::get_system_locale;
 
 struct Arguments {
@@ -76,6 +77,7 @@ impl Command for IntoInt {
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
             )
+            .add_named_completion(Completion::new_list(&["native", "little", "big"]))
             .switch(
                 "signed",
                 "always treat input number as a signed number",

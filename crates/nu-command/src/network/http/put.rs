@@ -74,6 +74,7 @@ impl Command for HttpPut {
                 "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
                 Some('R')
             )
+            .add_named_completion(nu_protocol::Completion::new_list(super::client::RedirectMode::MODES))
             .filter()
             .category(Category::Network)
     }

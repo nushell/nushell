@@ -1,5 +1,6 @@
 use nu_cmd_base::WrapCall;
 use nu_engine::command_prelude::*;
+use nu_protocol::Completion;
 
 #[derive(Clone)]
 pub struct AttrDeprecated;
@@ -44,6 +45,7 @@ impl Command for AttrDeprecated {
                 "How to warn about this item. One of: first (default), every",
                 None,
             )
+            .add_positional_completion(Completion::new_list(&["first", "every"]))
             .category(Category::Core)
     }
 
