@@ -171,7 +171,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         #[cfg(all(feature = "os", windows))]
-        bind_command! { RegistryQuery }
+        bind_command! { Registry, RegistryQuery }
 
         #[cfg(all(
             feature = "os",
@@ -203,6 +203,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
+            Detect,
             DetectColumns,
             Parse,
             Split,
