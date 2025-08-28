@@ -46,7 +46,7 @@ impl Command for BitsShr {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
+                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number)",
                 Some('n'),
             )
             .category(Category::Bits)
