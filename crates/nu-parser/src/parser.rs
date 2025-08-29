@@ -4896,6 +4896,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
     let mut start = span.start;
     let mut end = span.end;
+    let mut is_closed = true;
 
     if bytes.starts_with(b"{") {
         start += 1;
@@ -4907,6 +4908,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
         end -= 1;
     } else {
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        is_closed = false;
     }
 
     let inner_span = Span::new(start, end);
@@ -5072,7 +5074,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
         );
         position += 1;
-        working_set.exit_scope();
+        if is_closed {
+            working_set.exit_scope();
+        }
 
         output_matches.push((pattern, result));
     }
