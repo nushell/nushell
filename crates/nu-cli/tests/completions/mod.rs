@@ -2002,6 +2002,16 @@ fn local_variable_completion() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["$foo", "$fooo"];
     match_suggestions(&expected, &suggestions);
+
+    let completion_str = "(let foo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "match {a: {b: 3}} {{a: {b: $foo}} => $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
