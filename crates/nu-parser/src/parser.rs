@@ -2583,6 +2583,7 @@ pub fn parse_full_cell_path(
             let head_span = head.span;
             let mut start = head.span.start;
             let mut end = head.span.end;
+            let mut is_closed = true;
 
             if bytes.starts_with(b"(") {
                 start += 1;
@@ -2591,6 +2592,7 @@ pub fn parse_full_cell_path(
                 end -= 1;
             } else {
                 working_set.error(ParseError::Unclosed(")".into(), Span::new(end, end)));
+                is_closed = false;
             }
 
             let span = Span::new(start, end);
@@ -2604,7 +2606,7 @@ pub fn parse_full_cell_path(
 
             // Creating a Type scope to parse the new block. This will keep track of
             // the previous input type found in that block
-            let output = parse_block(working_set, &output, span, true, true);
+            let output = parse_block(working_set, &output, span, is_closed, true);
 
             let ty = output.output_type();
 
@@ -4834,7 +4836,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut start = span.start;
     let mut end = span.end;
-    let mut is_unclosed = false;
+    let mut is_closed = true;
 
     if bytes.starts_with(b"{") {
         start += 1;
@@ -4846,7 +4848,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
         end -= 1;
     } else {
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
-        is_unclosed = true;
+        is_closed = false;
     }
 
     let inner_span = Span::new(start, end);
@@ -4880,7 +4882,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     output.span = Some(span);
 
-    if !is_unclosed {
+    if is_closed {
         working_set.exit_scope();
     }
 
@@ -5094,7 +5096,7 @@ pub fn parse_closure_expression(
 
     let mut start = span.start;
     let mut end = span.end;
-    let mut is_unclosed = false;
+    let mut is_closed = true;
 
     if bytes.starts_with(b"{") {
         start += 1;
@@ -5106,7 +5108,7 @@ pub fn parse_closure_expression(
         end -= 1;
     } else {
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
-        is_unclosed = true;
+        is_closed = false;
     }
 
     let inner_span = Span::new(start, end);
@@ -5203,7 +5205,7 @@ pub fn parse_closure_expression(
 
     output.span = Some(span);
 
-    if !is_unclosed {
+    if is_closed {
         working_set.exit_scope();
     }
 
