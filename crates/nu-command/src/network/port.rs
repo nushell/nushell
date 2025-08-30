@@ -278,11 +278,11 @@ fn search_port_in_range(
         }
     }
 
-    Err(ShellError::GenericError {
-        error: "No free port found".into(),
-        msg: "All ports in the range were taken".into(),
-        span: call_span.into(),
-        help: None,
-        inner: vec![],
-    })
+    Err(IoError::new_with_additional_context(
+        std::io::Error::from(std::io::ErrorKind::AddrInUse),
+        call_span,
+        None,
+        "All ports in the range were taken",
+    )
+    .into())
 }
