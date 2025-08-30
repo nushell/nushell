@@ -393,6 +393,7 @@ impl LanguageServer {
         let file_path = uri_to_path(uri);
         let file_path_str = file_path.to_str()?;
         let contents = file.get_content(None).as_bytes();
+        // For `const foo = path self .`
         let _ = working_set.files.push(file_path.clone(), Span::unknown());
         let block = nu_parser::parse(&mut working_set, Some(file_path_str), contents, false);
         let span = working_set.get_span_for_filename(file_path_str)?;
