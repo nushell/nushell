@@ -18,7 +18,7 @@ use nu_protocol::{
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
@@ -428,12 +428,12 @@ impl LanguageServer {
         let (data_sender, data_receiver) = crossbeam_channel::unbounded::<InternalMessage>();
         let (cancel_sender, cancel_receiver) = crossbeam_channel::bounded::<bool>(1);
         let engine_state = Arc::new(engine_state);
-        let docs = self.docs.clone();
+        let text_documents = self.docs.clone();
         self.send_progress_begin(token.clone(), message)?;
 
         std::thread::spawn(move || -> Result<()> {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let scripts: HashSet<PathBuf> = match find_nu_scripts_in_folder(&workspace_uri) {
+            let mut scripts: HashSet<_> = match find_nu_scripts_in_folder(&workspace_uri) {
                 Ok(it) => it,
                 Err(_) => {
                     data_sender
@@ -444,6 +444,20 @@ impl LanguageServer {
             }
             .filter_map(|p| p.ok())
             .collect();
+
+            // For unsaved new files
+            let mut opened_scripts = HashSet::new();
+            let docs = match text_documents.lock() {
+                Ok(it) => it,
+                Err(err) => return Err(miette!(err.to_string())),
+            };
+            for uri in docs.documents().keys() {
+                let fp = uri_to_path(uri);
+                opened_scripts.insert(fp.clone());
+                scripts.insert(fp);
+            }
+            drop(docs);
+
             let len = scripts.len();
             let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
             let bytes_to_search = id_tracker.name.to_owned();
@@ -461,12 +475,18 @@ impl LanguageServer {
                 }
                 let percentage = (i * 100 / len) as u32;
                 let uri = path_to_uri(fp);
-                let docs = match docs.lock() {
-                    Ok(it) => it,
-                    Err(err) => return Err(miette!(err.to_string())),
-                };
-                let file = if let Some(file) = docs.get_document(&uri) {
-                    file
+                let file = if opened_scripts.contains(fp) {
+                    let docs = match text_documents.lock() {
+                        Ok(it) => it,
+                        Err(err) => return Err(miette!(err.to_string())),
+                    };
+                    let Some(file) = docs.get_document(&uri) else {
+                        continue;
+                    };
+                    let doc_copy =
+                        FullTextDocument::new("nu".to_string(), 0, file.get_content(None).into());
+                    drop(docs);
+                    doc_copy
                 } else {
                     let file_bytes = match fs::read(fp) {
                         Ok(it) => it,
@@ -483,7 +503,7 @@ impl LanguageServer {
                             .into_diagnostic()?;
                         continue;
                     }
-                    &FullTextDocument::new(
+                    FullTextDocument::new(
                         "nu".to_string(),
                         0,
                         String::from_utf8_lossy(&file_bytes).into(),
@@ -491,7 +511,7 @@ impl LanguageServer {
                 };
                 let ranges = Self::find_reference_in_file(
                     &mut working_set,
-                    file,
+                    &file,
                     fp,
                     &mut id_tracker,
                     definition_span,
