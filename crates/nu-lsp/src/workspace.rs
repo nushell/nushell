@@ -16,7 +16,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     sync::Arc,
@@ -176,27 +176,49 @@ impl LanguageServer {
         let path_uri = &params.text_document_position.text_document.uri;
         let mut engine_state = self.new_engine_state(Some(path_uri));
 
-        let (working_set, id, span, file_span) = self
+        let (mut working_set, id, span, file_span) = self
             .parse_and_find(
                 &mut engine_state,
                 path_uri,
                 params.text_document_position.position,
             )
             .ok()?;
-        let current_workspace_folder = self.get_workspace_folder_by_uri(path_uri)?;
+
+        let mut id_tracker = IDTracker::new(id.clone(), span, file_span, &working_set);
+        let Some(workspace_uri) = self
+            .get_workspace_folder_by_uri(path_uri)
+            .map(|folder| folder.uri.clone())
+        else {
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+            return Some(
+                Self::find_reference_in_file(
+                    &mut working_set,
+                    self.docs.lock().ok()?.get_document(path_uri)?,
+                    uri_to_path(path_uri).as_path(),
+                    &mut id_tracker,
+                    definition_span,
+                )
+                .into_iter()
+                .map(|range| Location {
+                    uri: path_uri.clone(),
+                    range,
+                })
+                .collect(),
+            );
+        };
+
         let token = params
             .work_done_progress_params
             .work_done_token
             .clone()
             .unwrap_or(ProgressToken::Number(1));
 
-        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
         let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
-                current_workspace_folder,
+                workspace_uri,
                 token.clone(),
                 "Finding references ...".to_string(),
                 id_tracker,
@@ -243,7 +265,7 @@ impl LanguageServer {
         let path_uri = &params.text_document.uri;
         let mut engine_state = self.new_engine_state(Some(path_uri));
 
-        let (working_set, id, span, file_span) =
+        let (mut working_set, id, span, file_span) =
             self.parse_and_find(&mut engine_state, path_uri, params.position)?;
 
         if let Id::Value(_) = id {
@@ -273,17 +295,31 @@ impl LanguageServer {
             }))
             .into_diagnostic()?;
 
-        let current_workspace_folder = self
+        let mut id_tracker = IDTracker::new(id.clone(), span, file_span, &working_set);
+        let Some(workspace_uri) = self
             .get_workspace_folder_by_uri(path_uri)
-            .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
+            .map(|folder| folder.uri.clone())
+        else {
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+            self.occurrences.insert(
+                path_uri.clone(),
+                Self::find_reference_in_file(
+                    &mut working_set,
+                    file,
+                    uri_to_path(path_uri).as_path(),
+                    &mut id_tracker,
+                    definition_span,
+                ),
+            );
+            return Ok(());
+        };
         // now continue parsing on other files in the workspace
-        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
         let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
-                current_workspace_folder,
+                workspace_uri,
                 ProgressToken::Number(0),
                 "Preparing rename ...".to_string(),
                 id_tracker,
@@ -297,7 +333,8 @@ impl LanguageServer {
         file: &FullTextDocument,
         fp: &Path,
         id_tracker: &mut IDTracker,
-    ) -> Option<Vec<Span>> {
+        definition_span: Option<Span>,
+    ) -> Vec<Range> {
         let block = nu_parser::parse(
             working_set,
             fp.to_str(),
@@ -322,11 +359,28 @@ impl LanguageServer {
             }
             id_tracker.renewed = true;
         }
-        let references: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
+        let mut refs: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
+
+        let file_span = working_set
+            .get_span_for_filename(fp.to_string_lossy().as_ref())
+            .unwrap_or(Span::unknown());
+        if let Some(extra_span) = Self::reference_not_in_ast(
+            &id_tracker.id,
+            &working_set,
+            definition_span,
+            file_span,
+            id_tracker.span,
+        ) {
+            if !refs.contains(&extra_span) {
+                refs.push(extra_span)
+            }
+        }
 
         // add_block to avoid repeated parsing
         working_set.add_block(block);
-        (!references.is_empty()).then_some(references)
+        refs.iter()
+            .map(|span| span_to_range(span, file, file_span.start))
+            .collect()
     }
 
     /// NOTE: for arguments whose declaration is in a signature
@@ -363,7 +417,7 @@ impl LanguageServer {
     fn find_reference_in_workspace(
         &self,
         engine_state: EngineState,
-        current_workspace_folder: WorkspaceFolder,
+        workspace_uri: Uri,
         token: ProgressToken,
         message: String,
         mut id_tracker: IDTracker,
@@ -379,18 +433,17 @@ impl LanguageServer {
 
         std::thread::spawn(move || -> Result<()> {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let scripts: Vec<PathBuf> =
-                match find_nu_scripts_in_folder(&current_workspace_folder.uri) {
-                    Ok(it) => it,
-                    Err(_) => {
-                        data_sender
-                            .send(InternalMessage::Cancelled(token.clone()))
-                            .ok();
-                        return Ok(());
-                    }
+            let scripts: HashSet<PathBuf> = match find_nu_scripts_in_folder(&workspace_uri) {
+                Ok(it) => it,
+                Err(_) => {
+                    data_sender
+                        .send(InternalMessage::Cancelled(token.clone()))
+                        .ok();
+                    return Ok(());
                 }
-                .filter_map(|p| p.ok())
-                .collect();
+            }
+            .filter_map(|p| p.ok())
+            .collect();
             let len = scripts.len();
             let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
             let bytes_to_search = id_tracker.name.to_owned();
@@ -436,52 +489,34 @@ impl LanguageServer {
                         String::from_utf8_lossy(&file_bytes).into(),
                     )
                 };
-                let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
-                    .map(|mut refs| {
-                        let file_span = working_set
-                            .get_span_for_filename(fp.to_string_lossy().as_ref())
-                            .unwrap_or(Span::unknown());
-                        if let Some(extra_span) = Self::reference_not_in_ast(
-                            &id_tracker.id,
-                            &working_set,
-                            definition_span,
-                            file_span,
-                            id_tracker.span,
-                        ) {
-                            if !refs.contains(&extra_span) {
-                                refs.push(extra_span)
-                            }
-                        }
-                        let ranges = refs
-                            .iter()
-                            .map(|span| span_to_range(span, file, file_span.start))
-                            .collect();
-                        data_sender
-                            .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
-                            .ok();
-                        data_sender
-                            .send(InternalMessage::OnGoing(token.clone(), percentage))
-                            .ok();
-                    });
+                let ranges = Self::find_reference_in_file(
+                    &mut working_set,
+                    file,
+                    fp,
+                    &mut id_tracker,
+                    definition_span,
+                );
+                data_sender
+                    .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
+                    .ok();
+                data_sender
+                    .send(InternalMessage::OnGoing(token.clone(), percentage))
+                    .ok();
             }
             data_sender
                 .send(InternalMessage::Finished(token))
-                .into_diagnostic()?;
-            Ok(())
+                .into_diagnostic()
         });
         Ok((cancel_sender, Arc::new(data_receiver)))
     }
 
-    fn get_workspace_folder_by_uri(&self, uri: &Uri) -> Option<WorkspaceFolder> {
+    fn get_workspace_folder_by_uri(&self, uri: &Uri) -> Option<&WorkspaceFolder> {
         let uri_string = uri.to_string();
-        self.workspace_folders
-            .iter()
-            .find_map(|(_, folder)| {
-                uri_string
-                    .starts_with(&folder.uri.to_string())
-                    .then_some(folder)
-            })
-            .cloned()
+        self.workspace_folders.iter().find_map(|(_, folder)| {
+            uri_string
+                .starts_with(&folder.uri.to_string())
+                .then_some(folder)
+        })
     }
 }
 
