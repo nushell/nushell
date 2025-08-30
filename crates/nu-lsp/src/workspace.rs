@@ -105,16 +105,12 @@ impl LanguageServer {
         &mut self,
         params: &DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document_position_params.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
         let (block, file_span, working_set) =
-            self.parse_file(&mut engine_state, &path_uri, false)?;
+            self.parse_file(&mut engine_state, path_uri, false)?;
         let docs = &self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         let location = file.offset_at(params.text_document_position_params.position) as usize
             + file_span.start;
         let (id, cursor_span) = find_id(&block, &working_set, &location)?;
@@ -177,26 +173,26 @@ impl LanguageServer {
         self.occurrences = BTreeMap::new();
         // start with a clean engine state
         self.need_parse = true;
-        let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document_position.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
 
         let (working_set, id, span, file_span) = self
             .parse_and_find(
                 &mut engine_state,
-                &path_uri,
+                path_uri,
                 params.text_document_position.position,
             )
             .ok()?;
-        let current_workspace_folder = self.get_workspace_folder_by_uri(&path_uri)?;
+        let current_workspace_folder = self.get_workspace_folder_by_uri(path_uri)?;
         let token = params
             .work_done_progress_params
             .work_done_token
-            .to_owned()
+            .clone()
             .unwrap_or(ProgressToken::Number(1));
 
         let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
@@ -244,11 +240,11 @@ impl LanguageServer {
         // start with a clean engine state
         self.need_parse = true;
 
-        let path_uri = params.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
 
         let (working_set, id, span, file_span) =
-            self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
+            self.parse_and_find(&mut engine_state, path_uri, params.position)?;
 
         if let Id::Value(_) = id {
             return Err(miette!("\nRename only works for variable/command."));
@@ -264,7 +260,7 @@ impl LanguageServer {
             Err(err) => return Err(miette!(err.to_string())),
         };
         let file = docs
-            .get_document(&path_uri)
+            .get_document(path_uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
         let range = span_to_range(&span, file, file_span.start);
         let response = PrepareRenameResponse::Range(range);
@@ -278,12 +274,12 @@ impl LanguageServer {
             .into_diagnostic()?;
 
         let current_workspace_folder = self
-            .get_workspace_folder_by_uri(&path_uri)
+            .get_workspace_folder_by_uri(path_uri)
             .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
         // now continue parsing on other files in the workspace
         let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,

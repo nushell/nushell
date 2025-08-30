@@ -14,9 +14,9 @@ use nu_protocol::{
 
 impl LanguageServer {
     pub(crate) fn complete(&mut self, params: &CompletionParams) -> Option<CompletionResponse> {
-        let path_uri = params.text_document_position.text_document.uri.to_owned();
+        let path_uri = &params.text_document_position.text_document.uri;
         let docs = self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         let location = file.offset_at(params.text_document_position.position) as usize;
         let file_text = file.get_content(None).to_owned();
         drop(docs);
@@ -30,18 +30,18 @@ impl LanguageServer {
                 .is_some_and(|c| c.is_whitespace() || "|(){}[]<>,:;".contains(c));
 
         self.need_parse |= need_fallback;
-        let engine_state = Arc::new(self.new_engine_state(Some(&path_uri)));
+        let engine_state = Arc::new(self.new_engine_state(Some(path_uri)));
         let completer = NuCompleter::new(engine_state.clone(), Arc::new(Stack::new()));
         let results = if need_fallback {
             completer.fetch_completions_at(&file_text[..location], location)
         } else {
-            let file_path = uri_to_path(&path_uri);
+            let file_path = uri_to_path(path_uri);
             let filename = file_path.to_str()?;
             completer.fetch_completions_within_file(filename, location, &file_text)
         };
 
         let docs = self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         (!results.is_empty()).then_some(CompletionResponse::Array(
             results
                 .into_iter()

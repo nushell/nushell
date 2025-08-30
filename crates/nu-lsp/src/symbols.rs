@@ -274,12 +274,12 @@ impl LanguageServer {
         &mut self,
         params: &DocumentSymbolParams,
     ) -> Option<DocumentSymbolResponse> {
-        let uri = params.text_document.uri.to_owned();
-        let engine_state = self.new_engine_state(Some(&uri));
+        let uri = &params.text_document.uri;
+        let engine_state = self.new_engine_state(Some(uri));
         let docs = self.docs.lock().ok()?;
-        self.symbol_cache.update(&uri, &engine_state, &docs);
+        self.symbol_cache.update(uri, &engine_state, &docs);
         self.symbol_cache
-            .get_symbols_by_uri(&uri)
+            .get_symbols_by_uri(uri)
             .map(DocumentSymbolResponse::Flat)
     }
 
