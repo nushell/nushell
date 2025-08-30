@@ -202,6 +202,11 @@ fn search_port_in_range(
 
     let mut size = 0;
     let size_pointer: *mut u32 = &mut size;
+
+    // SAFETY:
+    // - Passing a null table pointer is a documented way to query the required size.
+    // - `size_pointer` is a valid, non null out pointer for this call.
+    // - We require `ERROR_INSUFFICIENT_BUFFER` to ensure size was written.
     let ret_code = unsafe { GetTcpTable2(None, size_pointer, true) };
     if WIN32_ERROR(ret_code) != ERROR_INSUFFICIENT_BUFFER {
         return Err(make_err(
@@ -210,22 +215,35 @@ fn search_port_in_range(
         ));
     }
 
-    let table: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(size as usize);
-    let table = Box::into_raw(table) as *mut MIB_TCPTABLE2;
-    let ret_code = unsafe { GetTcpTable2(Some(table), size_pointer, true) };
+    // IMPORTANT: Do not exit this scope before converting the raw pointer back into a `Box`.
+    // Otherwise the allocation will not be reclaimed and the pointer will leak.
+    let (table, ret_code) = {
+        let table: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(size as usize);
+        let table = Box::into_raw(table) as *mut MaybeUninit<MIB_TCPTABLE2>;
+
+        // SAFETY:
+        // - `table` is non null and points to an allocation of at least `size` bytes.
+        // - `size_pointer` still points to `size` from the previous call.
+        // - The API writes a fully initialized `MIB_TCPTABLE2` header followed by `dwNumEntries` rows.
+        let ret_code =
+            unsafe { GetTcpTable2(Some(table as *mut MIB_TCPTABLE2), size_pointer, true) };
+
+        // SAFETY:
+        // - Reclaim ownership of the allocation we produced with `Box::into_raw` above.
+        let table: Box<MaybeUninit<MIB_TCPTABLE2>> = unsafe { Box::from_raw(table) };
+        (table, ret_code)
+    };
+
     match WIN32_ERROR(ret_code) {
         NO_ERROR => Ok(()),
         ERROR_INSUFFICIENT_BUFFER => Err(make_err(
             ret_code,
-            "The buffer pointed to by the TcpTable parameter is not large enough",
+            "The buffer for TcpTable is not large enough",
         )),
-        ERROR_INVALID_PARAMETER => Err(make_err(
-            ret_code,
-            "The SizePointer parameter is NULL, or GetTcpTable2 is unable to write to the memory pointed to by the SizePointer parameter",
-        )),
+        ERROR_INVALID_PARAMETER => Err(make_err(ret_code, "SizePointer was null or not writable")),
         ERROR_NOT_SUPPORTED => Err(make_err(
             ret_code,
-            "This function is not supported on the operating system in use on the local system",
+            "GetTcpTable2 is not supported on this OS",
         )),
         _ => Err(make_err(
             ret_code,
@@ -233,15 +251,27 @@ fn search_port_in_range(
         )),
     }?;
 
-    let table: Box<MIB_TCPTABLE2> = unsafe { Box::from_raw(table) };
+    // SAFETY:
+    // - `GetTcpTable2` returned `NO_ERROR`, so the header and trailing rows are fully initialized.
+    let table = unsafe { table.assume_init() };
+
+    // SAFETY:
+    // - `MIB_TCPTABLE2` uses a fixed-size first element as a tail array pattern.
+    // - `table.table.as_ptr()` is properly aligned.
+    // - `dwNumEntries` is the number of contiguous `MIB_TCPROW2` elements written by the API.
     let table: &[MIB_TCPROW2] =
         unsafe { slice::from_raw_parts(table.table.as_ptr(), table.dwNumEntries as usize) };
 
     let used_ports: BTreeSet<u16> = table
         .iter()
         .map(|row| row.dwLocalPort as u16)
-        .map(|raw| unsafe { ntohs(raw) })
+        .map(|raw| {
+            // Convert from network byte order to host byte order.
+            // SAFETY: `raw` is the exact value returned by the API for a port.
+            unsafe { ntohs(raw) }
+        })
         .collect();
+
     for port in range.item {
         if !used_ports.contains(&port) {
             return Ok(port);
@@ -250,7 +280,7 @@ fn search_port_in_range(
 
     Err(ShellError::GenericError {
         error: "No free port found".into(),
-        msg: "Every port has been tried, but no valid one was found".into(),
+        msg: "All ports in the range were taken".into(),
         span: call_span.into(),
         help: None,
         inner: vec![],
