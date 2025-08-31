@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span, VarId,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
