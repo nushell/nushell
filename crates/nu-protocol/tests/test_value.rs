@@ -46,6 +46,7 @@ fn test_float_equality_comparison() {
         ),
         (
             Value::test_float(0.1),
+            #[allow(clippy::excessive_precision)]
             Value::test_float(0.10000000000000001),
         ),
         (
@@ -82,6 +83,7 @@ fn test_float_equality_comparison() {
             Value::test_float(0.9999999999999999),
         ),
         (
+            #[allow(clippy::approx_constant)]
             Value::test_float(3.141592653589793),
             Value::test_float(3.1415926535897927),
         ),
