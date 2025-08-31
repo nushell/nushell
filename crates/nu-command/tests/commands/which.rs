@@ -118,3 +118,11 @@ fn which_accepts_spread_list() {
 
     assert_eq!(actual.out, "ls");
 }
+
+#[test]
+fn which_dedup_is_less_than_all() {
+    let all: i32 = nu!("which -a | length").out.parse().unwrap();
+    let dedup: i32 = nu!("which | length").out.parse().unwrap();
+
+    assert!(all >= dedup);
+}
