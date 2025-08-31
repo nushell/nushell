@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
+use nu_utils::ConfigType;
 
 #[derive(Clone)]
 pub struct ConfigNu;
@@ -70,7 +71,7 @@ impl Command for ConfigNu {
         // `--default` flag handling
         if default_flag {
             let head = call.head;
-            return Ok(Value::string(nu_utils::get_default_config(), head)
+            return Ok(Value::string(ConfigType::Config.default(), head)
                 .into_pipeline_data_with_metadata(
                     PipelineMetadata::default()
                         .with_content_type("application/x-nuscript".to_string().into()),
@@ -80,7 +81,7 @@ impl Command for ConfigNu {
         // `--doc` flag handling
         if doc_flag {
             let head = call.head;
-            return Ok(Value::string(nu_utils::get_doc_config(), head)
+            return Ok(Value::string(ConfigType::Config.doc(), head)
                 .into_pipeline_data_with_metadata(
                     PipelineMetadata::default()
                         .with_content_type("application/x-nuscript".to_string().into()),

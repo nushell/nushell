@@ -9,7 +9,7 @@ use nu_protocol::{
     eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error,
 };
-use nu_utils::{get_default_config, get_default_env, get_scaffold_config, get_scaffold_env};
+use nu_utils::ConfigType;
 use std::{
     fs,
     fs::File,
@@ -19,29 +19,43 @@ use std::{
     sync::Arc,
 };
 
-const CONFIG_FILE: &str = "config.nu";
-const ENV_FILE: &str = "env.nu";
 const LOGINSHELL_FILE: &str = "login.nu";
+
+const fn config_type_path(config_type: ConfigType) -> &'static str {
+    match config_type {
+        ConfigType::Config => "config.nu",
+        ConfigType::Env => "env.nu",
+    }
+}
+
+fn config_type_display(config_type: ConfigType) -> &'static str {
+    match config_type {
+        ConfigType::Config => "Config",
+        ConfigType::Env => "Environment config",
+    }
+}
+
+fn config_type_default_path(config_type: ConfigType) -> &'static str {
+    match config_type {
+        ConfigType::Config => "default_config.nu",
+        ConfigType::Env => "default_env.nu",
+    }
+}
 
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
-    is_env_config: bool,
+    config_type: ConfigType,
     create_scaffold: bool,
 ) {
     warn!(
-        "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
-        &config_file
+        "read_config_file() config_file_specified: {config_file:?}, config_type: {config_type:?}",
     );
 
-    if is_env_config {
-        eval_default_config(engine_state, stack, get_default_env(), is_env_config);
-    } else {
-        eval_default_config(engine_state, stack, get_default_config(), is_env_config);
-    };
+    eval_default_config(engine_state, stack, config_type);
 
-    warn!("read_config_file() loading_defaults is_env_config: {is_env_config}");
+    warn!("read_config_file() loading_defaults is_env_config: {config_type:?}");
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -67,24 +81,16 @@ pub(crate) fn read_config_file(
             return;
         }
 
-        config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
+        config_path.push(config_type_path(config_type));
 
         if !config_path.exists() {
-            let scaffold_config_file = if is_env_config {
-                get_scaffold_env()
-            } else {
-                get_scaffold_config()
-            };
+            let scaffold_config_file = config_type.scaffold();
 
             match create_scaffold {
                 true => {
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_type = if is_env_config {
-                                "Environment config"
-                            } else {
-                                "Config"
-                            };
+                            let config_type = config_type_display(config_type);
                             println!(
                                 "{} file created at: {}",
                                 config_type,
@@ -133,7 +139,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    let config_file = get_default_env();
+    let config_file = ConfigType::Env.default();
     eval_source(
         engine_state,
         stack,
@@ -209,22 +215,13 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         });
 }
 
-fn eval_default_config(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    config_file: &str,
-    is_env_config: bool,
-) {
-    warn!("eval_default_config() is_env_config: {is_env_config}");
+fn eval_default_config(engine_state: &mut EngineState, stack: &mut Stack, config_type: ConfigType) {
+    warn!("eval_default_config() is_env_config: {config_type:?}");
     eval_source(
         engine_state,
         stack,
-        config_file.as_bytes(),
-        if is_env_config {
-            "default_env.nu"
-        } else {
-            "default_config.nu"
-        },
+        config_type.default().as_bytes(),
+        config_type_default_path(config_type),
         PipelineData::empty(),
         false,
     );
@@ -254,8 +251,20 @@ pub(crate) fn setup_config(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, plugin_file);
 
-        read_config_file(engine_state, stack, env_file, true, create_scaffold);
-        read_config_file(engine_state, stack, config_file, false, create_scaffold);
+        read_config_file(
+            engine_state,
+            stack,
+            env_file,
+            ConfigType::Env,
+            create_scaffold,
+        );
+        read_config_file(
+            engine_state,
+            stack,
+            config_file,
+            ConfigType::Config,
+            create_scaffold,
+        );
 
         if is_login_shell {
             read_loginshell_file(engine_state, stack);
