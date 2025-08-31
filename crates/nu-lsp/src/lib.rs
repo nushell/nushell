@@ -234,6 +234,14 @@ impl LanguageServer {
                             })
                         }
                         request::Rename::METHOD => {
+                            if self.channels.is_some() {
+                                self.send_error_message(
+                                    request.id.clone(),
+                                    3,
+                                    "Please wait for renaming preparation to complete.".into(),
+                                )?;
+                                continue;
+                            }
                             Self::handle_lsp_request(request, |params| self.rename(params))
                         }
                         request::SemanticTokensFullRequest::METHOD => {
