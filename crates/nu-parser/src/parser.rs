@@ -5726,12 +5726,6 @@ pub fn parse_math_expression(
     let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
     for not_start_span in not_start_spans.iter().rev() {
-        // lhs = Expression {
-        //     expr: Expr::UnaryNot(Box::new(lhs)),
-        //     span: Span::new(*not_start_span, spans[idx].end),
-        //     ty: Type::Bool,
-        //     custom_completion: None,
-        // };
         lhs = Expression::new(
             working_set,
             Expr::UnaryNot(Box::new(lhs)),
@@ -5802,12 +5796,6 @@ pub fn parse_math_expression(
         let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
         for not_start_span in not_start_spans.iter().rev() {
-            // rhs = Expression {
-            //     expr: Expr::UnaryNot(Box::new(rhs)),
-            //     span: Span::new(*not_start_span, spans[idx].end),
-            //     ty: Type::Bool,
-            //     custom_completion: None,
-            // };
             rhs = Expression::new(
                 working_set,
                 Expr::UnaryNot(Box::new(rhs)),
