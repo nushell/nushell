@@ -169,10 +169,10 @@ mod windows {
     use super::*;
 
     use std::{
-        alloc::{alloc, dealloc, Layout}, collections::BTreeSet, mem::{ManuallyDrop, MaybeUninit}, ptr, slice
+        alloc::{Layout, alloc, dealloc},
+        ptr,
     };
 
-    use pretty_assertions::assert_eq;
     use ::windows::Win32::{
         Foundation::{
             ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, ERROR_NOT_SUPPORTED, NO_ERROR,
@@ -182,7 +182,7 @@ mod windows {
         Networking::WinSock::ntohs,
     };
 
-        #[repr(C)]
+    #[repr(C)]
     struct TcpTable {
         pub num_entries: u32,
         pub table: [MIB_TCPROW2],
@@ -202,7 +202,9 @@ mod windows {
             // - `align` is not zero, is 4.
             // - `align` is a power of two, is 4.
             // - `size` comes from the previous API and is expected to be small enough.
-            let layout = unsafe { Layout::from_size_align_unchecked(size as usize, align_of::<MIB_TCPTABLE2>()) };
+            let layout = unsafe {
+                Layout::from_size_align_unchecked(size as usize, align_of::<MIB_TCPTABLE2>())
+            };
 
             // IMPORTANT: Ensure that this allocation gets deallocated or transferred into ownership before leaving the scope.
             // SAFETY: `layout` has non-zero size, at least 4 for a single `u32`.
@@ -214,7 +216,7 @@ mod windows {
             // - `size_pointer` still points to `size` from the previous call.
             let ret_code = unsafe { GetTcpTable2(Some(ptr), size_pointer, false) };
             let ret_code = WIN32_ERROR(ret_code);
-            if ret_code != NO_ERROR { 
+            if ret_code != NO_ERROR {
                 // SAFETY:
                 // - `ptr` came directly from `alloc`
                 // - `layout` is the same as for `alloc`
@@ -232,9 +234,9 @@ mod windows {
             //   - https://github.com/rust-lang/reference/pull/1417
             // - `ptr` was allocated by the same global allocator
             // - The layout of can be determined by `TcpTable` and is the same structure as `MIB_TCPTABLE2` with the relevant DST length from the slice construction.
-            let table = unsafe { 
+            let table = unsafe {
                 let ptr = ptr::slice_from_raw_parts_mut(ptr, header.dwNumEntries as usize);
-                Box::from_raw(ptr as *mut TcpTable) 
+                Box::from_raw(ptr as *mut TcpTable)
             };
 
             Ok(table)
@@ -257,80 +259,32 @@ mod windows {
         range: Spanned<RangeInclusive<u16>>,
         call_span: Span,
     ) -> Result<u16, ShellError> {
-        let make_err = |ret_code, msg| {
-            ShellError::Io(IoError::new_with_additional_context(
-                std::io::Error::from_raw_os_error(ret_code as i32),
-                call_span,
-                None,
-                msg,
-            ))
-        };
+        use std::collections::HashSet;
 
-        let mut size = 0;
-        let size_pointer: *mut u32 = &mut size;
+        let table = TcpTable::new()
+            .map_err(|err| {
+                (
+                    err,
+                    match err {
+                        NO_ERROR => unreachable!("handled as Ok variant"),
+                        ERROR_INSUFFICIENT_BUFFER => "The buffer for TcpTable is not large enough",
+                        ERROR_INVALID_PARAMETER => "SizePointer was null or not writable",
+                        ERROR_NOT_SUPPORTED => "GetTcpTable2 is not supported on this OS",
+                        _ => "Unexpected error code from GetTcpTable2",
+                    },
+                )
+            })
+            .map_err(|(err, msg)| {
+                ShellError::Io(IoError::new_with_additional_context(
+                    std::io::Error::from_raw_os_error(err.0 as i32),
+                    call_span,
+                    None,
+                    msg,
+                ))
+            })?;
 
-        // SAFETY:
-        // - Passing a null table pointer is a documented way to query the required size.
-        // - `size_pointer` is a valid, non null out pointer for this call.
-        // - We require `ERROR_INSUFFICIENT_BUFFER` to ensure size was written.
-        let ret_code = unsafe { GetTcpTable2(None, size_pointer, true) };
-        if WIN32_ERROR(ret_code) != ERROR_INSUFFICIENT_BUFFER {
-            return Err(make_err(
-                ret_code,
-                "Expected insufficient buffer error from OS",
-            ));
-        }
-
-        // IMPORTANT: Do not exit this scope before converting the raw pointer back into a `Box`.
-        // Otherwise the allocation will not be reclaimed and the pointer will leak.
-        let (table, ret_code) = {
-            let table: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(size as usize);
-            let table = Box::into_raw(table) as *mut MaybeUninit<MIB_TCPTABLE2>;
-
-            // SAFETY:
-            // - `table` is non null and points to an allocation of at least `size` bytes.
-            // - `size_pointer` still points to `size` from the previous call.
-            // - The API writes a fully initialized `MIB_TCPTABLE2` header followed by `dwNumEntries` rows.
-            let ret_code =
-                unsafe { GetTcpTable2(Some(table as *mut MIB_TCPTABLE2), size_pointer, true) };
-
-            // SAFETY:
-            // - Reclaim ownership of the allocation we produced with `Box::into_raw` above.
-            let table: Box<MaybeUninit<MIB_TCPTABLE2>> = unsafe { Box::from_raw(table) };
-            (table, ret_code)
-        };
-
-        match WIN32_ERROR(ret_code) {
-            NO_ERROR => Ok(()),
-            ERROR_INSUFFICIENT_BUFFER => Err(make_err(
-                ret_code,
-                "The buffer for TcpTable is not large enough",
-            )),
-            ERROR_INVALID_PARAMETER => {
-                Err(make_err(ret_code, "SizePointer was null or not writable"))
-            }
-            ERROR_NOT_SUPPORTED => Err(make_err(
-                ret_code,
-                "GetTcpTable2 is not supported on this OS",
-            )),
-            _ => Err(make_err(
-                ret_code,
-                "Unexpected error code from GetTcpTable2",
-            )),
-        }?;
-
-        // SAFETY:
-        // - `GetTcpTable2` returned `NO_ERROR`, so the header and trailing rows are fully initialized.
-        let table = unsafe { table.assume_init() };
-
-        // SAFETY:
-        // - `MIB_TCPTABLE2` uses a fixed-size first element as a tail array pattern.
-        // - `table.table.as_ptr()` is properly aligned.
-        // - `dwNumEntries` is the number of contiguous `MIB_TCPROW2` elements written by the API.
-        let table: &[MIB_TCPROW2] =
-            unsafe { slice::from_raw_parts(table.table.as_ptr(), table.dwNumEntries as usize) };
-
-        let used_ports: BTreeSet<u16> = table
+        let used_ports: HashSet<u16> = table
+            .table
             .iter()
             .map(|row| row.dwLocalPort as u16)
             .map(|raw| {
