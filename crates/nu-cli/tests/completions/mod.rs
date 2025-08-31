@@ -1985,12 +1985,11 @@ fn local_variable_completion() {
     let (_, _, engine, stack) = new_engine();
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str =
-        "def test [foo?: string, --fooo: bool, ...foooo] { let fooooo = true; $foo";
+    let completion_str = "def test [foo?: string, --foo1: bool, ...foo2] { let foo3 = true; $foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // https://github.com/nushell/nushell/issues/15291
-    let expected: Vec<_> = vec!["$foo", "$fooo", "$foooo", "$fooooo"];
+    let expected: Vec<_> = vec!["$foo", "$foo1", "$foo2", "$foo3"];
     match_suggestions(&expected, &suggestions);
 
     let completion_str = "if true { let foo = true; $foo";
@@ -1998,15 +1997,19 @@ fn local_variable_completion() {
     let expected: Vec<_> = vec!["$foo"];
     match_suggestions(&expected, &suggestions);
 
-    let completion_str = "if true {let fooo = 1} else {let foo = true; $foo";
+    let completion_str = "if true {let foo1 = 1} else {let foo = true; $foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["$foo"];
     match_suggestions(&expected, &suggestions);
 
-    let completion_str = "for foo in [1] { let fooo = true; $foo";
+    let completion_str = "for foo in [1] { let foo1 = true; $foo";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    let expected: Vec<_> = vec!["$foo", "$fooo"];
+    let expected: Vec<_> = vec!["$foo", "$foo1"];
     match_suggestions(&expected, &suggestions);
+
+    let completion_str = "for foo in [1] { let foo1 = true }; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    assert!(suggestions.is_empty());
 
     let completion_str = "(let foo = true; $foo";
     let suggestions = completer.complete(completion_str, completion_str.len());

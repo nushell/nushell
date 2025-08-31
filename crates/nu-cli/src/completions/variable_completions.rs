@@ -33,18 +33,6 @@ impl Completer for VariableCompletion {
         variables.insert("$in".into(), &IN_VARIABLE_ID);
         variables.insert("$env".into(), &ENV_VARIABLE_ID);
 
-        let mut add_candidate = |name, var_id: &VarId| {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: name,
-                    span: current_span,
-                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Variable),
-            })
-        };
-
         // TODO: The following can be refactored (see find_commands_by_predicate() used in
         // command_completions).
         let mut removed_overlays = vec![];
@@ -71,7 +59,15 @@ impl Completer for VariableCompletion {
         }
 
         for (name, var_id) in variables {
-            add_candidate(name, var_id);
+            matcher.add_semantic_suggestion(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: name,
+                    span: current_span,
+                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Variable),
+            });
         }
 
         matcher.results()
