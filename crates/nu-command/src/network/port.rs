@@ -182,6 +182,64 @@ mod windows {
         Networking::WinSock::ntohs,
     };
 
+        #[repr(C)]
+    struct TcpTable {
+        pub num_entries: u32,
+        pub table: [MIB_TCPROW2],
+    }
+
+    const _: () = assert!(align_of::<MIB_TCPTABLE2>() == 4);
+
+    impl TcpTable {
+        fn new() -> Result<Box<Self>, WIN32_ERROR> {
+            let mut size = 0;
+            let size_pointer: *mut u32 = &mut size;
+
+            let ret_code = unsafe { GetTcpTable2(None, size_pointer, false) };
+            assert_eq!(WIN32_ERROR(ret_code), ERROR_INSUFFICIENT_BUFFER);
+
+            // SAFETY:
+            // - `align` is not zero, is 4.
+            // - `align` is a power of two, is 4.
+            // - `size` comes from the previous API and is expected to be small enough.
+            let layout = unsafe { Layout::from_size_align_unchecked(size as usize, align_of::<MIB_TCPTABLE2>()) };
+
+            // IMPORTANT: Ensure that this allocation gets deallocated or transferred into ownership before leaving the scope.
+            // SAFETY: `layout` has non-zero size, at least 4 for a single `u32`.
+            let ptr = unsafe { alloc(layout) as *mut MIB_TCPTABLE2 };
+            assert!(!ptr.is_null());
+
+            // SAFETY:
+            // - `ptr` is non-null, well aligned pointer to at least `size` bytes.
+            // - `size_pointer` still points to `size` from the previous call.
+            let ret_code = unsafe { GetTcpTable2(Some(ptr), size_pointer, false) };
+            let ret_code = WIN32_ERROR(ret_code);
+            if ret_code != NO_ERROR { 
+                // SAFETY:
+                // - `ptr` came directly from `alloc`
+                // - `layout` is the same as for `alloc`
+                unsafe { dealloc(ptr as *mut u8, layout) };
+                return Err(ret_code);
+            }
+
+            // SAFETY: Value behind `ptr` was successfully initialized by `GetTcpTable2` as it returned `NO_ERROR`.
+            let header = unsafe { &*ptr };
+
+            // SAFETY:
+            // - `ptr` from `GetTcpTable2` was properly initialized
+            // - Casts from slices to DST with the same length are guaranteed to be safe:
+            //   - https://github.com/rust-lang/unsafe-code-guidelines/issues/288
+            //   - https://github.com/rust-lang/reference/pull/1417
+            // - `ptr` was allocated by the same global allocator
+            // - The layout of can be determined by `TcpTable` and is the same structure as `MIB_TCPTABLE2` with the relevant DST length from the slice construction.
+            let table = unsafe { 
+                let ptr = ptr::slice_from_raw_parts_mut(ptr, header.dwNumEntries as usize);
+                Box::from_raw(ptr as *mut TcpTable) 
+            };
+
+            Ok(table)
+        }
+    }
 
     /// Find an open port by checking the TCP table.
     ///
