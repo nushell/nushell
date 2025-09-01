@@ -28,6 +28,62 @@ pub struct Flag {
     pub default_value: Option<Value>,
 }
 
+impl Flag {
+    #[inline]
+    pub fn new(long: impl Into<String>) -> Self {
+        Flag {
+            long: long.into(),
+            short: None,
+            arg: None,
+            required: false,
+            desc: String::new(),
+            completion: None,
+            var_id: None,
+            default_value: None,
+        }
+    }
+
+    #[inline]
+    pub fn short(self, short: char) -> Self {
+        Self {
+            short: Some(short),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn arg(self, arg: SyntaxShape) -> Self {
+        Self {
+            arg: Some(arg),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn required(self) -> Self {
+        Self {
+            required: true,
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn desc(self, desc: impl Into<String>) -> Self {
+        Self {
+            desc: desc.into(),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn completion(self, completion: Completion) -> Self {
+        Self {
+            completion: Some(completion),
+            ..self
+        }
+    }
+}
+
 /// The signature definition for a positional argument
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionalArg {
@@ -39,6 +95,36 @@ pub struct PositionalArg {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
+}
+
+impl PositionalArg {
+    #[inline]
+    pub fn new(name: impl Into<String>, shape: SyntaxShape) -> Self {
+        Self {
+            name: name.into(),
+            desc: String::new(),
+            shape,
+            completion: None,
+            var_id: None,
+            default_value: None,
+        }
+    }
+
+    #[inline]
+    pub fn desc(self, desc: impl Into<String>) -> Self {
+        Self {
+            desc: desc.into(),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn completion(self, completion: Completion) -> Self {
+        Self {
+            completion: Some(completion),
+            ..self
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -358,6 +444,21 @@ impl Signature {
         self
     }
 
+    pub fn add_required_positional(mut self, pos: PositionalArg) -> Self {
+        self.required_positional.push(pos);
+        self
+    }
+
+    pub fn add_optional_positional(mut self, pos: PositionalArg) -> Self {
+        self.optional_positional.push(pos);
+        self
+    }
+
+    pub fn add_rest(mut self, pos: PositionalArg) -> Self {
+        self.rest_positional = Some(pos);
+        self
+    }
+
     /// Add a required positional argument to the signature
     pub fn required(
         mut self,
@@ -435,6 +536,28 @@ impl Signature {
                     }
                 )
             })
+    }
+
+    /// ## Panics
+    ///
+    /// Panics if one of them is found.
+    // XXX: return result instead of a panic
+    pub fn add_flag(mut self, flag: Flag) -> Self {
+        if let Some(s) = flag.short {
+            assert!(
+                !self.get_shorts().contains(&s),
+                "There may be duplicate short flags for '-{s}'"
+            );
+        }
+
+        let name = flag.long.as_str();
+        assert!(
+            !self.get_names().contains(&name),
+            "There may be duplicate name flags for '--{name}'"
+        );
+
+        self.named.push(flag);
+        self
     }
 
     /// Add an optional named flag argument to the signature
