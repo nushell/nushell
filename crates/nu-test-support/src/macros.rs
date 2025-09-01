@@ -247,6 +247,7 @@ pub struct NuOpts {
     pub cwd: Option<AbsolutePathBuf>,
     pub locale: Option<String>,
     pub envs: Option<Vec<(String, String)>>,
+    pub experimental: Option<Vec<String>>,
     pub collapse_output: Option<bool>,
     // Note: At the time this was added, passing in a file path was more convenient. However,
     // passing in file contents seems like a better API - consider this when adding new uses of
@@ -289,6 +290,11 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         // the shell is started as logging shell (which it is not in this case).
         None => command.arg("--no-config-file"),
     };
+
+    if let Some(experimental_opts) = opts.experimental {
+        let opts = format!("[{}]", experimental_opts.join(","));
+        command.arg(format!("--experimental-options={opts}"));
+    }
 
     if !with_std {
         command.arg("--no-std-lib");

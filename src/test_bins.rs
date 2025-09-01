@@ -63,7 +63,7 @@ impl TestBin for EchoEnvStderrFail {
 
     fn run(&self) {
         echo_env(false);
-        fail();
+        fail(1);
     }
 }
 
@@ -180,11 +180,18 @@ impl TestBin for Iecho {
 
 impl TestBin for Fail {
     fn help(&self) -> &'static str {
-        "Exits with failure code 1(e.g: nu --testbin fail)"
+        "Exits with failure code <c>, if not given, fail with code 1(e.g: nu --testbin fail 10)"
     }
 
     fn run(&self) {
-        fail();
+        let args: Vec<String> = args();
+
+        let exit_code: i32 = if args.len() > 1 {
+            args[1].parse().expect("given exit_code should be a number")
+        } else {
+            1
+        };
+        fail(exit_code);
     }
 }
 
@@ -324,8 +331,8 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
     }
 }
 
-pub fn fail() {
-    std::process::exit(1);
+pub fn fail(exit_code: i32) {
+    std::process::exit(exit_code);
 }
 
 fn outcome_err(engine_state: &EngineState, error: &ShellError) -> ! {
@@ -429,7 +436,7 @@ pub fn nu_repl() {
 
         {
             let stack = &mut stack.start_collect_value();
-            match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
+            match eval_block::<WithoutDebug>(&engine_state, stack, &block, input).map(|p| p.body) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
                     Err(err) => outcome_err(&engine_state, &err),

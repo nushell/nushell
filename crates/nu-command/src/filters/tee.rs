@@ -105,7 +105,8 @@ use it in your pipeline."#
                     &mut closure_stack,
                     closure_engine_state.get_block(closure.block_id),
                     input,
-                );
+                )
+                .map(|p| p.body);
                 // Make sure to drain any iterator produced to avoid unexpected behavior
                 result.and_then(|data| data.drain().map(|_| ()))
             }
