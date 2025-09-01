@@ -22,15 +22,12 @@ use std::{
 pub fn check_exit_status_future(
     exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
 ) -> Result<(), ShellError> {
-    let mut result = Ok(());
     for (future, span) in exit_status.into_iter().rev().flatten() {
         if let Err(err) = check_exit_status_future_ok(future, span) {
-            if result.is_ok() {
-                return Err(err);
-            }
+            return Err(err);
         }
     }
-    result
+    Ok(())
 }
 
 fn check_exit_status_future_ok(
