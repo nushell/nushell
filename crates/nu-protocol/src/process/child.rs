@@ -26,7 +26,7 @@ pub fn check_exit_status_future(
     for (future, span) in exit_status.into_iter().rev().flatten() {
         if let Err(err) = check_exit_status_future_ok(future, span) {
             if result.is_ok() {
-                result = Err(err)
+                return Err(err);
             }
         }
     }

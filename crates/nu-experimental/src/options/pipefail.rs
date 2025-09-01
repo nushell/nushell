@@ -14,7 +14,6 @@ struct PipeFail;
 impl ExperimentalOptionMarker for PipeFail {
     const IDENTIFIER: &'static str = "pipefail";
     const DESCRIPTION: &'static str = "\
-        Raise an error if an external command fails within a pipeline.
         If an external command fails within a pipeline, $env.LAST_EXIT_CODE is set
         to the exit code of rightmost command which failed.";
     const STATUS: Status = Status::OptIn;
