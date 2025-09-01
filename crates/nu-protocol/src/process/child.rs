@@ -23,9 +23,7 @@ pub fn check_exit_status_future(
     exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
 ) -> Result<(), ShellError> {
     for (future, span) in exit_status.into_iter().rev().flatten() {
-        if let Err(err) = check_exit_status_future_ok(future, span) {
-            return Err(err);
-        }
+        check_exit_status_future_ok(future, span)?
     }
     Ok(())
 }
