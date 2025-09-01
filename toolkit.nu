@@ -12,6 +12,7 @@ const toolkit_dir = path self .
 export def fmt [
     --check # do not apply the format changes, only check the syntax
     --verbose  # print extra information about the command's progress
+    --nightly # use unstable features from nightly toolchain
 ] {
     if $verbose {
         print $"running ('toolkit fmt' | pretty-format-command)"
@@ -26,7 +27,13 @@ export def fmt [
             }
         }
     } else {
-        ^cargo fmt --all
+        (
+            ^cargo
+            ...(if $nightly { ["+nightly"] })
+            fmt
+            --all
+            ...(if $nightly { ["--", "--config-path", "./rustfmt-nightly.toml"] })
+        )
     }
 }
 
