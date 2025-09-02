@@ -39,7 +39,8 @@ impl PluginCommand for OpenDataFrame {
     }
 
     fn description(&self) -> &str {
-        "Opens CSV, JSON, NDJSON/JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
+        "Opens CSV, JSON, NDJSON/JSON lines, arrow, avro, or parquet file to create dataframe. A \
+         lazy dataframe will be created by default, if supported."
     }
 
     fn signature(&self) -> Signature {
@@ -53,7 +54,8 @@ impl PluginCommand for OpenDataFrame {
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
+                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file \
+                 extension",
                 Some('t'),
             )
             .named(
@@ -89,7 +91,7 @@ impl PluginCommand for OpenDataFrame {
                 "schema",
                 SyntaxShape::Any,
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
-                Some('s')
+                Some('s'),
             )
             .switch(
                 "hive-enabled",
@@ -113,7 +115,11 @@ impl PluginCommand for OpenDataFrame {
                 "Try to parse dates in hive partitioning. Parquet and Arrow files",
                 None,
             )
-            .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
+            .switch(
+                "truncate-ragged-lines",
+                "Truncate lines that are longer than the schema. CSV file",
+                None,
+            )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }

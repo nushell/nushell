@@ -82,8 +82,8 @@ fn expected_serialize_output() -> Result<(), ShellError> {
     assert_eq!(
         test_plugin_custom_value().data(),
         serialized.data(),
-        "The bincode configuration is probably different from what we expected. \
-            Fix test_plugin_custom_value() to match it"
+        "The bincode configuration is probably different from what we expected. Fix \
+         test_plugin_custom_value() to match it"
     );
     Ok(())
 }

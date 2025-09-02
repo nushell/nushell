@@ -79,7 +79,8 @@ impl PluginCommand for Unique {
             },
             Example {
                 description: "Returns unique values in a subset of lazyframe columns",
-                example: "[[a b c]; [1 2 1] [2 2 2] [3 2 1]] | polars into-lazy | polars unique --subset [b c] | polars collect",
+                example: "[[a b c]; [1 2 1] [2 2 2] [3 2 1]] | polars into-lazy | polars unique \
+                          --subset [b c] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

@@ -51,7 +51,8 @@ impl PluginCommand for StrLengths {
         vec![
             Example {
                 description: "Returns string lengths for a column",
-                example: "[[a]; [a] [ab] [abc]] | polars into-df | polars select (polars col a | polars str-lengths) | polars collect",
+                example: "[[a]; [a] [ab] [abc]] | polars into-df | polars select (polars col a | \
+                          polars str-lengths) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

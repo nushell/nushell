@@ -605,7 +605,8 @@ pub fn command_not_found(
             return ShellError::ExternalCommand {
                 label: format!("Command `{name}` not found"),
                 help: format!(
-                    "A command with that name exists in module `{module}`. Try importing it with `use`"
+                    "A command with that name exists in module `{module}`. Try importing it with \
+                     `use`"
                 ),
                 span,
             };
@@ -649,7 +650,8 @@ pub fn command_not_found(
         return ShellError::ExternalCommand {
             label: format!("Command `{name}` not found"),
             help: format!(
-                "`{name}` refers to a file that is not executable. Did you forget to set execute permissions?"
+                "`{name}` refers to a file that is not executable. Did you forget to set execute \
+                 permissions?"
             ),
             span,
         };
@@ -702,9 +704,9 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
         // \r and \n truncate the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
-            label:
-                "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
-                    .into(),
+            label: "Arguments to CMD internal commands cannot contain new lines or percent signs \
+                    '%'"
+            .into(),
             help: "some characters currently cannot be securely escaped".into(),
             span: *span,
         })

@@ -58,7 +58,8 @@ impl Command for Module {
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
-                description: "Define a custom command that participates in the environment in a module and call it",
+                description: "Define a custom command that participates in the environment in a \
+                              module and call it",
                 example: r#"module foo { export def --env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },

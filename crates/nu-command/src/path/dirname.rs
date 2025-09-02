@@ -118,7 +118,8 @@ impl Command for PathDirname {
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 --replace C:\\Users\\viking",
+                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 \
+                          --replace C:\\Users\\viking",
                 result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
             },
         ]
@@ -147,7 +148,8 @@ impl Command for PathDirname {
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example: "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace /home/viking",
+                example: "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace \
+                          /home/viking",
                 result: Some(Value::test_string("/home/viking/code/test.txt")),
             },
         ]

@@ -29,7 +29,8 @@ impl PluginCommand for ExprCol {
             .required(
                 "column name",
                 SyntaxShape::String,
-                "Name of column to be used. '*' can be used for all columns. Accepts regular expression input; regular expressions should start with ^ and end with $.",
+                "Name of column to be used. '*' can be used for all columns. Accepts regular \
+                 expression input; regular expressions should start with ^ and end with $.",
             )
             .rest(
                 "more columns",
@@ -53,7 +54,8 @@ impl PluginCommand for ExprCol {
             },
             Example {
                 description: "Select all columns using the asterisk wildcard.",
-                example: "[[a b]; [x 1] [y 2] [z 3]] | polars into-df | polars select (polars col '*') | polars collect",
+                example: "[[a b]; [x 1] [y 2] [z 3]] | polars into-df | polars select (polars col \
+                          '*') | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -78,7 +80,8 @@ impl PluginCommand for ExprCol {
             },
             Example {
                 description: "Select multiple columns (cannot be used with asterisk wildcard)",
-                example: "[[a b c]; [x 1 1.1] [y 2 2.2] [z 3 3.3]] | polars into-df | polars select (polars col b c | polars sum) | polars collect",
+                example: "[[a b c]; [x 1 1.1] [y 2 2.2] [z 3 3.3]] | polars into-df | polars \
+                          select (polars col b c | polars sum) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -92,8 +95,10 @@ impl PluginCommand for ExprCol {
                 ),
             },
             Example {
-                description: "Select multiple columns by types (cannot be used with asterisk wildcard)",
-                example: "[[a b c]; [x o 1.1] [y p 2.2] [z q 3.3]] | polars into-df | polars select (polars col str f64 --type | polars max) | polars collect",
+                description: "Select multiple columns by types (cannot be used with asterisk \
+                              wildcard)",
+                example: "[[a b c]; [x o 1.1] [y p 2.2] [z q 3.3]] | polars into-df | polars \
+                          select (polars col str f64 --type | polars max) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -109,7 +114,8 @@ impl PluginCommand for ExprCol {
             },
             Example {
                 description: "Select columns using a regular expression",
-                example: "[[ham hamburger foo bar]; [1 11 2 a] [2 22 1 b]] | polars into-df | polars select (polars col '^ham.*$') | polars collect",
+                example: "[[ham hamburger foo bar]; [1 11 2 a] [2 22 1 b]] | polars into-df | \
+                          polars select (polars col '^ham.*$') | polars collect",
                 result: Some(
                     NuDataFrame::new(
                         false,

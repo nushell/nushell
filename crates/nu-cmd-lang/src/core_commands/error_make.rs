@@ -76,7 +76,8 @@ impl Command for ErrorMake {
                 result: None,
             },
             Example {
-                description: "Create a custom error for a custom command that shows the span of the argument",
+                description: "Create a custom error for a custom command that shows the span of \
+                              the argument",
                 example: r#"def foo [x] {
         error make {
             msg: "this is fishy"

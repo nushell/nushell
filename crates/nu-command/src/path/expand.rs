@@ -162,8 +162,8 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             Err(_) => Value::error(
                 ShellError::GenericError {
                     error: "Could not expand path".into(),
-                    msg: "could not be expanded (path might not exist, non-final \
-                            component is not a directory, or other cause)"
+                    msg: "could not be expanded (path might not exist, non-final component is not \
+                          a directory, or other cause)"
                         .into(),
                     span: Some(span),
                     help: None,

@@ -49,7 +49,8 @@ impl Command for BitsShl {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number)",
+                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the \
+                 smallest of those that fits the input number)",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -239,7 +240,8 @@ fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -
     use itertools::Position::*;
     debug_assert!(
         (1..8).contains(&bit_shift),
-        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the \
+         byteshift"
     );
     data.iter()
         .copied()

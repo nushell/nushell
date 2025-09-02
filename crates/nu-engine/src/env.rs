@@ -105,12 +105,22 @@ pub fn convert_env_values(
             }
         } else {
             error = error.or_else(|| {
-                Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in permanent state.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
+                Some(ShellError::NushellFailedHelp {
+                    msg: "Last active overlay not found in permanent state.".into(),
+                    help: "This error happened during the conversion of environment variables \
+                           from strings to Nushell values."
+                        .into(),
+                })
             });
         }
     } else {
         error = error.or_else(|| {
-            Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in stack.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
+            Some(ShellError::NushellFailedHelp {
+                msg: "Last active overlay not found in stack.".into(),
+                help: "This error happened during the conversion of environment variables from \
+                       strings to Nushell values."
+                    .into(),
+            })
         });
     }
 
@@ -309,7 +319,8 @@ pub fn find_in_dirs_env(
                     return Err(ShellError::GenericError {
                         error: "Invalid current directory".into(),
                         msg: format!(
-                            "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
+                            "The 'FILE_PWD' environment variable must be set to an absolute path. \
+                             Found: '{cwd}'"
                         ),
                         span: Some(pwd.span()),
                         help: None,

@@ -92,7 +92,8 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"C:\Users\viking\..\folder")),
             },
             Example {
-                description: "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                description: "Use absolute paths, e.g. '/' will bring you to the top level \
+                              directory",
                 example: r"'C:\Users\viking' | path join / folder",
                 result: Some(Value::test_string(r"C:/folder")),
             },
@@ -136,7 +137,8 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"/home/viking/../folder")),
             },
             Example {
-                description: "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                description: "Use absolute paths, e.g. '/' will bring you to the top level \
+                              directory",
                 example: r"'/home/viking' | path join / folder",
                 result: Some(Value::test_string(r"/folder")),
             },
@@ -250,7 +252,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput {
                 msg: format!(
-                    "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
+                    "Column '{key}' is not valid for a structured path. Allowed columns on this \
+                     platform are: {allowed_cols}"
                 ),
                 input: "value originates from here".into(),
                 msg_span: head,

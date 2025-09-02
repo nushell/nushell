@@ -42,7 +42,8 @@ impl Command for SortBy {
             )
             .switch(
                 "custom",
-                "Use closures to specify a custom sort order, rather than to compute a comparison key",
+                "Use closures to specify a custom sort order, rather than to compute a comparison \
+                 key",
                 Some('c'),
             )
             .allow_variants_without_examples(true)
@@ -85,7 +86,8 @@ impl Command for SortBy {
             },
             Example {
                 description: "Sort by a nested value",
-                example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by info.founded",
+                example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by \
+                          info.founded",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                     "name" => Value::test_string("Kyoto"),

@@ -257,7 +257,9 @@ pub(crate) fn write_value(
                 mp::write_str(out, &closure_string).err_span(span)?;
             } else {
                 return Err(WriteError::Shell(Box::new(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize \
+                          as a string)"
+                        .into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,
                     input_span: span,

@@ -68,7 +68,8 @@ impl PluginCommand for LazyMedian {
             },
             Example {
                 description: "Median value from columns in a dataframe",
-                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median | polars collect",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars median | polars \
+                          collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

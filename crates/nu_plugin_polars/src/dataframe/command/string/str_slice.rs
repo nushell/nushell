@@ -52,7 +52,8 @@ impl PluginCommand for StrSlice {
         vec![
             Example {
                 description: "Creates slices from the strings in a specified column",
-                example: "[[a]; [abcded] [abc321] [abc123]] | polars into-df | polars select (polars col a | polars str-slice 1 --length 2) | polars collect",
+                example: "[[a]; [abcded] [abc321] [abc123]] | polars into-df | polars select \
+                          (polars col a | polars str-slice 1 --length 2) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

@@ -155,7 +155,8 @@ fn map_value(input: &Value, args: &Arguments, head: Span) -> Value {
                     return Value::error(
                         ShellError::UnsupportedInput {
                             msg: format!(
-                                "Absolute start position {start} was too large for your system arch."
+                                "Absolute start position {start} was too large for your system \
+                                 arch."
                             ),
                             input: args.range.to_string(),
                             msg_span: span,

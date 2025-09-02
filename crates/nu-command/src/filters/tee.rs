@@ -57,9 +57,10 @@ use it in your pipeline."#
                 result: None,
             },
             Example {
-                example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
+                example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | \
+                          complete",
                 description: "Save error messages from an external command to a file without \
-                    redirecting them",
+                              redirecting them",
                 result: None,
             },
             Example {
@@ -69,7 +70,8 @@ use it in your pipeline."#
             },
             Example {
                 example: "10000 | tee { 1..$in | print } | $in * 5",
-                description: "Do something with a value on another thread, while also passing through the value",
+                description: "Do something with a value on another thread, while also passing \
+                              through the value",
                 result: Some(Value::test_int(50000)),
             },
         ]

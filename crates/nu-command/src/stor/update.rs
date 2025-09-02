@@ -54,12 +54,14 @@ impl Command for StorUpdate {
         vec![
             Example {
                 description: "Update the in-memory sqlite database",
-                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17}",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: \
+                          2020-04-17}",
                 result: None,
             },
             Example {
                 description: "Update the in-memory sqlite database with a where clause",
-                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: 2020-04-17} --where-clause \"bool1 = 1\"",
+                example: "stor update --table-name nudb --update-record {str1: nushell datetime1: \
+                          2020-04-17} --where-clause \"bool1 = 1\"",
                 result: None,
             },
             Example {

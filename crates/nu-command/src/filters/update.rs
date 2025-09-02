@@ -38,10 +38,12 @@ impl Command for Update {
     }
 
     fn extra_description(&self) -> &str {
-        "When updating a column, the closure will be run for each row, and the current row will be passed as the first argument. \
-Referencing `$in` inside the closure will provide the value at the column for the current row.
+        "When updating a column, the closure will be run for each row, and the current row will be \
+         passed as the first argument. Referencing `$in` inside the closure will provide the value \
+         at the column for the current row.
 
-When updating a specific index, the closure will instead be run once. The first argument to the closure and the `$in` value will both be the current value at the index."
+When updating a specific index, the closure will instead be run once. The first argument to the \
+         closure and the `$in` value will both be the current value at the index."
     }
 
     fn run(
@@ -65,8 +67,10 @@ When updating a specific index, the closure will instead be run once. The first 
                 })),
             },
             Example {
-                description: "Use a closure to alter each value in the 'authors' column to a single string",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ',' }",
+                description: "Use a closure to alter each value in the 'authors' column to a \
+                              single string",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update \
+                          authors {|row| $row.authors | str join ',' }",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("nu"),
                     "authors" => Value::test_string("Andrés,JT,Yehuda"),
@@ -74,7 +78,8 @@ When updating a specific index, the closure will instead be run once. The first 
             },
             Example {
                 description: "Implicitly use the `$in` value in a closure to update 'authors'",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update \
+                          authors { str join ',' }",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("nu"),
                     "authors" => Value::test_string("Andrés,JT,Yehuda"),

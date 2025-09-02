@@ -26,7 +26,13 @@ impl PluginCommand for WithColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named("name", SyntaxShape::String, "New column name. For lazy dataframes and expressions syntax, use a `polars as` expression to name a column.", Some('n'))
+            .named(
+                "name",
+                SyntaxShape::String,
+                "New column name. For lazy dataframes and expressions syntax, use a `polars as` \
+                 expression to name a column.",
+                Some('n'),
+            )
             .rest(
                 "series or expressions",
                 SyntaxShape::Any,
@@ -212,12 +218,14 @@ fn command_eager(
     if NuExpression::can_downcast(&new_column) {
         if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
             return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsupported when used with expressions. Please use the `polars as` expression to name a column".into(),
-            msg: "".into(),
-            span: Some(name.span),
-            help: Some("Use a `polars as` expression to name a column".into()),
-            inner: vec![],
-        });
+                error: "Flag 'name' is unsupported when used with expressions. Please use the \
+                        `polars as` expression to name a column"
+                    .into(),
+                msg: "".into(),
+                span: Some(name.span),
+                help: Some("Use a `polars as` expression to name a column".into()),
+                inner: vec![],
+            });
         }
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
@@ -260,7 +268,9 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
         return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsupported for lazy dataframes. Please use the `polars as` expression to name a column".into(),
+            error: "Flag 'name' is unsupported for lazy dataframes. Please use the `polars as` \
+                    expression to name a column"
+                .into(),
             msg: "".into(),
             span: Some(name.span),
             help: Some("Use a `polars as` expression to name a column".into()),

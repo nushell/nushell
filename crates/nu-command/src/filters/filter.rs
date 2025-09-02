@@ -51,15 +51,17 @@ The "row condition" syntax is not supported."#
     }
 
     fn deprecation_info(&self) -> Vec<nu_protocol::DeprecationEntry> {
-        vec![
-            DeprecationEntry {
-                ty: DeprecationType::Command,
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.105.0".into()),
-                expected_removal: None,
-                help: Some("`where` command can be used instead, as it can now read the predicate closure from a variable".into()),
-            }
-        ]
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.105.0".into()),
+            expected_removal: None,
+            help: Some(
+                "`where` command can be used instead, as it can now read the predicate closure \
+                 from a variable"
+                    .into(),
+            ),
+        }]
     }
 
     fn examples(&self) -> Vec<Example> {

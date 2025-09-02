@@ -81,7 +81,8 @@ impl Command for Default {
                 result: None,
             },
             Example {
-                description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
+                description: "Get the env value of `MY_ENV` with a default value 'abc' if not \
+                              present",
                 example: "$env | get --optional MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
@@ -328,7 +329,8 @@ fn closure_variable_warning(
         // this is a closure from inside a variable
         (Value::Closure { .. }, true) => {
             let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
-            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
+            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, \
+                                       change this to `{ $carapace_completer }`";
             let label = match span_contents {
                 Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
                 Cow::Owned(s) if s.deref() == "$carapace_completer" => {

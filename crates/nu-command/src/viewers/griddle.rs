@@ -168,8 +168,10 @@ prints out the list properly."#
                 result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
             Example {
-                description: "Render a table with 'name' column in it to a grid with icons and colors",
-                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color",
+                description: "Render a table with 'name' column in it to a grid with icons and \
+                              colors",
+                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] \
+                          | grid --icons --color",
                 result: None,
             },
         ]

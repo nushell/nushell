@@ -267,7 +267,8 @@ impl Command for Save {
                 result: None,
             },
             Example {
-                description: "Show the extensions for which the `save` command will automatically serialize",
+                description: "Show the extensions for which the `save` command will automatically \
+                              serialize",
                 example: r#"scope commands
     | where name starts-with "to "
     | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }

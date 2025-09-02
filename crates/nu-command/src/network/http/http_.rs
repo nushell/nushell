@@ -98,7 +98,9 @@ impl Command for Http {
     }
 
     fn extra_description(&self) -> &str {
-        "Without a subcommand but with a URL provided, it performs a GET request by default or a POST request if data is provided. You can use one of the following subcommands. Using this command as-is will only display this help message."
+        "Without a subcommand but with a URL provided, it performs a GET request by default or a \
+         POST request if data is provided. You can use one of the following subcommands. Using \
+         this command as-is will only display this help message."
     }
 
     fn search_terms(&self) -> Vec<&str> {

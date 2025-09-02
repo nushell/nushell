@@ -45,7 +45,8 @@ impl Command for StorDelete {
                 result: None,
             },
             Example {
-                description: "Delete some rows from the in-memory sqlite database with a where clause",
+                description: "Delete some rows from the in-memory sqlite database with a where \
+                              clause",
                 example: "stor delete --table-name nudb --where-clause \"int1 == 5\"",
                 result: None,
             },
@@ -109,9 +110,9 @@ impl Command for StorDelete {
                 // dbg!(&sql_stmt);
                 conn.execute(&sql_stmt, [])
                     .map_err(|err| ShellError::GenericError {
-                        error:
-                            "Failed to delete using the SQLite connection in memory from delete.rs."
-                                .into(),
+                        error: "Failed to delete using the SQLite connection in memory from \
+                                delete.rs."
+                            .into(),
                         msg: err.to_string(),
                         span: Some(Span::test_data()),
                         help: None,

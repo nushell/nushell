@@ -284,14 +284,14 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
     } else {
         eprintln!(
             "{}: This plugin must be run from within Nushell. See `plugin add --help` for details \
-            on how to use plugins.",
+             on how to use plugins.",
             env::current_exe()
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|_| "plugin".into())
         );
         eprintln!(
-            "If you are running from Nushell, this plugin may be incompatible with the \
-            version of nushell you are using."
+            "If you are running from Nushell, this plugin may be incompatible with the version of \
+             nushell you are using."
         );
         std::process::exit(1)
     };
@@ -444,8 +444,8 @@ where
     for command in plugin.commands() {
         if let Some(previous) = commands.insert(command.name().into(), command) {
             eprintln!(
-                "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with the \
-                    same name. Check your commands' `name()` methods",
+                "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with \
+                 the same name. Check your commands' `name()` methods",
                 previous.name()
             );
         }

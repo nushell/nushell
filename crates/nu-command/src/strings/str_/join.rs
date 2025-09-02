@@ -28,7 +28,8 @@ impl Command for StrJoin {
     }
 
     fn description(&self) -> &str {
-        "Concatenate multiple strings into a single string, with an optional separator between each."
+        "Concatenate multiple strings into a single string, with an optional separator between \
+         each."
     }
 
     fn search_terms(&self) -> Vec<&str> {

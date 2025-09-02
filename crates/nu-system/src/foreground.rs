@@ -283,7 +283,7 @@ impl ForegroundGuard {
                 let pgrp = pgrp.load(Ordering::SeqCst);
                 log::trace!(
                     "Will ask the process pid={pid} to join pgrp={pgrp} for control of the \
-                    terminal"
+                     terminal"
                 );
                 return Ok(ForegroundGuard {
                     pgrp: Some(pgrp),

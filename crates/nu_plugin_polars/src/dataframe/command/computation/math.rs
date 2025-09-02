@@ -207,15 +207,17 @@ fn command_expr(
         FunctionType::Cos => res.cos(),
         FunctionType::Dot => {
             let expr = match call.rest::<Value>(1)?.first() {
-                None => Err(ShellError::GenericError { error: "Second expression to compute dot product with must be provided".into(), msg: "".into(), span: Some(call.head), help: None, inner: vec![] }),
-                Some(value) => {
-                    match PolarsPluginObject::try_from_value(plugin, value)? {
-                        PolarsPluginObject::NuExpression(expr) => {
-                            Ok(expr.into_polars())
-                        }
-                        _ => Err(cant_convert_err(value, &[PolarsPluginType::NuExpression]))
-                    }
-                }
+                None => Err(ShellError::GenericError {
+                    error: "Second expression to compute dot product with must be provided".into(),
+                    msg: "".into(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                }),
+                Some(value) => match PolarsPluginObject::try_from_value(plugin, value)? {
+                    PolarsPluginObject::NuExpression(expr) => Ok(expr.into_polars()),
+                    _ => Err(cant_convert_err(value, &[PolarsPluginType::NuExpression])),
+                },
             }?;
             res.dot(expr)
         }
@@ -226,8 +228,18 @@ fn command_expr(
                 None => Ok(std::f64::consts::E),
                 Some(value) => match value {
                     Value::Float { val, .. } => Ok(*val),
-                    Value::Int { val, .. } => Ok(val.to_f64().expect("i64 to f64 conversion should not panic")),
-                    _ => Err(ShellError::GenericError { error: "log base must be a float or integer. Leave base unspecified for natural log".into(), msg: "".into(), span: Some(value.span()), help: None, inner: vec![] }),
+                    Value::Int { val, .. } => Ok(val
+                        .to_f64()
+                        .expect("i64 to f64 conversion should not panic")),
+                    _ => Err(ShellError::GenericError {
+                        error: "log base must be a float or integer. Leave base unspecified for \
+                                natural log"
+                            .into(),
+                        msg: "".into(),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![],
+                    }),
                 },
             }?;
 

@@ -19,7 +19,8 @@ fn find_with_list_search_with_char() {
 
     assert_eq!(
         actual.out,
-        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39marry\\u001b[0m\",\"\\u001b[39mcur\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39my\\u001b[0m\"]"
+        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39marry\\u001b[0m\",\"\\\
+         u001b[39mcur\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39my\\u001b[0m\"]"
     );
     assert_eq!(actual_no_highlight.out, "[\"larry\",\"curly\"]");
 }
@@ -29,9 +30,8 @@ fn find_with_bytestream_search_with_char() {
     let actual = nu!(
         "\"ABC\" | save foo.txt; let res = open foo.txt | find -i abc; rm foo.txt; $res | get 0"
     );
-    let actual_no_highlight = nu!(
-        "\"ABC\" | save foo.txt; let res = open foo.txt | find -i --no-highlight abc; rm foo.txt; $res | get 0"
-    );
+    let actual_no_highlight = nu!("\"ABC\" | save foo.txt; let res = open foo.txt | find -i \
+                                   --no-highlight abc; rm foo.txt; $res | get 0");
 
     assert_eq!(
         actual.out,
@@ -95,7 +95,8 @@ fn find_with_filepath_search_with_multiple_patterns() {
 
     assert_eq!(
         actual.out,
-        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39mami\\u001b[0m\\u001b[39mgos.txt\\u001b[0m\",\"\\u001b[39m\\u001b[0m\\u001b[41;39marep\\u001b[0m\\u001b[39mas.clu\\u001b[0m\"]"
+        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39mami\\u001b[0m\\u001b[39mgos.txt\\u001b[0m\",\"\\\
+         u001b[39m\\u001b[0m\\u001b[41;39marep\\u001b[0m\\u001b[39mas.clu\\u001b[0m\"]"
     );
     assert_eq!(actual_no_highlight.out, "[\"amigos.txt\",\"arepas.clu\"]");
 }
@@ -113,11 +114,11 @@ fn find_takes_into_account_linebreaks_in_string() {
 #[test]
 fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex ce | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex ce | get name | to json \
+         -r"
     );
-    let actual_no_highlight = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --no-highlight --regex ce | get name | to json -r"
-    );
+    let actual_no_highlight = nu!("[[name nickname]; [Maurice moe] [Laurence larry]] | find \
+                                   --no-highlight --regex ce | get name | to json -r");
 
     assert_eq!(
         actual.out,
@@ -129,11 +130,11 @@ fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
 #[test]
 fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex moe --invert | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex moe --invert | get name \
+         | to json -r"
     );
-    let actual_no_highlight = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --no-highlight --regex moe --invert | get name | to json -r"
-    );
+    let actual_no_highlight = nu!("[[name nickname]; [Maurice moe] [Laurence larry]] | find \
+                                   --no-highlight --regex moe --invert | get name | to json -r");
 
     assert_eq!(actual.out, r#"["Laurence"]"#);
     assert_eq!(actual_no_highlight.out, r#"["Laurence"]"#);
@@ -142,10 +143,12 @@ fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() 
 #[test]
 fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] | get \
+         name | to json -r"
     );
     let actual_no_highlight = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --no-highlight --columns [nickname] | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --no-highlight --columns \
+         [nickname] | get name | to json -r"
     );
 
     assert!(actual.out.contains("Laurence"));
@@ -157,10 +160,12 @@ fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
 #[test]
 fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] --invert | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] --invert \
+         | get name | to json -r"
     );
     let actual_no_highlight = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --no-highlight --columns [nickname] --invert | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --no-highlight --columns \
+         [nickname] --invert | get name | to json -r"
     );
 
     assert_eq!(actual.out, r#"["Maurice"]"#);
@@ -170,10 +175,12 @@ fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
 #[test]
 fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
     let actual = nu!(
-        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find Maurice"
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find \
+         Maurice"
     );
     let actual_no_highlight = nu!(
-        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find --no-highlight Maurice"
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find \
+         --no-highlight Maurice"
     );
 
     println!("{:?}", actual.out);
@@ -190,10 +197,12 @@ fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
 #[test]
 fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
     let actual = nu!(
-        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find moe William"
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William \
+         bill 60]] | find moe William"
     );
     let actual_no_highlight = nu!(
-        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find --no-highlight moe William"
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William \
+         bill 60]] | find --no-highlight moe William"
     );
 
     println!("{:?}", actual.out);

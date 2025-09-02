@@ -660,8 +660,7 @@ enum MatchResult {
 }
 
 const ERROR_WILDCARDS: &str = "wildcards are either regular `*` or recursive `**`";
-const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path \
-                                         component";
+const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path component";
 const ERROR_INVALID_RANGE: &str = "invalid range pattern";
 
 impl Pattern {

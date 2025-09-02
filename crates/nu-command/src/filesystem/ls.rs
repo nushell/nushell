@@ -54,7 +54,11 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
+            .rest(
+                "pattern",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "The glob pattern to use.",
+            )
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -69,7 +73,8 @@ impl Command for Ls {
             .switch("full-paths", "display paths as absolute paths", Some('f'))
             .switch(
                 "du",
-                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
+                "Display the apparent directory size (\"disk usage\") in place of the directory \
+                 metadata size",
                 Some('d'),
             )
             .switch(
@@ -77,8 +82,17 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
-            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
-            .switch("threads", "Use multiple threads to list contents. Output will be non-deterministic.", Some('t'))
+            .switch(
+                "mime-type",
+                "Show mime-type in type column instead of 'file' (based on filenames only; files' \
+                 contents are not examined)",
+                Some('m'),
+            )
+            .switch(
+                "threads",
+                "Use multiple threads to list contents. Output will be non-deterministic.",
+                Some('t'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -192,12 +206,14 @@ impl Command for Ls {
                 result: None,
             },
             Example {
-                description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
+                description: "List only the names (not paths) of all dirs in your home directory \
+                              which have not been modified in 7 days",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
-                description: "Recursively list all files and subdirectories under the current directory using a glob pattern",
+                description: "Recursively list all files and subdirectories under the current \
+                              directory using a glob pattern",
                 example: "ls -a **/*",
                 result: None,
             },

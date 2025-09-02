@@ -42,7 +42,8 @@ impl PluginCommand for ToInteger {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to integer",
-            example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars integer) | polars collect",
+            example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars \
+                      integer) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new("b".to_string(), vec![Value::test_int(2)])],

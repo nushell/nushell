@@ -48,18 +48,23 @@ impl Command for StorInsert {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",
-                example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
+                description: "Insert data in the in-memory sqlite database using a data-record of \
+                              column-name and column-value pairs",
+                example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, \
+                          float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
                 result: None,
             },
             Example {
-                description: "Insert data through pipeline input as a record of column-name and column-value pairs",
-                example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17} | stor insert --table-name nudb",
+                description: "Insert data through pipeline input as a record of column-name and \
+                              column-value pairs",
+                example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: \
+                          2023-04-17} | stor insert --table-name nudb",
                 result: None,
             },
             Example {
                 description: "Insert data through pipeline input as a table literal",
-                example: "[[bool1 int1 float1]; [true 5 1.1], [false 8 3.14]] | stor insert --table-name nudb",
+                example: "[[bool1 int1 float1]; [true 5 1.1], [false 8 3.14]] | stor insert \
+                          --table-name nudb",
                 result: None,
             },
             Example {
@@ -69,7 +74,8 @@ impl Command for StorInsert {
             },
             Example {
                 description: "Insert nu records as json data",
-                example: "ls -l | each {{file: $in.name, metadata: ($in | reject name)}} | stor insert --table-name files_with_md",
+                example: "ls -l | each {{file: $in.name, metadata: ($in | reject name)}} | stor \
+                          insert --table-name files_with_md",
                 result: None,
             },
         ]

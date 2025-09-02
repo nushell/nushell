@@ -42,7 +42,8 @@ impl Command for ConfigEnv {
                 result: None,
             },
             Example {
-                description: "pretty-print the internal `env.nu` file which is loaded before the user's environment",
+                description: "pretty-print the internal `env.nu` file which is loaded before the \
+                              user's environment",
                 example: "config env --default | nu-highlight,",
                 result: None,
             },

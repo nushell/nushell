@@ -111,8 +111,8 @@ fn can_sort_plugin_custom_values() {
 
     assert_eq!(
         actual.out,
-        "I used to be a custom value! My data was (abc)\
-        I used to be a custom value! My data was (abcxyz)"
+        "I used to be a custom value! My data was (abc)I used to be a custom value! My data was \
+         (abcxyz)"
     );
 }
 

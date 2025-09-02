@@ -32,7 +32,8 @@ impl Command for First {
     }
 
     fn description(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
+        "Return only the first several rows of the input. Counterpart of `last`. Opposite of \
+         `skip`."
     }
 
     fn run(

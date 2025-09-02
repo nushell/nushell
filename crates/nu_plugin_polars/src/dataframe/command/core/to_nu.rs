@@ -69,7 +69,8 @@ impl PluginCommand for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail \
+                          --rows 1 --index",
                 result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {

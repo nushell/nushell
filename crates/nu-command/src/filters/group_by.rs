@@ -60,7 +60,8 @@ impl Command for GroupBy {
                 result: None,
             },
             Example {
-                description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column",
+                description: "Group items by the \"foo\" column's values, ignoring records \
+                              without a \"foo\" column",
                 example: r#"open cool.json | group-by foo?"#,
                 result: None,
             },

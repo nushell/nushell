@@ -474,7 +474,11 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                                 error: format!("Error parsing date from string: {e}"),
                                 msg: "".into(),
                                 span: None,
-                                help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-date <format>`.")),
+                                help: Some(format!(
+                                    "Expected format {expected_format}. If you need to parse with \
+                                     another format, please set the schema to `str` and parse \
+                                     with `polars as-date <format>`."
+                                )),
                                 inner: vec![],
                             })?
                             .and_hms_nano_opt(0, 0, 0, 0)
@@ -532,7 +536,11 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                                     error: format!("Error parsing datetime from string: {e}"),
                                     msg: "".into(),
                                     span: None,
-                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
+                                    help: Some(format!(
+                                        "Expected format {expected_format}. If you need to parse \
+                                         with another format, please set the schema to `str` and \
+                                         parse with `polars as-datetime <format>`."
+                                    )),
                                     inner: vec![],
                                 })?
                                 .timestamp_nanos_opt()
@@ -548,7 +556,11 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                                     error: format!("Error parsing datetime from string: {e}"),
                                     msg: "".into(),
                                     span: None,
-                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
+                                    help: Some(format!(
+                                        "Expected format {expected_format}. If you need to parse \
+                                         with another format, please set the schema to `str` and \
+                                         parse with `polars as-datetime <format>`."
+                                    )),
                                     inner: vec![],
                                 })?
                                 .and_utc()
@@ -594,14 +606,16 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                         .as_materialized_series();
 
                     if let Some(v) = structs.get_mut(name) {
-                        let _ = v.append(series)
-                                .map_err(|e| ShellError::GenericError {
-                                    error: format!("Error creating struct, could not append to series for col {name}: {e}"),
-                                    msg: "".into(),
-                                    span: None,
-                                    help: None,
-                                    inner: vec![],
-                                })?;
+                        let _ = v.append(series).map_err(|e| ShellError::GenericError {
+                            error: format!(
+                                "Error creating struct, could not append to series for col \
+                                 {name}: {e}"
+                            ),
+                            msg: "".into(),
+                            span: None,
+                            help: None,
+                            inner: vec![],
+                        })?;
                     } else {
                         structs.insert(name.clone(), series.to_owned());
                     }

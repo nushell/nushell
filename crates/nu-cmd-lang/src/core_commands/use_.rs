@@ -174,12 +174,14 @@ This command is a parser keyword. For details, check:
                 result: Some(Value::test_string("foo")),
             },
             Example {
-                description: "Define a custom command that participates in the environment in a module and call it",
+                description: "Define a custom command that participates in the environment in a \
+                              module and call it",
                 example: r#"module foo { export def --env bar [] { $env.FOO_BAR = "BAZ" } }; use foo bar; bar; $env.FOO_BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
-                description: "Use a plain module name to import its definitions qualified by the module name",
+                description: "Use a plain module name to import its definitions qualified by the \
+                              module name",
                 example: r#"module spam { export def foo [] { "foo" }; export def bar [] { "bar" } }; use spam; (spam foo) + (spam bar)"#,
                 result: Some(Value::test_string("foobar")),
             },
@@ -189,7 +191,8 @@ This command is a parser keyword. For details, check:
                 result: Some(Value::test_string("foobar")),
             },
             Example {
-                description: "To use commands with spaces, like subcommands, surround them with quotes",
+                description: "To use commands with spaces, like subcommands, surround them with \
+                              quotes",
                 example: r#"module spam { export def 'foo bar' [] { "baz" } }; use spam 'foo bar'; foo bar"#,
                 result: Some(Value::test_string("baz")),
             },

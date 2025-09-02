@@ -72,7 +72,9 @@ impl Command for Describe {
             },
             Example {
                 description: "Describe the type of a record in a detailed way",
-                example: "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
+                example: "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, \
+                          speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, \
+                          first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
                     "detailed_type" => Value::test_string("record<shell: string, uwu: bool, features: record<bugs: bool, multiplatform: bool, speed: int>, fib: list<int>, on_save: closure, first_commit: datetime, my_duration: duration>"),

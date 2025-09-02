@@ -23,9 +23,16 @@ impl Command for SubCommand {
             )
             .switch(
                 "regex",
-                "separator is a regular expression, matching values that can be coerced into a string",
-                Some('r'))
-            .named("split", SyntaxShape::String, "Whether to split lists before, after, or on (default) the separator", None)
+                "separator is a regular expression, matching values that can be coerced into a \
+                 string",
+                Some('r'),
+            )
+            .named(
+                "split",
+                SyntaxShape::String,
+                "Whether to split lists before, after, or on (default) the separator",
+                None,
+            )
             .category(Category::Filters)
     }
 

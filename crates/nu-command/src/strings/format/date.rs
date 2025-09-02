@@ -53,7 +53,8 @@ impl Command for FormatDate {
                 )),
             },
             Example {
-                description: "Format a given date-time as a string using the default format (RFC 2822).",
+                description: "Format a given date-time as a string using the default format (RFC \
+                              2822).",
                 example: r#""2021-10-22 20:00:12 +01:00" | format date"#,
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),

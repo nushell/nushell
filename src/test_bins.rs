@@ -58,7 +58,8 @@ impl TestBin for EchoEnvStderr {
 
 impl TestBin for EchoEnvStderrFail {
     fn help(&self) -> &'static str {
-        "Echo's value of env keys from args to stderr, and exit with failure(e.g: nu --testbin echo_env_stderr_fail FOO BAR)"
+        "Echo's value of env keys from args to stderr, and exit with failure(e.g: nu --testbin \
+         echo_env_stderr_fail FOO BAR)"
     }
 
     fn run(&self) {
@@ -69,7 +70,8 @@ impl TestBin for EchoEnvStderrFail {
 
 impl TestBin for EchoEnvMixed {
     fn help(&self) -> &'static str {
-        "Mix echo of env keys from input(e.g: nu --testbin echo_env_mixed out-err FOO BAR; nu --testbin echo_env_mixed err-out FOO BAR)"
+        "Mix echo of env keys from input(e.g: nu --testbin echo_env_mixed out-err FOO BAR; nu \
+         --testbin echo_env_mixed err-out FOO BAR)"
     }
 
     fn run(&self) {
@@ -120,7 +122,8 @@ impl TestBin for Cococo {
 
 impl TestBin for Meow {
     fn help(&self) -> &'static str {
-        "Cross platform cat (open a file, print the contents) using read_to_string and println!()(e.g: nu --testbin meow file.txt)"
+        "Cross platform cat (open a file, print the contents) using read_to_string and \
+         println!()(e.g: nu --testbin meow file.txt)"
     }
 
     fn run(&self) {
@@ -135,7 +138,8 @@ impl TestBin for Meow {
 
 impl TestBin for Meowb {
     fn help(&self) -> &'static str {
-        "Cross platform cat (open a file, print the contents) using read() and write_all() / binary(e.g: nu --testbin meowb sample.db)"
+        "Cross platform cat (open a file, print the contents) using read() and write_all() / \
+         binary(e.g: nu --testbin meowb sample.db)"
     }
 
     fn run(&self) {
@@ -164,7 +168,8 @@ impl TestBin for Relay {
 
 impl TestBin for Iecho {
     fn help(&self) -> &'static str {
-        "Another type of echo that outputs a parameter per line, looping infinitely(e.g: nu --testbin iecho 3)"
+        "Another type of echo that outputs a parameter per line, looping infinitely(e.g: nu \
+         --testbin iecho 3)"
     }
 
     fn run(&self) {
@@ -190,7 +195,8 @@ impl TestBin for Fail {
 
 impl TestBin for Nonu {
     fn help(&self) -> &'static str {
-        "Cross platform echo but concats arguments without space and NO newline(e.g: nu --testbin nonu a b c)"
+        "Cross platform echo but concats arguments without space and NO newline(e.g: nu --testbin \
+         nonu a b c)"
     }
 
     fn run(&self) {
@@ -252,7 +258,8 @@ impl TestBin for Repeater {
 
 impl TestBin for RepeatBytes {
     fn help(&self) -> &'static str {
-        "A version of repeater that can output binary data, even null bytes(e.g: nu --testbin repeat_bytes 003d9fbf 10)"
+        "A version of repeater that can output binary data, even null bytes(e.g: nu --testbin \
+         repeat_bytes 003d9fbf 10)"
     }
 
     fn run(&self) {
@@ -283,7 +290,8 @@ impl TestBin for RepeatBytes {
 
 impl TestBin for NuRepl {
     fn help(&self) -> &'static str {
-        "Run a REPL with the given source lines, it must be called with `--testbin=nu_repl`, `--testbin nu_repl` will not work due to argument count logic"
+        "Run a REPL with the given source lines, it must be called with `--testbin=nu_repl`, \
+         `--testbin nu_repl` will not work due to argument count logic"
     }
 
     fn run(&self) {
@@ -293,7 +301,8 @@ impl TestBin for NuRepl {
 
 impl TestBin for InputBytesLength {
     fn help(&self) -> &'static str {
-        "Prints the number of bytes received on stdin(e.g: 0x[deadbeef] | nu --testbin input_bytes_length)"
+        "Prints the number of bytes received on stdin(e.g: 0x[deadbeef] | nu --testbin \
+         input_bytes_length)"
     }
 
     fn run(&self) {

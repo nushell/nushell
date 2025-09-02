@@ -143,9 +143,8 @@ pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
         panic!(
-            "\nexpected {expected_len} suggestions but got {suggestions_len}: \n\
-            Suggestions: {suggestions:#?} \n\
-            Expected: {expected:#?}\n"
+            "\nexpected {expected_len} suggestions but got {suggestions_len}: \nSuggestions: \
+             {suggestions:#?} \nExpected: {expected:#?}\n"
         )
     }
 

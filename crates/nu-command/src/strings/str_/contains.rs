@@ -30,13 +30,17 @@ impl Command for StrContains {
                 // TODO figure out cell-path type behavior
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Bool)),
+                ),
             ])
             .required("string", SyntaxShape::String, "The substring to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result.",
+                "For a data structure input, check strings at the given cell paths, and replace \
+                 with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)

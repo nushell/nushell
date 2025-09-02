@@ -326,14 +326,14 @@ impl PluginInterfaceManager {
                                 ) {
                                     log::warn!(
                                         "Error in plugin post-response engine call handler: \
-                                        {err:?}"
+                                         {err:?}"
                                     );
                                     return;
                                 }
                             }
                             other => log::warn!(
-                                "Bad message received in plugin post-response \
-                                engine call handler: {other:?}"
+                                "Bad message received in plugin post-response engine call \
+                                 handler: {other:?}"
                             ),
                         }
                     }
@@ -347,7 +347,7 @@ impl PluginInterfaceManager {
             } else {
                 Err(ShellError::NushellFailed {
                     msg: "Tried to spawn the fallback engine call handler before the plugin call \
-                        response had been received"
+                          response had been received"
                         .into(),
                 })
             }
@@ -374,8 +374,8 @@ impl PluginInterfaceManager {
             // Call if there's an error sending the engine call
             let send_error = |this: &Self| {
                 log::warn!(
-                    "Received an engine call for plugin_call_id={plugin_call_id}, \
-                    but the caller hung up"
+                    "Received an engine call for plugin_call_id={plugin_call_id}, but the caller \
+                     hung up"
                 );
                 // We really have no choice here but to send the response ourselves and hope we
                 // don't block
@@ -480,8 +480,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin `{}` is compiled for nushell version {}, \
-                                which is not compatible with version {}",
+                            "Plugin `{}` is compiled for nushell version {}, which is not \
+                             compatible with version {}",
                             self.state.source.name(),
                             info.version,
                             local_info.version,
@@ -493,8 +493,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 // Must send protocol info first
                 Err(ShellError::PluginFailedToLoad {
                     msg: format!(
-                        "Failed to receive initial Hello message from `{}`. \
-                            This plugin might be too old",
+                        "Failed to receive initial Hello message from `{}`. This plugin might be \
+                         too old",
                         self.state.source.name()
                     ),
                 })
@@ -775,7 +775,7 @@ impl PluginInterface {
                     span: call.span(),
                     help: Some(format!(
                         "the plugin may have experienced an error. Try loading the plugin again \
-                        with `{}`",
+                         with `{}`",
                         self.state.source.identity.use_command(),
                     )),
                     inner: existing_error.into_iter().collect(),
@@ -1365,8 +1365,8 @@ fn set_foreground(
         } else {
             // This should always be present on a real context
             Err(ShellError::NushellFailed {
-                msg: "missing required pipeline_externals_state from context \
-                            for entering foreground"
+                msg: "missing required pipeline_externals_state from context for entering \
+                      foreground"
                     .into(),
             })
         }

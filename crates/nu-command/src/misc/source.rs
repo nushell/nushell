@@ -103,7 +103,8 @@ impl Command for Source {
                 result: None,
             },
             Example {
-                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
+                description: "Runs foo.nu in current context and call the command defined, \
+                              suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
                 example: r#"source ./foo.nu; say-hi"#,
                 result: None,
             },

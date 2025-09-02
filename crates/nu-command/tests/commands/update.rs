@@ -97,7 +97,8 @@ fn update_nonexistent_column() {
 #[test]
 fn update_uses_enumerate_index() {
     let actual = nu!(
-        "[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
+        "[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten \
+         | to nuon"
     );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");

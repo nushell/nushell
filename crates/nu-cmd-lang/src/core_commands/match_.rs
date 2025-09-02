@@ -44,7 +44,8 @@ impl Command for Match {
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
         eprintln!(
-            "Tried to execute 'run' for the 'match' command: this code path should never be reached in IR mode"
+            "Tried to execute 'run' for the 'match' command: this code path should never be \
+             reached in IR mode"
         );
         unreachable!()
     }
@@ -58,7 +59,8 @@ impl Command for Match {
             },
             Example {
                 description: "Match against alternative values",
-                example: "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => '---' }",
+                example: "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => \
+                          '---' }",
                 result: Some(Value::test_string("---")),
             },
             Example {

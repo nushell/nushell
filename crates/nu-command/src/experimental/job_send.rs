@@ -109,7 +109,8 @@ This command never blocks.
             },
             Example {
                 example: "job spawn { sleep 1sec; 'hi' | job send 0 }; job recv",
-                description: "Send a message from a newly-spawned job to the main thread (which always has an ID of 0)",
+                description: "Send a message from a newly-spawned job to the main thread (which \
+                              always has an ID of 0)",
                 result: None,
             },
         ]

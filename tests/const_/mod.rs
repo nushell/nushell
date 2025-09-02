@@ -370,7 +370,8 @@ fn complex_const_overlay_use() {
     assert_eq!(actual.out, "true");
 }
 
-#[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source unit."]
+#[ignore = "TODO: `overlay hide` should be possible to use after `overlay use` in the same source \
+            unit."]
 #[test]
 fn overlay_use_hide_in_single_source_unit() {
     let inp = &[MODULE_SETUP, "overlay use spam", "overlay hide", "$eggs"];

@@ -307,9 +307,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
                         .unwrap()
             {
-                Value::error (
+                Value::error(
                     ShellError::IncorrectValue {
-                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to \
+                              2262-04-11T23:47:16"
+                            .to_string(),
                         val_span,
                         call_span: head,
                     },

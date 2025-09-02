@@ -44,7 +44,8 @@ impl Command for PluginCommand {
         vec![
             Example {
                 example: "plugin add nu_plugin_inc",
-                description: "Run the `nu_plugin_inc` plugin from the current directory and install its signatures.",
+                description: "Run the `nu_plugin_inc` plugin from the current directory and \
+                              install its signatures.",
                 result: None,
             },
             Example {

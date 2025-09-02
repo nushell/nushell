@@ -66,7 +66,8 @@ impl PluginCommand for CastDF {
             },
             Example {
                 description: "Cast a column in a lazy dataframe to a different dtype",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast \
+                          u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
                         "a" => Value::string("u8", Span::test_data()),

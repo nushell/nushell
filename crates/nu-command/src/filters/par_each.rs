@@ -12,7 +12,8 @@ impl Command for ParEach {
     }
 
     fn description(&self) -> &str {
-        "Run a closure on each row of the input list in parallel, creating a new list with the results."
+        "Run a closure on each row of the input list in parallel, creating a new list with the \
+         results."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -49,7 +50,8 @@ impl Command for ParEach {
         vec![
             Example {
                 example: "[1 2 3] | par-each {|e| $e * 2 }",
-                description: "Multiplies each number. Note that the list will become arbitrarily disordered.",
+                description: "Multiplies each number. Note that the list will become arbitrarily \
+                              disordered.",
                 result: None,
             },
             Example {
@@ -81,7 +83,8 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
-                description: "Iterate over each element, producing a list showing indexes of any 2s",
+                description: "Iterate over each element, producing a list showing indexes of any \
+                              2s",
                 result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
         ]

@@ -46,7 +46,8 @@ impl Command for BitsRol {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number)",
+                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the \
+                 smallest of those that fits the input number)",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -222,7 +223,8 @@ fn rotate_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) 
     debug_assert!(byte_shift < data.len());
     debug_assert!(
         (1..8).contains(&bit_shift),
-        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the \
+         byteshift"
     );
     let mut bytes = Vec::with_capacity(data.len());
     let mut next_index = byte_shift;

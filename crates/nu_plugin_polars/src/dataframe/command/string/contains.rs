@@ -53,7 +53,8 @@ impl PluginCommand for Contains {
             Example {
                 description: "Returns boolean indicating if pattern was found in a column",
                 example: "let df = [[a]; [abc] [acb] [acb]] | polars into-df;
-                let df2 = $df | polars with-column [(polars col a | polars contains ab | polars as b)] | polars collect;
+                let df2 = $df | polars with-column [(polars col a | polars contains ab | polars as \
+                          b)] | polars collect;
                 $df2.b",
                 result: Some(
                     NuDataFrame::try_from_columns(

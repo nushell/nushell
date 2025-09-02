@@ -21,7 +21,8 @@ impl Command for SysTemp {
     }
 
     fn extra_description(&self) -> &str {
-        "Some system components do not support temperature readings, so this command may return an empty list if no components support temperature."
+        "Some system components do not support temperature readings, so this command may return an \
+         empty list if no components support temperature."
     }
 
     fn run(

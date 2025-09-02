@@ -166,7 +166,9 @@ fn get_rows_to_drop(
                         Bound::Included(end) => {
                             if end < start {
                                 return Err(ShellError::UnsupportedInput {
-                                    msg: "The upper bound must be greater than or equal to the lower bound".into(),
+                                    msg: "The upper bound must be greater than or equal to the \
+                                          lower bound"
+                                        .into(),
                                     input: "value originates from here".into(),
                                     msg_span: head,
                                     input_span: value.span(),

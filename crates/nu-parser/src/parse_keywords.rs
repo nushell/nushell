@@ -703,7 +703,13 @@ fn parse_def_inner(
                             Type::List(Box::new(Type::String)),
                             rest_var.ty.clone(),
                             rest_var.declaration_span,
-                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+                            format!(
+                                "...rest-like positional argument used in 'def --wrapped' \
+                                 supports only strings. Change the type annotation of ...{} to \
+                                 'string'.",
+                                &rest.name
+                            ),
+                        ));
 
                         return (
                             Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
@@ -712,7 +718,13 @@ fn parse_def_inner(
                     }
                 }
             } else {
-                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+                working_set.error(ParseError::MissingPositional(
+                    "...rest-like positional argument".to_string(),
+                    name_expr.span,
+                    "def --wrapped must have a ...rest-like positional argument. Add '...rest: \
+                     string' to the command's signature."
+                        .to_string(),
+                ));
 
                 return (
                     Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
@@ -3134,9 +3146,10 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 if new_name.item != overlay_name {
                     working_set.error(ParseError::CantAddOverlayHelp(
                         format!(
-                        "Cannot add overlay as '{}' because it already exists under the name '{}'",
-                        new_name.item, overlay_name
-                    ),
+                            "Cannot add overlay as '{}' because it already exists under the name \
+                             '{}'",
+                            new_name.item, overlay_name
+                        ),
                         new_name.span,
                     ));
                     return pipeline;
@@ -4023,9 +4036,9 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
                         error: "Plugin registry file not set".into(),
                         label: "can't load plugin without registry file".into(),
                         span: call.head,
-                        help:
-                            "pass --plugin-config to `plugin use` when $nu.plugin-path is not set"
-                                .into(),
+                        help: "pass --plugin-config to `plugin use` when $nu.plugin-path is not \
+                               set"
+                        .into(),
                     })?
                     .to_owned(),
             )
@@ -4231,7 +4244,8 @@ fn detect_params_in_name(
             error: "no space between name and parameters".into(),
             label: "expected space".into(),
             help: format!(
-                "consider adding a space between the `{decl_name}` command's name and its parameters"
+                "consider adding a space between the `{decl_name}` command's name and its \
+                 parameters"
             ),
             span: param_span,
         };

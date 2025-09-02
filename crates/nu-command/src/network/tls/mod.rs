@@ -20,7 +20,8 @@ compile_error!(
 
 #[cfg(all(feature = "native-tls", feature = "rustls-tls"))]
 compile_error!(
-    "Multiple TLS backends enabled. Please enable only one of `native-tls` or `rustls-tls`, not both."
+    "Multiple TLS backends enabled. Please enable only one of `native-tls` or `rustls-tls`, not \
+     both."
 );
 
 pub use impl_tls::*;

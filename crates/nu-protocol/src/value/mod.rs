@@ -2096,14 +2096,11 @@ fn get_value_member<'a>(
                         Ok(ControlFlow::Break(*origin_span))
                         // short-circuit
                     } else {
-                        Err(ShellError::AccessBeyondEndOfStream {
-                            span: *origin_span,
-                        })
+                        Err(ShellError::AccessBeyondEndOfStream { span: *origin_span })
                     }
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_int(current.span(), *count, *origin_span)
-                    {
+                    match val.follow_path_int(current.span(), *count, *origin_span) {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
                             if *optional {
@@ -2119,11 +2116,16 @@ fn get_value_member<'a>(
                 // Records (and tables) are the only built-in which support column names,
                 // so only use this message for them.
                 Value::Record { .. } => Err(ShellError::TypeMismatch {
-                    err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
+                    err_message: "Can't access record values with a row index. Try specifying a \
+                                  column name instead"
+                        .into(),
                     span: *origin_span,
                 }),
                 Value::Error { error, .. } => Err(*error.clone()),
-                x => Err(ShellError::IncompatiblePathAccess { type_name: format!("{}", x.get_type()), span: *origin_span }),
+                x => Err(ShellError::IncompatiblePathAccess {
+                    type_name: format!("{}", x.get_type()),
+                    span: *origin_span,
+                }),
             }
         }
         PathMember::String {
@@ -2600,8 +2602,13 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
                         span,
-                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
-                     })
+                        help: Some(
+                            "Consider using floating point values for increased range by \
+                             promoting operand with 'into float'. Note: float has reduced \
+                             precision!"
+                                .into(),
+                        ),
+                    })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2692,7 +2699,12 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
-                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                        help: Some(
+                            "Consider using floating point values for increased range by \
+                             promoting operand with 'into float'. Note: float has reduced \
+                             precision!"
+                                .into(),
+                        ),
                     })
                 }
             }
@@ -2780,7 +2792,12 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "multiply operation overflowed".into(),
                         span,
-                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                        help: Some(
+                            "Consider using floating point values for increased range by \
+                             promoting operand with 'into float'. Note: float has reduced \
+                             precision!"
+                                .into(),
+                        ),
                     })
                 }
             }
@@ -3324,7 +3341,9 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhsv, .. }) => {
                 if *rhsv < 0 {
                     return Err(ShellError::IncorrectValue {
-                        msg: "Negative exponent for integer power is unsupported; use floats instead.".into(),
+                        msg: "Negative exponent for integer power is unsupported; use floats \
+                              instead."
+                            .into(),
                         val_span: rhs.span(),
                         call_span: op,
                     });
@@ -3336,7 +3355,12 @@ impl Value {
                     Err(ShellError::OperatorOverflow {
                         msg: "pow operation overflowed".into(),
                         span,
-                        help: Some("Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into()),
+                        help: Some(
+                            "Consider using floating point values for increased range by \
+                             promoting operand with 'into float'. Note: float has reduced \
+                             precision!"
+                                .into(),
+                        ),
                     })
                 }
             }
@@ -3382,7 +3406,9 @@ impl Value {
                     || matches!(rhs, Value::List { .. })
                 {
                     Some(
-                        "if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.",
+                        "if you meant to append a value to a list or a record to a table, use the \
+                         `append` command or wrap the value in a list. For example: `$list ++ \
+                         $value` should be `$list ++ [$value]` or `$list | append $value`.",
                     )
                 } else {
                     None

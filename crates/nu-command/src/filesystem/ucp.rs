@@ -46,8 +46,9 @@ impl Command for UCp {
             .switch("interactive", "ask before overwriting files", Some('i'))
             .switch(
                 "update",
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
-                Some('u')
+                "copy only when the SOURCE file is newer than the destination file or when the \
+                 destination file is missing",
+                Some('u'),
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
@@ -56,11 +57,16 @@ impl Command for UCp {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "preserve only the specified attributes (empty list means no attributes preserved)
                     if not specified only mode is preserved
-                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
-                None
+                    possible values: mode, ownership (unix only), timestamps, context, link, \
+                 links, xattr",
+                None,
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
+            .rest(
+                "paths",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "Copy SRC file/s to DEST.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }

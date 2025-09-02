@@ -108,7 +108,8 @@ impl Command for BytesAdd {
                 )),
             },
             Example {
-                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
+                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index \
+                              1(the index is start from end)",
                 example: "0x[FF AA BB] | bytes add 0x[11 22 33] --end --index 1",
                 result: Some(Value::binary(
                     vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],

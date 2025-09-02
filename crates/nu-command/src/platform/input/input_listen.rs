@@ -27,20 +27,25 @@ impl Command for InputListen {
             .named(
                 "types",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
+                "Listen for event of specified types only (can be one of: focus, key, mouse, \
+                 paste, resize)",
                 Some('t'),
             )
             .switch(
                 "raw",
-                "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags",
+                "Add raw_code field with numeric value of keycode and raw_flags with bit mask \
+                 flags",
                 Some('r'),
             )
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record([
-                    ("keycode".to_string(), Type::String),
-                    ("modifiers".to_string(), Type::List(Box::new(Type::String))),
-                ].into()),
+                Type::Record(
+                    [
+                        ("keycode".to_string(), Type::String),
+                        ("modifiers".to_string(), Type::List(Box::new(Type::String))),
+                    ]
+                    .into(),
+                ),
             )])
     }
 

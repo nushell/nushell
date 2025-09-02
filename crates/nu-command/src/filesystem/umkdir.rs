@@ -27,7 +27,8 @@ impl Command for UMkdir {
     }
 
     fn description(&self) -> &str {
-        "Create directories, with intermediary directories if required using uutils/coreutils mkdir."
+        "Create directories, with intermediary directories if required using uutils/coreutils \
+         mkdir."
     }
 
     fn search_terms(&self) -> Vec<&str> {

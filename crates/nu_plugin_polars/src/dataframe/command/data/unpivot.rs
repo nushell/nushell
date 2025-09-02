@@ -65,7 +65,8 @@ impl PluginCommand for Unpivot {
         vec![
             Example {
                 description: "unpivot on an eager dataframe",
-                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -i [b c] -o [a d]",
+                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars \
+                          unpivot -i [b c] -o [a d]",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -122,7 +123,8 @@ impl PluginCommand for Unpivot {
             },
             Example {
                 description: "unpivot on a lazy dataframe",
-                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars unpivot -i [b c] -o [a d] | polars collect",
+                example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars \
+                          unpivot -i [b c] -o [a d] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

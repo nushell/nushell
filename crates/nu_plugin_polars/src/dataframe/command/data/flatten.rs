@@ -49,7 +49,8 @@ impl PluginCommand for LazyFlatten {
         vec![
             Example {
                 description: "Flatten the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars flatten hobbies | polars collect",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
+                          Football]]] | polars into-df | polars flatten hobbies | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -89,7 +90,9 @@ impl PluginCommand for LazyFlatten {
             },
             Example {
                 description: "Select a column and flatten the values",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | polars into-df | polars select (polars col hobbies | polars flatten)",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
+                          Football]]] | polars into-df | polars select (polars col hobbies | \
+                          polars flatten)",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

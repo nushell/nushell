@@ -19,7 +19,8 @@ impl Command for Move {
     }
 
     fn description(&self) -> &str {
-        "Moves columns relative to other columns or make them the first/last columns. Flags are mutually exclusive."
+        "Moves columns relative to other columns or make them the first/last columns. Flags are \
+         mutually exclusive."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -49,7 +50,8 @@ impl Command for Move {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
+                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index \
+                          --before name",
                 description: "Move a column before the first column",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -70,7 +72,8 @@ impl Command for Move {
                 ])),
             },
             Example {
-                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
+                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name \
+                          --after index",
                 description: "Move multiple columns after the last column and reorder them",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

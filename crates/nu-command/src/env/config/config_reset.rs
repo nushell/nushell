@@ -22,7 +22,8 @@ impl Command for ConfigReset {
     }
 
     fn description(&self) -> &str {
-        "Reset nushell environment configurations to default, and saves old config files in the config location as oldconfig.nu and oldenv.nu."
+        "Reset nushell environment configurations to default, and saves old config files in the \
+         config location as oldconfig.nu and oldenv.nu."
     }
 
     fn examples(&self) -> Vec<Example> {

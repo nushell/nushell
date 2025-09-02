@@ -48,7 +48,8 @@ impl PluginCommand for ToDecimal {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Modifies strings to decimal",
-            example: "[[a b]; [1, '2.4']] | polars into-df | polars select (polars col b | polars decimal 2) | polars collect",
+            example: "[[a b]; [1, '2.4']] | polars into-df | polars select (polars col b | polars \
+                      decimal 2) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new("b".to_string(), vec![Value::test_float(2.40)])],

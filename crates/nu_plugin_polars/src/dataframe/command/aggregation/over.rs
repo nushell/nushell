@@ -58,7 +58,8 @@ impl PluginCommand for Over {
                 ),
             },
             Example {
-                description: "Compute expression over an aggregation window where partitions are defined by expressions",
+                description: "Compute expression over an aggregation window where partitions are \
+                              defined by expressions",
                 example: r#"[[a b]; [x 2] [X 4] [Y 6] [y 4]]
         | polars into-lazy
         | polars select a (polars col b | polars cumulative sum | polars over (polars col a | polars lowercase) | polars as cum_b)

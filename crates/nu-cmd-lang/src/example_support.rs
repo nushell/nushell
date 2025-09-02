@@ -50,8 +50,8 @@ pub fn check_example_input_and_output_types_match_command_signature(
             if !(example_matches_signature || example_matches_signature_via_cell_path_operation) {
                 panic!(
                     "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
-                       However, this does not match the declared signature: {:?}.{} \
-                       For this command `operates_on_cell_paths()` is {}.",
+                     However, this does not match the declared signature: {:?}.{} For this \
+                     command `operates_on_cell_paths()` is {}.",
                     example.example,
                     example_input_type,
                     example_output_type,
@@ -164,7 +164,8 @@ pub fn check_example_evaluates_to_expected_output(
         let result = DebuggableValue(&result);
         assert_eq!(
             result, expected,
-            "Error: The result of example '{}' for the command '{}' differs from the expected value.\n\nExpected: {:?}\nActual:   {:?}\n",
+            "Error: The result of example '{}' for the command '{}' differs from the expected \
+             value.\n\nExpected: {:?}\nActual:   {:?}\n",
             example.description, cmd_name, expected, result,
         );
     }
@@ -177,9 +178,9 @@ pub fn check_all_signature_input_output_types_entries_have_examples(
     let declared_type_transformations = HashSet::from_iter(signature.input_output_types);
     assert!(
         witnessed_type_transformations.is_subset(&declared_type_transformations),
-        "This should not be possible (bug in test): the type transformations \
-        collected in the course of matching examples to the signature type map \
-        contain type transformations not present in the signature type map."
+        "This should not be possible (bug in test): the type transformations collected in the \
+         course of matching examples to the signature type map contain type transformations not \
+         present in the signature type map."
     );
 
     if !signature.allow_variants_without_examples {
@@ -187,7 +188,7 @@ pub fn check_all_signature_input_output_types_entries_have_examples(
             witnessed_type_transformations,
             declared_type_transformations,
             "There are entries in the signature type map which do not correspond to any example: \
-            {:?}",
+             {:?}",
             declared_type_transformations
                 .difference(&witnessed_type_transformations)
                 .map(|(s1, s2)| format!("{s1} -> {s2}"))

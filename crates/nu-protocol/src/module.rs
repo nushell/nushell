@@ -201,7 +201,8 @@ impl Module {
                 let errors = if !rest.is_empty() && self.submodules.get(name).is_none() {
                     vec![ParseError::WrongImportPattern(
                         format!(
-                            "Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`",
+                            "Trying to import something but the parent `{}` is not a module, \
+                             maybe you want to try `use <module> [<name1>, <name2>]`",
                             String::from_utf8_lossy(name)
                         ),
                         rest[0].span(),

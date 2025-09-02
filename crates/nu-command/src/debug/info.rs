@@ -25,7 +25,8 @@ impl Command for DebugInfo {
     }
 
     fn extra_description(&self) -> &str {
-        "This command is meant for debugging purposes.\nIt shows you the process information and system memory information."
+        "This command is meant for debugging purposes.\nIt shows you the process information and \
+         system memory information."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

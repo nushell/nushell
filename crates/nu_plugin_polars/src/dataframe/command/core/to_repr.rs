@@ -34,7 +34,8 @@ impl PluginCommand for ToRepr {
         vec![
             Example {
                 description: "Shows dataframe in repr format",
-                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-df | polars \
+                          into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)
@@ -52,7 +53,8 @@ shape: (2, 2)
             },
             Example {
                 description: "Shows lazy dataframe in repr format",
-                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-lazy | polars into-repr",
+                example: "[[a b]; [2025-01-01 2] [2025-01-02 4]] | polars into-lazy | polars \
+                          into-repr",
                 result: Some(Value::string(
                     r#"
 shape: (2, 2)

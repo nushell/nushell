@@ -135,7 +135,8 @@ fn uuid(
         _ => {
             return Err(ShellError::IncorrectValue {
                 msg: format!(
-                    "Unsupported UUID version: {version}. Supported versions are 1, 3, 4, 5, and 7."
+                    "Unsupported UUID version: {version}. Supported versions are 1, 3, 4, 5, and \
+                     7."
                 ),
                 val_span: span,
                 call_span: span,

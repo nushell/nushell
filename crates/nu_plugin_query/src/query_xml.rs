@@ -51,12 +51,11 @@ Output of the nodeset results depends on the flags used:
             )
             .switch(
                 "output-names",
-                "Include `local_name`, `prefixed_name`, and `namespace` in the nodeset output. Off by default.",
+                "Include `local_name`, `prefixed_name`, and `namespace` in the nodeset output. \
+                 Off by default.",
                 None,
             )
-            .input_output_types(vec![
-                (Type::String, Type::Any),
-            ])
+            .input_output_types(vec![(Type::String, Type::Any)])
             .category(Category::Filters)
     }
 
@@ -71,7 +70,8 @@ Output of the nodeset results depends on the flags used:
             },
             // scalar output
             Example {
-                description: "Query the language of Nushell blog (`xml:` prefix is always available)",
+                description: "Query the language of Nushell blog (`xml:` prefix is always \
+                              available)",
                 example: r#"http get --raw https://www.nushell.sh/atom.xml
     | query xml 'string(/*/@xml:lang)'"#,
                 result: None,
