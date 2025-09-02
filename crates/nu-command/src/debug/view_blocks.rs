@@ -13,7 +13,8 @@ impl Command for ViewBlocks {
     }
 
     fn extra_description(&self) -> &str {
-        "These are blocks parsed and loaded at runtime as well as any blocks that accumulate in the repl."
+        "These are blocks parsed and loaded at runtime as well as any blocks that accumulate in \
+         the repl."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

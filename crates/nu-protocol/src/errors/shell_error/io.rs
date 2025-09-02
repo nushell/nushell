@@ -406,8 +406,7 @@ suspicious conversion:
 
 I/O errors should always be specific, provide more context
 
-{err:#?}\
-            "
+{err:#?}"
             )
         }
 

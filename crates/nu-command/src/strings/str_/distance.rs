@@ -36,7 +36,8 @@ impl Command for StrDistance {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result.",
+                "For a data structure input, check strings at the given cell paths, and replace \
+                 with result.",
             )
             .category(Category::Strings)
     }
@@ -100,7 +101,8 @@ impl Command for StrDistance {
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Compute edit distance between strings in table and another string, using cell paths",
+                description: "Compute edit distance between strings in table and another string, \
+                              using cell paths",
                 example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -108,7 +110,8 @@ impl Command for StrDistance {
                 })])),
             },
             Example {
-                description: "Compute edit distance between strings in record and another string, using cell paths",
+                description: "Compute edit distance between strings in record and another string, \
+                              using cell paths",
                 example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),

@@ -98,7 +98,8 @@ fn insert_past_end_of_list_stream() {
 #[test]
 fn insert_uses_enumerate_index() {
     let actual = nu!(
-        "[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
+        "[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to \
+         nuon"
     );
 
     assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");

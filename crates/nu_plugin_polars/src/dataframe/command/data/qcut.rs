@@ -21,16 +21,36 @@ impl PluginCommand for QCutSeries {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .required("quantiles", SyntaxShape::Any, "Either a list of quantile probabilities between 0 and 1 or a positive integer determining the number of bins with uniform probability.")
+            .required(
+                "quantiles",
+                SyntaxShape::Any,
+                "Either a list of quantile probabilities between 0 and 1 or a positive integer \
+                 determining the number of bins with uniform probability.",
+            )
             .named(
                 "labels",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Names of the categories. The number of labels must be equal to the number of cut points plus one.",
+                "Names of the categories. The number of labels must be equal to the number of cut \
+                 points plus one.",
                 Some('l'),
             )
-            .switch("left_closed", "Set the intervals to be left-closed instead of right-closed.", Some('c'))
-            .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
-            .switch("allow_duplicates", "If set, duplicates in the resulting quantiles are dropped, rather than raising an error. This can happen even with unique probabilities, depending on the data.", Some('d'))
+            .switch(
+                "left_closed",
+                "Set the intervals to be left-closed instead of right-closed.",
+                Some('c'),
+            )
+            .switch(
+                "include_breaks",
+                "Include a column with the right endpoint of the bin each observation falls in. \
+                 This will change the data type of the output from a Categorical to a Struct.",
+                Some('b'),
+            )
+            .switch(
+                "allow_duplicates",
+                "If set, duplicates in the resulting quantiles are dropped, rather than raising \
+                 an error. This can happen even with unique probabilities, depending on the data.",
+                Some('d'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -40,7 +60,8 @@ impl PluginCommand for QCutSeries {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Divide a column into three categories according to pre-defined quantile probabilities.",
+            description: "Divide a column into three categories according to pre-defined quantile \
+                          probabilities.",
             example: r#"[-2, -1, 0, 1, 2] | polars into-df | polars qcut [0.25, 0.75] --labels ["a", "b", "c"]"#,
             result: None,
         }]

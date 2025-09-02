@@ -29,7 +29,8 @@ impl Command for Open {
     }
 
     fn extra_description(&self) -> &str {
-        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
+        "Support to automatically parse files with an extension `.xyz` can be provided by a `from \
+         xyz` command in scope."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -164,7 +165,8 @@ impl Command for Open {
                         return Err(ShellError::Io(IoError::new(
                             #[allow(
                                 deprecated,
-                                reason = "we don't have a IsADirectory variant here, so we provide one"
+                                reason = "we don't have a IsADirectory variant here, so we \
+                                          provide one"
                             )]
                             shell_error::io::ErrorKind::from_std(std::io::ErrorKind::IsADirectory),
                             arg_span,
@@ -217,14 +219,23 @@ impl Command for Open {
                                 eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
                             };
                             output.push(command_output.map_err(|inner| {
-                                    ShellError::GenericError{
-                                        error: format!("Error while parsing as {ext}"),
-                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
-                                        span: Some(arg_span),
-                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
-                                        inner: vec![inner],
+                                ShellError::GenericError {
+                                    error: format!("Error while parsing as {ext}"),
+                                    msg: format!(
+                                        "Could not parse '{}' with `from {}`",
+                                        path.display(),
+                                        ext
+                                    ),
+                                    span: Some(arg_span),
+                                    help: Some(format!(
+                                        "Check out `help from {}` or `help from` for more options \
+                                         or open raw data with `open --raw '{}'`",
+                                        ext,
+                                        path.display()
+                                    )),
+                                    inner: vec![inner],
                                 }
-                                })?);
+                            })?);
                         }
                         None => {
                             // If no converter was found, add content-type metadata
@@ -260,7 +271,8 @@ impl Command for Open {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension or SQLite database header)",
+                description: "Open a file, with structure (based on file extension or SQLite \
+                              database header)",
                 example: "open myfile.json",
                 result: None,
             },
@@ -280,12 +292,14 @@ impl Command for Open {
                 result: None,
             },
             Example {
-                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
+                description: "Create a custom `from` parser to open newline-delimited JSON files \
+                              with `open`",
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
                 result: None,
             },
             Example {
-                description: "Show the extensions for which the `open` command will automatically parse",
+                description: "Show the extensions for which the `open` command will automatically \
+                              parse",
                 example: r#"scope commands
     | where name starts-with "from "
     | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }

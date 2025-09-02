@@ -62,12 +62,15 @@ apparent the next time `nu` is next launched with that plugin registry file.
         vec![
             Example {
                 example: "plugin add nu_plugin_inc",
-                description: "Run the `nu_plugin_inc` plugin from the current directory or $env.NU_PLUGIN_DIRS and install its signatures.",
+                description: "Run the `nu_plugin_inc` plugin from the current directory or \
+                              $env.NU_PLUGIN_DIRS and install its signatures.",
                 result: None,
             },
             Example {
                 example: "plugin add --plugin-config polars.msgpackz nu_plugin_polars",
-                description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin registry file.",
+                description: "Run the `nu_plugin_polars` plugin from the current directory or \
+                              $env.NU_PLUGIN_DIRS, and install its signatures to the \
+                              \"polars.msgpackz\" plugin registry file.",
                 result: None,
             },
         ]

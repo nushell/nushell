@@ -30,7 +30,10 @@ impl Command for StrSubstring {
         Signature::build("str substring")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -42,7 +45,8 @@ impl Command for StrSubstring {
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length \
+                 2+)",
                 Some('b'),
             )
             .required(
@@ -125,7 +129,8 @@ impl Command for StrSubstring {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Get a substring \"nushell\" from the text \"good nushell\" using a range",
+                description: "Get a substring \"nushell\" from the text \"good nushell\" using a \
+                              range",
                 example: " 'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },

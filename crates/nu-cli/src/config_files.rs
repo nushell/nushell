@@ -115,8 +115,8 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                         msg: "plugin path defined here".into(),
                         span,
                         help: Some(
-                            "you might try deleting the file and registering all of your \
-                                plugins again"
+                            "you might try deleting the file and registering all of your plugins \
+                             again"
                                 .into(),
                         ),
                         inner: vec![],
@@ -351,8 +351,8 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
             new_plugin_file_path.display()
         );
         eprintln!(
-            "The plugin.nu file has not been removed. If `plugin list` looks okay, \
-            you may do so manually."
+            "The plugin.nu file has not been removed. If `plugin list` looks okay, you may do so \
+             manually."
         );
     }
 

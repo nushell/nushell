@@ -13,7 +13,11 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]), "The glob expression.")
+            .required(
+                "glob",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]),
+                "The glob expression.",
+            )
             .named(
                 "depth",
                 SyntaxShape::Int,
@@ -43,7 +47,8 @@ impl Command for Glob {
             .named(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Patterns to exclude from the search: `glob` will not walk the inside of directories matching the excluded patterns.",
+                "Patterns to exclude from the search: `glob` will not walk the inside of \
+                 directories matching the excluded patterns.",
                 Some('e'),
             )
             .category(Category::FileSystem)
@@ -70,12 +75,14 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files and folders that begin with uppercase C or lowercase c",
+                description: "Search for files and folders that begin with uppercase C or \
+                              lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description: "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a \
+                              character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -95,17 +102,20 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times",
+                description: "Search for files or folders with only a, b, c, or d in the file \
+                              name between 1 and 10 times",
                 example: "glob <[a-d]:1,10>",
                 result: None,
             },
             Example {
-                description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks",
+                description: "Search for folders that begin with an uppercase ASCII letter, \
+                              ignoring files and symlinks",
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
             Example {
-                description: "Search for files named tsconfig.json that are not in node_modules directories",
+                description: "Search for files named tsconfig.json that are not in node_modules \
+                              directories",
                 example: r#"glob **/tsconfig.json --exclude [**/node_modules/**]"#,
                 result: None,
             },
@@ -157,16 +167,17 @@ impl Command for Glob {
             }
         };
 
-        let glob_pattern =
-            match glob_pattern_input {
-                Value::String { val, .. } | Value::Glob { val, .. } => val,
-                _ => return Err(ShellError::IncorrectValue {
+        let glob_pattern = match glob_pattern_input {
+            Value::String { val, .. } | Value::Glob { val, .. } => val,
+            _ => {
+                return Err(ShellError::IncorrectValue {
                     msg: "Incorrect glob pattern supplied to glob. Please use string or glob only."
                         .to_string(),
                     val_span: call.head,
                     call_span: glob_span,
-                }),
-            };
+                });
+            }
+        };
 
         // paths starting with drive letters must be escaped on Windows
         #[cfg(windows)]
@@ -294,7 +305,9 @@ fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<S
         (Some(drive), Some(':'), Some(_)) if drive.is_ascii_alphabetic() => {
             Err(ShellError::GenericError {
                 error: "invalid Windows path format".into(),
-                msg: "Windows paths with drive letters must include a path separator (/) after the colon".into(),
+                msg: "Windows paths with drive letters must include a path separator (/) after \
+                      the colon"
+                    .into(),
                 span: Some(glob_span),
                 help: Some("use format like 'C:/' instead of 'C:'".into()),
                 inner: vec![],

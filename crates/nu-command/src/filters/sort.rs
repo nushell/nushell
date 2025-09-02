@@ -16,11 +16,11 @@ impl Command for Sort {
             .input_output_types(vec![
                 (
                     Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any))
+                    Type::List(Box::new(Type::Any)),
                 ),
-                (Type::record(), Type::record())
+                (Type::record(), Type::record()),
             ])
-    .switch("reverse", "Sort in reverse order", Some('r'))
+            .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
                 "Sort string-based data case-insensitively",
@@ -28,7 +28,8 @@ impl Command for Sort {
             )
             .switch(
                 "values",
-                "If input is a single record, sort the record by values; ignored if input is not a single record",
+                "If input is a single record, sort the record by values; ignored if input is not \
+                 a single record",
                 Some('v'),
             )
             .switch(

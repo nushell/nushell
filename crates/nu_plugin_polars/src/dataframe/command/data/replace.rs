@@ -29,7 +29,10 @@ impl PluginCommand for Replace {
         Signature::build(self.name())
             .required(
                 "old",
-                SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Record(vec![]),
+                    SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                ]),
                 "Values to be replaced",
             )
             .optional(
@@ -39,19 +42,23 @@ impl PluginCommand for Replace {
             )
             .switch(
                 "strict",
-                "Require that all values must be replaced or throw an error (ignored if `old` or `new` are expressions).",
+                "Require that all values must be replaced or throw an error (ignored if `old` or \
+                 `new` are expressions).",
                 Some('s'),
             )
             .named(
                 "default",
                 SyntaxShape::Any,
-                    "Set values that were not replaced to this value. If no default is specified, (default), an error is raised if any values were not replaced. Accepts expression input. Non-expression inputs are parsed as literals.",
+                "Set values that were not replaced to this value. If no default is specified, \
+                 (default), an error is raised if any values were not replaced. Accepts \
+                 expression input. Non-expression inputs are parsed as literals.",
                 Some('d'),
             )
             .named(
                 "return-dtype",
                 SyntaxShape::String,
-                "Data type of the resulting expression. If set to `null` (default), the data type is determined automatically based on the other inputs.",
+                "Data type of the resulting expression. If set to `null` (default), the data type \
+                 is determined automatically based on the other inputs.",
                 Some('t'),
             )
             .input_output_type(
@@ -71,8 +78,7 @@ impl PluginCommand for Replace {
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
-                        df!("a" => [10, 10, 20, 20])
-                            .expect("simple df for test should not fail"),
+                        df!("a" => [10, 10, 20, 20]).expect("simple df for test should not fail"),
                     )
                     .into_value(Span::test_data()),
                 ),
@@ -92,38 +98,42 @@ impl PluginCommand for Replace {
                 ),
             },
             Example {
-                description: "Replace column with different values based on expressions (cannot be used with strict)",
+                description: "Replace column with different values based on expressions (cannot \
+                              be used with strict)",
                 example: "[[a]; [1] [1] [2] [2]]
                 | polars into-df
-                | polars select (polars col a | polars replace [(polars col a | polars max)] [(polars col a | polars max | $in + 5)])
+                | polars select (polars col a | polars replace [(polars col a | polars max)] \
+                          [(polars col a | polars max | $in + 5)])
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
-                        df!("a" => [1, 1, 7, 7])
-                            .expect("simple df for test should not fail"),
+                        df!("a" => [1, 1, 7, 7]).expect("simple df for test should not fail"),
                     )
                     .into_value(Span::test_data()),
                 ),
             },
             Example {
-                description: "Replace column with different values based on expressions with default",
+                description: "Replace column with different values based on expressions with \
+                              default",
                 example: "[[a]; [1] [1] [2] [3]]
                 | polars into-df
-                | polars select (polars col a | polars replace [1] [10] --default (polars col a | polars max | $in * 100) --strict)
+                | polars select (polars col a | polars replace [1] [10] --default (polars col a | \
+                          polars max | $in * 100) --strict)
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
-                        df!("a" => [10, 10, 300, 300])
-                            .expect("simple df for test should not fail"),
+                        df!("a" => [10, 10, 300, 300]).expect("simple df for test should not fail"),
                     )
                     .into_value(Span::test_data()),
                 ),
             },
             Example {
-                description: "Replace column with different values based on expressions with default",
+                description: "Replace column with different values based on expressions with \
+                              default",
                 example: "[[a]; [1] [1] [2] [3]]
                 | polars into-df
-                | polars select (polars col a | polars replace [1] [10] --default (polars col a | polars max | $in * 100) --strict --return-dtype str)
+                | polars select (polars col a | polars replace [1] [10] --default (polars col a | \
+                          polars max | $in * 100) --strict --return-dtype str)
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
@@ -137,7 +147,8 @@ impl PluginCommand for Replace {
                 description: "Replace column with different values using a record",
                 example: "[[a]; [1] [1] [2] [2]]
                 | polars into-df
-                | polars select (polars col a | polars replace {1: a, 2: b} --strict --return-dtype str)
+                | polars select (polars col a | polars replace {1: a, 2: b} --strict \
+                          --return-dtype str)
                 | polars collect",
                 result: Some(
                     NuDataFrame::from(
@@ -176,7 +187,11 @@ impl PluginCommand for Replace {
                     error: "Invalid arguments".into(),
                     msg: "".into(),
                     span: Some(call.head),
-                    help: Some("`old` must be either a record or list. If `old` is a record, then `new` must not be specified. Otherwise, `new` must also be a list".into()),
+                    help: Some(
+                        "`old` must be either a record or list. If `old` is a record, then `new` \
+                         must not be specified. Otherwise, `new` must also be a list"
+                            .into(),
+                    ),
                     inner: vec![],
                 }));
             }

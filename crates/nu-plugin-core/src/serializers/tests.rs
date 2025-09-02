@@ -37,18 +37,16 @@ macro_rules! generate_tests {
             match Encoder::<PluginInput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
                 Err(ShellError::Io(_)) => (), // okay
-                Err(other) => panic!(
-                    "decode: got other error, should have been a \
-                    ShellError::Io: {other:?}"
-                ),
+                Err(other) => {
+                    panic!("decode: got other error, should have been a ShellError::Io: {other:?}")
+                }
             }
             match Encoder::<PluginOutput>::decode(&encoder, &mut buffered) {
                 Ok(_) => panic!("decode: i/o error was not passed through"),
                 Err(ShellError::Io(_)) => (), // okay
-                Err(other) => panic!(
-                    "decode: got other error, should have been a \
-                    ShellError::Io: {other:?}"
-                ),
+                Err(other) => {
+                    panic!("decode: got other error, should have been a ShellError::Io: {other:?}")
+                }
             }
         }
 
@@ -67,7 +65,7 @@ macro_rules! generate_tests {
                 Err(ShellError::PluginFailedToDecode { .. }) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::PluginFailedToDecode: {other:?}"
+                     ShellError::PluginFailedToDecode: {other:?}"
                 ),
             }
 
@@ -77,7 +75,7 @@ macro_rules! generate_tests {
                 Err(ShellError::PluginFailedToDecode { .. }) => (), // okay
                 Err(other) => panic!(
                     "decode: got other error, should have been a \
-                    ShellError::PluginFailedToDecode: {other:?}"
+                     ShellError::PluginFailedToDecode: {other:?}"
                 ),
             }
         }

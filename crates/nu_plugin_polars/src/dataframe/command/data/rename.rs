@@ -90,7 +90,8 @@ impl PluginCommand for RenameDF {
             },
             Example {
                 description: "Renames two dataframe columns",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars rename [a b] [a_new b_new]",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars rename [a b] [a_new \
+                          b_new]",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

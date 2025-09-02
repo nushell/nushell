@@ -25,7 +25,8 @@ impl Command for Transpose {
             ])
             .switch(
                 "header-row",
-                "use the first input column as the table header-row (or keynames when combined with --as-record)",
+                "use the first input column as the table header-row (or keynames when combined \
+                 with --as-record)",
                 Some('r'),
             )
             .switch(
@@ -106,7 +107,8 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description: "Transposes the table without column names and specify a new column name",
+                description: "Transposes the table without column names and specify a new column \
+                              name",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

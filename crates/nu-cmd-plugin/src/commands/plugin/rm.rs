@@ -63,12 +63,14 @@ fixed with `plugin add`.
             },
             Example {
                 example: "plugin rm ~/.cargo/bin/nu_plugin_inc",
-                description: "Remove the installed signatures for the plugin with the filename `~/.cargo/bin/nu_plugin_inc`.",
+                description: "Remove the installed signatures for the plugin with the filename \
+                              `~/.cargo/bin/nu_plugin_inc`.",
                 result: None,
             },
             Example {
                 example: "plugin rm --plugin-config polars.msgpackz polars",
-                description: "Remove the installed signatures for the `polars` plugin from the \"polars.msgpackz\" plugin registry file.",
+                description: "Remove the installed signatures for the `polars` plugin from the \
+                              \"polars.msgpackz\" plugin registry file.",
                 result: None,
             },
         ]

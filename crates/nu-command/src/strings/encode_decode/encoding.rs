@@ -58,7 +58,11 @@ pub fn encode(
             error: format!(r#"{} encoding is not supported"#, &encoding_name.item),
             msg: "invalid encoding".into(),
             span: Some(encoding_name.span),
-            help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
+            help: Some(
+                "refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a \
+                 valid list of encodings"
+                    .into(),
+            ),
             inner: vec![],
         });
     }
@@ -88,13 +92,15 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
         label
     };
     match Encoding::for_label_no_replacement(label.as_bytes()) {
-        None => Err(ShellError::GenericError{
-            error: format!(
-                r#"{label} is not a valid encoding"#
-            ),
+        None => Err(ShellError::GenericError {
+            error: format!(r#"{label} is not a valid encoding"#),
             msg: "invalid encoding".into(),
             span: Some(span),
-            help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
+            help: Some(
+                "refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a \
+                 valid list of encodings"
+                    .into(),
+            ),
             inner: vec![],
         }),
         Some(encoding) => Ok(encoding),

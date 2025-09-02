@@ -90,7 +90,8 @@ impl Command for BytesReplace {
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
-                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace --all 0x[11] 0x[13] ColA ColC",
+                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes \
+                          replace --all 0x[11] 0x[13] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x13, 0x12, 0x13]),
                     "ColB" => Value::test_binary(vec![0x14, 0x15, 0x16]),

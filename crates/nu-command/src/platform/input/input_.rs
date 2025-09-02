@@ -26,7 +26,8 @@ impl Command for Input {
         Signature::build("input")
             .input_output_types(vec![
                 (Type::Nothing, Type::Any),
-                (Type::List(Box::new(Type::String)), Type::Any)])
+                (Type::List(Box::new(Type::String)), Type::Any),
+            ])
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
@@ -50,18 +51,21 @@ impl Command for Input {
             .switch(
                 "reedline",
                 "use the reedline library, defaults to false",
-                None
+                None,
             )
             .named(
                 "history-file",
                 SyntaxShape::Filepath,
-                "Path to a file to read and write command history. This is a text file and will be created if it doesn't exist. Will be used as the selection list. Implies `--reedline`.",
+                "Path to a file to read and write command history. This is a text file and will \
+                 be created if it doesn't exist. Will be used as the selection list. Implies \
+                 `--reedline`.",
                 None,
             )
             .named(
                 "max-history",
                 SyntaxShape::Int,
-                "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. Implies `--reedline`.",
+                "The maximum number of entries to keep in the history, defaults to \
+                 $env.config.history.max_size. Implies `--reedline`.",
                 None,
             )
             .switch("suppress-output", "don't print keystroke values", Some('s'))
@@ -219,7 +223,8 @@ impl Command for Input {
                 result: None,
             },
             Example {
-                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
+                description: "Get multiple lines of input from the user (newlines can be entered \
+                              using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
                 example: "let multiline_input = (input --reedline)",
                 result: None,
             },
@@ -229,7 +234,8 @@ impl Command for Input {
                 result: None,
             },
             Example {
-                description: "Get input from the user with history backed by a file, and assign to a variable",
+                description: "Get input from the user with history backed by a file, and assign \
+                              to a variable",
                 example: "let user_input = (input --reedline --history-file ./history.txt)",
                 result: None,
             },
