@@ -5,6 +5,7 @@ mod experimental_options;
 mod ide;
 mod logger;
 mod run;
+#[cfg(not(feature = "mcp"))]
 mod signals;
 #[cfg(unix)]
 mod terminal;
@@ -29,6 +30,7 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
+#[cfg(not(feature = "mcp"))]
 use signals::ctrlc_protection;
 use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc};
 
@@ -87,6 +89,7 @@ fn main() -> Result<()> {
     }
 
     // TODO: make this conditional in the future
+    #[cfg(not(feature = "mcp"))]
     ctrlc_protection(&mut engine_state);
 
     #[cfg(feature = "rustls-tls")]
