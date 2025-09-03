@@ -5094,9 +5094,9 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "planus"
-version = "1.1.1"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3daf8e3d4b712abe1d690838f6e29fb76b76ea19589c4afa39ec30e12f62af71"
+checksum = "e4089d373413156aa4d05851e1a9b302fa5648c4007de7a85214532cdd9d12e2"
 dependencies = [
  "array-init-cursor",
  "hashbrown 0.15.2",
