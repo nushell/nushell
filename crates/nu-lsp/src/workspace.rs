@@ -366,7 +366,7 @@ impl LanguageServer {
             .unwrap_or(Span::unknown());
         if let Some(extra_span) = Self::reference_not_in_ast(
             &id_tracker.id,
-            &working_set,
+            working_set,
             definition_span,
             file_span,
             id_tracker.span,
