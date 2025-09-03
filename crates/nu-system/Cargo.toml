@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-system"
 name = "nu-system"
-version = "0.106.2"
+version = "0.107.1"
 edition = "2024"
 license = "MIT"
 

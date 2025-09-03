@@ -67,7 +67,7 @@ impl Command for Skip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let metadata = input.metadata();
+        let metadata = input.metadata().map(|m| m.with_content_type(None));
 
         let n: usize = match n {
             Some(v) => {
@@ -96,7 +96,8 @@ impl Command for Skip {
                     let span = stream.span();
                     Ok(PipelineData::byte_stream(
                         stream.skip(span, n as u64)?,
-                        metadata,
+                        // last 5 bytes of an image/png stream are not image/png themselves
+                        metadata.map(|m| m.with_content_type(None)),
                     ))
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {
@@ -109,6 +110,7 @@ impl Command for Skip {
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
+                let metadata = metadata.map(|m| m.with_content_type(None));
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
             _ => Ok(input

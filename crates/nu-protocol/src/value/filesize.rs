@@ -546,7 +546,7 @@ impl FilesizeUnitFormat {
         }
     }
 
-    /// Returns `true` for [`DisplayFilesizeUnit::Metric`] or if the underlying [`FilesizeUnit`]
+    /// Returns `true` for [`FilesizeUnitFormat::Metric`] or if the underlying [`FilesizeUnit`]
     /// is metric according to [`FilesizeUnit::is_metric`].
     ///
     /// Note that this returns `true` for [`FilesizeUnit::B`] as well.
@@ -558,7 +558,7 @@ impl FilesizeUnitFormat {
         }
     }
 
-    /// Returns `true` for [`DisplayFilesizeUnit::Binary`] or if the underlying [`FilesizeUnit`]
+    /// Returns `true` for [`FilesizeUnitFormat::Binary`] or if the underlying [`FilesizeUnit`]
     /// is binary according to [`FilesizeUnit::is_binary`].
     ///
     /// Note that this returns `true` for [`FilesizeUnit::B`] as well.
@@ -583,7 +583,7 @@ impl fmt::Display for FilesizeUnitFormat {
     }
 }
 
-/// The error returned when failing to parse a [`DisplayFilesizeUnit`].
+/// The error returned when failing to parse a [`FilesizeUnitFormat`].
 ///
 /// This occurs when the string being parsed does not exactly match any of:
 /// - `metric`

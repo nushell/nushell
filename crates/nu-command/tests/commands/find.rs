@@ -7,7 +7,7 @@ fn find_with_list_search_with_string() {
 
     assert_eq!(
         actual.out,
-        "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+        "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mmoe\u{1b}[0m\u{1b}[39m\u{1b}[0m"
     );
     assert_eq!(actual_no_highlight.out, "moe");
 }
@@ -19,7 +19,7 @@ fn find_with_list_search_with_char() {
 
     assert_eq!(
         actual.out,
-        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37marry\\u001b[0m\",\"\\u001b[37mcur\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37my\\u001b[0m\"]"
+        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39marry\\u001b[0m\",\"\\u001b[39mcur\\u001b[0m\\u001b[41;39ml\\u001b[0m\\u001b[39my\\u001b[0m\"]"
     );
     assert_eq!(actual_no_highlight.out, "[\"larry\",\"curly\"]");
 }
@@ -35,7 +35,7 @@ fn find_with_bytestream_search_with_char() {
 
     assert_eq!(
         actual.out,
-        "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mABC\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+        "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mABC\u{1b}[0m\u{1b}[39m\u{1b}[0m"
     );
     assert_eq!(actual_no_highlight.out, "ABC");
 }
@@ -56,7 +56,7 @@ fn find_with_string_search_with_string() {
 
     assert_eq!(
         actual.out,
-        "\u{1b}[37mCargo.\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+        "\u{1b}[39mCargo.\u{1b}[0m\u{1b}[41;39mtoml\u{1b}[0m\u{1b}[39m\u{1b}[0m"
     );
     assert_eq!(actual_no_highlight.out, "Cargo.toml");
 }
@@ -80,7 +80,7 @@ fn find_with_filepath_search_with_string() {
 
     assert_eq!(
         actual.out,
-        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]"
+        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39marep\\u001b[0m\\u001b[39mas.clu\\u001b[0m\"]"
     );
     assert_eq!(actual_no_highlight.out, "[\"arepas.clu\"]");
 }
@@ -95,7 +95,7 @@ fn find_with_filepath_search_with_multiple_patterns() {
 
     assert_eq!(
         actual.out,
-        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37mami\\u001b[0m\\u001b[37mgos.txt\\u001b[0m\",\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]"
+        "[\"\\u001b[39m\\u001b[0m\\u001b[41;39mami\\u001b[0m\\u001b[39mgos.txt\\u001b[0m\",\"\\u001b[39m\\u001b[0m\\u001b[41;39marep\\u001b[0m\\u001b[39mas.clu\\u001b[0m\"]"
     );
     assert_eq!(actual_no_highlight.out, "[\"amigos.txt\",\"arepas.clu\"]");
 }
@@ -121,7 +121,7 @@ fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
 
     assert_eq!(
         actual.out,
-        r#"["\u001b[37mMauri\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m","\u001b[37mLauren\u001b[0m\u001b[41;37mce\u001b[0m\u001b[37m\u001b[0m"]"#
+        r#"["\u001b[39mMauri\u001b[0m\u001b[41;39mce\u001b[0m\u001b[39m\u001b[0m","\u001b[39mLauren\u001b[0m\u001b[41;39mce\u001b[0m\u001b[39m\u001b[0m"]"#
     );
     assert_eq!(actual_no_highlight.out, r#"["Maurice","Laurence"]"#);
 }
@@ -225,7 +225,7 @@ fn find_with_string_search_with_special_char_1() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m?\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma\\u001b[0m\\u001b[41;39m?\\u001b[0m\\u001b[39mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a?b\"}]");
 }
@@ -238,7 +238,7 @@ fn find_with_string_search_with_special_char_2() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m*\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma\\u001b[0m\\u001b[41;39m*\\u001b[0m\\u001b[39mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a*b\"}]");
 }
@@ -251,7 +251,7 @@ fn find_with_string_search_with_special_char_3() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m{1}\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma\\u001b[0m\\u001b[41;39m{1}\\u001b[0m\\u001b[39mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a{1}b\"}]");
 }
@@ -264,7 +264,7 @@ fn find_with_string_search_with_special_char_4() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[\\u001b[0m\\u001b[37m]b\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma\\u001b[0m\\u001b[41;39m[\\u001b[0m\\u001b[39m]b\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
@@ -277,7 +277,7 @@ fn find_with_string_search_with_special_char_5() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma[\\u001b[0m\\u001b[41;37m]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma[\\u001b[0m\\u001b[41;39m]\\u001b[0m\\u001b[39mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
@@ -290,7 +290,7 @@ fn find_with_string_search_with_special_char_6() {
 
     assert_eq!(
         actual.out,
-        "[{\"d\":\"\\u001b[37ma\\u001b[0m\\u001b[41;37m[]\\u001b[0m\\u001b[37mb\\u001b[0m\"}]"
+        "[{\"d\":\"\\u001b[39ma\\u001b[0m\\u001b[41;39m[]\\u001b[0m\\u001b[39mb\\u001b[0m\"}]"
     );
     assert_eq!(actual_no_highlight.out, "[{\"d\":\"a[]b\"}]");
 }
@@ -308,6 +308,6 @@ fn find_and_highlight_in_nested_list() {
 
     assert_eq!(
         actual.out,
-        r#"[["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","bar"],["\u001b[37m\u001b[0m\u001b[41;37mfoo\u001b[0m\u001b[37m\u001b[0m","baz"]]"#
+        r#"[["\u001b[39m\u001b[0m\u001b[41;39mfoo\u001b[0m\u001b[39m\u001b[0m","bar"],["\u001b[39m\u001b[0m\u001b[41;39mfoo\u001b[0m\u001b[39m\u001b[0m","baz"]]"#
     );
 }

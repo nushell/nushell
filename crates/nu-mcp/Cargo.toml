@@ -1,13 +1,13 @@
 [package]
 name = "nu-mcp"
-version = "0.106.2"
+version = "0.107.1"
 edition = "2024"
 
 [dependencies]
 futures = "0.3.31"
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", features = ["plugin"] }
-nu-engine = { path = "../nu-engine", version = "0.106.2" }
-nu-parser = { path = "../nu-parser", version = "0.106.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
+nu-engine = { path = "../nu-engine", version = "0.107.1" }
+nu-parser = { path = "../nu-parser", version = "0.107.1" }
 
 rmcp = { version = "0.3.0", features = ["server", "transport-io"] }
 schemars = "1.0.4"

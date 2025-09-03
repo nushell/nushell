@@ -1,6 +1,6 @@
 [package]
 name = "nu-plugin-test-support"
-version = "0.106.2"
+version = "0.107.1"
 edition = "2024"
 license = "MIT"
 description = "Testing support for Nushell plugins"
@@ -15,14 +15,14 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.106.2", features = ["plugin"] }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", features = ["plugin"] }
-nu-parser = { path = "../nu-parser", version = "0.106.2", features = ["plugin"] }
-nu-plugin = { path = "../nu-plugin", version = "0.106.2" }
-nu-plugin-core = { path = "../nu-plugin-core", version = "0.106.2" }
-nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.106.2" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.106.2" }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.106.2" }
+nu-engine = { path = "../nu-engine", version = "0.107.1", features = ["plugin"] }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
+nu-parser = { path = "../nu-parser", version = "0.107.1", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.107.1" }
+nu-plugin-core = { path = "../nu-plugin-core", version = "0.107.1" }
+nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.107.1" }
+nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.107.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.107.1" }
 nu-ansi-term = { workspace = true }
 similar = "2.7"
 

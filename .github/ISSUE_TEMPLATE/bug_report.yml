@@ -1,19 +1,26 @@
 name: Bug Report
-description: Create a report to help us improve
+description: "Create a report of behavior that doesn't seem to be intended and help us improve"
 labels: ["needs-triage"]
 body: 
+  - type: checkboxes
+    attributes:
+      label: Bug report form
+      description: Thank you for your bug report.
+      options:
+        - label: I have done a basic search of the issue tracker to find any existing issues that are similar.
+        - label: I have checked that my version is at least the latest stable release available via my installation method.
   - type: textarea
     id: description
     attributes:
       label: Describe the bug
-      description: Thank you for your bug report.
+      description: Try to make it easy for us to understand what problem you are encountering.
     validations:
       required: true
   - type: textarea
     id: repro
     attributes:
       label: How to reproduce
-      description: Steps to reproduce the behavior (including succinct code examples or screenshots of the observed behavior)
+      description: Steps to reproduce the behavior (including succinct code examples or screenshots of the observed behavior).
       placeholder: |
         1.
         2.

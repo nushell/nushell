@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_quer
 edition = "2024"
 license = "MIT"
 name = "nu_plugin_query"
-version = "0.106.2"
+version = "0.107.1"
 
 [lib]
 doctest = false
@@ -16,8 +16,8 @@ name = "nu_plugin_query"
 bench = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.106.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2" }
+nu-plugin = { path = "../nu-plugin", version = "0.107.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1" }
 
 gjson = "0.8"
 scraper = { default-features = false, version = "0.23" }

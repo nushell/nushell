@@ -5,12 +5,12 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_form
 edition = "2024"
 license = "MIT"
 name = "nu_plugin_formats"
-version = "0.106.2"
+version = "0.107.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.106.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.107.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
 
 indexmap = { workspace = true }
 eml-parser = "0.1"
@@ -20,4 +20,4 @@ plist = "1.7"
 chrono = "0.4"
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.106.2" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.107.1" }

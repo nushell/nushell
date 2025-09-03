@@ -6,7 +6,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-lang"
 edition = "2024"
 license = "MIT"
 name = "nu-cmd-lang"
-version = "0.106.2"
+version = "0.107.1"
 
 [lib]
 bench = false
@@ -15,12 +15,12 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.106.2", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.106.2" }
-nu-parser = { path = "../nu-parser", version = "0.106.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.106.2", default-features = false }
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.106.2" }
+nu-engine = { path = "../nu-engine", version = "0.107.1", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.107.1" }
+nu-parser = { path = "../nu-parser", version = "0.107.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.107.1", default-features = false }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.107.1" }
 
 itertools = { workspace = true }
 shadow-rs = { version = "1.2", default-features = false }

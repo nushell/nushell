@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.106.2"
+version = "0.107.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]

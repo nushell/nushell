@@ -667,6 +667,20 @@ pub enum ShellError {
         creation_site: Span,
     },
 
+    /// Failed to detect columns
+    ///
+    /// ## Resolution
+    ///
+    /// Use `detect columns --guess` or `parse` instead
+    #[error("Failed to detect columns")]
+    #[diagnostic(code(nu::shell::failed_to_detect_columns))]
+    ColumnDetectionFailure {
+        #[label = "value coming from here"]
+        bad_value: Span,
+        #[label = "tried to detect columns here"]
+        failure_site: Span,
+    },
+
     /// Attempted to us a relative range on an infinite stream
     ///
     /// ## Resolution

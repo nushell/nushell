@@ -1,6 +1,6 @@
 use crate::{
     formats::value_to_json_value,
-    network::{http::timeout_extractor_reader::UreqTimeoutExtractorReader, tls::tls},
+    network::{http::timeout_extractor_reader::UreqTimeoutExtractorReader, tls::tls_config},
 };
 use base64::{
     Engine, alphabet,
@@ -95,7 +95,7 @@ pub fn http_client(
         }
     };
 
-    config_builder = config_builder.tls_config(tls(allow_insecure)?);
+    config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
     Ok(ureq::Agent::new_with_config(config_builder.build()))
 }
 
