@@ -24,7 +24,7 @@ impl Command for Port {
     }
 
     fn description(&self) -> &str {
-        "Get a free port from system."
+        "Get a free TCP port from system."
     }
 
     fn search_terms(&self) -> Vec<&str> {
