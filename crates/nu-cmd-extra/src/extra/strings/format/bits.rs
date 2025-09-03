@@ -196,7 +196,7 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
 
 fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) -> Value {
     if let Some(v) = num.to_i8() {
-        let bytes = v.to_ne_bytes(); // Eendianness does not affect `i8`
+        let bytes = v.to_ne_bytes(); // Endianness does not affect `i8`
         let mut raw_string = "".to_string();
         for ch in bytes {
             raw_string.push_str(&format!("{ch:08b} "));
