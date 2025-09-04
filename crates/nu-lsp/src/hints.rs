@@ -165,6 +165,7 @@ mod tests {
         request::{InlayHintRequest, Request},
     };
     use nu_test_support::fs::fixtures;
+    use rstest::rstest;
 
     fn send_inlay_hint_request(client_connection: &Connection, uri: Uri) -> Message {
         client_connection
@@ -196,150 +197,112 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn inlay_hint_variable_type() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
+    #[rstest]
+    #[case::variable_type(
+        "type.nu",
+        false,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
+            { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
+            { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
+            { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
+            { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
+            { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
+            { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
+        ])
+    )]
+    #[case::assignment_type(
+        "assignment.nu",
+        false,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 8 }, "label": ": int", "kind": 1 },
+            { "position": { "line": 1, "character": 10 }, "label": ": float", "kind": 1 },
+            { "position": { "line": 2, "character": 10 }, "label": ": table", "kind": 1 },
+            { "position": { "line": 3, "character": 9 }, "label": ": list", "kind": 1 },
+            { "position": { "line": 4, "character": 11 }, "label": ": record", "kind": 1 },
+            { "position": { "line": 6, "character": 7 }, "label": ": filesize", "kind": 1 },
+            { "position": { "line": 7, "character": 7 }, "label": ": filesize", "kind": 1 },
+            { "position": { "line": 8, "character": 4 }, "label": ": filesize", "kind": 1 }
+        ])
+    )]
+    #[case::parameter_names(
+        "param.nu",
+        false,
+        serde_json::json!([
+            {
+                "position": { "line": 9, "character": 9 },
+                "label": "a1:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            },
+            {
+                "position": { "line": 9, "character": 11 },
+                "label": "a2:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            },
+            {
+                "position": { "line": 9, "character": 18 },
+                "label": "a3:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: arg3`" }
+            },
+            {
+                "position": { "line": 10, "character": 6 },
+                "label": "a1:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            },
+            {
+                "position": { "line": 11, "character": 2 },
+                "label": "a2:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            },
+            {
+                "position": { "line": 12, "character": 11 },
+                "label": "a1:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            },
+            {
+                "position": { "line": 12, "character": 13 },
+                "label": "a2:",
+                "kind": 2,
+                "tooltip": { "kind": "markdown", "value": "`any: `" }
+            }
+        ])
+    )]
+    #[case::script_loaded_on_init(
+        "type.nu",
+        true,
+        serde_json::json!([
+            { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
+            { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
+            { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
+            { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
+            { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
+            { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
+            { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
+        ])
+    )]
+    fn inlay_hint_request(
+        #[case] filename: &str,
+        #[case] source_self: bool,
+        #[case] expected: serde_json::Value,
+    ) {
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("type.nu");
+        script.push("lsp/hints");
+        script.push(filename);
+
+        let config = format!("source {}", script.to_str().unwrap());
         let script = path_to_uri(&script);
+        let (client_connection, _recv) =
+            initialize_language_server(source_self.then_some(&config), None);
 
         open_unchecked(&client_connection, script.clone());
         let resp = send_inlay_hint_request(&client_connection, script);
 
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!([
-                { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
-                { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
-                { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
-                { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
-                { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
-                { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
-                { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
-            ])
-        );
-    }
-
-    #[test]
-    fn inlay_hint_assignment_type() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("assignment.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script);
-
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!([
-                { "position": { "line": 0, "character": 8 }, "label": ": int", "kind": 1 },
-                { "position": { "line": 1, "character": 10 }, "label": ": float", "kind": 1 },
-                { "position": { "line": 2, "character": 10 }, "label": ": table", "kind": 1 },
-                { "position": { "line": 3, "character": 9 }, "label": ": list", "kind": 1 },
-                { "position": { "line": 4, "character": 11 }, "label": ": record", "kind": 1 },
-                { "position": { "line": 6, "character": 7 }, "label": ": filesize", "kind": 1 },
-                { "position": { "line": 7, "character": 7 }, "label": ": filesize", "kind": 1 },
-                { "position": { "line": 8, "character": 4 }, "label": ": filesize", "kind": 1 }
-            ])
-        );
-    }
-
-    #[test]
-    fn inlay_hint_parameter_names() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("param.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script);
-
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!([
-                {
-                    "position": { "line": 9, "character": 9 },
-                    "label": "a1:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                },
-                {
-                    "position": { "line": 9, "character": 11 },
-                    "label": "a2:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                },
-                {
-                    "position": { "line": 9, "character": 18 },
-                    "label": "a3:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: arg3`" }
-                },
-                {
-                    "position": { "line": 10, "character": 6 },
-                    "label": "a1:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                },
-                {
-                    "position": { "line": 11, "character": 2 },
-                    "label": "a2:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                },
-                {
-                    "position": { "line": 12, "character": 11 },
-                    "label": "a1:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                },
-                {
-                    "position": { "line": 12, "character": 13 },
-                    "label": "a2:",
-                    "kind": 2,
-                    "tooltip": { "kind": "markdown", "value": "`any: `" }
-                }
-            ])
-        );
-    }
-
-    #[test]
-    /// https://github.com/nushell/nushell/pull/15071
-    fn inlay_hint_for_nu_script_loaded_on_init() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("type.nu");
-        let script_path_str = script.to_str();
-        let script = path_to_uri(&script);
-
-        let config = format!("source {}", script_path_str.unwrap());
-        let (client_connection, _recv) = initialize_language_server(Some(&config), None);
-
-        open_unchecked(&client_connection, script.clone());
-        let resp = send_inlay_hint_request(&client_connection, script);
-
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!([
-                { "position": { "line": 0, "character": 9 }, "label": ": int", "kind": 1 },
-                { "position": { "line": 1, "character": 7 }, "label": ": string", "kind": 1 },
-                { "position": { "line": 2, "character": 8 }, "label": ": bool", "kind": 1 },
-                { "position": { "line": 3, "character": 9 }, "label": ": float", "kind": 1 },
-                { "position": { "line": 4, "character": 8 }, "label": ": list", "kind": 1 },
-                { "position": { "line": 5, "character": 10 }, "label": ": record", "kind": 1 },
-                { "position": { "line": 6, "character": 11 }, "label": ": closure", "kind": 1 }
-            ])
-        );
+        assert_json_eq!(result_from_message(resp), expected);
     }
 }
