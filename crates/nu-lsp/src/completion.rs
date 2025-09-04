@@ -299,16 +299,18 @@ mod tests {
             "kind": 3
         }
     ]))]
-    #[case::external_completer("external.nu", (0, 11), Some("$env.config.completions.external.completer = {|spans| ['--background']}"), serde_json::json!([
-        {
+    #[case::external_completer(
+        "external.nu", (0, 11),
+        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        serde_json::json!([{
             "label": "--background",
             "labelDetails": { "description": "string" },
             "textEdit": {
                 "newText": "--background",
                 "range": { "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 11 } }
             },
-        }
-    ]))]
+        }])
+    )]
     #[case::fallback_beginning("fallback.nu", (0, 0), None, serde_json::json!([
         {
             "label": "alias",
@@ -435,8 +437,10 @@ mod tests {
             "kind": 17
         }
     ]))]
-    #[case::external_fallback("external.nu", (0, 5), Some("$env.config.completions.external.completer = {|spans| ['--background']}"), serde_json::json!([
-        {
+    #[case::external_fallback(
+        "external.nu", (0, 5),
+        Some("$env.config.completions.external.completer = {|spans| ['--background']}"),
+        serde_json::json!([{
             "label": "alias",
             "labelDetails": { "description": "keyword" },
             "detail": "Alias a command (with optional flags) to a new name.",
@@ -445,8 +449,8 @@ mod tests {
                 "newText": "alias ${1:name} = ${2:initial_value}"
             },
             "kind": 14
-        }
-    ]))]
+        }])
+    )]
     fn completion_single_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),

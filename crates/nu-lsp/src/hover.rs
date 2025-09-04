@@ -234,37 +234,22 @@ mod hover_tests {
     use rstest::rstest;
 
     #[rstest]
-    #[case::variable("hover/var.nu", (2, 0), "```\ntable\n``` \n---\nimmutable")]
+    #[case::variable("var.nu", (2, 0), "```\ntable\n``` \n---\nimmutable")]
     #[case::custom_command(
-        "hover/command.nu",
-        (3, 0),
+        "command.nu", (3, 0),
         "Renders some greeting message\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
     )]
     #[case::custom_in_custom(
-        "hover/command.nu",
-        (9, 7),
+        "command.nu", (9, 7),
         "\n---\n### Usage \n```nu\n  bar {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
     )]
     #[case::str_join(
-        "hover/command.nu",
-        (5, 8),
+        "command.nu", (5, 8),
         "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} (separator)\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator`: `<string>` - Optional separator to use when creating string. (optional)\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
     )]
-    #[case::cell_path1(
-        "hover/use.nu",
-        (2, 3),
-        "```\nlist<any>\n```"
-    )]
-    #[case::cell_path2(
-        "hover/use.nu",
-        (2, 7),
-        "```\nrecord<bar: int>\n```"
-    )]
-    #[case::cell_path3(
-        "hover/use.nu",
-        (2, 11),
-        "```\nint\n```\n---\n2"
-    )]
+    #[case::cell_path1("use.nu", (2, 3), "```\nlist<any>\n```")]
+    #[case::cell_path2("use.nu", (2, 7), "```\nrecord<bar: int>\n```")]
+    #[case::cell_path3("use.nu", (2, 11), "```\nint\n```\n---\n2")]
     fn hover_single_request(
         #[case] filename: &str,
         #[case] cursor: (u32, u32),
@@ -273,7 +258,7 @@ mod hover_tests {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
-        script.push("lsp");
+        script.push("lsp/hover");
         script.push(filename);
         let script = path_to_uri(&script);
 
@@ -315,17 +300,8 @@ mod hover_tests {
 
     #[rstest]
     #[case::use_record("hover/use.nu", (0, 19), "\"```\\nrecord<foo: list<any>>\\n``` \\n---\\nimmutable\"", true)]
-    #[case::use_function("hover/use.nu", (
-        0,
-        22),
-        "\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags", true
-    )]
-    #[case::cell_path(
-        "workspace/baz.nu",
-        (8, 42),
-        "\"```\\nstring\\n```\\n---\\nconst value\"",
-        false
-    )]
+    #[case::use_function("hover/use.nu", (0, 22), "\"\\n---\\n### Usage \\n```nu\\n  foo {flags}\\n```\\n\\n### Flags", true)]
+    #[case::cell_path("workspace/baz.nu", (8, 42), "\"```\\nstring\\n```\\n---\\nconst value\"", false)]
     #[case::module_first("workspace/foo.nu", (15, 15), "\"# cmt\"", false)]
     #[case::module_second("workspace/foo.nu", (17, 27), "\"# sub cmt\"", false)]
     #[case::module_third("workspace/foo.nu", (19, 33), "\"# sub sub cmt\"", false)]
