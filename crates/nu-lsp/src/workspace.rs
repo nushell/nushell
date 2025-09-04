@@ -956,7 +956,8 @@ mod tests {
     #[test]
     fn existence_of_module_block() {
         let mut script_path = fixtures();
-        script_path.push("lsp/workspace");
+        script_path.push("lsp");
+        script_path.push("workspace");
         let mut engine_state = nu_cmd_lang::create_default_context();
         engine_state.add_env_var(
             "PWD".into(),
