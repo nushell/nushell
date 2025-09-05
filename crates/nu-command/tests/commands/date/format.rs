@@ -3,7 +3,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn formatter_not_valid() {
     let actual = nu!(r#"
-        date now | format date '%Q'
+        date now | format date '%N'
         "#);
 
     assert!(actual.err.contains("invalid format"));
