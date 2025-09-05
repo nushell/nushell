@@ -3,10 +3,29 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn formatter_not_valid() {
     let actual = nu!(r#"
-        date now | format date '%N'
+        date now | format date '%Q'
         "#);
 
     assert!(actual.err.contains("invalid format"));
+}
+
+#[test]
+fn test_n_format_specifier() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%N'
+        "#);
+    
+    assert_eq!(actual.out, "20211022_200012");
+}
+
+#[test]
+fn test_n_format_specifier_current_time() {
+    let actual = nu!(r#"
+        date now | format date '%N' | str length
+        "#);
+    
+    // Should be exactly 15 characters: YYYYMMDD_HHMMSS
+    assert_eq!(actual.out, "15");
 }
 
 #[test]
