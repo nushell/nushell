@@ -5817,7 +5817,12 @@ pub fn parse_math_expression(
         }
         not_start_spans.clear();
 
-        while op_prec <= last_prec && expr_stack.len() > 1 {
+        // Parsing power must be right-associative unlike most operations which are left
+        // Hence, we should not collapse if the last and current operations are both power
+        let is_left_associative =
+            op.expr != Expr::Operator(Operator::Math(Math::Pow)) && op_prec <= last_prec;
+
+        while is_left_associative && expr_stack.len() > 1 {
             // Collapse the right associated operations first
             // so that we can get back to a stack with a lower precedence
             let mut rhs = expr_stack
