@@ -259,15 +259,27 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             spec: "%%",
             description: "Literal percent sign.",
         },
+        FormatSpecification {
+            spec: "%N",
+            description: "Compact timestamp format for file naming. Same as %Y%m%d_%H%M%S.",
+        },
     ];
 
     let mut records = specifications
         .iter()
         .map(|s| {
+            // Handle custom format specifiers that aren't supported by chrono
+            let example = if s.spec == "%N" {
+                // Generate example for %N by using the equivalent format
+                now.format("%Y%m%d_%H%M%S").to_string()
+            } else {
+                now.format(s.spec).to_string()
+            };
+            
             Value::record(
                 record! {
                     "Specification" => Value::string(s.spec, head),
-                    "Example" => Value::string(now.format(s.spec).to_string(), head),
+                    "Example" => Value::string(example, head),
                     "Description" => Value::string(s.description, head),
                 },
                 head,
