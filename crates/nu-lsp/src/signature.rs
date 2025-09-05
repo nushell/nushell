@@ -118,18 +118,14 @@ impl LanguageServer {
         &mut self,
         params: &SignatureHelpParams,
     ) -> Option<SignatureHelp> {
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
+        let path_uri = &params.text_document_position_params.text_document.uri;
         let docs = self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         let location = file.offset_at(params.text_document_position_params.position) as usize;
         let file_text = file.get_content(None).to_owned();
         drop(docs);
 
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         // NOTE: in case the cursor is at the end of the call expression
@@ -137,7 +133,7 @@ impl LanguageServer {
             || file_text
                 .get(location - 1..location)
                 .is_some_and(|s| s.chars().all(|c| c.is_whitespace()));
-        let file_path = uri_to_path(&path_uri);
+        let file_path = uri_to_path(path_uri);
         let filename = if need_placeholder {
             "lsp_signature_helper_temp_file"
         } else {

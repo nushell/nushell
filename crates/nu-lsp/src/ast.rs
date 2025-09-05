@@ -134,21 +134,33 @@ fn try_find_id_in_def(
             }
         }
     }
-    let (name, span) = strip_quotes(span?, working_set);
-    let decl_id = Id::Declaration(working_set.find_decl(&name).or_else(|| {
-        // for defs inside def
+
+    let block_span_of_this_def = call.positional_iter().last()?.span;
+    let decl_on_spot = |decl_id: &DeclId| -> bool {
+        working_set
+            .get_decl(*decl_id)
+            .block_id()
+            .and_then(|block_id| working_set.get_block(block_id).span)
+            .is_some_and(|block_span| block_span == block_span_of_this_def)
+    };
+
+    let (_, span) = strip_quotes(span?, working_set);
+    let id_found = if let Some(id_r) = id_ref {
+        let Id::Declaration(decl_id_ref) = id_r else {
+            return None;
+        };
+        decl_on_spot(decl_id_ref).then_some(id_r.clone())?
+    } else {
+        // Find declaration by name, e.g. `workspace.find_decl`, is not reliable
+        // considering shadowing and overlay prefixes
         // TODO: get scope by position
         // https://github.com/nushell/nushell/issues/15291
-        (0..working_set.num_decls()).rev().find_map(|id| {
+        Id::Declaration((0..working_set.num_decls()).rev().find_map(|id| {
             let decl_id = DeclId::new(id);
-            let decl = working_set.get_decl(decl_id);
-            let span = working_set.get_block(decl.block_id()?).span?;
-            call.span().contains_span(span).then_some(decl_id)
-        })
-    })?);
-    id_ref
-        .is_none_or(|id_r| decl_id == *id_r)
-        .then_some((decl_id, span))
+            decl_on_spot(&decl_id).then_some(decl_id)
+        })?)
+    };
+    Some((id_found, span))
 }
 
 /// For situations like
