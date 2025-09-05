@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_protocol::{
-    Span, VarId,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -26,30 +28,10 @@ impl Completer for VariableCompletion {
         };
 
         // Variable completion (e.g: $en<tab> to complete $env)
-        let builtins = ["$nu", "$in", "$env"];
-        for builtin in builtins {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: builtin.to_string(),
-                    span: current_span,
-                    description: Some("reserved".into()),
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Variable),
-            });
-        }
-
-        let mut add_candidate = |name, var_id: &VarId| {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: String::from_utf8_lossy(name).to_string(),
-                    span: current_span,
-                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Variable),
-            })
-        };
+        let mut variables = HashMap::new();
+        variables.insert("$nu".into(), &NU_VARIABLE_ID);
+        variables.insert("$in".into(), &IN_VARIABLE_ID);
+        variables.insert("$env".into(), &ENV_VARIABLE_ID);
 
         // TODO: The following can be refactored (see find_commands_by_predicate() used in
         // command_completions).
@@ -58,7 +40,8 @@ impl Completer for VariableCompletion {
         for scope_frame in working_set.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for (name, var_id) in &overlay_frame.vars {
-                    add_candidate(name, var_id);
+                    let name = String::from_utf8_lossy(name).to_string();
+                    variables.insert(name, var_id);
                 }
             }
         }
@@ -70,8 +53,21 @@ impl Completer for VariableCompletion {
             .rev()
         {
             for (name, var_id) in &overlay_frame.vars {
-                add_candidate(name, var_id);
+                let name = String::from_utf8_lossy(name).to_string();
+                variables.insert(name, var_id);
             }
+        }
+
+        for (name, var_id) in variables {
+            matcher.add_semantic_suggestion(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: name,
+                    span: current_span,
+                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Variable),
+            });
         }
 
         matcher.results()
