@@ -128,9 +128,7 @@ mod tests {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("semantic_tokens");
-        script.push("internals.nu");
+        script.push("lsp/semantic_tokens/internals.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
