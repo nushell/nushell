@@ -10,18 +10,18 @@ fn formatter_not_valid() {
 }
 
 #[test]
-fn test_n_format_specifier() {
+fn test_k_format_specifier() {
     let actual = nu!(r#"
-        "2021-10-22 20:00:12 +01:00" | format date '%N'
+        "2021-10-22 20:00:12 +01:00" | format date '%K'
         "#);
     
     assert_eq!(actual.out, "20211022_200012");
 }
 
 #[test]
-fn test_n_format_specifier_current_time() {
+fn test_k_format_specifier_current_time() {
     let actual = nu!(r#"
-        date now | format date '%N' | str length
+        date now | format date '%K' | str length
         "#);
     
     // Should be exactly 15 characters: YYYYMMDD_HHMMSS

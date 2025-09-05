@@ -199,8 +199,8 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    // Handle custom %N format specifier for backup file naming
-    let processed_formatter = formatter.replace("%N", "%Y%m%d_%H%M%S");
+    // Handle custom %K format specifier for compact timestamp
+    let processed_formatter = formatter.replace("%K", "%Y%m%d_%H%M%S");
     let format = date_time.format_localized(&processed_formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
