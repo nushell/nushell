@@ -23,10 +23,10 @@ nu-utils = { path = "../nu-utils", version = "0.107.1", default-features = false
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.107.1" }
 
 itertools = { workspace = true }
-shadow-rs = { version = "1.2", default-features = false }
+shadow-rs = { version = "1.3", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "1.2", default-features = false, features = ["build"] }
+shadow-rs = { version = "1.3", default-features = false, features = ["build"] }
 
 [dev-dependencies]
 quickcheck = { workspace = true }
