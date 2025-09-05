@@ -25,7 +25,8 @@ impl Command for RandomChars {
     }
 
     fn description(&self) -> &str {
-        "Generate random chars uniformly distributed over ASCII letters and numbers: a-z, A-Z and 0-9."
+        "Generate random chars uniformly distributed over ASCII letters and numbers: a-z, A-Z and \
+         0-9."
     }
 
     fn search_terms(&self) -> Vec<&str> {

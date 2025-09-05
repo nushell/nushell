@@ -44,7 +44,8 @@ impl Command for UrlSplitQuery {
                 ])),
             },
             Example {
-                description: "Outputs a table representing the contents of this query string, url-decoding the values",
+                description: "Outputs a table representing the contents of this query string, \
+                              url-decoding the values",
                 example: r#""a=AT%26T&b=AT+T" | url split-query"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

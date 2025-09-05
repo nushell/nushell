@@ -1,9 +1,10 @@
 use crate::{
-    BlockId, DeclId, DeprecationEntry, Example, FromValue, PipelineData, ShellError, SyntaxShape,
-    Type, Value, VarId,
+    BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData, ShellError,
+    Span, SyntaxShape, Type, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
 use nu_derive_value::FromValue as DeriveFromValue;
+use nu_utils::NuCow;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -20,11 +21,67 @@ pub struct Flag {
     pub arg: Option<SyntaxShape>,
     pub required: bool,
     pub desc: String,
+    pub completion: Option<Completion>,
 
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
+}
+
+impl Flag {
+    #[inline]
+    pub fn new(long: impl Into<String>) -> Self {
+        Flag {
+            long: long.into(),
+            short: None,
+            arg: None,
+            required: false,
+            desc: String::new(),
+            completion: None,
+            var_id: None,
+            default_value: None,
+        }
+    }
+
+    #[inline]
+    pub fn short(self, short: char) -> Self {
+        Self {
+            short: Some(short),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn arg(self, arg: SyntaxShape) -> Self {
+        Self {
+            arg: Some(arg),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn required(self) -> Self {
+        Self {
+            required: true,
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn desc(self, desc: impl Into<String>) -> Self {
+        Self {
+            desc: desc.into(),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn completion(self, completion: Completion) -> Self {
+        Self {
+            completion: Some(completion),
+            ..self
+        }
+    }
 }
 
 /// The signature definition for a positional argument
@@ -33,11 +90,76 @@ pub struct PositionalArg {
     pub name: String,
     pub desc: String,
     pub shape: SyntaxShape,
+    pub completion: Option<Completion>,
 
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
-    pub custom_completion: Option<DeclId>,
+}
+
+impl PositionalArg {
+    #[inline]
+    pub fn new(name: impl Into<String>, shape: SyntaxShape) -> Self {
+        Self {
+            name: name.into(),
+            desc: String::new(),
+            shape,
+            completion: None,
+            var_id: None,
+            default_value: None,
+        }
+    }
+
+    #[inline]
+    pub fn desc(self, desc: impl Into<String>) -> Self {
+        Self {
+            desc: desc.into(),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn completion(self, completion: Completion) -> Self {
+        Self {
+            completion: Some(completion),
+            ..self
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Completion {
+    Command(DeclId),
+    List(NuCow<&'static [&'static str], Vec<String>>),
+}
+
+impl Completion {
+    pub const fn new_list(list: &'static [&'static str]) -> Self {
+        Self::List(NuCow::Borrowed(list))
+    }
+
+    pub fn to_value(&self, engine_state: &EngineState, span: Span) -> Value {
+        match self {
+            Completion::Command(id) => engine_state
+                .get_decl(*id)
+                .name()
+                .to_owned()
+                .into_value(span),
+            Completion::List(list) => match list {
+                NuCow::Borrowed(list) => list
+                    .iter()
+                    .map(|&e| e.into_value(span))
+                    .collect::<Vec<Value>>()
+                    .into_value(span),
+                NuCow::Owned(list) => list
+                    .iter()
+                    .cloned()
+                    .map(|e| e.into_value(span))
+                    .collect::<Vec<Value>>()
+                    .into_value(span),
+            },
+        }
+    }
 }
 
 /// Command categories
@@ -268,7 +390,7 @@ impl Signature {
             required: false,
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         };
         self.named.push(flag);
         self
@@ -322,6 +444,21 @@ impl Signature {
         self
     }
 
+    pub fn add_required_positional(mut self, pos: PositionalArg) -> Self {
+        self.required_positional.push(pos);
+        self
+    }
+
+    pub fn add_optional_positional(mut self, pos: PositionalArg) -> Self {
+        self.optional_positional.push(pos);
+        self
+    }
+
+    pub fn add_rest(mut self, pos: PositionalArg) -> Self {
+        self.rest_positional = Some(pos);
+        self
+    }
+
     /// Add a required positional argument to the signature
     pub fn required(
         mut self,
@@ -335,7 +472,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -354,7 +491,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -379,7 +516,7 @@ impl Signature {
             shape: shape.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -401,6 +538,28 @@ impl Signature {
             })
     }
 
+    /// ## Panics
+    ///
+    /// Panics if one of them is found.
+    // XXX: return result instead of a panic
+    pub fn add_flag(mut self, flag: Flag) -> Self {
+        if let Some(s) = flag.short {
+            assert!(
+                !self.get_shorts().contains(&s),
+                "There may be duplicate short flags for '-{s}'"
+            );
+        }
+
+        let name = flag.long.as_str();
+        assert!(
+            !self.get_names().contains(&name),
+            "There may be duplicate name flags for '--{name}'"
+        );
+
+        self.named.push(flag);
+        self
+    }
+
     /// Add an optional named flag argument to the signature
     pub fn named(
         mut self,
@@ -419,7 +578,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -443,7 +602,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self
@@ -466,7 +625,7 @@ impl Signature {
             desc: desc.into(),
             var_id: None,
             default_value: None,
-            custom_completion: None,
+            completion: None,
         });
 
         self

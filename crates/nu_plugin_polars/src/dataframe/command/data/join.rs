@@ -40,7 +40,12 @@ impl PluginCommand for LazyJoin {
             .switch("left", "left join between lazyframes", Some('l'))
             .switch("full", "full join between lazyframes", Some('f'))
             .switch("cross", "cross join between lazyframes", Some('c'))
-            .switch("coalesce-columns", "Sets the join coalesce strategy to colesce columns. Most useful when used with --full, which will not otherwise coalesce.", None)
+            .switch(
+                "coalesce-columns",
+                "Sets the join coalesce strategy to colesce columns. Most useful when used with \
+                 --full, which will not otherwise coalesce.",
+                None,
+            )
             .named(
                 "suffix",
                 SyntaxShape::String,

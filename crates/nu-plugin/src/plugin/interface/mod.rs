@@ -254,8 +254,8 @@ impl InterfaceManager for EngineInterfaceManager {
                 } else {
                     Err(ShellError::PluginFailedToLoad {
                         msg: format!(
-                            "Plugin is compiled for nushell version {}, \
-                                which is not compatible with version {}",
+                            "Plugin is compiled for nushell version {}, which is not compatible \
+                             with version {}",
                             local_info.version, info.version
                         ),
                     })
@@ -405,9 +405,9 @@ impl EngineInterface {
 
     fn context(&self) -> Result<PluginCallId, ShellError> {
         self.context.ok_or_else(|| ShellError::NushellFailed {
-            msg: "Tried to call an EngineInterface method that requires a call context \
-                outside of one"
-                .into(),
+            msg: "Tried to call an EngineInterface method that requires a call context outside of \
+                  one"
+            .into(),
         })
     }
 
@@ -1095,7 +1095,8 @@ fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
 fn set_pgrp_from_enter_foreground(_pgrp: i64) -> Result<(), ShellError> {
     Err(ShellError::NushellFailed {
         msg: concat!(
-            "EnterForeground asked plugin to join process group, but this is not supported on non UNIX platforms.",
+            "EnterForeground asked plugin to join process group, but this is not supported on non \
+             UNIX platforms.",
         )
         .into(),
     })

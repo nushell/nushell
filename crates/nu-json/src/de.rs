@@ -101,7 +101,11 @@ where
                     space = Some(self.str_buf.len());
                 }
             } else if self.is_punctuator_char(ch) {
-                return Err(self.rdr.error(ErrorCode::Custom("Found a punctuator where a key name was expected (check your syntax or use quotes if the key name includes {}[],: or whitespace)".to_string())));
+                return Err(self.rdr.error(ErrorCode::Custom(
+                    "Found a punctuator where a key name was expected (check your syntax or use \
+                     quotes if the key name includes {}[],: or whitespace)"
+                        .to_string(),
+                )));
             } else {
                 self.str_buf.push(ch);
             }

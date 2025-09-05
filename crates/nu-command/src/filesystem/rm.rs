@@ -35,15 +35,21 @@ impl Command for Rm {
     fn signature(&self) -> Signature {
         Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
+            .rest(
+                "paths",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "The file paths(s) to remove.",
+            )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting. not used on android and ios",
+                "move to the platform's trash instead of permanently deleting. not used on \
+                 android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
+                "delete permanently, ignoring the 'always_trash' config option. always enabled on \
+                 android and ios",
                 Some('p'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
@@ -70,7 +76,8 @@ impl Command for Rm {
 
     fn examples(&self) -> Vec<Example> {
         let mut examples = vec![Example {
-            description: "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+            description: "Delete, or move a file to the trash (based on the 'always_trash' config \
+                          option)",
             example: "rm file.txt",
             result: None,
         }];
@@ -82,8 +89,8 @@ impl Command for Rm {
                     result: None,
                 },
                 Example {
-                    description:
-                        "Delete a file permanently, even if the 'always_trash' config option is true",
+                    description: "Delete a file permanently, even if the 'always_trash' config \
+                                  option is true",
                     example: "rm --permanent file.txt",
                     result: None,
                 },
@@ -170,9 +177,9 @@ fn rm(
     if !TRASH_SUPPORTED {
         if rm_always_trash {
             return Err(ShellError::GenericError {
-                error: "Cannot execute `rm`; the current configuration specifies \
-                    `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support`."
+                error: "Cannot execute `rm`; the current configuration specifies `always_trash = \
+                        true`, but the current nu executable was not built with feature \
+                        `trash_support`."
                     .into(),
                 msg: "trash required to be true but not supported".into(),
                 span: Some(span),
@@ -180,10 +187,12 @@ fn rm(
                 inner: vec![],
             });
         } else if trash {
-            return Err(ShellError::GenericError{
-                error: "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform"
+            return Err(ShellError::GenericError {
+                error: "Cannot execute `rm` with option `--trash`; feature `trash-support` not \
+                        enabled or on an unsupported platform"
                     .into(),
-                msg: "this option is only available if nu is built with the `trash-support` feature and the platform supports trash"
+                msg: "this option is only available if nu is built with the `trash-support` \
+                      feature and the platform supports trash"
                     .into(),
                 span: Some(span),
                 help: None,

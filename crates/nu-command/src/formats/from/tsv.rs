@@ -41,11 +41,15 @@ impl Command for FromTsv {
                 None,
             )
             .switch("no-infer", "no field type inferencing", None)
-            .named(
-                "trim",
-                SyntaxShape::String,
-                "drop leading and trailing whitespaces around headers names and/or field values",
-                Some('t'),
+            .add_flag(
+                Flag::new("trim")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "drop leading and trailing whitespaces around headers names and/or field \
+                         values",
+                    )
+                    .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
             .category(Category::Formats)
     }
@@ -75,7 +79,8 @@ impl Command for FromTsv {
                 })])),
             },
             Example {
-                description: "Convert comma-separated data to a table, allowing variable number of columns per row and ignoring headers",
+                description: "Convert comma-separated data to a table, allowing variable number \
+                              of columns per row and ignoring headers",
                 example: "\"value 1\nvalue 2\tdescription 2\" | from tsv --flexible --noheaders",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -98,17 +103,20 @@ impl Command for FromTsv {
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces",
+                description: "Create a tsv file without header columns and open it, removing all \
+                              unnecessary whitespaces",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim all"#,
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the header names",
+                description: "Create a tsv file without header columns and open it, removing all \
+                              unnecessary whitespaces in the header names",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim headers"#,
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the field values",
+                description: "Create a tsv file without header columns and open it, removing all \
+                              unnecessary whitespaces in the field values",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim fields"#,
                 result: None,
             },

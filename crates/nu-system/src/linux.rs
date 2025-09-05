@@ -98,7 +98,8 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             p
         } else {
             info!(
-                "failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots"
+                "failed to retrieve info for pid={curr_proc_pid}, process probably died between \
+                 snapshots"
             );
             continue;
         };

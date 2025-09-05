@@ -64,7 +64,12 @@ impl UpdateFromValue for FilesizeConfig {
                     if let Ok(str) = val.as_str() {
                         match str.parse() {
                             Ok(unit) => self.unit = unit,
-                            Err(_) => errors.invalid_value(path, "'metric', 'binary', 'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'", val),
+                            Err(_) => errors.invalid_value(
+                                path,
+                                "'metric', 'binary', 'B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', \
+                                 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', or 'EiB'",
+                                val,
+                            ),
                         }
                     } else {
                         errors.type_mismatch(path, Type::String, val)

@@ -30,7 +30,8 @@ impl PluginCommand for ExprLen {
         vec![
             Example {
                 description: "Count the number of rows in the the dataframe.",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select (polars len) | polars collect",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select (polars len) | \
+                          polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new("len".to_string(), vec![Value::test_int(2)])],

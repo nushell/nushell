@@ -373,7 +373,9 @@ pub fn math_result_type(
                     || matches!(rhs.ty, Type::List(_) | Type::Table(_))
                 {
                     Some(
-                        "if you meant to append a value to a list or a record to a table, use the `append` command or wrap the value in a list. For example: `$list ++ $value` should be `$list ++ [$value]` or `$list | append $value`.",
+                        "if you meant to append a value to a list or a record to a table, use the \
+                         `append` command or wrap the value in a list. For example: `$list ++ \
+                         $value` should be `$list ++ [$value]` or `$list | append $value`.",
                     )
                 } else {
                     None
@@ -978,7 +980,8 @@ fn compound_assignment_result_type(
                 lhs_span: lhs.span,
                 rhs_span: rhs.span,
                 help: Some(
-                    "The result type of this operation is not compatible with the type of the variable.",
+                    "The result type of this operation is not compatible with the type of the \
+                     variable.",
                 ),
             };
             (Type::Nothing, Some(err))

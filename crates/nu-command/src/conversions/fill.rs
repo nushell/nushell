@@ -43,13 +43,28 @@ impl Command for Fill {
                 (Type::Float, Type::String),
                 (Type::String, Type::String),
                 (Type::Filesize, Type::String),
-                (Type::List(Box::new(Type::Int)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::Float)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Float)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 // General case for heterogeneous lists
-                (Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::String))),
-                ])
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .allow_variants_without_examples(true)
             .named(
                 "width",
@@ -57,11 +72,20 @@ impl Command for Fill {
                 "The width of the output. Defaults to 1",
                 Some('w'),
             )
-            .named(
-                "alignment",
-                SyntaxShape::String,
-                "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr))",
-                Some('a'),
+            .add_flag(
+                Flag::new("alignment")
+                    .short('a')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The alignment of the output. Defaults to Left (Left(l), Right(r), \
+                         Center(c/m), MiddleRight(cr/mr))",
+                    )
+                    .completion(Completion::new_list(&[
+                        "left",
+                        "right",
+                        "middle",
+                        "middleright",
+                    ])),
             )
             .named(
                 "character",
@@ -79,12 +103,14 @@ impl Command for Fill {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Fill a string on the left side to a width of 15 with the character '─'",
+                description: "Fill a string on the left side to a width of 15 with the character \
+                              '─'",
                 example: "'nushell' | fill --alignment l --character '─' --width 15",
                 result: Some(Value::string("nushell────────", Span::test_data())),
             },
             Example {
-                description: "Fill a string on the right side to a width of 15 with the character '─'",
+                description: "Fill a string on the right side to a width of 15 with the character \
+                              '─'",
                 example: "'nushell' | fill --alignment r --character '─' --width 15",
                 result: Some(Value::string("────────nushell", Span::test_data())),
             },
@@ -94,7 +120,8 @@ impl Command for Fill {
                 result: Some(Value::string("──────────", Span::test_data())),
             },
             Example {
-                description: "Fill a number on the left side to a width of 5 with the character '0'",
+                description: "Fill a number on the left side to a width of 5 with the character \
+                              '0'",
                 example: "1 | fill --alignment right --character '0' --width 5",
                 result: Some(Value::string("00001", Span::test_data())),
             },
@@ -104,7 +131,8 @@ impl Command for Fill {
                 result: Some(Value::string("01.10", Span::test_data())),
             },
             Example {
-                description: "Fill a filesize on both sides to a width of 10 with the character '0'",
+                description: "Fill a filesize on both sides to a width of 10 with the character \
+                              '0'",
                 example: "1kib | fill --alignment middle --character '0' --width 10",
                 result: Some(Value::string("0001024000", Span::test_data())),
             },

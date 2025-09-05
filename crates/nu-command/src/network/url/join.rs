@@ -29,7 +29,8 @@ impl Command for UrlJoin {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a url representing the contents of this record, `params` and `query` fields must be equivalent",
+                description: "Outputs a url representing the contents of this record, `params` \
+                              and `query` fields must be equivalent",
                 example: r#"{
         "scheme": "http",
         "username": "",
@@ -50,7 +51,8 @@ impl Command for UrlJoin {
                 )),
             },
             Example {
-                description: "Outputs a url representing the contents of this record, \"exploding\" the list in `params` into multiple parameters",
+                description: "Outputs a url representing the contents of this record, \
+                              \"exploding\" the list in `params` into multiple parameters",
                 example: r#"{
         "scheme": "http",
         "username": "user",

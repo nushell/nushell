@@ -11,13 +11,12 @@ impl Command for FromCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from csv")
-            .input_output_types(vec![
-                (Type::String, Type::table()),
-            ])
+            .input_output_types(vec![(Type::String, Type::table())])
             .named(
                 "separator",
                 SyntaxShape::String,
-                "a character to separate columns (either single char or 4 byte unicode sequence), defaults to ','",
+                "a character to separate columns (either single char or 4 byte unicode sequence), \
+                 defaults to ','",
                 Some('s'),
             )
             .named(
@@ -49,11 +48,15 @@ impl Command for FromCsv {
                 None,
             )
             .switch("no-infer", "no field type inferencing", None)
-            .named(
-                "trim",
-                SyntaxShape::String,
-                "drop leading and trailing whitespaces around headers names and/or field values",
-                Some('t'),
+            .add_flag(
+                Flag::new("trim")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "drop leading and trailing whitespaces around headers names and/or field \
+                         values",
+                    )
+                    .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
             .category(Category::Formats)
     }
@@ -83,7 +86,8 @@ impl Command for FromCsv {
                 })])),
             },
             Example {
-                description: "Convert comma-separated data to a table, allowing variable number of columns per row",
+                description: "Convert comma-separated data to a table, allowing variable number \
+                              of columns per row",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -111,22 +115,26 @@ impl Command for FromCsv {
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                description: "Convert comma-separated data to a table, ignoring lines starting \
+                              with '#'",
                 example: "open data.txt | from csv --comment '#'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around header names and field values",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around header names",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around field values",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },

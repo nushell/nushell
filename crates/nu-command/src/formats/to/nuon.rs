@@ -78,7 +78,8 @@ impl Command for ToNuon {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a NUON string representing the contents of this list, compact by default",
+                description: "Outputs a NUON string representing the contents of this list, \
+                              compact by default",
                 example: "[1 2 3] | to nuon",
                 result: Some(Value::test_string("[1, 2, 3]")),
             },
@@ -96,7 +97,8 @@ impl Command for ToNuon {
                 description: "A more complex record with multiple data types",
                 example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
                 result: Some(Value::test_string(
-                    "{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}",
+                    "{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      \
+                         2,\n      3\n    ],\n    4.56\n  ]\n}",
                 )),
             },
             Example {

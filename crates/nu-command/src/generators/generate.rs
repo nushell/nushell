@@ -65,17 +65,21 @@ In this case, generation also stops when the input stream stops."#
                 )),
             },
             Example {
-                example: "generate {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } [0, 1]",
+                example: "generate {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } [0, \
+                          1]",
                 description: "Generate a continuous stream of Fibonacci numbers",
                 result: None,
             },
             Example {
-                example: "generate {|fib=[0, 1]| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
-                description: "Generate a continuous stream of Fibonacci numbers, using default parameters",
+                example: "generate {|fib=[0, 1]| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} \
+                          }",
+                description: "Generate a continuous stream of Fibonacci numbers, using default \
+                              parameters",
                 result: None,
             },
             Example {
-                example: "1..5 | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum} }",
+                example: "1..5 | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: \
+                          $sum} }",
                 description: "Generate a running sum of the inputs",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
@@ -175,7 +179,8 @@ fn get_initial_state(
                     msg: "Missing initial value".to_string(),
                     span: Some(span),
                     help: Some(
-                        "Provide an <initial> value as an argument to generate, or assign a default value to the closure parameter"
+                        "Provide an <initial> value as an argument to generate, or assign a \
+                         default value to the closure parameter"
                             .to_string(),
                     ),
                     inner: vec![],

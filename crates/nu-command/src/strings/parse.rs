@@ -20,7 +20,8 @@ impl Command for Parse {
     }
 
     fn extra_description(&self) -> &str {
-        "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression."
+        "The parse command always uses regular expressions even when you use a simple pattern. If \
+         a simple pattern is supplied, parse will transform that pattern into a regular expression."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -89,7 +90,8 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() \
+                          ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "capture0" => Value::test_string("@another"),
                     "capture1" => Value::test_string("(foo bar)"),

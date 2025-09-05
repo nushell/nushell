@@ -31,7 +31,8 @@ impl Command for Last {
     }
 
     fn description(&self) -> &str {
-        "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
+        "Return only the last several rows of the input. Counterpart of `first`. Opposite of \
+         `drop`."
     }
 
     fn examples(&self) -> Vec<Example> {

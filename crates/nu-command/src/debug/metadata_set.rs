@@ -85,7 +85,8 @@ impl Command for MetadataSet {
         vec![
             Example {
                 description: "Set the metadata of a table literal",
-                example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --datasource-ls",
+                example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md \
+                          '#0000ff']] | metadata set --datasource-ls",
                 result: None,
             },
             Example {
@@ -95,7 +96,8 @@ impl Command for MetadataSet {
             },
             Example {
                 description: "Set the metadata of a file path",
-                example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
+                example: "'crates' | metadata set --content-type text/plain | metadata | get \
+                          content_type",
                 result: Some(Value::test_string("text/plain")),
             },
         ]

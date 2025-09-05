@@ -158,11 +158,14 @@ mod columns {
         "#,
         );
         println!(
-            "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
+            "{bitstring_as_nu_row_pipeline} | roll left --by 3 | \
+             {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
-        nu!(
-            format!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}")
-        ).out
+        nu!(format!(
+            "{bitstring_as_nu_row_pipeline} | roll left --by 3 | \
+             {nu_row_literal_bitstring_to_decimal_value_pipeline}"
+        ))
+        .out
     }
 
     fn bitstring_to_nu_row_pipeline(bits: &str) -> String {

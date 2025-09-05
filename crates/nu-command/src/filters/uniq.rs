@@ -74,7 +74,8 @@ impl Command for Uniq {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the distinct values of a list/table (remove duplicates so that each value occurs once only)",
+                description: "Return the distinct values of a list/table (remove duplicates so \
+                              that each value occurs once only)",
                 example: "[2 3 3 4] | uniq",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
@@ -100,7 +101,8 @@ impl Command for Uniq {
                 ])),
             },
             Example {
-                description: "Return a table containing the distinct input values together with their counts",
+                description: "Return a table containing the distinct input values together with \
+                              their counts",
                 example: "[1 2 2] | uniq --count",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

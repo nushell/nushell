@@ -109,7 +109,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%W",
-            description: "Same as %U, but week 1 starts with the first Monday in that year instead.",
+            description: "Same as %U, but week 1 starts with the first Monday in that year \
+                          instead.",
         },
         FormatSpecification {
             spec: "%G",
@@ -225,7 +226,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "Local time zone name. Skips all non-whitespace characters during parsing.",
+            description: "Local time zone name. Skips all non-whitespace characters during \
+                          parsing.",
         },
         FormatSpecification {
             spec: "%z",

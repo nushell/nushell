@@ -32,7 +32,8 @@ impl PluginCommand for SaveDF {
     }
 
     fn description(&self) -> &str {
-        "Saves a dataframe to disk. For lazy dataframes a sink operation will be used if the file type supports it (parquet, ipc/arrow, csv, and ndjson)."
+        "Saves a dataframe to disk. For lazy dataframes a sink operation will be used if the file \
+         type supports it (parquet, ipc/arrow, csv, and ndjson)."
     }
 
     fn signature(&self) -> Signature {
@@ -68,7 +69,8 @@ impl PluginCommand for SaveDF {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Performs a streaming collect and save the output to the specified file",
+                description: "Performs a streaming collect and save the output to the specified \
+                              file",
                 example: "[[a b];[1 2] [3 4]] | polars into-lazy | polars save test.parquet",
                 result: None,
             },
@@ -99,7 +101,8 @@ impl PluginCommand for SaveDF {
             },
             Example {
                 description: "Saves dataframe to CSV file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.csv --csv-delimiter '|'",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.csv \
+                          --csv-delimiter '|'",
                 result: None,
             },
         ]

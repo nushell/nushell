@@ -15,9 +15,12 @@ impl Command for TimeIt {
     }
 
     fn extra_description(&self) -> &str {
-        "Any pipeline input given to this command is passed to the closure. Note that streaming inputs may affect timing results, and it is recommended to add a `collect` command before this if the input is a stream.
+        "Any pipeline input given to this command is passed to the closure. Note that streaming \
+         inputs may affect timing results, and it is recommended to add a `collect` command before \
+         this if the input is a stream.
 
-This command will bubble up any errors encountered when running the closure. The return pipeline of the closure is collected into a value and then discarded."
+This command will bubble up any errors encountered when running the closure. The return pipeline \
+         of the closure is collected into a value and then discarded."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

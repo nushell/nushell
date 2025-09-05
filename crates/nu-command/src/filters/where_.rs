@@ -129,8 +129,10 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
                 ])),
             },
             Example {
-                description: "Find files whose filenames don't begin with the correct sequential number",
-                example: "ls | where type == file | sort-by name --natural | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | get item",
+                description: "Find files whose filenames don't begin with the correct sequential \
+                              number",
+                example: "ls | where type == file | sort-by name --natural | enumerate | where \
+                          {|e| $e.item.name !~ $'^($e.index + 1)' } | get item",
                 result: None,
             },
             Example {

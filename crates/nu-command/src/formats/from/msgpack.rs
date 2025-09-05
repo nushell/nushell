@@ -504,9 +504,13 @@ fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
             error: "Additional data after end of MessagePack object".into(),
             msg: "there was more data available after parsing".into(),
             span: Some(span),
-            help: Some("this might be invalid data, but you can use `from msgpack --objects` to read multiple objects".into()),
+            help: Some(
+                "this might be invalid data, but you can use `from msgpack --objects` to read \
+                 multiple objects"
+                    .into(),
+            ),
             inner: vec![],
-        })
+        }),
     }
 }
 

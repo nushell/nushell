@@ -19,8 +19,17 @@ impl Command for ExportDef {
             .required("def_name", SyntaxShape::String, "Command name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
             .required("block", SyntaxShape::Block, "Body of the definition.")
-            .switch("env", "keep the environment defined inside the command", None)
-            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .switch(
+                "env",
+                "keep the environment defined inside the command",
+                None,
+            )
+            .switch(
+                "wrapped",
+                "treat unknown flags and arguments as strings (requires ...rest-like parameter in \
+                 signature)",
+                None,
+            )
             .category(Category::Core)
     }
 

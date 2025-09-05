@@ -71,7 +71,7 @@ impl PluginProcess {
                 span: Some(span),
                 help: Some(
                     "you may be trying to run the command in parallel, or this may be a bug in \
-                        the plugin"
+                     the plugin"
                         .into(),
                 ),
                 inner: vec![],

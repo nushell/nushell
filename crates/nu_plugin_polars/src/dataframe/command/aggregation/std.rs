@@ -41,7 +41,8 @@ impl PluginCommand for ExprStd {
         vec![
             Example {
                 description: "Std value from columns in a dataframe",
-                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars collect",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars std | polars \
+                          collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

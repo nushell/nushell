@@ -262,7 +262,8 @@ fn too_few_arguments() -> TestResult {
     let cases = [
         "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
         "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
-        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true \
+         true 1 1",
     ];
 
     let expected = "missing f";
@@ -373,7 +374,8 @@ fn commands_have_description() -> TestResult {
 #[test]
 fn commands_from_crlf_source_have_short_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get description.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope \
+         commands | where name == foo | get description.0",
         "This is a test",
     )
 }
@@ -381,7 +383,8 @@ fn commands_from_crlf_source_have_short_description() -> TestResult {
 #[test]
 fn commands_from_crlf_source_have_extra_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_description.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope \
+         commands | where name == foo | get extra_description.0",
         "To see if I have cool description",
     )
 }

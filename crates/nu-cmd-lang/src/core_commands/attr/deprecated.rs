@@ -38,11 +38,11 @@ impl Command for AttrDeprecated {
                 "Denote a version when this item will be removed",
                 Some('r'),
             )
-            .named(
-                "report",
-                SyntaxShape::String,
-                "How to warn about this item. One of: first (default), every",
-                None,
+            .add_flag(
+                Flag::new("report")
+                    .arg(SyntaxShape::String)
+                    .desc("How to warn about this item. One of: first (default), every")
+                    .completion(Completion::new_list(&["first", "every"])),
             )
             .category(Category::Core)
     }
@@ -52,9 +52,11 @@ impl Command for AttrDeprecated {
     }
 
     fn extra_description(&self) -> &str {
-        "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the first usage will trigger a deprecation warning.
+        "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the \
+         first usage will trigger a deprecation warning.
 
-A help message can be included to provide more context for the deprecation, such as what to use as a replacement.
+A help message can be included to provide more context for the deprecation, such as what to use as \
+         a replacement.
 
 Also consider setting the category to deprecated with @category deprecated"
     }

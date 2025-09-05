@@ -90,19 +90,22 @@ impl Command for ToJson {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Outputs a JSON string, with default indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with default indentation, representing the \
+                              contents of this table",
                 example: "[a b c] | to json",
                 result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
             },
             Example {
-                description: "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with 4-space indentation, representing the \
+                              contents of this table",
                 example: "[Joe Bob Sam] | to json --indent 4",
                 result: Some(Value::test_string(
                     "[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]",
                 )),
             },
             Example {
-                description: "Outputs an unformatted JSON string representing the contents of this table",
+                description: "Outputs an unformatted JSON string representing the contents of \
+                              this table",
                 example: "[1 2 3] | to json -r",
                 result: Some(Value::test_string("[1,2,3]")),
             },
@@ -147,7 +150,9 @@ pub fn value_to_json_value(
                 nu_json::Value::String(closure_string.to_string())
             } else {
                 return Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize \
+                          as a string)"
+                        .into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,
                     input_span: span,

@@ -563,7 +563,8 @@ impl Command for Ansi {
 
     fn extra_description(&self) -> &str {
         "An introduction to what ANSI escape sequences are can be found in the
-\u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
+\u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI \
+         escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
 
 Escape sequences usual values:
 ╭────┬────────────┬────────┬────────┬─────────╮
@@ -661,7 +662,11 @@ Operating system commands:
                 description: "Avoid resetting color when setting/resetting different style codes",
                 example: r#"$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi rst_bo) or (ansi d)DIMMED(ansi rst_d) or (ansi i)ITALICS(ansi rst_i) or (ansi u)UNDERLINE(ansi rst_u) or (ansi re)REVERSE(ansi rst_re) or (ansi h)HIDDEN(ansi rst_h) or (ansi s)STRIKE(ansi rst_s) then (ansi rst)reset everything'"#,
                 result: Some(Value::test_string(
-                    "Set color to \u{1b}[32mGREEN then style to \u{1b}[1mBOLD\u{1b}[22m or \u{1b}[2mDIMMED\u{1b}[22m or \u{1b}[3mITALICS\u{1b}[23m or \u{1b}[4mUNDERLINE\u{1b}[24m or \u{1b}[7mREVERSE\u{1b}[27m or \u{1b}[8mHIDDEN\u{1b}[28m or \u{1b}[9mSTRIKE\u{1b}[29m then \u{1b}[0mreset everything",
+                    "Set color to \u{1b}[32mGREEN then style to \u{1b}[1mBOLD\u{1b}[22m or \
+                     \u{1b}[2mDIMMED\u{1b}[22m or \u{1b}[3mITALICS\u{1b}[23m or \
+                     \u{1b}[4mUNDERLINE\u{1b}[24m or \u{1b}[7mREVERSE\u{1b}[27m or \
+                     \u{1b}[8mHIDDEN\u{1b}[28m or \u{1b}[9mSTRIKE\u{1b}[29m then \u{1b}[0mreset \
+                     everything",
                 )),
             },
             Example {
@@ -869,7 +874,8 @@ fn heavy_lifting(
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: format!(
-                            "unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"
+                            "unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found \
+                             '{k}'"
                         ),
                         span,
                     });

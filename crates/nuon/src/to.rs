@@ -108,7 +108,9 @@ fn value_to_string(
                 ))
             } else {
                 Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize \
+                          as a string)"
+                        .into(),
                     input: "value originates from here".into(),
                     msg_span: span,
                     input_span: v.span(),
@@ -176,7 +178,8 @@ fn value_to_string(
                 }
 
                 Ok(format!(
-                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
+                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];\
+                     {sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
                     headers_output,
                     table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
                 ))

@@ -70,11 +70,12 @@ impl Command for IntoInt {
             ])
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .named(
-                "endian",
-                SyntaxShape::String,
-                "byte encode endian, available options: native(default), little, big",
-                Some('e'),
+            .add_flag(
+                Flag::new("endian")
+                    .short('e')
+                    .arg(SyntaxShape::String)
+                    .desc("byte encode endian, available options: native(default), little, big")
+                    .completion(Completion::new_list(&["native", "little", "big"])),
             )
             .switch(
                 "signed",
@@ -307,9 +308,11 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
                         .unwrap()
             {
-                Value::error (
+                Value::error(
                     ShellError::IncorrectValue {
-                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to \
+                              2262-04-11T23:47:16"
+                            .to_string(),
                         val_span,
                         call_span: head,
                     },

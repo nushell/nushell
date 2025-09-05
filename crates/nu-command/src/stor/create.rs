@@ -39,13 +39,16 @@ impl Command for StorCreate {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Create an in-memory sqlite database with specified table name, column names, and column data types",
-                example: "stor create --table-name nudb --columns {bool1: bool, int1: int, float1: float, str1: str, datetime1: datetime}",
+                description: "Create an in-memory sqlite database with specified table name, \
+                              column names, and column data types",
+                example: "stor create --table-name nudb --columns {bool1: bool, int1: int, \
+                          float1: float, str1: str, datetime1: datetime}",
                 result: None,
             },
             Example {
                 description: "Create an in-memory sqlite database with a json column",
-                example: "stor create --table-name files_with_md --columns {file: str, metadata: jsonb}",
+                example: "stor create --table-name files_with_md --columns {file: str, metadata: \
+                          jsonb}",
                 result: None,
             },
         ]
@@ -106,7 +109,8 @@ fn process(
                         }
                         "datetime" => {
                             create_stmt.push_str(&format!(
-                                "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
+                                "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', \
+                                 'NOW')), "
                             ));
                         }
                         "json" => {
@@ -118,7 +122,9 @@ fn process(
 
                         _ => {
                             return Err(ShellError::UnsupportedInput {
-                                msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
+                                msg: "Unsupported column data type. Please use: int, float, str, \
+                                      bool, datetime, json, jsonb"
+                                    .into(),
                                 input: format!("{column_datatype:?}"),
                                 msg_span: column_datatype.span(),
                                 input_span: column_datatype.span(),

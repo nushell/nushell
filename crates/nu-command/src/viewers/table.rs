@@ -42,7 +42,8 @@ impl Command for Table {
     }
 
     fn extra_description(&self) -> &str {
-        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
+        "If the table contains a column called 'index', this column is used as the table index \
+         instead of the usual continuous index."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -53,11 +54,12 @@ impl Command for Table {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
-            .named(
-                "theme",
-                SyntaxShape::String,
-                "set a table mode/theme",
-                Some('t'),
+            .add_flag(
+                Flag::new("theme")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc("set a table mode/theme")
+                    .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
                 "index",
@@ -91,13 +93,15 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "expand the table structure in collapse mode.\nBe aware collapse mode currently \
+                 doesn't support width control",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                "abbreviate the data in the table by truncating the middle part and only showing \
+                 amount provided on top and bottom",
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
@@ -195,7 +199,8 @@ impl Command for Table {
                 result: None,
             },
             Example {
-                description: "Set the starting number of the #/index column to 100 for a single run",
+                description: "Set the starting number of the #/index column to 100 for a single \
+                              run",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },
@@ -1165,28 +1170,34 @@ fn convert_table_to_output(
     }
 }
 
+const SUPPORTED_TABLE_MODES: &[&str] = &[
+    "basic",
+    "compact",
+    "compact_double",
+    "default",
+    "heavy",
+    "light",
+    "none",
+    "reinforced",
+    "rounded",
+    "thin",
+    "with_love",
+    "psql",
+    "markdown",
+    "dots",
+    "restructured",
+    "ascii_rounded",
+    "basic_compact",
+    "single",
+    "double",
+];
+
 fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-        Value::test_string("single"),
-        Value::test_string("double"),
-    ]
+    SUPPORTED_TABLE_MODES
+        .iter()
+        .copied()
+        .map(Value::test_string)
+        .collect()
 }
 
 fn create_table_opts<'a>(

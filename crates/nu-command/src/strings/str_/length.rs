@@ -27,7 +27,10 @@ impl Command for StrLength {
         Signature::build("str length")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Int)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -45,7 +48,8 @@ impl Command for StrLength {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, replace strings at the given cell paths with their length.",
+                "For a data structure input, replace strings at the given cell paths with their \
+                 length.",
             )
             .category(Category::Strings)
     }

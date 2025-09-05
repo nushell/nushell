@@ -58,11 +58,14 @@ impl Command for IntoDuration {
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .named(
-                "unit",
-                SyntaxShape::String,
-                "Unit to convert number into (will have an effect only with integer input)",
-                Some('u'),
+            .add_flag(
+                Flag::new("unit")
+                    .short('u')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Unit to convert number into (will have an effect only with integer input)",
+                    )
+                    .completion(Completion::new_list(SUPPORTED_DURATION_UNITS.as_slice())),
             )
             .rest(
                 "rest",
@@ -137,7 +140,8 @@ impl Command for IntoDuration {
             },
             Example {
                 description: "Convert table of duration strings to table of duration values",
-                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration \
+                          value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_duration(NS_PER_SEC),
@@ -316,7 +320,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<Value, ShellE
         let allowed_cols = ALLOWED_COLUMNS.join(", ");
         return Err(ShellError::UnsupportedInput {
             msg: format!(
-                "Column '{invalid_col}' is not valid for a structured duration. Allowed columns are: {allowed_cols}"
+                "Column '{invalid_col}' is not valid for a structured duration. Allowed columns \
+                 are: {allowed_cols}"
             ),
             input: "value originates from here".into(),
             msg_span: head,

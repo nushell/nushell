@@ -36,7 +36,8 @@ impl Command for Find {
             )
             .switch(
                 "multiline",
-                "don't split multi-line strings into lists of lines. you should use this option when using the (?m) or (?s) flags in regex mode",
+                "don't split multi-line strings into lists of lines. you should use this option \
+                 when using the (?m) or (?s) flags in regex mode",
                 Some('m'),
             )
             .switch(
@@ -198,7 +199,8 @@ impl Command for Find {
             },
             Example {
                 description: "Find and highlight text in specific columns",
-                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
+                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe \
+                          --columns [col1]",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                             "col1" => Value::test_string(
@@ -217,20 +219,25 @@ impl Command for Find {
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
-                            "\u{1b}[39mAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
+                            "\u{1b}[39mAnd roses are \
+                             bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                         ),
                         Value::test_string(
-                            "\u{1b}[39mAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
+                            "\u{1b}[39mAlter their \
+                             h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                         ),
                     ],
                     Span::test_data(),
                 )),
             },
             Example {
-                description: "Find in a multi-line string without splitting the input into a list of lines",
+                description: "Find in a multi-line string without splitting the input into a list \
+                              of lines",
                 example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find --multiline "ue""#,
                 result: Some(Value::test_string(
-                    "\u{1b}[39mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
+                    "\u{1b}[39mViolets are red\nAnd roses are \
+                     bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\nWhen metamaterials\nAlter \
+                     their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
             },
         ]
@@ -260,7 +267,9 @@ impl Command for Find {
                 // ByteStream inputs are processed by iterating over the lines, which necessarily
                 // breaks the multi-line text being streamed into a list of lines.
                 return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "Flag `--multiline` currently doesn't work for byte stream inputs. Consider using `collect`".into(),
+                    msg: "Flag `--multiline` currently doesn't work for byte stream inputs. \
+                          Consider using `collect`"
+                        .into(),
                     span: call.get_flag_span(stack, "multiline").expect("has flag"),
                 });
             };

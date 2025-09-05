@@ -42,7 +42,21 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 "The new value to merge with.",
             )
             .category(Category::Filters)
-            .named("strategy", SyntaxShape::String, "The list merging strategy to use. One of: table (default), overwrite, append, prepend", Some('s'))
+            .add_flag(
+                Flag::new("strategy")
+                    .short('s')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The list merging strategy to use. One of: table (default), overwrite, \
+                         append, prepend",
+                    )
+                    .completion(Completion::new_list(&[
+                        "table",
+                        "overwrite",
+                        "append",
+                        "prepend",
+                    ])),
+            )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -130,10 +144,12 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             Some("overwrite") => MergeStrategy::Deep(ListMerge::Overwrite),
             Some(_) => {
                 return Err(ShellError::IncorrectValue {
-                    msg: "The list merging strategy must be one one of: table, overwrite, append, prepend".to_string(),
+                    msg: "The list merging strategy must be one one of: table, overwrite, append, \
+                          prepend"
+                        .to_string(),
                     val_span: call.get_flag_span(stack, "strategy").unwrap_or(head),
                     call_span: head,
-                })
+                });
             }
         };
 

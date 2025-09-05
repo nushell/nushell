@@ -26,7 +26,8 @@ impl PluginCommand for Summary {
     }
 
     fn description(&self) -> &str {
-        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
+        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric \
+         columns."
     }
 
     fn signature(&self) -> Signature {
