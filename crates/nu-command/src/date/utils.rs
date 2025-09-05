@@ -260,8 +260,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "Literal percent sign.",
         },
         FormatSpecification {
-            spec: "%N",
-            description: "Compact timestamp format for file naming. Same as %Y%m%d_%H%M%S.",
+            spec: "%K",
+            description: "Compact, human readable timestamp, suitable for sorting. Same as %Y%m%d_%H%M%S.",
         },
     ];
 
@@ -269,8 +269,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         .iter()
         .map(|s| {
             // Handle custom format specifiers that aren't supported by chrono
-            let example = if s.spec == "%N" {
-                // Generate example for %N by using the equivalent format
+            let example = if s.spec == "%K" {
+                // Generate example for %K by using the equivalent format
                 now.format("%Y%m%d_%H%M%S").to_string()
             } else {
                 now.format(s.spec).to_string()
