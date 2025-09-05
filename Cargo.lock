@@ -2023,6 +2023,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2354,13 +2360,26 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.2"
+version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
  "allocator-api2",
  "equivalent",
- "foldhash",
+ "foldhash 0.1.5",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
  "rayon",
  "serde",
 ]
@@ -2828,7 +2847,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2481980430f9f78649238835720ddccc57e52df14ffce1c6f37391d61b563e9"
 dependencies = [
  "equivalent",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "serde",
 ]
 
@@ -3263,7 +3282,7 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
 dependencies = [
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -4346,7 +4365,7 @@ dependencies = [
  "chrono-tz",
  "env_logger 0.11.5",
  "fancy-regex",
- "hashbrown 0.15.2",
+ "hashbrown 0.16.0",
  "indexmap",
  "log",
  "nu-cmd-lang",
@@ -5099,7 +5118,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3daf8e3d4b712abe1d690838f6e29fb76b76ea19589c4afa39ec30e12f62af71"
 dependencies = [
  "array-init-cursor",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -5161,7 +5180,7 @@ dependencies = [
  "either",
  "ethnum",
  "getrandom 0.2.15",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "itoa",
  "lz4",
  "num-traits",
@@ -5198,7 +5217,7 @@ dependencies = [
  "chrono",
  "either",
  "fast-float2",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "itoa",
  "num-traits",
  "polars-arrow",
@@ -5227,7 +5246,7 @@ dependencies = [
  "comfy-table",
  "either",
  "hashbrown 0.14.5",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "indexmap",
  "itoa",
  "num-traits",
@@ -5271,7 +5290,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d3aa6722c9a3e0b721ec2bcdc4affd9e50e4cb606cd81bb94535a9a5a6ade9"
 dependencies = [
  "bitflags 2.6.0",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "num-traits",
  "polars-arrow",
  "polars-compute",
@@ -5304,7 +5323,7 @@ dependencies = [
  "fs4",
  "futures",
  "glob",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "home",
  "itoa",
  "memchr",
@@ -5343,7 +5362,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "fallible-streaming-iterator",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "indexmap",
  "itoa",
  "num-traits",
@@ -5419,7 +5438,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "either",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "hex",
  "indexmap",
  "jsonpath_lib_polars_vendor",
@@ -5459,7 +5478,7 @@ dependencies = [
  "ethnum",
  "flate2",
  "futures",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "lz4",
  "num-traits",
  "polars-arrow",
@@ -5497,7 +5516,7 @@ dependencies = [
  "chrono-tz",
  "either",
  "futures",
- "hashbrown 0.15.2",
+ "hashbrown 0.15.5",
  "memmap2",
  "num-traits",
  "percent-encoding",
@@ -5638,8 +5657,8 @@ dependencies = [
  "bytes",
  "compact_str",
  "flate2",
- "foldhash",
- "hashbrown 0.15.2",
+ "foldhash 0.1.5",
+ "hashbrown 0.15.5",
  "indexmap",
  "libc",
  "memmap2",
