@@ -275,7 +275,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             } else {
                 now.format(s.spec).to_string()
             };
-            
+
             Value::record(
                 record! {
                     "Specification" => Value::string(s.spec, head),
