@@ -19,7 +19,9 @@ impl Command for VersionCheck {
     }
 
     fn extra_description(&self) -> &str {
-        "If you're running nushell nightly, `version check` will check to see if you are running the latest nightly version. If you are running the nushell release, `version check` will check to see if you're running the latest release version."
+        "If you're running nushell nightly, `version check` will check to see if you are running \
+         the latest nightly version. If you are running the nushell release, `version check` will \
+         check to see if you're running the latest release version."
     }
 
     fn signature(&self) -> Signature {

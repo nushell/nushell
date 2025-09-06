@@ -49,7 +49,9 @@ impl FromStr for TableMode {
             "single" => Ok(Self::Single),
             "double" => Ok(Self::Double),
             _ => Err(
-                "'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact', 'single', or 'double'",
+                "'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', \
+                 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', \
+                 'ascii_rounded', 'basic_compact', 'single', or 'double'",
             ),
         }
     }

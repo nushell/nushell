@@ -70,7 +70,8 @@ fn tutor(
 
     let search: Option<String> = call.opt(engine_state, stack, 0).unwrap_or(None);
     let find: Option<String> = call.get_flag(engine_state, stack, "find")?;
-    let notes = "You can learn about a topic using `tutor` followed by the name of the topic.\nFor example: `tutor table` to open the table topic.\n\n";
+    let notes = "You can learn about a topic using `tutor` followed by the name of the \
+                 topic.\nFor example: `tutor table` to open the table topic.\n\n";
 
     let search_space = [
         (vec!["begin"], begin_tutor()),

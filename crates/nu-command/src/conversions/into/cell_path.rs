@@ -93,7 +93,8 @@ impl Command for IntoCellPath {
             },
             Example {
                 description: "Convert table into cell path",
-                example: "[[value, optional, insensitive]; [5 true false] [c false false] [d false true]] | into cell-path",
+                example: "[[value, optional, insensitive]; [5 true false] [c false false] [d \
+                          false true]] | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
                         PathMember::test_int(5, true),

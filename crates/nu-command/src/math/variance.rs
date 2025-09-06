@@ -117,7 +117,8 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
             Value::Error { error, .. } => Err(*error.clone()),
             other => Err(ShellError::UnsupportedInput {
                 msg: format!(
-                    "Attempted to compute the sum of squares of a non-int, non-float value '{}' with a type of `{}`.",
+                    "Attempted to compute the sum of squares of a non-int, non-float value '{}' \
+                     with a type of `{}`.",
                     other.coerce_string()?,
                     other.get_type()
                 ),

@@ -141,7 +141,7 @@ impl PluginGcState {
                 if self.locks < 0 {
                     log::warn!(
                         "Plugin GC ({name}) problem: locks count below zero after adding \
-                            {amount}: locks={locks}",
+                         {amount}: locks={locks}",
                         name = self.name,
                         locks = self.locks,
                     );

@@ -148,7 +148,8 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
                         } else {
                             return Err(ShellError::IncorrectValue {
                                 msg: format!(
-                                    "expected inner list with two elements, but found {} element(s)",
+                                    "expected inner list with two elements, but found {} \
+                                     element(s)",
                                     vals.len()
                                 ),
                                 val_span: span,

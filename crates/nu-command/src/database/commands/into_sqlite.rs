@@ -60,18 +60,22 @@ impl Command for IntoSqliteDb {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert ls entries into a SQLite database with 'main' as the table name",
+                description: "Convert ls entries into a SQLite database with 'main' as the table \
+                              name",
                 example: "ls | into sqlite my_ls.db",
                 result: None,
             },
             Example {
-                description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
+                description: "Convert ls entries into a SQLite database with 'my_table' as the \
+                              table name",
                 example: "ls | into sqlite my_ls.db -t my_table",
                 result: None,
             },
             Example {
-                description: "Convert table literal into a SQLite database with 'main' as the table name",
-                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
+                description: "Convert table literal into a SQLite database with 'main' as the \
+                              table name",
+                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite \
+                          filename.db",
                 result: None,
             },
             Example {
@@ -80,16 +84,18 @@ impl Command for IntoSqliteDb {
                 result: None,
             },
             Example {
-                description: "Insert data that contains records, lists or tables, that will be stored as JSONB columns
+                description: "Insert data that contains records, lists or tables, that will be \
+                              stored as JSONB columns
 These columns will be automatically turned back into nu objects when read directly via cell-path",
-                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: [[a b]; [0 1] [2 3]]} | into sqlite filename.db -t my_table
+                example: "{a_record: {foo: bar, baz: quux}, a_list: [1 2 3], a_table: [[a b]; [0 \
+                          1] [2 3]]} | into sqlite filename.db -t my_table
 (open filename.db).my_table.0.a_list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
-                    Value::test_int(3)
-                ]))
-            }
+                    Value::test_int(3),
+                ])),
+            },
         ]
     }
 }
@@ -156,9 +162,9 @@ impl Table {
         if table_count == 0 {
             if first_row_null {
                 eprintln!(
-                    "Warning: The first row contains a null value, which has an \
-unknown SQL type. Null values will be assumed to be TEXT columns. \
-If this is undesirable, you can create the table first with your desired schema."
+                    "Warning: The first row contains a null value, which has an unknown SQL type. \
+                     Null values will be assumed to be TEXT columns. If this is undesirable, you \
+                     can create the table first with your desired schema."
                 );
             }
 

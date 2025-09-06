@@ -85,9 +85,9 @@ pub fn get_editor(
     } else {
         Err(ShellError::GenericError {
             error: "No editor configured".into(),
-            msg:
-                "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`"
-                    .into(),
+            msg: "Please specify one via `$env.config.buffer_editor` or \
+                  `$env.EDITOR`/`$env.VISUAL`"
+                .into(),
             span: Some(span),
             help: Some(HELP_MSG.into()),
             inner: vec![],

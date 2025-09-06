@@ -18,9 +18,22 @@ impl Command for Def {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "Command name.")
             .required("params", SyntaxShape::Signature, "Parameters.")
-            .required("block", SyntaxShape::Closure(None), "Body of the definition.")
-            .switch("env", "keep the environment defined inside the command", None)
-            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .required(
+                "block",
+                SyntaxShape::Closure(None),
+                "Body of the definition.",
+            )
+            .switch(
+                "env",
+                "keep the environment defined inside the command",
+                None,
+            )
+            .switch(
+                "wrapped",
+                "treat unknown flags and arguments as strings (requires ...rest-like parameter in \
+                 signature)",
+                None,
+            )
             .category(Category::Core)
     }
 
@@ -61,7 +74,8 @@ impl Command for Def {
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
-                description: "cd affects the environment, so '--env' is required to change directory from within a command",
+                description: "cd affects the environment, so '--env' is required to change \
+                              directory from within a command",
                 example: r#"def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)"#,
                 result: Some(Value::test_string("true")),
             },
@@ -71,7 +85,8 @@ impl Command for Def {
                 result: Some(Value::test_string("spam\tspam")),
             },
             Example {
-                description: "Define a custom command with a type signature. Passing a non-int value will result in an error",
+                description: "Define a custom command with a type signature. Passing a non-int \
+                              value will result in an error",
                 example: r#"def only_int []: int -> int { $in }; 42 | only_int"#,
                 result: Some(Value::test_int(42)),
             },

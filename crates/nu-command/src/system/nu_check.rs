@@ -285,7 +285,11 @@ fn parse_file_or_dir_module(
                 error: "Failed to parse content".into(),
                 msg,
                 span: Some(path_span),
-                help: Some("If the content is intended to be a script, please try to remove `--as-module` flag ".into()),
+                help: Some(
+                    "If the content is intended to be a script, please try to remove \
+                     `--as-module` flag "
+                        .into(),
+                ),
                 inner: vec![],
             })
         } else {

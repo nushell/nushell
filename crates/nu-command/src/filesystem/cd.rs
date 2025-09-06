@@ -23,7 +23,12 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
+            .switch(
+                "physical",
+                "use the physical directory structure; resolve symbolic links before processing \
+                 instances of ..",
+                Some('P'),
+            )
             .optional("path", SyntaxShape::Directory, "The path to change to.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
@@ -161,12 +166,14 @@ impl Command for Cd {
                 result: None,
             },
             Example {
-                description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
+                description: "Move two directories up in the tree (the parent directory's \
+                              parent). Additional dots can be added for additional levels.",
                 example: r#"cd ..."#,
                 result: None,
             },
             Example {
-                description: "The cd command itself is often optional. Simply entering a path to a directory will cd to it.",
+                description: "The cd command itself is often optional. Simply entering a path to \
+                              a directory will cd to it.",
                 example: r#"/home"#,
                 result: None,
             },

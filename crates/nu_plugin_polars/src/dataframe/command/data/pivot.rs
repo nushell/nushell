@@ -52,20 +52,18 @@ impl PluginCommand for PivotDF {
             .named(
                 "aggregate",
                 SyntaxShape::String,
-                "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last",
+                "Aggregation to apply when pivoting. The following are supported: first, sum, \
+                 min, max, mean, median, count, last",
                 Some('a'),
             )
             .named(
                 "separator",
                 SyntaxShape::String,
-                "Delimiter in generated column names in case of multiple `values` columns (default '_')",
+                "Delimiter in generated column names in case of multiple `values` columns \
+                 (default '_')",
                 Some('p'),
             )
-            .switch(
-                "sort",
-                "Sort columns",
-                Some('s'),
-            )
+            .switch("sort", "Sort columns", Some('s'))
             .switch(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
@@ -82,7 +80,10 @@ impl PluginCommand for PivotDF {
         vec![
             Example {
                 description: "Perform a pivot in order to show individuals test score by subject",
-                example: "[[name subject date test_1 test_2]; [Cady maths 2025-04-01 98 100] [Cady physics 2025-04-01 99 100] [Karen maths 2025-04-02 61 60] [Karen physics 2025-04-02 58 60]] | polars into-df |  polars pivot --on [subject] --index [name date] --values [test_1]",
+                example: "[[name subject date test_1 test_2]; [Cady maths 2025-04-01 98 100] \
+                          [Cady physics 2025-04-01 99 100] [Karen maths 2025-04-02 61 60] [Karen \
+                          physics 2025-04-02 58 60]] | polars into-df |  polars pivot --on \
+                          [subject] --index [name date] --values [test_1]",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -137,7 +138,11 @@ impl PluginCommand for PivotDF {
             },
             Example {
                 description: "Perform a pivot with multiple `values` columns with a separator",
-                example: "[[name subject date test_1 test_2 grade_1 grade_2]; [Cady maths 2025-04-01 98 100 A A] [Cady physics 2025-04-01 99 100 A A] [Karen maths 2025-04-02 61 60 D D] [Karen physics 2025-04-02 58 60 D D]] | polars into-df |  polars pivot --on [subject] --index [name] --values [test_1 grade_1] --separator /",
+                example: "[[name subject date test_1 test_2 grade_1 grade_2]; [Cady maths \
+                          2025-04-01 98 100 A A] [Cady physics 2025-04-01 99 100 A A] [Karen \
+                          maths 2025-04-02 61 60 D D] [Karen physics 2025-04-02 58 60 D D]] | \
+                          polars into-df |  polars pivot --on [subject] --index [name] --values \
+                          [test_1 grade_1] --separator /",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

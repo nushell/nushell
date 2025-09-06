@@ -92,7 +92,8 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
             other => {
                 return Err(ShellError::UnsupportedInput {
                     msg: format!(
-                        "Attempted to compute the sum of a value '{}' that cannot be summed with a type of `{}`.",
+                        "Attempted to compute the sum of a value '{}' that cannot be summed with \
+                         a type of `{}`.",
                         other.coerce_string()?,
                         other.get_type()
                     ),
@@ -134,7 +135,8 @@ pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellE
             other => {
                 return Err(ShellError::UnsupportedInput {
                     msg: format!(
-                        "Attempted to compute the product of a value '{}' that cannot be multiplied with a type of `{}`.",
+                        "Attempted to compute the product of a value '{}' that cannot be \
+                         multiplied with a type of `{}`.",
                         other.coerce_string()?,
                         other.get_type()
                     ),

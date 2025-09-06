@@ -64,12 +64,14 @@ impl Command for Flatten {
             },
             Example {
                 description: "flatten a column having a nested table",
-                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
+                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | \
+                          flatten --all | get meal",
                 result: None, //Some(Value::test_string("arepa")),
             },
             Example {
                 description: "restrict the flattening by passing column names",
-                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
+                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', \
+                          '0.22']]] | flatten versions --all | last | get versions",
                 result: None, //Some(Value::test_string("0.22")),
             },
             Example {
@@ -180,10 +182,13 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::error(
                                 ShellError::UnsupportedInput {
-                                    msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".into(),
+                                    msg: "can only flatten one inner list at a time. tried \
+                                          flattening more than one column with inner lists... but \
+                                          is flattened already"
+                                        .into(),
                                     input: "value originates from here".into(),
                                     msg_span: tag,
-                                    input_span: span
+                                    input_span: span,
                                 },
                                 span,
                             )];

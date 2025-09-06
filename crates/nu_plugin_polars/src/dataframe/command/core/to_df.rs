@@ -160,7 +160,8 @@ impl PluginCommand for ToDataFrame {
             },
             Example {
                 description: "Convert to a dataframe and provide a schema",
-                example: "[[a b c e]; [1 {d: [1 2 3]} [10 11 12] 1.618]]| polars into-df -s {a: u8, b: {d: list<u64>}, c: list<u8>, e: 'decimal<4,3>'}",
+                example: "[[a b c e]; [1 {d: [1 2 3]} [10 11 12] 1.618]]| polars into-df -s {a: \
+                          u8, b: {d: list<u64>}, c: list<u8>, e: 'decimal<4,3>'}",
                 result: Some(
                     NuDataFrame::try_from_series_vec(
                         vec![
@@ -215,7 +216,8 @@ impl PluginCommand for ToDataFrame {
                 ),
             },
             Example {
-                description: "If a provided schema specifies a subset of columns, only those columns are selected",
+                description: "If a provided schema specifies a subset of columns, only those \
+                              columns are selected",
                 example: r#"[[a b]; [1 "foo"] [2 "bar"]] | polars into-df -s {a: str}"#,
                 result: Some(
                     NuDataFrame::try_from_series_vec(
@@ -283,7 +285,8 @@ impl PluginCommand for ToDataFrame {
                         }
                         Err(e) => {
                             debug!(
-                                "Failed to build with multiple columns, attempting as series. failure:{e}"
+                                "Failed to build with multiple columns, attempting as series. \
+                                 failure:{e}"
                             );
                             NuDataFrame::try_from_iter(
                                 plugin,

@@ -191,11 +191,14 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
         }
         // Special case for wildcard args to count function.
         ("count", [FunctionArgExpr::Wildcard], false) => lit(1i32).count(),
-        _ => return Err(PolarsError::ComputeError(
-            format!(
-                "Function {function_name:?} with args {args:?} was not supported in polars-sql yet!"
-            )
-            .into(),
-        )),
+        _ => {
+            return Err(PolarsError::ComputeError(
+                format!(
+                    "Function {function_name:?} with args {args:?} was not supported in \
+                     polars-sql yet!"
+                )
+                .into(),
+            ));
+        }
     })
 }

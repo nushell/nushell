@@ -80,7 +80,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
-                description: "Get a column from a table where some rows don't have that column, using optional cell-path syntax",
+                description: "Get a column from a table where some rows don't have that column, \
+                              using optional cell-path syntax",
                 example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get A?",
                 result: Some(Value::list(
                     vec![
@@ -92,7 +93,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
-                description: "Get a column from a table where some rows don't have that column, using the optional flag",
+                description: "Get a column from a table where some rows don't have that column, \
+                              using the optional flag",
                 example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get -o A",
                 result: Some(Value::list(
                     vec![
@@ -109,7 +111,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
+                description: "Extract the name of the 3rd record in a list (same as `ls | \
+                              $in.name.2`)",
                 example: "ls | get name.2",
                 result: None,
             },
@@ -119,12 +122,14 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
             Example {
-                description: "Getting environment variables in a case insensitive way, using case insensitive cell-path syntax",
+                description: "Getting environment variables in a case insensitive way, using case \
+                              insensitive cell-path syntax",
                 example: "$env | get home! path!",
                 result: None,
             },
             Example {
-                description: "Getting environment variables in a case insensitive way, using the '--ignore-case' flag",
+                description: "Getting environment variables in a case insensitive way, using the \
+                              '--ignore-case' flag",
                 example: "$env | get --ignore-case home path",
                 result: None,
             },
@@ -196,15 +201,23 @@ If multiple cell paths are given, this will produce a list of values."#
                 report_mode: ReportMode::FirstUse,
                 since: Some("0.105.0".into()),
                 expected_removal: None,
-                help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
+                help: Some(
+                    "Cell-paths are now case-sensitive by default.\nTo access fields \
+                     case-insensitively, add `!` after the relevant path member."
+                        .into(),
+                ),
             },
             DeprecationEntry {
                 ty: DeprecationType::Flag("ignore-errors".into()),
                 report_mode: ReportMode::FirstUse,
                 since: Some("0.106.0".into()),
                 expected_removal: None,
-                help: Some("This flag has been renamed to `--optional (-o)` to better reflect its behavior.".into())
-            }
+                help: Some(
+                    "This flag has been renamed to `--optional (-o)` to better reflect its \
+                     behavior."
+                        .into(),
+                ),
+            },
         ]
     }
 }

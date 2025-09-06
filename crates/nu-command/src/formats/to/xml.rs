@@ -59,7 +59,8 @@ Additionally any field which is: empty record, empty list or null, can be omitte
                 )),
             },
             Example {
-                description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record",
+                description: "When formatting xml null and empty record fields can be omitted and \
+                              strings can be written without a wrapping record",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
@@ -210,7 +211,9 @@ impl Job {
                     from_type: "record".into(),
                     span: entry_span,
                     help: Some(format!(
-                        "Invalid column \"{bad_column}\" in xml entry. Only \"{COLUMN_TAG_NAME}\", \"{COLUMN_ATTRS_NAME}\" and \"{COLUMN_CONTENT_NAME}\" are permitted"
+                        "Invalid column \"{bad_column}\" in xml entry. Only \
+                         \"{COLUMN_TAG_NAME}\", \"{COLUMN_ATTRS_NAME}\" and \
+                         \"{COLUMN_CONTENT_NAME}\" are permitted"
                     )),
                 });
             }
@@ -538,7 +541,9 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml | metadata | get content_type | $in";
+        let cmd = "{tag: note attributes: {} content : [{tag: remember attributes: {} content : \
+                   [{tag: null attributes: null content : Event}]}]} | to xml | metadata | get \
+                   content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

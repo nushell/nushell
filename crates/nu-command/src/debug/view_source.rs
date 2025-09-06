@@ -243,7 +243,8 @@ impl Command for ViewSource {
                 result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
-                description: "View the source of a custom command, which participates in the caller environment",
+                description: "View the source of a custom command, which participates in the \
+                              caller environment",
                 example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
                 result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },

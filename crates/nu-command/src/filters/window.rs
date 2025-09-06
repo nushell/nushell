@@ -61,7 +61,8 @@ impl Command for Window {
             },
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
-                description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
+                description: "A sliding window of equal stride that includes remainder. \
+                              Equivalent to chunking",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),

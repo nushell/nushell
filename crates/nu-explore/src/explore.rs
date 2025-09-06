@@ -128,7 +128,8 @@ impl Command for Explore {
                 result: None,
             },
             Example {
-                description: "Explore a JSON file, then save the last visited sub-structure to a file",
+                description: "Explore a JSON file, then save the last visited sub-structure to a \
+                              file",
                 example: r#"open file.json | explore --peek | to json | save part.json"#,
                 result: None,
             },

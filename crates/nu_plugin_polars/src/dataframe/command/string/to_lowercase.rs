@@ -46,7 +46,8 @@ impl PluginCommand for ToLowerCase {
         vec![
             Example {
                 description: "Modifies strings in a column to lowercase",
-                example: "[[a]; [Abc]] | polars into-df | polars select (polars col a | polars lowercase) | polars collect",
+                example: "[[a]; [Abc]] | polars into-df | polars select (polars col a | polars \
+                          lowercase) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

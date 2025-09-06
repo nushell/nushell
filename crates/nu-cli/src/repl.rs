@@ -1257,7 +1257,8 @@ fn confirm_stdin_is_terminal() -> Result<()> {
     if !std::io::stdin().is_terminal() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
+            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid \
+             terminal or provide arguments to invoke a script!",
         ))
         .into_diagnostic();
     }

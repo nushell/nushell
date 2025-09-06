@@ -40,7 +40,7 @@ using `zip { ... } | flatten` instead."#
                 "buffer-size",
                 SyntaxShape::Int,
                 "Number of items to buffer from the streams. Increases memory usage, but can help \
-                    performance when lots of output is produced.",
+                 performance when lots of output is produced.",
                 Some('b'),
             )
             .rest(

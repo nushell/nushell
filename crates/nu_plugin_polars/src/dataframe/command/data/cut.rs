@@ -21,15 +21,29 @@ impl PluginCommand for CutSeries {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
-            .required("breaks", SyntaxShape::Any, "Dataframe that contains a series of unique cut points.")
+            .required(
+                "breaks",
+                SyntaxShape::Any,
+                "Dataframe that contains a series of unique cut points.",
+            )
             .named(
                 "labels",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Names of the categories. The number of labels must be equal to the number of cut points plus one.",
+                "Names of the categories. The number of labels must be equal to the number of cut \
+                 points plus one.",
                 Some('l'),
             )
-            .switch("left_closed", "Set the intervals to be left-closed instead of right-closed.", Some('c'))
-            .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
+            .switch(
+                "left_closed",
+                "Set the intervals to be left-closed instead of right-closed.",
+                Some('c'),
+            )
+            .switch(
+                "include_breaks",
+                "Include a column with the right endpoint of the bin each observation falls in. \
+                 This will change the data type of the output from a Categorical to a Struct.",
+                Some('b'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

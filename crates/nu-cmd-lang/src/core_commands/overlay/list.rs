@@ -28,7 +28,9 @@ impl Command for OverlayList {
     }
 
     fn extra_description(&self) -> &str {
-        "The overlays are listed in the order they were activated. Hidden overlays are listed first, followed by active overlays listed in the order that they were activated. `last` command will always give the top active overlay"
+        "The overlays are listed in the order they were activated. Hidden overlays are listed \
+         first, followed by active overlays listed in the order that they were activated. `last` \
+         command will always give the top active overlay"
     }
 
     fn run(
