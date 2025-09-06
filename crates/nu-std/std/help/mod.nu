@@ -109,7 +109,7 @@ def "nu-complete main-help" [] {
 }
 
 def "nu-complete list-externs" [] {
-    scope commands | where is_extern == true | select name description | rename value description
+    scope commands | where type == "external" | select name description | rename value description
 }
 
 def build-help-header [
@@ -397,7 +397,7 @@ export def externs [
 ] {
     let externs = (
         scope commands
-        | where is_extern == true
+        | where type == "external"
         | select name module_name description
         | sort-by name
         | str trim
