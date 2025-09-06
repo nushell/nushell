@@ -248,6 +248,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "UNIX timestamp, the number of seconds since 1970-01-01",
         },
         FormatSpecification {
+            spec: "%K",
+            description: "Compact, human readable timestamp, suitable for sorting. Same as %Y%m%d_%H%M%S.",
+        },
+        FormatSpecification {
             spec: "%t",
             description: "Literal tab (\\t).",
         },
@@ -258,10 +262,6 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         FormatSpecification {
             spec: "%%",
             description: "Literal percent sign.",
-        },
-        FormatSpecification {
-            spec: "%K",
-            description: "Compact, human readable timestamp, suitable for sorting. Same as %Y%m%d_%H%M%S.",
         },
     ];
 
