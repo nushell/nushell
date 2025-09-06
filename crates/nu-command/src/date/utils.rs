@@ -248,6 +248,10 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "UNIX timestamp, the number of seconds since 1970-01-01",
         },
         FormatSpecification {
+            spec: "%K",
+            description: "Compact, human readable timestamp, suitable for sorting. Same as %Y%m%d_%H%M%S.",
+        },
+        FormatSpecification {
             spec: "%t",
             description: "Literal tab (\\t).",
         },
@@ -264,10 +268,18 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     let mut records = specifications
         .iter()
         .map(|s| {
+            // Handle custom format specifiers that aren't supported by chrono
+            let example = if s.spec == "%K" {
+                // Generate example for %K by using the equivalent format
+                now.format("%Y%m%d_%H%M%S").to_string()
+            } else {
+                now.format(s.spec).to_string()
+            };
+
             Value::record(
                 record! {
                     "Specification" => Value::string(s.spec, head),
-                    "Example" => Value::string(now.format(s.spec).to_string(), head),
+                    "Example" => Value::string(example, head),
                     "Description" => Value::string(s.description, head),
                 },
                 head,
