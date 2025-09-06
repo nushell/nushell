@@ -165,13 +165,16 @@ fn description(operator: &Operator) -> &'static str {
             "Checks if a value is in a list, is part of a string, or is a key in a record."
         }
         Operator::Comparison(Comparison::NotIn) => {
-            "Checks if a value is not in a list, is not part of a string, or is not a key in a record."
+            "Checks if a value is not in a list, is not part of a string, or is not a key in a \
+             record."
         }
         Operator::Comparison(Comparison::Has) => {
-            "Checks if a list contains a value, a string contains another, or if a record has a key."
+            "Checks if a list contains a value, a string contains another, or if a record has a \
+             key."
         }
         Operator::Comparison(Comparison::NotHas) => {
-            "Checks if a list does not contain a value, a string does not contain another, or if a record does not have a key."
+            "Checks if a list does not contain a value, a string does not contain another, or if a \
+             record does not have a key."
         }
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",

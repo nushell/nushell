@@ -22,7 +22,8 @@ impl PluginCommand for UnnestDF {
     }
 
     fn description(&self) -> &str {
-        "Decompose struct columns into separate columns for each of their fields. The new columns will be inserted into the dataframe at the location of the struct column."
+        "Decompose struct columns into separate columns for each of their fields. The new columns \
+         will be inserted into the dataframe at the location of the struct column."
     }
 
     fn signature(&self) -> Signature {

@@ -52,9 +52,11 @@ impl Command for AttrDeprecated {
     }
 
     fn extra_description(&self) -> &str {
-        "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the first usage will trigger a deprecation warning.
+        "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the \
+         first usage will trigger a deprecation warning.
 
-A help message can be included to provide more context for the deprecation, such as what to use as a replacement.
+A help message can be included to provide more context for the deprecation, such as what to use as \
+         a replacement.
 
 Also consider setting the category to deprecated with @category deprecated"
     }

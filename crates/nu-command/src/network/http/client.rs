@@ -374,11 +374,15 @@ fn send_form_request(
     match body {
         Value::List { ref vals, .. } => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IncorrectValue {
-                    msg: "Body type 'list' for form requests requires paired values. E.g.: [foo, 10]".into(),
-                    val_span: body.span(),
-                    call_span: span,
-                }));
+                return Err(ShellErrorOrRequestError::ShellError(
+                    ShellError::IncorrectValue {
+                        msg: "Body type 'list' for form requests requires paired values. E.g.: \
+                              [foo, 10]"
+                            .into(),
+                        val_span: body.span(),
+                        call_span: span,
+                    },
+                ));
             }
 
             let data = vals
@@ -702,7 +706,8 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
     match response_err {
         Error::ConnectionFailed => ShellError::NetworkFailure {
             msg: format!(
-                "Cannot make request to {requested_url}, there was an error establishing a connection.",
+                "Cannot make request to {requested_url}, there was an error establishing a \
+                 connection.",
             ),
             span,
         },

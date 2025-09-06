@@ -41,8 +41,10 @@ impl PluginCommand for ExprVar {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Var value from columns in a dataframe or aggregates columns to their var value",
-                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars collect",
+                description: "Var value from columns in a dataframe or aggregates columns to \
+                              their var value",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars var | polars \
+                          collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

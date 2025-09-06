@@ -24,7 +24,8 @@ impl Command for Which {
     }
 
     fn description(&self) -> &str {
-        "Finds a program file, alias or custom command. If `application` is not provided, all deduplicated commands will be returned."
+        "Finds a program file, alias or custom command. If `application` is not provided, all \
+         deduplicated commands will be returned."
     }
 
     fn search_terms(&self) -> Vec<&str> {

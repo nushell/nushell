@@ -95,7 +95,8 @@ impl Command for Items {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
+            example: "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' \
+                      }",
             description: "Iterate over each key-value pair of a record",
             result: Some(Value::list(
                 vec![

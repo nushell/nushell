@@ -140,12 +140,17 @@ impl PluginCommand for LazyAggregate {
 
                 if matches!(dtype, Some(DataType::Object(..))) {
                     return Err(ShellError::GenericError {
-                            error: "Object type column not supported for aggregation".into(),
-                            msg: format!("Column '{name}' is type Object"),
-                            span: Some(call.head),
-                            help: Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
-                            inner: vec![],
-                        }).map_err(|e| e.into());
+                        error: "Object type column not supported for aggregation".into(),
+                        msg: format!("Column '{name}' is type Object"),
+                        span: Some(call.head),
+                        help: Some(
+                            "Aggregations cannot be performed on Object type columns. Use dtype \
+                             command to check column types"
+                                .into(),
+                        ),
+                        inner: vec![],
+                    })
+                    .map_err(|e| e.into());
                 }
             }
         }

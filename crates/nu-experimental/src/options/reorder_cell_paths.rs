@@ -24,7 +24,7 @@ impl ExperimentalOptionMarker for ReorderCellPaths {
     const DESCRIPTION: &'static str = "\
         Reorder the steps in accessing nested value to decrease memory usage.
 
-\
-        Reorder the parts of cell-path when accessing a cell in a table, always select the row before selecting the column.";
+Reorder the parts of cell-path when accessing a cell in a table, always select the row before \
+                                       selecting the column.";
     const STATUS: Status = Status::OptIn;
 }

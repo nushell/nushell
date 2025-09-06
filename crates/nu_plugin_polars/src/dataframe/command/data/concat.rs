@@ -58,7 +58,8 @@ impl PluginCommand for ConcatDF {
             Example {
                 description: "Concatenates two dataframes with the dataframe in the pipeline.",
                 example: "[[a b]; [1 2]] | polars into-df 
-                    | polars concat ([[a b]; [3 4]] | polars into-df) ([[a b]; [5 6]] | polars into-df) 
+                    | polars concat ([[a b]; [3 4]] | polars into-df) ([[a b]; [5 6]] | polars \
+                          into-df) 
                     | polars collect 
                     | polars sort-by [a b]",
                 result: Some(
@@ -74,7 +75,8 @@ impl PluginCommand for ConcatDF {
             },
             Example {
                 description: "Concatenates three dataframes together",
-                example: "polars concat ([[a b]; [1 2]] | polars into-df) ([[a b]; [3 4]] | polars into-df) ([[a b]; [5 6]] | polars into-df) 
+                example: "polars concat ([[a b]; [1 2]] | polars into-df) ([[a b]; [3 4]] | \
+                          polars into-df) ([[a b]; [5 6]] | polars into-df) 
                     | polars collect 
                     | polars sort-by [a b]",
                 result: Some(
@@ -87,7 +89,7 @@ impl PluginCommand for ConcatDF {
                     )
                     .into_value(Span::test_data()),
                 ),
-            }
+            },
         ]
     }
 

@@ -75,12 +75,14 @@ it was already previously registered with `plugin add`.
                 result: None,
             },
             Example {
-                description: "Load the commands for the plugin with the filename `~/.cargo/bin/nu_plugin_query` from $nu.plugin-path",
+                description: "Load the commands for the plugin with the filename \
+                              `~/.cargo/bin/nu_plugin_query` from $nu.plugin-path",
                 example: r#"plugin use ~/.cargo/bin/nu_plugin_query"#,
                 result: None,
             },
             Example {
-                description: "Load the commands for the `query` plugin from a custom plugin registry file",
+                description: "Load the commands for the `query` plugin from a custom plugin \
+                              registry file",
                 example: r#"plugin use --plugin-config local-plugins.msgpackz query"#,
                 result: None,
             },

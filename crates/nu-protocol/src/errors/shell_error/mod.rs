@@ -689,7 +689,8 @@ pub enum ShellError {
     #[error("Relative range values cannot be used with streams that don't have a known length")]
     #[diagnostic(code(nu::shell::relative_range_on_infinite_stream))]
     RelativeRangeOnInfiniteStream {
-        #[label = "Relative range values cannot be used with streams that don't have a known length"]
+        #[label = "Relative range values cannot be used with streams that don't have a known \
+                   length"]
         span: Span,
     },
 
@@ -848,7 +849,8 @@ pub enum ShellError {
         #[label("plugin `{plugin_name}` loaded here")]
         span: Option<Span>,
         #[help(
-            "the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`"
+            "the format in the plugin registry file is not compatible with this version of \
+             Nushell.\n\nTry adding the plugin again with `{}`"
         )]
         add_command: String,
     },
@@ -1185,7 +1187,8 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[diagnostic(
         code(nu::shell::not_a_constant),
         help(
-            "Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally."
+            "Only a subset of expressions are allowed constants during parsing. Try using the \
+             'const' command or typing the value literally."
         )
     )]
     NotAConstant {
@@ -1276,7 +1279,8 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[diagnostic(
         code(nu::shell::cannot_spread_as_list),
         help(
-            "Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading."
+            "Only lists can be spread inside lists and command calls. Try converting the value to \
+             a list before spreading."
         )
     )]
     CannotSpreadAsList {
@@ -1293,7 +1297,8 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[diagnostic(
         code(nu::shell::cannot_spread_as_record),
         help(
-            "Only records can be spread inside records. Try converting the value to a record before spreading."
+            "Only records can be spread inside records. Try converting the value to a record \
+             before spreading."
         )
     )]
     CannotSpreadAsRecord {
@@ -1350,7 +1355,8 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 
     /// XDG_CONFIG_HOME was set to an invalid path
     #[error(
-        "$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: {default}"
+        "$env.XDG_CONFIG_HOME ({xdg}) is invalid, using default config directory instead: \
+         {default}"
     )]
     #[diagnostic(
         code(nu::shell::xdg_config_home_invalid),
@@ -1368,7 +1374,8 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     #[diagnostic(
         code(nu::shell::ir_eval_error),
         help(
-            "this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able"
+            "this is a bug, please report it at https://github.com/nushell/nushell/issues/new \
+             along with the code you were running if able"
         )
     )]
     IrEvalError {
@@ -1561,7 +1568,8 @@ mod test {
     impl From<std::io::Error> for ShellError {
         fn from(_: std::io::Error) -> ShellError {
             unimplemented!(
-                "This implementation is defined in the test module to ensure no other implementation exists."
+                "This implementation is defined in the test module to ensure no other \
+                 implementation exists."
             )
         }
     }
@@ -1569,7 +1577,8 @@ mod test {
     impl From<Spanned<std::io::Error>> for ShellError {
         fn from(_: Spanned<std::io::Error>) -> Self {
             unimplemented!(
-                "This implementation is defined in the test module to ensure no other implementation exists."
+                "This implementation is defined in the test module to ensure no other \
+                 implementation exists."
             )
         }
     }
@@ -1577,7 +1586,8 @@ mod test {
     impl From<ShellError> for std::io::Error {
         fn from(_: ShellError) -> Self {
             unimplemented!(
-                "This implementation is defined in the test module to ensure no other implementation exists."
+                "This implementation is defined in the test module to ensure no other \
+                 implementation exists."
             )
         }
     }

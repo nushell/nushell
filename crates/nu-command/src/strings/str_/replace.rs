@@ -58,7 +58,8 @@ impl Command for StrReplace {
             )
             .switch(
                 "multiline",
-                "multi-line regex mode (implies --regex): ^ and $ match begin/end of line; equivalent to (?m)",
+                "multi-line regex mode (implies --regex): ^ and $ match begin/end of line; \
+                 equivalent to (?m)",
                 Some('m'),
             )
             .allow_variants_without_examples(true)
@@ -151,23 +152,29 @@ impl Command for StrReplace {
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace contents with capture group using regular expression",
+                description: "Find and replace contents with capture group using regular \
+                              expression",
                 example: "'my_library.rb' | str replace -r '(.+).rb' '$1.nu'",
                 result: Some(Value::test_string("my_library.nu")),
             },
             Example {
-                description: "Find and replace contents with capture group using regular expression, with escapes",
-                example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' '$$$varname = $value'",
+                description: "Find and replace contents with capture group using regular \
+                              expression, with escapes",
+                example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' \
+                          '$$$varname = $value'",
                 result: Some(Value::test_string("$hello = world")),
             },
             Example {
-                description: "Find and replace all occurrences of found string using regular expression",
+                description: "Find and replace all occurrences of found string using regular \
+                              expression",
                 example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace all occurrences of found string in table using regular expression",
-                example: "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
+                description: "Find and replace all occurrences of found string in table using \
+                              regular expression",
+                example: "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' \
+                          ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_string("azc"),
                     "ColB" => Value::test_string("abc"),
@@ -175,8 +182,10 @@ impl Command for StrReplace {
                 })])),
             },
             Example {
-                description: "Find and replace all occurrences of found string in record using regular expression",
-                example: "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
+                description: "Find and replace all occurrences of found string in record using \
+                              regular expression",
+                example: "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' \
+                          KeyA KeyC",
                 result: Some(Value::test_record(record! {
                     "KeyA" => Value::test_string("azc"),
                     "KeyB" => Value::test_string("abc"),
@@ -184,7 +193,8 @@ impl Command for StrReplace {
                 })),
             },
             Example {
-                description: "Find and replace contents without using the replace parameter as a regular expression",
+                description: "Find and replace contents without using the replace parameter as a \
+                              regular expression",
                 example: r"'dogs_$1_cats' | str replace -r '\$1' '$2' -n",
                 result: Some(Value::test_string("dogs_$2_cats")),
             },
@@ -204,7 +214,8 @@ impl Command for StrReplace {
                 result: Some(Value::test_string("GHIKK-z+*")),
             },
             Example {
-                description: "Find and replace on individual lines using multiline regular expression",
+                description: "Find and replace on individual lines using multiline regular \
+                              expression",
                 example: r#""non-matching line\n123. one line\n124. another line\n" | str replace --all --multiline '^[0-9]+\. ' ''"#,
                 result: Some(Value::test_string(
                     "non-matching line\none line\nanother line\n",

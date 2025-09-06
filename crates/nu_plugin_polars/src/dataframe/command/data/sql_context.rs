@@ -98,32 +98,32 @@ impl SQLContext {
         // Check for group by
         // After projection since there might be number.
         let group_by = match &select_stmt.group_by {
-                GroupByExpr::All(_) =>
-                  Err(
-                      PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported, not all".into())
-                  )?,
-                GroupByExpr::Expressions(expressions, _) => expressions
+            GroupByExpr::All(_) => Err(PolarsError::ComputeError(
+                "Group-By Error: Only positive number or expression are supported, not all".into(),
+            ))?,
+            GroupByExpr::Expressions(expressions, _) => expressions,
+        }
+        .iter()
+        .map(|e| match e {
+            SqlExpr::Value(SQLValue::Number(idx, _)) => {
+                let idx = match idx.parse::<usize>() {
+                    Ok(0) | Err(_) => Err(PolarsError::ComputeError(
+                        format!(
+                            "Group-By Error: Only positive number or expression are supported, \
+                             got {idx}"
+                        )
+                        .into(),
+                    )),
+                    Ok(idx) => Ok(idx),
+                }?;
+                Ok(projection[idx].clone())
             }
-            .iter()
-            .map(
-                |e|match e {
-                  SqlExpr::Value(SQLValue::Number(idx, _)) => {
-                    let idx = match idx.parse::<usize>() {
-                        Ok(0)| Err(_) => Err(
-                        PolarsError::ComputeError(
-                            format!("Group-By Error: Only positive number or expression are supported, got {idx}").into()
-                        )),
-                        Ok(idx) => Ok(idx)
-                    }?;
-                    Ok(projection[idx].clone())
-                  }
-                  SqlExpr::Value(_) => Err(
-                      PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported".into())
-                  ),
-                  _ => parse_sql_expr(e)
-                }
-            )
-            .collect::<Result<Vec<_>, PolarsError>>()?;
+            SqlExpr::Value(_) => Err(PolarsError::ComputeError(
+                "Group-By Error: Only positive number or expression are supported".into(),
+            )),
+            _ => parse_sql_expr(e),
+        })
+        .collect::<Result<Vec<_>, PolarsError>>()?;
 
         let df = if group_by.is_empty() {
             df.select(projection)

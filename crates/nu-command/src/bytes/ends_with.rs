@@ -28,7 +28,8 @@ impl Command for BytesEndsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes ends-with")
-            .input_output_types(vec![(Type::Binary, Type::Bool),
+            .input_output_types(vec![
+                (Type::Binary, Type::Bool),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -37,7 +38,8 @@ impl Command for BytesEndsWith {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check if bytes at the given cell paths end with the pattern.",
+                "For a data structure input, check if bytes at the given cell paths end with the \
+                 pattern.",
             )
             .category(Category::Bytes)
     }

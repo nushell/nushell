@@ -44,9 +44,12 @@ impl PluginCommand for ListContains {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Returns boolean indicating if a literal element was found in a list column",
-                example: "let df = [[a]; [[a,b,c]] [[b,c,d]] [[c,d,f]]] | polars into-df -s {a: list<str>};
-                let df2 = $df | polars with-column [(polars col a | polars list-contains (polars lit a) | polars as b)] | polars collect;
+                description: "Returns boolean indicating if a literal element was found in a list \
+                              column",
+                example: "let df = [[a]; [[a,b,c]] [[b,c,d]] [[c,d,f]]] | polars into-df -s {a: \
+                          list<str>};
+                let df2 = $df | polars with-column [(polars col a | polars list-contains (polars \
+                          lit a) | polars as b)] | polars collect;
                 $df2.b",
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -65,9 +68,12 @@ impl PluginCommand for ListContains {
                 ),
             },
             Example {
-                description: "Returns boolean indicating if an element from another column was found in a list column",
-                example: "let df = [[a, b]; [[a,b,c], a] [[b,c,d], f] [[c,d,f], f]] | polars into-df -s {a: list<str>, b: str};
-                let df2 = $df | polars with-column [(polars col a | polars list-contains b | polars as c)] | polars collect;
+                description: "Returns boolean indicating if an element from another column was \
+                              found in a list column",
+                example: "let df = [[a, b]; [[a,b,c], a] [[b,c,d], f] [[c,d,f], f]] | polars \
+                          into-df -s {a: list<str>, b: str};
+                let df2 = $df | polars with-column [(polars col a | polars list-contains b | \
+                          polars as c)] | polars collect;
                 $df2.c",
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -86,9 +92,12 @@ impl PluginCommand for ListContains {
                 ),
             },
             Example {
-                description: "Returns boolean indicating if an element from another expression was found in a list column",
-                example: "let df = [[a, b]; [[1,2,3], 4] [[2,4,1], 2] [[2,1,6], 3]] | polars into-df -s {a: list<i64>, b: i64};
-                let df2 = $df | polars with-column [(polars col a | polars list-contains ((polars col b) * 2) | polars as c)] | polars collect;
+                description: "Returns boolean indicating if an element from another expression \
+                              was found in a list column",
+                example: "let df = [[a, b]; [[1,2,3], 4] [[2,4,1], 2] [[2,1,6], 3]] | polars \
+                          into-df -s {a: list<i64>, b: i64};
+                let df2 = $df | polars with-column [(polars col a | polars list-contains ((polars \
+                          col b) * 2) | polars as c)] | polars collect;
                 $df2.c",
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -105,7 +114,7 @@ impl PluginCommand for ListContains {
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
-            }
+            },
         ]
     }
 

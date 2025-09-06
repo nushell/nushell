@@ -59,7 +59,8 @@ impl PluginCommand for StrReplace {
         vec![
             Example {
                 description: "Replaces string in column",
-                example: "[[a]; [abc] [abcabc]] | polars into-df | polars select (polars col a | polars str-replace --pattern ab --replace AB) | polars collect",
+                example: "[[a]; [abc] [abcabc]] | polars into-df | polars select (polars col a | \
+                          polars str-replace --pattern ab --replace AB) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -74,7 +75,8 @@ impl PluginCommand for StrReplace {
             },
             Example {
                 description: "Replaces string",
-                example: "[abc abc abc] | polars into-df | polars str-replace --pattern ab --replace AB",
+                example: "[abc abc abc] | polars into-df | polars str-replace --pattern ab \
+                          --replace AB",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

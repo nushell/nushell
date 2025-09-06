@@ -27,7 +27,10 @@ impl Command for StrEndswith {
         Signature::build("str ends-with")
             .input_output_types(vec![
                 (Type::String, Type::Bool),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Bool)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -36,7 +39,8 @@ impl Command for StrEndswith {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result.",
+                "For a data structure input, check strings at the given cell paths, and replace \
+                 with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)

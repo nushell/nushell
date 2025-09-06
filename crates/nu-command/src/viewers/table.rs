@@ -42,7 +42,8 @@ impl Command for Table {
     }
 
     fn extra_description(&self) -> &str {
-        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
+        "If the table contains a column called 'index', this column is used as the table index \
+         instead of the usual continuous index."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -91,13 +92,15 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "expand the table structure in collapse mode.\nBe aware collapse mode currently \
+                 doesn't support width control",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                "abbreviate the data in the table by truncating the middle part and only showing \
+                 amount provided on top and bottom",
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
@@ -195,7 +198,8 @@ impl Command for Table {
                 result: None,
             },
             Example {
-                description: "Set the starting number of the #/index column to 100 for a single run",
+                description: "Set the starting number of the #/index column to 100 for a single \
+                              run",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },

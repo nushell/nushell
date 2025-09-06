@@ -49,7 +49,8 @@ impl FromStr for NuCursorShape {
             "blink_underscore" => Ok(NuCursorShape::BlinkUnderscore),
             "inherit" => Ok(NuCursorShape::Inherit),
             _ => Err(
-                "'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'",
+                "'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' \
+                 or 'inherit'",
             ),
         }
     }

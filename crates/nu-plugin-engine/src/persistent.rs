@@ -112,7 +112,8 @@ impl PersistentPlugin {
                 )
             {
                 log::warn!(
-                    "{}: Trying again with stdio communication because mode {:?} failed with {result:?}",
+                    "{}: Trying again with stdio communication because mode {:?} failed with \
+                     {result:?}",
                     self.identity.name(),
                     mutable.preferred_mode
                 );

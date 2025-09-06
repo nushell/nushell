@@ -76,7 +76,8 @@ mod tests {
                     (
                         "zzz",
                         None,
-                        "'baz' does share a character, but rustc rule is edit distance must be <= 1/3 of the length of the user input",
+                        "'baz' does share a character, but rustc rule is edit distance must be <= \
+                         1/3 of the length of the user input",
                     ),
                 ],
             ),

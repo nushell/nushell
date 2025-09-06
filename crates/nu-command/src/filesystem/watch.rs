@@ -59,29 +59,43 @@ impl Command for Watch {
                 (Type::Nothing, Type::Nothing),
                 (
                     Type::Nothing,
-                    Type::Table(vec![
-                        ("operation".into(), Type::String),
-                        ("path".into(), Type::String),
-                        ("new_path".into(), Type::String),
-                    ].into_boxed_slice())
+                    Type::Table(
+                        vec![
+                            ("operation".into(), Type::String),
+                            ("path".into(), Type::String),
+                            ("new_path".into(), Type::String),
+                        ]
+                        .into_boxed_slice(),
+                    ),
                 ),
             ])
-            .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
+            .required(
+                "path",
+                SyntaxShape::Filepath,
+                "The path to watch. Can be a file or directory.",
+            )
             .optional(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
+                SyntaxShape::Closure(Some(vec![
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                ])),
+                "Some Nu code to run whenever a file changes. The closure will be passed \
+                 `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
             )
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
-                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated)",
+                "Debounce changes for this many milliseconds (default: 100). Adjust if you find \
+                 that single writes are reported as multiple events (deprecated)",
                 Some('d'),
             )
             .named(
                 "debounce",
                 SyntaxShape::Duration,
-                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events",
+                "Debounce changes for this duration (default: 100ms). Adjust if you find that \
+                 single writes are reported as multiple events",
                 None,
             )
             .named(
@@ -93,11 +107,20 @@ impl Command for Watch {
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
+                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is \
+                 a file (default: true)",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
+            .switch(
+                "quiet",
+                "Hide the initial status message (default: false)",
+                Some('q'),
+            )
+            .switch(
+                "verbose",
+                "Operate in verbose mode (default: false)",
+                Some('v'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -260,7 +283,8 @@ impl Command for Watch {
                 result: None,
             },
             Example {
-                description: "`watch` (when run without a closure) can also emit a stream of events it detects.",
+                description: "`watch` (when run without a closure) can also emit a stream of \
+                              events it detects.",
                 example: r#"watch /foo/bar
     | where operation == Create
     | first 5
@@ -275,7 +299,8 @@ impl Command for Watch {
                 result: None,
             },
             Example {
-                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
+                description: "Note: if you are looking to run a command every N units of time, \
+                              this can be accomplished with a loop and sleep",
                 example: r#"loop { command; sleep duration }"#,
                 result: None,
             },

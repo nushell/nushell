@@ -90,7 +90,8 @@ impl PluginCommand for ConvertTimeZone {
                 ),
             },
             Example {
-                description: "Timezone conversions for timezone-naive datetime will assume the original timezone is UTC",
+                description: "Timezone conversions for timezone-naive datetime will assume the \
+                              original timezone is UTC",
                 example: r#"["2025-04-10 09:30:00" "2025-04-10 10:30:00"] | polars into-df
                     | polars as-datetime "%Y-%m-%d %H:%M:%S" --naive
                     | polars select (polars col datetime | polars convert-time-zone "America/New_York")"#,
