@@ -797,7 +797,7 @@ fn parse_extern_inner(
             (spans[0], 1)
         };
 
-    let extern_call = working_set.get_span_contents(name_span).to_vec();
+    let extern_call = working_set.get_span_contents(name_span);
     if extern_call != b"extern" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for extern command".into(),
@@ -813,7 +813,11 @@ fn parse_extern_inner(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&extern_call) {
+    //
+    // NOTE: Here we only search for `extern` in the permanent state,
+    // since recursively redefining `extern` is dangerous,
+    // see https://github.com/nushell/nushell/issues/16586
+    let (call, call_span) = match working_set.permanent().find_decl(extern_call, &[]) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
