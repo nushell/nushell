@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-table"
 edition = "2024"
 license = "MIT"
 name = "nu-table"
-version = "0.106.2"
+version = "0.107.1"
 
 [lib]
 bench = false
@@ -14,13 +14,13 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.106.2", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.106.2", default-features = false }
-nu-color-config = { path = "../nu-color-config", version = "0.106.2" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.107.1", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.107.1", default-features = false }
+nu-color-config = { path = "../nu-color-config", version = "0.107.1" }
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
 
 [dev-dependencies]
-# nu-test-support = { path="../nu-test-support", version = "0.106.2"  }
+# nu-test-support = { path="../nu-test-support", version = "0.107.1"  }

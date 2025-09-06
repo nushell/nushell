@@ -5,12 +5,12 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-std"
 edition = "2024"
 license = "MIT"
 name = "nu-std"
-version = "0.106.2"
+version = "0.107.1"
 
 [dependencies]
-nu-parser = { version = "0.106.2", path = "../nu-parser" }
-nu-protocol = { version = "0.106.2", path = "../nu-protocol", default-features = false }
-nu-engine = { version = "0.106.2", path = "../nu-engine", default-features = false }
+nu-parser = { version = "0.107.1", path = "../nu-parser" }
+nu-protocol = { version = "0.107.1", path = "../nu-protocol", default-features = false }
+nu-engine = { version = "0.107.1", path = "../nu-engine", default-features = false }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 
 log = "0.4"

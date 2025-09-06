@@ -8,7 +8,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
 edition = "2024"
 license = "MIT"
 name = "nu-json"
-version = "0.106.2"
+version = "0.107.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,11 +24,11 @@ linked-hash-map = { version = "0.5", optional = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-nu-utils = { path = "../nu-utils", version = "0.106.2", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.107.1", default-features = false }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.106.2" }
-nu-path = { path = "../nu-path", version = "0.106.2" }
+nu-test-support = { path = "../nu-test-support", version = "0.107.1" }
+nu-path = { path = "../nu-path", version = "0.107.1" }
 serde_json = "1.0"
 fancy-regex = "0.16.1"
 pretty_assertions = { workspace = true }

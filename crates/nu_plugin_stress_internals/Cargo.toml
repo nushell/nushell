@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_stre
 edition = "2024"
 license = "MIT"
 name = "nu_plugin_stress_internals"
-version = "0.106.2"
+version = "0.107.1"
 
 [[bin]]
 name = "nu_plugin_stress_internals"

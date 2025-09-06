@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-experimental"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-experimental"
-version = "0.106.2"
+version = "0.107.1"
 
 [dependencies]
 itertools.workspace = true

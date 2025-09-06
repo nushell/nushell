@@ -16,6 +16,7 @@ pub fn create_default_context() -> EngineState {
         // Core
         bind_command! {
             Alias,
+            Attr,
             AttrCategory,
             AttrDeprecated,
             AttrExample,
@@ -28,6 +29,7 @@ pub fn create_default_context() -> EngineState {
             Describe,
             Do,
             Echo,
+            Error,
             ErrorMake,
             ExportAlias,
             ExportCommand,

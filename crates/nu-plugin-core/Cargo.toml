@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-core
 edition = "2024"
 license = "MIT"
 name = "nu-plugin-core"
-version = "0.106.2"
+version = "0.107.1"
 
 [lib]
 bench = false
@@ -14,8 +14,8 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.106.2" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.106.2", default-features = false }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1" }
+nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.107.1", default-features = false }
 
 rmp-serde = { workspace = true }
 serde = { workspace = true }

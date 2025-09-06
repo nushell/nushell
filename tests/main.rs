@@ -3,6 +3,7 @@ extern crate nu_test_support;
 mod const_;
 mod eval;
 mod hooks;
+mod integration;
 mod modules;
 mod overlays;
 mod parsing;

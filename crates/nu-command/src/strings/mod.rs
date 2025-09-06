@@ -1,6 +1,7 @@
 mod ansi;
 mod base;
 mod char_;
+mod detect;
 mod detect_columns;
 mod encode_decode;
 mod format;
@@ -15,6 +16,7 @@ pub use base::{
     EncodeBase64, EncodeHex,
 };
 pub use char_::Char;
+pub use detect::Detect;
 pub use detect_columns::*;
 pub use encode_decode::*;
 pub use format::*;

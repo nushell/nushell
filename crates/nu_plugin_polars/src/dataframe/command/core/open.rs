@@ -173,8 +173,8 @@ fn command(
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
-            PolarsFileType::Csv | PolarsFileType::Tsv => {
-                from_csv(plugin, engine, call, resource, is_eager)
+            file_type @ (PolarsFileType::Csv | PolarsFileType::Tsv) => {
+                from_csv(plugin, engine, call, file_type, resource, is_eager)
             }
             PolarsFileType::Parquet => {
                 from_parquet(plugin, engine, call, resource, is_eager, hive_options)
@@ -501,6 +501,7 @@ fn from_csv(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    file_type: PolarsFileType,
     resource: Resource,
     is_eager: bool,
 ) -> Result<Value, ShellError> {
@@ -520,7 +521,10 @@ fn from_csv(
         let csv_reader = LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options);
 
         let csv_reader = match delimiter {
-            None => csv_reader,
+            None => match file_type {
+                PolarsFileType::Tsv => csv_reader.with_separator(b'\t'),
+                _ => csv_reader,
+            },
             Some(d) => {
                 if d.item.len() != 1 {
                     return Err(ShellError::GenericError {

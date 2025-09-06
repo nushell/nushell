@@ -11,7 +11,7 @@ license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.87.0"
-version = "0.106.2"
+version = "0.107.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -145,7 +145,7 @@ getrandom = "0.2" # pick same version that rand requires
 rand_chacha = "0.9"
 ratatui = "0.29"
 rayon = "1.11"
-reedline = "0.41.0"
+reedline = "0.42.0"
 rmp = "0.8"
 rmp-serde = "1.3"
 roxmltree = "0.20"
@@ -211,23 +211,23 @@ result_large_err = "allow"
 workspace = true
 
 [dependencies]
-nu-cli = { path = "./crates/nu-cli", version = "0.106.2" }
-nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.106.2" }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.106.2" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.106.2" }
-nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.106.2", optional = true }
-nu-command = { path = "./crates/nu-command", version = "0.106.2", default-features = false, features = ["os"] }
-nu-engine = { path = "./crates/nu-engine", version = "0.106.2" }
-nu-experimental = { path = "./crates/nu-experimental", version = "0.106.2" }
-nu-explore = { path = "./crates/nu-explore", version = "0.106.2" }
-nu-lsp = { path = "./crates/nu-lsp/", version = "0.106.2" }
-nu-parser = { path = "./crates/nu-parser", version = "0.106.2" }
-nu-path = { path = "./crates/nu-path", version = "0.106.2" }
-nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.106.2" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.106.2" }
-nu-std = { path = "./crates/nu-std", version = "0.106.2" }
-nu-system = { path = "./crates/nu-system", version = "0.106.2" }
-nu-utils = { path = "./crates/nu-utils", version = "0.106.2" }
+nu-cli = { path = "./crates/nu-cli", version = "0.107.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.107.1" }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.107.1" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.107.1" }
+nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.107.1", optional = true }
+nu-command = { path = "./crates/nu-command", version = "0.107.1", default-features = false, features = ["os"] }
+nu-engine = { path = "./crates/nu-engine", version = "0.107.1" }
+nu-experimental = { path = "./crates/nu-experimental", version = "0.107.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.107.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.107.1" }
+nu-parser = { path = "./crates/nu-parser", version = "0.107.1" }
+nu-path = { path = "./crates/nu-path", version = "0.107.1" }
+nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.107.1" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.107.1" }
+nu-std = { path = "./crates/nu-std", version = "0.107.1" }
+nu-system = { path = "./crates/nu-system", version = "0.107.1" }
+nu-utils = { path = "./crates/nu-utils", version = "0.107.1" }
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
 crossterm = { workspace = true }
@@ -256,9 +256,9 @@ nix = { workspace = true, default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.106.2" }
-nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.106.2" }
-nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.106.2" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.107.1" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.107.1" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.107.1" }
 assert_cmd = "2.0"
 dirs = { workspace = true }
 tango-bench = "0.6"
@@ -345,7 +345,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`

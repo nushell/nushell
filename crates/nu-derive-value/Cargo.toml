@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-derive-value"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-derive-value"
-version = "0.106.2"
+version = "0.107.1"
 
 [lib]
 proc-macro = true

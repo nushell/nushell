@@ -3,16 +3,16 @@ authors = ["The Nushell Project Developers"]
 description = "Nushell's integrated LSP server"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-lsp"
 name = "nu-lsp"
-version = "0.106.2"
+version = "0.107.1"
 edition = "2024"
 license = "MIT"
 
 [dependencies]
-nu-cli = { path = "../nu-cli", version = "0.106.2" }
-nu-glob = { path = "../nu-glob", version = "0.106.2" }
-nu-parser = { path = "../nu-parser", version = "0.106.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2" }
-nu-utils = { path = "../nu-utils", version = "0.106.2" }
+nu-cli = { path = "../nu-cli", version = "0.107.1" }
+nu-glob = { path = "../nu-glob", version = "0.107.1" }
+nu-parser = { path = "../nu-parser", version = "0.107.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1" }
+nu-utils = { path = "../nu-utils", version = "0.107.1" }
 
 crossbeam-channel = { workspace = true }
 fancy-regex = { workspace = true }
@@ -27,11 +27,11 @@ serde_json = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.106.2" }
-nu-command = { path = "../nu-command", version = "0.106.2" }
-nu-engine = { path = "../nu-engine", version = "0.106.2" }
-nu-std = { path = "../nu-std", version = "0.106.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.106.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.107.1" }
+nu-command = { path = "../nu-command", version = "0.107.1" }
+nu-engine = { path = "../nu-engine", version = "0.107.1" }
+nu-std = { path = "../nu-std", version = "0.107.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.107.1" }
 
 assert-json-diff = "2.0"
 

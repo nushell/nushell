@@ -10,10 +10,10 @@ name = "nu_plugin_custom_values"
 bench = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.106.2", features = [] }
-nu-protocol = { path = "../nu-protocol", version = "0.106.2", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.107.1", features = [] }
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
 serde = { workspace = true }
 typetag = "0.2"
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.106.2" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.107.1" }
