@@ -1305,6 +1305,15 @@ pub fn parse_internal_call(
                 &positional.shape,
             );
 
+            // The block expression that needs to be compiled eagerly is an `export-env` block.
+            // This is true whether it's part of a module or not
+            match arg.expr {
+                Expr::Block(block_id) if signature.name == "export-env" => {
+                    compile_block_with_id(working_set, block_id);
+                }
+                _ => {}
+            };
+
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                 working_set.error(ParseError::TypeMismatch(
                     positional.shape.to_type(),
@@ -5207,6 +5216,10 @@ pub fn parse_closure_expression(
 
     let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
+    if working_set.parse_errors.is_empty() {
+        compile_block(working_set, &mut output);
+    }
+
     if let Some(signature) = signature {
         output.signature = signature.0;
     }
@@ -6642,23 +6655,36 @@ pub fn parse_block(
         working_set.parse_errors.extend_from_slice(&errors);
     }
 
-    // Do not try to compile blocks that are subexpressions, or when we've already had a parse
-    // failure as that definitely will fail to compile
-    if !is_subexpression && working_set.parse_errors.is_empty() {
-        compile_block(working_set, &mut block);
-    }
-
     block
 }
 
 /// Compile an IR block for the `Block`, adding a compile error on failure
 pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
+    if !working_set.parse_errors.is_empty() {
+        log::error!("compile_block called with parse errors");
+        return;
+    }
+
     match nu_engine::compile(working_set, block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
         }
         Err(err) => working_set.compile_errors.push(err),
     }
+}
+
+pub fn compile_block_with_id(working_set: &mut StateWorkingSet<'_>, block_id: BlockId) {
+    if !working_set.parse_errors.is_empty() {
+        return;
+    }
+    let ir_block = match nu_engine::compile(working_set, working_set.get_block(block_id)) {
+        Ok(ir_block) => Some(ir_block),
+        Err(err) => {
+            working_set.compile_errors.push(err);
+            None
+        }
+    };
+    working_set.get_block_mut(block_id).ir_block = ir_block;
 }
 
 pub fn discover_captures_in_closure(
@@ -7159,6 +7185,10 @@ pub fn parse(
             Arc::new(parse_block(working_set, &output, new_span, scoped, false))
         }
     };
+
+    if working_set.parse_errors.is_empty() {
+        compile_block(working_set, Arc::make_mut(&mut output));
+    }
 
     let mut seen = vec![];
     let mut seen_blocks = HashMap::new();

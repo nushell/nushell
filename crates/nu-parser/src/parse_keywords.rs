@@ -2,7 +2,8 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{
-        CallKind, compile_block, parse_attribute, parse_redirection, redirecting_builtin_error,
+        CallKind, compile_block, compile_block_with_id, parse_attribute, parse_redirection,
+        redirecting_builtin_error,
     },
     type_check::{check_block_input_output, type_compatible},
 };
@@ -629,8 +630,8 @@ fn parse_def_inner(
                         expr: Expr::Closure(block_id),
                         ..
                     } => {
-                        let block = working_set.get_block_mut(*block_id);
-                        block.signature = Box::new(sig.clone());
+                        compile_block_with_id(working_set, *block_id);
+                        working_set.get_block_mut(*block_id).signature = Box::new(sig.clone());
                     }
                     _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
@@ -1744,6 +1745,8 @@ pub fn parse_export_env(
         Span::concat(spans),
         Type::Any,
     )]);
+
+    compile_block_with_id(working_set, block_id);
 
     (pipeline, Some(block_id))
 }
