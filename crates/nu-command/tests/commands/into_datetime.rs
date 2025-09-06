@@ -119,3 +119,23 @@ fn into_datetime_from_record_incompatible_with_offset_flag() {
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));
 }
+
+#[test]
+fn test_k_format_specifier_into_datetime() {
+    let actual = nu!(r#"
+        "20211022_200012" | into datetime --format '%K'
+        "#);
+
+    // Check for the date components - the exact output format may vary
+    assert!(actual.out.contains("22 Oct 2021") || actual.out.contains("2021-10-22"));
+    assert!(actual.out.contains("20:00:12"));
+}
+
+#[test]
+fn test_k_format_specifier_round_trip() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%K' | into datetime --format '%K' | format date '%K'
+        "#);
+
+    assert_eq!(actual.out, "20211022_200012");
+}
