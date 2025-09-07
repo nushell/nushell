@@ -35,7 +35,7 @@ pub enum Unit {
     Week,
 }
 
-/// TODO: something like `Filesize::from_unit` in the future?
+// TODO: something like `Filesize::from_unit` in the future?
 fn duration_mul_and_check(size: i64, factor: i64, span: Span) -> Result<Value, ShellError> {
     match size.checked_mul(factor) {
         Some(val) => Ok(Value::duration(val, span)),
