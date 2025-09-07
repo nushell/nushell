@@ -167,15 +167,23 @@ pub fn trim_quotes_str(s: &str) -> &str {
     }
 }
 
+/// Return type of `check_call`
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum CallKind {
+    Help,
+    Valid,
+    Invalid,
+}
+
 pub(crate) fn check_call(
     working_set: &mut StateWorkingSet,
     command: Span,
     sig: &Signature,
     call: &Call,
-) {
+) -> CallKind {
     // Allow the call to pass if they pass in the help flag
     if call.named_iter().any(|(n, _, _)| n.item == "help") {
-        return;
+        return CallKind::Help;
     }
 
     if call.positional_len() < sig.required_positional.len() {
@@ -191,38 +199,32 @@ pub(crate) fn check_call(
                 }
             });
             if !found {
-                if let Some(last) = call.positional_iter().last() {
-                    working_set.error(ParseError::MissingPositional(
-                        argument.name.clone(),
-                        Span::new(last.span.end, last.span.end),
-                        sig.call_signature(),
-                    ));
-                    return;
+                let end_offset = if let Some(last) = call.positional_iter().last() {
+                    last.span.end
                 } else {
-                    working_set.error(ParseError::MissingPositional(
-                        argument.name.clone(),
-                        Span::new(command.end, command.end),
-                        sig.call_signature(),
-                    ));
-                    return;
-                }
+                    command.end
+                };
+                working_set.error(ParseError::MissingPositional(
+                    argument.name.clone(),
+                    Span::new(end_offset, end_offset),
+                    sig.call_signature(),
+                ));
+                return CallKind::Invalid;
             }
         }
 
         let missing = &sig.required_positional[call.positional_len()];
-        if let Some(last) = call.positional_iter().last() {
-            working_set.error(ParseError::MissingPositional(
-                missing.name.clone(),
-                Span::new(last.span.end, last.span.end),
-                sig.call_signature(),
-            ))
+        let end_offset = if let Some(last) = call.positional_iter().last() {
+            last.span.end
         } else {
-            working_set.error(ParseError::MissingPositional(
-                missing.name.clone(),
-                Span::new(command.end, command.end),
-                sig.call_signature(),
-            ))
-        }
+            command.end
+        };
+        working_set.error(ParseError::MissingPositional(
+            missing.name.clone(),
+            Span::new(end_offset, end_offset),
+            sig.call_signature(),
+        ));
+        return CallKind::Invalid;
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
             if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
@@ -230,9 +232,11 @@ pub(crate) fn check_call(
                     req_flag.long.clone(),
                     command,
                 ));
+                return CallKind::Invalid;
             }
         }
     }
+    CallKind::Valid
 }
 
 /// Parses an unknown argument for the given signature. This handles the parsing as appropriate to
@@ -1000,6 +1004,7 @@ pub fn parse_multispan_value(
 pub struct ParsedInternalCall {
     pub call: Box<Call>,
     pub output: Type,
+    pub call_kind: CallKind,
 }
 
 pub fn parse_internal_call(
@@ -1056,6 +1061,7 @@ pub fn parse_internal_call(
             return ParsedInternalCall {
                 call: Box::new(call),
                 output: Type::Any,
+                call_kind: CallKind::Invalid,
             };
         }
     }
@@ -1323,7 +1329,7 @@ pub fn parse_internal_call(
         spans_idx += 1;
     }
 
-    check_call(working_set, command_span, &signature, &call);
+    let call_kind = check_call(working_set, command_span, &signature, &call);
 
     deprecation
         .into_iter()
@@ -1342,6 +1348,7 @@ pub fn parse_internal_call(
     ParsedInternalCall {
         call: Box::new(call),
         output,
+        call_kind,
     }
 }
 
