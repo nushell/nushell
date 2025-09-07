@@ -428,7 +428,8 @@ impl NuCompleter {
                                         0..0,
                                         self.process_completion(&mut completer, &ctx),
                                     );
-                                    break;
+                                    // We don't want to fallback to file completion here
+                                    return suggestions;
                                 }
                             }
                         }
