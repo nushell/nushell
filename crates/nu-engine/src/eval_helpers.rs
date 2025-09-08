@@ -3,7 +3,7 @@ use crate::{
     eval_ir_block, eval_subexpression,
 };
 use nu_protocol::{
-    PipelineData, ShellError, Value,
+    PipelineData, PipelineExecutionData, ShellError, Value,
     ast::{Block, Expression},
     debugger::{WithDebug, WithoutDebug},
     engine::{EngineState, Stack},
@@ -11,15 +11,15 @@ use nu_protocol::{
 
 /// Type of eval_block() function
 pub type EvalBlockFn =
-    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineExecutionData, ShellError>;
 
 /// Type of eval_ir_block() function
 pub type EvalIrBlockFn =
-    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineExecutionData, ShellError>;
 
 /// Type of eval_block_with_early_return() function
 pub type EvalBlockWithEarlyReturnFn =
-    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineData, ShellError>;
+    fn(&EngineState, &mut Stack, &Block, PipelineData) -> Result<PipelineExecutionData, ShellError>;
 
 /// Type of eval_expression() function
 pub type EvalExpressionFn = fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>;

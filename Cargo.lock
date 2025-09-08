@@ -3721,6 +3721,7 @@ dependencies = [
  "nu-color-config",
  "nu-command",
  "nu-engine",
+ "nu-experimental",
  "nu-glob",
  "nu-parser",
  "nu-path",
@@ -3956,6 +3957,7 @@ version = "0.107.1"
 dependencies = [
  "fancy-regex",
  "log",
+ "nu-experimental",
  "nu-glob",
  "nu-path",
  "nu-protocol",

@@ -126,7 +126,9 @@ pub fn evaluate_file(
     let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
+                .map(|p| p.body)
+            {
                 Ok(data) => data,
                 Err(ShellError::Return { .. }) => {
                     // Allow early return before main is run.

@@ -119,7 +119,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -239,7 +239,9 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+                            .map(|p| p.body)
+                        {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -318,7 +320,8 @@ fn run_hook(
         &mut callee_stack,
         block,
         input,
-    )?;
+    )?
+    .body;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);
