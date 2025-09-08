@@ -176,7 +176,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
             escaped_headers.push(escaped_header_string);
         }
     } else {
-        column_widths = vec![0; headers.len()]
+        column_widths = vec![0; headers.len()];
     }
 
     (escaped_headers, column_widths)
@@ -914,5 +914,55 @@ mod tests {
             Value::test_string("text/markdown"),
             result.expect("There should be a result")
         );
+    }
+
+    #[test]
+    fn test_escape_base_md_characters() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "name" => Value::test_string("orderColumns"),
+                "type" => Value::test_string("'asc' | 'desc' | 'none'"),
+            }),
+            Value::test_record(record! {
+                "name" => Value::test_string("ref"),
+                "type" => Value::test_string("RefObject<SampleTableRef | null>"),
+            }),
+            Value::test_record(record! {
+                "name" => Value::test_string("onChange"),
+                "type" => Value::test_string("(val: 'val\\n:newVal') => void"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                &Config::default()
+            ),
+            one(r#"
+            | name | type |
+            | --- | --- |
+            | orderColumns | 'asc' \| 'desc' \| 'none' |
+            | ref | RefObject<SampleTableRef \| null> |
+            | onChange | (val: 'val:\\nnewVal') => void |
+        "#)
+        );
+
+        assert_eq!(
+            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            one(r#"
+            | name         | type                              |
+            | ------------ | --------------------------------- |
+            | orderColumns | 'asc' \| 'desc' \| 'none'         |
+            | ref          | RefObject<SampleTableRef \| null> |
+            | onChange     | (val: 'val:\\nnewVal') => void    |
+        "#)
+        );
+    }
+
+    #[test]
+    fn test_escape_base_md_characters_in_header() {
+        // TODO
     }
 }
