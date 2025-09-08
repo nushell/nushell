@@ -115,8 +115,9 @@ impl Command for SplitColumn {
                 description: "Split from the right with a single delimiter",
                 example: r#""a-b-c" | split column --right -"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "column1" => Value::test_string("a-b"),
-                    "column2" => Value::test_string("c"),
+                    "column1" => Value::test_string("c"),
+                    "column2" => Value::test_string("b"),
+                    "column3" => Value::test_string("a"),
                 })])),
             },
               Example {
