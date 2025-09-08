@@ -13,17 +13,25 @@ impl Command for RandomUuid {
         Signature::build("random uuid")
             .category(Category::Random)
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .named(
-                "version",
-                SyntaxShape::Int,
-                "The UUID version to generate (1, 3, 4, 5, 7). Defaults to 4 if not specified.",
-                Some('v'),
+            .param(
+                Flag::new("version")
+                    .short('v')
+                    .arg(SyntaxShape::Int)
+                    .desc(
+                        "The UUID version to generate (1, 3, 4, 5, 7). Defaults to 4 if not \
+                         specified.",
+                    )
+                    .completion(Completion::new_list(&["1", "3", "4", "5", "7"])),
             )
-            .named(
-                "namespace",
-                SyntaxShape::String,
-                "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). Required for v3 and v5.",
-                Some('n'),
+            .param(
+                Flag::new("namespace")
+                    .short('n')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). Required for v3 \
+                         and v5.",
+                    )
+                    .completion(Completion::new_list(&["dns", "url", "oid", "x500"])),
             )
             .named(
                 "name",

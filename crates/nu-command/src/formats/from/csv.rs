@@ -49,11 +49,15 @@ impl Command for FromCsv {
                 None,
             )
             .switch("no-infer", "no field type inferencing", None)
-            .named(
-                "trim",
-                SyntaxShape::String,
-                "drop leading and trailing whitespaces around headers names and/or field values",
-                Some('t'),
+            .param(
+                Flag::new("trim")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "drop leading and trailing whitespaces around headers names and/or field \
+                         values",
+                    )
+                    .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
             .category(Category::Formats)
     }

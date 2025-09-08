@@ -13,9 +13,10 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    casing::Casing, did_you_mean, engine::StateWorkingSet, eval_const::eval_constant,
+    BlockId, Completion, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID,
+    ParseError, PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    VarId, ast::*, casing::Casing, did_you_mean, engine::StateWorkingSet,
+    eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -1118,7 +1119,7 @@ pub fn parse_internal_call(
                     desc: "".to_string(),
                     var_id: None,
                     default_value: None,
-                    custom_completion: None,
+                    completion: None,
                 })
             }
 
@@ -3833,7 +3834,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
                 shape: SyntaxShape::Any,
                 var_id: Some(var_id),
                 default_value: None,
-                custom_completion: None,
+                completion: None,
             });
 
             compile_block(working_set, &mut block);
@@ -4018,7 +4019,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             required: false,
                                             var_id: Some(var_id),
                                             default_value: None,
-                                            custom_completion: None,
+                                            completion: None,
                                         },
                                         type_annotated: false,
                                     });
@@ -4080,7 +4081,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 required: false,
                                                 var_id: Some(var_id),
                                                 default_value: None,
-                                                custom_completion: None,
+                                                completion: None,
                                             },
                                             type_annotated: false,
                                         });
@@ -4123,7 +4124,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         required: false,
                                         var_id: Some(var_id),
                                         default_value: None,
-                                        custom_completion: None,
+                                        completion: None,
                                     },
                                     type_annotated: false,
                                 });
@@ -4191,7 +4192,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         shape: SyntaxShape::Any,
                                         var_id: Some(var_id),
                                         default_value: None,
-                                        custom_completion: None,
+                                        completion: None,
                                     },
                                     required: false,
                                     type_annotated: false,
@@ -4219,7 +4220,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     shape: SyntaxShape::Any,
                                     var_id: Some(var_id),
                                     default_value: None,
-                                    custom_completion: None,
+                                    completion: None,
                                 }));
                                 parse_mode = ParseMode::Arg;
                             }
@@ -4246,7 +4247,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         shape: SyntaxShape::Any,
                                         var_id: Some(var_id),
                                         default_value: None,
-                                        custom_completion: None,
+                                        completion: None,
                                     },
                                     required: true,
                                     type_annotated: false,
@@ -4271,7 +4272,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         .expect("If `bytes` contains `@` splitn returns 2 slices");
                                     (
                                         parse_shape_name(working_set, shape_name, shape_span),
-                                        parse_completer(working_set, cmd_name, cmd_span),
+                                        parse_completer(working_set, cmd_name, cmd_span)
+                                            .map(Completion::Command),
                                     )
                                 } else {
                                     (parse_shape_name(working_set, &contents, span), None)
@@ -4283,25 +4285,37 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             PositionalArg {
                                                 shape,
                                                 var_id,
-                                                custom_completion,
+                                                completion,
                                                 ..
                                             },
                                         required: _,
                                         type_annotated,
                                     } => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                        *custom_completion = completer;
+                                        working_set.set_variable_type(
+                                            var_id.expect(
+                                                "internal error: all custom parameters must have \
+                                                 var_ids",
+                                            ),
+                                            syntax_shape.to_type(),
+                                        );
+                                        *completion = completer;
                                         *shape = syntax_shape;
                                         *type_annotated = true;
                                     }
                                     Arg::RestPositional(PositionalArg {
                                         shape,
                                         var_id,
-                                        custom_completion,
+                                        completion,
                                         ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
-                                        *custom_completion = completer;
+                                        working_set.set_variable_type(
+                                            var_id.expect(
+                                                "internal error: all custom parameters must have \
+                                                 var_ids",
+                                            ),
+                                            Type::List(Box::new(syntax_shape.to_type())),
+                                        );
+                                        *completion = completer;
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag {
@@ -4309,7 +4323,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             Flag {
                                                 arg,
                                                 var_id,
-                                                custom_completion,
+                                                completion,
                                                 ..
                                             },
                                         type_annotated,
@@ -4322,7 +4336,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 span,
                                             ));
                                         }
-                                        *custom_completion = completer;
+                                        *completion = completer;
                                         *arg = Some(syntax_shape);
                                         *type_annotated = true;
                                     }
@@ -5726,12 +5740,6 @@ pub fn parse_math_expression(
     let mut lhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
     for not_start_span in not_start_spans.iter().rev() {
-        // lhs = Expression {
-        //     expr: Expr::UnaryNot(Box::new(lhs)),
-        //     span: Span::new(*not_start_span, spans[idx].end),
-        //     ty: Type::Bool,
-        //     custom_completion: None,
-        // };
         lhs = Expression::new(
             working_set,
             Expr::UnaryNot(Box::new(lhs)),
@@ -5802,12 +5810,6 @@ pub fn parse_math_expression(
         let mut rhs = parse_value(working_set, spans[idx], &SyntaxShape::Any);
 
         for not_start_span in not_start_spans.iter().rev() {
-            // rhs = Expression {
-            //     expr: Expr::UnaryNot(Box::new(rhs)),
-            //     span: Span::new(*not_start_span, spans[idx].end),
-            //     ty: Type::Bool,
-            //     custom_completion: None,
-            // };
             rhs = Expression::new(
                 working_set,
                 Expr::UnaryNot(Box::new(rhs)),
