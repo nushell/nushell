@@ -112,7 +112,66 @@ impl Command for SplitColumn {
                 ])),
             },
             Example {
-                description: "Split from the right using --right",
+                description: "Split from the right with a single delimiter",
+                example: r#""a-b-c" | split column --right -"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "column1" => Value::test_string("a-b"),
+                    "column2" => Value::test_string("c"),
+                })])),
+            },
+              Example {
+                description: "Right Split a string into columns of char and remove the empty columns",
+                example: "'abc' | split column --right --collapse-empty ''",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column1" => Value::test_string("c"),
+                        "column2" => Value::test_string("b"),
+                        "column3" => Value::test_string("a"),
+                })])),
+            },
+            Example {
+                description: "Right Split a list of strings into a table",
+                example: "['a-b' 'c-d'] | split column --right -",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("a"),
+                    }),
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("d"),
+                        "column2" => Value::test_string("c"),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Right Split a list of strings into a table, ignoring padding",
+                example: r"['a -  b' 'c  -    d'] | split column --right --regex '\s*-\s*'",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("a"),
+                    }),
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("d"),
+                        "column2" => Value::test_string("c"),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Split into columns, last column may contain the delimiter",
+                example: r"['author: Shahid Afridi' r#'title: Where's Goober?: An Eleanor & Park book'#] | split column --right --number 2 ': ' key value",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "key" => Value::test_string("author"),
+                        "value" => Value::test_string("Shahid Afridi"),
+                    }),
+                    Value::test_record(record! {
+                        "key" => Value::test_string("title: Where's Goober?"),
+                        "value" => Value::test_string(" An Eleanor & Park book"),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Split from the right using --right with a number",
                 example: r#""a-b-c" | split column --number 2 --right -"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "column1" => Value::test_string("a-b"),
