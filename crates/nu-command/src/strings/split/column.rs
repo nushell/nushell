@@ -120,7 +120,7 @@ impl Command for SplitColumn {
                     "column3" => Value::test_string("a"),
                 })])),
             },
-              Example {
+            Example {
                 description: "Right Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column --right --collapse-empty ''",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
@@ -167,7 +167,7 @@ impl Command for SplitColumn {
                     }),
                     Value::test_record(record! {
                         "key" => Value::test_string("title: Where's Goober?"),
-                        "value" => Value::test_string(" An Eleanor & Park book"),
+                        "value" => Value::test_string("An Eleanor & Park book"),
                     }),
                 ])),
             },
