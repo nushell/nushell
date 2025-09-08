@@ -33,7 +33,8 @@ impl Command for Rotate {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",
+                description: "Rotate a record clockwise, producing a table (like `transpose` but \
+                              with column order reversed)",
                 example: "{a:1, b:2} | rotate",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

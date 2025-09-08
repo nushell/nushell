@@ -288,14 +288,16 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
             make_xml_error("The root node was opened but never closed.", span)
         }
         roxmltree::Error::DtdDetected => make_xml_error(
-            "XML document with DTD detected.\nDTDs are disabled by default to prevent denial-of-service attacks (use --allow-dtd to parse anyway)",
+            "XML document with DTD detected.\nDTDs are disabled by default to prevent \
+             denial-of-service attacks (use --allow-dtd to parse anyway)",
             span,
         ),
         roxmltree::Error::NodesLimitReached => make_xml_error("Node limit was reached.", span),
         roxmltree::Error::AttributesLimitReached => make_xml_error("Attribute limit reached", span),
         roxmltree::Error::NamespacesLimitReached => make_xml_error("Namespace limit reached", span),
         roxmltree::Error::UnexpectedDeclaration(pos) => make_xml_error_spanned(
-            "An XML document can have only one XML declaration and it must be at the start of the document.",
+            "An XML document can have only one XML declaration and it must be at the start of the \
+             document.",
             source,
             pos,
         ),

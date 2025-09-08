@@ -240,7 +240,8 @@ fn run_custom_command_with_rest_and_flag() {
 #[test]
 fn run_custom_command_with_empty_rest() {
     let actual = nu!("
-            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | is-empty
+            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | \
+                      is-empty
         ");
 
     assert_eq!(actual.out, "true");
@@ -268,7 +269,8 @@ fn run_custom_command_with_rest_other_name() {
 #[test]
 fn alias_a_load_env() {
     let actual = nu!("
-            def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); activate; $env.BOB
+            def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); \
+                      activate; $env.BOB
         ");
 
     assert_eq!(actual.out, "SAM");
@@ -460,7 +462,8 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
 #[test]
 fn proper_shadow_let_aliases() {
     let actual = nu!("
-        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; print $DEBUG
+        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; \
+                      print $DEBUG
         ");
     assert_eq!(actual.out, "falsetruefalse");
 }
@@ -1079,9 +1082,10 @@ mod variable_scoping {
             "ZZZ",
         );
         test_variable_scope(
-            " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { echo $input } } }
+            " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { \
+             echo $input } } }
                 test ZZZ ",
-                "ZZZ"
+            "ZZZ",
         );
         test_variable_scope_list(
             " def test [input] { echo [0 1 2] | each { |_| echo $input } }
@@ -1089,12 +1093,14 @@ mod variable_scoping {
             &["ZZZ", "ZZZ", "ZZZ"],
         );
         test_variable_scope_list(
-            " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
+            " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo \
+             $input}} }
                 test ZZZ ",
             &["ZZZ", "ZZZ", "ZZZ"],
         );
         test_variable_scope_list(
-            " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
+            " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else \
+             {echo $input}} }
                 test ZZZ ",
             &["ZZZ", "ZZZ", "ZZZ"],
         );

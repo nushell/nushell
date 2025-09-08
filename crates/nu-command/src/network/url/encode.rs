@@ -15,19 +15,24 @@ impl Command for UrlEncode {
         Signature::build("url encode")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .switch(
-            "all",
-            "encode all non-alphanumeric chars including `/`, `.`, `:`",
-            Some('a'))
+                "all",
+                "encode all non-alphanumeric chars including `/`, `.`, `:`",
+                Some('a'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result.",
+                "For a data structure input, check strings at the given cell paths, and replace \
+                 with result.",
             )
             .category(Category::Strings)
     }
@@ -65,7 +70,8 @@ impl Command for UrlEncode {
             },
             Example {
                 description: "Encode multiple urls with escape characters in list",
-                example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
+                example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 \
+                          34'] | url encode",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("https://example.com/foo%20bar"),

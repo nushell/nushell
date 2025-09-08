@@ -32,12 +32,19 @@ impl Command for StrIndexOf {
         Signature::build("str index-of")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Int)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "The string to find in the input.")
+            .required(
+                "string",
+                SyntaxShape::String,
+                "The string to find in the input.",
+            )
             .switch(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",
@@ -51,7 +58,8 @@ impl Command for StrIndexOf {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, search strings at the given cell paths, and replace with result.",
+                "For a data structure input, search strings at the given cell paths, and replace \
+                 with result.",
             )
             .named(
                 "range",

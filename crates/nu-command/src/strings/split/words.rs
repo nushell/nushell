@@ -18,7 +18,7 @@ impl Command for SplitWords {
                 (Type::String, Type::List(Box::new(Type::String))),
                 (
                     Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::List(Box::new(Type::String))))
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
                 ),
             ])
             .allow_variants_without_examples(true)
@@ -51,7 +51,8 @@ impl Command for SplitWords {
             )
             .switch(
                 "utf-8-bytes",
-                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
+                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are \
+                 length 2+)",
                 Some('b'),
             )
     }
@@ -75,7 +76,8 @@ impl Command for SplitWords {
                 )),
             },
             Example {
-                description: "Split the string's words, of at least 3 characters, into separate rows",
+                description: "Split the string's words, of at least 3 characters, into separate \
+                              rows",
                 example: "'hello to the world' | split words --min-word-length 3",
                 result: Some(Value::list(
                     vec![
@@ -88,7 +90,9 @@ impl Command for SplitWords {
             },
             Example {
                 description: "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | \
+                          split words --min-word-length 2 | uniq --count | sort-by count \
+                          --reverse | first 10",
                 result: None,
             },
         ]

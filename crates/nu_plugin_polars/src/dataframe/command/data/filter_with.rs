@@ -61,7 +61,8 @@ impl PluginCommand for FilterWith {
             },
             Example {
                 description: "Filter dataframe using an expression",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars filter-with ((polars col a) > 1)",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars filter-with ((polars col \
+                          a) > 1)",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

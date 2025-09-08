@@ -65,7 +65,8 @@ impl SimplePluginCommand for QueryJson {
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: "Get the first child from the children array in reverse the order using the @reverse modifier from a json object",
+                description: "Get the first child from the children array in reverse the order \
+                              using the @reverse modifier from a json object",
                 example: r#"'{"children": ["Sara","Alex","Jack"]}' | query json "children|@reverse|0""#,
                 result: Some(Value::test_string("Jack")),
             },

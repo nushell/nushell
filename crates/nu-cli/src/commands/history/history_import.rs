@@ -48,7 +48,8 @@ Note that history item IDs are ignored when importing from file."#
         vec![
             Example {
                 example: "history import",
-                description: "Append all items from history in the other format to the current history",
+                description: "Append all items from history in the other format to the current \
+                              history",
                 result: None,
             },
             Example {

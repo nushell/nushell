@@ -66,7 +66,8 @@ impl PluginCommand for StrStripChars {
                 ),
             },
             Example {
-                description: "Strip characters from both ends of strings in a column using an expression",
+                description: "Strip characters from both ends of strings in a column using an \
+                              expression",
                 example: r#"[[text]; ["!!!hello!!!"] ["!!!world!!!"] ["!!!test!!!"]] | polars into-df | polars select (polars col text | polars str-strip-chars (polars lit "!")) | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(

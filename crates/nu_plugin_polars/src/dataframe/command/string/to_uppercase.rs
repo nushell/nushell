@@ -50,7 +50,8 @@ impl PluginCommand for ToUpperCase {
         vec![
             Example {
                 description: "Modifies strings in a column to uppercase",
-                example: "[[a]; [Abc]] | polars into-df | polars select (polars col a | polars uppercase) | polars collect",
+                example: "[[a]; [Abc]] | polars into-df | polars select (polars col a | polars \
+                          uppercase) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

@@ -41,7 +41,8 @@ impl Command for FormatBits {
             .named(
                 "endian",
                 SyntaxShape::String,
-                "Byte encode endian. Only applies to int, filesize, duration and bool, as well as tables and records of those. Available options: native, little, big(default)",
+                "Byte encode endian. Only applies to int, filesize, duration and bool, as well as \
+                 tables and records of those. Available options: native, little, big(default)",
                 Some('e'),
             )
             .rest(
@@ -83,12 +84,14 @@ impl Command for FormatBits {
                 result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
-                description: "convert an int into a string, padded to 8 places with 0s (big endian)",
+                description: "convert an int into a string, padded to 8 places with 0s (big \
+                              endian)",
                 example: "258 | format bits",
                 result: Some(Value::string("00000001 00000010", Span::test_data())),
             },
             Example {
-                description: "convert an int into a string, padded to 8 places with 0s (little endian)",
+                description: "convert an int into a string, padded to 8 places with 0s (little \
+                              endian)",
                 example: "258 | format bits --endian little",
                 result: Some(Value::string("00000010 00000001", Span::test_data())),
             },
@@ -108,10 +111,12 @@ impl Command for FormatBits {
                 result: Some(Value::string("00000001", Span::test_data())),
             },
             Example {
-                description: "convert a string into a raw binary string, padded with 0s to 8 places",
+                description: "convert a string into a raw binary string, padded with 0s to 8 \
+                              places",
                 example: "'nushell.sh' | format bits",
                 result: Some(Value::string(
-                    "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000",
+                    "01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 \
+                     01110011 01101000",
                     Span::test_data(),
                 )),
             },

@@ -55,7 +55,8 @@ stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p {
                 })])),
             },
             Example {
-                description: "Execute a SQL query, selecting a declared JSON(B) column that will automatically be parsed",
+                description: "Execute a SQL query, selecting a declared JSON(B) column that will \
+                              automatically be parsed",
                 example: r#"stor create -t my_table -c {data: jsonb}
 [{data: {name: Albert, age: 40}} {data: {name: Barnaby, age: 54}}] | stor insert -t my_table
 stor open | query db "SELECT data FROM my_table WHERE data->>'age' < 45""#,

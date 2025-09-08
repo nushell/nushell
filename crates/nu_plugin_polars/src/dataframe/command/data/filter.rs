@@ -48,7 +48,8 @@ impl PluginCommand for LazyFilter {
         vec![
             Example {
                 description: "Filter dataframe using an expression",
-                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4)",
+                example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars \
+                          col a) >= 4)",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -68,8 +69,11 @@ impl PluginCommand for LazyFilter {
                 ),
             },
             Example {
-                description: "Filter dataframe for rows where dt is within the last 2 days of the maximum dt value",
-                example: "[[dt val]; [2025-04-01 1] [2025-04-02 2] [2025-04-03 3] [2025-04-04 4]] | polars into-df | polars filter ((polars col dt) > ((polars col dt | polars max | $in - 2day)))",
+                description: "Filter dataframe for rows where dt is within the last 2 days of the \
+                              maximum dt value",
+                example: "[[dt val]; [2025-04-01 1] [2025-04-02 2] [2025-04-03 3] [2025-04-04 4]] \
+                          | polars into-df | polars filter ((polars col dt) > ((polars col dt | \
+                          polars max | $in - 2day)))",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -107,7 +111,8 @@ impl PluginCommand for LazyFilter {
             },
             Example {
                 description: "Filter a single column in a group-by context",
-                example: "[[a b]; [foo 1] [foo 2] [foo 3] [bar 2] [bar 3] [bar 4]] | polars into-df
+                example: "[[a b]; [foo 1] [foo 2] [foo 3] [bar 2] [bar 3] [bar 4]] | polars \
+                          into-df
                     | polars group-by a --maintain-order
                     | polars agg {
                         lt: (polars col b | polars filter ((polars col b) < 2) | polars sum)

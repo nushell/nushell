@@ -309,7 +309,9 @@ fn add_month_to_table(
             total_start_offset %= days_of_the_week.len() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
-                err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
+                err_message: "The specified week start day is invalid, expected one of ['su', \
+                              'mo', 'tu', 'we', 'th', 'fr', 'sa']"
+                    .to_string(),
                 span: week_start_day.span,
             });
         }

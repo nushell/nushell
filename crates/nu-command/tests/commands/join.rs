@@ -372,7 +372,8 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
                 ),
                 (
                     "--outer",
-                    "[[a, c, z, b]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3], [null, null, 4, 4]]",
+                    "[[a, c, z, b]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3], [null, null, \
+                     4, 4]]",
                 ),
             ],
         ),
@@ -387,7 +388,8 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
                 // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr = format!(
-                    "{left} | {to_list_stream} join {right} {join_type} {left_on} {right_on} | to nuon"
+                    "{left} | {to_list_stream} join {right} {join_type} {left_on} {right_on} | to \
+                     nuon"
                 );
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);

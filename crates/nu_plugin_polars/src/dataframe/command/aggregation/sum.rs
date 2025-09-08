@@ -41,7 +41,8 @@ impl PluginCommand for ExprSum {
         vec![
             Example {
                 description: "Sums all columns in a dataframe",
-                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars collect",
+                example: "[[a b]; [6 2] [1 4] [4 1]] | polars into-df | polars sum | polars \
+                          collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

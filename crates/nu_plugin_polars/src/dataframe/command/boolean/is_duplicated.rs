@@ -58,7 +58,8 @@ impl PluginCommand for IsDuplicated {
             },
             Example {
                 description: "Create mask indicating duplicated rows in a dataframe",
-                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | polars into-df | polars is-duplicated",
+                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | polars into-df | polars \
+                          is-duplicated",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(

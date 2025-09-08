@@ -21,7 +21,8 @@ impl PluginCommand for ExprIsIn {
     }
 
     fn description(&self) -> &str {
-        "Creates an is-in expression or checks to see if the elements are contained in the right series"
+        "Creates an is-in expression or checks to see if the elements are contained in the right \
+         series"
     }
 
     fn signature(&self) -> Signature {

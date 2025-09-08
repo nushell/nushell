@@ -3235,9 +3235,11 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     }
                     // fall through -- escape not accepted above, must be error.
                     error = error.or(Some(ParseError::InvalidLiteral(
-                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                            "string".into(),
-                            Span::new(span.start + idx, span.end),
+                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value \
+                         10FFFF"
+                            .into(),
+                        "string".into(),
+                        Span::new(span.start + idx, span.end),
                     )));
                     break 'us_loop;
                 }
@@ -4289,7 +4291,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         required: _,
                                         type_annotated,
                                     } => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(
+                                            var_id.expect(
+                                                "internal error: all custom parameters must have \
+                                                 var_ids",
+                                            ),
+                                            syntax_shape.to_type(),
+                                        );
                                         *custom_completion = completer;
                                         *shape = syntax_shape;
                                         *type_annotated = true;
@@ -4300,7 +4308,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         custom_completion,
                                         ..
                                     }) => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
+                                        working_set.set_variable_type(
+                                            var_id.expect(
+                                                "internal error: all custom parameters must have \
+                                                 var_ids",
+                                            ),
+                                            Type::List(Box::new(syntax_shape.to_type())),
+                                        );
                                         *custom_completion = completer;
                                         *shape = syntax_shape;
                                     }
@@ -4314,10 +4328,18 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             },
                                         type_annotated,
                                     } => {
-                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        working_set.set_variable_type(
+                                            var_id.expect(
+                                                "internal error: all custom parameters must have \
+                                                 var_ids",
+                                            ),
+                                            syntax_shape.to_type(),
+                                        );
                                         if syntax_shape == SyntaxShape::Boolean {
                                             working_set.error(ParseError::LabeledError(
-                                                "Type annotations are not allowed for boolean switches.".to_string(),
+                                                "Type annotations are not allowed for boolean \
+                                                 switches."
+                                                    .to_string(),
                                                 "Remove the `: bool` type annotation.".to_string(),
                                                 span,
                                             ));
@@ -4347,7 +4369,10 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         required,
                                         type_annotated,
                                     } => {
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_id = var_id.expect(
+                                            "internal error: all custom parameters must have \
+                                             var_ids",
+                                        );
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Any => {
@@ -4364,8 +4389,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                         ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                            "expected default value to be `{var_type}`"
-                                                        ),
+                                                                "expected default value to be \
+                                                                 `{var_type}`"
+                                                            ),
                                                             expression.span,
                                                         ),
                                                     )
@@ -4419,7 +4445,10 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             None
                                         };
 
-                                        let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
+                                        let var_id = var_id.expect(
+                                            "internal error: all custom parameters must have \
+                                             var_ids",
+                                        );
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
@@ -4440,7 +4469,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             "Default value is the wrong type"
                                                                 .into(),
                                                             format!(
-                                                                "expected default value to be `{t}`"
+                                                                "expected default value to be \
+                                                                 `{t}`"
                                                             ),
                                                             expression_span,
                                                         ),
@@ -5499,12 +5529,20 @@ pub fn parse_assignment_expression(
             end: head.span.end,
         });
         if !contents.starts_with(b"^") {
-            working_set.parse_errors.push(ParseError::LabeledErrorWithHelp {
-                error: "External command calls must be explicit in assignments".into(),
-                label: "add a caret (^) before the command name if you intended to run and capture its output".into(),
-                help: "the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.".into(),
-                span: head.span,
-            });
+            working_set
+                .parse_errors
+                .push(ParseError::LabeledErrorWithHelp {
+                    error: "External command calls must be explicit in assignments".into(),
+                    label: "add a caret (^) before the command name if you intended to run and \
+                            capture its output"
+                        .into(),
+                    help: "the parsing of assignments was changed in 0.97.0, and this would have \
+                           previously been treated as a string. Alternatively, quote the string \
+                           with single or double quotes to avoid it being interpreted as a \
+                           command name. This restriction may be removed in a future release."
+                        .into(),
+                    span: head.span,
+                });
         }
     }
 

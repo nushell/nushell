@@ -600,9 +600,14 @@ impl PipelineData {
                                 if range.is_unbounded() {
                                     return Err(ShellError::GenericError {
                                         error: "Cannot create range".into(),
-                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to \
+                                              this format"
+                                            .into(),
                                         span: Some(span),
-                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        help: Some(
+                                            "Consider using ranges with valid start and end point."
+                                                .into(),
+                                        ),
                                         inner: vec![],
                                     });
                                 }
@@ -611,9 +616,14 @@ impl PipelineData {
                                 if range.is_unbounded() {
                                     return Err(ShellError::GenericError {
                                         error: "Cannot create range".into(),
-                                        msg: "Unbounded ranges are not allowed when converting to this format".into(),
+                                        msg: "Unbounded ranges are not allowed when converting to \
+                                              this format"
+                                            .into(),
                                         span: Some(span),
-                                        help: Some("Consider using ranges with valid start and end point.".into()),
+                                        help: Some(
+                                            "Consider using ranges with valid start and end point."
+                                                .into(),
+                                        ),
                                         inner: vec![],
                                     });
                                 }

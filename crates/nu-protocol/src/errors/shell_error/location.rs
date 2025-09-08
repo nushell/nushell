@@ -22,9 +22,8 @@ impl Location {
     /// This function is not intended to be called directly.
     /// Instead, use the [`location!`] macro to create instances.
     #[doc(hidden)]
-    #[deprecated(
-        note = "This function is not meant to be called directly. Use `nu_protocol::location` instead."
-    )]
+    #[deprecated(note = "This function is not meant to be called directly. Use \
+                         `nu_protocol::location` instead.")]
     pub fn new(file: &'static str, line: u32, column: u32) -> Self {
         Location { file, line, column }
     }
