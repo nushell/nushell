@@ -3565,7 +3565,7 @@ pub fn parse_var_with_opt_type(
             let type_bytes = working_set.get_span_contents(full_span).to_vec();
 
             let (tokens, parse_error) =
-                lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
+                lex_signature(&type_bytes, full_span.start, &[], &[b','], true);
 
             if let Some(parse_error) = parse_error {
                 working_set.error(parse_error);
@@ -6277,10 +6277,12 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         span_offset: start,
     };
     while !lex_state.input.is_empty() {
-        if lex_state.input[0] == b'}' {
-            extra_tokens = true;
-            unclosed = false;
-            break;
+        if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref() {
+            if left == "{" && right == "}" {
+                extra_tokens = true;
+                unclosed = false;
+                break;
+            }
         }
         let additional_whitespace = &[b'\n', b'\r', b','];
         if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
@@ -6314,7 +6316,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
     } else if extra_tokens {
         working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
-            lex_state.span_offset + 1,
+            lex_state.span_offset,
             end,
         )));
     }
