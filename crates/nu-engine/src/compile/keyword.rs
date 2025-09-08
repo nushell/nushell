@@ -737,7 +737,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         in_expr,
-        RedirectModes::value(in_expr.span),
+        RedirectModes::caller(in_expr.span),
         None,
         stream_reg,
     )?;
