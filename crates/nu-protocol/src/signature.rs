@@ -477,14 +477,14 @@ impl Signature {
         match param {
             Parameter::Flag(flag) => {
                 if let Some(s) = flag.short {
-                    debug_assert!(
+                    assert!(
                         !self.get_shorts().contains(&s),
                         "There may be duplicate short flags for '-{s}'"
                     );
                 }
 
                 let name = flag.long.as_str();
-                debug_assert!(
+                assert!(
                     !self.get_names().contains(&name),
                     "There may be duplicate name flags for '--{name}'"
                 );
@@ -498,7 +498,10 @@ impl Signature {
                 self.optional_positional.push(positional_arg);
             }
             Parameter::Rest(positional_arg) => {
-                debug_assert!(self.rest_positional.is_none());
+                assert!(
+                    self.rest_positional.is_none(),
+                    "Tried to set rest arguments more than once"
+                );
                 self.rest_positional = Some(positional_arg);
             }
         }
@@ -739,7 +742,7 @@ impl Signature {
     // XXX: return result instead of a panic
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
         let s = short.inspect(|c| {
-            debug_assert!(
+            assert!(
                 !self.get_shorts().contains(c),
                 "There may be duplicate short flags for '-{c}'"
             );
@@ -747,7 +750,7 @@ impl Signature {
 
         let name = {
             let name: String = name.into();
-            debug_assert!(
+            assert!(
                 !self.get_names().contains(&name.as_str()),
                 "There may be duplicate name flags for '--{name}'"
             );
