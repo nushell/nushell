@@ -929,7 +929,7 @@ mod tests {
             }),
             Value::test_record(record! {
                 "name" => Value::test_string("onChange"),
-                "type" => Value::test_string("(val: 'val\\n:newVal') => void"),
+                "type" => Value::test_string("(val: string) => void\\"),
             }),
         ]);
 
@@ -945,7 +945,7 @@ mod tests {
             | --- | --- |
             | orderColumns | 'asc' \| 'desc' \| 'none' |
             | ref | RefObject<SampleTableRef \| null> |
-            | onChange | (val: 'val:\\nnewVal') => void |
+            | onChange | (val: string) => void\ |
         "#)
         );
 
@@ -956,13 +956,41 @@ mod tests {
             | ------------ | --------------------------------- |
             | orderColumns | 'asc' \| 'desc' \| 'none'         |
             | ref          | RefObject<SampleTableRef \| null> |
-            | onChange     | (val: 'val:\\nnewVal') => void    |
+            | onChange     | (val: string) => void\            |
         "#)
         );
     }
 
     #[test]
     fn test_escape_base_md_characters_in_header() {
-        // TODO
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "name|info" => Value::test_string("beautiful"),
+                "value\\" => Value::test_string("unknow"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|info | value\ |
+            | --- | --- |
+            | beautiful | unknow |
+        "#)
+        );
+
+        assert_eq!(
+            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            one(r#"
+            | name\|info | value\ |
+            | ---------- | ------ |
+            | beautiful  | unknow |
+        "#)
+        );
     }
 }
