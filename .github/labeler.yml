@@ -1,7 +1,7 @@
 # A bot for automatically labelling pull requests 
 # See https://github.com/actions/labeler
 
-A:dataframe:
+A:plugin-polars:
   - changed-files:
     - any-glob-to-any-file:
       - crates/nu_plugin_polars/**
