@@ -67,24 +67,30 @@ jobs:
           - name: rustls-tls
             command: >
               cargo hack check 
-              --workspace 
-              --feature-powerset
               --exclude-features default,native-tls,static-link-openssl
               --features rustls-tls
-              --no-dev-deps
-              --ignore-unknown-features
-              --exclude nu_plugin_custom_values,nu_plugin_example,nu_plugin_formats,nu_plugin_gstat,nu_plugin_inc,nu_plugin_polars,nu_plugin_query,nu_plugin_stress_internals
+
           - name: native-tls
             command: >
               cargo hack check 
-              --workspace 
-              --feature-powerset
               --exclude-features default,rustls-tls
               --features native-tls
-              --no-dev-deps
-              --ignore-unknown-features
-              --exclude nu_plugin_custom_values,nu_plugin_example,nu_plugin_formats,nu_plugin_gstat,nu_plugin_inc,nu_plugin_polars,nu_plugin_query,nu_plugin_stress_internals
 
+    env:
+      COMMON_HACK_FLAGS: >
+        --workspace 
+        --feature-powerset
+        --no-dev-deps
+        --ignore-unknown-features
+        --exclude nu_plugin_custom_values 
+        --exclude nu_plugin_example 
+        --exclude nu_plugin_formats 
+        --exclude nu_plugin_gstat 
+        --exclude nu_plugin_inc 
+        --exclude nu_plugin_polars 
+        --exclude nu_plugin_query 
+        --exclude nu_plugin_stress_internals
+      
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -95,7 +101,7 @@ jobs:
           tool: cargo-hack@0.6
 
       - name: Check all packages
-        run: ${{ matrix.tls.command }}
+        run: ${{ matrix.tls.command }} ${{ env.COMMON_HACK_FLAGS }}
 
   tests:
     strategy:
