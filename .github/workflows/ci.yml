@@ -54,6 +54,7 @@ jobs:
         run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
 
   hack-check:
+    name: Check all Packages - ${{ matrix.tls.name }} (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: true
@@ -62,6 +63,23 @@ jobs:
           - windows-latest
           - macos-13
           - ubuntu-latest
+        tls:
+          - name: rustls-tls
+            command: >
+              cargo hack check 
+              --workspace 
+              --feature-powerset
+              --feature-powerset-exclude native-tls,static-link-openssl
+              --features rustls-tls
+              --no-dev-deps
+          - name: native-tls
+            command: >
+              cargo hack check 
+              --workspace 
+              --feature-powerset
+              --feature-powerset-exclude rustls-tls
+              --features native-tls
+              --no-dev-deps
 
     steps:
       - uses: actions/checkout@v4
@@ -70,13 +88,7 @@ jobs:
       - run: cargo binstall cargo-hack
 
       - name: Check all packages
-        run: >
-          cargo hack check
-          --workspace
-          --feature-powerset
-          --mutually-exclusive-features rustls-tls,native-tls
-          --at-least-one-of rustls-tls,native-tls
-          --no-dev-deps
+        run: ${{ matrix.tls.command }}
 
   tests:
     strategy:
