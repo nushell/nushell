@@ -4159,8 +4159,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(optional_param.to_vec(), span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    optional_param.to_vec(),
+                                    span,
+                                    Type::Any,
+                                    false,
+                                );
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
