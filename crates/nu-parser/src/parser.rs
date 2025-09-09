@@ -3223,7 +3223,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                 let result = char::from_u32(int);
 
                                 if let Some(result) = result {
-                                    let mut buffer = vec![0; 4];
+                                    let mut buffer = [0; 4];
                                     let result = result.encode_utf8(&mut buffer);
 
                                     for elem in result.bytes() {
@@ -4081,7 +4081,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     working_set.error(ParseError::Expected("short flag", span));
                                 }
 
-                                let mut encoded_var_name = vec![0u8; 4];
+                                let mut encoded_var_name = [0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
 
