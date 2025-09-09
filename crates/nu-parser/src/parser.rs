@@ -3223,7 +3223,7 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                 let result = char::from_u32(int);
 
                                 if let Some(result) = result {
-                                    let mut buffer = vec![0; 4];
+                                    let mut buffer = [0; 4];
                                     let result = result.encode_utf8(&mut buffer);
 
                                     for elem in result.bytes() {
@@ -3988,17 +3988,16 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
                                 // The trailing ) is removed further down.
-                                let flags: Vec<_> =
-                                    contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
+                                let flags: Vec<_> = contents.split(|x| x == &b'(').collect();
 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let mut variable_name = flags[0][2..].to_vec();
                                 // Replace the '-' in a variable name with '_'
-                                (0..variable_name.len()).for_each(|idx| {
-                                    if variable_name[idx] == b'-' {
-                                        variable_name[idx] = b'_';
+                                for byte in variable_name.iter_mut() {
+                                    if *byte == b'-' {
+                                        *byte = b'_';
                                     }
-                                });
+                                }
 
                                 if !is_variable(&variable_name) {
                                     working_set.error(ParseError::Expected(
@@ -4050,28 +4049,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     let short_flag =
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
-                                    let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                    let mut variable_name = flags[0][2..].to_vec();
-
-                                    (0..variable_name.len()).for_each(|idx| {
-                                        if variable_name[idx] == b'-' {
-                                            variable_name[idx] = b'_';
-                                        }
-                                    });
-
-                                    if !is_variable(&variable_name) {
-                                        working_set.error(ParseError::Expected(
-                                            "valid variable name for this short flag",
-                                            span,
-                                        ))
-                                    }
-
-                                    let var_id = working_set.add_variable(
-                                        variable_name,
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag {
@@ -4103,7 +4080,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     working_set.error(ParseError::Expected("short flag", span));
                                 }
 
-                                let mut encoded_var_name = vec![0u8; 4];
+                                let mut encoded_var_name = [0u8; 4];
                                 let len = chars[0].encode_utf8(&mut encoded_var_name).len();
                                 let variable_name = encoded_var_name[0..len].to_vec();
 
@@ -4134,12 +4111,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Short flag alias for long flag, e.g. --b (-a)
                             // This is the same as the short flag in --b(-a)
-                            else if contents.starts_with(b"(-") {
+                            else if let Some(short_flag) = contents.strip_prefix(b"(-") {
                                 if matches!(parse_mode, ParseMode::AfterCommaArg) {
                                     working_set
                                         .error(ParseError::Expected("parameter or flag", span));
                                 }
-                                let short_flag = &contents[2..];
 
                                 let short_flag = if !short_flag.ends_with(b")") {
                                     working_set.error(ParseError::Expected("short flag", span));
@@ -4173,19 +4149,22 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 }
                             }
                             // Positional arg, optional
-                            else if contents.ends_with(b"?") {
-                                let contents: Vec<_> = contents[..(contents.len() - 1)].into();
-                                let name = String::from_utf8_lossy(&contents).to_string();
+                            else if let Some(optional_param) = contents.strip_suffix(b"?") {
+                                let name = String::from_utf8_lossy(optional_param).to_string();
 
-                                if !is_variable(&contents) {
+                                if !is_variable(optional_param) {
                                     working_set.error(ParseError::Expected(
                                         "valid variable name for this optional parameter",
                                         span,
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(contents, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    optional_param.to_vec(),
+                                    span,
+                                    Type::Any,
+                                    false,
+                                );
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
