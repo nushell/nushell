@@ -67,19 +67,20 @@ jobs:
           - name: rustls-tls
             command: >-
               cargo hack check 
-              --exclude-features default,native-tls,static-link-openssl
+              --exclude-features native-tls,static-link-openssl
               --features rustls-tls
 
           - name: native-tls
             command: >-
               cargo hack check 
-              --exclude-features default,rustls-tls
+              --exclude-features rustls-tls
               --features native-tls
 
     env:
       COMMON_HACK_FLAGS: >-
         --workspace 
         --feature-powerset
+        --exclude-features default,full
         --no-dev-deps
         --ignore-unknown-features
         --exclude nu_plugin_custom_values 
