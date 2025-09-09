@@ -2,7 +2,7 @@
 name: Nightly build of release binaries failed
 about: Used to submit issues related to binaries release workflow
 title: 'Attention: Nightly build of release binaries failed'
-labels: ['build-package', 'priority']
+labels: ['build-package']
 assignees: ''
 
 ---

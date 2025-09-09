@@ -1,6 +1,6 @@
 name: Feature Request
 description: "Propose a new feature, or a change to existing functionality"
-labels: ["needs-triage", "enhancement"]
+labels: ["status:needs-triage", "category:enhancement"]
 body:
   - type: checkboxes
     attributes:
