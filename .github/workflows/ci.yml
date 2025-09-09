@@ -84,6 +84,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.tls.name }}
       - uses: cargo-bins/cargo-binstall@main
       - run: cargo binstall cargo-hack
 
