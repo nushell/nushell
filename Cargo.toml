@@ -346,7 +346,7 @@ bench = false
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
 # reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
-# nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
+nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
