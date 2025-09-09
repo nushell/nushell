@@ -73,7 +73,7 @@ jobs:
               --features rustls-tls
               --no-dev-deps
               --ignore-unknown-features
-              --exclude nu_plugin_*
+              --exclude "nu_plugin_*"
           - name: native-tls
             command: >
               cargo hack check 
@@ -83,7 +83,7 @@ jobs:
               --features native-tls
               --no-dev-deps
               --ignore-unknown-features
-              --exclude nu_plugin_*
+              --exclude "nu_plugin_*"
 
     steps:
       - uses: actions/checkout@v4
