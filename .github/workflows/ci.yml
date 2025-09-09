@@ -64,14 +64,9 @@ jobs:
           - ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install `cargo-binstall`
-        uses: cargo-bins/cargo-binstall@1
-
-      - name: Install `cargo-hack`
-        run: cargo binstall cargo-hack@^0.6
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/install@cargo-hack
 
       - name: Check all packages
         run: cargo hack check \
