@@ -3697,11 +3697,10 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.50.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4a28e057d01f97e61255210fcff094d74ed0466038633e95017f5beb68e4399"
+version = "0.50.2"
+source = "git+https://github.com/nushell/nu-ansi-term.git?branch=main#654c373775e1d8b70eacd1358b30dd876225483a"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
