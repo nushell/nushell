@@ -53,6 +53,34 @@ jobs:
       - name: Clippy of benchmarks
         run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
 
+  hack-check:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: 
+          - windows-latest
+          - macos-13
+          - ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install `cargo-binstall`
+        uses: cargo-bins/cargo-binstall@1
+
+      - name: Install `cargo-hack`
+        run: cargo binstall cargo-hack@^0.6
+
+      - name: Check all packages
+        run: cargo hack check \
+          --workspace \
+          --feature-powerset \
+          --mutually-exclusive-features rustls-tls,native-tls \
+          --at-least-one-of rustls-tls,native-tls \
+          --no-dev-deps
+
   tests:
     strategy:
       fail-fast: true
