@@ -3988,8 +3988,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
                                 // The trailing ) is removed further down.
-                                let flags: Vec<_> =
-                                    contents.split(|x| x == &b'(').map(|x| x.to_vec()).collect();
+                                let flags: Vec<_> = contents.split(|x| x == &b'(').collect();
 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let mut variable_name = flags[0][2..].to_vec();
