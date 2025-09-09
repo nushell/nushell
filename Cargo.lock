@@ -4042,6 +4042,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "nucleo-matcher",
+ "rstest",
  "serde",
  "serde_json",
  "url",
