@@ -28,7 +28,6 @@ impl Command for For {
                 "Range of the loop.",
             )
             .required("block", SyntaxShape::Block, "The block to run.")
-            .creates_scope()
             .category(Category::Core)
     }
 

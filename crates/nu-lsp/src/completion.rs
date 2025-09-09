@@ -23,7 +23,12 @@ impl LanguageServer {
         // fallback to default completer where
         // the text is truncated to `location` and
         // an extra placeholder token is inserted for correct parsing
+        let is_variable = file_text
+            .get(..location)
+            .and_then(|s| s.rsplit(' ').next())
+            .is_some_and(|last_word| last_word.starts_with('$'));
         let need_fallback = location == 0
+            || is_variable
             || file_text
                 .get(location - 1..location)
                 .and_then(|s| s.chars().next())
