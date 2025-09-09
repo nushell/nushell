@@ -1,3 +1,4 @@
+# trigger audit
 [package]
 authors = ["The Nushell Project Developers"]
 build = "scripts/build.rs"
