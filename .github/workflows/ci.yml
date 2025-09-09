@@ -69,17 +69,21 @@ jobs:
               cargo hack check 
               --workspace 
               --feature-powerset
-              --feature-powerset-exclude native-tls,static-link-openssl
+              --exclude-features native-tls,static-link-openssl
               --features rustls-tls
               --no-dev-deps
+              --ignore-unknown-features
+              --exclude nu_plugin_*
           - name: native-tls
             command: >
               cargo hack check 
               --workspace 
               --feature-powerset
-              --feature-powerset-exclude rustls-tls
+              --exclude-features rustls-tls
               --features native-tls
               --no-dev-deps
+              --ignore-unknown-features
+              --exclude nu_plugin_*
 
     steps:
       - uses: actions/checkout@v4
