@@ -78,7 +78,7 @@ Here are the steps to make sure the PR is properly formatted for the release not
     * Don't be afraid to edit the release notes summaries provided by the PR author; these should be considered a starting point. We want our release notes to meet a certain level of polish, but don't need every contributor to understand the specifics of how we format and style our release notes.
     * **Make sure *every* change is accounted for** in the release notes summary. If a PR deprecates functionality, or an addition also changes how the previous behavior works, *this needs to be noted in the summary!!*
     * TODO explain TODO(release-notes)
-    * TODO expalin user friendly title / third level heading
+    * TODO explain user friendly title / third level heading
     * If a PR has multiple, distinct changes which should each be given their own section in the release notes, make sure each of these changes are under their own third-level heading.
     ✅ Correct
         ```md
