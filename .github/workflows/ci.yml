@@ -57,7 +57,7 @@ jobs:
     name: Check all Packages - ${{ matrix.tls.name }} (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         platform: 
           - windows-latest
