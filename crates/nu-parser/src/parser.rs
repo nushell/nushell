@@ -3993,11 +3993,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
                                 let mut variable_name = flags[0][2..].to_vec();
                                 // Replace the '-' in a variable name with '_'
-                                (0..variable_name.len()).for_each(|idx| {
-                                    if variable_name[idx] == b'-' {
-                                        variable_name[idx] = b'_';
+                                for byte in variable_name.iter_mut() {
+                                    if *byte == b'-' {
+                                        *byte = b'_';
                                     }
-                                });
+                                }
 
                                 if !is_variable(&variable_name) {
                                     working_set.error(ParseError::Expected(
