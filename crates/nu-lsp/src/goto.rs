@@ -15,9 +15,6 @@ impl LanguageServer {
         for cached_file in files.into_iter() {
             if cached_file.covered_span.contains(span.start) {
                 let path = Path::new(&*cached_file.name);
-                if !path.is_file() {
-                    return None;
-                }
                 let target_uri = path_to_uri(path);
                 if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
                     return Some(Location {
@@ -25,6 +22,9 @@ impl LanguageServer {
                         range: span_to_range(span, file, cached_file.covered_span.start),
                     });
                 } else {
+                    if !path.is_file() {
+                        return None;
+                    }
                     // in case where the document is not opened yet,
                     // typically included by the `use/source` command
                     let temp_doc = FullTextDocument::new(
@@ -77,16 +77,12 @@ impl LanguageServer {
         &mut self,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document_position_params.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
         let (working_set, id, _, _) = self
             .parse_and_find(
                 &mut engine_state,
-                &path_uri,
+                path_uri,
                 params.text_document_position_params.position,
             )
             .ok()?;
