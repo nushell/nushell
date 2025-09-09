@@ -80,7 +80,7 @@ jobs:
       COMMON_HACK_FLAGS: >-
         --workspace 
         --feature-powerset
-        --exclude-features default,full
+        --exclude-features default,full,stable
         --no-dev-deps
         --ignore-unknown-features
         --exclude nu_plugin_custom_values 
