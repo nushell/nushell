@@ -29,7 +29,7 @@ impl Command for ConfigNu {
         "Edit nu configurations."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "open user's config.nu in the default editor",

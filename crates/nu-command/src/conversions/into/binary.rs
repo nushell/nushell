@@ -68,7 +68,7 @@ impl Command for IntoBinary {
         into_binary(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert string to a nushell binary primitive",

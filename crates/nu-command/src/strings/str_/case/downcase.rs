@@ -61,7 +61,7 @@ impl Command for StrDowncase {
         operate(working_set.permanent(), call, input, column_paths)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Downcase contents",

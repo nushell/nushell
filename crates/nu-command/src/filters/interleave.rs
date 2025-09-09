@@ -52,7 +52,7 @@ using `zip { ... } | flatten` instead."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "seq 1 50 | wrap a | interleave { seq 1 50 | wrap b }",

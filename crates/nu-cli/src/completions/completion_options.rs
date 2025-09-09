@@ -59,7 +59,7 @@ impl<T> NuMatcher<'_, T> {
     /// # Arguments
     ///
     /// * `needle` - The text to search for
-    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<T> {
+    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
         let needle = trim_quotes_str(needle.as_ref());
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {

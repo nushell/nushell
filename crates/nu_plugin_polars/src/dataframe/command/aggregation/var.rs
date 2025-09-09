@@ -38,7 +38,7 @@ impl PluginCommand for ExprVar {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Var value from columns in a dataframe or aggregates columns to their var value",

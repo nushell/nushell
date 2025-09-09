@@ -135,7 +135,7 @@ impl Command for Http {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get content from example.com with default verb",

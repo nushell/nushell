@@ -45,7 +45,7 @@ impl Command for DetectColumns {
         vec!["split", "tabular"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "use --guess if you find default algorithm not working",

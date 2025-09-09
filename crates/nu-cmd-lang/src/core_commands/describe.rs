@@ -63,7 +63,7 @@ impl Command for Describe {
         run(None, call, input, options)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Describe the type of a string",

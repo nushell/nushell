@@ -8,7 +8,7 @@ use std::borrow::Cow;
 /// Keeps `\n` removes `\r`, `\t` etc.
 ///
 /// If parsing fails silently returns the input string
-pub fn strip_ansi_unlikely(string: &str) -> Cow<str> {
+pub fn strip_ansi_unlikely(string: &str) -> Cow<'_, str> {
     // Check if any ascii control character except LF(0x0A = 10) is present,
     // which will be stripped. Includes the primary start of ANSI sequences ESC
     // (0x1B = decimal 27)
@@ -28,7 +28,7 @@ pub fn strip_ansi_unlikely(string: &str) -> Cow<str> {
 /// Keeps `\n` removes `\r`, `\t` etc.
 ///
 /// If parsing fails silently returns the input string
-pub fn strip_ansi_likely(string: &str) -> Cow<str> {
+pub fn strip_ansi_likely(string: &str) -> Cow<'_, str> {
     // Check if any ascii control character except LF(0x0A = 10) is present,
     // which will be stripped. Includes the primary start of ANSI sequences ESC
     // (0x1B = decimal 27)

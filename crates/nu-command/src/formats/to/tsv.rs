@@ -38,7 +38,7 @@ impl Command for ToTsv {
         "Convert table into .tsv text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a TSV string representing the contents of this table",

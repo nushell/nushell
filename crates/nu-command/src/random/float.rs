@@ -37,7 +37,7 @@ impl Command for RandomFloat {
         float(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a default float value between 0 and 1",

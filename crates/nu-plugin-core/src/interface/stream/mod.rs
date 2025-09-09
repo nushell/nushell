@@ -319,7 +319,7 @@ impl StreamWriterSignal {
         }
     }
 
-    fn lock(&self) -> Result<MutexGuard<StreamWriterSignalState>, ShellError> {
+    fn lock(&self) -> Result<MutexGuard<'_, StreamWriterSignalState>, ShellError> {
         self.mutex.lock().map_err(|_| ShellError::NushellFailed {
             msg: "StreamWriterSignal mutex poisoned due to panic".into(),
         })
@@ -403,7 +403,7 @@ impl StreamManagerState {
     /// Lock the state, or return a [`ShellError`] if the mutex is poisoned.
     fn lock(
         state: &Mutex<StreamManagerState>,
-    ) -> Result<MutexGuard<StreamManagerState>, ShellError> {
+    ) -> Result<MutexGuard<'_, StreamManagerState>, ShellError> {
         state.lock().map_err(|_| ShellError::NushellFailed {
             msg: "StreamManagerState mutex poisoned due to a panic".into(),
         })
@@ -423,7 +423,7 @@ impl StreamManager {
         }
     }
 
-    fn lock(&self) -> Result<MutexGuard<StreamManagerState>, ShellError> {
+    fn lock(&self) -> Result<MutexGuard<'_, StreamManagerState>, ShellError> {
         StreamManagerState::lock(&self.state)
     }
 

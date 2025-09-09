@@ -28,7 +28,7 @@ impl Command for StorOpen {
         vec!["sqlite", "storing", "access"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Open the in-memory sqlite database",
             example: "stor open",

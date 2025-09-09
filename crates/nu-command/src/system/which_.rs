@@ -48,7 +48,7 @@ impl Command for Which {
         which(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Find if the 'myapp' application is available",

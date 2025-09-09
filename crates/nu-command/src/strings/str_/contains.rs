@@ -93,7 +93,7 @@ impl Command for StrContains {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if input contains string",

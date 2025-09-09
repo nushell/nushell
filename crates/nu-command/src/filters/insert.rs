@@ -58,7 +58,7 @@ When inserting into a specific index, the closure will instead get the current v
         insert(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Insert a new entry into a single record",

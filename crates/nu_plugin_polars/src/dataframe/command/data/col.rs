@@ -41,7 +41,7 @@ impl PluginCommand for ExprCol {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Creates a named column expression and converts it to a nu object",

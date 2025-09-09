@@ -49,7 +49,7 @@ impl Command for PluginDeclaration {
             .collect()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let mut res = vec![];
         for e in self.signature.examples.iter() {
             res.push(Example {

@@ -30,7 +30,7 @@ impl PluginCommand for NNull {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Counts null values",
             example: r#"let s = ([1 1 0 0 3 3 4] | polars into-df);

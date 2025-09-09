@@ -97,7 +97,7 @@ in no particular order, regardless of the specified timeout parameter.
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "job recv",

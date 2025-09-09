@@ -29,7 +29,7 @@ impl Command for Drop {
         vec!["delete", "remove"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[0,1,2,3] | drop",

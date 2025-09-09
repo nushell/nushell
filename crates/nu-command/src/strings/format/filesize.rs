@@ -95,7 +95,7 @@ impl Command for FormatFilesize {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert the size column to KB",

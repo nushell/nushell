@@ -44,7 +44,7 @@ impl Command for MathSinH {
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let e = std::f64::consts::E;
         vec![Example {
             description: "Apply the hyperbolic sine to 1",

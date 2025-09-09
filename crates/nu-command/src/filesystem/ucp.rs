@@ -65,7 +65,7 @@ impl Command for UCp {
             .category(Category::FileSystem)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Copy myfile to dir_b",

@@ -25,7 +25,7 @@ impl Command for StorReset {
         vec!["sqlite", "remove", "table", "saving", "drop"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Reset the in-memory sqlite database",
             example: "stor reset",

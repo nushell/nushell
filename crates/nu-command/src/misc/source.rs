@@ -96,7 +96,7 @@ impl Command for Source {
         return_result
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Runs foo.nu in the current context",

@@ -347,7 +347,7 @@ If you create a custom command with this name, that will be used instead."#
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run an external command",

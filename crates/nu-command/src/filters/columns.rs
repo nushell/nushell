@@ -25,7 +25,7 @@ impl Command for Columns {
         "This is a counterpart to `values`, which produces a list of columns' values."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",

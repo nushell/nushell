@@ -28,7 +28,7 @@ impl Command for Any {
         vec!["some", "or"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if a list contains any true values",

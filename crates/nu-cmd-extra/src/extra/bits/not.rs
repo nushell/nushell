@@ -85,7 +85,7 @@ impl Command for BitsNot {
         operate(action, args, input, head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply logical negation to a list of numbers",

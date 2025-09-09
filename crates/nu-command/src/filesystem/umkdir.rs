@@ -89,7 +89,7 @@ impl Command for UMkdir {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Make a directory named foo",

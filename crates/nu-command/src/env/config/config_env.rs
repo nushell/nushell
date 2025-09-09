@@ -29,7 +29,7 @@ impl Command for ConfigEnv {
         "Edit nu environment configurations."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "open user's env.nu in the default editor",

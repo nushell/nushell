@@ -61,7 +61,7 @@ impl Command for MathAvg {
         run_with_function(call, input, average)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the average of a list of numbers",

@@ -111,7 +111,7 @@ impl Command for HttpPut {
         run_put(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Put content to example.com",

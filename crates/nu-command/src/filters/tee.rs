@@ -49,7 +49,7 @@ use it in your pipeline."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "http get http://example.org/ | tee { save example.html }",

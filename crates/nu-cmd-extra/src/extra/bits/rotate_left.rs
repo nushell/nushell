@@ -88,7 +88,7 @@ impl Command for BitsRol {
         operate(action, args, input, head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Rotate left a number with 2 bits",

@@ -40,7 +40,7 @@ was instead spawned by main nushell execution thread."
         Ok(Value::int(engine_state.current_job.id.get() as i64, head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "job id",
             description: "Get id of current job",

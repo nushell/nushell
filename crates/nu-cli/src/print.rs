@@ -89,7 +89,7 @@ Since this command has no output, there is no point in piping it with other comm
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print 'hello world'",

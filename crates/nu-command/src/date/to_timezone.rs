@@ -69,7 +69,7 @@ impl Command for DateToTimezone {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let example_result_1 = || match FixedOffset::east_opt(5 * 3600)
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)

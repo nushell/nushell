@@ -46,7 +46,7 @@ impl Command for Move {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",

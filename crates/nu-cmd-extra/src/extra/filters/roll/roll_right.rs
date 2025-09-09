@@ -37,7 +37,7 @@ impl Command for RollRight {
         "Roll table columns right."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Rolls columns of a record to the right",

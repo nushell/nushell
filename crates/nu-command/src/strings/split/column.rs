@@ -48,7 +48,7 @@ impl Command for SplitColumn {
         vec!["separate", "divide", "regex"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Split a string into columns by the specified separator",

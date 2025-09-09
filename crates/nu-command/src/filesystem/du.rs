@@ -150,7 +150,7 @@ impl Command for Du {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Disk usage of the current directory",
             example: "du",

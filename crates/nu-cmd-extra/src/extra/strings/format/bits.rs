@@ -70,7 +70,7 @@ impl Command for FormatBits {
         format_bits(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",

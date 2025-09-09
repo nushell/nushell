@@ -84,7 +84,7 @@ impl Command for MathAbs {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute absolute value of each number in a list of numbers",
             example: "[-50 -100.0 25] | math abs",

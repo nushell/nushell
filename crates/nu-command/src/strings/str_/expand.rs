@@ -34,7 +34,7 @@ impl Command for StrExpand {
             .category(Category::Strings)
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Define a range inside braces to produce a list of string.",

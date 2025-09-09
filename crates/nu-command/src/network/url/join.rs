@@ -26,7 +26,7 @@ impl Command for UrlJoin {
         ]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a url representing the contents of this record, `params` and `query` fields must be equivalent",

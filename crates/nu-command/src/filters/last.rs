@@ -34,7 +34,7 @@ impl Command for Last {
         "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1,2,3] | last 2",

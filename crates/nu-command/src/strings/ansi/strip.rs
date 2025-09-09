@@ -58,7 +58,7 @@ impl Command for AnsiStrip {
         operate(action, args, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Strip ANSI escape sequences from a string",
             example: r#"$'(ansi green)(ansi cursor_on)hello' | ansi strip"#,

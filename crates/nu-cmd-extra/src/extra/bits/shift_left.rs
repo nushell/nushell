@@ -93,7 +93,7 @@ impl Command for BitsShl {
         operate(action, args, input, head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Shift left a number by 7 bits",

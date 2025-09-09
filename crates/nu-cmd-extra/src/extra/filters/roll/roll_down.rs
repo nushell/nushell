@@ -25,7 +25,7 @@ impl Command for RollDown {
         "Roll table rows down."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Rolls rows down of a table",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll down",

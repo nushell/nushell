@@ -84,7 +84,7 @@ Also consider setting the category to deprecated with @category deprecated"
         true
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Add a deprecation warning to a custom command",

@@ -130,7 +130,7 @@ impl Command for Table {
         handle_table_command(input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",

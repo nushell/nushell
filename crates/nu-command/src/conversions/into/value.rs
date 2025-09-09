@@ -39,7 +39,7 @@ impl Command for IntoValue {
         vec!["convert", "conversion"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Infer Nushell values for each cell.",

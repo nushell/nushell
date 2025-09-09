@@ -30,7 +30,7 @@ impl PluginCommand for Dummies {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create new dataframe with dummy variables from a dataframe",

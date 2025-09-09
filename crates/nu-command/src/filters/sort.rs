@@ -43,7 +43,7 @@ impl Command for Sort {
         "Sort in increasing order."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[2 0 1] | sort",

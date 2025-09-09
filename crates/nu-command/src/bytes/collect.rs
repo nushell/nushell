@@ -70,7 +70,7 @@ impl Command for BytesCollect {
         Ok(PipelineData::byte_stream(output, metadata))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a byte array from input",

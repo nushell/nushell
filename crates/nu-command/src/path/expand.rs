@@ -98,7 +98,7 @@ impl Command for PathExpand {
     }
 
     #[cfg(windows)]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Expand an absolute path",
@@ -122,7 +122,7 @@ impl Command for PathExpand {
     }
 
     #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Expand an absolute path",

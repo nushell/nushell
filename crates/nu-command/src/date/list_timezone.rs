@@ -43,7 +43,7 @@ impl Command for DateListTimezones {
             .into_pipeline_data(head, engine_state.signals().clone()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "date list-timezone | where timezone =~ Shanghai",
             description: "Show time zone(s) that contains 'Shanghai'",

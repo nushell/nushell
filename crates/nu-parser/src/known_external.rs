@@ -92,7 +92,7 @@ impl Command for KnownExternal {
         self.attributes.clone()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         self.examples
             .iter()
             .map(CustomExample::to_example)

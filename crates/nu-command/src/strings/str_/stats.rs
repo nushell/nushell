@@ -53,7 +53,7 @@ impl Command for StrStats {
         stats(working_set.permanent(), call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Count the number of words in a string",

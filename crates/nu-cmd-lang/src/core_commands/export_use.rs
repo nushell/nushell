@@ -44,7 +44,7 @@ impl Command for ExportUse {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Re-export a command from another module",
             example: r#"module spam { export def foo [] { "foo" } }

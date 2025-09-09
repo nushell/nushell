@@ -47,7 +47,7 @@ impl Command for Histogram {
         "Creates a new table with a histogram based on the column name passed in."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute a histogram of file types",

@@ -23,7 +23,7 @@ impl Command for BytesBuild {
             .category(Category::Bytes)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "bytes build 0x[01 02] 0x[03] 0x[04]",

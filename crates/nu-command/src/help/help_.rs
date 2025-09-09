@@ -104,7 +104,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "show help for single command, alias, or module",
