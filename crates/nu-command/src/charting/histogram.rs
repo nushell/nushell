@@ -252,9 +252,9 @@ fn histogram_impl(
             max_cnt = new_cnt;
         }
     }
-
-    let mut result = vec![];
+    const PARTIAL_BOXES: [&str; 9]= ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"];
     const MAX_FREQ_COUNT: f64 = 100.0;
+    let mut result = vec![];
     for (val, count) in counter.into_iter().sorted() {
         let quantile = match calc_method {
             PercentageCalcMethod::Normalize => count as f64 / total_cnt as f64,
@@ -262,7 +262,9 @@ fn histogram_impl(
         };
 
         let percentage = format!("{:.2}%", quantile * 100_f64);
-        let freq = "*".repeat((MAX_FREQ_COUNT * quantile).floor() as usize);
+        let integral_part = (MAX_FREQ_COUNT * quantile).floor();
+        let fractional_part = (((MAX_FREQ_COUNT * quantile) - integral_part) * 8.0).round() as usize;
+        let freq = PARTIAL_BOXES[8].repeat(integral_part as usize) + PARTIAL_BOXES[fractional_part];
 
         result.push((
             count, // attach count first for easily sorting.
