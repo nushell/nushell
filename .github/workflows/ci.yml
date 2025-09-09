@@ -70,11 +70,12 @@ jobs:
       - run: cargo binstall cargo-hack
 
       - name: Check all packages
-        run: cargo hack check \
-          --workspace \
-          --feature-powerset \
-          --mutually-exclusive-features rustls-tls,native-tls \
-          --at-least-one-of rustls-tls,native-tls \
+        run: >
+          cargo hack check
+          --workspace
+          --feature-powerset
+          --mutually-exclusive-features rustls-tls,native-tls
+          --at-least-one-of rustls-tls,native-tls
           --no-dev-deps
 
   tests:
