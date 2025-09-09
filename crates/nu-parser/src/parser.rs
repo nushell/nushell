@@ -4050,28 +4050,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     let short_flag =
                                         String::from_utf8_lossy(short_flag).to_string();
                                     let chars: Vec<char> = short_flag.chars().collect();
-                                    let long = String::from_utf8_lossy(&flags[0][2..]).to_string();
-                                    let mut variable_name = flags[0][2..].to_vec();
-
-                                    (0..variable_name.len()).for_each(|idx| {
-                                        if variable_name[idx] == b'-' {
-                                            variable_name[idx] = b'_';
-                                        }
-                                    });
-
-                                    if !is_variable(&variable_name) {
-                                        working_set.error(ParseError::Expected(
-                                            "valid variable name for this short flag",
-                                            span,
-                                        ))
-                                    }
-
-                                    let var_id = working_set.add_variable(
-                                        variable_name,
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
 
                                     if chars.len() == 1 {
                                         args.push(Arg::Flag {
