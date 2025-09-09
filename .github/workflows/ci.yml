@@ -65,19 +65,19 @@ jobs:
           - ubuntu-latest
         tls:
           - name: rustls-tls
-            command: >
+            command: >-
               cargo hack check 
               --exclude-features default,native-tls,static-link-openssl
               --features rustls-tls
 
           - name: native-tls
-            command: >
+            command: >-
               cargo hack check 
               --exclude-features default,rustls-tls
               --features native-tls
 
     env:
-      COMMON_HACK_FLAGS: >
+      COMMON_HACK_FLAGS: >-
         --workspace 
         --feature-powerset
         --no-dev-deps
