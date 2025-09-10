@@ -3957,3 +3957,52 @@ fn table_missing_value_custom() {
          ╰───┴──────╯",
     )
 }
+
+#[test]
+fn configure_batch_duration() {
+    let expected_default = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#).out
+    );
+
+    let expected_two_sec = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_two_sec,
+        nu!(r#"$env.config.table.batch_duration = 2sec
+        1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#)
+        .out
+    );
+}
