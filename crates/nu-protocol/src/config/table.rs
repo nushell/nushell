@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 
@@ -347,6 +349,7 @@ pub struct TableConfig {
     pub abbreviated_row_count: Option<usize>,
     pub footer_inheritance: bool,
     pub missing_value_symbol: String,
+    pub batch_duration: Duration,
 }
 
 impl IntoValue for TableConfig {
@@ -366,6 +369,7 @@ impl IntoValue for TableConfig {
             "abbreviated_row_count" => abbv_count,
             "footer_inheritance" => self.footer_inheritance.into_value(span),
             "missing_value_symbol" => self.missing_value_symbol.into_value(span),
+            "batch_duration" => self.batch_duration.into_value(span),
         }
         .into_value(span)
     }
@@ -383,6 +387,7 @@ impl Default for TableConfig {
             abbreviated_row_count: None,
             footer_inheritance: false,
             missing_value_symbol: "❎".into(),
+            batch_duration: Duration::from_secs(1),
         }
     }
 }
@@ -423,6 +428,11 @@ impl UpdateFromValue for TableConfig {
                 "missing_value_symbol" => match val.as_str() {
                     Ok(val) => self.missing_value_symbol = val.to_string(),
                     Err(_) => errors.type_mismatch(path, Type::String, val),
+                },
+                "batch_duration" => match val.as_duration() {
+                    Err(_) => errors.type_mismatch(path, Type::Duration, val),
+                    Ok(..0) => errors.invalid_value(path, "a non-negative duration", val),
+                    Ok(val) => self.batch_duration = Duration::from_nanos(val as u64),
                 },
                 _ => errors.unknown_option(path, val),
             }

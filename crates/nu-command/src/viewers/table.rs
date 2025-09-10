@@ -2,7 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -880,6 +880,7 @@ impl Iterator for PagingTableCreator {
                 (batch, end) = stream_collect(
                     &mut self.stream,
                     STREAM_PAGE_SIZE,
+                    self.config.table.batch_duration,
                     self.engine_state.signals(),
                 );
             }
@@ -932,6 +933,7 @@ impl Iterator for PagingTableCreator {
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
+    batch_duration: Duration,
     signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
@@ -941,8 +943,8 @@ fn stream_collect(
     for (i, item) in stream.enumerate() {
         batch.push(item);
 
-        // If we've been buffering over a second, go ahead and send out what we have so far
-        if (Instant::now() - start_time).as_secs() >= 1 {
+        // We buffer until `$env.config.table.batch_duration`, then we send out what we have so far
+        if (Instant::now() - start_time) >= batch_duration {
             end = false;
             break;
         }
