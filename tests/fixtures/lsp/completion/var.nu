@@ -3,5 +3,5 @@ let greeting = "Hello"
 echo $gre
 
 def foo [bar: int] {
-  echo $ba
+  echo $bar
 }
