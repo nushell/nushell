@@ -361,6 +361,14 @@ $env.config.table.footer_inheritance = false
 # missing_value_symbol (string): The symbol shown for missing values
 $env.config.table.missing_value_symbol = "❎"
 
+# batch_duration (duration): 
+# Streaming pipelines are collected in timed batches.
+# When this duration passes, the current batch will be printed.
+# Increasing this value will collect more data into a single batch but will take longer until 
+# results are shown.
+# Use `collect` to collect a stream into a single value if you prefer a single table.
+$env.config.table.batch_duration = 1sec
+
 # ----------------
 # Datetime Display
 # ----------------
