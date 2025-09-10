@@ -102,7 +102,7 @@ jobs:
       - name: Upload Nushell build
         uses: actions/upload-artifact@v4
         with:
-          name: "nu-${{ github.event.number }}-${{ matrix.platform }}"
+          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
           path: "~/.cargo/bin/nu"
           retention-days: 14
 
