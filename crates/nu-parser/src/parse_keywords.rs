@@ -592,6 +592,7 @@ fn parse_def_inner(
                 }
             }
 
+            let starting_error_count = working_set.parse_errors.len();
             let ParsedInternalCall {
                 call,
                 output,
@@ -603,9 +604,14 @@ fn parse_def_inner(
                 decl_id,
             );
 
-            if new_errors
-                .iter()
-                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+            if working_set
+                .parse_errors
+                .get(starting_error_count..)
+                .is_none_or(|new_errors| {
+                    new_errors
+                        .iter()
+                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+                })
             {
                 working_set.exit_scope();
             }
