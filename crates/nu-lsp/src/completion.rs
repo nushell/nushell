@@ -258,6 +258,17 @@ mod tests {
             "kind": 6
         }
     ]))]
+    #[case::local_variable("var.nu", (5, 10), None, serde_json::json!([
+        {
+            "label": "$bar",
+            "labelDetails": { "description": "variable" },
+            "textEdit": {
+                "newText": "$bar",
+                "range": { "start": { "character": 7, "line": 5 }, "end": { "character": 10, "line": 5 } }
+            },
+            "kind": 6
+        }
+    ]))]
     #[case::keyword("keyword.nu", (0, 2), None, serde_json::json!([
         {
             "label": "overlay",
