@@ -12,6 +12,19 @@ enum PercentageCalcMethod {
     Relative,
 }
 
+enum Style {
+    Boxes,
+    FullBoxes,
+    BoxCenter,
+    Ascii
+}
+
+const BOX_CHARACTERS: [&str; 9]= ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"];
+const FULL_BOX_CHARACTERS: [&str; 2]= ["", "█"];
+const SEXTANT_CHARACTERS: [&str; 3]= ["", "🬃", "🬋"];
+const ASCII_CHARACTERS: [&str; 2]= ["", "*"];
+
+
 impl Command for Histogram {
     fn name(&self) -> &str {
         "histogram"
@@ -35,10 +48,20 @@ impl Command for Histogram {
                     .short('t')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "percentage calculate method, can be 'normalize' or 'relative', in \
-                         'normalize', defaults to be 'normalize'",
+                        "percentage calculate method, can be 'normalize' or 'relative', \
+                        defaults to be 'normalize'",
                     )
                     .completion(Completion::new_list(&["normalize", "relative"])),
+            )
+            .param(
+                Flag::new("style")
+                    .short('s')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Style of the bar. Can be 'boxes', 'full-boxes', 'center-boxes', \
+                        or 'ascii, defaults to 'Boxes'",
+                    )
+                    .completion(Completion::new_list(&["boxes", "ascii"])),
             )
             .category(Category::Chart)
     }
@@ -61,6 +84,7 @@ impl Command for Histogram {
                 result: None,
             },
             Example {
+                // TODO: update
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
                 result: Some(Value::test_list(vec![
@@ -137,6 +161,25 @@ impl Command for Histogram {
             },
         };
 
+        let style: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "style")?;
+        let style = match style {
+            None => Style::Boxes,
+            Some(inner) => match inner.item.as_str() {
+                "boxes" => Style::Boxes,
+                "full-boxes" => Style::FullBoxes,
+                "center-boxes" => Style::BoxCenter,
+                "ascii" => Style::Ascii,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "style method can only be 'boxes' or 'ascii'"
+                            .to_string(),
+                        span: inner.span,
+                    });
+                }
+            }
+        };
+
         let span = call.head;
         let data_as_value = input.into_value(span)?;
         let value_span = data_as_value.span();
@@ -146,6 +189,7 @@ impl Command for Histogram {
             column_name,
             frequency_column_name,
             calc_method,
+            style,
             span,
             // Note that as_list() filters out Value::Error here.
             value_span,
@@ -158,6 +202,7 @@ fn run_histogram(
     column_name: Option<Spanned<String>>,
     freq_column: String,
     calc_method: PercentageCalcMethod,
+    style: Style,
     head_span: Span,
     list_span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -228,6 +273,7 @@ fn run_histogram(
         inputs,
         &value_column_name,
         calc_method,
+        style,
         &freq_column,
         head_span,
     ))
@@ -237,6 +283,7 @@ fn histogram_impl(
     inputs: Vec<HashableValue>,
     value_column_name: &str,
     calc_method: PercentageCalcMethod,
+    style: Style,
     freq_column: &str,
     span: Span,
 ) -> PipelineData {
@@ -252,7 +299,12 @@ fn histogram_impl(
             max_cnt = new_cnt;
         }
     }
-    const PARTIAL_BOXES: [&str; 9]= ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"];
+    let box_chars = match style {
+        Style::Boxes => BOX_CHARACTERS.as_slice(),
+        Style::FullBoxes => FULL_BOX_CHARACTERS.as_slice(),
+        Style::BoxCenter => SEXTANT_CHARACTERS.as_slice(),
+        Style::Ascii => ASCII_CHARACTERS.as_slice()
+    };
     const MAX_FREQ_COUNT: f64 = 100.0;
     let mut result = vec![];
     for (val, count) in counter.into_iter().sorted() {
@@ -263,8 +315,8 @@ fn histogram_impl(
 
         let percentage = format!("{:.2}%", quantile * 100_f64);
         let integral_part = (MAX_FREQ_COUNT * quantile).floor();
-        let fractional_part = (((MAX_FREQ_COUNT * quantile) - integral_part) * 8.0).round() as usize;
-        let freq = PARTIAL_BOXES[8].repeat(integral_part as usize) + PARTIAL_BOXES[fractional_part];
+        let fractional_part = (((MAX_FREQ_COUNT * quantile) - integral_part) * ((box_chars.len() - 1) as f64)).round() as usize;
+        let freq = box_chars[box_chars.len() - 1].repeat(integral_part as usize) + box_chars[fractional_part];
 
         result.push((
             count, // attach count first for easily sorting.
