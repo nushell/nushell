@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{num::NonZeroU16, time::Duration};
 
 use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
@@ -350,6 +350,7 @@ pub struct TableConfig {
     pub footer_inheritance: bool,
     pub missing_value_symbol: String,
     pub batch_duration: Duration,
+    pub stream_page_size: NonZeroU16,
 }
 
 impl IntoValue for TableConfig {
@@ -370,6 +371,7 @@ impl IntoValue for TableConfig {
             "footer_inheritance" => self.footer_inheritance.into_value(span),
             "missing_value_symbol" => self.missing_value_symbol.into_value(span),
             "batch_duration" => self.batch_duration.into_value(span),
+            "stream_page_size" => u16::from(self.stream_page_size).into_value(span),
         }
         .into_value(span)
     }
@@ -388,6 +390,8 @@ impl Default for TableConfig {
             footer_inheritance: false,
             missing_value_symbol: "❎".into(),
             batch_duration: Duration::from_secs(1),
+            // SAFETY: 1000 is non-zero.
+            stream_page_size: unsafe { NonZeroU16::new_unchecked(1000) },
         }
     }
 }
@@ -434,6 +438,14 @@ impl UpdateFromValue for TableConfig {
                     Ok(..0) => errors.invalid_value(path, "a non-negative duration", val),
                     Ok(val) => self.batch_duration = Duration::from_nanos(val as u64),
                 },
+                "stream_page_size" => {
+                    match val.as_int().map(|int| int.try_into().map(NonZeroU16::new)) {
+                        Err(_) => errors.type_mismatch(path, Type::Int, val),
+                        Ok(Err(_)) => errors.invalid_value(path, "a non-negative value", val),
+                        Ok(Ok(None)) => errors.invalid_value(path, "a non-zero value", val),
+                        Ok(Ok(Some(val))) => self.stream_page_size = val,
+                    }
+                }
                 _ => errors.unknown_option(path, val),
             }
         }

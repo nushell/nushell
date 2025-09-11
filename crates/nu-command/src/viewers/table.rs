@@ -25,7 +25,6 @@ use nu_utils::{get_ls_colors, terminal_size};
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
 
-const STREAM_PAGE_SIZE: usize = 1000;
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
 #[derive(Clone)]
@@ -879,7 +878,7 @@ impl Iterator for PagingTableCreator {
                 // Pull from stream until time runs out or we have enough items
                 (batch, end) = stream_collect(
                     &mut self.stream,
-                    STREAM_PAGE_SIZE,
+                    self.config.table.stream_page_size.get() as usize,
                     self.config.table.batch_duration,
                     self.engine_state.signals(),
                 );
@@ -949,6 +948,7 @@ fn stream_collect(
             break;
         }
 
+        // Or until we reached `$env.config.table.stream_page_size`.
         if i + 1 == size {
             end = false;
             break;
