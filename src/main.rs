@@ -208,7 +208,8 @@ fn main() -> Result<()> {
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.testbin.is_none()
             && parsed_nu_cli_args.commands.is_none()
-            && script_name.is_empty());
+            && script_name.is_empty()
+            && !parsed_nu_cli_args.lsp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
