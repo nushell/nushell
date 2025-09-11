@@ -271,6 +271,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
+    record.push("is-lsp", Value::bool(engine_state.is_lsp, span));
+
     Value::record(record, span)
 }
 
