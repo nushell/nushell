@@ -4006,3 +4006,36 @@ fn configure_batch_duration() {
         .out
     );
 }
+
+#[test]
+fn configure_stream_size() {
+    let expected_default = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..4 | each {"item " + ($in | into string)}"#).out
+    );
+
+    let expected_size_2 = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        ╰───┴────────╯\
+        ╭───┬────────╮\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_size_2,
+        nu!(r#"$env.config.table.stream_page_size = 2
+        1..4 | each {"item " + ($in | into string)}"#)
+        .out
+    );
+}
