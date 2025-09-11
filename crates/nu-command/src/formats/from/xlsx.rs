@@ -17,6 +17,7 @@ impl Command for FromXlsx {
         Signature::build("from xlsx")
             .input_output_types(vec![(Type::Binary, Type::table())])
             .allow_variants_without_examples(true)
+            .switch("no-infer", "no field type inferencing", None)
             .named(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -47,8 +48,10 @@ impl Command for FromXlsx {
             vec![]
         };
 
+        let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+
         let metadata = input.metadata().map(|md| md.with_content_type(None));
-        from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
+        from_xlsx(input, head, sel_sheets, no_infer).map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -114,6 +117,7 @@ fn from_xlsx(
     input: PipelineData,
     head: Span,
     sel_sheets: Vec<String>,
+    no_infer: bool,
 ) -> Result<PipelineData, ShellError> {
     let span = input.span();
     let bytes = collect_binary(input, head)?;
@@ -146,21 +150,25 @@ fn from_xlsx(
                     .iter()
                     .enumerate()
                     .map(|(i, cell)| {
-                        let value = match cell {
-                            Data::Empty => Value::nothing(head),
-                            Data::String(s) => Value::string(s, head),
-                            Data::Float(f) => Value::float(*f, head),
-                            Data::Int(i) => Value::int(*i, head),
-                            Data::Bool(b) => Value::bool(*b, head),
-                            Data::DateTime(d) => d
-                                .as_datetime()
-                                .and_then(|d| match tz.from_local_datetime(&d) {
-                                    LocalResult::Single(d) => Some(d),
-                                    _ => None,
-                                })
-                                .map(|d| Value::date(d, head))
-                                .unwrap_or(Value::nothing(head)),
-                            _ => Value::nothing(head),
+                        let value = if no_infer {
+                            Value::string(cell.as_string().unwrap_or_default(), head)
+                        } else {
+                            match cell {
+                                Data::Empty => Value::nothing(head),
+                                Data::String(s) => Value::string(s, head),
+                                Data::Float(f) => Value::float(*f, head),
+                                Data::Int(i) => Value::int(*i, head),
+                                Data::Bool(b) => Value::bool(*b, head),
+                                Data::DateTime(d) => d
+                                    .as_datetime()
+                                    .and_then(|d| match tz.from_local_datetime(&d) {
+                                        LocalResult::Single(d) => Some(d),
+                                        _ => None,
+                                    })
+                                    .map(|d| Value::date(d, head))
+                                    .unwrap_or(Value::nothing(head)),
+                                _ => Value::nothing(head),
+                            }
                         };
 
                         (format!("column{i}"), value)
