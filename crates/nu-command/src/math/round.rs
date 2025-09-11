@@ -51,7 +51,7 @@ impl Command for MathRound {
         let precision_param: Option<i64> = call.get_flag(engine_state, stack, "precision")?;
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
@@ -79,7 +79,7 @@ impl Command for MathRound {
         let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(

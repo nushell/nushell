@@ -58,7 +58,7 @@ On Windows, an extra 'prefix' column is added."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -79,7 +79,7 @@ On Windows, an extra 'prefix' column is added."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

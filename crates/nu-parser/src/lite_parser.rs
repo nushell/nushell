@@ -242,7 +242,7 @@ pub fn lite_parse(
                     TokenContents::Eol | TokenContents::Semicolon => {
                         command.attribute_idx.push(command.parts.len());
                         mode = Mode::Normal;
-                        if matches!(last_token, TokenContents::Eol | TokenContents::Semicolon) {
+                        if let TokenContents::Eol | TokenContents::Semicolon = last_token {
                             // Clear out the comment as we're entering a new comment
                             curr_comment = None;
                             pipeline.push(&mut command);
@@ -377,10 +377,7 @@ pub fn lite_parse(
                             // For example, this is currently allowed: ^echo thing o> out.txt extra_arg
 
                             if working_set.get_span_contents(token.span).starts_with(b"@") {
-                                if matches!(
-                                    last_token,
-                                    TokenContents::Eol | TokenContents::Semicolon
-                                ) {
+                                if let TokenContents::Eol | TokenContents::Semicolon = last_token {
                                     mode = Mode::Attribute;
                                 }
                                 command.push(token.span);

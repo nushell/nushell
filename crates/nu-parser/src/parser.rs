@@ -2057,7 +2057,7 @@ pub fn parse_paren_expr(
 
     working_set.parse_errors.truncate(starting_error_count);
 
-    if matches!(shape, SyntaxShape::Signature) {
+    if let SyntaxShape::Signature = shape {
         return parse_signature(working_set, span);
     }
 
@@ -4112,7 +4112,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             // Short flag alias for long flag, e.g. --b (-a)
                             // This is the same as the short flag in --b(-a)
                             else if let Some(short_flag) = contents.strip_prefix(b"(-") {
-                                if matches!(parse_mode, ParseMode::AfterCommaArg) {
+                                if let ParseMode::AfterCommaArg = parse_mode {
                                     working_set
                                         .error(ParseError::Expected("parameter or flag", span));
                                 }

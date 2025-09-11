@@ -44,7 +44,7 @@ impl Command for MathCeil {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
@@ -68,7 +68,7 @@ impl Command for MathCeil {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
