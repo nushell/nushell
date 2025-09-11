@@ -4806,12 +4806,13 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut ty = head
         .iter()
         .rev()
-        .map(|expr| {
-            if let Some(str) = expr.as_string() {
-                str
-            } else {
+        // Include only known column names in type
+        .filter_map(|expr| {
+            if !Type::String.is_subtype_of(&expr.ty) {
                 errors.push(mk_error(expr.span));
-                String::from("{ column }")
+                None
+            } else {
+                expr.as_string()
             }
         })
         .map(|title| (title, mk_ty()))
