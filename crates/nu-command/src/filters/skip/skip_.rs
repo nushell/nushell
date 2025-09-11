@@ -34,7 +34,7 @@ impl Command for Skip {
         vec!["ignore", "remove", "last", "slice", "tail"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Skip the first value of a list",

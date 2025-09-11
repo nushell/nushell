@@ -29,7 +29,7 @@ impl Command for FromUrl {
         from_url(input, head)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",

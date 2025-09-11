@@ -110,7 +110,7 @@ impl Command for Explore {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Explore the system host information record",

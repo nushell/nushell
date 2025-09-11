@@ -83,7 +83,7 @@ See also: `plugin use`
         vec!["scope"]
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 example: "plugin list",

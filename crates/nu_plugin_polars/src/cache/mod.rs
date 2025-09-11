@@ -32,7 +32,7 @@ pub struct Cache {
 }
 
 impl Cache {
-    fn lock(&self) -> Result<MutexGuard<HashMap<Uuid, CacheValue>>, ShellError> {
+    fn lock(&self) -> Result<MutexGuard<'_, HashMap<Uuid, CacheValue>>, ShellError> {
         self.cache.lock().map_err(|e| ShellError::GenericError {
             error: format!("error acquiring cache lock: {e}"),
             msg: "".into(),

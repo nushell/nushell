@@ -55,7 +55,7 @@ impl Command for DropColumn {
         drop_cols(engine_state, input, call.head, columns)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Remove the last column of a table",

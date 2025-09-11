@@ -48,7 +48,7 @@ impl PluginCommand for Contains {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns boolean indicating if pattern was found in a column",

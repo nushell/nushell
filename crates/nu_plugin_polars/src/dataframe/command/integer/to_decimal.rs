@@ -45,7 +45,7 @@ impl PluginCommand for ToDecimal {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Modifies strings to decimal",
             example: "[[a b]; [1, '2.4']] | polars into-df | polars select (polars col b | polars decimal 2) | polars collect",

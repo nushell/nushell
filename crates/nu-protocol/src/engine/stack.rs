@@ -665,14 +665,14 @@ impl Stack {
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
-    pub fn start_collect_value(&mut self) -> StackCollectValueGuard {
+    pub fn start_collect_value(&mut self) -> StackCollectValueGuard<'_> {
         StackCollectValueGuard::new(self)
     }
 
     /// Temporarily use the output redirections in the parent scope.
     ///
     /// This is used before evaluating an argument to a call.
-    pub fn use_call_arg_out_dest(&mut self) -> StackCallArgGuard {
+    pub fn use_call_arg_out_dest(&mut self) -> StackCallArgGuard<'_> {
         StackCallArgGuard::new(self)
     }
 
@@ -681,7 +681,7 @@ impl Stack {
         &mut self,
         stdout: Option<Redirection>,
         stderr: Option<Redirection>,
-    ) -> StackIoGuard {
+    ) -> StackIoGuard<'_> {
         StackIoGuard::new(self, stdout, stderr)
     }
 

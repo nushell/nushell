@@ -32,7 +32,7 @@ impl Command for ScopeCommands {
         Ok(Value::list(scope_data.collect_commands(head), head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the commands in the current scope",
             example: "scope commands",

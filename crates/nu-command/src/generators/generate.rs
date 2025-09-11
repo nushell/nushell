@@ -47,7 +47,7 @@ In this case, generation also stops when the input stream stops."#
         vec!["unfold", "stream", "yield", "expand", "state", "scan"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "generate {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }} 0",

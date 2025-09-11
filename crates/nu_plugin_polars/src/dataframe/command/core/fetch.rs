@@ -35,7 +35,7 @@ impl PluginCommand for LazyFetch {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Fetch a rows from the dataframe",
             example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars fetch 2",

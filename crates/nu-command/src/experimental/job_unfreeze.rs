@@ -64,7 +64,7 @@ impl Command for JobUnfreeze {
         Ok(Value::nothing(head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "job unfreeze",

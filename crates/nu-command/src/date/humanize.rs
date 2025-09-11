@@ -52,7 +52,7 @@ impl Command for DateHumanize {
         input.map(move |value| helper(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Print a 'humanized' format for the date, relative to now.",
             example: r#""2021-10-22 20:00:12 +01:00" | date humanize"#,

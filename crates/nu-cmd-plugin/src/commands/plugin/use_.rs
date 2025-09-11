@@ -67,7 +67,7 @@ it was already previously registered with `plugin add`.
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Load the commands for the `query` plugin from $nu.plugin-path",

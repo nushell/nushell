@@ -107,7 +107,7 @@ impl Command for HttpPatch {
         run_patch(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Patch content to example.com",

@@ -60,7 +60,7 @@ impl Command for DateFromHuman {
         input.map(move |value| helper(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Parsing human readable datetime",

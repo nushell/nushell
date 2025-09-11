@@ -239,7 +239,7 @@ impl Command for Save {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Save a string to foo.txt in the current directory",

@@ -64,7 +64,7 @@ impl Command for SplitWords {
         vec!["separate", "divide"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Split the string's words into separate rows",

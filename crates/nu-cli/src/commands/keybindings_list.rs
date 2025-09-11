@@ -27,7 +27,7 @@ impl Command for KeybindingsList {
         "List available options that can be used to create keybindings."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get list of key modifiers",

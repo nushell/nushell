@@ -81,7 +81,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
             .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Filter rows of a table according to a condition",

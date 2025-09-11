@@ -30,7 +30,7 @@ impl Command for DecodeBase32 {
         EXTRA_USAGE
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Decode arbitrary binary data",
@@ -110,7 +110,7 @@ impl Command for EncodeBase32 {
         EXTRA_USAGE
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Encode a binary value",

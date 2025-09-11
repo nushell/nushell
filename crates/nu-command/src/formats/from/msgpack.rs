@@ -48,7 +48,7 @@ MessagePack: https://msgpack.org/
 "#
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Read a list of values from MessagePack",

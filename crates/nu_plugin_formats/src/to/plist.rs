@@ -17,7 +17,7 @@ impl SimplePluginCommand for IntoPlist {
         "Convert Nu values into plist"
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "{ a: 3 } | to plist",
             description: "Convert a table into a plist file",

@@ -21,7 +21,7 @@ impl Command for SchemaDb {
         "Show the schema of a SQLite database."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the schema of a SQLite database",
             example: r#"open foo.db | schema"#,

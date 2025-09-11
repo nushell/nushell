@@ -101,7 +101,7 @@ is particularly large, this can cause high memory usage."#
         result
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Use the second value in the stream",

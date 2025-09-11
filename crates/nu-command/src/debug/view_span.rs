@@ -60,7 +60,7 @@ impl Command for ViewSpan {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "View the source of a span. 1 and 2 are just example values. Use the return of debug --raw to get the actual values",
             example: r#"some | pipeline | or | variable | debug --raw; view span 1 2"#,

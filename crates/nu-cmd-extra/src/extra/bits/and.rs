@@ -83,7 +83,7 @@ impl Command for BitsAnd {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply bitwise and to two numbers",

@@ -32,7 +32,7 @@ impl PluginCommand for ExprOtherwise {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a when conditions",

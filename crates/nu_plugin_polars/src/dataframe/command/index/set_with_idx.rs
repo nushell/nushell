@@ -42,7 +42,7 @@ impl PluginCommand for SetWithIndex {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Set value in selected rows from series",
             example: r#"let series = ([4 1 5 2 4 3] | polars into-df);

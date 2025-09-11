@@ -61,7 +61,7 @@ impl PluginCommand for ReplaceTimeZone {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply timezone to a naive datetime",

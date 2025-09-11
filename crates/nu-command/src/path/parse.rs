@@ -89,7 +89,7 @@ On Windows, an extra 'prefix' column is added."#
     }
 
     #[cfg(windows)]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Parse a single path",
@@ -138,7 +138,7 @@ On Windows, an extra 'prefix' column is added."#
     }
 
     #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Parse a path",

@@ -70,7 +70,7 @@ impl Command for StrReverse {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Reverse a single string",

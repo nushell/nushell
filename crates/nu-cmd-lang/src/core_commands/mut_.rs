@@ -54,7 +54,7 @@ impl Command for Mut {
         unreachable!()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Set a mutable variable to a value, then update it",

@@ -44,7 +44,7 @@ impl Command for Explain {
         Ok(Value::list(elements, head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Explain a command within a closure",
             example: "explain {|| ls | sort-by name type --ignore-case | get name } | table --expand",

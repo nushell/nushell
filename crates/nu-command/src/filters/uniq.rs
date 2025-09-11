@@ -71,7 +71,7 @@ impl Command for Uniq {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return the distinct values of a list/table (remove duplicates so that each value occurs once only)",

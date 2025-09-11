@@ -128,7 +128,7 @@ impl Command for Reject {
         }]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Reject a column in the `ls` table",

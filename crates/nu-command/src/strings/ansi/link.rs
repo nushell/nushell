@@ -49,7 +49,7 @@ impl Command for AnsiLink {
         operate(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a link to open some file",

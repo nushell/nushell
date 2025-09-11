@@ -26,7 +26,7 @@ impl SimplePluginCommand for FromVcf {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         examples()
     }
 

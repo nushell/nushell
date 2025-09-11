@@ -90,7 +90,7 @@ impl Command for BitsShr {
         operate(action, args, input, head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Shift right a number with 2 bits",

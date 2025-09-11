@@ -54,7 +54,7 @@ fixed with `plugin add`.
         vec!["remove", "delete", "signature"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "plugin rm inc",

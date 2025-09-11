@@ -74,7 +74,7 @@ impl Command for BytesIndexOf {
         operate(index_of, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns index of pattern in bytes",

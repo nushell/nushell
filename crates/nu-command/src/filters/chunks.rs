@@ -36,7 +36,7 @@ impl Command for Chunks {
         vec!["batch", "group", "split", "bytes"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3 4] | chunks 2",

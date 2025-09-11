@@ -105,7 +105,7 @@ impl NushellPrompt {
 }
 
 impl Prompt for NushellPrompt {
-    fn render_prompt_left(&self) -> Cow<str> {
+    fn render_prompt_left(&self) -> Cow<'_, str> {
         #[cfg(windows)]
         {
             let _ = enable_vt_processing();
@@ -143,7 +143,7 @@ impl Prompt for NushellPrompt {
         }
     }
 
-    fn render_prompt_right(&self) -> Cow<str> {
+    fn render_prompt_right(&self) -> Cow<'_, str> {
         if let Some(prompt_string) = &self.right_prompt_string {
             prompt_string.replace('\n', "\r\n").into()
         } else {
@@ -156,7 +156,7 @@ impl Prompt for NushellPrompt {
         }
     }
 
-    fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<str> {
+    fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<'_, str> {
         match edit_mode {
             PromptEditMode::Default => match &self.default_prompt_indicator {
                 Some(indicator) => indicator,
@@ -183,7 +183,7 @@ impl Prompt for NushellPrompt {
         }
     }
 
-    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+    fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
         match &self.default_multiline_indicator {
             Some(indicator) => indicator,
             None => "::: ",
@@ -194,7 +194,7 @@ impl Prompt for NushellPrompt {
     fn render_prompt_history_search_indicator(
         &self,
         history_search: PromptHistorySearch,
-    ) -> Cow<str> {
+    ) -> Cow<'_, str> {
         let prefix = match history_search.status {
             PromptHistorySearchStatus::Passing => "",
             PromptHistorySearchStatus::Failing => "failing ",

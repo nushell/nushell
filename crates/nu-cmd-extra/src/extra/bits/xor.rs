@@ -84,7 +84,7 @@ impl Command for BitsXor {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply bits xor to two numbers",

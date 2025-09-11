@@ -32,7 +32,7 @@ impl Command for ScopeVariables {
         Ok(Value::list(scope_data.collect_vars(head), head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the variables in the current scope",
             example: "scope variables",

@@ -93,7 +93,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
     }
 
     #[cfg(windows)]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if a file exists",
@@ -112,7 +112,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
     }
 
     #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if a file exists",

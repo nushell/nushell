@@ -39,7 +39,7 @@ impl Command for Reduce {
         vec!["map", "fold", "foldl"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",

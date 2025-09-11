@@ -24,7 +24,7 @@ impl Command for ToYaml {
         "Convert table into .yaml/.yml text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs a YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yaml"#,
@@ -70,7 +70,7 @@ impl Command for ToYml {
         "Convert table into .yaml/.yml text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs a YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yml"#,

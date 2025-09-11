@@ -60,7 +60,7 @@ Output of the nodeset results depends on the flags used:
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             // full output
             Example {

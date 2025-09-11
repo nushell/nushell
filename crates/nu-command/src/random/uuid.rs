@@ -66,7 +66,7 @@ impl Command for RandomUuid {
         uuid(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a random uuid v4 string (default)",

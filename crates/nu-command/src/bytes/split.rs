@@ -27,7 +27,7 @@ impl Command for BytesSplit {
         vec!["separate", "stream"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: r#"0x[66 6F 6F 20 62 61 72 20 62 61 7A 20] | bytes split 0x[20]"#,

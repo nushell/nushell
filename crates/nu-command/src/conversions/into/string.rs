@@ -84,7 +84,7 @@ impl Command for IntoString {
         string_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert int to string and append three decimal places",

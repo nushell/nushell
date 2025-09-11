@@ -398,7 +398,7 @@ impl Value {
     ///     );
     /// }
     /// ```
-    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+    pub fn coerce_str(&self) -> Result<Cow<'_, str>, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),

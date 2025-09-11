@@ -92,7 +92,7 @@ impl Command for StrDistance {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "get the edit distance between two strings",

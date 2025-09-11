@@ -25,7 +25,7 @@ impl PluginCommand for ToDataType {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Convert a string to a specific datatype and back to a nu object",
             example: r#"'i64' | polars into-dtype | polars into-nu"#,

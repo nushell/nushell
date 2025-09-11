@@ -26,7 +26,7 @@ impl Command for Values {
         "This is a counterpart to `columns`, which produces a list of columns' names."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "{ mode:normal userid:31415 } | values",

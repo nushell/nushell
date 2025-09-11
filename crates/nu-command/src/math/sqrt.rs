@@ -87,7 +87,7 @@ impl Command for MathSqrt {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the square root of each number in a list",
             example: "[9 16] | math sqrt",

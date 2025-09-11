@@ -80,7 +80,7 @@ impl Command for BytesRemove {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Remove contents",

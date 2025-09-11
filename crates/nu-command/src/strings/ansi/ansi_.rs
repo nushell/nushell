@@ -631,7 +631,7 @@ Operating system commands:
 ╰───┴─────┴───────────────────────────────────────╯"
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Change color to green (see how the next example text will be green!)",

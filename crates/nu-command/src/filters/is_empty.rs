@@ -34,7 +34,7 @@ impl Command for IsEmpty {
         empty(engine_state, stack, call, input, false)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if a string is empty",

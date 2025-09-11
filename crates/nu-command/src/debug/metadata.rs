@@ -103,7 +103,7 @@ impl Command for Metadata {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get the metadata of a variable",

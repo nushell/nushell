@@ -38,7 +38,7 @@ impl PluginCommand for DropNulls {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "drop null values in dataframe",

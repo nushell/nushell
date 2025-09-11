@@ -51,7 +51,7 @@ impl PluginCommand for CastDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Cast a column in a dataframe to a different dtype",
