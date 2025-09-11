@@ -1905,7 +1905,7 @@ fn variables_completions() {
         "loginshell-path",
         "os-info",
         "pid",
-        // "plugin-path",
+        "plugin-path",
         "startup-time",
         "temp-path",
         "user-autoload-dirs",
