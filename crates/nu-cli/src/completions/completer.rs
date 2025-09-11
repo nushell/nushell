@@ -887,10 +887,17 @@ mod completer_tests {
         let mut engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
 
-        // Custom additions
-        let delta = {
-            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
-            working_set.render()
+        let (completer_closure, define_alias_block, delta) = {
+            let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+            let define_alias_block = parse(
+                &mut working_set,
+                None,
+                br#"cd; alias example_alias = example_cmd arg1 arg2"#,
+                false,
+            );
+            // Define an external completer that returns the arguments passed to it
+            let completer_closure = parse(&mut working_set, None, br#"{|s| $s }"#, false);
+            (completer_closure, define_alias_block, working_set.render())
         };
 
         let result = engine_state.merge_delta(delta);
@@ -900,8 +907,44 @@ mod completer_tests {
             result.err().unwrap()
         );
 
+        let stack = &mut Stack::new();
+        let completer_block = eval_block::<WithoutDebug>(
+            &engine_state,
+            stack,
+            &completer_closure,
+            PipelineData::Empty,
+        )
+        .unwrap()
+        .body;
+
+        eval_block::<WithoutDebug>(
+            &engine_state,
+            stack,
+            &define_alias_block,
+            PipelineData::Empty,
+        )
+        .unwrap();
+
+        engine_state.merge_env(stack).unwrap();
+
+        if let Value::Closure {
+            val,
+            internal_span: _,
+        } = completer_block.into_value(Span::test_data()).unwrap()
+        {
+            let mut config = (*engine_state.config).clone();
+            config.completions.external.completer = Some(*val);
+            engine_state.config = Arc::new(config);
+        }
+
         let completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
+            (
+                "example_alias extra_arg",
+                true,
+                "",
+                vec!["example_cmd", "arg1", "arg2", "extra_arg"], // The custom external completer returns the arguments passed to it
+            ),
             ("1 bit-sh", true, "b", vec!["bit-shl", "bit-shr"]),
             ("1.0 bit-sh", false, "b", vec![]),
             ("1 m", true, "m", vec!["mod"]),
