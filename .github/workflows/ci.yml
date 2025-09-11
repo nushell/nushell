@@ -99,6 +99,13 @@ jobs:
       - name: Install Nushell
         run: cargo install --path . --locked --force
 
+      - name: Upload Nushell build
+        uses: actions/upload-artifact@v4
+        with:
+          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
+          path: "~/.cargo/bin/nu"
+          retention-days: 14
+
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
