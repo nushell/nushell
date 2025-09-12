@@ -924,8 +924,7 @@ mod tests {
                 for expected_change in expected_file_changes {
                     assert!(
                         actual_changes.contains(&expected_change),
-                        "Expected change {:?} not found in actual changes for file {file_uri}",
-                        expected_change,
+                        "Expected change {expected_change:?} not found in actual changes for file {file_uri}",
                     );
                 }
             }
