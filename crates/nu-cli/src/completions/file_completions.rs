@@ -68,13 +68,14 @@ impl Completer for FileCompletion {
             let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name()
-                && let Some(value) = value.to_str() {
-                    if value.starts_with('.') {
-                        hidden.push(item);
-                    } else {
-                        non_hidden.push(item);
-                    }
+                && let Some(value) = value.to_str()
+            {
+                if value.starts_with('.') {
+                    hidden.push(item);
+                } else {
+                    non_hidden.push(item);
                 }
+            }
         }
 
         // Append the hidden folders to the non hidden vec to avoid creating a new vec

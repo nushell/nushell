@@ -253,9 +253,10 @@ fn add_months_of_year_to_table(
         let mut new_current_day_option: Option<u32> = None;
 
         if let Some(current_day) = current_day_option
-            && month_number == current_month {
-                new_current_day_option = Some(current_day)
-            }
+            && month_number == current_month
+        {
+            new_current_day_option = Some(current_day)
+        }
 
         let add_month_to_table_result = add_month_to_table(
             arguments,
@@ -367,18 +368,19 @@ fn add_month_to_table(
                 value = Value::int(adjusted_day_number as i64, tag);
 
                 if let Some(current_day) = current_day_option
-                    && current_day == adjusted_day_number {
-                        // This colors the current day
-                        let header_style =
-                            style_computer.compute("header", &Value::nothing(Span::unknown()));
+                    && current_day == adjusted_day_number
+                {
+                    // This colors the current day
+                    let header_style =
+                        style_computer.compute("header", &Value::nothing(Span::unknown()));
 
-                        value = Value::string(
-                            header_style
-                                .paint(adjusted_day_number.to_string())
-                                .to_string(),
-                            tag,
-                        );
-                    }
+                    value = Value::string(
+                        header_style
+                            .paint(adjusted_day_number.to_string())
+                            .to_string(),
+                        tag,
+                    );
+                }
             }
 
             record.insert((*day).to_string(), value);

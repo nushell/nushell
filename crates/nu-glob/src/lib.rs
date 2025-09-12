@@ -433,22 +433,23 @@ impl<I: Interruptible> Iterator for Paths<I> {
         // failing to fill the buffer is an iteration error construction of the
         // iterator (i.e. glob()) only fails if it fails to compile the Pattern
         if let Some(scope) = self.scope.take()
-            && !self.dir_patterns.is_empty() {
-                // Shouldn't happen, but we're using -1 as a special index.
-                assert!(self.dir_patterns.len() < !0);
+            && !self.dir_patterns.is_empty()
+        {
+            // Shouldn't happen, but we're using -1 as a special index.
+            assert!(self.dir_patterns.len() < !0);
 
-                // if there's one prefilled result, take it, otherwise fill the todo buffer
-                if self.todo.len() != 1 {
-                    fill_todo(
-                        &mut self.todo,
-                        &self.dir_patterns,
-                        0,
-                        &scope,
-                        self.options,
-                        &self.interrupt,
-                    );
-                }
+            // if there's one prefilled result, take it, otherwise fill the todo buffer
+            if self.todo.len() != 1 {
+                fill_todo(
+                    &mut self.todo,
+                    &self.dir_patterns,
+                    0,
+                    &scope,
+                    self.options,
+                    &self.interrupt,
+                );
             }
+        }
 
         loop {
             if self.dir_patterns.is_empty() || self.todo.is_empty() {

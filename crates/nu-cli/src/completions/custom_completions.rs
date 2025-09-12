@@ -117,9 +117,10 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         {
                             completion_options.match_algorithm = algorithm;
                             if let Some(false) = positional
-                                && completion_options.match_algorithm == MatchAlgorithm::Prefix {
-                                    completion_options.match_algorithm = MatchAlgorithm::Substring
-                                }
+                                && completion_options.match_algorithm == MatchAlgorithm::Prefix
+                            {
+                                completion_options.match_algorithm = MatchAlgorithm::Substring
+                            }
                         }
                     }
 

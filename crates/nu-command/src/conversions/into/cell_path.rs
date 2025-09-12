@@ -176,14 +176,16 @@ fn record_to_path_member(
     let mut member = value_to_path_member(value, span)?;
 
     if let Some(optional) = record.get("optional")
-        && optional.as_bool()? {
-            member.make_optional();
-        };
+        && optional.as_bool()?
+    {
+        member.make_optional();
+    };
 
     if let Some(insensitive) = record.get("insensitive")
-        && insensitive.as_bool()? {
-            member.make_insensitive();
-        };
+        && insensitive.as_bool()?
+    {
+        member.make_insensitive();
+    };
 
     Ok(member)
 }

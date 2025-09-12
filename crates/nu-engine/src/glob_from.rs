@@ -38,9 +38,10 @@ pub fn glob_from(
 
         for c in components {
             if let Component::Normal(os) = c
-                && nu_glob::is_glob(os.to_string_lossy().as_ref()) {
-                    break;
-                }
+                && nu_glob::is_glob(os.to_string_lossy().as_ref())
+            {
+                break;
+            }
             p.push(c);
             counter += 1;
         }

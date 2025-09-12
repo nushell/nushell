@@ -667,20 +667,21 @@ fn parse_def_inner(
 
     let name = if let Some(name) = name_expr.as_string() {
         if let Some(mod_name) = module_name
-            && name.as_bytes() == mod_name {
-                let name_expr_span = name_expr.span;
+            && name.as_bytes() == mod_name
+        {
+            let name_expr_span = name_expr.span;
 
-                working_set.error(ParseError::NamedAsModule(
-                    "command".to_string(),
-                    name,
-                    "main".to_string(),
-                    name_expr_span,
-                ));
-                return (
-                    Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
-                    None,
-                );
-            }
+            working_set.error(ParseError::NamedAsModule(
+                "command".to_string(),
+                name,
+                "main".to_string(),
+                name_expr_span,
+            ));
+            return (
+                Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+                None,
+            );
+        }
 
         name
     } else {
@@ -846,10 +847,11 @@ fn parse_extern_inner(
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
             if let Some(name_span) = rest_spans.first()
-                && let Some(err) = detect_params_in_name(working_set, *name_span, decl_id) {
-                    working_set.error(err);
-                    return garbage(working_set, concat_span);
-                }
+                && let Some(err) = detect_params_in_name(working_set, *name_span, decl_id)
+            {
+                working_set.error(err);
+                return garbage(working_set, concat_span);
+            }
 
             let ParsedInternalCall { call, .. } = parse_internal_call(
                 working_set,
@@ -873,16 +875,17 @@ fn parse_extern_inner(
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
             if let Some(mod_name) = module_name
-                && name.as_bytes() == mod_name {
-                    let name_expr_span = name_expr.span;
-                    working_set.error(ParseError::NamedAsModule(
-                        "known external".to_string(),
-                        name.clone(),
-                        "main".to_string(),
-                        name_expr_span,
-                    ));
-                    return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
-                }
+                && name.as_bytes() == mod_name
+            {
+                let name_expr_span = name_expr.span;
+                working_set.error(ParseError::NamedAsModule(
+                    "known external".to_string(),
+                    name.clone(),
+                    "main".to_string(),
+                    name_expr_span,
+                ));
+                return Expression::new(working_set, Expr::Call(call), call_span, Type::Any);
+            }
 
             if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
                 let external_name = if let Some(mod_name) = module_name {
@@ -1212,16 +1215,17 @@ pub fn parse_alias(
             working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len()
-                && let Some(e) = working_set.parse_errors.get(starting_error_count) {
-                    if let ParseError::MissingPositional(..) = e {
-                        working_set
-                            .parse_errors
-                            .truncate(original_starting_error_count);
-                        // ignore missing required positional
-                    } else {
-                        return garbage_pipeline(working_set, replacement_spans);
-                    }
+                && let Some(e) = working_set.parse_errors.get(starting_error_count)
+            {
+                if let ParseError::MissingPositional(..) = e {
+                    working_set
+                        .parse_errors
+                        .truncate(original_starting_error_count);
+                    // ignore missing required positional
+                } else {
+                    return garbage_pipeline(working_set, replacement_spans);
                 }
+            }
 
             let (command, wrapped_call) = match expr {
                 Expression {
@@ -1948,9 +1952,10 @@ fn collect_first_comments(tokens: &[Token]) -> Vec<Span> {
                     contents: TokenContents::Eol,
                     ..
                 }) = tokens_iter.peek()
-                    && !comments.is_empty() {
-                        break;
-                    }
+                    && !comments.is_empty()
+                {
+                    break;
+                }
             }
             _ => {
                 comments.clear();
@@ -2238,9 +2243,10 @@ fn parse_module_file(
 
     // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span)
-        && !module_needs_reloading(working_set, module_id) {
-            return Some(module_id);
-        }
+        && !module_needs_reloading(working_set, module_id)
+    {
+        return Some(module_id);
+    }
 
     // Add the file to the stack of files being processed.
     if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
@@ -2419,23 +2425,24 @@ pub fn parse_module(
         if let Some(name) = call.positional_nth(0) {
             if let Some(s) = name.as_string() {
                 if let Some(mod_name) = module_name
-                    && s.as_bytes() == mod_name {
-                        working_set.error(ParseError::NamedAsModule(
-                            "module".to_string(),
-                            s,
-                            "mod".to_string(),
-                            name.span,
-                        ));
-                        return (
-                            Pipeline::from_vec(vec![Expression::new(
-                                working_set,
-                                Expr::Call(call),
-                                call_span,
-                                Type::Any,
-                            )]),
-                            None,
-                        );
-                    }
+                    && s.as_bytes() == mod_name
+                {
+                    working_set.error(ParseError::NamedAsModule(
+                        "module".to_string(),
+                        s,
+                        "mod".to_string(),
+                        name.span,
+                    ));
+                    return (
+                        Pipeline::from_vec(vec![Expression::new(
+                            working_set,
+                            Expr::Call(call),
+                            call_span,
+                            Type::Any,
+                        )]),
+                        None,
+                    );
+                }
                 (s, name.span, name.clone())
             } else {
                 working_set.error(ParseError::UnknownState(
@@ -3139,16 +3146,17 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
             }
 
             if let Some(new_name) = new_name
-                && new_name.item != overlay_name {
-                    working_set.error(ParseError::CantAddOverlayHelp(
-                        format!(
+                && new_name.item != overlay_name
+            {
+                working_set.error(ParseError::CantAddOverlayHelp(
+                    format!(
                         "Cannot add overlay as '{}' because it already exists under the name '{}'",
                         new_name.item, overlay_name
                     ),
-                        new_name.span,
-                    ));
-                    return pipeline;
-                }
+                    new_name.span,
+                ));
+                return pipeline;
+            }
 
             let module_id = overlay_frame.origin;
 
@@ -3397,18 +3405,20 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type
-                        && !type_compatible(explicit_type, &rhs_type) {
-                            working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                Span::concat(&spans[(span.0 + 1)..]),
-                            ));
-                        }
+                        && !type_compatible(explicit_type, &rhs_type)
+                    {
+                        working_set.error(ParseError::TypeMismatch(
+                            explicit_type.clone(),
+                            rhs_type.clone(),
+                            Span::concat(&spans[(span.0 + 1)..]),
+                        ));
+                    }
 
                     if let Some(var_id) = var_id
-                        && explicit_type.is_none() {
-                            working_set.set_variable_type(var_id, rhs_type);
-                        }
+                        && explicit_type.is_none()
+                    {
+                        working_set.set_variable_type(var_id, rhs_type);
+                    }
 
                     let call = Box::new(Call {
                         decl_id,
@@ -3513,13 +3523,14 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type
-                        && !type_compatible(explicit_type, &rhs_type) {
-                            working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                Span::concat(&spans[(span.0 + 1)..]),
-                            ));
-                        }
+                        && !type_compatible(explicit_type, &rhs_type)
+                    {
+                        working_set.error(ParseError::TypeMismatch(
+                            explicit_type.clone(),
+                            rhs_type.clone(),
+                            Span::concat(&spans[(span.0 + 1)..]),
+                        ));
+                    }
 
                     if let Some(var_id) = var_id {
                         if explicit_type.is_none() {
@@ -3677,18 +3688,20 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type
-                        && !type_compatible(explicit_type, &rhs_type) {
-                            working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                Span::concat(&spans[(span.0 + 1)..]),
-                            ));
-                        }
+                        && !type_compatible(explicit_type, &rhs_type)
+                    {
+                        working_set.error(ParseError::TypeMismatch(
+                            explicit_type.clone(),
+                            rhs_type.clone(),
+                            Span::concat(&spans[(span.0 + 1)..]),
+                        ));
+                    }
 
                     if let Some(var_id) = var_id
-                        && explicit_type.is_none() {
-                            working_set.set_variable_type(var_id, rhs_type);
-                        }
+                        && explicit_type.is_none()
+                    {
+                        working_set.set_variable_type(var_id, rhs_type);
+                    }
 
                     let call = Box::new(Call {
                         decl_id,
@@ -4190,9 +4203,10 @@ pub fn find_in_dirs(
                             if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
                                 if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd)
-                                    && let Ok(path) = canonicalize_with(filename, dir_abs) {
-                                        return Some(path);
-                                    }
+                                    && let Ok(path) = canonicalize_with(filename, dir_abs)
+                                {
+                                    return Some(path);
+                                }
                             }
                         }
 

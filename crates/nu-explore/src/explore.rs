@@ -231,9 +231,10 @@ impl ExploreConfig {
 
         if let Some(hm) = explore_cfg_hash_map.get("try").and_then(create_map)
             && let Some(reactive) = hm.get("reactive")
-                && let Ok(b) = reactive.as_bool() {
-                    ret.try_reactive = b;
-                }
+            && let Ok(b) = reactive.as_bool()
+        {
+            ret.try_reactive = b;
+        }
 
         ret
     }

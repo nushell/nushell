@@ -61,9 +61,10 @@ fn build_table(
     ));
 
     if let Some(color) = get_border_color(style)
-        && !is_color_empty(&color) {
-            return build_table_with_border_color(table, color);
-        }
+        && !is_color_empty(&color)
+    {
+        return build_table_with_border_color(table, color);
+    }
 
     table.to_string()
 }

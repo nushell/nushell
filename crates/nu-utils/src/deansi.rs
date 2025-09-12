@@ -13,9 +13,10 @@ pub fn strip_ansi_unlikely(string: &str) -> Cow<'_, str> {
     // which will be stripped. Includes the primary start of ANSI sequences ESC
     // (0x1B = decimal 27)
     if string.bytes().any(|x| matches!(x, 0..=9 | 11..=31))
-        && let Ok(stripped) = String::from_utf8(strip_ansi_escapes::strip(string)) {
-            return Cow::Owned(stripped);
-        }
+        && let Ok(stripped) = String::from_utf8(strip_ansi_escapes::strip(string))
+    {
+        return Cow::Owned(stripped);
+    }
     // Else case includes failures to parse!
     Cow::Borrowed(string)
 }
@@ -54,9 +55,10 @@ pub fn strip_ansi_string_unlikely(string: String) -> String {
         .as_str()
         .bytes()
         .any(|x| matches!(x, 0..=8 | 11..=31))
-        && let Ok(stripped) = String::from_utf8(strip_ansi_escapes::strip(&string)) {
-            return stripped;
-        }
+        && let Ok(stripped) = String::from_utf8(strip_ansi_escapes::strip(&string))
+    {
+        return stripped;
+    }
     // Else case includes failures to parse!
     string
 }

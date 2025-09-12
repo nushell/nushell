@@ -519,11 +519,10 @@ impl NuCompleter {
                                     .collect();
                             let mut new_span = span;
                             // strip the placeholder
-                            if strip
-                                && let Some(last) = text_spans.last_mut() {
-                                    last.pop();
-                                    new_span = Span::new(span.start, span.end.saturating_sub(1));
-                                }
+                            if strip && let Some(last) = text_spans.last_mut() {
+                                last.pop();
+                                new_span = Span::new(span.start, span.end.saturating_sub(1));
+                            }
                             if let Some(external_result) =
                                 self.external_completion(closure, &text_spans, offset, new_span)
                             {
@@ -745,18 +744,19 @@ impl NuCompleter {
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first()
-            && let Some(var_id) = pos_arg.var_id {
-                callee_stack.add_var(
-                    var_id,
-                    Value::list(
-                        spans
-                            .iter()
-                            .map(|it| Value::string(it, Span::unknown()))
-                            .collect(),
-                        Span::unknown(),
-                    ),
-                );
-            }
+            && let Some(var_id) = pos_arg.var_id
+        {
+            callee_stack.add_var(
+                var_id,
+                Value::list(
+                    spans
+                        .iter()
+                        .map(|it| Value::string(it, Span::unknown()))
+                        .collect(),
+                    Span::unknown(),
+                ),
+            );
+        }
 
         let result = eval_block::<WithoutDebug>(
             &self.engine_state,

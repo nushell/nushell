@@ -285,15 +285,16 @@ If you create a custom command with this name, that will be used instead."#
         })?;
 
         if let Some(thread_job) = engine_state.current_thread_job()
-            && !thread_job.try_add_pid(child.pid()) {
-                kill_by_pid(child.pid().into()).map_err(|err| {
-                    ShellError::Io(IoError::new_internal(
-                        err,
-                        "Could not spawn external stdin worker",
-                        nu_protocol::location!(),
-                    ))
-                })?;
-            }
+            && !thread_job.try_add_pid(child.pid())
+        {
+            kill_by_pid(child.pid().into()).map_err(|err| {
+                ShellError::Io(IoError::new_internal(
+                    err,
+                    "Could not spawn external stdin worker",
+                    nu_protocol::location!(),
+                ))
+            })?;
+        }
 
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {

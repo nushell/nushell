@@ -698,9 +698,9 @@ fn handle_row_stream(
                         if let Value::String { val, .. } = value
                             && let Some(val) =
                                 render_path_name(val, &config, &ls_colors, input.cwd.clone(), span)
-                            {
-                                *value = val;
-                            }
+                        {
+                            *value = val;
+                        }
                     }
                 }
                 value

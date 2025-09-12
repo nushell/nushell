@@ -150,9 +150,10 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
         Err(e) => {
             // On case-insensitive filesystems, try case-insensitive comparison
             if is_case_insensitive_filesystem()
-                && let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs) {
-                    return Value::string(relative_path.to_string_lossy(), span);
-                }
+                && let Some(relative_path) = try_case_insensitive_strip_prefix(&lhs, &rhs)
+            {
+                return Value::string(relative_path.to_string_lossy(), span);
+            }
 
             Value::error(
                 ShellError::CantConvert {

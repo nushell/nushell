@@ -42,9 +42,10 @@ impl UIEvents {
                 return Ok(None);
             }
             if let Event::Key(event) = read()?
-                && event.kind == KeyEventKind::Press {
-                    return Ok(Some(event));
-                }
+                && event.kind == KeyEventKind::Press
+            {
+                return Ok(Some(event));
+            }
         }
     }
 
@@ -56,9 +57,10 @@ impl UIEvents {
                 return Ok(None);
             }
             if let Event::Key(event) = read()?
-                && event.kind == KeyEventKind::Press {
-                    return Ok(Some(event));
-                }
+                && event.kind == KeyEventKind::Press
+            {
+                return Ok(Some(event));
+            }
         }
     }
 }

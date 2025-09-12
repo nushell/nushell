@@ -129,10 +129,9 @@ impl<T> NuMatcher<'_, T> {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = haystack_folded.starts_with(self.needle.as_str());
-                if matches
-                    && let Some(item) = item {
-                        items.push((haystack.to_string(), item));
-                    }
+                if matches && let Some(item) = item {
+                    items.push((haystack.to_string(), item));
+                }
                 matches
             }
             State::Substring { items } => {
@@ -142,10 +141,9 @@ impl<T> NuMatcher<'_, T> {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = haystack_folded.contains(self.needle.as_str());
-                if matches
-                    && let Some(item) = item {
-                        items.push((haystack.to_string(), item));
-                    }
+                if matches && let Some(item) = item {
+                    items.push((haystack.to_string(), item));
+                }
                 matches
             }
             State::Fuzzy {

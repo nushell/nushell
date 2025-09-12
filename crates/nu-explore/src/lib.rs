@@ -80,9 +80,10 @@ fn create_record_view(
     }
 
     if config.tail
-        && let Ok((w, h)) = size() {
-            view.tail(w, h);
-        }
+        && let Ok((w, h)) = size()
+    {
+        view.tail(w, h);
+    }
 
     Some(Page::new(view, true))
 }

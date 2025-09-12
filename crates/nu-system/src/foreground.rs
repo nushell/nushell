@@ -201,13 +201,14 @@ impl AsMut<Child> for ForegroundChild {
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
         if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref()
-            && pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
-                pgrp.store(0, Ordering::SeqCst);
+            && pcnt.fetch_sub(1, Ordering::SeqCst) == 1
+        {
+            pgrp.store(0, Ordering::SeqCst);
 
-                if self.interactive {
-                    child_pgroup::reset()
-                }
+            if self.interactive {
+                child_pgroup::reset()
             }
+        }
     }
 }
 

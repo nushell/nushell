@@ -86,9 +86,10 @@ pub trait LegacyInput {
                                 }
 
                                 if let Some(bytes_until) = bytes_until.as_ref()
-                                    && bytes_until.bytes().contains(&(c as u8)) {
-                                        break;
-                                    }
+                                    && bytes_until.bytes().contains(&(c as u8))
+                                {
+                                    break;
+                                }
                                 buf.push(c);
                             }
                             KeyCode::Backspace => {

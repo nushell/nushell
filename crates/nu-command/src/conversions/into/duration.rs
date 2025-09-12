@@ -227,21 +227,21 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         DURATION_UNIT_GROUPS,
         Type::Duration,
         |x| x,
-    )
-        && let Expr::ValueWithUnit(value) = expression.expr
-            && let Expr::Int(x) = value.expr.expr {
-                match value.unit.item {
-                    Unit::Nanosecond => return Ok(x),
-                    Unit::Microsecond => return Ok(x * 1000),
-                    Unit::Millisecond => return Ok(x * 1000 * 1000),
-                    Unit::Second => return Ok(x * NS_PER_SEC),
-                    Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-                    Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-                    Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-                    _ => {}
-                }
-            }
+    ) && let Expr::ValueWithUnit(value) = expression.expr
+        && let Expr::Int(x) = value.expr.expr
+    {
+        match value.unit.item {
+            Unit::Nanosecond => return Ok(x),
+            Unit::Microsecond => return Ok(x * 1000),
+            Unit::Millisecond => return Ok(x * 1000 * 1000),
+            Unit::Second => return Ok(x * NS_PER_SEC),
+            Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
+            Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
+            Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
+            Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
+            _ => {}
+        }
+    }
 
     Err(ShellError::InvalidUnit {
         span,
@@ -254,17 +254,18 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let unit_option = &args.unit;
 
     if let Value::Record { .. } | Value::Duration { .. } = input
-        && let Some(unit) = unit_option {
-            return Value::error(
-                ShellError::IncompatibleParameters {
-                    left_message: "got a record as input".into(),
-                    left_span: head,
-                    right_message: "the units should be included in the record".into(),
-                    right_span: unit.span,
-                },
-                head,
-            );
-        }
+        && let Some(unit) = unit_option
+    {
+        return Value::error(
+            ShellError::IncompatibleParameters {
+                left_message: "got a record as input".into(),
+                left_span: head,
+                right_message: "the units should be included in the record".into(),
+                right_span: unit.span,
+            },
+            head,
+        );
+    }
 
     let unit = match unit_option {
         Some(unit) => &unit.item,

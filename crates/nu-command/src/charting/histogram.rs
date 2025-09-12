@@ -200,9 +200,10 @@ fn run_histogram(
                     // parse record, and fill valid value to actual input.
                     Value::Record { val, .. } => {
                         if let Some(v) = val.get(col_name)
-                            && let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
-                                inputs.push(v);
-                            }
+                            && let Ok(v) = HashableValue::from_value(v.clone(), head_span)
+                        {
+                            inputs.push(v);
+                        }
                     }
                     // Propagate existing errors.
                     Value::Error { error, .. } => return Err(*error),

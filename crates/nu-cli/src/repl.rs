@@ -449,9 +449,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
         if history.sync_on_enter
-            && let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {e}");
-            }
+            && let Err(e) = line_editor.sync_history()
+        {
+            warn!("Failed to sync history: {e}");
+        }
 
         perf!("sync_history", start_time, use_color);
     }
@@ -646,9 +647,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     cmd_duration,
                     &mut stack,
                     &mut line_editor,
-                ) {
-                    warn!("Could not fill in result related history metadata: {e}");
-                }
+                )
+            {
+                warn!("Could not fill in result related history metadata: {e}");
+            }
 
             if shell_integration_osc2 {
                 run_shell_integration_osc2(None, engine_state, &mut stack, use_color);

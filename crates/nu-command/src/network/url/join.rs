@@ -213,15 +213,16 @@ impl UrlComponents {
             };
 
             if let Some(q) = self.query
-                && q != qs {
-                    // if query is present it means that also query_span is set.
-                    return Err(ShellError::IncompatibleParameters {
-                        left_message: format!("Mismatch, query string from params is: {qs}"),
-                        left_span: value_span,
-                        right_message: format!("instead query is: {q}"),
-                        right_span: self.query_span.unwrap_or(Span::unknown()),
-                    });
-                }
+                && q != qs
+            {
+                // if query is present it means that also query_span is set.
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: format!("Mismatch, query string from params is: {qs}"),
+                    left_span: value_span,
+                    right_message: format!("instead query is: {q}"),
+                    right_span: self.query_span.unwrap_or(Span::unknown()),
+                });
+            }
 
             return Ok(Self {
                 query: Some(qs),
@@ -262,15 +263,16 @@ impl UrlComponents {
             }),
             "query" => {
                 if let Some(q) = self.query
-                    && q != s {
-                        // if query is present it means that also params_span is set.
-                        return Err(ShellError::IncompatibleParameters {
-                            left_message: format!("Mismatch, query param is: {s}"),
-                            left_span: value_span,
-                            right_message: format!("instead query string from params is: {q}"),
-                            right_span: self.params_span.unwrap_or(Span::unknown()),
-                        });
-                    }
+                    && q != s
+                {
+                    // if query is present it means that also params_span is set.
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: format!("Mismatch, query param is: {s}"),
+                        left_span: value_span,
+                        right_message: format!("instead query string from params is: {q}"),
+                        right_span: self.params_span.unwrap_or(Span::unknown()),
+                    });
+                }
 
                 Ok(Self {
                     query: Some(format!("?{s}")),

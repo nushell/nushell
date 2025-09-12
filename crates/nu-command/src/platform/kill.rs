@@ -70,20 +70,20 @@ impl Command for Kill {
                     span: signal_span,
                 }),
             ) = (force, signal)
-            {
-                return Err(ShellError::IncompatibleParameters {
-                    left_message: "force".to_string(),
-                    left_span: call
-                        .get_flag_span(stack, "force")
-                        .expect("Had flag force, but didn't have span for flag"),
-                    right_message: "signal".to_string(),
-                    right_span: Span::merge(
-                        call.get_flag_span(stack, "signal")
-                            .expect("Had flag signal, but didn't have span for flag"),
-                        signal_span,
-                    ),
-                });
-            };
+        {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "force".to_string(),
+                left_span: call
+                    .get_flag_span(stack, "force")
+                    .expect("Had flag force, but didn't have span for flag"),
+                right_message: "signal".to_string(),
+                right_span: Span::merge(
+                    call.get_flag_span(stack, "signal")
+                        .expect("Had flag signal, but didn't have span for flag"),
+                    signal_span,
+                ),
+            });
+        };
 
         let mut cmd = build_kill_command(
             force,

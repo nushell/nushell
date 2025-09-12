@@ -810,9 +810,10 @@ impl Signature {
     pub fn get_short_flag(&self, short: char) -> Option<Flag> {
         for flag in &self.named {
             if let Some(short_flag) = &flag.short
-                && *short_flag == short {
-                    return Some(flag.clone());
-                }
+                && *short_flag == short
+            {
+                return Some(flag.clone());
+            }
         }
         None
     }

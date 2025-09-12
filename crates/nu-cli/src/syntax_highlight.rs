@@ -298,9 +298,10 @@ fn find_matching_block_end_in_block(
                     &e.expr,
                     global_span_offset,
                     global_cursor_offset,
-                ) {
-                    return Some(pos);
-                }
+                )
+            {
+                return Some(pos);
+            }
 
             if let Some(redirection) = e.redirection.as_ref() {
                 match redirection {

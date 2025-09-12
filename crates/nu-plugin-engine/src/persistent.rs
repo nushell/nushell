@@ -321,9 +321,10 @@ impl RegisteredPlugin for PersistentPlugin {
                 // running
                 if let Some(plugin) = plugin.upgrade()
                     && let Ok(mutable) = plugin.mutable.lock()
-                        && let Some(ref running) = mutable.running {
-                            let _ = running.interface.signal(action);
-                        }
+                    && let Some(ref running) = mutable.running
+                {
+                    let _ = running.interface.signal(action);
+                }
             }))?
         };
 

@@ -436,9 +436,10 @@ fn run_command(
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take()
-                && view.stackable {
-                    view_stack.stack.push(view);
-                }
+                && view.stackable
+            {
+                view_stack.stack.push(view);
+            }
 
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
@@ -798,11 +799,12 @@ fn search_input_key_event(
             buf.buf_cmd_input.clear();
 
             if let Some(view) = view
-                && !buf.buf_cmd.is_empty() {
-                    let data = view.collect_data().into_iter().map(|(text, _)| text);
-                    buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
-                    buf.search_index = 0;
-                }
+                && !buf.buf_cmd.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                buf.search_index = 0;
+            }
 
             buf.is_search_input = false;
 
@@ -822,26 +824,8 @@ fn search_input_key_event(
                 buf.buf_cmd_input.pop();
 
                 if let Some(view) = view
-                    && !buf.buf_cmd_input.is_empty() {
-                        let data = view.collect_data().into_iter().map(|(text, _)| text);
-                        buf.search_results =
-                            search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
-                        buf.search_index = 0;
-
-                        if !buf.search_results.is_empty() {
-                            let pos = buf.search_results[buf.search_index];
-                            view.show_data(pos);
-                        }
-                    }
-            }
-
-            true
-        }
-        KeyCode::Char(c) => {
-            buf.buf_cmd_input.push(*c);
-
-            if let Some(view) = view
-                && !buf.buf_cmd_input.is_empty() {
+                    && !buf.buf_cmd_input.is_empty()
+                {
                     let data = view.collect_data().into_iter().map(|(text, _)| text);
                     buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
                     buf.search_index = 0;
@@ -851,6 +835,25 @@ fn search_input_key_event(
                         view.show_data(pos);
                     }
                 }
+            }
+
+            true
+        }
+        KeyCode::Char(c) => {
+            buf.buf_cmd_input.push(*c);
+
+            if let Some(view) = view
+                && !buf.buf_cmd_input.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                buf.search_index = 0;
+
+                if !buf.search_results.is_empty() {
+                    let pos = buf.search_results[buf.search_index];
+                    view.show_data(pos);
+                }
+            }
 
             true
         }

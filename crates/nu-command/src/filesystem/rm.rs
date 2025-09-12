@@ -148,9 +148,9 @@ fn rm(
                 .to_string_lossy()
                 .as_ref()
                 == home.as_str()
-            {
-                unique_argument_check = Some(path.span);
-            }
+        {
+            unique_argument_check = Some(path.span);
+        }
         let corrected_path = Spanned {
             item: match path.item {
                 NuGlob::DoNotExpand(s) => {

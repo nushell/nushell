@@ -42,25 +42,27 @@ fn complete_rec(
     let has_more = !partial.is_empty() && (partial.len() > 1 || isdir);
 
     if let Some((&base, rest)) = partial.split_first()
-        && base.chars().all(|c| c == '.') && has_more {
-            let built_paths: Vec<_> = built_paths
-                .iter()
-                .map(|built| {
-                    let mut built = built.clone();
-                    built.parts.push(base.to_string());
-                    built.isdir = true;
-                    built
-                })
-                .collect();
-            return complete_rec(
-                rest,
-                &built_paths,
-                options,
-                want_directory,
-                isdir,
-                enable_exact_match,
-            );
-        }
+        && base.chars().all(|c| c == '.')
+        && has_more
+    {
+        let built_paths: Vec<_> = built_paths
+            .iter()
+            .map(|built| {
+                let mut built = built.clone();
+                built.parts.push(base.to_string());
+                built.isdir = true;
+                built
+            })
+            .collect();
+        return complete_rec(
+            rest,
+            &built_paths,
+            options,
+            want_directory,
+            isdir,
+            enable_exact_match,
+        );
+    }
 
     let prefix = partial.first().unwrap_or(&"");
     let mut matcher = NuMatcher::new(prefix, options);
@@ -108,17 +110,16 @@ fn complete_rec(
     }
 
     // Don't show longer completions if we have a single exact match (#13204, #14794)
-    if !multiple_exact_matches
-        && let Some(built) = exact_match {
-            return complete_rec(
-                &partial[1..],
-                &[built],
-                options,
-                want_directory,
-                isdir,
-                true,
-            );
-        }
+    if !multiple_exact_matches && let Some(built) = exact_match {
+        return complete_rec(
+            &partial[1..],
+            &[built],
+            options,
+            want_directory,
+            isdir,
+            true,
+        );
+    }
 
     if has_more {
         let mut completions = vec![];

@@ -71,9 +71,10 @@ in no particular order, regardless of the specified timeout parameter.
         let tag_arg: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "tag")?;
 
         if let Some(tag) = tag_arg
-            && tag.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: tag.span });
-            }
+            && tag.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue { span: tag.span });
+        }
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
 

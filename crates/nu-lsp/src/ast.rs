@@ -113,18 +113,20 @@ fn try_find_id_in_def(
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a declaration id
     if let Some(id_ref) = id_ref
-        && !matches!(id_ref, Id::Declaration(_)) {
-            return None;
-        }
+        && !matches!(id_ref, Id::Declaration(_))
+    {
+        return None;
+    }
     let mut span = None;
     for arg in call.arguments.iter() {
         if location.is_none_or(|pos| arg.span().contains(*pos)) {
             // String means this argument is the name
             if let Argument::Positional(expr) = arg
-                && let Expr::String(_) = &expr.expr {
-                    span = Some(expr.span);
-                    break;
-                }
+                && let Expr::String(_) = &expr.expr
+            {
+                span = Some(expr.span);
+                break;
+            }
             // if we do care the location,
             // reaching here means this argument is not the name
             if location.is_some() {
@@ -179,9 +181,10 @@ fn try_find_id_in_mod(
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a module id
     if let Some(id_ref) = id_ref
-        && !matches!(id_ref, Id::Module(_, _)) {
-            return None;
-        }
+        && !matches!(id_ref, Id::Module(_, _))
+    {
+        return None;
+    }
 
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     call.arguments.first().and_then(|arg| {
@@ -367,9 +370,10 @@ fn try_find_id_in_overlay(
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a module id
     if let Some(id_ref) = id_ref
-        && !matches!(id_ref, Id::Module(_, _)) {
-            return None;
-        }
+        && !matches!(id_ref, Id::Module(_, _))
+    {
+        return None;
+    }
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     let module_from_parser_info = |span: Span, name: &str| {
         let Expression {
@@ -448,9 +452,10 @@ fn find_id_in_expr(
         }
         Expr::ExternalCall(head, _) => {
             if head.span.contains(*location)
-                && let Expr::GlobPattern(cmd, _) = &head.expr {
-                    return FindMapResult::Found((Id::External(cmd.clone()), head.span));
-                }
+                && let Expr::GlobPattern(cmd, _) = &head.expr
+            {
+                return FindMapResult::Found((Id::External(cmd.clone()), head.span));
+            }
             FindMapResult::Continue
         }
         Expr::FullCellPath(fcp) => {

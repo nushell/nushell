@@ -65,10 +65,11 @@ is particularly large, this can cause high memory usage."#
 
             let mut saved_positional = None;
             if let Some(var) = block.signature.get_positional(0)
-                && let Some(var_id) = &var.var_id {
-                    stack_captures.add_var(*var_id, input.clone());
-                    saved_positional = Some(*var_id);
-                }
+                && let Some(var_id) = &var.var_id
+            {
+                stack_captures.add_var(*var_id, input.clone());
+                saved_positional = Some(*var_id);
+            }
 
             let eval_block = get_eval_block(engine_state);
 
