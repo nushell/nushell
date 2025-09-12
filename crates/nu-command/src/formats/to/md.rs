@@ -43,7 +43,9 @@ impl Command for ToMd {
             Example {
                 description: "Outputs an MD string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to md",
-                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|")),
+                result: Some(Value::test_string(
+                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |",
+                )),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
@@ -68,7 +70,7 @@ impl Command for ToMd {
                 description: "Separate list into markdown tables",
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4} {foo: 5}] | to md --per-element",
                 result: Some(Value::test_string(
-                    "|foo|bar|\n|-|-|\n|1|2|\n|3|4|\n|foo|\n|-|\n|5|",
+                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n| foo |\n| - |\n| 5 |",
                 )),
             },
             Example {
@@ -234,6 +236,9 @@ fn table(
                     if column_widths[i] < new_column_width {
                         column_widths[i] = new_column_width;
                     }
+                    if column_widths[i] < 3 {
+                        column_widths[i] = 3;
+                    }
                 }
             }
             p => {
@@ -322,8 +327,8 @@ fn get_output_string(
         output_string.push('|');
 
         for i in 0..headers.len() {
+            output_string.push(' ');
             if pretty {
-                output_string.push(' ');
                 if center.is_some() && to_center.contains(&headers[i]) {
                     output_string.push_str(&get_centered_string(
                         headers[i].clone(),
@@ -337,12 +342,11 @@ fn get_output_string(
                         ' ',
                     ));
                 }
-                output_string.push(' ');
             } else {
                 output_string.push_str(&headers[i]);
             }
 
-            output_string.push('|');
+            output_string.push_str(" |");
         }
 
         output_string.push_str("\n|");
@@ -359,11 +363,9 @@ fn get_output_string(
                 ));
                 output_string.push(border_char);
             } else if centered_column {
-                output_string.push(':');
-                output_string.push('-');
-                output_string.push(':');
+                output_string.push_str(":---:");
             } else {
-                output_string.push('-');
+                output_string.push_str(" --- ");
             }
 
             output_string.push('|');
@@ -378,8 +380,11 @@ fn get_output_string(
         }
 
         for i in 0..row.len() {
-            if pretty && column_widths.get(i).is_some() {
+            if !headers.is_empty() {
                 output_string.push(' ');
+            }
+
+            if pretty && column_widths.get(i).is_some() {
                 if center.is_some() && to_center.contains(&headers[i]) {
                     output_string.push_str(&get_centered_string(
                         row[i].clone(),
@@ -393,13 +398,12 @@ fn get_output_string(
                         ' ',
                     ));
                 }
-                output_string.push(' ');
             } else {
                 output_string.push_str(&row[i]);
             }
 
             if !headers.is_empty() {
-                output_string.push('|');
+                output_string.push_str(" |");
             }
         }
 
@@ -537,11 +541,11 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            |country|
-            |-|
-            |Ecuador|
-            |New Zealand|
-            |USA|
+            | country |
+            | --- |
+            | Ecuador |
+            | New Zealand |
+            | USA |
         "#)
         );
 
@@ -578,10 +582,10 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            ||foo|
-            |-|-|
-            |1|2|
-            |3|4|
+            |  | foo |
+            | --- | --- |
+            | 1 | 2 |
+            | 3 | 4 |
         "#)
         );
     }
@@ -611,11 +615,11 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            |foo|bar|
-            |-|-|
-            |1|2|
-            |3|4|
-            |5||
+            | foo | bar |
+            | --- | --- |
+            | 1 | 2 |
+            | 3 | 4 |
+            | 5 |  |
         "#)
         );
     }
@@ -680,11 +684,11 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            |foo|bar|
-            |-|:-:|
-            |1|2|
-            |3|4|
-            |5|6|
+            | foo | bar |
+            | --- |:---:|
+            | 1 | 2 |
+            | 3 | 4 |
+            | 5 | 6 |
         "#)
         );
     }
@@ -963,12 +967,10 @@ mod tests {
 
     #[test]
     fn test_escape_base_md_characters_in_header() {
-        let value = Value::test_list(vec![
-            Value::test_record(record! {
-                "name|info" => Value::test_string("beautiful"),
-                "value\\" => Value::test_string("unknow"),
-            }),
-        ]);
+        let value = Value::test_list(vec![Value::test_record(record! {
+            "name|info" => Value::test_string("beautiful"),
+            "value\\" => Value::test_string("unknow"),
+        })]);
 
         assert_eq!(
             table(
