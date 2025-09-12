@@ -270,8 +270,8 @@ fn join_rows(
             val: this_record, ..
         } = this_row
         {
-            if let Some(this_valkey) = this_record.get(this_join_key) {
-                if let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
+            if let Some(this_valkey) = this_record.get(this_join_key)
+                && let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for other_record in other_rows {
                             // `other` table contains rows matching `this` row on the join column
@@ -293,7 +293,6 @@ fn join_rows(
                     }
                     continue;
                 }
-            }
             if !matches!(join_type, JoinType::Inner) {
                 // Either `this` row is missing a value for the join column or
                 // `other` table did not contain any rows matching
@@ -352,12 +351,11 @@ fn lookup_table<'a>(
 ) -> HashMap<String, Vec<&'a Record>> {
     let mut map = HashMap::<String, Vec<&'a Record>>::with_capacity(cap);
     for row in rows {
-        if let Value::Record { val: record, .. } = row {
-            if let Some(val) = record.get(on) {
+        if let Value::Record { val: record, .. } = row
+            && let Some(val) = record.get(on) {
                 let valkey = val.to_expanded_string(sep, config);
                 map.entry(valkey).or_default().push(record);
-            }
-        };
+            };
     }
     map
 }

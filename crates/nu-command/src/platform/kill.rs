@@ -62,8 +62,8 @@ impl Command for Kill {
             });
         }
 
-        if cfg!(unix) {
-            if let (
+        if cfg!(unix)
+            && let (
                 true,
                 Some(Spanned {
                     item: _,
@@ -83,8 +83,7 @@ impl Command for Kill {
                         signal_span,
                     ),
                 });
-            }
-        };
+            };
 
         let mut cmd = build_kill_command(
             force,

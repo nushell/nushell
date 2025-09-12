@@ -132,11 +132,10 @@ impl Expression {
                             }
                         }
                         Argument::Named(named) => {
-                            if let Some(expr) = &named.2 {
-                                if expr.has_in_variable(working_set) {
+                            if let Some(expr) = &named.2
+                                && expr.has_in_variable(working_set) {
                                     return true;
                                 }
-                            }
                         }
                     }
                 }
@@ -192,21 +191,18 @@ impl Expression {
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
             Expr::Range(range) => {
-                if let Some(left) = &range.from {
-                    if left.has_in_variable(working_set) {
+                if let Some(left) = &range.from
+                    && left.has_in_variable(working_set) {
                         return true;
                     }
-                }
-                if let Some(middle) = &range.next {
-                    if middle.has_in_variable(working_set) {
+                if let Some(middle) = &range.next
+                    && middle.has_in_variable(working_set) {
                         return true;
                     }
-                }
-                if let Some(right) = &range.to {
-                    if right.has_in_variable(working_set) {
+                if let Some(right) = &range.to
+                    && right.has_in_variable(working_set) {
                         return true;
                     }
-                }
                 false
             }
             Expr::Record(items) => {

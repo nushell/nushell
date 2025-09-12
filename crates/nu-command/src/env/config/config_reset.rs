@@ -66,8 +66,8 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&nu_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
+            if let Ok(mut file) = std::fs::File::create(&nu_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}") {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
                         err.not_found_as(NotFound::File),
                         span,
@@ -75,7 +75,6 @@ impl Command for ConfigReset {
                         "config.nu could not be written to",
                     )));
                 }
-            }
         }
         if !only_nu {
             let mut env_config = config_path.clone();
@@ -93,8 +92,8 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&env_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
+            if let Ok(mut file) = std::fs::File::create(&env_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}") {
                     return Err(ShellError::Io(IoError::new_with_additional_context(
                         err.not_found_as(NotFound::File),
                         span,
@@ -102,7 +101,6 @@ impl Command for ConfigReset {
                         "env.nu could not be written to",
                     )));
                 }
-            }
         }
         Ok(PipelineData::empty())
     }

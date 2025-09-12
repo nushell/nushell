@@ -312,11 +312,10 @@ fn check_saving_to_source_file(
         return Err(saving_to_source_file_error(dest));
     }
 
-    if let Some(dest) = stderr_dest {
-        if &dest.item == source {
+    if let Some(dest) = stderr_dest
+        && &dest.item == source {
             return Err(saving_to_source_file_error(dest));
         }
-    }
 
     Ok(())
 }
@@ -456,8 +455,8 @@ fn open_file(
         Err(err) => {
             // In caase of NotFound, search for the missing parent directory.
             // This also presents a TOCTOU (or TOUTOC, technically?)
-            if err.kind() == std::io::ErrorKind::NotFound {
-                if let Some(missing_component) =
+            if err.kind() == std::io::ErrorKind::NotFound
+                && let Some(missing_component) =
                     path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
                 {
                     // By looking at the postfix to remove, rather than the prefix
@@ -477,7 +476,6 @@ fn open_file(
                         PathBuf::from(missing_component),
                     )));
                 }
-            }
 
             Err(ShellError::Io(IoError::new(err, span, PathBuf::from(path))))
         }

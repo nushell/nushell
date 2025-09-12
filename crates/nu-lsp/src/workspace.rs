@@ -118,11 +118,9 @@ impl LanguageServer {
         let definition_span = Self::find_definition_span_by_id(&working_set, &id);
         if let Some(extra_span) =
             Self::reference_not_in_ast(&id, &working_set, definition_span, file_span, cursor_span)
-        {
-            if !refs.contains(&extra_span) {
+            && !refs.contains(&extra_span) {
                 refs.push(extra_span);
             }
-        }
         Some(
             refs.iter()
                 .map(|span| DocumentHighlight {
@@ -350,13 +348,12 @@ impl LanguageServer {
                 .find_module_by_span(id_tracker.file_span)
                 .is_some()
         {
-            if let Some(new_block) = working_set.find_block_by_span(id_tracker.file_span) {
-                if let Some((new_id, _)) =
+            if let Some(new_block) = working_set.find_block_by_span(id_tracker.file_span)
+                && let Some((new_id, _)) =
                     ast::find_id(&new_block, working_set, &id_tracker.span.start)
                 {
                     id_tracker.id = new_id;
                 }
-            }
             id_tracker.renewed = true;
         }
         let mut refs: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
@@ -370,11 +367,10 @@ impl LanguageServer {
             definition_span,
             file_span,
             id_tracker.span,
-        ) {
-            if !refs.contains(&extra_span) {
+        )
+            && !refs.contains(&extra_span) {
                 refs.push(extra_span)
             }
-        }
 
         // add_block to avoid repeated parsing
         working_set.add_block(block);
@@ -392,8 +388,8 @@ impl LanguageServer {
         file_span: Span,
         sample_span: Span,
     ) -> Option<Span> {
-        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span) {
-            if file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
+        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span)
+            && file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
                 let content = working_set.get_span_contents(decl_span);
                 let leading_dashes = content
                     .iter()
@@ -408,7 +404,6 @@ impl LanguageServer {
                     })
                 });
             }
-        }
         None
     }
 

@@ -61,11 +61,10 @@ impl UseAnsiColoring {
             return false;
         }
 
-        if let Some((_, cli_color)) = engine_state.get_env_var_insensitive("clicolor") {
-            if let Ok(cli_color) = cli_color.coerce_bool() {
+        if let Some((_, cli_color)) = engine_state.get_env_var_insensitive("clicolor")
+            && let Ok(cli_color) = cli_color.coerce_bool() {
                 return cli_color;
             }
-        }
 
         is_terminal
     }

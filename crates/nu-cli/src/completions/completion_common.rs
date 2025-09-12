@@ -41,8 +41,8 @@ fn complete_rec(
 ) -> Vec<PathBuiltFromString> {
     let has_more = !partial.is_empty() && (partial.len() > 1 || isdir);
 
-    if let Some((&base, rest)) = partial.split_first() {
-        if base.chars().all(|c| c == '.') && has_more {
+    if let Some((&base, rest)) = partial.split_first()
+        && base.chars().all(|c| c == '.') && has_more {
             let built_paths: Vec<_> = built_paths
                 .iter()
                 .map(|built| {
@@ -61,7 +61,6 @@ fn complete_rec(
                 enable_exact_match,
             );
         }
-    }
 
     let prefix = partial.first().unwrap_or(&"");
     let mut matcher = NuMatcher::new(prefix, options);
@@ -109,8 +108,8 @@ fn complete_rec(
     }
 
     // Don't show longer completions if we have a single exact match (#13204, #14794)
-    if !multiple_exact_matches {
-        if let Some(built) = exact_match {
+    if !multiple_exact_matches
+        && let Some(built) = exact_match {
             return complete_rec(
                 &partial[1..],
                 &[built],
@@ -120,7 +119,6 @@ fn complete_rec(
                 true,
             );
         }
-    }
 
     if has_more {
         let mut completions = vec![];

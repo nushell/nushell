@@ -336,11 +336,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
-        if let Ok(input_val) = input.coerce_str() {
-            if let Ok(date) = parse_date_from_string(&input_val, span) {
+        if let Ok(input_val) = input.coerce_str()
+            && let Ok(date) = parse_date_from_string(&input_val, span) {
                 return Value::date(date, span);
             }
-        }
     }
 
     // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
@@ -362,8 +361,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
-    if dateformat.is_none() {
-        if let Ok(ts) = timestamp {
+    if dateformat.is_none()
+        && let Ok(ts) = timestamp {
             return match timezone {
                 // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
 
@@ -415,7 +414,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 },
             };
         };
-    }
 
     // If input is not a timestamp, try parsing it as a string
     let span = input.span();
@@ -752,12 +750,11 @@ fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
     }
 
     // try parsing at date only
-    if let Ok(date) = NaiveDate::parse_from_str(val, fmt) {
-        if let Some(dt) = date.and_hms_opt(0, 0, 0) {
+    if let Ok(date) = NaiveDate::parse_from_str(val, fmt)
+        && let Some(dt) = date.and_hms_opt(0, 0, 0) {
             let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
             return Ok(Value::date(dt_native.into(), head));
         }
-    }
 
     // try parsing at time only
     if let Ok(time) = NaiveTime::parse_from_str(val, fmt) {

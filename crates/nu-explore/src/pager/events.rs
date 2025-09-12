@@ -41,11 +41,10 @@ impl UIEvents {
             if !poll(timeout)? {
                 return Ok(None);
             }
-            if let Event::Key(event) = read()? {
-                if event.kind == KeyEventKind::Press {
+            if let Event::Key(event) = read()?
+                && event.kind == KeyEventKind::Press {
                     return Ok(Some(event));
                 }
-            }
         }
     }
 
@@ -56,11 +55,10 @@ impl UIEvents {
             if !poll(Duration::ZERO)? {
                 return Ok(None);
             }
-            if let Event::Key(event) = read()? {
-                if event.kind == KeyEventKind::Press {
+            if let Event::Key(event) = read()?
+                && event.kind == KeyEventKind::Press {
                     return Ok(Some(event));
                 }
-            }
         }
     }
 }

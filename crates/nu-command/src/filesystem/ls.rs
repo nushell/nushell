@@ -598,8 +598,8 @@ pub(crate) fn dir_entry_dict(
         record.push("type", Value::nothing(span));
     }
 
-    if long {
-        if let Some(md) = metadata {
+    if long
+        && let Some(md) = metadata {
             record.push(
                 "target",
                 if md.file_type().is_symlink() {
@@ -629,10 +629,9 @@ pub(crate) fn dir_entry_dict(
                 },
             )
         }
-    }
 
-    if long {
-        if let Some(md) = metadata {
+    if long
+        && let Some(md) = metadata {
             record.push("readonly", Value::bool(md.permissions().readonly(), span));
 
             #[cfg(unix)]
@@ -671,7 +670,6 @@ pub(crate) fn dir_entry_dict(
                 );
             }
         }
-    }
 
     record.push(
         "size",
@@ -714,32 +712,29 @@ pub(crate) fn dir_entry_dict(
         if long {
             record.push("created", {
                 let mut val = Value::nothing(span);
-                if let Ok(c) = md.created() {
-                    if let Some(local) = try_convert_to_local_date_time(c) {
+                if let Ok(c) = md.created()
+                    && let Some(local) = try_convert_to_local_date_time(c) {
                         val = Value::date(local.with_timezone(local.offset()), span);
                     }
-                }
                 val
             });
 
             record.push("accessed", {
                 let mut val = Value::nothing(span);
-                if let Ok(a) = md.accessed() {
-                    if let Some(local) = try_convert_to_local_date_time(a) {
+                if let Ok(a) = md.accessed()
+                    && let Some(local) = try_convert_to_local_date_time(a) {
                         val = Value::date(local.with_timezone(local.offset()), span)
                     }
-                }
                 val
             });
         }
 
         record.push("modified", {
             let mut val = Value::nothing(span);
-            if let Ok(m) = md.modified() {
-                if let Some(local) = try_convert_to_local_date_time(m) {
+            if let Ok(m) = md.modified()
+                && let Some(local) = try_convert_to_local_date_time(m) {
                     val = Value::date(local.with_timezone(local.offset()), span);
                 }
-            }
             val
         })
     } else {

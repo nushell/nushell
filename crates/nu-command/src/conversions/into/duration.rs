@@ -227,9 +227,9 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         DURATION_UNIT_GROUPS,
         Type::Duration,
         |x| x,
-    ) {
-        if let Expr::ValueWithUnit(value) = expression.expr {
-            if let Expr::Int(x) = value.expr.expr {
+    )
+        && let Expr::ValueWithUnit(value) = expression.expr
+            && let Expr::Int(x) = value.expr.expr {
                 match value.unit.item {
                     Unit::Nanosecond => return Ok(x),
                     Unit::Microsecond => return Ok(x * 1000),
@@ -242,8 +242,6 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
                     _ => {}
                 }
             }
-        }
-    }
 
     Err(ShellError::InvalidUnit {
         span,
@@ -255,8 +253,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
     let unit_option = &args.unit;
 
-    if let Value::Record { .. } | Value::Duration { .. } = input {
-        if let Some(unit) = unit_option {
+    if let Value::Record { .. } | Value::Duration { .. } = input
+        && let Some(unit) = unit_option {
             return Value::error(
                 ShellError::IncompatibleParameters {
                     left_message: "got a record as input".into(),
@@ -267,7 +265,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 head,
             );
         }
-    }
 
     let unit = match unit_option {
         Some(unit) => &unit.item,

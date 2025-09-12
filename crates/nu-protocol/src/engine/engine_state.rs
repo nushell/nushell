@@ -486,11 +486,10 @@ impl EngineState {
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(name) {
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(val) = env_vars.get(name) {
                     return Some(val);
                 }
-            }
         }
 
         None
@@ -503,11 +502,10 @@ impl EngineState {
     pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
                     return Some((v.0, v.1));
                 }
-            }
         }
 
         None
@@ -638,11 +636,10 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name) {
-                if visibility.is_decl_id_visible(&decl_id) {
+            if let Some(decl_id) = overlay_frame.get_decl(name)
+                && visibility.is_decl_id_visible(&decl_id) {
                     return Some(decl_id);
                 }
-            }
         }
 
         None

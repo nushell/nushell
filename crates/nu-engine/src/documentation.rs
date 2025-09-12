@@ -376,8 +376,8 @@ fn get_command_documentation(
         }
     }
 
-    if !command.is_keyword() && !sig.input_output_types.is_empty() {
-        if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
+    if !command.is_keyword() && !sig.input_output_types.is_empty()
+        && let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
             let span = Span::unknown();
             let mut vals = vec![];
@@ -413,16 +413,14 @@ fn get_command_documentation(
                     parser_info: HashMap::new(),
                 },
                 PipelineData::value(Value::list(vals, span), None),
-            ) {
-                if let Ok((str, ..)) = result.collect_string_strict(span) {
+            )
+                && let Ok((str, ..)) = result.collect_string_strict(span) {
                     let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
                     for line in str.lines() {
                         let _ = writeln!(long_desc, "  {line}");
                     }
                 }
-            }
         }
-    }
 
     let examples = command.examples();
 
@@ -522,9 +520,9 @@ fn update_ansi_from_config(
         let argument_opt = get_argument_for_color_value(nu_config, color, span, span_id);
 
         // Call ansi command using argument
-        if let Some(argument) = argument_opt {
-            if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call::<WithoutDebug>(
+        if let Some(argument) = argument_opt
+            && let Some(decl_id) = engine_state.find_decl(b"ansi", &[])
+                && let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
                     caller_stack,
                     &Call {
@@ -534,13 +532,10 @@ fn update_ansi_from_config(
                         parser_info: HashMap::new(),
                     },
                     PipelineData::empty(),
-                ) {
-                    if let Ok((str, ..)) = result.collect_string_strict(span) {
+                )
+                    && let Ok((str, ..)) = result.collect_string_strict(span) {
                         *ansi_code = str;
                     }
-                }
-            }
-        }
     }
 }
 

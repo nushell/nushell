@@ -87,8 +87,8 @@ impl Command for StorDelete {
             Signals::empty(),
         ));
 
-        if let Some(new_table_name) = table_name_opt {
-            if let Ok(conn) = db.open_connection() {
+        if let Some(new_table_name) = table_name_opt
+            && let Ok(conn) = db.open_connection() {
                 let sql_stmt = match where_clause_opt {
                     None => {
                         // We're deleting an entire table
@@ -118,7 +118,6 @@ impl Command for StorDelete {
                         inner: vec![],
                     })?;
             }
-        }
         // dbg!(db.clone());
         Ok(Value::custom(db, span).into_pipeline_data())
     }

@@ -559,8 +559,8 @@ fn lex_internal(
             curr_offset += 1;
 
             // If the next character is `|`, we're looking at a `||`.
-            if let Some(c) = state.input.get(curr_offset) {
-                if *c == b'|' {
+            if let Some(c) = state.input.get(curr_offset)
+                && *c == b'|' {
                     let idx = curr_offset;
                     curr_offset += 1;
                     state.output.push(Token::new(
@@ -569,7 +569,6 @@ fn lex_internal(
                     ));
                     continue;
                 }
-            }
 
             // Otherwise, it's just a regular `|` token.
 

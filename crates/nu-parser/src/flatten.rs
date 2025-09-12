@@ -214,14 +214,13 @@ fn flatten_expression_into(
             let block = working_set.get_block(*block_id);
             let flattened = flatten_block(working_set, block);
 
-            if let Some(first) = flattened.first() {
-                if first.0.start > outer_span.start {
+            if let Some(first) = flattened.first()
+                && first.0.start > outer_span.start {
                     output.push((
                         Span::new(outer_span.start, first.0.start),
                         FlatShape::Closure,
                     ));
                 }
-            }
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
@@ -244,11 +243,10 @@ fn flatten_expression_into(
 
             let flattened = flatten_block(working_set, working_set.get_block(*block_id));
 
-            if let Some(first) = flattened.first() {
-                if first.0.start > outer_span.start {
+            if let Some(first) = flattened.first()
+                && first.0.start > outer_span.start {
                     output.push((Span::new(outer_span.start, first.0.start), FlatShape::Block));
                 }
-            }
 
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
@@ -428,11 +426,10 @@ fn flatten_expression_into(
                     ListItem::Item(expr) => {
                         let flattened = flatten_expression(working_set, expr);
 
-                        if let Some(first) = flattened.first() {
-                            if first.0.start > last_end {
+                        if let Some(first) = flattened.first()
+                            && first.0.start > last_end {
                                 output.push((Span::new(last_end, first.0.start), FlatShape::List));
                             }
-                        }
 
                         if let Some(last) = flattened.last() {
                             last_end = last.0.end;
@@ -448,11 +445,10 @@ fn flatten_expression_into(
                         last_end = op_span.end;
 
                         let flattened_inner = flatten_expression(working_set, expr);
-                        if let Some(first) = flattened_inner.first() {
-                            if first.0.start > last_end {
+                        if let Some(first) = flattened_inner.first()
+                            && first.0.start > last_end {
                                 output.push((Span::new(last_end, first.0.start), FlatShape::List));
                             }
-                        }
                         if let Some(last) = flattened_inner.last() {
                             last_end = last.0.end;
                         }
@@ -471,8 +467,8 @@ fn flatten_expression_into(
                 flatten_expression_into(working_set, expr, &mut flattened);
             }
 
-            if let Some(first) = flattened.first() {
-                if first.0.start != expr.span.start {
+            if let Some(first) = flattened.first()
+                && first.0.start != expr.span.start {
                     // If we aren't a bare word interpolation, also highlight the outer quotes
                     output.push((
                         Span::new(expr.span.start, expr.span.start + 2),
@@ -483,7 +479,6 @@ fn flatten_expression_into(
                         FlatShape::StringInterpolation,
                     ));
                 }
-            }
             output.extend(flattened);
         }
         Expr::GlobInterpolation(exprs, quoted) => {
@@ -515,23 +510,21 @@ fn flatten_expression_into(
                         let flattened_lhs = flatten_expression(working_set, key);
                         let flattened_rhs = flatten_expression(working_set, val);
 
-                        if let Some(first) = flattened_lhs.first() {
-                            if first.0.start > last_end {
+                        if let Some(first) = flattened_lhs.first()
+                            && first.0.start > last_end {
                                 output
                                     .push((Span::new(last_end, first.0.start), FlatShape::Record));
                             }
-                        }
                         if let Some(last) = flattened_lhs.last() {
                             last_end = last.0.end;
                         }
                         output.extend(flattened_lhs);
 
-                        if let Some(first) = flattened_rhs.first() {
-                            if first.0.start > last_end {
+                        if let Some(first) = flattened_rhs.first()
+                            && first.0.start > last_end {
                                 output
                                     .push((Span::new(last_end, first.0.start), FlatShape::Record));
                             }
-                        }
                         if let Some(last) = flattened_rhs.last() {
                             last_end = last.0.end;
                         }
@@ -546,12 +539,11 @@ fn flatten_expression_into(
                         last_end = op_span.end;
 
                         let flattened = flatten_expression(working_set, record);
-                        if let Some(first) = flattened.first() {
-                            if first.0.start > last_end {
+                        if let Some(first) = flattened.first()
+                            && first.0.start > last_end {
                                 output
                                     .push((Span::new(last_end, first.0.start), FlatShape::Record));
                             }
-                        }
                         if let Some(last) = flattened.last() {
                             last_end = last.0.end;
                         }
@@ -577,11 +569,10 @@ fn flatten_expression_into(
 
             for col in table.columns.as_ref() {
                 let flattened = flatten_expression(working_set, col);
-                if let Some(first) = flattened.first() {
-                    if first.0.start > last_end {
+                if let Some(first) = flattened.first()
+                    && first.0.start > last_end {
                         output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                     }
-                }
 
                 if let Some(last) = flattened.last() {
                     last_end = last.0.end;
@@ -592,11 +583,10 @@ fn flatten_expression_into(
             for row in table.rows.as_ref() {
                 for expr in row.as_ref() {
                     let flattened = flatten_expression(working_set, expr);
-                    if let Some(first) = flattened.first() {
-                        if first.0.start > last_end {
+                    if let Some(first) = flattened.first()
+                        && first.0.start > last_end {
                             output.push((Span::new(last_end, first.0.start), FlatShape::Table));
                         }
-                    }
 
                     if let Some(last) = flattened.last() {
                         last_end = last.0.end;

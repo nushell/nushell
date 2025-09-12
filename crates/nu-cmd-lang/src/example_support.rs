@@ -18,8 +18,8 @@ pub fn check_example_input_and_output_types_match_command_signature(
     let mut witnessed_type_transformations = HashSet::<(Type, Type)>::new();
 
     // Skip tests that don't have results to compare to
-    if let Some(example_output) = example.result.as_ref() {
-        if let Some(example_input) =
+    if let Some(example_output) = example.result.as_ref()
+        && let Some(example_input) =
             eval_pipeline_without_terminal_expression(example.example, cwd, engine_state)
         {
             let example_matches_signature =
@@ -65,7 +65,6 @@ pub fn check_example_input_and_output_types_match_command_signature(
                 );
             };
         };
-    }
     witnessed_type_transformations
 }
 

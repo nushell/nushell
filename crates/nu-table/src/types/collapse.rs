@@ -69,11 +69,10 @@ fn colorize_value(value: &mut Value, config: &Config, style_computer: &StyleComp
 }
 
 fn colorize_text(text: &str, color: Option<Style>) -> Option<String> {
-    if let Some(color) = color {
-        if !color.is_plain() {
+    if let Some(color) = color
+        && !color.is_plain() {
             return Some(color.paint(text).to_string());
         }
-    }
 
     None
 }

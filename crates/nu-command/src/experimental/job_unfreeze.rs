@@ -99,8 +99,8 @@ fn unfreeze_job(
         }) => {
             let pid = handle.pid();
 
-            if let Some(thread_job) = &state.current_thread_job() {
-                if !thread_job.try_add_pid(pid) {
+            if let Some(thread_job) = &state.current_thread_job()
+                && !thread_job.try_add_pid(pid) {
                     kill_by_pid(pid.into()).map_err(|err| {
                         ShellError::Io(IoError::new_internal(
                             err,
@@ -109,7 +109,6 @@ fn unfreeze_job(
                         ))
                     })?;
                 }
-            }
 
             let result = handle.unfreeze(
                 state
