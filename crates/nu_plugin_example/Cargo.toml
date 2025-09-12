@@ -14,6 +14,9 @@ bench = false
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.107.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }

@@ -9,6 +9,9 @@ edition = "2024"
 name = "nu_plugin_custom_values"
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.107.1", features = [] }
 nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
