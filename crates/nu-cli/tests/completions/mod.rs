@@ -2724,6 +2724,46 @@ fn cellpath_assignment_operator_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn alias_expansion_for_external_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"alias example_alias = example_cmd arg1 arg2"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Define an external completer that returns the arguments passed to it
+    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "example_alias extra_arg";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["example_cmd", "arg1", "arg2", "extra_arg"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn nested_alias_expansion_for_external_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Define an external completer that returns the arguments passed to it
+    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "nested_alias extra_arg";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec![
+        "example_cmd",
+        "arg1",
+        "arg2",
+        "nested_alias_arg",
+        "extra_arg",
+    ];
+    match_suggestions(&expected, &suggestions);
+}
+
 // TODO: type inference
 #[ignore]
 #[rstest]
