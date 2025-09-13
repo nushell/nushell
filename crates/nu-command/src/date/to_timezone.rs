@@ -60,7 +60,7 @@ impl Command for DateToTimezone {
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

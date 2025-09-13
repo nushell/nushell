@@ -61,7 +61,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -83,7 +83,7 @@ Also note that if you don't have a permission to a directory of a path, false wi
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(

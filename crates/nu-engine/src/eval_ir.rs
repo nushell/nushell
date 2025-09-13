@@ -625,7 +625,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::GlobFrom { src_dst, no_expand } => {
             let string_value = ctx.collect_reg(*src_dst, *span)?;
-            let glob_value = if matches!(string_value, Value::Glob { .. }) {
+            let glob_value = if let Value::Glob { .. } = string_value {
                 // It already is a glob, so don't touch it.
                 string_value
             } else {

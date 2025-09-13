@@ -300,7 +300,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let dateformat = &args.format_options;
 
     // noop if the input is already a datetime
-    if matches!(input, Value::Date { .. }) {
+    if let Value::Date { .. } = input {
         return input.clone();
     }
 

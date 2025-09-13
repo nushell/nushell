@@ -77,7 +77,7 @@ impl Command for BitsShr {
         let number_size = get_number_bytes(number_bytes, head)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
 

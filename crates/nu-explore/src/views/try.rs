@@ -164,7 +164,7 @@ impl View for TryView {
                 return Transition::Ok;
             }
 
-            if matches!(key.code, KeyCode::Tab) {
+            if let KeyCode::Tab = key.code {
                 self.view_mode = false;
                 return Transition::Ok;
             }

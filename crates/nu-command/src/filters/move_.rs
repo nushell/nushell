@@ -229,13 +229,13 @@ fn move_record_columns(
                         });
                     }
 
-                    if matches!(location, Location::After(..)) {
+                    if let Location::After(..) = location {
                         out.push(inp_col.clone(), inp_val.clone());
                     }
 
                     insert_moved(record, span, &column_idx, &mut out)?;
 
-                    if matches!(location, Location::Before(..)) {
+                    if let Location::Before(..) = location {
                         out.push(inp_col.clone(), inp_val.clone());
                     }
                 } else if !column_idx.contains(&i) {

@@ -394,15 +394,14 @@ impl NuCompleter {
                             //   - "--foo ..a" => ["--foo", "..a"] => "..a"
                             //   - "--foo=..a" => ["--foo", "..a"] => "..a"
                             // - strip placeholder (`a`) if present
-                            let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(
+                            let (new_span, prefix) = match arg {
+                                Argument::Named(_) => strip_placeholder_with_rsplit(
                                     working_set,
                                     &span,
                                     |b| *b == b'=' || *b == b' ',
                                     strip,
-                                )
-                            } else {
-                                strip_placeholder_if_any(working_set, &span, strip)
+                                ),
+                                _ => strip_placeholder_if_any(working_set, &span, strip),
                             };
                             let ctx = Context::new(working_set, new_span, prefix, offset);
 

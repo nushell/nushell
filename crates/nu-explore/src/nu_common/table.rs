@@ -26,7 +26,7 @@ pub fn try_build_table(
     match value {
         Value::List { vals, .. } => try_build_list(vals, opts),
         Value::Record { val, .. } => try_build_map(&val, opts),
-        val if matches!(val, Value::String { .. }) => {
+        val @ Value::String { .. } => {
             nu_value_to_string_clean(&val, config, &opts.style_computer).0
         }
         val => nu_value_to_string(&val, config, &opts.style_computer).0,

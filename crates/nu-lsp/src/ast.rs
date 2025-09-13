@@ -526,8 +526,8 @@ fn find_reference_by_id_in_expr(
         (Expr::VarDecl(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => vec![expr.span],
         // also interested in `var_id` in call.arguments of `use` command
         // and `module_id` in `module` command
-        (Expr::Call(call), _) => {
-            if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
+        (Expr::Call(call), _) => match id {
+            Id::Declaration(decl_id) if call.decl_id == *decl_id => {
                 vec![command_name_span_from_call_head(
                     working_set,
                     call.decl_id,
@@ -535,14 +535,11 @@ fn find_reference_by_id_in_expr(
                 )]
             }
             // Check for misc matches (use, module, etc.)
-            else if let Some((_, span_found)) =
-                try_find_id_in_misc(call, working_set, None, Some(id))
-            {
-                vec![span_found]
-            } else {
-                vec![]
-            }
-        }
+            _ => try_find_id_in_misc(call, working_set, None, Some(id))
+                .map(|(_, span_found)| span_found)
+                .into_iter()
+                .collect::<Vec<_>>(),
+        },
         _ => vec![],
     }
 }
