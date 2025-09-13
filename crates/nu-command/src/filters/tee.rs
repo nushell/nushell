@@ -405,15 +405,15 @@ impl<R: Read> Read for IoTee<R> {
         let len = self.reader.read(buf)?;
         if len == 0 {
             self.sender = None;
-            if let Some(thread) = self.thread.take() {
-                if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::other(err));
-                }
+            if let Some(thread) = self.thread.take()
+                && let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error()))
+            {
+                return Err(io::Error::other(err));
             }
-        } else if let Some(sender) = self.sender.as_mut() {
-            if sender.send(buf[..len].to_vec()).is_err() {
-                self.sender = None;
-            }
+        } else if let Some(sender) = self.sender.as_mut()
+            && sender.send(buf[..len].to_vec()).is_err()
+        {
+            self.sender = None;
         }
         Ok(len)
     }

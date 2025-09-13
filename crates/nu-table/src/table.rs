@@ -187,11 +187,11 @@ impl NuTable {
     }
 
     pub fn insert_style(&mut self, pos: (usize, usize), style: TextStyle) {
-        if let Some(style) = style.color_style {
-            if !style.is_plain() {
-                let style = convert_style(style);
-                self.styles.cfg.set_color(pos.into(), style.into());
-            }
+        if let Some(style) = style.color_style
+            && !style.is_plain()
+        {
+            let style = convert_style(style);
+            self.styles.cfg.set_color(pos.into(), style.into());
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -203,33 +203,33 @@ impl NuTable {
     }
 
     pub fn set_header_style(&mut self, style: TextStyle) {
-        if let Some(style) = style.color_style {
-            if !style.is_plain() {
-                let style = convert_style(style);
-                self.styles.colors.header = style;
-            }
+        if let Some(style) = style.color_style
+            && !style.is_plain()
+        {
+            let style = convert_style(style);
+            self.styles.colors.header = style;
         }
 
         self.styles.alignments.header = convert_alignment(style.alignment);
     }
 
     pub fn set_index_style(&mut self, style: TextStyle) {
-        if let Some(style) = style.color_style {
-            if !style.is_plain() {
-                let style = convert_style(style);
-                self.styles.colors.index = style;
-            }
+        if let Some(style) = style.color_style
+            && !style.is_plain()
+        {
+            let style = convert_style(style);
+            self.styles.colors.index = style;
         }
 
         self.styles.alignments.index = convert_alignment(style.alignment);
     }
 
     pub fn set_data_style(&mut self, style: TextStyle) {
-        if let Some(style) = style.color_style {
-            if !style.is_plain() {
-                let style = convert_style(style);
-                self.styles.cfg.set_color(Entity::Global, style.into());
-            }
+        if let Some(style) = style.color_style
+            && !style.is_plain()
+        {
+            let style = convert_style(style);
+            self.styles.cfg.set_color(Entity::Global, style.into());
         }
 
         let alignment = convert_alignment(style.alignment);
@@ -495,11 +495,11 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
             }
 
             let color = t.styles.cfg.get_color(from);
-            if let Some(color) = color {
-                if !color.is_empty() {
-                    let color = color.clone();
-                    t.styles.cfg.set_color(to.into(), color);
-                }
+            if let Some(color) = color
+                && !color.is_empty()
+            {
+                let color = color.clone();
+                t.styles.cfg.set_color(to.into(), color);
             }
         }
     }

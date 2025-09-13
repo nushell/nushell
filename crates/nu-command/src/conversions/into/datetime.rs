@@ -336,10 +336,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
         let span = input.span();
-        if let Ok(input_val) = input.coerce_str() {
-            if let Ok(date) = parse_date_from_string(&input_val, span) {
-                return Value::date(date, span);
-            }
+        if let Ok(input_val) = input.coerce_str()
+            && let Ok(date) = parse_date_from_string(&input_val, span)
+        {
+            return Value::date(date, span);
         }
     }
 
@@ -362,60 +362,60 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
     };
 
-    if dateformat.is_none() {
-        if let Ok(ts) = timestamp {
-            return match timezone {
-                // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+    if dateformat.is_none()
+        && let Ok(ts) = timestamp
+    {
+        return match timezone {
+            // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
 
-                // default to UTC
-                None => Value::date(Utc.timestamp_nanos(ts).into(), head),
-                Some(Spanned { item, span }) => match item {
-                    Zone::Utc => {
-                        let dt = Utc.timestamp_nanos(ts);
-                        Value::date(dt.into(), *span)
+            // default to UTC
+            None => Value::date(Utc.timestamp_nanos(ts).into(), head),
+            Some(Spanned { item, span }) => match item {
+                Zone::Utc => {
+                    let dt = Utc.timestamp_nanos(ts);
+                    Value::date(dt.into(), *span)
+                }
+                Zone::Local => {
+                    let dt = Local.timestamp_nanos(ts);
+                    Value::date(dt.into(), *span)
+                }
+                Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                    Some(eastoffset) => {
+                        let dt = eastoffset.timestamp_nanos(ts);
+                        Value::date(dt, *span)
                     }
-                    Zone::Local => {
-                        let dt = Local.timestamp_nanos(ts);
-                        Value::date(dt.into(), *span)
-                    }
-                    Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
-                        Some(eastoffset) => {
-                            let dt = eastoffset.timestamp_nanos(ts);
-                            Value::date(dt, *span)
-                        }
-                        None => Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
-                                span: *span,
-                            },
-                            *span,
-                        ),
-                    },
-                    Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
-                        Some(westoffset) => {
-                            let dt = westoffset.timestamp_nanos(ts);
-                            Value::date(dt, *span)
-                        }
-                        None => Value::error(
-                            ShellError::DatetimeParseError {
-                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
-                                span: *span,
-                            },
-                            *span,
-                        ),
-                    },
-                    Zone::Error => Value::error(
-                        // This is an argument error, not an input error
-                        ShellError::TypeMismatch {
-                            err_message: "Invalid timezone or offset".to_string(),
+                    None => Value::error(
+                        ShellError::DatetimeParseError {
+                            msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
                             span: *span,
                         },
                         *span,
                     ),
                 },
-            };
+                Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                    Some(westoffset) => {
+                        let dt = westoffset.timestamp_nanos(ts);
+                        Value::date(dt, *span)
+                    }
+                    None => Value::error(
+                        ShellError::DatetimeParseError {
+                            msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
+                            span: *span,
+                        },
+                        *span,
+                    ),
+                },
+                Zone::Error => Value::error(
+                    // This is an argument error, not an input error
+                    ShellError::TypeMismatch {
+                        err_message: "Invalid timezone or offset".to_string(),
+                        span: *span,
+                    },
+                    *span,
+                ),
+            },
         };
-    }
+    };
 
     // If input is not a timestamp, try parsing it as a string
     let span = input.span();
@@ -752,11 +752,11 @@ fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
     }
 
     // try parsing at date only
-    if let Ok(date) = NaiveDate::parse_from_str(val, fmt) {
-        if let Some(dt) = date.and_hms_opt(0, 0, 0) {
-            let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
-            return Ok(Value::date(dt_native.into(), head));
-        }
+    if let Ok(date) = NaiveDate::parse_from_str(val, fmt)
+        && let Some(dt) = date.and_hms_opt(0, 0, 0)
+    {
+        let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
+        return Ok(Value::date(dt_native.into(), head));
     }
 
     // try parsing at time only

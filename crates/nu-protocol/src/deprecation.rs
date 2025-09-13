@@ -92,8 +92,7 @@ impl DeprecationEntry {
                 // Make sure we don't accidentally have dashes in the flag
                 debug_assert!(
                     !flag.starts_with('-'),
-                    "DeprecationEntry for {} should not include dashes in the flag name!",
-                    flag
+                    "DeprecationEntry for {flag} should not include dashes in the flag name!"
                 );
 
                 call.get_named_arg(flag).is_some()

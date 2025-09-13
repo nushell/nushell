@@ -19,10 +19,10 @@ pub(crate) fn compile_expression(
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     let drop_input = |builder: &mut BlockBuilder| {
-        if let Some(in_reg) = in_reg {
-            if in_reg != out_reg {
-                builder.drop_reg(in_reg)?;
-            }
+        if let Some(in_reg) = in_reg
+            && in_reg != out_reg
+        {
+            builder.drop_reg(in_reg)?;
         }
         Ok(())
     };

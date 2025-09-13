@@ -37,10 +37,10 @@ pub fn glob_from(
         let mut counter = 0;
 
         for c in components {
-            if let Component::Normal(os) = c {
-                if nu_glob::is_glob(os.to_string_lossy().as_ref()) {
-                    break;
-                }
+            if let Component::Normal(os) = c
+                && nu_glob::is_glob(os.to_string_lossy().as_ref())
+            {
+                break;
             }
             p.push(c);
             counter += 1;

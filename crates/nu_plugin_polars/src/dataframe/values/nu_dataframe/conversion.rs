@@ -208,10 +208,10 @@ pub fn insert_value(
     maybe_schema: &Option<NuSchema>,
 ) -> Result<(), ShellError> {
     // If we have a schema but a key is not provided, do not create that column
-    if let Some(schema) = maybe_schema {
-        if !schema.schema.contains(&key) {
-            return Ok(());
-        }
+    if let Some(schema) = maybe_schema
+        && !schema.schema.contains(&key)
+    {
+        return Ok(());
     }
 
     let col_val = match column_values.entry(key.clone()) {
@@ -220,22 +220,22 @@ pub fn insert_value(
     };
 
     // If we have a schema, use that for determining how things should be added to each column
-    if let Some(schema) = maybe_schema {
-        if let Some(field) = schema.schema.get_field(&key) {
-            col_val.column_type = Some(field.dtype().clone());
-            col_val.values.push(value);
-            return Ok(());
-        }
+    if let Some(schema) = maybe_schema
+        && let Some(field) = schema.schema.get_field(&key)
+    {
+        col_val.column_type = Some(field.dtype().clone());
+        col_val.values.push(value);
+        return Ok(());
     }
 
     // If we do not have a schema, use defaults specified in `value_to_data_type`
     let current_data_type = value_to_data_type(&value);
     if col_val.column_type.is_none() {
         col_val.column_type = value_to_data_type(&value);
-    } else if let Some(current_data_type) = current_data_type {
-        if col_val.column_type.as_ref() != Some(&current_data_type) {
-            col_val.column_type = Some(DataType::Object("Value"));
-        }
+    } else if let Some(current_data_type) = current_data_type
+        && col_val.column_type.as_ref() != Some(&current_data_type)
+    {
+        col_val.column_type = Some(DataType::Object("Value"));
     }
     col_val.values.push(value);
 

@@ -148,12 +148,12 @@ impl ProcessInfo {
             return name;
         }
         // Fall back in case /proc/<pid>/stat source is not available.
-        if let Ok(mut cmd) = self.curr_proc.cmdline() {
-            if let Some(name) = cmd.first_mut() {
-                // Take over the first element and return it without extra allocations
-                // (String::default() is allocation-free).
-                return std::mem::take(name);
-            }
+        if let Ok(mut cmd) = self.curr_proc.cmdline()
+            && let Some(name) = cmd.first_mut()
+        {
+            // Take over the first element and return it without extra allocations
+            // (String::default() is allocation-free).
+            return std::mem::take(name);
         }
         String::new()
     }

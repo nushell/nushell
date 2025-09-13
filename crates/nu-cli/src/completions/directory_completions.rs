@@ -58,13 +58,13 @@ impl Completer for DirectoryCompletion {
         for item in items.into_iter() {
             let item_path = Path::new(&item.suggestion.value);
 
-            if let Some(value) = item_path.file_name() {
-                if let Some(value) = value.to_str() {
-                    if value.starts_with('.') {
-                        hidden.push(item);
-                    } else {
-                        non_hidden.push(item);
-                    }
+            if let Some(value) = item_path.file_name()
+                && let Some(value) = value.to_str()
+            {
+                if value.starts_with('.') {
+                    hidden.push(item);
+                } else {
+                    non_hidden.push(item);
                 }
             }
         }

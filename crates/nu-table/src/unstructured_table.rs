@@ -60,10 +60,10 @@ fn build_table(
         DimensionPriority::Last,
     ));
 
-    if let Some(color) = get_border_color(style) {
-        if !is_color_empty(&color) {
-            return build_table_with_border_color(table, color);
-        }
+    if let Some(color) = get_border_color(style)
+        && !is_color_empty(&color)
+    {
+        return build_table_with_border_color(table, color);
     }
 
     table.to_string()

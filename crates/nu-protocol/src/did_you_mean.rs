@@ -7,10 +7,11 @@ where
     let suggestion =
         crate::lev_distance::find_best_match_for_name_with_substrings(&possibilities, input, None)
             .map(|s| s.to_string());
-    if let Some(suggestion) = &suggestion {
-        if suggestion.len() == 1 && !suggestion.eq_ignore_ascii_case(input) {
-            return None;
-        }
+    if let Some(suggestion) = &suggestion
+        && suggestion.len() == 1
+        && !suggestion.eq_ignore_ascii_case(input)
+    {
+        return None;
     }
     suggestion
 }

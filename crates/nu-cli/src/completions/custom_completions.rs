@@ -116,10 +116,10 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             .and_then(|option| option.try_into().ok())
                         {
                             completion_options.match_algorithm = algorithm;
-                            if let Some(false) = positional {
-                                if completion_options.match_algorithm == MatchAlgorithm::Prefix {
-                                    completion_options.match_algorithm = MatchAlgorithm::Substring
-                                }
+                            if let Some(false) = positional
+                                && completion_options.match_algorithm == MatchAlgorithm::Prefix
+                            {
+                                completion_options.match_algorithm = MatchAlgorithm::Substring
                             }
                         }
                     }

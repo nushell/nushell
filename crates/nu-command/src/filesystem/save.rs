@@ -312,10 +312,10 @@ fn check_saving_to_source_file(
         return Err(saving_to_source_file_error(dest));
     }
 
-    if let Some(dest) = stderr_dest {
-        if &dest.item == source {
-            return Err(saving_to_source_file_error(dest));
-        }
+    if let Some(dest) = stderr_dest
+        && &dest.item == source
+    {
+        return Err(saving_to_source_file_error(dest));
     }
 
     Ok(())
@@ -456,27 +456,26 @@ fn open_file(
         Err(err) => {
             // In caase of NotFound, search for the missing parent directory.
             // This also presents a TOCTOU (or TOUTOC, technically?)
-            if err.kind() == std::io::ErrorKind::NotFound {
-                if let Some(missing_component) =
+            if err.kind() == std::io::ErrorKind::NotFound
+                && let Some(missing_component) =
                     path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
-                {
-                    // By looking at the postfix to remove, rather than the prefix
-                    // to keep, we are able to handle relative paths too.
-                    let components_to_remove = path
-                        .strip_prefix(missing_component)
-                        .expect("Stripping ancestor from a path should never fail")
-                        .as_os_str()
-                        .as_encoded_bytes();
+            {
+                // By looking at the postfix to remove, rather than the prefix
+                // to keep, we are able to handle relative paths too.
+                let components_to_remove = path
+                    .strip_prefix(missing_component)
+                    .expect("Stripping ancestor from a path should never fail")
+                    .as_os_str()
+                    .as_encoded_bytes();
 
-                    return Err(ShellError::Io(IoError::new(
-                        ErrorKind::DirectoryNotFound,
-                        engine_state
-                            .span_match_postfix(span, components_to_remove)
-                            .map(|(pre, _post)| pre)
-                            .unwrap_or(span),
-                        PathBuf::from(missing_component),
-                    )));
-                }
+                return Err(ShellError::Io(IoError::new(
+                    ErrorKind::DirectoryNotFound,
+                    engine_state
+                        .span_match_postfix(span, components_to_remove)
+                        .map(|(pre, _post)| pre)
+                        .unwrap_or(span),
+                    PathBuf::from(missing_component),
+                )));
             }
 
             Err(ShellError::Io(IoError::new(err, span, PathBuf::from(path))))

@@ -291,16 +291,16 @@ fn find_matching_block_end_in_block(
 ) -> Option<usize> {
     for p in &block.pipelines {
         for e in &p.elements {
-            if e.expr.span.contains(global_cursor_offset) {
-                if let Some(pos) = find_matching_block_end_in_expr(
+            if e.expr.span.contains(global_cursor_offset)
+                && let Some(pos) = find_matching_block_end_in_expr(
                     line,
                     working_set,
                     &e.expr,
                     global_span_offset,
                     global_cursor_offset,
-                ) {
-                    return Some(pos);
-                }
+                )
+            {
+                return Some(pos);
             }
 
             if let Some(redirection) = e.redirection.as_ref() {

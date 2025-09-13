@@ -376,50 +376,50 @@ fn get_command_documentation(
         }
     }
 
-    if !command.is_keyword() && !sig.input_output_types.is_empty() {
-        if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
-            // FIXME: we may want to make this the span of the help command in the future
-            let span = Span::unknown();
-            let mut vals = vec![];
-            for (input, output) in &sig.input_output_types {
-                vals.push(Value::record(
-                    record! {
-                        "input" => Value::string(input.to_string(), span),
-                        "output" => Value::string(output.to_string(), span),
-                    },
-                    span,
-                ));
-            }
-
-            let caller_stack = &mut Stack::new().collect_value();
-            if let Ok(result) = eval_call::<WithoutDebug>(
-                engine_state,
-                caller_stack,
-                &Call {
-                    decl_id,
-                    head: span,
-                    arguments: vec![Argument::Named((
-                        Spanned {
-                            item: "width".to_string(),
-                            span: Span::unknown(),
-                        },
-                        None,
-                        Some(Expression::new_unknown(
-                            Expr::Int(get_term_width() as i64 - 2), // padding, see below
-                            Span::unknown(),
-                            Type::Int,
-                        )),
-                    ))],
-                    parser_info: HashMap::new(),
+    if !command.is_keyword()
+        && !sig.input_output_types.is_empty()
+        && let Some(decl_id) = engine_state.find_decl(b"table", &[])
+    {
+        // FIXME: we may want to make this the span of the help command in the future
+        let span = Span::unknown();
+        let mut vals = vec![];
+        for (input, output) in &sig.input_output_types {
+            vals.push(Value::record(
+                record! {
+                    "input" => Value::string(input.to_string(), span),
+                    "output" => Value::string(output.to_string(), span),
                 },
-                PipelineData::value(Value::list(vals, span), None),
-            ) {
-                if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
-                    for line in str.lines() {
-                        let _ = writeln!(long_desc, "  {line}");
-                    }
-                }
+                span,
+            ));
+        }
+
+        let caller_stack = &mut Stack::new().collect_value();
+        if let Ok(result) = eval_call::<WithoutDebug>(
+            engine_state,
+            caller_stack,
+            &Call {
+                decl_id,
+                head: span,
+                arguments: vec![Argument::Named((
+                    Spanned {
+                        item: "width".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    Some(Expression::new_unknown(
+                        Expr::Int(get_term_width() as i64 - 2), // padding, see below
+                        Span::unknown(),
+                        Type::Int,
+                    )),
+                ))],
+                parser_info: HashMap::new(),
+            },
+            PipelineData::value(Value::list(vals, span), None),
+        ) && let Ok((str, ..)) = result.collect_string_strict(span)
+        {
+            let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
+            for line in str.lines() {
+                let _ = writeln!(long_desc, "  {line}");
             }
         }
     }
@@ -522,24 +522,22 @@ fn update_ansi_from_config(
         let argument_opt = get_argument_for_color_value(nu_config, color, span, span_id);
 
         // Call ansi command using argument
-        if let Some(argument) = argument_opt {
-            if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call::<WithoutDebug>(
-                    engine_state,
-                    caller_stack,
-                    &Call {
-                        decl_id,
-                        head: span,
-                        arguments: vec![argument],
-                        parser_info: HashMap::new(),
-                    },
-                    PipelineData::empty(),
-                ) {
-                    if let Ok((str, ..)) = result.collect_string_strict(span) {
-                        *ansi_code = str;
-                    }
-                }
-            }
+        if let Some(argument) = argument_opt
+            && let Some(decl_id) = engine_state.find_decl(b"ansi", &[])
+            && let Ok(result) = eval_call::<WithoutDebug>(
+                engine_state,
+                caller_stack,
+                &Call {
+                    decl_id,
+                    head: span,
+                    arguments: vec![argument],
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::empty(),
+            )
+            && let Ok((str, ..)) = result.collect_string_strict(span)
+        {
+            *ansi_code = str;
         }
     }
 }

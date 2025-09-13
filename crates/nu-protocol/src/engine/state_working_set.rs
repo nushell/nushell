@@ -229,12 +229,12 @@ impl<'a> StateWorkingSet<'a> {
 
                 visibility.append(&overlay_frame.visibility);
 
-                if let Some(decl_id) = overlay_frame.get_decl(name) {
-                    if visibility.is_decl_id_visible(&decl_id) {
-                        // Hide decl only if it's not already hidden
-                        overlay_frame.visibility.hide_decl_id(&decl_id);
-                        return Some(decl_id);
-                    }
+                if let Some(decl_id) = overlay_frame.get_decl(name)
+                    && visibility.is_decl_id_visible(&decl_id)
+                {
+                    // Hide decl only if it's not already hidden
+                    overlay_frame.visibility.hide_decl_id(&decl_id);
+                    return Some(decl_id);
                 }
             }
         }
@@ -248,12 +248,12 @@ impl<'a> StateWorkingSet<'a> {
         {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name) {
-                if visibility.is_decl_id_visible(&decl_id) {
-                    // Hide decl only if it's not already hidden
-                    self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
-                    return Some(decl_id);
-                }
+            if let Some(decl_id) = overlay_frame.get_decl(name)
+                && visibility.is_decl_id_visible(&decl_id)
+            {
+                // Hide decl only if it's not already hidden
+                self.last_overlay_mut().visibility.hide_decl_id(&decl_id);
+                return Some(decl_id);
             }
         }
 
@@ -445,30 +445,28 @@ impl<'a> StateWorkingSet<'a> {
         let mut visibility: Visibility = Visibility::new();
 
         for scope_frame in self.delta.scope.iter().rev() {
-            if self.search_predecls {
-                if let Some(decl_id) = scope_frame.predecls.get(name) {
-                    if visibility.is_decl_id_visible(decl_id) {
-                        return Some(*decl_id);
-                    }
-                }
+            if self.search_predecls
+                && let Some(decl_id) = scope_frame.predecls.get(name)
+                && visibility.is_decl_id_visible(decl_id)
+            {
+                return Some(*decl_id);
             }
 
             // check overlay in delta
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 visibility.append(&overlay_frame.visibility);
 
-                if self.search_predecls {
-                    if let Some(decl_id) = overlay_frame.predecls.get(name) {
-                        if visibility.is_decl_id_visible(decl_id) {
-                            return Some(*decl_id);
-                        }
-                    }
+                if self.search_predecls
+                    && let Some(decl_id) = overlay_frame.predecls.get(name)
+                    && visibility.is_decl_id_visible(decl_id)
+                {
+                    return Some(*decl_id);
                 }
 
-                if let Some(decl_id) = overlay_frame.get_decl(name) {
-                    if visibility.is_decl_id_visible(&decl_id) {
-                        return Some(decl_id);
-                    }
+                if let Some(decl_id) = overlay_frame.get_decl(name)
+                    && visibility.is_decl_id_visible(&decl_id)
+                {
+                    return Some(decl_id);
                 }
             }
         }

@@ -80,10 +80,10 @@ Since this command has no output, there is no point in piping it with other comm
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineData::ByteStream(stream, _) = &mut input {
-                if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.ignore_error(true);
-                }
+            if let PipelineData::ByteStream(stream, _) = &mut input
+                && let ByteStreamSource::Child(child) = stream.source_mut()
+            {
+                child.ignore_error(true);
             }
             if raw {
                 input.print_raw(engine_state, no_newline, to_stderr)?;
