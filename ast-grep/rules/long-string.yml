@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: long-string
+language: rust
+severity: off
+message: "String literal too wide"
+
+rule:
+  kind: string_literal
+  regex: '[^\n]{80,}'
