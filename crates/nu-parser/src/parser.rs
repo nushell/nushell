@@ -1713,14 +1713,27 @@ fn parse_binary_with_base(
 }
 
 fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, ParseIntError> {
-    s.chars()
-        .chunks(digits_per_byte)
-        .into_iter()
-        .map(|chunk| {
-            let str: String = chunk.collect();
-            u8::from_str_radix(&str, base)
-        })
-        .collect()
+    // For octals, if the first chunk is between 0o400 to 0o777, u8 overflows.
+    // Instead, we take the bits from the entire string to avoid overflow.
+    if base == 8 {
+        let octal = u128::from_str_radix(s, base)?;
+        let bytes = octal.to_be_bytes().to_vec();
+        let first_nonzero = bytes
+            .iter()
+            .position(|&b| b != 0)
+            .unwrap_or(bytes.len() - 1);
+
+        Ok(bytes[first_nonzero..].to_vec())
+    } else {
+        s.chars()
+            .chunks(digits_per_byte)
+            .into_iter()
+            .map(|chunk| {
+                let str: String = chunk.collect();
+                u8::from_str_radix(&str, base)
+            })
+            .collect()
+    }
 }
 
 fn strip_underscores(token: &[u8]) -> String {
