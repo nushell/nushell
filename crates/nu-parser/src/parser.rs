@@ -1329,6 +1329,9 @@ pub fn parse_internal_call(
         spans_idx += 1;
     }
 
+    // TODO: Inline `check_call`,
+    // move missing positional checking into the while loop above with two pointers.
+    // Maybe more `CallKind::Invalid` if errors found during argument parsing.
     let call_kind = check_call(working_set, command_span, &signature, &call);
 
     deprecation
