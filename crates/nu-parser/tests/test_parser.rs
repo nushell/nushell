@@ -479,6 +479,22 @@ pub fn parse_binary_with_octal_format() {
 }
 
 #[test]
+pub fn parse_binary_with_overflow_octal_format() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"0o[777]", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+    assert_eq!(element.expr.expr, Expr::Binary(vec![0o1, 0o377]));
+}
+
+#[test]
 pub fn parse_binary_with_incomplete_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
