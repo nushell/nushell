@@ -34,7 +34,7 @@ impl PluginCommand for DropDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "drop column a",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a",

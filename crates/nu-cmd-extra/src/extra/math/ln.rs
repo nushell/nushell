@@ -44,7 +44,7 @@ impl Command for MathLn {
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the natural logarithm of e",
             example: "2.7182818 | math ln | math round --precision 4",

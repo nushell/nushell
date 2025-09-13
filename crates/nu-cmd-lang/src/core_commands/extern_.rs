@@ -40,7 +40,7 @@ impl Command for Extern {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Write a signature for an external command",
             example: r#"extern echo [text: string]"#,

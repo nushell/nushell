@@ -39,7 +39,7 @@ impl PluginCommand for ToInteger {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Modifies strings to integer",
             example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars integer) | polars collect",

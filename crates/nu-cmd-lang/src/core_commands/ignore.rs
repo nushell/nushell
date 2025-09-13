@@ -54,7 +54,7 @@ impl Command for Ignore {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Ignore the output of an echo command",
             example: "echo done | ignore",

@@ -31,7 +31,7 @@ impl Command for QueryDb {
         "Query a database using SQL."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Execute SQL against a SQLite database",

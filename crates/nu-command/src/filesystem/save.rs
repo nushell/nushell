@@ -239,7 +239,7 @@ impl Command for Save {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Save a string to foo.txt in the current directory",
@@ -366,7 +366,7 @@ fn convert_to_extension(
         if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
-            eval_block(engine_state, stack, block, input)
+            eval_block(engine_state, stack, block, input).map(|p| p.body)
         } else {
             let call = ast::Call::new(span);
             decl.run(engine_state, stack, &(&call).into(), input)

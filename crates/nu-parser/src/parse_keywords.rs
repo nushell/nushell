@@ -4,7 +4,7 @@ use crate::{
     parser::{compile_block, parse_attribute, parse_redirection, redirecting_builtin_error},
     type_check::{check_block_input_output, type_compatible},
 };
-use itertools::Itertools;
+
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -279,11 +279,22 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             return garbage(working_set, spans[0]);
         }
         Some(decl_id) => {
+            let starting_error_count = working_set.parse_errors.len();
             working_set.enter_scope();
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-            working_set.exit_scope();
+            if working_set
+                .parse_errors
+                .get(starting_error_count..)
+                .is_none_or(|new_errors| {
+                    new_errors
+                        .iter()
+                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+                })
+            {
+                working_set.exit_scope();
+            }
 
             let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);
@@ -350,7 +361,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
                 shape: var_type.to_shape(),
                 var_id: Some(*var_id),
                 default_value: None,
-                custom_completion: None,
+                completion: None,
             },
         );
     }
@@ -533,7 +544,7 @@ fn parse_def_inner(
             (spans[0], 1)
         };
 
-    let def_call = working_set.get_span_contents(name_span).to_vec();
+    let def_call = working_set.get_span_contents(name_span);
     if def_call != b"def" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for def function".into(),
@@ -549,7 +560,11 @@ fn parse_def_inner(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&def_call) {
+    //
+    // NOTE: Here we only search for `def` in the permanent state,
+    // since recursively redefining `def` is dangerous,
+    // see https://github.com/nushell/nushell/issues/16586
+    let (call, call_span) = match working_set.permanent_state.find_decl(def_call, &[]) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
@@ -573,11 +588,7 @@ fn parse_def_inner(
 
             if let Some(name_span) = decl_name_span {
                 // Check whether name contains [] or () -- possible missing space error
-                if let Some(err) = detect_params_in_name(
-                    working_set,
-                    name_span,
-                    String::from_utf8_lossy(&def_call).as_ref(),
-                ) {
+                if let Some(err) = detect_params_in_name(working_set, name_span, decl_id) {
                     working_set.error(err);
                     return (garbage(working_set, Span::concat(spans)), None);
                 }
@@ -595,7 +606,12 @@ fn parse_def_inner(
             let mut new_errors = working_set.parse_errors[starting_error_count..].to_vec();
             working_set.parse_errors.truncate(starting_error_count);
 
-            working_set.exit_scope();
+            if new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+            {
+                working_set.exit_scope();
+            }
 
             let call_span = Span::concat(spans);
             let decl = working_set.get_decl(decl_id);
@@ -797,7 +813,7 @@ fn parse_extern_inner(
             (spans[0], 1)
         };
 
-    let extern_call = working_set.get_span_contents(name_span).to_vec();
+    let extern_call = working_set.get_span_contents(name_span);
     if extern_call != b"extern" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for extern command".into(),
@@ -813,7 +829,11 @@ fn parse_extern_inner(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&extern_call) {
+    //
+    // NOTE: Here we only search for `extern` in the permanent state,
+    // since recursively redefining `extern` is dangerous,
+    // see https://github.com/nushell/nushell/issues/16586
+    let (call, call_span) = match working_set.permanent().find_decl(extern_call, &[]) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
@@ -827,11 +847,7 @@ fn parse_extern_inner(
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
             if let Some(name_span) = rest_spans.first() {
-                if let Some(err) = detect_params_in_name(
-                    working_set,
-                    *name_span,
-                    String::from_utf8_lossy(&extern_call).as_ref(),
-                ) {
+                if let Some(err) = detect_params_in_name(working_set, *name_span, decl_id) {
                     working_set.error(err);
                     return garbage(working_set, concat_span);
                 }
@@ -4216,35 +4232,24 @@ pub fn find_in_dirs(
 fn detect_params_in_name(
     working_set: &StateWorkingSet,
     name_span: Span,
-    decl_name: &str,
+    decl_id: DeclId,
 ) -> Option<ParseError> {
     let name = working_set.get_span_contents(name_span);
-
-    let extract_span = |delim: u8| {
-        // it is okay to unwrap because we know the slice contains the byte
-        let (idx, _) = name
-            .iter()
-            .find_position(|c| **c == delim)
-            .unwrap_or((name.len(), &b' '));
-        let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
-        let error = ParseError::LabeledErrorWithHelp {
-            error: "no space between name and parameters".into(),
-            label: "expected space".into(),
-            help: format!(
-                "consider adding a space between the `{decl_name}` command's name and its parameters"
-            ),
-            span: param_span,
-        };
-        Some(error)
-    };
-
-    if name.contains(&b'[') {
-        extract_span(b'[')
-    } else if name.contains(&b'(') {
-        extract_span(b'(')
-    } else {
-        None
+    for (offset, char) in name.iter().enumerate() {
+        if *char == b'[' || *char == b'(' {
+            return Some(ParseError::LabeledErrorWithHelp {
+                error: "no space between name and parameters".into(),
+                label: "expected space".into(),
+                help: format!(
+                    "consider adding a space between the `{}` command's name and its parameters",
+                    working_set.get_decl(decl_id).name()
+                ),
+                span: Span::new(offset + name_span.start - 1, offset + name_span.start - 1),
+            });
+        }
     }
+
+    None
 }
 
 /// Run has_flag_const and push possible error to working_set

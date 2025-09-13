@@ -76,7 +76,7 @@ impl Command for OverlayList {
         Ok(Value::list(output_rows, call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List all overlays with their active status",

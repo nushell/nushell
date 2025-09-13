@@ -54,7 +54,7 @@ When updating a specific index, the closure will instead be run once. The first 
         update(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Update a column value",

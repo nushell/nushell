@@ -1,6 +1,6 @@
 name: Bug Report
 description: "Create a report of behavior that doesn't seem to be intended and help us improve"
-labels: ["needs-triage"]
+labels: ["status:needs-triage"]
 body: 
   - type: checkboxes
     attributes:

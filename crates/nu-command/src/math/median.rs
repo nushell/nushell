@@ -55,7 +55,7 @@ impl Command for MathMedian {
         run_with_function(call, input, median)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the median of a list of numbers",

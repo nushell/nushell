@@ -49,7 +49,7 @@ impl Command for MathArcTan {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let pi = std::f64::consts::PI;
         vec![
             Example {

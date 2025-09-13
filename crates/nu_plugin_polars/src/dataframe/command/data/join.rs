@@ -54,7 +54,7 @@ impl PluginCommand for LazyJoin {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Join two lazy dataframes",

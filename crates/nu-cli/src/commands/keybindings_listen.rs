@@ -58,7 +58,7 @@ impl Command for KeybindingsListen {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Type and see key event codes",
             example: "keybindings listen",

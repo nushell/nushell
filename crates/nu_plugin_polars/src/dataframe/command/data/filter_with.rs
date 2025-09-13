@@ -41,7 +41,7 @@ impl PluginCommand for FilterWith {
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Filter dataframe using a bool mask",

@@ -61,7 +61,7 @@ impl Command for RegistryQuery {
         registry_query(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Query the HKEY_CURRENT_USER hive",

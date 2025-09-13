@@ -100,7 +100,7 @@ This command never blocks.
         Ok(Value::nothing(head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",

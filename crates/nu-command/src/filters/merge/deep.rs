@@ -42,10 +42,24 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 "The new value to merge with.",
             )
             .category(Category::Filters)
-            .named("strategy", SyntaxShape::String, "The list merging strategy to use. One of: table (default), overwrite, append, prepend", Some('s'))
+            .param(
+                Flag::new("strategy")
+                    .short('s')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The list merging strategy to use. One of: table (default), overwrite, \
+                         append, prepend",
+                    )
+                    .completion(Completion::new_list(&[
+                        "table",
+                        "overwrite",
+                        "append",
+                        "prepend",
+                    ])),
+            )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "{a: 1, b: {c: 2, d: 3}} | merge deep {b: {d: 4, e: 5}}",

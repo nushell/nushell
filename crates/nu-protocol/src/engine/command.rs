@@ -67,7 +67,7 @@ pub trait Command: Send + Sync + CommandClone {
         Err(ShellError::MissingConstEvalImpl { span: call.head })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         Vec::new()
     }
 

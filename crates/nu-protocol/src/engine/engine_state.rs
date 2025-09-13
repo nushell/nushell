@@ -115,6 +115,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
+    pub is_lsp: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -203,6 +204,7 @@ impl EngineState {
             ))),
             is_interactive: false,
             is_login: false,
+            is_lsp: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -1056,7 +1058,7 @@ impl EngineState {
     pub fn activate_debugger(
         &self,
         debugger: Box<dyn Debugger>,
-    ) -> Result<(), PoisonDebuggerError> {
+    ) -> Result<(), PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         *locked_debugger = debugger;
         locked_debugger.activate();
@@ -1064,7 +1066,7 @@ impl EngineState {
         Ok(())
     }
 
-    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         locked_debugger.deactivate();
         let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));

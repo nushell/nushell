@@ -27,7 +27,7 @@ impl Command for UrlSplitQuery {
         vec!["convert", "record", "table"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a table representing the contents of this query string",

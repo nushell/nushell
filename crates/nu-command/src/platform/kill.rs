@@ -135,7 +135,7 @@ impl Command for Kill {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Kill the pid using the most memory",

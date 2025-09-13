@@ -37,7 +37,7 @@ impl Command for StorDelete {
         vec!["sqlite", "remove", "table", "saving", "drop"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Delete a table from the in-memory sqlite database",

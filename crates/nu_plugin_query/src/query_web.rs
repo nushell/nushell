@@ -52,7 +52,7 @@ impl SimplePluginCommand for QueryWeb {
             .category(Category::Network)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         web_examples()
     }
 

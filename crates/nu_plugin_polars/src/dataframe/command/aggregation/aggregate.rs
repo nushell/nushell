@@ -39,7 +39,7 @@ impl PluginCommand for LazyAggregate {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Group by and perform an aggregation",

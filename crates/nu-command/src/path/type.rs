@@ -87,7 +87,7 @@ If the path does not exist, null will be returned."#
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Show type of a filepath",

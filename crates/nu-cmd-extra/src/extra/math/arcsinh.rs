@@ -44,7 +44,7 @@ impl Command for MathArcSinH {
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the arcsinh of 0",
             example: "0 | math arcsinh",

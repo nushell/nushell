@@ -32,7 +32,7 @@ impl SimplePluginCommand for Hello {
         Signature::build(PluginCommand::name(self)).input_output_type(Type::Nothing, Type::String)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "hello",
             description: "Print a friendly greeting",

@@ -44,7 +44,7 @@ impl PluginCommand for StrStripChars {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Strip characters from both ends of strings in a column",

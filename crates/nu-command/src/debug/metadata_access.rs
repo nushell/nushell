@@ -49,10 +49,10 @@ impl Command for MetadataAccess {
         }
 
         let eval = get_eval_block_with_early_return(engine_state);
-        eval(engine_state, &mut callee_stack, block, input)
+        eval(engine_state, &mut callee_stack, block, input).map(|p| p.body)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Access metadata and data from a stream together",
             example: r#"{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}"#,

@@ -29,7 +29,7 @@ impl PluginCommand for ExprLit {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Created a literal expression and converts it to a nu object",

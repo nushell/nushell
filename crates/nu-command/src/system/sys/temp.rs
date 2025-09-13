@@ -34,7 +34,7 @@ impl Command for SysTemp {
         Ok(temp(call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the system temperatures",
             example: "sys temp",

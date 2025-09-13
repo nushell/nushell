@@ -22,7 +22,7 @@ impl Command for TermSize {
             )])
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return the columns (width) and rows (height) of the terminal",

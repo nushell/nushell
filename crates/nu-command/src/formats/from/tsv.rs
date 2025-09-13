@@ -41,11 +41,15 @@ impl Command for FromTsv {
                 None,
             )
             .switch("no-infer", "no field type inferencing", None)
-            .named(
-                "trim",
-                SyntaxShape::String,
-                "drop leading and trailing whitespaces around headers names and/or field values",
-                Some('t'),
+            .param(
+                Flag::new("trim")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "drop leading and trailing whitespaces around headers names and/or field \
+                         values",
+                    )
+                    .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
             .category(Category::Formats)
     }
@@ -64,7 +68,7 @@ impl Command for FromTsv {
         from_tsv(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert tab-separated data to a table",

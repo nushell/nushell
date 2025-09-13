@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: span-unknown
+language: rust
+severity: warning
+message: "Eliminate unknown spans."
+
+rule:
+  kind: call_expression
+  pattern: "Span::unknown()"

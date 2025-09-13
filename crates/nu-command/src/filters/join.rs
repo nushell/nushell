@@ -102,7 +102,7 @@ impl Command for Join {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",

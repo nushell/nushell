@@ -184,7 +184,7 @@ impl Command for OverlayUse {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create an overlay from a module",

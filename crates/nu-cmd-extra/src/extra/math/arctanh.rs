@@ -44,7 +44,7 @@ impl Command for MathArcTanH {
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the arctanh of 1",
             example: "1 | math arctanh",

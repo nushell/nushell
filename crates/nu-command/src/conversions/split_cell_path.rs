@@ -68,7 +68,7 @@ impl Command for SplitCellPath {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Split a cell-path into its components",

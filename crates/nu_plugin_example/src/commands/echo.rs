@@ -27,7 +27,7 @@ impl PluginCommand for Echo {
         vec!["example"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "example seq 1 5 | example echo",
             description: "echos the values from 1 to 5",

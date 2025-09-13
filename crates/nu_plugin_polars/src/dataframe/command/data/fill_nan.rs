@@ -37,7 +37,7 @@ impl PluginCommand for LazyFillNA {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Fills the NaN values with 0",

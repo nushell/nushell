@@ -48,7 +48,7 @@ impl Command for MathCos {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply the cosine to π",

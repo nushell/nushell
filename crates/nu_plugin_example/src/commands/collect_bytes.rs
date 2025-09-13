@@ -33,7 +33,7 @@ impl PluginCommand for CollectBytes {
             .category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "[a b] | example collect-bytes",
             description: "collect strings into one stream",

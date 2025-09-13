@@ -100,7 +100,7 @@ impl Command for OverlayHide {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Keep a custom command after hiding the overlay",

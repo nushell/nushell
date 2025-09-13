@@ -42,7 +42,7 @@ impl Command for FormatDate {
         vec!["fmt", "strftime"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",

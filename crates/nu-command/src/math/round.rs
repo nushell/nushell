@@ -98,7 +98,7 @@ impl Command for MathRound {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Apply the round function to a list of numbers",

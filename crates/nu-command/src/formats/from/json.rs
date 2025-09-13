@@ -23,7 +23,7 @@ impl Command for FromJson {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: r#"'{ "a": 1 }' | from json"#,

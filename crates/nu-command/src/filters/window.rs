@@ -39,7 +39,7 @@ impl Command for Window {
         "This command will error if `window_size` or `stride` are negative or zero."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3 4] | window 2",

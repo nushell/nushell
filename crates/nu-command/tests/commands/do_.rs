@@ -42,7 +42,7 @@ fn do_with_semicolon_break_on_failed_external() {
 
 #[test]
 fn ignore_error_should_work_for_external_command() {
-    let actual = nu!(r#"do -i { nu --testbin fail asdf }; echo post"#);
+    let actual = nu!(r#"do -i { nu --testbin fail 1 }; echo post"#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "post");

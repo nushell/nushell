@@ -65,7 +65,7 @@ string. This way content of every tag is always a table and is easier to parse"#
         from_xml(input, &info)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: r#"'<?xml version="1.0" encoding="UTF-8"?>
 <note>

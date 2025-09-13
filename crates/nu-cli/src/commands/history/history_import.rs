@@ -44,7 +44,7 @@ Note that history item IDs are ignored when importing from file."#
             ])
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "history import",

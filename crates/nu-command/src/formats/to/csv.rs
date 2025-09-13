@@ -40,7 +40,7 @@ impl Command for ToCsv {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a CSV string representing the contents of this table",

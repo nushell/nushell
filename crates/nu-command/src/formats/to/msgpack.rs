@@ -48,7 +48,7 @@ MessagePack: https://msgpack.org/
         .trim()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert a list of values to MessagePack",

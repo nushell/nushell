@@ -70,11 +70,12 @@ impl Command for IntoInt {
             ])
             .allow_variants_without_examples(true)
             .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .named(
-                "endian",
-                SyntaxShape::String,
-                "byte encode endian, available options: native(default), little, big",
-                Some('e'),
+            .param(
+                Flag::new("endian")
+                    .short('e')
+                    .arg(SyntaxShape::String)
+                    .desc("byte encode endian, available options: native(default), little, big")
+                    .completion(Completion::new_list(&["native", "little", "big"])),
             )
             .switch(
                 "signed",
@@ -161,7 +162,7 @@ impl Command for IntoInt {
         operate(action, args, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert string to int in table",

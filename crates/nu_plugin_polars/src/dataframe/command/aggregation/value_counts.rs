@@ -50,7 +50,7 @@ impl PluginCommand for ValueCount {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Calculates value counts",
             example: "[5 5 5 5 6 6] | polars into-df | polars value-counts | polars sort-by count",

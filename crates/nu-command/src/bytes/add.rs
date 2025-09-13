@@ -81,7 +81,7 @@ impl Command for BytesAdd {
         operate(add, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",

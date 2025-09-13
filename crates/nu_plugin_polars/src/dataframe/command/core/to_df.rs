@@ -47,7 +47,7 @@ impl PluginCommand for ToDataFrame {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Takes a dictionary and creates a dataframe",

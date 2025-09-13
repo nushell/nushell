@@ -37,7 +37,7 @@ impl Command for SysCpu {
         Ok(cpu(long, call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show info about the system CPUs",
             example: "sys cpu",

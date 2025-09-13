@@ -76,7 +76,7 @@ impl Command for BytesReplace {
         operate(replace, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Find and replace contents",

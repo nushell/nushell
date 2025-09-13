@@ -164,7 +164,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             .into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Profile config evaluation",

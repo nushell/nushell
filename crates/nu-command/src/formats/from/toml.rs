@@ -33,7 +33,7 @@ impl Command for FromToml {
             .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "'a = 1' | from toml",

@@ -49,7 +49,7 @@ use it in your pipeline."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "http get http://example.org/ | tee { save example.html }",
@@ -105,7 +105,8 @@ use it in your pipeline."#
                     &mut closure_stack,
                     closure_engine_state.get_block(closure.block_id),
                     input,
-                );
+                )
+                .map(|p| p.body);
                 // Make sure to drain any iterator produced to avoid unexpected behavior
                 result.and_then(|data| data.drain().map(|_| ()))
             }

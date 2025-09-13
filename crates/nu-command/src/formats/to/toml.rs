@@ -25,7 +25,7 @@ impl Command for ToToml {
         "Convert record into .toml text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this record",
             example: r#"{foo: 1 bar: 'qwe'} | to toml"#,

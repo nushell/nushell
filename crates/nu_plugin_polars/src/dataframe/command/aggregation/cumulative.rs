@@ -78,7 +78,7 @@ impl PluginCommand for Cumulative {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Cumulative sum for a column",

@@ -87,7 +87,7 @@ impl Command for MathCeil {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Apply the ceil function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math ceil",

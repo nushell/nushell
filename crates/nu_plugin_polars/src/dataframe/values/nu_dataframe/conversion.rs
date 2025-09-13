@@ -1216,6 +1216,31 @@ fn series_to_values(
             .collect::<Result<Vec<Value>, ShellError>>()?;
             Ok(values)
         }
+        DataType::Duration(time_unit) => {
+            let casted = series.duration().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to duration".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: vec![],
+            })?;
+
+            let it = casted.into_iter();
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(a) => {
+                    let nanos = nanos_from_timeunit(a, *time_unit)?;
+                    Ok(Value::duration(nanos, span))
+                }
+                None => Ok(Value::nothing(span)),
+            })
+            .collect::<Result<Vec<Value>, ShellError>>()?;
+            Ok(values)
+        }
         DataType::Struct(_) => {
             let casted = series.struct_().map_err(|e| ShellError::GenericError {
                 error: "Error casting column to struct".into(),
