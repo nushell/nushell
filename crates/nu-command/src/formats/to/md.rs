@@ -70,7 +70,7 @@ impl Command for ToMd {
                 description: "Separate list into markdown tables",
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4} {foo: 5}] | to md --per-element",
                 result: Some(Value::test_string(
-                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n| foo |\n| - |\n| 5 |",
+                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n\n| foo |\n| --- |\n| 5 |",
                 )),
             },
             Example {
@@ -121,7 +121,7 @@ fn to_md(
                 .map(move |val| match val {
                     Value::List { .. } => {
                         format!(
-                            "{}\n",
+                            "{}\n\n",
                             table(val.into_pipeline_data(), pretty, center, config)
                         )
                     }
