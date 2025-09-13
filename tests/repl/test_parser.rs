@@ -1046,8 +1046,5 @@ fn quote_escape_but_not_env_shorthand() -> TestResult {
 // https://github.com/nushell/nushell/issues/16586
 #[test]
 fn redefine_def_should_not_panic() -> TestResult {
-    fail_test(
-        r#"def def (=a|s)>"#,
-        "Missing required positional argument.",
-    )
+    fail_test(r#"def def (=a|s)>"#, "Unclosed delimiter")
 }
