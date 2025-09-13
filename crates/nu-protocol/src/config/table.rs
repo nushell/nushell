@@ -371,7 +371,7 @@ impl IntoValue for TableConfig {
             "footer_inheritance" => self.footer_inheritance.into_value(span),
             "missing_value_symbol" => self.missing_value_symbol.into_value(span),
             "batch_duration" => self.batch_duration.into_value(span),
-            "stream_page_size" => u16::from(self.stream_page_size).into_value(span),
+            "stream_page_size" => self.stream_page_size.get().into_value(span),
         }
         .into_value(span)
     }
@@ -390,8 +390,7 @@ impl Default for TableConfig {
             footer_inheritance: false,
             missing_value_symbol: "❎".into(),
             batch_duration: Duration::from_secs(1),
-            // SAFETY: 1000 is non-zero.
-            stream_page_size: unsafe { NonZeroU16::new_unchecked(1000) },
+            stream_page_size: const { NonZeroU16::new(1000).expect("Non zero integer") },
         }
     }
 }
@@ -433,18 +432,22 @@ impl UpdateFromValue for TableConfig {
                     Ok(val) => self.missing_value_symbol = val.to_string(),
                     Err(_) => errors.type_mismatch(path, Type::String, val),
                 },
-                "batch_duration" => match val.as_duration() {
-                    Err(_) => errors.type_mismatch(path, Type::Duration, val),
-                    Ok(..0) => errors.invalid_value(path, "a non-negative duration", val),
-                    Ok(val) => self.batch_duration = Duration::from_nanos(val as u64),
-                },
-                "stream_page_size" => {
-                    match val.as_int().map(|int| int.try_into().map(NonZeroU16::new)) {
-                        Err(_) => errors.type_mismatch(path, Type::Int, val),
-                        Ok(Err(_)) => errors.invalid_value(path, "a non-negative value", val),
-                        Ok(Ok(None)) => errors.invalid_value(path, "a non-zero value", val),
-                        Ok(Ok(Some(val))) => self.stream_page_size = val,
+                "batch_duration" => {
+                    match Duration::from_value(val.clone()).map_err(ConfigError::from) {
+                        Ok(val) => self.batch_duration = val,
+                        Err(err) => errors.error(err),
                     }
+                }
+                "stream_page_size" => {
+                    let Ok(n) = val.as_int() else {
+                        errors.type_mismatch(path, Type::Int, val);
+                        continue;
+                    };
+                    let Some(n) = u16::try_from(n).ok().and_then(NonZeroU16::new) else {
+                        errors.invalid_value(path, "a positive value", val);
+                        continue;
+                    };
+                    self.stream_page_size = n;
                 }
                 _ => errors.unknown_option(path, val),
             }
