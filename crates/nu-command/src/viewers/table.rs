@@ -2,7 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -25,7 +25,6 @@ use nu_utils::{get_ls_colors, terminal_size};
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
 
-const STREAM_PAGE_SIZE: usize = 1000;
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
 #[derive(Clone)]
@@ -879,7 +878,8 @@ impl Iterator for PagingTableCreator {
                 // Pull from stream until time runs out or we have enough items
                 (batch, end) = stream_collect(
                     &mut self.stream,
-                    STREAM_PAGE_SIZE,
+                    self.config.table.stream_page_size.get() as usize,
+                    self.config.table.batch_duration,
                     self.engine_state.signals(),
                 );
             }
@@ -932,6 +932,7 @@ impl Iterator for PagingTableCreator {
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
+    batch_duration: Duration,
     signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
@@ -941,12 +942,13 @@ fn stream_collect(
     for (i, item) in stream.enumerate() {
         batch.push(item);
 
-        // If we've been buffering over a second, go ahead and send out what we have so far
-        if (Instant::now() - start_time).as_secs() >= 1 {
+        // We buffer until `$env.config.table.batch_duration`, then we send out what we have so far
+        if (Instant::now() - start_time) >= batch_duration {
             end = false;
             break;
         }
 
+        // Or until we reached `$env.config.table.stream_page_size`.
         if i + 1 == size {
             end = false;
             break;
