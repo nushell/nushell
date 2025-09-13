@@ -1,7 +1,7 @@
 use std::{num::NonZeroU16, time::Duration};
 
 use super::{config_update_string_enum, prelude::*};
-use crate as nu_protocol;
+use crate::{self as nu_protocol, ConfigError, FromValue};
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {
