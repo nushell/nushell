@@ -167,13 +167,28 @@ fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: 
     out
 }
 
+fn escape_markdown_characters(input: String) -> String {
+    let mut output = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '|' | '\\' => {
+                output.push('\\');
+                output.push(ch);
+            }
+            _ => output.push(ch),
+        }
+    }
+    output
+}
+
 fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
     let mut escaped_headers: Vec<String> = Vec::new();
     let mut column_widths: Vec<usize> = Vec::new();
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string = v_htmlescape::escape(header).to_string();
+            let escaped_header_string =
+                escape_markdown_characters(v_htmlescape::escape(header).to_string());
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
@@ -224,11 +239,12 @@ fn table(
         match row.to_owned() {
             Value::Record { val: row, .. } => {
                 for i in 0..headers.len() {
-                    let value_string = row
-                        .get(&headers[i])
-                        .cloned()
-                        .unwrap_or_else(|| Value::nothing(span))
-                        .to_expanded_string(", ", config);
+                    let value_string = escape_markdown_characters(
+                        row.get(&headers[i])
+                            .cloned()
+                            .unwrap_or_else(|| Value::nothing(span))
+                            .to_expanded_string(", ", config),
+                    );
                     let new_column_width = value_string.len();
 
                     escaped_row.push(value_string);
@@ -949,7 +965,7 @@ mod tests {
             | --- | --- |
             | orderColumns | 'asc' \| 'desc' \| 'none' |
             | ref | RefObject<SampleTableRef \| null> |
-            | onChange | (val: string) => void\ |
+            | onChange | (val: string) => void\\ |
         "#)
         );
 
@@ -960,7 +976,7 @@ mod tests {
             | ------------ | --------------------------------- |
             | orderColumns | 'asc' \| 'desc' \| 'none'         |
             | ref          | RefObject<SampleTableRef \| null> |
-            | onChange     | (val: string) => void\            |
+            | onChange     | (val: string) => void\\           |
         "#)
         );
     }
@@ -980,7 +996,7 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            | name\|info | value\ |
+            | name\|info | value\\ |
             | --- | --- |
             | beautiful | unknow |
         "#)
@@ -989,9 +1005,9 @@ mod tests {
         assert_eq!(
             table(value.into_pipeline_data(), true, &None, &Config::default()),
             one(r#"
-            | name\|info | value\ |
-            | ---------- | ------ |
-            | beautiful  | unknow |
+            | name\|info | value\\ |
+            | ---------- | ------- |
+            | beautiful  | unknow  |
         "#)
         );
     }
