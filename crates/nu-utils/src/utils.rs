@@ -84,29 +84,34 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConfigType {
+    Config,
+    Env,
+}
+
 // See default_files/README.md for a description of these files
-pub fn get_default_env() -> &'static str {
-    include_str!("default_files/default_env.nu")
-}
+impl ConfigType {
+    pub fn default(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/default_config.nu"),
+            Self::Env => include_str!("default_files/default_env.nu"),
+        }
+    }
 
-pub fn get_scaffold_env() -> &'static str {
-    include_str!("default_files/scaffold_env.nu")
-}
+    pub fn scaffold(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/scaffold_config.nu"),
+            Self::Env => include_str!("default_files/scaffold_env.nu"),
+        }
+    }
 
-pub fn get_doc_env() -> &'static str {
-    include_str!("default_files/doc_env.nu")
-}
-
-pub fn get_default_config() -> &'static str {
-    include_str!("default_files/default_config.nu")
-}
-
-pub fn get_scaffold_config() -> &'static str {
-    include_str!("default_files/scaffold_config.nu")
-}
-
-pub fn get_doc_config() -> &'static str {
-    include_str!("default_files/doc_config.nu")
+    pub fn doc(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/doc_config.nu"),
+            Self::Env => include_str!("default_files/doc_env.nu"),
+        }
+    }
 }
 
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
