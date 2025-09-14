@@ -1051,3 +1051,39 @@ fn redefine_def_should_not_panic() -> TestResult {
         "Missing required positional argument.",
     )
 }
+
+#[test]
+fn table_literal_column_var() -> TestResult {
+    run_test(
+        r#"
+            let column_name = 'column0'
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "foo",
+    )
+}
+
+#[test]
+fn table_literal_column_var_parse_err() -> TestResult {
+    fail_test(
+        r#"
+            let column_name = {a: 123}
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "must be a string",
+    )
+}
+
+#[test]
+fn table_literal_column_var_shell_err() -> TestResult {
+    fail_test(
+        r#"
+            let column_name = echo {a: 123}
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "can't convert",
+    )
+}
