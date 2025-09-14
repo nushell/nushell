@@ -91,6 +91,20 @@ impl Command for ToMd {
                     "| foo | bar |\n| --- |:---:|\n| 1   |  2  |\n| 3   |  4  |",
                 )),
             },
+            Example {
+                description: "Escape markdown special characters",
+                example: r#"[ {foo: "_1_", bar: "\# 2"} {foo: "[3]", bar: "4|5"}] | to md --escape-md"#,
+                result: Some(Value::test_string(
+                    "| foo | bar |\n| --- | --- |\n| \\_1\\_ | \\# 2 |\n| \\[3\\] | 4\\|5 |",
+                )),
+            },
+            Example {
+                description: "Escape html special characters",
+                example: r#"[ {a: p, b: "<p>Welcome to nushell</p>"}] | to md --escape-html"#,
+                result: Some(Value::test_string(
+                    "| a | b |\n| --- | --- |\n| p | &lt;p&gt;Welcome to nushell&lt;&#x2f;p&gt; |",
+                )),
+            },
         ]
     }
 
