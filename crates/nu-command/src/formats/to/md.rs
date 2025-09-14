@@ -672,7 +672,7 @@ mod tests {
             | Ecuador |
             | New Zealand |
             | USA |
-        "#)
+            "#)
         );
 
         assert_eq!(
@@ -690,7 +690,7 @@ mod tests {
             | Ecuador     |
             | New Zealand |
             | USA         |
-        "#)
+            "#)
         );
     }
 
@@ -721,7 +721,7 @@ mod tests {
             | --- | --- |
             | 1 | 2 |
             | 3 | 4 |
-        "#)
+            "#)
         );
     }
 
@@ -757,7 +757,7 @@ mod tests {
             | 1 | 2 |
             | 3 | 4 |
             | 5 |  |
-        "#)
+            "#)
         );
     }
 
@@ -811,7 +811,7 @@ mod tests {
             | 1   |  2  |
             | 3   |  4  |
             | 5   |  6  |
-        "#)
+            "#)
         );
 
         // Without pretty
@@ -830,7 +830,7 @@ mod tests {
             | 1 | 2 |
             | 3 | 4 |
             | 5 | 6 |
-        "#)
+            "#)
         );
     }
 
@@ -868,7 +868,7 @@ mod tests {
             | 1   | 2   |
             | 3   | 4   |
             | 5   | 6   |
-        "#)
+            "#)
         );
     }
 
@@ -933,7 +933,7 @@ mod tests {
             |   ls    | .     | file.txt |
             |  echo   | 'hi'  |    hi    |
             |   cp    | a.txt |  b.txt   |
-        "#)
+            "#)
         );
     }
 
@@ -986,7 +986,7 @@ mod tests {
             | Alice   | 30  |
             | Bob     | 5   |
             | Charlie | 20  |
-        "#)
+            "#)
         );
     }
 
@@ -1033,7 +1033,7 @@ mod tests {
             | ---------- |:--------------------------:|
             | version    |          0.104.1           |
             | build_time | 2025-05-28 11:00:45 +01:00 |
-        "#)
+            "#)
         );
     }
 
@@ -1070,18 +1070,18 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_base_md_characters() {
+    fn test_escape_md_characters() {
         let value = Value::test_list(vec![
             Value::test_record(record! {
-                "name" => Value::test_string("orderColumns"),
+                "name|label" => Value::test_string("orderColumns"),
                 "type*" => Value::test_string("'asc' | 'desc' | 'none'"),
             }),
             Value::test_record(record! {
-                "name" => Value::test_string("_ref_value"),
+                "name|label" => Value::test_string("_ref_value"),
                 "type*" => Value::test_string("RefObject<SampleTableRef | null>"),
             }),
             Value::test_record(record! {
-                "name" => Value::test_string("onChange"),
+                "name|label" => Value::test_string("onChange"),
                 "type*" => Value::test_string("(val: string) => void\\"),
             }),
         ]);
@@ -1096,17 +1096,35 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            | name | type* |
+            | name\|label | type* |
             | --- | --- |
             | orderColumns | 'asc' \| 'desc' \| 'none' |
             | _ref_value | RefObject<SampleTableRef \| null> |
             | onChange | (val: string) => void\\ |
-        "#)
+            "#)
         );
 
         assert_eq!(
             table(
-                value.into_pipeline_data(),
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                true,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label | type\* |
+            | --- | --- |
+            | orderColumns | 'asc' \| 'desc' \| 'none' |
+            | \_ref\_value | RefObject<SampleTableRef \| null> |
+            | onChange | \(val: string\) => void\\ |
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
                 true,
                 &None,
                 false,
@@ -1114,20 +1132,38 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            | name         | type*                             |
+            | name\|label  | type*                             |
             | ------------ | --------------------------------- |
             | orderColumns | 'asc' \| 'desc' \| 'none'         |
             | _ref_value   | RefObject<SampleTableRef \| null> |
             | onChange     | (val: string) => void\\           |
-        "#)
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                true,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label  | type\*                            |
+            | ------------ | --------------------------------- |
+            | orderColumns | 'asc' \| 'desc' \| 'none'         |
+            | \_ref\_value | RefObject<SampleTableRef \| null> |
+            | onChange     | \(val: string\) => void\\         |
+            "#)
         );
     }
 
     #[test]
-    fn test_escape_base_md_characters_in_header() {
+    fn test_escape_html_characters() {
         let value = Value::test_list(vec![Value::test_record(record! {
-            "name|info" => Value::test_string("beautiful"),
-            "value\\" => Value::test_string("unknow"),
+            "tag" => Value::test_string("table"),
+            "code" => Value::test_string(r#"<table><tr><td scope="row">Chris</td><td>HTML tables</td><td>22</td></tr><tr><td scope="row">Dennis</td><td>Web accessibility</td><td>45</td></tr></table>"#),
         })]);
 
         assert_eq!(
@@ -1136,14 +1172,14 @@ mod tests {
                 false,
                 &None,
                 false,
-                false,
+                true,
                 &Config::default()
             ),
             one(r#"
-            | name\|info | value\\ |
+            | tag | code |
             | --- | --- |
-            | beautiful | unknow |
-        "#)
+            | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
+            "#)
         );
 
         assert_eq!(
@@ -1152,14 +1188,14 @@ mod tests {
                 true,
                 &None,
                 false,
-                false,
+                true,
                 &Config::default()
             ),
             one(r#"
-            | name\|info | value\\ |
-            | ---------- | ------- |
-            | beautiful  | unknow  |
-        "#)
+            | tag   | code                                                                                                                                                                                                                                                                                                                                    |
+            | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+            | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
+            "#)
         );
     }
 }
