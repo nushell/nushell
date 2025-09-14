@@ -60,11 +60,11 @@ pub(crate) fn read_config_file(
         }
     } else if let Some(mut config_path) = nu_path::nu_config_dir() {
         // Create config directory if it does not exist
-        if !config_path.exists() {
-            if let Err(err) = std::fs::create_dir_all(&config_path) {
-                eprintln!("Failed to create config directory: {err}");
-                return;
-            }
+        if !config_path.exists()
+            && let Err(err) = std::fs::create_dir_all(&config_path)
+        {
+            eprintln!("Failed to create config directory: {err}");
+            return;
         }
 
         config_path.push(if is_env_config { ENV_FILE } else { CONFIG_FILE });
