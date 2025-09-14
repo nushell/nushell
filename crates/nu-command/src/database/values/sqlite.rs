@@ -7,8 +7,7 @@ use nu_protocol::{
     engine::EngineState, shell_error::io::IoError,
 };
 use rusqlite::{
-    Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql,
-    types::ValueRef,
+    Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,6 +18,7 @@ use std::{
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 pub const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
+const DATABASE_NAME: &str = "main";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
@@ -183,7 +183,7 @@ impl SQLiteDatabase {
         conn: &Connection,
         filename: String,
     ) -> Result<(), SqliteError> {
-        conn.backup(DatabaseName::Main, Path::new(&filename), None)?;
+        conn.backup(DATABASE_NAME, Path::new(&filename), None)?;
         Ok(())
     }
 
@@ -193,7 +193,7 @@ impl SQLiteDatabase {
         filename: String,
     ) -> Result<(), SqliteError> {
         conn.restore(
-            DatabaseName::Main,
+            DATABASE_NAME,
             Path::new(&filename),
             Some(|p: rusqlite::backup::Progress| {
                 let percent = if p.pagecount == 0 {
