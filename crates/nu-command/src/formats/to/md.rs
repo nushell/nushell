@@ -602,7 +602,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "# Ecuador\n"
         );
     }
@@ -614,7 +614,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "## Ecuador\n"
         );
     }
@@ -626,7 +626,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "### Ecuador\n"
         );
     }
@@ -638,7 +638,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "> Ecuador\n"
         );
     }
@@ -662,6 +662,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -674,7 +676,14 @@ mod tests {
         );
 
         assert_eq!(
-            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
             one(r#"
             | country     |
             | ----------- |
@@ -703,6 +712,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -736,6 +747,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -788,6 +801,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -805,6 +820,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -841,6 +858,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -904,6 +923,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -955,6 +976,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -1001,6 +1024,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -1066,6 +1091,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -1078,7 +1105,14 @@ mod tests {
         );
 
         assert_eq!(
-            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
             one(r#"
             | name         | type*                             |
             | ------------ | --------------------------------- |
@@ -1101,6 +1135,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -1111,7 +1147,14 @@ mod tests {
         );
 
         assert_eq!(
-            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
             one(r#"
             | name\|info | value\\ |
             | ---------- | ------- |
