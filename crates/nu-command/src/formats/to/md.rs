@@ -200,11 +200,11 @@ fn to_md(
 fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
     let mut output = String::with_capacity(input.len());
     for ch in input.chars() {
-        // Based on https://github.com/sonic-net/SONiC/wiki/Special-Characters-and-Escaping
         let must_escape = match ch {
             '\\' => true,
             '|' if for_table => true,
-            '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.' | '!'
+            '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '<' | '>' | '#' | '+' | '-'
+            | '.' | '!'
                 if escape_md =>
             {
                 true
@@ -1131,8 +1131,8 @@ mod tests {
             | name\|label | type\* |
             | --- | --- |
             | orderColumns | 'asc' \| 'desc' \| 'none' |
-            | \_ref\_value | RefObject<SampleTableRef \| null> |
-            | onChange | \(val: string\) => void\\ |
+            | \_ref\_value | RefObject\<SampleTableRef \| null\> |
+            | onChange | \(val: string\) =\> void\\ |
             "#)
         );
 
@@ -1164,11 +1164,11 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            | name\|label  | type\*                            |
-            | ------------ | --------------------------------- |
-            | orderColumns | 'asc' \| 'desc' \| 'none'         |
-            | \_ref\_value | RefObject<SampleTableRef \| null> |
-            | onChange     | \(val: string\) => void\\         |
+            | name\|label  | type\*                              |
+            | ------------ | ----------------------------------- |
+            | orderColumns | 'asc' \| 'desc' \| 'none'           |
+            | \_ref\_value | RefObject\<SampleTableRef \| null\> |
+            | onChange     | \(val: string\) =\> void\\          |
             "#)
         );
     }
