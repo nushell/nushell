@@ -174,11 +174,10 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "rustls-tls"]
+default = ["os", "network", "rustls-tls"]
 os = [
 	# include other features
 	"js",
-	"network",
 	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",
