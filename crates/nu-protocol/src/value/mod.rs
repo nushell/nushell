@@ -3670,14 +3670,12 @@ impl Value {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::In),
                         lhs: lhs.get_type(),
@@ -3742,14 +3740,12 @@ impl Value {
                 rhs,
             ),
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::NotIn),
                         lhs: lhs.get_type(),

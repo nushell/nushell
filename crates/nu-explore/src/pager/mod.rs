@@ -488,10 +488,9 @@ fn create_status_bar(report: Report) -> StatusBar {
 }
 
 fn report_msg_style(report: &Report, config: &ExploreConfig, style: NuStyle) -> NuStyle {
-    if matches!(report.level, Severity::Info) {
-        style
-    } else {
-        report_level_style(report.level, config)
+    match report.level {
+        Severity::Info => style,
+        _ => report_level_style(report.level, config),
     }
 }
 

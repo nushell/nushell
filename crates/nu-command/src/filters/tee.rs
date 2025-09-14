@@ -256,7 +256,7 @@ use it in your pipeline."#
             let metadata = input.metadata();
             let metadata_clone = metadata.clone();
 
-            if matches!(input, PipelineData::ListStream(..)) {
+            if let PipelineData::ListStream(..) = input {
                 // Only use the iterator implementation on lists / list streams. We want to be able
                 // to preserve errors as much as possible, and only the stream implementations can
                 // really do that

@@ -229,7 +229,7 @@ impl Completer for OperatorCompletion<'_> {
             Type::Any => match &self.left_hand_side.expr {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
-                    if matches!(path.head.expr, Expr::Garbage) {
+                    if let Expr::Garbage = path.head.expr {
                         return vec![];
                     }
                     let value =

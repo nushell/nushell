@@ -143,7 +143,7 @@ mod tests {
             let sig_name = cmd.signature().name;
             let category = cmd.signature().category;
 
-            if matches!(category, Category::Removed) {
+            if let Category::Removed = category {
                 // Deprecated/Removed commands don't have to conform
                 continue;
             }

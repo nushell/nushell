@@ -169,18 +169,12 @@ impl LanguageServer {
         let active_signature = working_set.get_decl(active_call.decl_id).signature();
         let label = get_signature_label(&active_signature, false);
 
-        let mut param_num_before_pos = 0;
-        for arg in active_call.arguments.iter() {
-            // skip flags
-            if matches!(arg, Argument::Named(_)) {
-                continue;
-            }
-            if arg.span().end <= pos_to_search {
-                param_num_before_pos += 1;
-            } else {
-                break;
-            }
-        }
+        let param_num_before_pos = active_call
+            .arguments
+            .iter()
+            .filter(|&arg| !matches!(arg, Argument::Named(..)))
+            .take_while(|&arg| arg.span().end <= pos_to_search)
+            .count() as u32;
 
         let str_to_doc = |s: String| {
             Some(Documentation::MarkupContent(MarkupContent {
