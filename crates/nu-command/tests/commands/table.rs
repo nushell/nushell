@@ -3957,3 +3957,85 @@ fn table_missing_value_custom() {
          ╰───┴──────╯",
     )
 }
+
+#[test]
+fn configure_batch_duration() {
+    let expected_default = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#).out
+    );
+
+    let expected_two_sec = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_two_sec,
+        nu!(r#"$env.config.table.batch_duration = 2sec
+        1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#)
+        .out
+    );
+}
+
+#[test]
+fn configure_stream_size() {
+    let expected_default = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..4 | each {"item " + ($in | into string)}"#).out
+    );
+
+    let expected_size_2 = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        ╰───┴────────╯\
+        ╭───┬────────╮\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_size_2,
+        nu!(r#"$env.config.table.stream_page_size = 2
+        1..4 | each {"item " + ($in | into string)}"#)
+        .out
+    );
+}

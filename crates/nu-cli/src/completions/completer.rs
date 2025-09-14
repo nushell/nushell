@@ -6,7 +6,7 @@ use crate::completions::{
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
+use nu_parser::{FlatShape, flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
     Completion, PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
@@ -394,15 +394,14 @@ impl NuCompleter {
                             //   - "--foo ..a" => ["--foo", "..a"] => "..a"
                             //   - "--foo=..a" => ["--foo", "..a"] => "..a"
                             // - strip placeholder (`a`) if present
-                            let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(
+                            let (new_span, prefix) = match arg {
+                                Argument::Named(_) => strip_placeholder_with_rsplit(
                                     working_set,
                                     &span,
                                     |b| *b == b'=' || *b == b' ',
                                     strip,
-                                )
-                            } else {
-                                strip_placeholder_if_any(working_set, &span, strip)
+                                ),
+                                _ => strip_placeholder_if_any(working_set, &span, strip),
                             };
                             let ctx = Context::new(working_set, new_span, prefix, offset);
 
@@ -512,8 +511,13 @@ impl NuCompleter {
                             let mut text_spans: Vec<String> =
                                 flatten_expression(working_set, element_expression)
                                     .iter()
-                                    .map(|(span, _)| {
-                                        let bytes = working_set.get_span_contents(*span);
+                                    .map(|(span, shape)| {
+                                        let bytes = if let FlatShape::External(span) = shape {
+                                            // Use expanded alias span
+                                            working_set.get_span_contents(**span)
+                                        } else {
+                                            working_set.get_span_contents(*span)
+                                        };
                                         String::from_utf8_lossy(bytes).to_string()
                                     })
                                     .collect();

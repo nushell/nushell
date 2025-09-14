@@ -138,7 +138,7 @@ impl PluginCommand for LazyAggregate {
             if let Some(name) = get_col_name(expr) {
                 let dtype = group_by.schema.schema.get(name.as_str());
 
-                if matches!(dtype, Some(DataType::Object(..))) {
+                if let Some(DataType::Object(..)) = dtype {
                     return Err(ShellError::GenericError {
                             error: "Object type column not supported for aggregation".into(),
                             msg: format!("Column '{name}' is type Object"),

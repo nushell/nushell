@@ -2057,7 +2057,7 @@ pub fn parse_paren_expr(
 
     working_set.parse_errors.truncate(starting_error_count);
 
-    if matches!(shape, SyntaxShape::Signature) {
+    if let SyntaxShape::Signature = shape {
         return parse_signature(working_set, span);
     }
 
@@ -2106,56 +2106,52 @@ pub fn parse_brace_expr(
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
-    let second_token = tokens
-        .first()
-        .map(|token| working_set.get_span_contents(token.span));
-
-    let second_token_contents = tokens.first().map(|token| token.contents);
-
-    let third_token = tokens
-        .get(1)
-        .map(|token| working_set.get_span_contents(token.span));
-
-    if second_token.is_none() {
+    match tokens.as_slice() {
         // If we're empty, that means an empty record or closure
-        if matches!(shape, SyntaxShape::Closure(_)) {
+        [] => match shape {
+            SyntaxShape::Closure(_) => parse_closure_expression(working_set, shape, span),
+            SyntaxShape::Block => parse_block_expression(working_set, span),
+            SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
+            _ => parse_record(working_set, span),
+        },
+        [
+            Token {
+                contents: TokenContents::Pipe | TokenContents::PipePipe,
+                ..
+            },
+            ..,
+        ] => {
+            if let SyntaxShape::Block = shape {
+                working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
+                return Expression::garbage(working_set, span);
+            }
             parse_closure_expression(working_set, shape, span)
-        } else if matches!(shape, SyntaxShape::Block) {
-            parse_block_expression(working_set, span)
-        } else if matches!(shape, SyntaxShape::MatchBlock) {
-            parse_match_block_expression(working_set, span)
-        } else {
-            parse_record(working_set, span)
         }
-    } else if matches!(second_token_contents, Some(TokenContents::Pipe))
-        || matches!(second_token_contents, Some(TokenContents::PipePipe))
-    {
-        if matches!(shape, SyntaxShape::Block) {
-            working_set.error(ParseError::Mismatch("block".into(), "closure".into(), span));
-            return Expression::garbage(working_set, span);
+        [_, third, ..] if working_set.get_span_contents(third.span) == b":" => {
+            parse_full_cell_path(working_set, None, span)
         }
-        parse_closure_expression(working_set, shape, span)
-    } else if matches!(third_token, Some(b":")) {
-        parse_full_cell_path(working_set, None, span)
-    } else if matches!(shape, SyntaxShape::Closure(_)) {
-        parse_closure_expression(working_set, shape, span)
-    } else if matches!(shape, SyntaxShape::Block) {
-        parse_block_expression(working_set, span)
-    } else if matches!(shape, SyntaxShape::MatchBlock) {
-        parse_match_block_expression(working_set, span)
-    } else if second_token.is_some_and(|c| {
-        c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
-    }) {
-        parse_record(working_set, span)
-    } else if matches!(shape, SyntaxShape::Any) {
-        parse_closure_expression(working_set, shape, span)
-    } else {
-        working_set.error(ParseError::ExpectedWithStringMsg(
-            format!("non-block value: {shape}"),
-            span,
-        ));
+        [second, ..] => {
+            let second_bytes = working_set.get_span_contents(second.span);
+            match shape {
+                SyntaxShape::Closure(_) => parse_closure_expression(working_set, shape, span),
+                SyntaxShape::Block => parse_block_expression(working_set, span),
+                SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
+                _ if second_bytes.starts_with(b"...")
+                    && second_bytes.get(3).is_some_and(|c| b"${(".contains(c)) =>
+                {
+                    parse_record(working_set, span)
+                }
+                SyntaxShape::Any => parse_closure_expression(working_set, shape, span),
+                _ => {
+                    working_set.error(ParseError::ExpectedWithStringMsg(
+                        format!("non-block value: {shape}"),
+                        span,
+                    ));
 
-        Expression::garbage(working_set, span)
+                    Expression::garbage(working_set, span)
+                }
+            }
+        }
     }
 }
 
@@ -4112,7 +4108,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             // Short flag alias for long flag, e.g. --b (-a)
                             // This is the same as the short flag in --b(-a)
                             else if let Some(short_flag) = contents.strip_prefix(b"(-") {
-                                if matches!(parse_mode, ParseMode::AfterCommaArg) {
+                                if let ParseMode::AfterCommaArg = parse_mode {
                                     working_set
                                         .error(ParseError::Expected("parameter or flag", span));
                                 }
@@ -4806,12 +4802,13 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut ty = head
         .iter()
         .rev()
-        .map(|expr| {
-            if let Some(str) = expr.as_string() {
-                str
-            } else {
+        // Include only known column names in type
+        .filter_map(|expr| {
+            if !Type::String.is_subtype_of(&expr.ty) {
                 errors.push(mk_error(expr.span));
-                String::from("{ column }")
+                None
+            } else {
+                expr.as_string()
             }
         })
         .map(|title| (title, mk_ty()))

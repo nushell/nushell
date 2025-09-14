@@ -273,7 +273,7 @@ fn join_rows(
             if let Some(this_valkey) = this_record.get(this_join_key)
                 && let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config))
             {
-                if matches!(include_inner, IncludeInner::Yes) {
+                if let IncludeInner::Yes = include_inner {
                     for other_record in other_rows {
                         // `other` table contains rows matching `this` row on the join column
                         let record = match join_type {

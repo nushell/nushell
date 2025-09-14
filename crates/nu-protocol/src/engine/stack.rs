@@ -783,7 +783,7 @@ impl Stack {
         let path = path.as_ref();
 
         if !path.is_absolute() {
-            if matches!(path.components().next(), Some(Component::Prefix(_))) {
+            if let Some(Component::Prefix(_)) = path.components().next() {
                 return Err(ShellError::GenericError {
                     error: "Cannot set $env.PWD to a prefix-only path".to_string(),
                     msg: "".into(),
