@@ -1,9 +1,15 @@
 // Each const is named after a HistoryItem field, and the value is the field name to be displayed to
 // the user (or accept during import).
 pub const COMMAND_LINE: &str = "command";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const START_TIMESTAMP: &str = "start_timestamp";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const HOSTNAME: &str = "hostname";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const CWD: &str = "cwd";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const EXIT_STATUS: &str = "exit_status";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const DURATION: &str = "duration";
+#[cfg_attr(not(feature = "sqlite"), allow(dead_code))]
 pub const SESSION_ID: &str = "session_id";
