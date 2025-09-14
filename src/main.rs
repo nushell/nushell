@@ -505,11 +505,11 @@ fn main() -> Result<()> {
             Value::test_string(": "),
         );
         engine_state.add_env_var(
-            "PROMPT_MULTILINE_INDICATOR".to_string(),
+            "PROMPT_INDICATOR_MULTILINE".to_string(),
             Value::test_string("::: "),
         );
         engine_state.add_env_var(
-            "TRANSIENT_PROMPT_MULTILINE_INDICATOR".to_string(),
+            "TRANSIENT_PROMPT_INDICATOR_MULTILINE".to_string(),
             Value::test_string(""),
         );
         engine_state.add_env_var(

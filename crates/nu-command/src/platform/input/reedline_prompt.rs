@@ -7,7 +7,7 @@ use std::borrow::Cow;
 /// The default prompt indicator
 pub static DEFAULT_VI_INSERT_PROMPT_INDICATOR: &str = ": ";
 pub static DEFAULT_VI_NORMAL_PROMPT_INDICATOR: &str = "〉";
-pub static DEFAULT_MULTILINE_INDICATOR: &str = "::: ";
+pub static DEFAULT_INDICATOR_MULTILINE: &str = "::: ";
 
 /// Simple [`Prompt`] displaying a configurable left and a right prompt.
 /// For more fine-tuned configuration, implement the [`Prompt`] trait.
@@ -41,7 +41,7 @@ impl Prompt for ReedlinePrompt {
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
-        Cow::Borrowed(DEFAULT_MULTILINE_INDICATOR)
+        Cow::Borrowed(DEFAULT_INDICATOR_MULTILINE)
     }
 
     fn render_prompt_history_search_indicator(
