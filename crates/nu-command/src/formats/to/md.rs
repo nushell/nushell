@@ -22,7 +22,7 @@ impl Command for ToMd {
             )
             .switch(
                 "per-element",
-                "treat each row as markdown syntax element",
+                "Treat each row as markdown syntax element",
                 Some('e'),
             )
             .named(
@@ -30,6 +30,17 @@ impl Command for ToMd {
                 SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 "Formats the Markdown table to center given columns",
                 Some('c'),
+            )
+            .switch(
+                "escape-md",
+                "Escapes Markdown special characters",
+                Some('m'),
+            )
+            .switch("escape-html", "Escapes HTML special characters", Some('t'))
+            .switch(
+                "escape-all",
+                "Escapes both Markdown and HTML special characters",
+                Some('a'),
             )
             .category(Category::Formats)
     }
@@ -91,11 +102,26 @@ impl Command for ToMd {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let per_element = call.has_flag(engine_state, stack, "per-element")?;
+        let escape_md = call.has_flag(engine_state, stack, "escape-md")?;
+        let escape_html = call.has_flag(engine_state, stack, "escape-html")?;
+        let escape_both = call.has_flag(engine_state, stack, "escape-all")?;
         let center: Option<Vec<CellPath>> = call.get_flag(engine_state, stack, "center")?;
+
         let config = stack.get_config(engine_state);
-        to_md(input, pretty, per_element, &center, &config, head)
+
+        to_md(
+            input,
+            pretty,
+            per_element,
+            &center,
+            escape_md || escape_both,
+            escape_html || escape_both,
+            &config,
+            head,
+        )
     }
 }
 
@@ -104,6 +130,8 @@ fn to_md(
     pretty: bool,
     per_element: bool,
     center: &Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -122,10 +150,17 @@ fn to_md(
                     Value::List { .. } => {
                         format!(
                             "{}\n\n",
-                            table(val.into_pipeline_data(), pretty, center, config)
+                            table(
+                                val.into_pipeline_data(),
+                                pretty,
+                                center,
+                                escape_md,
+                                escape_html,
+                                config
+                            )
                         )
                     }
-                    other => fragment(other, pretty, center, config),
+                    other => fragment(other, pretty, center, escape_md, escape_html, config),
                 })
                 .collect::<Vec<String>>()
                 .join("")
@@ -134,13 +169,51 @@ fn to_md(
         )
         .into_pipeline_data_with_metadata(Some(metadata)));
     }
-    Ok(
-        Value::string(table(grouped_input, pretty, center, config), head)
-            .into_pipeline_data_with_metadata(Some(metadata)),
+    Ok(Value::string(
+        table(
+            grouped_input,
+            pretty,
+            center,
+            escape_md,
+            escape_html,
+            config,
+        ),
+        head,
     )
+    .into_pipeline_data_with_metadata(Some(metadata)))
 }
 
-fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: &Config) -> String {
+fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
+    let mut output = String::with_capacity(input.len());
+    for ch in input.chars() {
+        // Based on https://github.com/sonic-net/SONiC/wiki/Special-Characters-and-Escaping
+        let must_escape = match ch {
+            '\\' => true,
+            '|' if for_table => true,
+            '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.' | '!'
+                if escape_md =>
+            {
+                true
+            }
+            _ => false,
+        };
+
+        if must_escape {
+            output.push('\\');
+        }
+        output.push(ch);
+    }
+    output
+}
+
+fn fragment(
+    input: Value,
+    pretty: bool,
+    center: &Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
+    config: &Config,
+) -> String {
     let mut out = String::new();
 
     if let Value::Record { val, .. } = &input {
@@ -151,44 +224,69 @@ fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: 
                     "h2" => "## ".to_string(),
                     "h3" => "### ".to_string(),
                     "blockquote" => "> ".to_string(),
-                    _ => return table(input.into_pipeline_data(), pretty, center, config),
+                    _ => {
+                        return table(
+                            input.into_pipeline_data(),
+                            pretty,
+                            center,
+                            escape_md,
+                            escape_html,
+                            config,
+                        );
+                    }
                 };
 
+                let value_string = data.to_expanded_string("|", config);
                 out.push_str(&markup);
-                out.push_str(&data.to_expanded_string("|", config));
+                out.push_str(&escape_markdown_characters(
+                    if escape_html {
+                        v_htmlescape::escape(&value_string).to_string()
+                    } else {
+                        value_string
+                    },
+                    escape_md,
+                    false,
+                ));
             }
-            _ => out = table(input.into_pipeline_data(), pretty, center, config),
+            _ => {
+                out = table(
+                    input.into_pipeline_data(),
+                    pretty,
+                    center,
+                    escape_md,
+                    escape_html,
+                    config,
+                )
+            }
         }
     } else {
-        out = input.to_expanded_string("|", config)
+        let value_string = input.to_expanded_string("|", config);
+        out = escape_markdown_characters(
+            if escape_html {
+                v_htmlescape::escape(&value_string).to_string()
+            } else {
+                value_string
+            },
+            escape_md,
+            false,
+        );
     }
 
     out.push('\n');
     out
 }
 
-fn escape_markdown_characters(input: String) -> String {
-    let mut output = String::with_capacity(input.len());
-    for ch in input.chars() {
-        match ch {
-            '|' | '\\' => {
-                output.push('\\');
-                output.push(ch);
-            }
-            _ => output.push(ch),
-        }
-    }
-    output
-}
-
-fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
+fn collect_headers(headers: &[String], escape_md: bool) -> (Vec<String>, Vec<usize>) {
     let mut escaped_headers: Vec<String> = Vec::new();
     let mut column_widths: Vec<usize> = Vec::new();
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string =
-                escape_markdown_characters(v_htmlescape::escape(header).to_string());
+            let escaped_header_string = escape_markdown_characters(
+                v_htmlescape::escape(header).to_string(),
+                escape_md,
+                true,
+            );
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
@@ -203,6 +301,8 @@ fn table(
     input: PipelineData,
     pretty: bool,
     center: &Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
     config: &Config,
 ) -> String {
     let vec_of_values = input
@@ -228,7 +328,7 @@ fn table(
         }
     }
 
-    let (escaped_headers, mut column_widths) = collect_headers(&headers);
+    let (escaped_headers, mut column_widths) = collect_headers(&headers, escape_md);
 
     let mut escaped_rows: Vec<Vec<String>> = Vec::new();
 
@@ -239,15 +339,23 @@ fn table(
         match row.to_owned() {
             Value::Record { val: row, .. } => {
                 for i in 0..headers.len() {
-                    let value_string = escape_markdown_characters(
-                        row.get(&headers[i])
-                            .cloned()
-                            .unwrap_or_else(|| Value::nothing(span))
-                            .to_expanded_string(", ", config),
+                    let value_string = row
+                        .get(&headers[i])
+                        .cloned()
+                        .unwrap_or_else(|| Value::nothing(span))
+                        .to_expanded_string(", ", config);
+                    let escaped_string = escape_markdown_characters(
+                        if escape_html {
+                            v_htmlescape::escape(&value_string).to_string()
+                        } else {
+                            value_string
+                        },
+                        escape_md,
+                        true,
                     );
-                    let new_column_width = value_string.len();
 
-                    escaped_row.push(value_string);
+                    let new_column_width = escaped_string.len();
+                    escaped_row.push(escaped_string);
 
                     if column_widths[i] < new_column_width {
                         column_widths[i] = new_column_width;
@@ -941,15 +1049,15 @@ mod tests {
         let value = Value::test_list(vec![
             Value::test_record(record! {
                 "name" => Value::test_string("orderColumns"),
-                "type" => Value::test_string("'asc' | 'desc' | 'none'"),
+                "type*" => Value::test_string("'asc' | 'desc' | 'none'"),
             }),
             Value::test_record(record! {
-                "name" => Value::test_string("ref"),
-                "type" => Value::test_string("RefObject<SampleTableRef | null>"),
+                "name" => Value::test_string("_ref_value"),
+                "type*" => Value::test_string("RefObject<SampleTableRef | null>"),
             }),
             Value::test_record(record! {
                 "name" => Value::test_string("onChange"),
-                "type" => Value::test_string("(val: string) => void\\"),
+                "type*" => Value::test_string("(val: string) => void\\"),
             }),
         ]);
 
@@ -961,10 +1069,10 @@ mod tests {
                 &Config::default()
             ),
             one(r#"
-            | name | type |
+            | name | type* |
             | --- | --- |
             | orderColumns | 'asc' \| 'desc' \| 'none' |
-            | ref | RefObject<SampleTableRef \| null> |
+            | _ref_value | RefObject<SampleTableRef \| null> |
             | onChange | (val: string) => void\\ |
         "#)
         );
@@ -972,10 +1080,10 @@ mod tests {
         assert_eq!(
             table(value.into_pipeline_data(), true, &None, &Config::default()),
             one(r#"
-            | name         | type                              |
+            | name         | type*                             |
             | ------------ | --------------------------------- |
             | orderColumns | 'asc' \| 'desc' \| 'none'         |
-            | ref          | RefObject<SampleTableRef \| null> |
+            | _ref_value   | RefObject<SampleTableRef \| null> |
             | onChange     | (val: string) => void\\           |
         "#)
         );
