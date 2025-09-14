@@ -7,6 +7,14 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct ToMd;
 
+struct ToMdOptions {
+    pretty: bool,
+    per_element: bool,
+    center: Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
+}
+
 impl Command for ToMd {
     fn name(&self) -> &str {
         "to md"
@@ -128,11 +136,13 @@ impl Command for ToMd {
 
         to_md(
             input,
-            pretty,
-            per_element,
-            &center,
-            escape_md || escape_both,
-            escape_html || escape_both,
+            ToMdOptions {
+                pretty,
+                per_element,
+                center,
+                escape_md: escape_md || escape_both,
+                escape_html: escape_html || escape_both,
+            },
             &config,
             head,
         )
@@ -141,11 +151,7 @@ impl Command for ToMd {
 
 fn to_md(
     input: PipelineData,
-    pretty: bool,
-    per_element: bool,
-    center: &Option<Vec<CellPath>>,
-    escape_md: bool,
-    escape_html: bool,
+    options: ToMdOptions,
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -156,7 +162,7 @@ fn to_md(
         .with_content_type(Some("text/markdown".into()));
 
     let (grouped_input, single_list) = group_by(input, head, config);
-    if per_element || single_list {
+    if options.per_element || single_list {
         return Ok(Value::string(
             grouped_input
                 .into_iter()
@@ -166,15 +172,22 @@ fn to_md(
                             "{}\n\n",
                             table(
                                 val.into_pipeline_data(),
-                                pretty,
-                                center,
-                                escape_md,
-                                escape_html,
+                                options.pretty,
+                                &options.center,
+                                options.escape_md,
+                                options.escape_html,
                                 config
                             )
                         )
                     }
-                    other => fragment(other, pretty, center, escape_md, escape_html, config),
+                    other => fragment(
+                        other,
+                        options.pretty,
+                        &options.center,
+                        options.escape_md,
+                        options.escape_html,
+                        config,
+                    ),
                 })
                 .collect::<Vec<String>>()
                 .join("")
@@ -186,10 +199,10 @@ fn to_md(
     Ok(Value::string(
         table(
             grouped_input,
-            pretty,
-            center,
-            escape_md,
-            escape_html,
+            options.pretty,
+            &options.center,
+            options.escape_md,
+            options.escape_html,
             config,
         ),
         head,
