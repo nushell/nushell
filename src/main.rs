@@ -24,7 +24,8 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
-    engine::Stack, record, report_shell_error,
+    engine::{EngineState, Stack},
+    record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -63,7 +64,20 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let mut engine_state = command_context::get_engine_state();
+    let mut engine_state = EngineState::new();
+
+    // Parse commandline args very early and load experimental options to allow loading different
+    // commands based on experimental options.
+    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
+    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
+        .unwrap_or_else(|err| {
+            report_shell_error(&engine_state, &err);
+            std::process::exit(1)
+        });
+
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
+
+    let mut engine_state = command_context::add_command_context(engine_state);
 
     // Provide `version` the features of this nu binary
     let cargo_features = env!("NU_FEATURES").split(",").map(Cow::Borrowed).collect();
@@ -194,15 +208,6 @@ fn main() -> Result<()> {
     let db = nu_command::open_connection_in_memory_custom()?;
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
-
-    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
-    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
-        .unwrap_or_else(|err| {
-            report_shell_error(&engine_state, &err);
-            std::process::exit(1)
-        });
-
-    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
