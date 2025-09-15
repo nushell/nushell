@@ -1,6 +1,6 @@
 use chrono::Local;
 use nu_engine::command_prelude::*;
-use nu_utils::ConfigType;
+use nu_utils::ConfigFileKind;
 use std::{io::Write, path::PathBuf};
 
 #[derive(Clone)]
@@ -50,7 +50,7 @@ impl Command for ConfigReset {
         if !only_env {
             let mut nu_config = config_path.clone();
             nu_config.push("config.nu");
-            let config_file = ConfigType::Config.scaffold();
+            let config_file = ConfigFileKind::Config.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
@@ -80,7 +80,7 @@ impl Command for ConfigReset {
         if !only_nu {
             let mut env_config = config_path.clone();
             env_config.push("env.nu");
-            let config_file = ConfigType::Env.scaffold();
+            let config_file = ConfigFileKind::Env.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));

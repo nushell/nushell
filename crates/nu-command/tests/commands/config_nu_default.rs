@@ -5,7 +5,7 @@ fn print_config_nu_default_to_stdout() {
     let actual = nu!("config nu --default");
     assert_eq!(
         actual.out,
-        nu_utils::ConfigType::Config
+        nu_utils::ConfigFileKind::Config
             .default()
             .replace(['\n', '\r'], "")
     );

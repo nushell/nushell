@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_utils::ConfigType;
+use nu_utils::ConfigFileKind;
 
 #[derive(Clone)]
 pub struct ConfigEnv;
@@ -70,13 +70,13 @@ impl Command for ConfigEnv {
         // `--default` flag handling
         if call.has_flag(engine_state, stack, "default")? {
             let head = call.head;
-            return Ok(Value::string(ConfigType::Env.default(), head).into_pipeline_data());
+            return Ok(Value::string(ConfigFileKind::Env.default(), head).into_pipeline_data());
         }
 
         // `--doc` flag handling
         if doc_flag {
             let head = call.head;
-            return Ok(Value::string(ConfigType::Env.doc(), head).into_pipeline_data());
+            return Ok(Value::string(ConfigFileKind::Env.doc(), head).into_pipeline_data());
         }
 
         super::config_::start_editor("env-path", engine_state, stack, call)

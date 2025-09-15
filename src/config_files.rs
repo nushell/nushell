@@ -9,7 +9,7 @@ use nu_protocol::{
     eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error,
 };
-use nu_utils::ConfigType;
+use nu_utils::ConfigFileKind;
 use std::{
     fs,
     fs::File,
@@ -21,24 +21,24 @@ use std::{
 
 const LOGINSHELL_FILE: &str = "login.nu";
 
-const fn config_type_path(config_type: ConfigType) -> &'static str {
+const fn config_type_path(config_type: ConfigFileKind) -> &'static str {
     match config_type {
-        ConfigType::Config => "config.nu",
-        ConfigType::Env => "env.nu",
+        ConfigFileKind::Config => "config.nu",
+        ConfigFileKind::Env => "env.nu",
     }
 }
 
-fn config_type_display(config_type: ConfigType) -> &'static str {
+fn config_type_display(config_type: ConfigFileKind) -> &'static str {
     match config_type {
-        ConfigType::Config => "Config",
-        ConfigType::Env => "Environment config",
+        ConfigFileKind::Config => "Config",
+        ConfigFileKind::Env => "Environment config",
     }
 }
 
-fn config_type_default_path(config_type: ConfigType) -> &'static str {
+fn config_type_default_path(config_type: ConfigFileKind) -> &'static str {
     match config_type {
-        ConfigType::Config => "default_config.nu",
-        ConfigType::Env => "default_env.nu",
+        ConfigFileKind::Config => "default_config.nu",
+        ConfigFileKind::Env => "default_env.nu",
     }
 }
 
@@ -46,7 +46,7 @@ pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
-    config_type: ConfigType,
+    config_type: ConfigFileKind,
     create_scaffold: bool,
 ) {
     warn!(
@@ -139,7 +139,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    let config_file = ConfigType::Env.default();
+    let config_file = ConfigFileKind::Env.default();
     eval_source(
         engine_state,
         stack,
@@ -215,7 +215,11 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         });
 }
 
-fn eval_default_config(engine_state: &mut EngineState, stack: &mut Stack, config_type: ConfigType) {
+fn eval_default_config(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    config_type: ConfigFileKind,
+) {
     warn!("eval_default_config() is_env_config: {config_type:?}");
     eval_source(
         engine_state,
@@ -255,14 +259,14 @@ pub(crate) fn setup_config(
             engine_state,
             stack,
             env_file,
-            ConfigType::Env,
+            ConfigFileKind::Env,
             create_scaffold,
         );
         read_config_file(
             engine_state,
             stack,
             config_file,
-            ConfigType::Config,
+            ConfigFileKind::Config,
             create_scaffold,
         );
 

@@ -85,13 +85,13 @@ where
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ConfigType {
+pub enum ConfigFileKind {
     Config,
     Env,
 }
 
 // See default_files/README.md for a description of these files
-impl ConfigType {
+impl ConfigFileKind {
     pub fn default(self) -> &'static str {
         match self {
             Self::Config => include_str!("default_files/default_config.nu"),
