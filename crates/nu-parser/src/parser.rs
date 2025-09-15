@@ -1641,69 +1641,69 @@ fn parse_binary_with_base(
 ) -> Expression {
     let token = working_set.get_span_contents(span);
 
-    if let Some(token) = token.strip_prefix(prefix) {
-        if let Some(token) = token.strip_suffix(suffix) {
-            let (lexed, err) = lex(
-                token,
-                span.start + prefix.len(),
-                &[b',', b'\r', b'\n'],
-                &[],
-                true,
-            );
-            if let Some(err) = err {
-                working_set.error(err);
-            }
+    if let Some(token) = token.strip_prefix(prefix)
+        && let Some(token) = token.strip_suffix(suffix)
+    {
+        let (lexed, err) = lex(
+            token,
+            span.start + prefix.len(),
+            &[b',', b'\r', b'\n'],
+            &[],
+            true,
+        );
+        if let Some(err) = err {
+            working_set.error(err);
+        }
 
-            let mut binary_value = vec![];
-            for token in lexed {
-                match token.contents {
-                    TokenContents::Item => {
-                        let contents = working_set.get_span_contents(token.span);
+        let mut binary_value = vec![];
+        for token in lexed {
+            match token.contents {
+                TokenContents::Item => {
+                    let contents = working_set.get_span_contents(token.span);
 
-                        binary_value.extend_from_slice(contents);
-                    }
-                    TokenContents::Pipe
-                    | TokenContents::PipePipe
-                    | TokenContents::ErrGreaterPipe
-                    | TokenContents::OutGreaterThan
-                    | TokenContents::OutErrGreaterPipe
-                    | TokenContents::OutGreaterGreaterThan
-                    | TokenContents::ErrGreaterThan
-                    | TokenContents::ErrGreaterGreaterThan
-                    | TokenContents::OutErrGreaterThan
-                    | TokenContents::OutErrGreaterGreaterThan
-                    | TokenContents::AssignmentOperator => {
-                        working_set.error(ParseError::Expected("binary", span));
-                        return garbage(working_set, span);
-                    }
-                    TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+                    binary_value.extend_from_slice(contents);
                 }
-            }
-
-            let required_padding = (min_digits_per_byte - binary_value.len() % min_digits_per_byte)
-                % min_digits_per_byte;
-
-            if required_padding != 0 {
-                binary_value = {
-                    let mut tail = binary_value;
-                    let mut binary_value: Vec<u8> = vec![b'0'; required_padding];
-                    binary_value.append(&mut tail);
-                    binary_value
-                };
-            }
-
-            let str = String::from_utf8_lossy(&binary_value).to_string();
-
-            match decode_with_base(&str, base, min_digits_per_byte) {
-                Ok(v) => return Expression::new(working_set, Expr::Binary(v), span, Type::Binary),
-                Err(x) => {
-                    working_set.error(ParseError::IncorrectValue(
-                        "not a binary value".into(),
-                        span,
-                        x.to_string(),
-                    ));
+                TokenContents::Pipe
+                | TokenContents::PipePipe
+                | TokenContents::ErrGreaterPipe
+                | TokenContents::OutGreaterThan
+                | TokenContents::OutErrGreaterPipe
+                | TokenContents::OutGreaterGreaterThan
+                | TokenContents::ErrGreaterThan
+                | TokenContents::ErrGreaterGreaterThan
+                | TokenContents::OutErrGreaterThan
+                | TokenContents::OutErrGreaterGreaterThan
+                | TokenContents::AssignmentOperator => {
+                    working_set.error(ParseError::Expected("binary", span));
                     return garbage(working_set, span);
                 }
+                TokenContents::Comment | TokenContents::Semicolon | TokenContents::Eol => {}
+            }
+        }
+
+        let required_padding =
+            (min_digits_per_byte - binary_value.len() % min_digits_per_byte) % min_digits_per_byte;
+
+        if required_padding != 0 {
+            binary_value = {
+                let mut tail = binary_value;
+                let mut binary_value: Vec<u8> = vec![b'0'; required_padding];
+                binary_value.append(&mut tail);
+                binary_value
+            };
+        }
+
+        let str = String::from_utf8_lossy(&binary_value).to_string();
+
+        match decode_with_base(&str, base, min_digits_per_byte) {
+            Ok(v) => return Expression::new(working_set, Expr::Binary(v), span, Type::Binary),
+            Err(x) => {
+                working_set.error(ParseError::IncorrectValue(
+                    "not a binary value".into(),
+                    span,
+                    x.to_string(),
+                ));
+                return garbage(working_set, span);
             }
         }
     }
@@ -3214,21 +3214,21 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     if (1..=6).contains(&digits.len()) {
                         let int = u32::from_str_radix(&digits, 16);
 
-                        if let Ok(int) = int {
-                            if int <= 0x10ffff {
-                                let result = char::from_u32(int);
+                        if let Ok(int) = int
+                            && int <= 0x10ffff
+                        {
+                            let result = char::from_u32(int);
 
-                                if let Some(result) = result {
-                                    let mut buffer = [0; 4];
-                                    let result = result.encode_utf8(&mut buffer);
+                            if let Some(result) = result {
+                                let mut buffer = [0; 4];
+                                let result = result.encode_utf8(&mut buffer);
 
-                                    for elem in result.bytes() {
-                                        output.push(elem);
-                                    }
-
-                                    idx = cur_idx;
-                                    continue 'us_loop;
+                                for elem in result.bytes() {
+                                    output.push(elem);
                                 }
+
+                                idx = cur_idx;
+                                continue 'us_loop;
                             }
                         }
                     }
@@ -5163,30 +5163,30 @@ pub fn parse_closure_expression(
     };
 
     // TODO: Finish this
-    if let SyntaxShape::Closure(Some(v)) = shape {
-        if let Some((sig, sig_span)) = &signature {
-            if sig.num_positionals() > v.len() {
-                working_set.error(ParseError::ExpectedWithStringMsg(
-                    format!(
-                        "{} closure parameter{}",
-                        v.len(),
-                        if v.len() > 1 { "s" } else { "" }
-                    ),
+    if let SyntaxShape::Closure(Some(v)) = shape
+        && let Some((sig, sig_span)) = &signature
+    {
+        if sig.num_positionals() > v.len() {
+            working_set.error(ParseError::ExpectedWithStringMsg(
+                format!(
+                    "{} closure parameter{}",
+                    v.len(),
+                    if v.len() > 1 { "s" } else { "" }
+                ),
+                *sig_span,
+            ));
+        }
+
+        for (expected, PositionalArg { name, shape, .. }) in
+            v.iter().zip(sig.required_positional.iter())
+        {
+            if expected != shape && *shape != SyntaxShape::Any {
+                working_set.error(ParseError::ParameterMismatchType(
+                    name.to_owned(),
+                    expected.to_string(),
+                    shape.to_string(),
                     *sig_span,
                 ));
-            }
-
-            for (expected, PositionalArg { name, shape, .. }) in
-                v.iter().zip(sig.required_positional.iter())
-            {
-                if expected != shape && *shape != SyntaxShape::Any {
-                    working_set.error(ParseError::ParameterMismatchType(
-                        name.to_owned(),
-                        expected.to_string(),
-                        shape.to_string(),
-                        *sig_span,
-                    ));
-                }
             }
         }
     }
@@ -5460,12 +5460,11 @@ pub fn parse_assignment_expression(
     // make sure that lhs is a mutable variable.
     match &lhs.expr {
         Expr::FullCellPath(p) => {
-            if let Expr::Var(var_id) = p.head.expr {
-                if var_id != nu_protocol::ENV_VARIABLE_ID
-                    && !working_set.get_variable(var_id).mutable
-                {
-                    working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
-                }
+            if let Expr::Var(var_id) = p.head.expr
+                && var_id != nu_protocol::ENV_VARIABLE_ID
+                && !working_set.get_variable(var_id).mutable
+            {
+                working_set.error(ParseError::AssignmentRequiresMutableVar(lhs.span))
             }
         }
         _ => working_set.error(ParseError::AssignmentRequiresVar(lhs.span)),
@@ -6267,12 +6266,13 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
         span_offset: start,
     };
     while !lex_state.input.is_empty() {
-        if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref() {
-            if left == "{" && right == "}" {
-                extra_tokens = true;
-                unclosed = false;
-                break;
-            }
+        if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref()
+            && left == "{"
+            && right == "}"
+        {
+            extra_tokens = true;
+            unclosed = false;
+            break;
         }
         let additional_whitespace = &[b'\n', b'\r', b','];
         if lex_n_tokens(&mut lex_state, additional_whitespace, &[b':'], true, 1) < 1 {
@@ -6669,10 +6669,10 @@ pub fn discover_captures_in_closure(
             seen.push(var_id);
         }
     }
-    if let Some(positional) = &block.signature.rest_positional {
-        if let Some(var_id) = positional.var_id {
-            seen.push(var_id);
-        }
+    if let Some(positional) = &block.signature.rest_positional
+        && let Some(var_id) = positional.var_id
+    {
+        seen.push(var_id);
     }
 
     for pipeline in &block.pipelines {
@@ -6788,12 +6788,11 @@ pub fn discover_captures_in_expr(
                 )?;
 
                 for (var_id, span) in results.iter() {
-                    if !seen.contains(var_id) {
-                        if let Some(variable) = working_set.get_variable_if_possible(*var_id) {
-                            if variable.mutable {
-                                return Err(ParseError::CaptureOfMutableVar(*span));
-                            }
-                        }
+                    if !seen.contains(var_id)
+                        && let Some(variable) = working_set.get_variable_if_possible(*var_id)
+                        && variable.mutable
+                    {
+                        return Err(ParseError::CaptureOfMutableVar(*span));
                     }
                 }
 
@@ -6973,10 +6972,10 @@ pub fn discover_captures_in_expr(
                     seen.push(var_id);
                 }
             }
-            if let Some(rest) = &sig.rest_positional {
-                if let Some(var_id) = rest.var_id {
-                    seen.push(var_id);
-                }
+            if let Some(rest) = &sig.rest_positional
+                && let Some(var_id) = rest.var_id
+            {
+                seen.push(var_id);
             }
             for named in &sig.named {
                 if let Some(var_id) = named.var_id {

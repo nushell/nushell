@@ -809,10 +809,10 @@ impl Signature {
     /// Find the matching long flag
     pub fn get_short_flag(&self, short: char) -> Option<Flag> {
         for flag in &self.named {
-            if let Some(short_flag) = &flag.short {
-                if *short_flag == short {
-                    return Some(flag.clone());
-                }
+            if let Some(short_flag) = &flag.short
+                && *short_flag == short
+            {
+                return Some(flag.clone());
             }
         }
         None

@@ -813,20 +813,19 @@ impl PluginInterface {
                 ReceivedPluginCallMessage::Response(resp) => {
                     if state.entered_foreground {
                         // Make the plugin leave the foreground on return, even if it's a stream
-                        if let Some(context) = context.as_deref_mut() {
-                            if let Err(err) =
+                        if let Some(context) = context.as_deref_mut()
+                            && let Err(err) =
                                 set_foreground(self.state.process.as_ref(), context, false)
-                            {
-                                log::warn!("Failed to leave foreground state on exit: {err:?}");
-                            }
+                        {
+                            log::warn!("Failed to leave foreground state on exit: {err:?}");
                         }
                     }
                     if resp.has_stream() {
                         // If the response has a stream, we need to register the context
-                        if let Some(context) = context {
-                            if let Some(ref context_tx) = state.context_tx {
-                                let _ = context_tx.send(Context(context.boxed()));
-                            }
+                        if let Some(context) = context
+                            && let Some(ref context_tx) = state.context_tx
+                        {
+                            let _ = context_tx.send(Context(context.boxed()));
                         }
                     }
                     return Ok(resp);
@@ -1129,10 +1128,10 @@ impl Drop for PluginInterface {
         //
         // Our copy is about to be dropped, so there would only be one left, the manager. The
         // manager will never send any plugin calls, so we should let the plugin know that.
-        if Arc::strong_count(&self.state) < 3 {
-            if let Err(err) = self.goodbye() {
-                log::warn!("Error during plugin Goodbye: {err}");
-            }
+        if Arc::strong_count(&self.state) < 3
+            && let Err(err) = self.goodbye()
+        {
+            log::warn!("Error during plugin Goodbye: {err}");
         }
     }
 }
@@ -1179,21 +1178,19 @@ impl CurrentCallState {
         )?;
 
         // Check whether we need to keep it
-        if let Some(keep_tx) = &self.keep_plugin_custom_values_tx {
-            if let Some(custom_value) = custom_value
+        if let Some(keep_tx) = &self.keep_plugin_custom_values_tx
+            && let Some(custom_value) = custom_value
                 .item
                 .as_any()
                 .downcast_ref::<PluginCustomValueWithSource>()
-            {
-                if custom_value.notify_on_drop() {
-                    log::trace!("Keeping custom value for drop later: {custom_value:?}");
-                    keep_tx
-                        .send(custom_value.clone())
-                        .map_err(|_| ShellError::NushellFailed {
-                            msg: "Failed to custom value to keep channel".into(),
-                        })?;
-                }
-            }
+            && custom_value.notify_on_drop()
+        {
+            log::trace!("Keeping custom value for drop later: {custom_value:?}");
+            keep_tx
+                .send(custom_value.clone())
+                .map_err(|_| ShellError::NushellFailed {
+                    msg: "Failed to custom value to keep channel".into(),
+                })?;
         }
 
         // Strip the source from it so it can be serialized

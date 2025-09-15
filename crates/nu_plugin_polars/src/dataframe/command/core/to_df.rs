@@ -257,7 +257,7 @@ impl PluginCommand for ToDataFrame {
             .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
-        debug!("schema: {:?}", maybe_schema);
+        debug!("schema: {maybe_schema:?}");
 
         let maybe_as_columns = call.has_flag("as-columns")?;
 

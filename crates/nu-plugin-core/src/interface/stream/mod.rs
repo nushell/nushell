@@ -464,11 +464,11 @@ impl StreamManager {
                 }
             }
             StreamMessage::Drop(id) => {
-                if let Some(signal) = state.writing_streams.remove(&id) {
-                    if let Some(signal) = signal.upgrade() {
-                        // This will wake blocked writers so they can stop writing, so it's ok
-                        signal.set_dropped()?;
-                    }
+                if let Some(signal) = state.writing_streams.remove(&id)
+                    && let Some(signal) = signal.upgrade()
+                {
+                    // This will wake blocked writers so they can stop writing, so it's ok
+                    signal.set_dropped()?;
                 }
                 // It's possible that the stream has already finished writing and we don't have it
                 // anymore, so we fall through to Ok

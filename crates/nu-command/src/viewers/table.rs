@@ -694,12 +694,11 @@ fn handle_row_stream(
                     // Only the name column gets special colors, for now
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
-                        if let Value::String { val, .. } = value {
-                            if let Some(val) =
+                        if let Value::String { val, .. } = value
+                            && let Some(val) =
                                 render_path_name(val, &config, &ls_colors, input.cwd.clone(), span)
-                            {
-                                *value = val;
-                            }
+                        {
+                            *value = val;
                         }
                     }
                 }
