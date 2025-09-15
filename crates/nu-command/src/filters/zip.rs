@@ -32,7 +32,7 @@ impl Command for Zip {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let test_row_1 = Value::list(
             vec![Value::test_int(1), Value::test_int(4)],
             Span::test_data(),

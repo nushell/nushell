@@ -115,5 +115,5 @@ fn eval_source2(
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
     );
-    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body)
 }

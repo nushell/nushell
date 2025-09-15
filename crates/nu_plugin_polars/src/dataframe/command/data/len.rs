@@ -26,7 +26,7 @@ impl PluginCommand for ExprLen {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Count the number of rows in the the dataframe.",

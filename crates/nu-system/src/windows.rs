@@ -537,16 +537,14 @@ unsafe fn ph_query_process_variable_size(
             return_length.as_mut_ptr() as *mut _,
         )
         .ok()
-        {
-            if ![
+            && ![
                 STATUS_BUFFER_OVERFLOW.into(),
                 STATUS_BUFFER_TOO_SMALL.into(),
                 STATUS_INFO_LENGTH_MISMATCH.into(),
             ]
             .contains(&err.code())
-            {
-                return None;
-            }
+        {
+            return None;
         }
 
         let mut return_length = return_length.assume_init();

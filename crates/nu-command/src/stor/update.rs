@@ -50,7 +50,7 @@ impl Command for StorUpdate {
         vec!["sqlite", "storing", "table", "saving", "changing"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Update the in-memory sqlite database",

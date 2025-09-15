@@ -40,7 +40,7 @@ impl Command for RandomBool {
         bool(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a random boolean value",

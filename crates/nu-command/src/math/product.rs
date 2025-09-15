@@ -55,7 +55,7 @@ impl Command for MathProduct {
         run_with_function(call, input, product)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the product of a list of numbers",

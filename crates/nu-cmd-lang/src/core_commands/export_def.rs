@@ -43,7 +43,7 @@ impl Command for ExportDef {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Define a custom command in a module and call it",
             example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,

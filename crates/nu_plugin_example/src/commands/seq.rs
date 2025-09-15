@@ -32,7 +32,7 @@ impl PluginCommand for Seq {
         vec!["example"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "example seq 1 3",
             description: "generate a sequence from 1 to 3",

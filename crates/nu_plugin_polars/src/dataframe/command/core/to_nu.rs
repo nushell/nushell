@@ -44,7 +44,7 @@ impl PluginCommand for ToNu {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let rec_1 = Value::test_record(record! {
             "index" => Value::test_int(0),
             "a" =>     Value::test_int(1),

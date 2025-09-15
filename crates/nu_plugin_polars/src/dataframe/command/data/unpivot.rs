@@ -61,7 +61,7 @@ impl PluginCommand for Unpivot {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "unpivot on an eager dataframe",

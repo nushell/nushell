@@ -2,8 +2,11 @@ use crate::*;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn create_default_context() -> EngineState {
-    let mut engine_state = EngineState::new();
+    let engine_state = EngineState::new();
+    add_default_context(engine_state)
+}
 
+pub fn add_default_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
 

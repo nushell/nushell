@@ -45,7 +45,7 @@ impl Command for First {
         first_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return the first item of a list/table",

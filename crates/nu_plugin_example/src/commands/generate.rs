@@ -40,7 +40,7 @@ impl PluginCommand for Generate {
             .category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "example generate 0 { |i| if $i <= 10 { {out: $i, next: ($i + 2)} } }",
             description: "Generate a sequence of numbers",

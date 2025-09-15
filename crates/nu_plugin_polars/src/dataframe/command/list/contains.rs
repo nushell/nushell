@@ -41,7 +41,7 @@ impl PluginCommand for ListContains {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns boolean indicating if a literal element was found in a list column",

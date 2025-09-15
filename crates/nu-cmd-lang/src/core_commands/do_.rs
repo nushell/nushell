@@ -70,7 +70,8 @@ impl Command for Do {
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
+            .map(|p| p.body);
 
         if has_env {
             // Merge the block's environment to the current stack
@@ -195,7 +196,7 @@ impl Command for Do {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run the closure",

@@ -34,7 +34,7 @@ impl PluginCommand for ExprIsIn {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Creates a is-in expression",
             example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | polars into-df);

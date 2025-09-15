@@ -247,7 +247,7 @@ impl Command for Watch {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run `cargo test` whenever a Rust file changes",

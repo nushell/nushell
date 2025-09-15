@@ -49,7 +49,7 @@ To represent different types of entries different values must be written to this
 Additionally any field which is: empty record, empty list or null, can be omitted."#
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table",
@@ -159,7 +159,7 @@ impl Job {
         }
     }
 
-    fn partial_escape_attribute(raw: &str) -> Cow<[u8]> {
+    fn partial_escape_attribute(raw: &str) -> Cow<'_, [u8]> {
         let bytes = raw.as_bytes();
         let mut escaped: Vec<u8> = Vec::new();
         let mut iter = bytes.iter().enumerate();

@@ -44,7 +44,7 @@ impl PluginCommand for GetNanosecond {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns nanosecond from a date",

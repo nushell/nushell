@@ -19,7 +19,7 @@ impl Command for KeybindingsDefault {
         "List default keybindings."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get list with default keybindings",
             example: "keybindings default",

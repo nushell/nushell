@@ -35,7 +35,7 @@ impl PluginCommand for ExprAlias {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Creates and alias expression",
             example: "polars col a | polars as new_a | polars into-nu",

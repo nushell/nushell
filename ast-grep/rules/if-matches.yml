@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: if-matches
+language: rust
+severity: warning
+message: "Used `matches!` macro as an `if` condition"
+note: "It can be replaced with an `if let` expression"
+
+rule:
+  pattern: "matches!($VAL, $$$PAT)"
+  inside:
+    field: condition
+    kind: if_expression
+    all:
+      - not:
+          has:
+            field: alternative
+            kind: else_clause
+            has:
+              kind: if_expression
+      - not:
+          inside:
+            kind: else_clause
+
+fix: "let $$$PAT = $VAL"

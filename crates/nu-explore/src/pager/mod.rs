@@ -435,10 +435,10 @@ fn run_command(
             let view_cfg = create_view_config(pager);
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
-            if let Some(view) = view_stack.curr_view.take() {
-                if view.stackable {
-                    view_stack.stack.push(view);
-                }
+            if let Some(view) = view_stack.curr_view.take()
+                && view.stackable
+            {
+                view_stack.stack.push(view);
             }
 
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
@@ -488,10 +488,9 @@ fn create_status_bar(report: Report) -> StatusBar {
 }
 
 fn report_msg_style(report: &Report, config: &ExploreConfig, style: NuStyle) -> NuStyle {
-    if matches!(report.level, Severity::Info) {
-        style
-    } else {
-        report_level_style(report.level, config)
+    match report.level {
+        Severity::Info => style,
+        _ => report_level_style(report.level, config),
     }
 }
 
@@ -798,12 +797,12 @@ fn search_input_key_event(
         KeyCode::Esc => {
             buf.buf_cmd_input.clear();
 
-            if let Some(view) = view {
-                if !buf.buf_cmd.is_empty() {
-                    let data = view.collect_data().into_iter().map(|(text, _)| text);
-                    buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
-                    buf.search_index = 0;
-                }
+            if let Some(view) = view
+                && !buf.buf_cmd.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                buf.search_index = 0;
             }
 
             buf.is_search_input = false;
@@ -823,17 +822,16 @@ fn search_input_key_event(
             } else {
                 buf.buf_cmd_input.pop();
 
-                if let Some(view) = view {
-                    if !buf.buf_cmd_input.is_empty() {
-                        let data = view.collect_data().into_iter().map(|(text, _)| text);
-                        buf.search_results =
-                            search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
-                        buf.search_index = 0;
+                if let Some(view) = view
+                    && !buf.buf_cmd_input.is_empty()
+                {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                    buf.search_index = 0;
 
-                        if !buf.search_results.is_empty() {
-                            let pos = buf.search_results[buf.search_index];
-                            view.show_data(pos);
-                        }
+                    if !buf.search_results.is_empty() {
+                        let pos = buf.search_results[buf.search_index];
+                        view.show_data(pos);
                     }
                 }
             }
@@ -843,16 +841,16 @@ fn search_input_key_event(
         KeyCode::Char(c) => {
             buf.buf_cmd_input.push(*c);
 
-            if let Some(view) = view {
-                if !buf.buf_cmd_input.is_empty() {
-                    let data = view.collect_data().into_iter().map(|(text, _)| text);
-                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
-                    buf.search_index = 0;
+            if let Some(view) = view
+                && !buf.buf_cmd_input.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                buf.search_index = 0;
 
-                    if !buf.search_results.is_empty() {
-                        let pos = buf.search_results[buf.search_index];
-                        view.show_data(pos);
-                    }
+                if !buf.search_results.is_empty() {
+                    let pos = buf.search_results[buf.search_index];
+                    view.show_data(pos);
                 }
             }
 

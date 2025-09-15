@@ -115,6 +115,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
+    pub is_lsp: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -203,6 +204,7 @@ impl EngineState {
             ))),
             is_interactive: false,
             is_login: false,
+            is_lsp: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -486,10 +488,10 @@ impl EngineState {
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(name) {
-                    return Some(val);
-                }
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(val) = env_vars.get(name)
+            {
+                return Some(val);
             }
         }
 
@@ -503,10 +505,10 @@ impl EngineState {
     pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                    return Some((v.0, v.1));
-                }
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
+            {
+                return Some((v.0, v.1));
             }
         }
 
@@ -638,10 +640,10 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name) {
-                if visibility.is_decl_id_visible(&decl_id) {
-                    return Some(decl_id);
-                }
+            if let Some(decl_id) = overlay_frame.get_decl(name)
+                && visibility.is_decl_id_visible(&decl_id)
+            {
+                return Some(decl_id);
             }
         }
 
@@ -1056,7 +1058,7 @@ impl EngineState {
     pub fn activate_debugger(
         &self,
         debugger: Box<dyn Debugger>,
-    ) -> Result<(), PoisonDebuggerError> {
+    ) -> Result<(), PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         *locked_debugger = debugger;
         locked_debugger.activate();
@@ -1064,7 +1066,7 @@ impl EngineState {
         Ok(())
     }
 
-    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         locked_debugger.deactivate();
         let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));

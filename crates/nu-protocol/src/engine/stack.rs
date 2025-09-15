@@ -156,10 +156,10 @@ impl Stack {
             }
         }
 
-        if let Some(stack) = &self.parent_stack {
-            if !self.parent_deletions.contains(&var_id) {
-                return stack.lookup_var(var_id);
-            }
+        if let Some(stack) = &self.parent_stack
+            && !self.parent_deletions.contains(&var_id)
+        {
+            return stack.lookup_var(var_id);
         }
         None
     }
@@ -404,10 +404,10 @@ impl Stack {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
-            if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name) {
-                if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
-                }
+            if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name)
+                && let Some(env_vars) = scope.get(active_overlay)
+            {
+                result.extend(env_vars.clone());
             }
         }
 
@@ -486,10 +486,10 @@ impl Stack {
     ) -> Option<&'a Value> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
-                        return Some(v);
-                    }
+                if let Some(env_vars) = scope.get(active_overlay)
+                    && let Some(v) = env_vars.get(name)
+                {
+                    return Some(v);
                 }
             }
         }
@@ -501,12 +501,11 @@ impl Stack {
                 false
             };
 
-            if !is_hidden {
-                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
-                        return Some(v);
-                    }
-                }
+            if !is_hidden
+                && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
+                && let Some(v) = env_vars.get(name)
+            {
+                return Some(v);
             }
         }
         None
@@ -524,10 +523,10 @@ impl Stack {
     ) -> Option<(&'a String, &'a Value)> {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get(active_overlay) {
-                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                        return Some((v.0, v.1));
-                    }
+                if let Some(env_vars) = scope.get(active_overlay)
+                    && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
+                {
+                    return Some((v.0, v.1));
                 }
             }
         }
@@ -539,12 +538,11 @@ impl Stack {
                 false
             };
 
-            if !is_hidden {
-                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                        return Some((v.0, v.1));
-                    }
-                }
+            if !is_hidden
+                && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
+                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
+            {
+                return Some((v.0, v.1));
             }
         }
         None
@@ -553,10 +551,10 @@ impl Stack {
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get(active_overlay) {
-                    if env_vars.contains_key(name) {
-                        return true;
-                    }
+                if let Some(env_vars) = scope.get(active_overlay)
+                    && env_vars.contains_key(name)
+                {
+                    return true;
                 }
             }
         }
@@ -568,12 +566,11 @@ impl Stack {
                 false
             };
 
-            if !is_hidden {
-                if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if env_vars.contains_key(name) {
-                        return true;
-                    }
-                }
+            if !is_hidden
+                && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
+                && env_vars.contains_key(name)
+            {
+                return true;
             }
         }
 
@@ -584,27 +581,26 @@ impl Stack {
         for scope in self.env_vars.iter_mut().rev() {
             let scope = Arc::make_mut(scope);
             for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get_mut(active_overlay) {
-                    if env_vars.remove(name).is_some() {
-                        return true;
-                    }
+                if let Some(env_vars) = scope.get_mut(active_overlay)
+                    && env_vars.remove(name).is_some()
+                {
+                    return true;
                 }
             }
         }
 
         for active_overlay in self.active_overlays.iter().rev() {
-            if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                if env_vars.get(name).is_some() {
-                    let env_hidden = Arc::make_mut(&mut self.env_hidden);
-                    if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
-                        env_hidden_in_overlay.insert(name.into());
-                    } else {
-                        env_hidden
-                            .insert(active_overlay.into(), [name.into()].into_iter().collect());
-                    }
-
-                    return true;
+            if let Some(env_vars) = engine_state.env_vars.get(active_overlay)
+                && env_vars.get(name).is_some()
+            {
+                let env_hidden = Arc::make_mut(&mut self.env_hidden);
+                if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
+                    env_hidden_in_overlay.insert(name.into());
+                } else {
+                    env_hidden.insert(active_overlay.into(), [name.into()].into_iter().collect());
                 }
+
+                return true;
             }
         }
 
@@ -665,14 +661,14 @@ impl Stack {
     /// Temporarily set the pipe stdout redirection to [`OutDest::Value`].
     ///
     /// This is used before evaluating an expression into a `Value`.
-    pub fn start_collect_value(&mut self) -> StackCollectValueGuard {
+    pub fn start_collect_value(&mut self) -> StackCollectValueGuard<'_> {
         StackCollectValueGuard::new(self)
     }
 
     /// Temporarily use the output redirections in the parent scope.
     ///
     /// This is used before evaluating an argument to a call.
-    pub fn use_call_arg_out_dest(&mut self) -> StackCallArgGuard {
+    pub fn use_call_arg_out_dest(&mut self) -> StackCallArgGuard<'_> {
         StackCallArgGuard::new(self)
     }
 
@@ -681,7 +677,7 @@ impl Stack {
         &mut self,
         stdout: Option<Redirection>,
         stderr: Option<Redirection>,
-    ) -> StackIoGuard {
+    ) -> StackIoGuard<'_> {
         StackIoGuard::new(self, stdout, stderr)
     }
 
@@ -787,7 +783,7 @@ impl Stack {
         let path = path.as_ref();
 
         if !path.is_absolute() {
-            if matches!(path.components().next(), Some(Component::Prefix(_))) {
+            if let Some(Component::Prefix(_)) = path.components().next() {
                 return Err(ShellError::GenericError {
                     error: "Cannot set $env.PWD to a prefix-only path".to_string(),
                     msg: "".into(),

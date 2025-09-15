@@ -42,7 +42,7 @@ impl Command for FormatDate {
         vec!["fmt", "strftime"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",
@@ -177,7 +177,7 @@ fn run(
     }
 
     // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
+    if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
     input.map(

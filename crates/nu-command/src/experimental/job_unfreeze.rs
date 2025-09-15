@@ -64,7 +64,7 @@ impl Command for JobUnfreeze {
         Ok(Value::nothing(head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "job unfreeze",
@@ -99,16 +99,16 @@ fn unfreeze_job(
         }) => {
             let pid = handle.pid();
 
-            if let Some(thread_job) = &state.current_thread_job() {
-                if !thread_job.try_add_pid(pid) {
-                    kill_by_pid(pid.into()).map_err(|err| {
-                        ShellError::Io(IoError::new_internal(
-                            err,
-                            "job was interrupted; could not kill foreground process",
-                            nu_protocol::location!(),
-                        ))
-                    })?;
-                }
+            if let Some(thread_job) = &state.current_thread_job()
+                && !thread_job.try_add_pid(pid)
+            {
+                kill_by_pid(pid.into()).map_err(|err| {
+                    ShellError::Io(IoError::new_internal(
+                        err,
+                        "job was interrupted; could not kill foreground process",
+                        nu_protocol::location!(),
+                    ))
+                })?;
             }
 
             let result = handle.unfreeze(

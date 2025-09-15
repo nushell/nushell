@@ -62,7 +62,7 @@ impl Command for SeqDate {
             .category(Category::Generators)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return a list of the next 10 days in the YYYY-MM-DD format",

@@ -122,7 +122,7 @@ impl Command for StrSubstring {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get a substring \"nushell\" from the text \"good nushell\" using a range",
@@ -261,7 +261,7 @@ mod tests {
         }
     }
 
-    fn expectation(word: &str, range: impl Into<RangeHelper>) -> Expectation {
+    fn expectation(word: &str, range: impl Into<RangeHelper>) -> Expectation<'_> {
         Expectation {
             range: range.into(),
             expected: word,

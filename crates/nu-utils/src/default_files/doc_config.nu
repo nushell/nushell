@@ -361,6 +361,15 @@ $env.config.table.footer_inheritance = false
 # missing_value_symbol (string): The symbol shown for missing values
 $env.config.table.missing_value_symbol = "❎"
 
+# batch_duration (duration), stream_page_size (int):
+# Streaming pipelines are displayed in batches.
+# A batch is shown when either the batch duration has passed or the page size is reached.
+# Increasing batch_duration waits longer before showing a batch, allowing more data to be collected.
+# Increasing stream_page_size lets more items be included before a batch is shown.
+# Use `collect` if you want to gather the whole stream into one table.
+$env.config.table.batch_duration = 1sec
+$env.config.table.stream_page_size = 1000
+
 # ----------------
 # Datetime Display
 # ----------------

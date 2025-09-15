@@ -33,7 +33,7 @@ impl Command for ScopeEngineStats {
         Ok(scope_data.collect_engine_state(span).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the stats on the current engine state",
             example: "scope engine-stats",

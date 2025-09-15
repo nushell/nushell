@@ -1887,7 +1887,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(19, suggestions.len());
+    assert_eq!(20, suggestions.len());
 
     let expected: Vec<_> = vec![
         "cache-dir",
@@ -1901,6 +1901,7 @@ fn variables_completions() {
         "home-path",
         "is-interactive",
         "is-login",
+        "is-lsp",
         "loginshell-path",
         "os-info",
         "pid",
@@ -1977,6 +1978,48 @@ fn variables_completions() {
     let suggestions = completer.complete("$", 1);
     let expected: Vec<_> = vec!["$actor", "$env", "$in", "$nu"];
 
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn local_variable_completion() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = "def test [foo?: string, --foo1: bool, ...foo2] { let foo3 = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // https://github.com/nushell/nushell/issues/15291
+    let expected: Vec<_> = vec!["$foo", "$foo1", "$foo2", "$foo3"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "if true { let foo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "if true {let foo1 = 1} else {let foo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "for foo in [1] { let foo1 = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo", "$foo1"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "for foo in [1] { let foo1 = true }; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    assert!(suggestions.is_empty());
+
+    let completion_str = "(let foo = true; $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "match {a: {b: 3}} {{a: {b: $foo}} => $foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["$foo"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -2678,6 +2721,46 @@ fn cellpath_assignment_operator_completions() {
     let completion_str = "$foo.foo.1 =";
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["=", "=="];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn alias_expansion_for_external_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"alias example_alias = example_cmd arg1 arg2"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Define an external completer that returns the arguments passed to it
+    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "example_alias extra_arg";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["example_cmd", "arg1", "arg2", "extra_arg"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn nested_alias_expansion_for_external_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Define an external completer that returns the arguments passed to it
+    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "nested_alias extra_arg";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec![
+        "example_cmd",
+        "arg1",
+        "arg2",
+        "nested_alias_arg",
+        "extra_arg",
+    ];
     match_suggestions(&expected, &suggestions);
 }
 

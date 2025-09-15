@@ -299,21 +299,21 @@ impl<'a, T: 'a + AsRef<[u8]>> fmt::Debug for Hex<'a, T> {
 pub trait PrettyHex: Sized {
     /// Wrap self reference for use in `std::fmt::Display` and `std::fmt::Debug`
     /// formatting as hex dumps.
-    fn hex_dump(&self) -> Hex<Self>;
+    fn hex_dump(&self) -> Hex<'_, Self>;
 
     /// Wrap self reference for use in `std::fmt::Display` and `std::fmt::Debug`
     /// formatting as hex dumps in specified format.
-    fn hex_conf(&self, cfg: HexConfig) -> Hex<Self>;
+    fn hex_conf(&self, cfg: HexConfig) -> Hex<'_, Self>;
 }
 
 impl<T> PrettyHex for T
 where
     T: AsRef<[u8]>,
 {
-    fn hex_dump(&self) -> Hex<Self> {
+    fn hex_dump(&self) -> Hex<'_, Self> {
         Hex(self, HexConfig::default())
     }
-    fn hex_conf(&self, cfg: HexConfig) -> Hex<Self> {
+    fn hex_conf(&self, cfg: HexConfig) -> Hex<'_, Self> {
         Hex(self, cfg)
     }
 }

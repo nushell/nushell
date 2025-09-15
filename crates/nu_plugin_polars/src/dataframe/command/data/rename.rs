@@ -45,7 +45,7 @@ impl PluginCommand for RenameDF {
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Renames a series",

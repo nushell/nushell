@@ -15,6 +15,7 @@ workspace = true
 
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.107.1", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.107.1" }
 nu-path = { path = "../nu-path", version = "0.107.1" }
 nu-glob = { path = "../nu-glob", version = "0.107.1" }
 nu-utils = { path = "../nu-utils", version = "0.107.1", default-features = false }

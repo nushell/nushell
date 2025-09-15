@@ -3,10 +3,9 @@ use nu_protocol::{
     HistoryFileFormat,
     shell_error::{self, io::IoError},
 };
-use reedline::{
-    FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
-    SqliteBackedHistory,
-};
+use reedline::{FileBackedHistory, History as ReedlineHistory, SearchDirection, SearchQuery};
+#[cfg(feature = "sqlite")]
+use reedline::{HistoryItem, SqliteBackedHistory};
 
 use super::fields;
 
@@ -58,9 +57,12 @@ impl Command for History {
             return Ok(PipelineData::empty());
         }
 
+        #[cfg_attr(not(feature = "sqlite"), allow(unused_variables))]
         let long = call.has_flag(engine_state, stack, "long")?;
+
         let signals = engine_state.signals().clone();
         let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
+            #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => {
                 SqliteBackedHistory::with_file(history_path.clone(), None, None)
                     .map(|inner| {
@@ -102,6 +104,7 @@ impl Command for History {
                     history_path,
                 ))?
                 .into_pipeline_data(head, signals)),
+            #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => Ok(history_reader
                 .and_then(|h| {
                     h.search(SearchQuery::everything(SearchDirection::Forward, None))
@@ -121,7 +124,7 @@ impl Command for History {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "history | length",
@@ -142,6 +145,7 @@ impl Command for History {
     }
 }
 
+#[cfg(feature = "sqlite")]
 fn create_sqlite_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
     //1. Format all the values
     //2. Create a record of either short or long columns and values

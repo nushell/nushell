@@ -40,7 +40,7 @@ impl Command for Panic {
         panic!("{}", maybe_msg)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Panic with a custom message",
             example: "panic 'This is a custom panic message'",

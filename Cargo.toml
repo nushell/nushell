@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.87.0"
+rust-version = "1.88.0"
 version = "0.107.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -72,7 +72,7 @@ bracoxide = "0.1.6"
 brotli = "7.0"
 byteorder = "1.5"
 bytes = "1"
-bytesize = "1.3.3"
+bytesize = "2.1.0"
 byteyarn = "0.5"
 calamine = "0.28"
 chardetng = "0.1.17"
@@ -152,7 +152,7 @@ rmp-serde = "1.3"
 roxmltree = "0.20"
 rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
-rusqlite = "0.31"
+rusqlite = "0.37"
 rust-embed = "8.7.0"
 # We have to fix rustls and ureq versions
 # because we use unversioned api to allow users set up their own
@@ -171,7 +171,7 @@ strum_macros = "0.26"
 syn = "2.0"
 sysinfo = "0.36"
 tabled = { version = "0.20", default-features = false }
-tempfile = "3.21"
+tempfile = "3.22"
 thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.8"
@@ -230,7 +230,7 @@ nu-std = { path = "./crates/nu-std", version = "0.107.1" }
 nu-system = { path = "./crates/nu-system", version = "0.107.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.107.1" }
 nu-mcp = { path = "./crates/nu-mcp", version = "0.107.1", optional = true }
-reedline = { workspace = true, features = ["bashisms", "sqlite"] }
+reedline = { workspace = true, features = ["bashisms"] }
 
 crossterm = { workspace = true }
 ctrlc = { workspace = true }
@@ -285,7 +285,6 @@ plugin = [
   "nu-cmd-lang/plugin",
   "nu-command/plugin",
   "nu-engine/plugin",
-  "nu-engine/plugin",
   "nu-parser/plugin",
   "nu-protocol/plugin",
 ]
@@ -322,7 +321,13 @@ system-clipboard = [
 trash-support = ["nu-command/trash-support"]
 
 # SQLite commands for nushell
-sqlite = ["nu-command/sqlite", "nu-std/sqlite"]
+sqlite = [
+  "nu-cli/sqlite",
+  "nu-command/sqlite",
+  "nu-std/sqlite",
+  "nu-protocol/sqlite",
+  "reedline/sqlite"
+]
 
 [profile.release]
 opt-level = "s"     # Optimize for size
@@ -352,8 +357,8 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
-# nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`

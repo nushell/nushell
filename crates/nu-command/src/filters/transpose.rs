@@ -75,7 +75,7 @@ impl Command for Transpose {
         transpose(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Transposes the table contents with default column names",

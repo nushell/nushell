@@ -25,7 +25,8 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
-    engine::Stack, record, report_shell_error,
+    engine::{EngineState, Stack},
+    record, report_shell_error,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -65,7 +66,20 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    let mut engine_state = command_context::get_engine_state();
+    let mut engine_state = EngineState::new();
+
+    // Parse commandline args very early and load experimental options to allow loading different
+    // commands based on experimental options.
+    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
+    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
+        .unwrap_or_else(|err| {
+            report_shell_error(&engine_state, &err);
+            std::process::exit(1)
+        });
+
+    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
+
+    let mut engine_state = command_context::add_command_context(engine_state);
 
     // Provide `version` the features of this nu binary
     let cargo_features = env!("NU_FEATURES").split(",").map(Cow::Borrowed).collect();
@@ -100,40 +114,40 @@ fn main() -> Result<()> {
     // the env.nu file exists, these values will be overwritten, if it does not exist, or
     // there is an error reading it, these values will be used.
     let nushell_config_path: PathBuf = nu_path::nu_config_dir().map(Into::into).unwrap_or_default();
-    if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME") {
-        if !xdg_config_home.is_empty() {
-            if nushell_config_path
-                != canonicalize_with(&xdg_config_home, &init_cwd)
-                    .unwrap_or(PathBuf::from(&xdg_config_home))
-                    .join("nushell")
-            {
-                report_shell_error(
-                    &engine_state,
-                    &ShellError::InvalidXdgConfig {
-                        xdg: xdg_config_home,
-                        default: nushell_config_path.display().to_string(),
-                    },
+    if let Ok(xdg_config_home) = std::env::var("XDG_CONFIG_HOME")
+        && !xdg_config_home.is_empty()
+    {
+        if nushell_config_path
+            != canonicalize_with(&xdg_config_home, &init_cwd)
+                .unwrap_or(PathBuf::from(&xdg_config_home))
+                .join("nushell")
+        {
+            report_shell_error(
+                &engine_state,
+                &ShellError::InvalidXdgConfig {
+                    xdg: xdg_config_home,
+                    default: nushell_config_path.display().to_string(),
+                },
+            );
+        } else if let Some(old_config) = dirs::config_dir()
+            .and_then(|p| p.canonicalize().ok())
+            .map(|p| p.join("nushell"))
+        {
+            let xdg_config_empty = nushell_config_path
+                .read_dir()
+                .map_or(true, |mut dir| dir.next().is_none());
+            let old_config_empty = old_config
+                .read_dir()
+                .map_or(true, |mut dir| dir.next().is_none());
+            if !old_config_empty && xdg_config_empty {
+                eprintln!(
+                    "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n",
+                    nushell_config_path.display(),
                 );
-            } else if let Some(old_config) = dirs::config_dir()
-                .and_then(|p| p.canonicalize().ok())
-                .map(|p| p.join("nushell"))
-            {
-                let xdg_config_empty = nushell_config_path
-                    .read_dir()
-                    .map_or(true, |mut dir| dir.next().is_none());
-                let old_config_empty = old_config
-                    .read_dir()
-                    .map_or(true, |mut dir| dir.next().is_none());
-                if !old_config_empty && xdg_config_empty {
-                    eprintln!(
-                        "WARNING: XDG_CONFIG_HOME has been set but {} is empty.\n",
-                        nushell_config_path.display(),
-                    );
-                    eprintln!(
-                        "Nushell will not move your configuration files from {}",
-                        old_config.display()
-                    );
-                }
+                eprintln!(
+                    "Nushell will not move your configuration files from {}",
+                    old_config.display()
+                );
             }
         }
     }
@@ -198,24 +212,16 @@ fn main() -> Result<()> {
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
 
-    let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
-    let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
-        .unwrap_or_else(|err| {
-            report_shell_error(&engine_state, &err);
-            std::process::exit(1)
-        });
-
-    experimental_options::load(&engine_state, &parsed_nu_cli_args, !script_name.is_empty());
-
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.testbin.is_none()
             && parsed_nu_cli_args.commands.is_none()
-            && script_name.is_empty());
+            && script_name.is_empty()
+            && !parsed_nu_cli_args.lsp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
-
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
+    engine_state.is_lsp = parsed_nu_cli_args.lsp;
 
     let use_color = engine_state
         .get_config()
@@ -454,6 +460,26 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+
+    #[cfg(feature = "mcp")]
+    if parsed_nu_cli_args.mcp {
+        perf!("mcp starting", start_time, use_color);
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut stack = nu_protocol::engine::Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut stack,
+                #[cfg(feature = "plugin")]
+                parsed_nu_cli_args.plugin_file,
+                parsed_nu_cli_args.config_file,
+                parsed_nu_cli_args.env_file,
+                false,
+            );
+        }
+        nu_mcp::initialize_mcp_server(engine_state)?;
+        return Ok(())
+    }
+
     if parsed_nu_cli_args.lsp {
         perf!("lsp starting", start_time, use_color);
 
@@ -471,32 +497,6 @@ fn main() -> Result<()> {
         }
 
         LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
-    } else if parsed_nu_cli_args.mcp {
-        #[cfg(feature = "mcp")]
-        {
-            perf!("mcp starting", start_time, use_color);
-            if parsed_nu_cli_args.no_config_file.is_none() {
-                let mut stack = nu_protocol::engine::Stack::new();
-                config_files::setup_config(
-                    &mut engine_state,
-                    &mut stack,
-                    #[cfg(feature = "plugin")]
-                    parsed_nu_cli_args.plugin_file,
-                    parsed_nu_cli_args.config_file,
-                    parsed_nu_cli_args.env_file,
-                    false,
-                );
-            }
-            nu_mcp::initialize_mcp_server(engine_state)?;
-        }
-
-        #[cfg(not(feature = "mcp"))]
-        {
-            eprintln!("Error: MCP support is not enabled in this build of Nushell.");
-            eprintln!("To use MCP, please recompile with the 'mcp' feature enabled:");
-            eprintln!("    cargo build --features mcp");
-            std::process::exit(1);
-        }
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,

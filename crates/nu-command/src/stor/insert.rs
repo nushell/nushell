@@ -45,7 +45,7 @@ impl Command for StorInsert {
         vec!["sqlite", "storing", "table", "saving"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Insert data in the in-memory sqlite database using a data-record of column-name and column-value pairs",

@@ -25,7 +25,7 @@ impl SimplePluginCommand for Generate2 {
             .category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "custom-value generate2",

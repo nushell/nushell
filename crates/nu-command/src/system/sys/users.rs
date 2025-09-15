@@ -30,7 +30,7 @@ impl Command for SysUsers {
         Ok(users(call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show info about the system users",
             example: "sys users",

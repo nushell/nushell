@@ -1,5 +1,6 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
+use super::client::RedirectMode;
 use super::get::run_get;
 use super::post::run_post;
 
@@ -69,14 +70,14 @@ impl Command for Http {
             )
             .switch(
                 "full",
-                r#"Returns the record, containing metainformation about the exchange in addition to the response.
+                "Returns the record, containing metainformation about the exchange in addition to \
+                 the response.
                 Returning record fields:
                 - urls: list of url redirects this command had to make to get to the destination
                 - headers.request: list of headers passed when doing the request
                 - headers.response: list of received headers
                 - body: the http body of the response
-                - status: the http status of the response
-                "#,
+                - status: the http status of the response\n",
                 Some('f'),
             )
             .switch(
@@ -84,11 +85,15 @@ impl Command for Http {
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
-            .named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .category(Category::Network)
     }
@@ -130,7 +135,7 @@ impl Command for Http {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get content from example.com with default verb",

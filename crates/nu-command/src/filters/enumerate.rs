@@ -22,7 +22,7 @@ impl Command for Enumerate {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Add an index to each element of a list",
             example: r#"[a, b, c] | enumerate "#,

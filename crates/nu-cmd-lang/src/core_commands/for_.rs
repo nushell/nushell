@@ -28,7 +28,6 @@ impl Command for For {
                 "Range of the loop.",
             )
             .required("block", SyntaxShape::Block, "The block to run.")
-            .creates_scope()
             .category(Category::Core)
     }
 
@@ -56,7 +55,7 @@ impl Command for For {
         unreachable!()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print the square of each integer",

@@ -45,7 +45,7 @@ impl Command for ParEach {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3] | par-each {|e| $e * 2 }",

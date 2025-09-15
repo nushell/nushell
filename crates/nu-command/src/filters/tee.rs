@@ -49,7 +49,7 @@ use it in your pipeline."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "http get http://example.org/ | tee { save example.html }",
@@ -105,7 +105,8 @@ use it in your pipeline."#
                     &mut closure_stack,
                     closure_engine_state.get_block(closure.block_id),
                     input,
-                );
+                )
+                .map(|p| p.body);
                 // Make sure to drain any iterator produced to avoid unexpected behavior
                 result.and_then(|data| data.drain().map(|_| ()))
             }
@@ -255,7 +256,7 @@ use it in your pipeline."#
             let metadata = input.metadata();
             let metadata_clone = metadata.clone();
 
-            if matches!(input, PipelineData::ListStream(..)) {
+            if let PipelineData::ListStream(..) = input {
                 // Only use the iterator implementation on lists / list streams. We want to be able
                 // to preserve errors as much as possible, and only the stream implementations can
                 // really do that
@@ -404,15 +405,15 @@ impl<R: Read> Read for IoTee<R> {
         let len = self.reader.read(buf)?;
         if len == 0 {
             self.sender = None;
-            if let Some(thread) = self.thread.take() {
-                if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::other(err));
-                }
+            if let Some(thread) = self.thread.take()
+                && let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error()))
+            {
+                return Err(io::Error::other(err));
             }
-        } else if let Some(sender) = self.sender.as_mut() {
-            if sender.send(buf[..len].to_vec()).is_err() {
-                self.sender = None;
-            }
+        } else if let Some(sender) = self.sender.as_mut()
+            && sender.send(buf[..len].to_vec()).is_err()
+        {
+            self.sender = None;
         }
         Ok(len)
     }

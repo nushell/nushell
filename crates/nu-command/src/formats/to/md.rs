@@ -38,7 +38,7 @@ impl Command for ToMd {
         "Convert table into simple Markdown."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs an MD string representing the contents of this table",

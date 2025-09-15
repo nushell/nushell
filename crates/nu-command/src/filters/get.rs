@@ -64,7 +64,7 @@ If multiple cell paths are given, this will produce a list of values."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get an item from a list",

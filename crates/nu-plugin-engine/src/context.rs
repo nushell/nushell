@@ -215,7 +215,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(&self.engine_state);
 
-        eval_block_with_early_return(&self.engine_state, stack, block, input)
+        eval_block_with_early_return(&self.engine_state, stack, block, input).map(|p| p.body)
     }
 
     fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError> {

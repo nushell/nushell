@@ -6,6 +6,8 @@ use crate::network::http::client::{
 };
 use nu_engine::command_prelude::*;
 
+use super::client::RedirectMode;
+
 #[derive(Clone)]
 pub struct HttpDelete;
 
@@ -73,11 +75,16 @@ impl Command for HttpDelete {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
             .category(Category::Network)
@@ -105,7 +112,7 @@ impl Command for HttpDelete {
         run_delete(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "http delete from example.com",

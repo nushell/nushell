@@ -31,7 +31,7 @@ impl SimplePluginCommand for ViewSpan {
         vec!["example"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "('hello ' ++ 'world') | example view span",
             description: "Show the source code of the expression that generated a value",

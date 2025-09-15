@@ -1,4 +1,4 @@
-use super::hex::{operate, ActionType};
+use super::hex::{ActionType, operate};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -33,7 +33,7 @@ impl Command for DecodeHex {
         "Hex decode a value."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Hex decode a value and output as binary",

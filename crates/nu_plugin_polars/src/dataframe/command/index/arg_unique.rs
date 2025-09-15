@@ -35,7 +35,7 @@ impl PluginCommand for ArgUnique {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Returns indexes for unique values",
             example: "[1 2 2 3 3] | polars into-df | polars arg-unique",

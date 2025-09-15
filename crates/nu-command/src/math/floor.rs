@@ -43,19 +43,13 @@ impl Command for MathFloor {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        if let PipelineData::Value(
-            Value::Range {
-                ref val,
-                internal_span,
-            },
-            ..,
-        ) = input
-        {
-            ensure_bounded(val.as_ref(), internal_span, head)?;
+        match input {
+            // This doesn't match explicit nulls
+            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+            PipelineData::Value(ref value @ Value::Range { val: ref range, .. }, ..) => {
+                ensure_bounded(range, value.span(), head)?
+            }
+            _ => (),
         }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
@@ -68,7 +62,7 @@ impl Command for MathFloor {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
@@ -87,7 +81,7 @@ impl Command for MathFloor {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Apply the floor function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math floor",

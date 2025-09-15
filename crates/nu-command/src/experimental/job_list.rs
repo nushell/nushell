@@ -69,7 +69,7 @@ impl Command for JobList {
         Ok(Value::list(values, head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "job list",
             description: "List all background jobs",

@@ -22,7 +22,7 @@ impl Command for IsTerminal {
         "Check if stdin, stdout, or stderr is a terminal."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: r#"Return "terminal attached" if standard input is attached to a terminal, and "no terminal" if not."#,
             example: r#"if (is-terminal --stdin) { "terminal attached" } else { "no terminal" }"#,

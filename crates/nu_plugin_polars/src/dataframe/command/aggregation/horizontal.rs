@@ -78,7 +78,7 @@ impl PluginCommand for Horizontal {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Horizontal sum across two columns (ignore nulls by default)",

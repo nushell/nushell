@@ -102,7 +102,7 @@ impl Command for Join {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
@@ -270,29 +270,29 @@ fn join_rows(
             val: this_record, ..
         } = this_row
         {
-            if let Some(this_valkey) = this_record.get(this_join_key) {
-                if let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
-                    if matches!(include_inner, IncludeInner::Yes) {
-                        for other_record in other_rows {
-                            // `other` table contains rows matching `this` row on the join column
-                            let record = match join_type {
-                                JoinType::Inner | JoinType::Right => merge_records(
-                                    other_record, // `other` (lookup) is the left input table
-                                    this_record,
-                                    shared_join_key,
-                                ),
-                                JoinType::Left => merge_records(
-                                    this_record, // `this` is the left input table
-                                    other_record,
-                                    shared_join_key,
-                                ),
-                                _ => panic!("not implemented"),
-                            };
-                            result.push(Value::record(record, span))
-                        }
+            if let Some(this_valkey) = this_record.get(this_join_key)
+                && let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config))
+            {
+                if let IncludeInner::Yes = include_inner {
+                    for other_record in other_rows {
+                        // `other` table contains rows matching `this` row on the join column
+                        let record = match join_type {
+                            JoinType::Inner | JoinType::Right => merge_records(
+                                other_record, // `other` (lookup) is the left input table
+                                this_record,
+                                shared_join_key,
+                            ),
+                            JoinType::Left => merge_records(
+                                this_record, // `this` is the left input table
+                                other_record,
+                                shared_join_key,
+                            ),
+                            _ => panic!("not implemented"),
+                        };
+                        result.push(Value::record(record, span))
                     }
-                    continue;
                 }
+                continue;
             }
             if !matches!(join_type, JoinType::Inner) {
                 // Either `this` row is missing a value for the join column or
@@ -352,11 +352,11 @@ fn lookup_table<'a>(
 ) -> HashMap<String, Vec<&'a Record>> {
     let mut map = HashMap::<String, Vec<&'a Record>>::with_capacity(cap);
     for row in rows {
-        if let Value::Record { val: record, .. } = row {
-            if let Some(val) = record.get(on) {
-                let valkey = val.to_expanded_string(sep, config);
-                map.entry(valkey).or_default().push(record);
-            }
+        if let Value::Record { val: record, .. } = row
+            && let Some(val) = record.get(on)
+        {
+            let valkey = val.to_expanded_string(sep, config);
+            map.entry(valkey).or_default().push(record);
         };
     }
     map

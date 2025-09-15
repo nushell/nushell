@@ -32,7 +32,7 @@ impl PluginCommand for LazyCollect {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",

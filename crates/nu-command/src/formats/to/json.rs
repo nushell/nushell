@@ -87,7 +87,7 @@ impl Command for ToJson {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a JSON string, with default indentation, representing the contents of this table",

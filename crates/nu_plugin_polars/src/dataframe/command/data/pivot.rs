@@ -78,7 +78,7 @@ impl PluginCommand for PivotDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Perform a pivot in order to show individuals test score by subject",

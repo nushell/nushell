@@ -28,7 +28,7 @@ impl Command for VersionCheck {
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Check if you have the latest version of nushell",
             example: "version check",

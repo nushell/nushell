@@ -109,7 +109,7 @@ def "nu-complete main-help" [] {
 }
 
 def "nu-complete list-externs" [] {
-    scope commands | where is_extern == true | select name description | rename value description
+    scope commands | where type == "external" | select name description | rename value description
 }
 
 def build-help-header [
@@ -397,8 +397,8 @@ export def externs [
 ] {
     let externs = (
         scope commands
-        | where is_extern == true
-        | select name module_name description
+        | where type == "external"
+        | select name description
         | sort-by name
         | str trim
     )
@@ -552,11 +552,6 @@ def build-command-page [command: record] {
     let search_terms = (if ($command.search_terms? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Search terms') ($command.search_terms)"
-    ]} else { [] })
-
-    let module = (if ($command.module_name? | is-not-empty) {[
-        ""
-        $"(build-help-header -n 'Module') ($command.module_name)"
     ]} else { [] })
 
     let category = (if ($command.category? | is-not-empty) {[
@@ -725,7 +720,6 @@ def build-command-page [command: record] {
         $description
         $extra_description
         $search_terms
-        $module
         $category
         $this
         $cli_usage

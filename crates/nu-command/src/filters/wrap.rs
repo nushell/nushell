@@ -53,7 +53,7 @@ impl Command for Wrap {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Wrap a list into a table with a given column name",

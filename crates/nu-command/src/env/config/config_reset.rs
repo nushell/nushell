@@ -25,7 +25,7 @@ impl Command for ConfigReset {
         "Reset nushell environment configurations to default, and saves old config files in the config location as oldconfig.nu and oldenv.nu."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "reset nushell configuration files",
             example: "config reset",
@@ -66,15 +66,15 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&nu_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
-                    return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.not_found_as(NotFound::File),
-                        span,
-                        PathBuf::from(nu_config),
-                        "config.nu could not be written to",
-                    )));
-                }
+            if let Ok(mut file) = std::fs::File::create(&nu_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}")
+            {
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    err.not_found_as(NotFound::File),
+                    span,
+                    PathBuf::from(nu_config),
+                    "config.nu could not be written to",
+                )));
             }
         }
         if !only_nu {
@@ -93,15 +93,15 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&env_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
-                    return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.not_found_as(NotFound::File),
-                        span,
-                        PathBuf::from(env_config),
-                        "env.nu could not be written to",
-                    )));
-                }
+            if let Ok(mut file) = std::fs::File::create(&env_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}")
+            {
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    err.not_found_as(NotFound::File),
+                    span,
+                    PathBuf::from(env_config),
+                    "env.nu could not be written to",
+                )));
             }
         }
         Ok(PipelineData::empty())

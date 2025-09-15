@@ -37,7 +37,7 @@ impl PluginCommand for ExprMin {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Min value from columns in a dataframe",

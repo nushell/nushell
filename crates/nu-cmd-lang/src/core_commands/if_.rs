@@ -112,7 +112,7 @@ impl Command for If {
         vec!["else", "conditional"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Output a value if a condition matches, otherwise return nothing",

@@ -284,16 +284,16 @@ If you create a custom command with this name, that will be used instead."#
             IoError::new_internal(err, context, nu_protocol::location!())
         })?;
 
-        if let Some(thread_job) = engine_state.current_thread_job() {
-            if !thread_job.try_add_pid(child.pid()) {
-                kill_by_pid(child.pid().into()).map_err(|err| {
-                    ShellError::Io(IoError::new_internal(
-                        err,
-                        "Could not spawn external stdin worker",
-                        nu_protocol::location!(),
-                    ))
-                })?;
-            }
+        if let Some(thread_job) = engine_state.current_thread_job()
+            && !thread_job.try_add_pid(child.pid())
+        {
+            kill_by_pid(child.pid().into()).map_err(|err| {
+                ShellError::Io(IoError::new_internal(
+                    err,
+                    "Could not spawn external stdin worker",
+                    nu_protocol::location!(),
+                ))
+            })?;
         }
 
         // If we need to copy data into the child process, do it now.
@@ -347,7 +347,7 @@ If you create a custom command with this name, that will be used instead."#
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run an external command",

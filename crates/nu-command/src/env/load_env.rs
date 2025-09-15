@@ -70,7 +70,7 @@ impl Command for LoadEnv {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Load variables from an input stream",

@@ -31,7 +31,7 @@ impl Command for Every {
         "Show (or skip) every n-th row, starting from the first one."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3 4 5] | every 2",

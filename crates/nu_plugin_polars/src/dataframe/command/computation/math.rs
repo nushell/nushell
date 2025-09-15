@@ -86,7 +86,7 @@ impl PluginCommand for ExprMath {
         - exp
         - log <base; default e>
         - log1p
-        - sign  
+        - sign
         - sin
         - sqrt
         "#
@@ -111,7 +111,7 @@ impl PluginCommand for ExprMath {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Apply function to column expression",
             example: "[[a]; [0] [-1] [2] [-3] [4]]

@@ -39,7 +39,7 @@ impl PluginCommand for ExprConcatStr {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Creates a concat string expression",
             example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | polars into-df);

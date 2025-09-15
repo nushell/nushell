@@ -52,7 +52,7 @@ impl Command for GroupBy {
         group_by(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Group items by the \"type\" column's values",
