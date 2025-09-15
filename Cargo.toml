@@ -271,7 +271,14 @@ tempfile = { workspace = true }
 [features]
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
-full = ["plugin", "rustls-tls", "system-clipboard", "trash-support", "sqlite", "network"]
+full = [
+  "network",
+  "plugin",
+  "rustls-tls",
+  "sqlite",
+  "system-clipboard",
+  "trash-support",
+]
 
 plugin = [
   # crates
