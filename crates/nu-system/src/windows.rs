@@ -537,8 +537,7 @@ unsafe fn ph_query_process_variable_size(
             return_length.as_mut_ptr() as *mut _,
         )
         .ok()
-        {
-            if ![
+            && ![
                 STATUS_BUFFER_OVERFLOW.into(),
                 STATUS_BUFFER_TOO_SMALL.into(),
                 STATUS_INFO_LENGTH_MISMATCH.into(),
@@ -547,7 +546,6 @@ unsafe fn ph_query_process_variable_size(
             {
                 return None;
             }
-        }
 
         let mut return_length = return_length.assume_init();
         let buf_len = (return_length as usize) / 2;
