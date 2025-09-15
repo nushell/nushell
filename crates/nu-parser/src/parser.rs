@@ -106,12 +106,13 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_binary(working_set, span);
-    if working_set.parse_errors.len() == starting_error_count
-        || !matches!(
-            working_set.parse_errors.last(),
-            Some(ParseError::Expected(_, _))
-        )
-    {
+    if working_set.parse_errors.len() == starting_error_count {
+        return true;
+    } else if !matches!(
+        working_set.parse_errors.last(),
+        Some(ParseError::Expected(_, _))
+    ) {
+        working_set.parse_errors.truncate(starting_error_count);
         return true;
     }
     working_set.parse_errors.truncate(starting_error_count);
