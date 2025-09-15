@@ -187,6 +187,11 @@ pub(crate) fn check_call(
     }
 
     if call.positional_len() < sig.required_positional.len() {
+        let end_offset = call
+            .positional_iter()
+            .last()
+            .map(|last| last.span.end)
+            .unwrap_or(command.end);
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
         // that that positional argument is missing from the parsed call
@@ -199,11 +204,6 @@ pub(crate) fn check_call(
                 }
             });
             if !found {
-                let end_offset = if let Some(last) = call.positional_iter().last() {
-                    last.span.end
-                } else {
-                    command.end
-                };
                 working_set.error(ParseError::MissingPositional(
                     argument.name.clone(),
                     Span::new(end_offset, end_offset),
@@ -214,11 +214,6 @@ pub(crate) fn check_call(
         }
 
         let missing = &sig.required_positional[call.positional_len()];
-        let end_offset = if let Some(last) = call.positional_iter().last() {
-            last.span.end
-        } else {
-            command.end
-        };
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
