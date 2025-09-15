@@ -169,7 +169,7 @@ pub fn trim_quotes_str(s: &str) -> &str {
 
 /// Return type of `check_call`
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum CallKind {
+pub enum CallKind {
     Help,
     Valid,
     Invalid,
@@ -6119,7 +6119,7 @@ pub fn parse_builtin_commands(
     match name {
         // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
-        b"extern" => parse_extern(working_set, lite_command, None),
+        b"extern" => parse_extern(working_set, lite_command, None).0,
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
@@ -6141,7 +6141,7 @@ pub fn parse_builtin_commands(
             let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
         }
-        b"alias" => parse_alias(working_set, lite_command, None),
+        b"alias" => parse_alias(working_set, lite_command, None).0,
         b"module" => parse_module(working_set, lite_command, None).0,
         b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
