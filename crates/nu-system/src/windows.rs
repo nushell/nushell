@@ -543,9 +543,9 @@ unsafe fn ph_query_process_variable_size(
                 STATUS_INFO_LENGTH_MISMATCH.into(),
             ]
             .contains(&err.code())
-            {
-                return None;
-            }
+        {
+            return None;
+        }
 
         let mut return_length = return_length.assume_init();
         let buf_len = (return_length as usize) / 2;
