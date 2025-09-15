@@ -167,18 +167,31 @@ pub fn trim_quotes_str(s: &str) -> &str {
     }
 }
 
+/// Return type of `check_call`
+#[derive(Debug, PartialEq, Eq)]
+pub enum CallKind {
+    Help,
+    Valid,
+    Invalid,
+}
+
 pub(crate) fn check_call(
     working_set: &mut StateWorkingSet,
     command: Span,
     sig: &Signature,
     call: &Call,
-) {
+) -> CallKind {
     // Allow the call to pass if they pass in the help flag
     if call.named_iter().any(|(n, _, _)| n.item == "help") {
-        return;
+        return CallKind::Help;
     }
 
     if call.positional_len() < sig.required_positional.len() {
+        let end_offset = call
+            .positional_iter()
+            .last()
+            .map(|last| last.span.end)
+            .unwrap_or(command.end);
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
         // that that positional argument is missing from the parsed call
@@ -191,38 +204,22 @@ pub(crate) fn check_call(
                 }
             });
             if !found {
-                if let Some(last) = call.positional_iter().last() {
-                    working_set.error(ParseError::MissingPositional(
-                        argument.name.clone(),
-                        Span::new(last.span.end, last.span.end),
-                        sig.call_signature(),
-                    ));
-                    return;
-                } else {
-                    working_set.error(ParseError::MissingPositional(
-                        argument.name.clone(),
-                        Span::new(command.end, command.end),
-                        sig.call_signature(),
-                    ));
-                    return;
-                }
+                working_set.error(ParseError::MissingPositional(
+                    argument.name.clone(),
+                    Span::new(end_offset, end_offset),
+                    sig.call_signature(),
+                ));
+                return CallKind::Invalid;
             }
         }
 
         let missing = &sig.required_positional[call.positional_len()];
-        if let Some(last) = call.positional_iter().last() {
-            working_set.error(ParseError::MissingPositional(
-                missing.name.clone(),
-                Span::new(last.span.end, last.span.end),
-                sig.call_signature(),
-            ))
-        } else {
-            working_set.error(ParseError::MissingPositional(
-                missing.name.clone(),
-                Span::new(command.end, command.end),
-                sig.call_signature(),
-            ))
-        }
+        working_set.error(ParseError::MissingPositional(
+            missing.name.clone(),
+            Span::new(end_offset, end_offset),
+            sig.call_signature(),
+        ));
+        return CallKind::Invalid;
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
             if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
@@ -230,9 +227,11 @@ pub(crate) fn check_call(
                     req_flag.long.clone(),
                     command,
                 ));
+                return CallKind::Invalid;
             }
         }
     }
+    CallKind::Valid
 }
 
 /// Parses an unknown argument for the given signature. This handles the parsing as appropriate to
@@ -1000,6 +999,7 @@ pub fn parse_multispan_value(
 pub struct ParsedInternalCall {
     pub call: Box<Call>,
     pub output: Type,
+    pub call_kind: CallKind,
 }
 
 pub fn parse_internal_call(
@@ -1056,6 +1056,7 @@ pub fn parse_internal_call(
             return ParsedInternalCall {
                 call: Box::new(call),
                 output: Type::Any,
+                call_kind: CallKind::Invalid,
             };
         }
     }
@@ -1323,7 +1324,10 @@ pub fn parse_internal_call(
         spans_idx += 1;
     }
 
-    check_call(working_set, command_span, &signature, &call);
+    // TODO: Inline `check_call`,
+    // move missing positional checking into the while loop above with two pointers.
+    // Maybe more `CallKind::Invalid` if errors found during argument parsing.
+    let call_kind = check_call(working_set, command_span, &signature, &call);
 
     deprecation
         .into_iter()
@@ -1342,6 +1346,7 @@ pub fn parse_internal_call(
     ParsedInternalCall {
         call: Box::new(call),
         output,
+        call_kind,
     }
 }
 
@@ -6109,7 +6114,7 @@ pub fn parse_builtin_commands(
     match name {
         // `parse_def` and `parse_extern` work both with and without attributes
         b"def" => parse_def(working_set, lite_command, None).0,
-        b"extern" => parse_extern(working_set, lite_command, None),
+        b"extern" => parse_extern(working_set, lite_command, None).0,
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
@@ -6131,7 +6136,7 @@ pub fn parse_builtin_commands(
             let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
         }
-        b"alias" => parse_alias(working_set, lite_command, None),
+        b"alias" => parse_alias(working_set, lite_command, None).0,
         b"module" => parse_module(working_set, lite_command, None).0,
         b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
