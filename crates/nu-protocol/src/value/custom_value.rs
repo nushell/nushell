@@ -95,4 +95,21 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn notify_plugin_on_drop(&self) -> bool {
         false
     }
+
+    /// Represent the custom values as raw bytes that can be stored on disk.
+    ///
+    /// `save` uses this method to save the value to a file.
+    ///
+    /// The default impl just returns an error.
+    fn as_bytes(&self, span: Span) -> Result<Vec<u8>, ShellError> {
+        Err(ShellError::CantConvert {
+            to_type: Type::Binary.to_string(),
+            from_type: self.type_name(),
+            span,
+            help: Some(format!(
+                "This custom value {} cannot be converted to binary",
+                self.type_name()
+            )),
+        })
+    }
 }
