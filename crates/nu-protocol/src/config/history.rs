@@ -4,6 +4,7 @@ use crate::{self as nu_protocol, ConfigWarning};
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
     /// Store history as an SQLite database with additional context
+    #[cfg(feature = "sqlite")]
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
     Plaintext,
@@ -13,6 +14,7 @@ impl HistoryFileFormat {
     pub fn default_file_name(self) -> std::path::PathBuf {
         match self {
             HistoryFileFormat::Plaintext => "history.txt",
+            #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => "history.sqlite3",
         }
         .into()
@@ -24,9 +26,13 @@ impl FromStr for HistoryFileFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
+            #[cfg(feature = "sqlite")]
             "sqlite" => Ok(Self::Sqlite),
             "plaintext" => Ok(Self::Plaintext),
+            #[cfg(feature = "sqlite")]
             _ => Err("'sqlite' or 'plaintext'"),
+            #[cfg(not(feature = "sqlite"))]
+            _ => Err("'plaintext'"),
         }
     }
 }
@@ -104,6 +110,7 @@ impl UpdateFromValue for HistoryConfig {
                     help: r#"disable history isolation, or set $env.config.history.file_format = "sqlite""#,
                 });
             }
+            #[cfg(feature = "sqlite")]
             (true, HistoryFileFormat::Sqlite) => (),
             (false, _) => (),
         }
