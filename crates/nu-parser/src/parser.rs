@@ -20,7 +20,6 @@ use nu_protocol::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    num::ParseIntError,
     str,
     sync::Arc,
 };
@@ -107,7 +106,12 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_binary(working_set, span);
-    if working_set.parse_errors.len() == starting_error_count {
+    if working_set.parse_errors.len() == starting_error_count
+        || !matches!(
+            working_set.parse_errors.last(),
+            Some(ParseError::Expected(_, _))
+        )
+    {
         return true;
     }
     working_set.parse_errors.truncate(starting_error_count);
@@ -1697,12 +1701,8 @@ fn parse_binary_with_base(
 
         match decode_with_base(&str, base, min_digits_per_byte) {
             Ok(v) => return Expression::new(working_set, Expr::Binary(v), span, Type::Binary),
-            Err(x) => {
-                working_set.error(ParseError::IncorrectValue(
-                    "not a binary value".into(),
-                    span,
-                    x.to_string(),
-                ));
+            Err(help) => {
+                working_set.error(ParseError::InvalidBinaryString(span, help.to_string()));
                 return garbage(working_set, span);
             }
         }
@@ -1712,13 +1712,18 @@ fn parse_binary_with_base(
     garbage(working_set, span)
 }
 
-fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, ParseIntError> {
+fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8>, &str> {
     s.chars()
         .chunks(digits_per_byte)
         .into_iter()
         .map(|chunk| {
             let str: String = chunk.collect();
-            u8::from_str_radix(&str, base)
+            u8::from_str_radix(&str, base).map_err(|_| match base {
+                2 => "binary strings may contain only 0 or 1.",
+                8 => "octal strings must have a length that is a multiple of three and contain values between 0o000 and 0o377.",
+                16 => "hexadecimal strings may contain only the characters 0–9 and A–F.",
+                _ => "", // radix other than 2, 8, or 16 is an invalid radix
+            })
         })
         .collect()
 }
