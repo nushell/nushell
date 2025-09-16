@@ -798,8 +798,6 @@ fn parse_extern_inner(
     let spans = lite_command.command_parts();
 
     let (description, extra_description) = working_set.build_desc(&lite_command.comments);
-    let garbage_result =
-        |working_set: &mut StateWorkingSet<'_>| (garbage(working_set, Span::concat(spans)));
 
     // Checking that the function is used with the correct name
     // Maybe this is not necessary but it is a sanity check
@@ -817,11 +815,11 @@ fn parse_extern_inner(
             "internal error: Wrong call name for extern command".into(),
             Span::concat(spans),
         ));
-        return garbage_result(working_set);
+        return garbage(working_set, Span::concat(spans));
     }
     if let Some(redirection) = lite_command.redirection.as_ref() {
         working_set.error(redirecting_builtin_error("extern", redirection));
-        return garbage_result(working_set);
+        return garbage(working_set, Span::concat(spans));
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -837,7 +835,7 @@ fn parse_extern_inner(
                 "internal error: def declaration not found".into(),
                 Span::concat(spans),
             ));
-            return garbage_result(working_set);
+            return garbage(working_set, Span::concat(spans));
         }
         Some(decl_id) => {
             working_set.enter_scope();
@@ -848,7 +846,7 @@ fn parse_extern_inner(
                 && let Some(err) = detect_params_in_name(working_set, *name_span, decl_id)
             {
                 working_set.error(err);
-                return garbage_result(working_set);
+                return garbage(working_set, Span::concat(spans));
             }
 
             let ParsedInternalCall { call, .. } = parse_internal_call(
