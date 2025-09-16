@@ -271,7 +271,14 @@ tempfile = { workspace = true }
 [features]
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
-full = ["plugin", "rustls-tls", "system-clipboard", "trash-support", "sqlite"]
+full = [
+  "network",
+  "plugin",
+  "rustls-tls",
+  "sqlite",
+  "system-clipboard",
+  "trash-support",
+]
 
 plugin = [
   # crates
@@ -287,6 +294,7 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+network = ["nu-command/network"]
 native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
@@ -294,6 +302,7 @@ default = [
   "plugin",
   "trash-support",
   "sqlite",
+  "network",
   "rustls-tls"
 ]
 stable = ["default"]
