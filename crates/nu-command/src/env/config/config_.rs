@@ -2,10 +2,10 @@ use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
 use nu_protocol::{PipelineMetadata, shell_error::io::IoError};
 use nu_system::ForegroundChild;
+use nu_utils::ConfigFileKind;
 
 #[cfg(feature = "os")]
 use nu_protocol::process::PostWaitCallback;
-use nu_utils::ConfigFileKind;
 
 #[derive(Clone)]
 pub struct ConfigMeta;
@@ -46,7 +46,7 @@ impl Command for ConfigMeta {
 
 #[cfg(not(feature = "os"))]
 pub(super) fn start_editor(
-    _: &'static str,
+    _: ConfigFileKind,
     _: &EngineState,
     _: &mut Stack,
     call: &Call,
