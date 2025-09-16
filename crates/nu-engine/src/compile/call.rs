@@ -36,7 +36,7 @@ pub(crate) fn compile_call(
             "match" => {
                 return compile_match(working_set, builder, call, redirect_modes, io_reg);
             }
-            "const" => {
+            "const" | "export const" => {
                 // This differs from the behavior of the const command, which adds the const value
                 // to the stack. Since `load-variable` also checks `engine_state` for the variable
                 // and will get a const value though, is it really necessary to do that?
