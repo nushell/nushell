@@ -39,6 +39,5 @@ async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error:
         })?
         .waiting()
         .await?;
-        Ok(())
-
+    Ok(())
 }

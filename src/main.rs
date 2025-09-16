@@ -477,7 +477,7 @@ fn main() -> Result<()> {
             );
         }
         nu_mcp::initialize_mcp_server(engine_state)?;
-        return Ok(())
+        return Ok(());
     }
 
     if parsed_nu_cli_args.lsp {

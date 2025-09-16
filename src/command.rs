@@ -50,7 +50,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--ide-check"
             | "--experimental-options" => args.next(),
             #[cfg(feature = "mcp")]
-            | "--mcp" => args.next(),
+            "--mcp" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -424,11 +424,7 @@ impl Command for Nu {
 
         #[cfg(feature = "mcp")]
         {
-            signature = signature.switch(
-               "mcp",
-               "start nu's model context protocol server",
-               None,
-            );
+            signature = signature.switch("mcp", "start nu's model context protocol server", None);
         }
         #[cfg(feature = "plugin")]
         {
