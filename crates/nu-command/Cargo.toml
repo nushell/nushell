@@ -115,6 +115,7 @@ ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
 	"json",
+	"platform-verifier",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -196,7 +197,6 @@ os = [
 	"uu_uname",
 	"uu_whoami",
 	"which",
-	"ureq/platform-verifier"
 ]
 
 # The dependencies listed below need 'getrandom'.
