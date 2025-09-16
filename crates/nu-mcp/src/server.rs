@@ -7,10 +7,7 @@ use indoc::formatdoc;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, Value,
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
-    write_all_and_flush,
+    debugger::WithoutDebug, engine::{EngineState, Stack, StateWorkingSet}, write_all_and_flush, PipelineData, PipelineExecutionData, Value
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
@@ -188,12 +185,12 @@ fn shell_error_to_mcp_error(error: nu_protocol::ShellError) -> McpError {
 }
 
 fn pipeline_to_content(
-    pipeline_data: PipelineData,
+    pipeline_execution_data: PipelineExecutionData,
     engine_state: &EngineState,
 ) -> Result<Content, McpError> {
-    let span = pipeline_data.span();
+    let span = pipeline_execution_data.span();
     // todo - this bystream use case won't work
-    if let PipelineData::ByteStream(_stream, ..) = pipeline_data {
+    if let PipelineData::ByteStream(_stream, ..) = pipeline_execution_data.body {
         // Copy ByteStreams directly
         // stream.print(false)
         Err(McpError::internal_error(
@@ -203,7 +200,7 @@ fn pipeline_to_content(
     } else {
         let mut buffer: Vec<u8> = Vec::new();
         let config = engine_state.get_config();
-        for item in pipeline_data {
+        for item in pipeline_execution_data.body {
             let out = if let Value::Error { error, .. } = item {
                 return Err(shell_error_to_mcp_error(*error));
             } else {
