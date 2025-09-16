@@ -1,7 +1,7 @@
 #![allow(clippy::result_large_err)]
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, shell_error::io::IoError};
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, path::Path};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {
@@ -77,5 +77,16 @@ impl CustomValue for SecondCustomValue {
 
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn save(&self, path: Spanned<&Path>, _: Span, save_span: Span) -> Result<(), ShellError> {
+        std::fs::write(path.item, &self.something).map_err(|err| {
+            ShellError::Io(IoError::new_with_additional_context(
+                err,
+                save_span,
+                path.item.to_owned(),
+                format!("Could not save {}", self.type_name()),
+            ))
+        })
     }
 }

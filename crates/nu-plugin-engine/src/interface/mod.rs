@@ -17,6 +17,7 @@ use nu_protocol::{
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, btree_map},
+    path::Path,
     sync::{Arc, OnceLock, mpsc},
 };
 
@@ -1046,6 +1047,31 @@ impl PluginInterface {
         self.custom_value_op_expecting_value(left, CustomValueOp::Operation(operator, right))
     }
 
+    pub fn custom_value_save(
+        &self,
+        value: Spanned<PluginCustomValueWithSource>,
+        path: Spanned<&Path>,
+        save_call_span: Span,
+    ) -> Result<(), ShellError> {
+        // Check that the value came from the right source
+        value.item.verify_source(value.span, &self.state.source)?;
+
+        let call = PluginCall::CustomValueOp(
+            value.map(|cv| cv.without_source()),
+            CustomValueOp::Save {
+                path: path.map(ToOwned::to_owned),
+                save_call_span,
+            },
+        );
+        match self.plugin_call(call, None)? {
+            PluginCallResponse::Ok => Ok(()),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: format!("Received unexpected response to custom value save() call"),
+            }),
+        }
+    }
+
     /// Notify the plugin about a dropped custom value.
     pub fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
         // Make sure we don't block here. This can happen on the receiver thread, which would cause a deadlock. We should not try to receive the response - just let it be discarded.
@@ -1240,6 +1266,7 @@ impl CurrentCallState {
                     CustomValueOp::FollowPathString(_) => Ok(()),
                     CustomValueOp::PartialCmp(value) => self.prepare_value(value, source),
                     CustomValueOp::Operation(_, value) => self.prepare_value(value, source),
+                    CustomValueOp::Save { .. } => Ok(()),
                     CustomValueOp::Dropped => Ok(()),
                 }
             }

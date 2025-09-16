@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt, path::Path};
 
-use crate::{ShellError, Span, Type, Value, ast::Operator};
+use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -86,40 +86,18 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
         })
     }
 
-    /// For custom values in plugins: return `true` here if you would like to be notified when all
-    /// copies of this custom value are dropped in the engine.
-    ///
-    /// The notification will take place via `custom_value_dropped()` on the plugin type.
-    ///
-    /// The default is `false`.
-    fn notify_plugin_on_drop(&self) -> bool {
-        false
-    }
-
-    /// Represent the custom values as raw bytes that can be stored on disk.
-    ///
-    /// `save` uses this method to save the value to a file.
-    ///
-    /// The default impl just returns an error.
-    fn as_bytes(&self, span: Span) -> Result<Vec<u8>, ShellError> {
-        Err(ShellError::CantConvert {
-            to_type: Type::Binary.to_string(),
-            from_type: self.type_name(),
-            span,
-            help: Some(format!(
-                "This custom value {} cannot be converted to binary",
-                self.type_name()
-            )),
-        })
-    }
-
     /// Save custom value to disk.
     ///
     /// This method is used in `save` to save a custom value to disk.
     /// This is done before opening any file, so saving can be handled differently.
     ///
     /// The default impl just returns an error.
-    fn save(&self, path: &Path, value_span: Span, save_span: Span) -> Result<(), ShellError> {
+    fn save(
+        &self,
+        path: Spanned<&Path>,
+        value_span: Span,
+        save_span: Span,
+    ) -> Result<(), ShellError> {
         let _ = path;
         Err(ShellError::GenericError {
             error: "Cannot save custom value".into(),
@@ -135,5 +113,15 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
                 inner: vec![],
             }],
         })
+    }
+
+    /// For custom values in plugins: return `true` here if you would like to be notified when all
+    /// copies of this custom value are dropped in the engine.
+    ///
+    /// The notification will take place via `custom_value_dropped()` on the plugin type.
+    ///
+    /// The default is `false`.
+    fn notify_plugin_on_drop(&self) -> bool {
+        false
     }
 }
