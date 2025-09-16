@@ -3,8 +3,7 @@ use std::{fs::File, io::BufWriter};
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{JsonWriter, SerWriter, SinkOptions};
-use polars_io::json::JsonWriterOptions;
+use polars::prelude::{JsonWriter, JsonWriterOptions, SerWriter, SinkOptions};
 
 use crate::{
     command::core::{resource::Resource, save::sink_target_from_string},
@@ -26,7 +25,7 @@ pub(crate) fn command_lazy(
             file_path,
             JsonWriterOptions::default(),
             resource.cloud_options,
-            SinkOptions::default(),
+           SinkOptions::default(),
         )
         .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))

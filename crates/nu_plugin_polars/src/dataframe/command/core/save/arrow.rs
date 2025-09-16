@@ -3,8 +3,7 @@ use std::fs::File;
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{IpcWriter, SerWriter, SinkOptions};
-use polars_io::ipc::IpcWriterOptions;
+use polars::prelude::{IpcWriter, IpcWriterOptions, SerWriter, SinkOptions};
 
 use crate::{
     command::core::resource::Resource,

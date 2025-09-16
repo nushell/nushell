@@ -3,8 +3,7 @@ use std::fs::File;
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{ParquetWriter, SinkOptions};
-use polars_io::parquet::write::ParquetWriteOptions;
+use polars::prelude::{ParquetWriteOptions, ParquetWriter, SinkOptions};
 
 use crate::{
     command::core::{resource::Resource, save::sink_target_from_string},
