@@ -106,6 +106,9 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_binary(working_set, span);
+    // We need an additional negate match to check if the last error was unexpected
+    // or more specifically, if it was `ParseError::InvalidBinaryString`.
+    // If so, we supress the error and stop parsing to the next (which is `parse_range()`).
     if working_set.parse_errors.len() == starting_error_count {
         return true;
     } else if !matches!(
@@ -1723,7 +1726,7 @@ fn decode_with_base(s: &str, base: u32, digits_per_byte: usize) -> Result<Vec<u8
                 2 => "binary strings may contain only 0 or 1.",
                 8 => "octal strings must have a length that is a multiple of three and contain values between 0o000 and 0o377.",
                 16 => "hexadecimal strings may contain only the characters 0–9 and A–F.",
-                _ => "", // radix other than 2, 8, or 16 is an invalid radix
+                _ => "internal error: radix other than 2, 8, or 16 is not allowed."
             })
         })
         .collect()
