@@ -113,7 +113,7 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
     }
 
     fn eval(&self, nu_source: &str, input: PipelineData) -> Result<Vec<Content>, McpError> {
-        let mut engine_state = self.engine_state_lock()?;
+        let engine_state = self.engine_state_lock()?;
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         // Parse the source code
@@ -127,13 +127,6 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
                 None,
             ));
         }
-
-        let rendered = working_set.render();
-
-        // Merge into state
-        engine_state
-            .merge_delta(rendered)
-            .map_err(shell_error_to_mcp_error)?;
 
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
