@@ -1067,7 +1067,7 @@ impl PluginInterface {
             PluginCallResponse::Ok => Ok(()),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
-                msg: format!("Received unexpected response to custom value save() call"),
+                msg: "Received unexpected response to custom value save() call".into(),
             }),
         }
     }
