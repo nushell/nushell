@@ -216,15 +216,13 @@ fn from_parquet(
     is_eager: bool,
     hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
-    let file_span = resource.span;
     if !is_eager {
         let args = ScanArgsParquet {
             cloud_options: resource.cloud_options,
             hive_options,
             ..Default::default()
         };
-        let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
+        let df: NuLazyFrame = LazyFrame::scan_parquet(resource.path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
                 msg: format!("{e:?}"),
@@ -237,8 +235,9 @@ fn from_parquet(
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
-
-        let r = File::open(file_path).map_err(|e| ShellError::GenericError {
+        let file_span = resource.span;
+        let path: PathBuf = resource.try_into()?;
+        let r = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
             span: Some(file_span),
@@ -274,14 +273,14 @@ fn from_avro(
     resource: Resource,
     _is_eager: bool, // ignore, lazy frames are not currently supported
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
-    let file_span = resource.span;
     if resource.cloud_options.is_some() {
-        return Err(cloud_not_supported(PolarsFileType::Avro, file_span));
+        return Err(cloud_not_supported(PolarsFileType::Avro, resource.span));
     }
 
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
-    let r = File::open(file_path).map_err(|e| ShellError::GenericError {
+    let file_span = resource.span;
+    let path: PathBuf = resource.try_into()?;
+    let r = File::open(&path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
         span: Some(file_span),
@@ -317,8 +316,6 @@ fn from_arrow(
     is_eager: bool,
     hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
-    let file_span = resource.span;
     if !is_eager {
         let args = ScanArgsIpc {
             n_rows: None,
@@ -330,7 +327,7 @@ fn from_arrow(
             hive_options,
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_ipc(file_path, args)
+        let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
                 msg: format!("{e:?}"),
@@ -344,7 +341,9 @@ fn from_arrow(
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
-        let r = File::open(file_path).map_err(|e| ShellError::GenericError {
+        let file_span = resource.span;
+        let path: PathBuf = resource.try_into()?;
+        let r = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
             span: Some(file_span),
@@ -380,12 +379,12 @@ fn from_json(
     resource: Resource,
     _is_eager: bool, // ignore = lazy frames not currently supported
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
     let file_span = resource.span;
     if resource.cloud_options.is_some() {
         return Err(cloud_not_supported(PolarsFileType::Json, file_span));
     }
-    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
+    let path: PathBuf = resource.try_into()?;
+    let file = File::open(&path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
         span: Some(file_span),
@@ -426,8 +425,6 @@ fn from_ndjson(
     resource: Resource,
     is_eager: bool,
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
-    let file_span = resource.span;
     let infer_schema: NonZeroUsize = call
         .get_flag("infer-schema")?
         .and_then(NonZeroUsize::new)
@@ -439,7 +436,7 @@ fn from_ndjson(
     if !is_eager {
         let start_time = std::time::Instant::now();
 
-        let df = LazyJsonLineReader::new(file_path)
+        let df = LazyJsonLineReader::new(resource.path)
             .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
             .with_cloud_options(resource.cloud_options.clone())
@@ -457,7 +454,9 @@ fn from_ndjson(
         let df = NuLazyFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
-        let file = File::open(file_path).map_err(|e| ShellError::GenericError {
+        let file_span = resource.span;
+        let path: PathBuf = resource.try_into()?;
+        let file = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
             span: Some(file_span),
@@ -505,8 +504,6 @@ fn from_csv(
     resource: Resource,
     is_eager: bool,
 ) -> Result<Value, ShellError> {
-    let file_path = resource.path;
-    let file_span = resource.span;
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
     let infer_schema: usize = call
@@ -571,6 +568,7 @@ fn from_csv(
 
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
+        let file_span = resource.span;
         let start_time = std::time::Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
@@ -593,7 +591,7 @@ fn from_csv(
                     .with_encoding(CsvEncoding::LossyUtf8)
                     .with_truncate_ragged_lines(truncate_ragged_lines)
             })
-            .try_into_reader_with_file_path(Some(file_path.into()))
+            .try_into_reader_with_file_path(Some(resource.try_into()?))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
