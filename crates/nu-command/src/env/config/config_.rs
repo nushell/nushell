@@ -1,7 +1,8 @@
 use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{PipelineMetadata, shell_error::io::IoError};
 use nu_system::ForegroundChild;
+use nu_utils::ConfigFileKind;
 
 #[cfg(feature = "os")]
 use nu_protocol::process::PostWaitCallback;
@@ -45,7 +46,7 @@ impl Command for ConfigMeta {
 
 #[cfg(not(feature = "os"))]
 pub(super) fn start_editor(
-    _: &'static str,
+    _: ConfigFileKind,
     _: &EngineState,
     _: &mut Stack,
     call: &Call,
@@ -58,7 +59,7 @@ pub(super) fn start_editor(
 
 #[cfg(feature = "os")]
 pub(super) fn start_editor(
-    config_path: &'static str,
+    kind: ConfigFileKind,
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -75,10 +76,11 @@ pub(super) fn start_editor(
             span: call.head,
         })?;
 
-    let Some(config_path) = engine_state.get_config_path(config_path) else {
+    let nu_const_path = kind.nu_const_path();
+    let Some(config_path) = engine_state.get_config_path(nu_const_path) else {
         return Err(ShellError::GenericError {
-            error: format!("Could not find $nu.{config_path}"),
-            msg: format!("Could not find $nu.{config_path}"),
+            error: format!("Could not find $nu.{nu_const_path}"),
+            msg: format!("Could not find $nu.{nu_const_path}"),
             span: None,
             help: None,
             inner: vec![],
@@ -136,5 +138,35 @@ pub(super) fn start_editor(
     Ok(PipelineData::byte_stream(
         ByteStream::child(child, call.head),
         None,
+    ))
+}
+
+pub(super) fn handle_call(
+    kind: ConfigFileKind,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
+    let default_flag = call.has_flag(engine_state, stack, "default")?;
+    let doc_flag = call.has_flag(engine_state, stack, "doc")?;
+
+    Ok(match (default_flag, doc_flag) {
+        (false, false) => {
+            return super::config_::start_editor(kind, engine_state, stack, call);
+        }
+        (true, true) => {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "can't use `--default` at the same time".into(),
+                left_span: call.get_flag_span(stack, "default").expect("has flag"),
+                right_message: "because of `--doc`".into(),
+                right_span: call.get_flag_span(stack, "doc").expect("has flag"),
+            });
+        }
+        (true, false) => kind.default(),
+        (false, true) => kind.doc(),
+    }
+    .into_value(call.head)
+    .into_pipeline_data_with_metadata(
+        PipelineMetadata::default().with_content_type(Some("application/x-nuscript".into())),
     ))
 }
