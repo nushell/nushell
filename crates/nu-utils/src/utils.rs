@@ -136,6 +136,13 @@ impl ConfigFileKind {
             ConfigFileKind::Env => "default_env.nu",
         }
     }
+
+    pub const fn nu_const_path(self) -> &'static str {
+        match self {
+            ConfigFileKind::Config => "config-path",
+            ConfigFileKind::Env => "env-path",
+        }
+    }
 }
 
 impl Display for ConfigFileKind {
