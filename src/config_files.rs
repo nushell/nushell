@@ -21,27 +21,6 @@ use std::{
 
 const LOGINSHELL_FILE: &str = "login.nu";
 
-const fn config_type_path(config_type: ConfigFileKind) -> &'static str {
-    match config_type {
-        ConfigFileKind::Config => "config.nu",
-        ConfigFileKind::Env => "env.nu",
-    }
-}
-
-fn config_type_display(config_type: ConfigFileKind) -> &'static str {
-    match config_type {
-        ConfigFileKind::Config => "Config",
-        ConfigFileKind::Env => "Environment config",
-    }
-}
-
-fn config_type_default_path(config_type: ConfigFileKind) -> &'static str {
-    match config_type {
-        ConfigFileKind::Config => "default_config.nu",
-        ConfigFileKind::Env => "default_env.nu",
-    }
-}
-
 pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -81,7 +60,7 @@ pub(crate) fn read_config_file(
             return;
         }
 
-        config_path.push(config_type_path(config_type));
+        config_path.push(config_type.path());
 
         if !config_path.exists() {
             let scaffold_config_file = config_type.scaffold();
@@ -90,7 +69,7 @@ pub(crate) fn read_config_file(
                 true => {
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_type = config_type_display(config_type);
+                            let config_type = config_type.name();
                             println!(
                                 "{} file created at: {}",
                                 config_type,
@@ -225,7 +204,7 @@ fn eval_default_config(
         engine_state,
         stack,
         config_type.default().as_bytes(),
-        config_type_default_path(config_type),
+        config_type.default_path(),
         PipelineData::empty(),
         false,
     );
