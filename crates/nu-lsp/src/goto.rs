@@ -15,6 +15,11 @@ impl LanguageServer {
         for cached_file in files.into_iter() {
             if cached_file.covered_span.contains(span.start) {
                 let path = Path::new(&*cached_file.name);
+                // skip nu-std files
+                // TODO: maybe find it in vendor directories?
+                if path.is_relative() {
+                    continue;
+                }
                 let target_uri = path_to_uri(path);
                 if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
                     return Some(Location {
