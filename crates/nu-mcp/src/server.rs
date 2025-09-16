@@ -87,7 +87,8 @@ Avoid commands that produce a large amount of output, and consider piping those 
 If you need to run a long lived command, background it - e.g. `uvicorn main:app &` so that
 this tool does not run indefinitely.
 
-Nushell specific commands will return a nushell table. Piping these commands to `to text` will return text and `to json` will return JSON.
+Nushell specific commands will return a nushell table. Piping these commands to `to text` will return text and `to json` will return JSON. 
+In order to find out what columns are available use the `columns` command. For example `ps | columns` will return the columns available from the `ps` command.
 
 If the polars command is available, prefer it for working with parquet, jsonl, ndjson, csv files, and avro files. It is much more efficient than the default Nushell commands or other non-nushell commands. It exposes much of the functionality of the polars dataframe library. The polars command has sub commands for opening and saving these file types via `polars open` and `polars save`, do not use the `open` and `save` command for these file types. When working with polars run all commands within a single pipeline if possible (e.g `polars open file.parquet | polars select name status | polars save file2.parquet`). The command `polars collect` must be run in order to collect the data into a table, otherwise it will return a lazy frame which is not useful for display purposes. When saving output to a file the entire pipeline must be run in one command. `polars collect` is not needed when saving to a file, as the file will be written directly from the lazy frame.
 
