@@ -167,19 +167,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             },
             span,
         )),
-        Expr::Columns(columns) => {
-            let value = columns
-                .iter()
-                .map(|col| Value::string(col.to_string(), span))
-                .collect();
-            Ok(Value::record(
-                record! {
-                    "expr" => Value::string("columns", span),
-                    "value" => Value::list(value, span),
-                },
-                span,
-            ))
-        }
         Expr::Literal(literal) => Ok(Value::record(
             record! {
                 "expr" => Value::string("literal", span),
@@ -217,7 +204,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
                 | AggExpr::Implode(expr)
-                | AggExpr::Count(expr, _)
+                | AggExpr::Count { input: expr, .. }
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr, _)
@@ -248,10 +235,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             record! { "expr" => Value::string("count", span) },
             span,
         )),
-        Expr::Wildcard => Ok(Value::record(
-            record! { "expr" => Value::string("wildcard", span) },
-            span,
-        )),
         Expr::Explode { input: expr, .. } => Ok(Value::record(
             record! { "expr" => expr_to_value(expr.as_ref(), span)? },
             span,
@@ -260,18 +243,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             record! { "expr" => expr_to_value(expr.as_ref(), span)? },
             span,
         )),
-        Expr::Nth(i) => Ok(Value::record(
-            record! { "expr" => Value::int(*i, span) },
-            span,
-        )),
-        Expr::DtypeColumn(dtypes) => {
-            let vals = dtypes
-                .iter()
-                .map(|d| Value::string(format!("{d}"), span))
-                .collect();
-
-            Ok(Value::list(vals, span))
-        }
         Expr::Sort { expr, options } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
@@ -351,20 +322,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             },
             span,
         )),
-        Expr::Exclude(expr, excluded) => {
-            let excluded = excluded
-                .iter()
-                .map(|e| Value::string(format!("{e:?}"), span))
-                .collect();
-
-            Ok(Value::record(
-                record! {
-                    "expr" => expr_to_value(expr.as_ref(), span)?,
-                    "excluded" => Value::list(excluded, span),
-                },
-                span,
-            ))
-        }
         Expr::RenameAlias { expr, .. } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
@@ -374,7 +331,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::AnonymousFunction {
             input,
             function,
-            output_type,
             options,
             fmt_str,
         } => {
@@ -384,7 +340,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 record! {
                     "input" => Value::list(input?, span),
                     "function" => Value::string(format!("{function:?}"), span),
-                    "output_type" => Value::string(format!("{output_type:?}"), span),
                     "options" => Value::string(format!("{options:?}"), span),
                     "fmt_str" => Value::string(format!("{fmt_str:?}"), span),
                 },
@@ -453,12 +408,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg_span: span,
             input_span: Span::unknown(),
         }),
-        Expr::IndexColumn(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type IndexColumn to Nu Value is not yet supported".to_string(),
-            input: format!("Expression is {expr:?}"),
-            msg_span: span,
-            input_span: Span::unknown(),
-        }),
         Expr::Eval { .. } => Err(ShellError::UnsupportedInput {
             msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
@@ -477,6 +426,13 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 span,
             ))
         }
+        Expr::DataTypeFunction(func) => Ok(Value::record(
+            record! {
+                "expr" => Value::string("data_type_function", span),
+                "value" => Value::string(format!("{func:?}"), span),
+            },
+            span,
+        )),
     }
 }
 
