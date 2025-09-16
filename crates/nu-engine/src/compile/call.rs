@@ -42,7 +42,7 @@ pub(crate) fn compile_call(
                 // and will get a const value though, is it really necessary to do that?
                 return builder.load_empty(io_reg);
             }
-            "alias" => {
+            "alias" | "export alias" => {
                 // Alias does nothing
                 return builder.load_empty(io_reg);
             }
