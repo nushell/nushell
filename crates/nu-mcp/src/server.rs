@@ -7,11 +7,17 @@ use indoc::formatdoc;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    debugger::WithoutDebug, engine::{EngineState, Stack, StateWorkingSet}, write_all_and_flush, PipelineData, PipelineExecutionData, Value
+    PipelineData, PipelineExecutionData, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    write_all_and_flush,
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
-    handler::server::tool::{Parameters, ToolRouter},
+    handler::server::{
+        tool::{Parameters, ToolRouter},
+        wrapper::Json,
+    },
     model::{Annotated, CallToolResult, Content, RawContent, ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router,
 };
@@ -44,12 +50,13 @@ impl NushellMcpServer {
     async fn find_command(
         &self,
         Parameters(CommandNameRequest { name: query }): Parameters<CommandNameRequest>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<Json<CallToolResult>, McpError> {
         let cmd = format!(
             "help commands --find {query}| where not ($it.name | str starts-with _) | to json"
         );
         self.eval(&cmd, PipelineData::empty())
             .map(CallToolResult::success)
+            .map(Json)
     }
 
     #[tool(
@@ -98,9 +105,10 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
     async fn evaluate(
         &self,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<Json<CallToolResult>, McpError> {
         self.eval(&input, PipelineData::empty())
             .map(CallToolResult::success)
+            .map(Json)
     }
 
     fn eval(&self, nu_source: &str, input: PipelineData) -> Result<Vec<Content>, McpError> {
