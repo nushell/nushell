@@ -366,7 +366,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(IntoValue {})
+        test_examples(DetectTypes)
     }
 
     #[test]
