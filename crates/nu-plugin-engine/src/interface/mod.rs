@@ -1047,6 +1047,7 @@ impl PluginInterface {
         self.custom_value_op_expecting_value(left, CustomValueOp::Operation(operator, right))
     }
 
+    /// Invoke saving operation on a custom value.
     pub fn custom_value_save(
         &self,
         value: Spanned<PluginCustomValueWithSource>,

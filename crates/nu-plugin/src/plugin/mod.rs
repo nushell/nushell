@@ -206,6 +206,10 @@ pub trait Plugin: Sync {
             .map_err(LabeledError::from)
     }
 
+    /// Implement saving logic for a custom value.
+    ///
+    /// The default implementation of this method just calls [`CustomValue::save`], but
+    /// the method can be implemented differently if accessing plugin state is desirable.
     fn custom_value_save(
         &self,
         engine: &EngineInterface,
