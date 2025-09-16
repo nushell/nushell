@@ -48,9 +48,10 @@ impl Command for ConfigReset {
             return Err(ShellError::ConfigDirNotFound { span: call.head });
         };
         if !only_env {
+            let kind = ConfigFileKind::Config;
             let mut nu_config = config_path.clone();
-            nu_config.push("config.nu");
-            let config_file = ConfigFileKind::Config.scaffold();
+            nu_config.push(kind.path());
+            let config_file = kind.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
@@ -78,9 +79,10 @@ impl Command for ConfigReset {
             }
         }
         if !only_nu {
+            let kind = ConfigFileKind::Env;
             let mut env_config = config_path.clone();
-            env_config.push("env.nu");
-            let config_file = ConfigFileKind::Env.scaffold();
+            env_config.push(kind.path());
+            let config_file = kind.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));

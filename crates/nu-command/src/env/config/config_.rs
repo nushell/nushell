@@ -76,10 +76,11 @@ pub(super) fn start_editor(
             span: call.head,
         })?;
 
-    let Some(config_path) = engine_state.get_config_path(kind.nu_const_path()) else {
+    let nu_const_path = kind.nu_const_path();
+    let Some(config_path) = engine_state.get_config_path(nu_const_path) else {
         return Err(ShellError::GenericError {
-            error: format!("Could not find $nu.{kind}"),
-            msg: format!("Could not find $nu.{kind}"),
+            error: format!("Could not find $nu.{nu_const_path}"),
+            msg: format!("Could not find $nu.{nu_const_path}"),
             span: None,
             help: None,
             inner: vec![],

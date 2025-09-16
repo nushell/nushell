@@ -25,16 +25,14 @@ pub(crate) fn read_config_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     config_file: Option<Spanned<String>>,
-    config_type: ConfigFileKind,
+    config_kind: ConfigFileKind,
     create_scaffold: bool,
 ) {
-    warn!(
-        "read_config_file() config_file_specified: {config_file:?}, config_type: {config_type:?}",
-    );
+    warn!("read_config_file() {config_kind:?} at {config_file:?}",);
 
-    eval_default_config(engine_state, stack, config_type);
+    eval_default_config(engine_state, stack, config_kind);
 
-    warn!("read_config_file() loading_defaults is_env_config: {config_type:?}");
+    warn!("read_config_file() loading default {config_kind:?}");
 
     // Load config startup file
     if let Some(file) = config_file {
@@ -60,19 +58,19 @@ pub(crate) fn read_config_file(
             return;
         }
 
-        config_path.push(config_type.path());
+        config_path.push(config_kind.path());
 
         if !config_path.exists() {
-            let scaffold_config_file = config_type.scaffold();
+            let scaffold_config_file = config_kind.scaffold();
 
             match create_scaffold {
                 true => {
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{scaffold_config_file}").is_ok() {
-                            let config_type = config_type.name();
+                            let config_name = config_kind.name();
                             println!(
                                 "{} file created at: {}",
-                                config_type,
+                                config_name,
                                 config_path.to_string_lossy()
                             );
                         } else {
@@ -197,14 +195,14 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
 fn eval_default_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    config_type: ConfigFileKind,
+    config_kind: ConfigFileKind,
 ) {
-    warn!("eval_default_config() is_env_config: {config_type:?}");
+    warn!("eval_default_config() {config_kind:?}");
     eval_source(
         engine_state,
         stack,
-        config_type.default().as_bytes(),
-        config_type.default_path(),
+        config_kind.default().as_bytes(),
+        config_kind.default_path(),
         PipelineData::empty(),
         false,
     );
