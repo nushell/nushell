@@ -22,7 +22,7 @@ impl Command for IntoValue {
 
     fn extra_description(&self) -> &str {
         "Custom values from plugins have a base value representation. \
-        This extract that base value representation. \
+        This extracts that base value representation. \
         For streams use `collect`."
     }
 
