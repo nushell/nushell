@@ -1,6 +1,5 @@
 mod cache;
 mod columns;
-mod fetch;
 mod open;
 mod profile;
 mod resource;
