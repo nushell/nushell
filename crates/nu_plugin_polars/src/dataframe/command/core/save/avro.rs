@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::path::PathBuf;
 
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
@@ -33,11 +34,10 @@ pub(crate) fn command_eager(
     df: &NuDataFrame,
     resource: Resource,
 ) -> Result<(), ShellError> {
-    let file_path = resource.path;
     let file_span = resource.span;
     let compression = get_compression(call)?;
-
-    let file = File::create(file_path).map_err(|e| ShellError::GenericError {
+    let path: PathBuf = resource.try_into()?;
+    let file = File::create(&path).map_err(|e| ShellError::GenericError {
         error: format!("Error with file name: {e}"),
         msg: "".into(),
         span: Some(file_span),

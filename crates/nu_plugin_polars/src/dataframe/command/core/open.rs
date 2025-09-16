@@ -145,11 +145,18 @@ fn command(
     let spanned_file: Spanned<String> = call.req(0)?;
     debug!("file: {}", spanned_file.item);
 
-    let resource = Resource::new(plugin, engine, &spanned_file)?;
+    let resource = Resource::new(plugin, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
-        .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
+        .or_else(|| {
+            resource
+                .path
+                .as_ref()
+                .extension()
+                .clone()
+                .map(|e| (e.to_string(), resource.span))
+        });
     debug!("resource: {resource:?}");
 
     let is_eager = call.has_flag("eager")?;
@@ -515,7 +522,8 @@ fn from_csv(
     let truncate_ragged_lines: bool = call.has_flag("truncate-ragged-lines")?;
 
     if !is_eager {
-        let csv_reader = LazyCsvReader::new(file_path).with_cloud_options(resource.cloud_options);
+        let csv_reader =
+            LazyCsvReader::new(resource.path).with_cloud_options(resource.cloud_options);
 
         let csv_reader = match delimiter {
             None => match file_type {

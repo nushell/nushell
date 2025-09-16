@@ -2,8 +2,12 @@ use std::path::PathBuf;
 
 use crate::{PolarsPlugin, cloud::build_cloud_options};
 use nu_protocol::{ShellError, Span, Spanned};
-use polars::{io::cloud::CloudOptions, prelude::PlPath};
+use polars::{
+    io::cloud::CloudOptions,
+    prelude::{PlPath, SinkTarget},
+};
 
+#[derive(Clone)]
 pub(crate) struct Resource {
     pub(crate) path: PlPath,
     pub(crate) cloud_options: Option<CloudOptions>,
@@ -70,5 +74,17 @@ impl TryInto<PathBuf> for Resource {
                 inner: vec![],
             })
             .map(|p| (*p).into())
+    }
+}
+
+impl Into<SinkTarget> for Resource {
+    fn into(self) -> SinkTarget {
+        SinkTarget::Path(self.path)
+    }
+}
+
+impl ToString for Resource {
+    fn to_string(&self) -> String {
+        self.path.to_str().to_owned()
     }
 }
