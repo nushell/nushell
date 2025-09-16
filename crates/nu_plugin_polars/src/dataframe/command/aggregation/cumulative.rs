@@ -9,8 +9,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use polars::prelude::{DataType, IntoSeries};
-use polars_ops::prelude::{cum_max, cum_min, cum_sum};
+use polars::prelude::{DataType, IntoSeries, cum_max, cum_min, cum_sum};
 
 enum CumulativeType {
     Min,
