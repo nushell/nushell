@@ -310,7 +310,7 @@ pub(crate) fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -
     Value::record(record, Span::unknown())
 }
 
-fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {
+pub fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {
     match ts_string {
         "ms" => Ok(TimeUnit::Milliseconds),
         "us" | "μs" => Ok(TimeUnit::Microseconds),
