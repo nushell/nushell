@@ -12,4 +12,5 @@ mod sqlite_only_fields {
     pub const SESSION_ID: &str = "session_id";
 }
 
+#[cfg_attr(not(feature = "sqlite"), allow(unused))]
 pub use sqlite_only_fields::*;
