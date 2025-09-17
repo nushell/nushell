@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
-use nu_utils::{get_default_config, get_default_env};
+use nu_utils::ConfigFileKind;
 use std::{
     fmt::Write,
     hint::black_box,
@@ -350,8 +350,9 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
 }
 
 fn bench_eval_default_config() -> impl IntoBenchmarks {
-    let default_env = get_default_config().as_bytes().to_vec();
-    let fname = "default_config.nu".to_string();
+    let kind = ConfigFileKind::Config;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_config",
         fname,
@@ -362,8 +363,9 @@ fn bench_eval_default_config() -> impl IntoBenchmarks {
 }
 
 fn bench_eval_default_env() -> impl IntoBenchmarks {
-    let default_env = get_default_env().as_bytes().to_vec();
-    let fname = "default_env.nu".to_string();
+    let kind = ConfigFileKind::Env;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_env",
         fname,

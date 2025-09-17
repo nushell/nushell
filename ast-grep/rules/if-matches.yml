@@ -4,7 +4,6 @@ id: if-matches
 language: rust
 severity: warning
 message: "Used `matches!` macro as an `if` condition"
-note: "It can be replaced with an `if let` expression"
 
 rule:
   pattern: "matches!($VAL, $$$PAT)"
@@ -12,14 +11,15 @@ rule:
     field: condition
     kind: if_expression
     all:
-      - not:
-          has:
-            field: alternative
-            kind: else_clause
-            has:
-              kind: if_expression
-      - not:
-          inside:
-            kind: else_clause
+      - not: { matches: has-else-if }
+      - not: { inside: { kind: else_clause } }
+
+utils:
+  has-else-if:
+    has:
+      field: alternative
+      kind: else_clause
+      has:
+        kind: if_expression
 
 fix: "let $$$PAT = $VAL"
