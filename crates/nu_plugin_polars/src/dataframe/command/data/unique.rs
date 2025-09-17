@@ -1,9 +1,6 @@
 use crate::{
     PolarsPlugin,
-    dataframe::{
-        utils::{extract_sm_strs, extract_strings},
-        values::NuLazyFrame,
-    },
+    dataframe::{utils::extract_strings, values::NuLazyFrame},
     values::{
         CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
     },
