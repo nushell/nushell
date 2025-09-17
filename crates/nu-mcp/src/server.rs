@@ -77,7 +77,7 @@ This will return the output and error concatenated into a single string, as
 you would see from running on the command line. There will also be an indication
 of if the command succeeded or failed.
 
-Prefer nushell native commands where possible as they work within a nushell pipeline as oppposed to convering the pipeline to text.
+Prefer nushell native commands where possible as they work within a nushell pipeline as oppposed to converting the pipeline to text.
 
 To find a nushell command, use the find_command tool, or list all commands with the list_commands tool.
 
