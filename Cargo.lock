@@ -811,7 +811,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "786a307d683a5bf92e6fd5fd69a7eb613751668d1d8d67d802846dfe367c62c8"
 dependencies = [
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata",
  "serde",
 ]
 
@@ -1953,8 +1953,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf04c5ec15464ace8355a7b440a33aece288993475556d461154d7a62ad9947c"
 dependencies = [
  "bit-set",
- "regex-automata 0.4.9",
- "regex-syntax 0.8.5",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -3338,7 +3338,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61183da5de8ba09a58e330d55e5ea796539d8443bd00fdeb863eac39724aa4ab"
 dependencies = [
  "aho-corasick",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
 ]
 
 [[package]]
@@ -3453,11 +3453,11 @@ dependencies = [
 
 [[package]]
 name = "matchers"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
 dependencies = [
- "regex-automata 0.1.10",
+ "regex-automata",
 ]
 
 [[package]]
@@ -3772,16 +3772,6 @@ dependencies = [
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
-dependencies = [
- "overload",
- "winapi",
-]
-
-[[package]]
-name = "nu-ansi-term"
 version = "0.50.2"
 source = "git+https://github.com/nushell/nu-ansi-term.git?branch=main#654c373775e1d8b70eacd1358b30dd876225483a"
 dependencies = [
@@ -3799,7 +3789,7 @@ dependencies = [
  "log",
  "lscolors",
  "miette",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -3846,7 +3836,7 @@ dependencies = [
  "heck",
  "itertools 0.14.0",
  "mime",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-command",
@@ -3896,7 +3886,7 @@ dependencies = [
 name = "nu-color-config"
 version = "0.107.1"
 dependencies = [
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-engine",
  "nu-json",
  "nu-protocol",
@@ -3948,7 +3938,7 @@ dependencies = [
  "native-tls",
  "nix 0.29.0",
  "notify-debouncer-full",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
  "nu-color-config",
@@ -4065,7 +4055,7 @@ dependencies = [
  "crossterm",
  "log",
  "lscolors",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-json",
@@ -4240,7 +4230,7 @@ dependencies = [
 name = "nu-plugin-test-support"
 version = "0.107.1"
 dependencies = [
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",
@@ -4259,7 +4249,7 @@ name = "nu-pretty-hex"
 version = "0.107.1"
 dependencies = [
  "heapless",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "rand 0.8.5",
 ]
 
@@ -4339,7 +4329,7 @@ name = "nu-table"
 version = "0.107.1"
 dependencies = [
  "fancy-regex",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
  "nu-protocol",
@@ -4924,12 +4914,6 @@ name = "outref"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4030760ffd992bef45b0ae3f10ce1aba99e33464c90d14dd7c039884963ddc7a"
-
-[[package]]
-name = "overload"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "owo-colors"
@@ -5549,7 +5533,7 @@ dependencies = [
  "rand_distr",
  "rayon",
  "regex",
- "regex-syntax 0.8.5",
+ "regex-syntax",
  "serde",
  "serde_json",
  "strum_macros",
@@ -6238,7 +6222,7 @@ dependencies = [
  "crossterm",
  "fd-lock",
  "itertools 0.13.0",
- "nu-ansi-term 0.50.2",
+ "nu-ansi-term",
  "rusqlite",
  "serde",
  "serde_json",
@@ -6278,17 +6262,8 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.9",
- "regex-syntax 0.8.5",
-]
-
-[[package]]
-name = "regex-automata"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
-dependencies = [
- "regex-syntax 0.6.29",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -6299,7 +6274,7 @@ checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-syntax 0.8.5",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -6307,12 +6282,6 @@ name = "regex-lite"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53a49587ad06b26609c52e423de037e7f57f20d53535d66e08c695f347df952a"
-
-[[package]]
-name = "regex-syntax"
-version = "0.6.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "regex-syntax"
@@ -7883,14 +7852,14 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.19"
+version = "0.3.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8189decb5ac0fa7bc8b96b7cb9b2701d60d48805aca84a238004d665fcc4008"
+checksum = "2054a14f5307d601f88daf0553e1cbf472acc4f2c51afab632431cdcd72124d5"
 dependencies = [
  "matchers",
- "nu-ansi-term 0.46.0",
+ "nu-ansi-term",
  "once_cell",
- "regex",
+ "regex-automata",
  "sharded-slab",
  "smallvec",
  "thread_local",
