@@ -108,7 +108,7 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     parse_binary(working_set, span);
     // We need an additional negate match to check if the last error was unexpected
     // or more specifically, if it was `ParseError::InvalidBinaryString`.
-    // If so, we supress the error and stop parsing to the next (which is `parse_range()`).
+    // If so, we suppress the error and stop parsing to the next (which is `parse_range()`).
     if working_set.parse_errors.len() == starting_error_count {
         return true;
     } else if !matches!(
