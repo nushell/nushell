@@ -97,7 +97,7 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
+    use crate::tests::{initialize_language_server, open, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
     use lsp_types::{
@@ -204,5 +204,40 @@ mod tests {
                 serde_json::json!({ "line": line, "character": character })
             );
         }
+    }
+
+    #[rstest]
+    // https://github.com/nushell/nushell/issues/16539
+    fn goto_definition_in_new_file() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp/no_such_file.nu");
+        let script = path_to_uri(&script);
+
+        let file_content = r#"def foo [] {}; foo"#;
+        let _ = open(
+            &client_connection,
+            script.clone(),
+            Some(file_content.into()),
+        );
+        let resp = send_goto_definition_request(
+            &client_connection,
+            script.clone(),
+            0,
+            file_content.len() as u32 - 1,
+        );
+        let result = result_from_message(resp);
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script,
+                "range": {
+                    "start": { "line": 0, "character": 11 },
+                    "end": { "line": 0, "character": 13 }
+                }
+            })
+        );
     }
 }
