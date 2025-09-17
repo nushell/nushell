@@ -16,7 +16,7 @@ impl LanguageServer {
             if cached_file.covered_span.contains(span.start) {
                 let path = Path::new(&*cached_file.name);
                 // skip nu-std files
-                // TODO: maybe find it in vendor directories?
+                // TODO: maybe find them in vendor directories?
                 if path.is_relative() {
                     continue;
                 }
@@ -151,7 +151,7 @@ mod tests {
         let script = path_to_uri(&none_existent_path);
         let resp = send_goto_definition_request(&client_connection, script, 0, 0);
 
-        assert_json_eq!(result_from_message(resp), serde_json::json!(null));
+        assert_json_eq!(result_from_message(resp), serde_json::Value::Null);
     }
 
     #[rstest]
@@ -211,7 +211,7 @@ mod tests {
         }
     }
 
-    #[rstest]
+    #[test]
     // https://github.com/nushell/nushell/issues/16539
     fn goto_definition_in_new_file() {
         let (client_connection, _recv) = initialize_language_server(None, None);
@@ -244,5 +244,20 @@ mod tests {
                 }
             })
         );
+    }
+
+    #[test]
+    fn goto_definition_on_stdlib_should_not_panic() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp/goto/use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_goto_definition_request(&client_connection, script, 7, 19);
+        let result = result_from_message(resp);
+
+        assert_json_eq!(result, serde_json::Value::Null);
     }
 }
