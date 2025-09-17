@@ -194,10 +194,9 @@ fn compile_pipeline(
             out_reg,
         )?;
 
-        // only clean up the redirection if current element is not
-        // a subexpression.  The subexpression itself already clean it.
-        // Ditto for call with blocks or closures.
-        if !is_subexpression(&element.expr.expr) && !is_block_call(&element.expr.expr) {
+        // Only clean up the redirection if current element is NOT
+        // a nested eval expression, since this already cleans it.
+        if !has_nested_eval_expr(&element.expr.expr) {
             // Clean up the redirection
             finish_redirection(builder, redirect_modes, out_reg)?;
         }
@@ -206,6 +205,10 @@ fn compile_pipeline(
         in_reg = Some(out_reg);
     }
     Ok(())
+}
+
+fn has_nested_eval_expr(expr: &Expr) -> bool {
+    is_subexpression(expr) || is_block_call(expr)
 }
 
 fn is_block_call(expr: &Expr) -> bool {
