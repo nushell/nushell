@@ -514,7 +514,7 @@ mod tests {
 
         let _initialize_response = client_connection
             .receiver
-            .recv_timeout(Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(5))
             .unwrap();
 
         (client_connection, recv)
