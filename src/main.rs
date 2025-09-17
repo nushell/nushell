@@ -103,7 +103,7 @@ fn main() -> Result<()> {
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state);
 
-    #[cfg(feature = "rustls-tls")]
+    #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
