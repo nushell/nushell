@@ -130,7 +130,8 @@ fn command_lazy(
     let cols = call.rest::<String>(0)?;
 
     let polars = df.to_polars();
-    let result: NuLazyFrame = polars.unnest(cols).into();
+    // todo - allow selectors to be passed in here
+    let result: NuLazyFrame = polars.unnest(polars::prelude::cols(cols)).into();
     result.to_pipeline_data(plugin, engine, call.head)
 }
 
