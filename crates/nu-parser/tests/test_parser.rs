@@ -499,9 +499,13 @@ pub fn parse_binary_with_invalid_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[90]", true);
+    let block = parse(&mut working_set, None, b"0o[90]", true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
@@ -519,7 +523,11 @@ pub fn parse_binary_with_multi_byte_char() {
     let contents = b"0x[\xEF\xBF\xBD]";
     let block = parse(&mut working_set, None, contents, true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
