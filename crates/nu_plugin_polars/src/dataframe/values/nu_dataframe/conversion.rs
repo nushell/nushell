@@ -1172,7 +1172,7 @@ fn series_to_values(
                 inner: vec![],
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.into_physical().into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1198,7 +1198,7 @@ fn series_to_values(
                 inner: vec![],
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.into_physical().into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1225,7 +1225,7 @@ fn series_to_values(
                 inner: vec![],
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.into_physical().into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
