@@ -538,9 +538,90 @@ fn file_redirection_where_closure() {
     Playground::setup("file redirection where closure", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            format!("echo ha ba | where {{|x| $x | str contains 'h'}} out> result.txt")
+            format!("echo foo bar | where {{|x| $x | str contains 'f'}} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("ha"));
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("foo"));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_match_block() {
+    Playground::setup("file redirection match block", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("match 3 {{ 1 => 'foo', 3 => 'bar' }} out> result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("bar"));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_pattern_match_block() {
+    Playground::setup("file redirection pattern match block", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("let foo = {{ name: 'bar' }}; match $foo {{ {{ name: 'bar' }} => 'baz' }} out> result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("baz"));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_each_block() {
+    Playground::setup("file redirection each block", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("[1 2 3] | each {{ $in + 1 }} out> result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("2\n3\n4"));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_do_block_with_return() {
+    Playground::setup("file redirection do block with return", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("do {{|x| return ($x + 1); return $x}} 4 out> result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("5"));
+    })
+}
+
+#[rstest::rstest]
+#[ignore]
+// TODO: What result is actually expected here - why the discrepancy to `for` behaviour?
+fn file_redirection_while_block() {
+    Playground::setup("file redirection on while", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("mut x = 0; while $x < 3 {{ $x = $x + 1; echo $x }} o> result.txt")
+        );
+        assert!(!actual.status.success());
+        assert!(
+            actual.err.contains("Redirection can not be used with with"),
+            "Should fail"
+        );
+        // assert!(file_contents(dirs.test().join("result.txt")).trim() == ("1\n2\n3"));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_not_allowed_on_for() {
+    Playground::setup("file redirection disallowed on for", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("for $it in [1 2 3] {{ echo $in + 1 }} out> result.txt")
+        );
+        assert!(!actual.status.success());
+        assert!(
+            actual.err.contains("Redirection can not be used with for"),
+            "Should fail"
+        );
     })
 }
