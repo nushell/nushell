@@ -476,7 +476,7 @@ fn pipe_redirection_in_let_and_mut(
 
 #[rstest::rstest]
 #[case("o>", "bar")]
-#[case("e>", "")]
+#[case("e>", "baz")]
 #[case("o+e>", "bar\nbaz")] // in subexpression, the stderr is go to the terminal
 fn subexpression_redirection(#[case] redir: &str, #[case] stdout_file_body: &str) {
     Playground::setup("file redirection with subexpression", |dirs, _| {
@@ -485,13 +485,13 @@ fn subexpression_redirection(#[case] redir: &str, #[case] stdout_file_body: &str
             format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; (nu --testbin echo_env_mixed out-err BAR BAZ) {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
     })
 }
 
 #[rstest::rstest]
 #[case("o>", "bar")]
-#[case("e>", "")]
+#[case("e>", "baz")]
 #[case("o+e>", "bar\nbaz")]
 fn file_redirection_in_if_true(#[case] redir: &str, #[case] stdout_file_body: &str) {
     Playground::setup("file redirection if true block", |dirs, _| {
@@ -500,7 +500,7 @@ fn file_redirection_in_if_true(#[case] redir: &str, #[case] stdout_file_body: &s
           format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; if true {{ nu --testbin echo_env_mixed out-err BAR BAZ }} {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
     })
 }
 
@@ -514,13 +514,13 @@ fn file_redirection_in_if_else(#[case] cond: bool, #[case] stdout_file_body: &st
             format!("if {cond} {{ echo 'hey' }} else {{ echo 'ho' }} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
     })
 }
 
 #[rstest::rstest]
 #[case("o>", "bar")]
-#[case("e>", "")]
+#[case("e>", "baz")]
 #[case("o+e>", "bar\nbaz")]
 fn file_redirection_in_try_catch(#[case] redir: &str, #[case] stdout_file_body: &str) {
     Playground::setup("file redirection try-catch block", |dirs, _| {
@@ -529,6 +529,18 @@ fn file_redirection_in_try_catch(#[case] redir: &str, #[case] stdout_file_body: 
             format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; try {{ 1/0 }} catch {{ nu --testbin echo_env_mixed out-err BAR BAZ }} {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).contains(stdout_file_body));
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
+    })
+}
+
+#[rstest::rstest]
+fn file_redirection_where_closure() {
+    Playground::setup("file redirection where closure", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            format!("echo ha ba | where {{|x| $x | str contains 'h'}} out> result.txt")
+        );
+        assert!(actual.status.success());
+        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("ha"));
     })
 }
