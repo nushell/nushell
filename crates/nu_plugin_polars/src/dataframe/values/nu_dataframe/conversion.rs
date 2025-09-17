@@ -1311,13 +1311,11 @@ fn series_to_values(
                 })?;
             series_to_values(&casted, maybe_from_row, maybe_size, span)
         }
-        DataType::Categorical(maybe_rev_mapping, _categorical_ordering)
-        | DataType::Enum(maybe_rev_mapping, _categorical_ordering) => {
-            if let Some(rev_mapping) = maybe_rev_mapping {
-                Ok(utf8_view_array_to_value(rev_mapping.get_categories()))
-            } else {
-                Ok(vec![])
-            }
+        DataType::Categorical(categories, _categorical_ordering) => {
+            Ok(utf8_view_array_to_value(categories.freeze().categories()))
+        }
+        DataType::Enum(frozen_categories, _categorical_ordering) => {
+            Ok(utf8_view_array_to_value(frozen_categories.categories()))
         }
         e => Err(ShellError::GenericError {
             error: "Error creating Dataframe".into(),
