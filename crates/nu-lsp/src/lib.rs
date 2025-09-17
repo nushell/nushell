@@ -2,8 +2,8 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    InlayHint, OneOf, Position, Range, ReferencesOptions, RenameOptions, SemanticToken,
-    SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
+    InlayHint, MessageType, OneOf, Position, Range, ReferencesOptions, RenameOptions,
+    SemanticToken, SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelpOptions,
     TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
@@ -291,6 +291,10 @@ impl LanguageServer {
     pub(crate) fn cancel_background_thread(&mut self) {
         if let Some((sender, _)) = &self.channels {
             sender.send(true).ok();
+            let _ = self.send_log_message(
+                MessageType::WARNING,
+                "Workspace-wide search took too long!".into(),
+            );
         }
     }
 

@@ -544,6 +544,7 @@ mod tests {
     use crate::tests::{initialize_language_server, open, open_unchecked, send_hover_request};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
+    use lsp_types::notification::{LogMessage, Notification, Progress};
     use lsp_types::{
         DocumentHighlightParams, InitializeParams, PartialResultParams, Position, ReferenceContext,
         ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
@@ -832,7 +833,7 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
                     let result = r.result.unwrap();
@@ -921,7 +922,7 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
                     assert_json_eq!(r.result, expected_prepare)
@@ -979,7 +980,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 3;
+        let message_num = 4;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
@@ -1000,7 +1001,16 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => {
+                    if n.method == LogMessage::METHOD {
+                        assert_eq!(
+                            n.params.pointer("/message").unwrap().to_string(),
+                            "\"Workspace-wide search took too long!\""
+                        )
+                    } else {
+                        assert_eq!(n.method, Progress::METHOD)
+                    };
+                }
                 // the response of the preempting hover request
                 Message::Response(r) => {
                     has_response = true;

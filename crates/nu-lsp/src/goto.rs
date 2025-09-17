@@ -18,6 +18,12 @@ impl LanguageServer {
                 // skip nu-std files
                 // TODO: maybe find them in vendor directories?
                 if path.is_relative() {
+                    let _ = self.send_log_message(
+                        lsp_types::MessageType::WARNING,
+                        format!(
+                            "Location found in file {path:?}, but absolute path is expected. Skipping..."
+                        ),
+                    );
                     continue;
                 }
                 let target_uri = path_to_uri(path);
@@ -104,7 +110,7 @@ mod tests {
     use crate::path_to_uri;
     use crate::tests::{initialize_language_server, open, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
-    use lsp_server::{Connection, Message};
+    use lsp_server::{Connection, Message, Notification};
     use lsp_types::{
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
@@ -256,8 +262,17 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
         let resp = send_goto_definition_request(&client_connection, script, 7, 19);
-        let result = result_from_message(resp);
-
-        assert_json_eq!(result, serde_json::Value::Null);
+        match resp {
+            Message::Notification(Notification { params, .. }) => {
+                assert!(
+                    params
+                        .pointer("/message")
+                        .unwrap()
+                        .to_string()
+                        .contains("absolute path is expected")
+                );
+            }
+            _ => panic!("Unexpected message!"),
+        }
     }
 }
