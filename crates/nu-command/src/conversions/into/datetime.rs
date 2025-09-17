@@ -438,8 +438,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     }
                                     None => Value::error(
                                         ShellError::DatetimeParseError {
-                                            msg: input
-                                                .to_abbreviated_string(&nu_protocol::Config::default()),
+                                            msg: input.to_abbreviated_string(
+                                                &nu_protocol::Config::default(),
+                                            ),
                                             span: *span,
                                         },
                                         *span,
@@ -451,8 +452,9 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     }
                                     None => Value::error(
                                         ShellError::DatetimeParseError {
-                                            msg: input
-                                                .to_abbreviated_string(&nu_protocol::Config::default()),
+                                            msg: input.to_abbreviated_string(
+                                                &nu_protocol::Config::default(),
+                                            ),
                                             span: *span,
                                         },
                                         *span,
