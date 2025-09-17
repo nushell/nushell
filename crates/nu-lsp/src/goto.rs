@@ -200,18 +200,15 @@ mod tests {
         if let Some(name) = expected_file {
             target_uri = target_uri.replace(filename, name);
         }
-        assert_json_eq!(
-            result.pointer("/uri").unwrap(),
-            serde_json::json!(target_uri)
-        );
+        assert_json_eq!(result["uri"], serde_json::json!(target_uri));
         let (line, character) = expected_start;
         assert_json_eq!(
-            result.pointer("/range/start").unwrap(),
+            result["range"]["start"],
             serde_json::json!({ "line": line, "character": character })
         );
         if let Some((line, character)) = expected_end {
             assert_json_eq!(
-                result.pointer("/range/end").unwrap(),
+                result["range"]["end"],
                 serde_json::json!({ "line": line, "character": character })
             );
         }
@@ -265,9 +262,7 @@ mod tests {
         match resp {
             Message::Notification(Notification { params, .. }) => {
                 assert!(
-                    params
-                        .pointer("/message")
-                        .unwrap()
+                    params["message"]
                         .to_string()
                         .contains("absolute path is expected")
                 );

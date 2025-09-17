@@ -1003,10 +1003,7 @@ mod tests {
             match message {
                 Message::Notification(n) => {
                     if n.method == LogMessage::METHOD {
-                        assert_eq!(
-                            n.params.pointer("/message").unwrap().to_string(),
-                            "\"Workspace-wide search took too long!\""
-                        )
+                        assert_json_eq!(n.params["message"], "Workspace-wide search took too long!")
                     } else {
                         assert_eq!(n.method, Progress::METHOD)
                     };
