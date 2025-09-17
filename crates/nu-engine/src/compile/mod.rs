@@ -210,10 +210,10 @@ fn compile_pipeline(
 
 fn is_block_call(expr: &Expr) -> bool {
     match expr {
-        Expr::Call(inner) => inner.arguments.iter().any(|arg| {
-            matches!(arg.expr().map(|e| &e.expr), Some(Expr::Block(..)))
-                || matches!(arg.expr().map(|e| &e.expr), Some(Expr::Closure(..)))
-        }),
+        Expr::Call(inner) => inner
+            .arguments
+            .iter()
+            .any(|arg| matches!(arg.expr().map(|e| &e.expr), Some(Expr::Block(..)))),
         _ => false,
     }
 }
