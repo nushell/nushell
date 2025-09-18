@@ -19,7 +19,7 @@ pub(crate) fn command_lazy(
     resource: Resource,
 ) -> Result<(), ShellError> {
     let file_span = resource.span;
-    let file_path = resource.to_string();
+    let file_path = resource.as_string();
     debug!("Writing csv file {file_path}");
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let separator = delimiter

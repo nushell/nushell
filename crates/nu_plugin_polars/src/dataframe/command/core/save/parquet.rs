@@ -17,7 +17,7 @@ pub(crate) fn command_lazy(
     lazy: &NuLazyFrame,
     resource: Resource,
 ) -> Result<(), ShellError> {
-    let file_path = resource.to_string();
+    let file_path = resource.as_string();
     let file_span = resource.span;
     debug!("Writing parquet file {file_path}");
 

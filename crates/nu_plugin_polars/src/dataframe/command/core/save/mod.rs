@@ -152,7 +152,6 @@ fn command(
                 .path
                 .as_ref()
                 .extension()
-                .clone()
                 .map(|ext| (ext.to_owned(), resource.span))
         });
     debug!("resource: {resource:?}");
@@ -229,7 +228,7 @@ fn command(
         None => Err(ShellError::Io(IoError::new_with_additional_context(
             shell_error::io::ErrorKind::FileNotFound,
             resource.span,
-            Some(PathBuf::from(resource.to_string())),
+            Some(PathBuf::from(resource.as_string())),
             "File without extension",
         ))),
     }?;

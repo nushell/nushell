@@ -94,14 +94,14 @@ fn command(
 
     let base: Expr = call
         .opt(0)?
-        .map(|ref v| NuExpression::try_from_value(plugin, &v))
+        .map(|ref v| NuExpression::try_from_value(plugin, v))
         .transpose()?
         .map(|e| e.into_polars())
         .unwrap_or(lit(10));
 
     let dtype: Option<DataType> = call
         .opt(1)?
-        .map(|ref v| NuDataType::try_from_value(plugin, &v))
+        .map(|ref v| NuDataType::try_from_value(plugin, v))
         .transpose()?
         .map(|dt| dt.to_polars());
 

@@ -58,6 +58,10 @@ impl Resource {
             span: spanned_path.span,
         })
     }
+
+    pub fn as_string(&self) -> String {
+        self.path.to_str().to_owned()
+    }
 }
 impl TryInto<PathBuf> for Resource {
     type Error = ShellError;
@@ -77,14 +81,8 @@ impl TryInto<PathBuf> for Resource {
     }
 }
 
-impl Into<SinkTarget> for Resource {
-    fn into(self) -> SinkTarget {
-        SinkTarget::Path(self.path)
-    }
-}
-
-impl ToString for Resource {
-    fn to_string(&self) -> String {
-        self.path.to_str().to_owned()
+impl From<Resource> for SinkTarget {
+    fn from(r: Resource) -> SinkTarget {
+        SinkTarget::Path(r.path)
     }
 }

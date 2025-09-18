@@ -154,7 +154,6 @@ fn command(
                 .path
                 .as_ref()
                 .extension()
-                .clone()
                 .map(|e| (e.to_string(), resource.span))
         });
     debug!("resource: {resource:?}");

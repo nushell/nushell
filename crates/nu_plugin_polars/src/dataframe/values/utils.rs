@@ -1,5 +1,4 @@
 use nu_protocol::{ShellError, Span, Spanned, Value};
-use polars::prelude::PlSmallStr;
 
 // Default value used when selecting rows from dataframe
 pub const DEFAULT_ROWS: usize = 5;
