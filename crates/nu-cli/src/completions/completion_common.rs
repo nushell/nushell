@@ -176,6 +176,7 @@ pub fn surround_remove(partial: &str) -> String {
     partial.to_string()
 }
 
+#[derive(Debug)]
 pub struct FileSuggestion {
     pub span: nu_protocol::Span,
     pub path: String,

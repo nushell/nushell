@@ -551,12 +551,19 @@ impl NuCompleter {
 
         // if no suggestions yet, fallback to file completion
         if suggestions.is_empty() {
-            let (new_span, prefix) = strip_placeholder_with_rsplit(
-                working_set,
-                &element_expression.span,
-                |c| *c == b' ',
-                strip,
-            );
+            let span_contents = working_set.get_span_contents(element_expression.span);
+            let mut span_contents =
+                str::from_utf8(span_contents).expect("span to shell input is utf8");
+            if !span_contents.is_empty() {
+                span_contents = &span_contents[..span_contents.len() - 1];
+            }
+            let groups = nu_utils::split_quote_groups(span_contents);
+            let prefix = groups.last().expect("never empty").as_bytes();
+            let prefix_offset = prefix.as_ptr() as usize - span_contents.as_ptr() as usize;
+            let new_span = Span {
+                start: element_expression.span.start + prefix_offset,
+                end: element_expression.span.end,
+            };
             let ctx = Context::new(working_set, new_span, prefix, offset);
             suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
         }
