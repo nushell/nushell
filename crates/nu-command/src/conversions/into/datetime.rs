@@ -423,8 +423,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let parse_as_string = |val: &str| {
         match dateformat {
             Some(dt_format) => {
-                // Handle custom %K format specifier for compact timestamp
-                let format_str = dt_format.item.0.replace("%K", "%Y%m%d_%H%M%S");
+                // Handle custom format specifiers for compact formats
+                let format_str = dt_format.item.0
+                    .replace("%J", "%Y%m%d")     // %J for joined date (YYYYMMDD)
+                    .replace("%Q", "%H%M%S");    // %Q for sequential time (HHMMSS)
                 match DateTime::parse_from_str(val, &format_str) {
                     Ok(dt) => match timezone {
                         None => Value::date(dt, head),
