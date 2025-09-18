@@ -50,12 +50,10 @@ pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
             // we clean them to compare more exactly with read_dir result.
             s.value
                 .as_str()
-                .trim_end_matches('`')
-                .trim_end_matches('/')
-                .trim_end_matches('\\')
-                .trim_start_matches('`')
-                .trim_start_matches("~/")
-                .trim_start_matches("~\\")
+                .trim_start_matches("~")
+                .trim_matches('`')
+                .trim_matches('/')
+                .trim_matches('\\')
         })
         .collect();
     pure_suggestions.sort();
@@ -499,11 +497,14 @@ fn dotnu_completions() {
 
     match_suggestions(
         &vec![
-            "mod.nu",
             #[cfg(windows)]
-            "sub module\\`",
+            ".\\dir_module\\mod.nu",
+            #[cfg(windows)]
+            "`.\\dir_module\\sub module\\`",
             #[cfg(not(windows))]
-            "sub module/`",
+            "./dir_module/mod.nu",
+            #[cfg(not(windows))]
+            "`./dir_module/sub module/`",
         ],
         &suggestions,
     );
@@ -515,7 +516,7 @@ fn dotnu_completions() {
     let completion_str = "use `./dir_module/sub module/`";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
-    match_suggestions(&vec!["sub.nu`"], &suggestions);
+    match_suggestions(&vec!["`./dir_module/sub module/sub.nu`"], &suggestions);
 
     let mut expected = vec![
         "asdf.nu",
@@ -592,19 +593,19 @@ fn dotnu_stdlib_completions() {
     // `export  use` should be recognized as command `export use`
     let completion_str = "export  use std/ass";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["assert"], &suggestions);
+    match_suggestions(&vec!["std/assert"], &suggestions);
 
     let completion_str = "use `std-rfc/cli";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["clip"], &suggestions);
+    match_suggestions(&vec!["`std-rfc/clip"], &suggestions);
 
     let completion_str = "use \"std";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["\"std", "\"std-rfc"], &suggestions);
 
-    let completion_str = "overlay use \'std-rfc/cli";
+    let completion_str = "overlay use 'std-rfc/cli";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["clip"], &suggestions);
+    match_suggestions(&vec!["'std-rfc/clip"], &suggestions);
 }
 
 #[test]
@@ -668,11 +669,11 @@ fn dotnu_completions_const_nu_lib_dirs() {
     {
         let completion_str = "use .\\asdf";
         let suggestions = completer.complete(completion_str, completion_str.len());
-        assert!(suggestions.is_empty());
+        match_suggestions(&vec![".\\asdf.nu"], &suggestions);
     }
     let completion_str = "use ./asdf";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    assert!(suggestions.is_empty());
+    match_suggestions(&vec!["./asdf.nu"], &suggestions);
 }
 
 #[test]

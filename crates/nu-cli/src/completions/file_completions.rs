@@ -4,12 +4,12 @@ use crate::completions::{
 };
 use nu_protocol::{
     Span,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{SemanticSuggestion, SuggestionKind, completion_common::FileSuggestion};
+use super::{SemanticSuggestion, SuggestionKind};
 
 pub struct FileCompletion;
 
@@ -83,15 +83,4 @@ impl Completer for FileCompletion {
 
         non_hidden
     }
-}
-
-pub fn file_path_completion(
-    span: nu_protocol::Span,
-    partial: &str,
-    cwds: &[impl AsRef<str>],
-    options: &CompletionOptions,
-    engine_state: &EngineState,
-    stack: &Stack,
-) -> Vec<FileSuggestion> {
-    complete_item(false, span, partial, cwds, options, engine_state, stack)
 }

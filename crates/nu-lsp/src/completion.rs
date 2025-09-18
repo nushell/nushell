@@ -388,11 +388,11 @@ mod tests {
     ]))]
     #[case::use_clip("use.nu", (5, 22), None, serde_json::json!([
         {
-            "label": "clip",
+            "label": "std-rfc/clip",
             "labelDetails": { "description": "module" },
             "textEdit": {
-                "newText": "clip",
-                "range": { "start": { "character": 19, "line": 5 }, "end": { "character": 23, "line": 5 } }
+                "newText": "std-rfc/clip",
+                "range": { "start": { "character": 11, "line": 5 }, "end": { "character": 23, "line": 5 } }
             },
             "kind": 9
         }
