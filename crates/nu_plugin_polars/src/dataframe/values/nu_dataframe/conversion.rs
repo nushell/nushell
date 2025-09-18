@@ -1164,15 +1164,19 @@ fn series_to_values(
             }
         }
         DataType::Date => {
-            let casted = series.date().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to date".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .date()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to date".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
-            let it = casted.into_physical().into_iter();
+            let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1190,15 +1194,19 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Datetime(time_unit, tz) => {
-            let casted = series.datetime().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to datetime".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .datetime()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to datetime".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
-            let it = casted.into_physical().into_iter();
+            let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1217,15 +1225,19 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Duration(time_unit) => {
-            let casted = series.duration().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to duration".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .duration()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to duration".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
-            let it = casted.into_physical().into_iter();
+            let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
