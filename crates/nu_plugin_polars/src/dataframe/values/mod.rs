@@ -21,7 +21,7 @@ use uuid::Uuid;
 pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_dtype::NuDataType;
-pub use nu_dtype::{datatype_list, str_to_dtype};
+pub use nu_dtype::{datatype_list, str_to_dtype, str_to_time_unit};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};

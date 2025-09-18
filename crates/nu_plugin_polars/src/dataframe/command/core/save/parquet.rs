@@ -1,13 +1,12 @@
-use std::fs::File;
+use std::{fs::File, path::PathBuf};
 
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{ParquetWriter, SinkOptions};
-use polars_io::parquet::write::ParquetWriteOptions;
+use polars::prelude::{ParquetWriteOptions, ParquetWriter, SinkOptions};
 
 use crate::{
-    command::core::{resource::Resource, save::sink_target_from_string},
+    command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 
@@ -18,13 +17,13 @@ pub(crate) fn command_lazy(
     lazy: &NuLazyFrame,
     resource: Resource,
 ) -> Result<(), ShellError> {
-    let file_path = sink_target_from_string(resource.path.clone());
+    let file_path = resource.as_string();
     let file_span = resource.span;
-    debug!("Writing parquet file {}", resource.path);
+    debug!("Writing parquet file {file_path}");
 
     lazy.to_polars()
         .sink_parquet(
-            file_path,
+            resource.clone().into(),
             ParquetWriteOptions::default(),
             resource.cloud_options,
             SinkOptions::default(),
@@ -32,13 +31,13 @@ pub(crate) fn command_lazy(
         .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
         .map(|_| {
-            debug!("Wrote parquet file {}", resource.path);
+            debug!("Wrote parquet file {file_path}");
         })
 }
 
 pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), ShellError> {
-    let file_path = resource.path;
     let file_span = resource.span;
+    let file_path: PathBuf = resource.try_into()?;
     let file = File::create(file_path).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
         msg: e.to_string(),
