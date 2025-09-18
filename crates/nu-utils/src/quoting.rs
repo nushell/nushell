@@ -48,18 +48,18 @@ enum State {
 }
 
 /// Splits a string into groups separated by whitespace, but keeps text inside quotes together.
-/// 
+///
 /// Supports `'`, `"`, and `` ` `` as quotes. Backslashes escape quotes (except inside backticks),
 /// and escaped characters are treated as part of the group.
-/// 
+///
 /// Example:
 /// ```rust
 /// assert_eq!(
-///     split_quote_groups("foo 'bar baz' qux"),
+///     nu_utils::split_quote_groups("foo 'bar baz' qux"),
 ///     vec!["foo", "'bar baz'", "qux"]
 /// );
 /// ```
-/// 
+///
 /// This function does not remove the quotes. It just groups the input so the caller can
 /// decide what to do with them later.
 pub fn split_quote_groups(input: &str) -> Vec<&str> {
