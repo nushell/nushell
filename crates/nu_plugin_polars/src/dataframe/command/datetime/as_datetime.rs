@@ -293,10 +293,16 @@ fn command(
 
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(
-            plugin, engine, call, lazy, options, ambiguous, time_unit, time_zone,
+            plugin,
+            engine,
+            call,
+            LazyParams::new(lazy, options, ambiguous, time_unit, time_zone),
         ),
         PolarsPluginObject::NuDataFrame(df) => command_eager(
-            plugin, engine, call, df, options, tz_aware, time_unit, time_zone,
+            plugin,
+            engine,
+            call,
+            EagerParams::new(df, options, tz_aware, time_unit, time_zone),
         ),
         PolarsPluginObject::NuExpression(expr) => {
             let res: NuExpression = expr
@@ -324,15 +330,43 @@ fn command(
     }
 }
 
-fn command_lazy(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
+struct LazyParams {
     lazy: NuLazyFrame,
     options: StrptimeOptions,
     ambiguous: String,
     time_unit: Option<TimeUnit>,
     time_zone: Option<TimeZone>,
+}
+
+impl LazyParams {
+    fn new(
+        lazy: NuLazyFrame,
+        options: StrptimeOptions,
+        ambiguous: String,
+        time_unit: Option<TimeUnit>,
+        time_zone: Option<TimeZone>,
+    ) -> Self {
+        Self {
+            lazy,
+            options,
+            ambiguous,
+            time_unit,
+            time_zone,
+        }
+    }
+}
+
+fn command_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    LazyParams {
+        lazy,
+        options,
+        ambiguous,
+        time_unit,
+        time_zone,
+    }: LazyParams,
 ) -> Result<PipelineData, ShellError> {
     NuLazyFrame::new(
         false,
@@ -348,15 +382,43 @@ fn command_lazy(
     .to_pipeline_data(plugin, engine, call.head)
 }
 
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
+struct EagerParams {
     df: NuDataFrame,
     options: StrptimeOptions,
     tz_aware: bool,
     time_unit: Option<TimeUnit>,
     time_zone: Option<TimeZone>,
+}
+
+impl EagerParams {
+    fn new(
+        df: NuDataFrame,
+        options: StrptimeOptions,
+        tz_aware: bool,
+        time_unit: Option<TimeUnit>,
+        time_zone: Option<TimeZone>,
+    ) -> Self {
+        Self {
+            df,
+            options,
+            tz_aware,
+            time_unit,
+            time_zone,
+        }
+    }
+}
+
+fn command_eager(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    EagerParams {
+        df,
+        options,
+        tz_aware,
+        time_unit,
+        time_zone,
+    }: EagerParams,
 ) -> Result<PipelineData, ShellError> {
     let format = if let Some(format) = options.format {
         format.to_string()
