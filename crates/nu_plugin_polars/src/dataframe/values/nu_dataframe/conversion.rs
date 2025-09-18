@@ -10,12 +10,12 @@ use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
-    ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
-    Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
-    NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type,
-    UInt64Type,
+    CatSize, ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked,
+    Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries,
+    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder,
+    ListStringChunkedBuilder, ListType, LogicalType, NamedFrom, NewChunkedArray, ObjectType,
+    PolarsError, Schema, SchemaExt, Series, StructChunked, TemporalMethods, TimeUnit,
+    TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -1391,39 +1391,31 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
-        AnyValue::Categorical(_, rev_mapping, utf8_array_pointer)
-        | AnyValue::Enum(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
-                utf8_view_array_to_value(rev_mapping.get_categories())
-            } else {
-                // This is no good way around having an unsafe block here
-                // as polars is using a raw pointer to the utf8 array
-                unsafe {
-                    utf8_array_pointer
-                        .get()
-                        .as_ref()
-                        .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
-                }
-            };
-            Ok(Value::list(value, span))
+        AnyValue::Categorical(_cat_size, categorical_mapping)
+        | AnyValue::Enum(_cat_size, categorical_mapping) => {
+            let n = categorical_mapping.num_cats_upper_bound();
+            let mut values: Vec<Value> = Vec::with_capacity(n);
+            for i in 0..n {
+                let s = categorical_mapping
+                    .cat_to_str(i as CatSize)
+                    .unwrap_or_default();
+                values.push(Value::string(s, span));
+            }
+
+            Ok(Value::list(values, span))
         }
-        AnyValue::CategoricalOwned(_, rev_mapping, utf8_array_pointer)
-        | AnyValue::EnumOwned(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
-                utf8_view_array_to_value(rev_mapping.get_categories())
-            } else {
-                // This is no good way around having an unsafe block here
-                // as polars is using a raw pointer to the utf8 array
-                unsafe {
-                    utf8_array_pointer
-                        .get()
-                        .as_ref()
-                        .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
-                }
-            };
-            Ok(Value::list(value, span))
+        AnyValue::CategoricalOwned(_cat_size, categorical_mapping)
+        | AnyValue::EnumOwned(_cat_size, categorical_mapping) => {
+            let n = categorical_mapping.num_cats_upper_bound();
+            let mut values: Vec<Value> = Vec::with_capacity(n);
+            for i in 0..n {
+                let s = categorical_mapping
+                    .cat_to_str(i as CatSize)
+                    .unwrap_or_default();
+                values.push(Value::string(s, span));
+            }
+
+            Ok(Value::list(values, span))
         }
         e => Err(ShellError::GenericError {
             error: "Error creating Value".into(),
