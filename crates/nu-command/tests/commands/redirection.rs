@@ -485,7 +485,10 @@ fn subexpression_redirection(#[case] redir: &str, #[case] stdout_file_body: &str
             format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; (nu --testbin echo_env_mixed out-err BAR BAZ) {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
+        assert_eq!(
+            file_contents(dirs.test().join("result.txt")).trim(),
+            stdout_file_body
+        );
     })
 }
 
@@ -500,7 +503,10 @@ fn file_redirection_in_if_true(#[case] redir: &str, #[case] stdout_file_body: &s
           format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; if true {{ nu --testbin echo_env_mixed out-err BAR BAZ }} {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
+        assert_eq!(
+            file_contents(dirs.test().join("result.txt")).trim(),
+            stdout_file_body
+        );
     })
 }
 
@@ -514,7 +520,10 @@ fn file_redirection_in_if_else(#[case] cond: bool, #[case] stdout_file_body: &st
             format!("if {cond} {{ echo 'hey' }} else {{ echo 'ho' }} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
+        assert_eq!(
+            file_contents(dirs.test().join("result.txt")).trim(),
+            stdout_file_body
+        );
     })
 }
 
@@ -529,7 +538,10 @@ fn file_redirection_in_try_catch(#[case] redir: &str, #[case] stdout_file_body: 
             format!("$env.BAR = 'bar'; $env.BAZ = 'baz'; try {{ 1/0 }} catch {{ nu --testbin echo_env_mixed out-err BAR BAZ }} {redir} result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == (stdout_file_body));
+        assert_eq!(
+            file_contents(dirs.test().join("result.txt")).trim(),
+            stdout_file_body
+        );
     })
 }
 
@@ -541,7 +553,7 @@ fn file_redirection_where_closure() {
             format!("echo foo bar | where {{|x| $x | str contains 'f'}} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("foo"));
+        assert_eq!(file_contents(dirs.test().join("result.txt")).trim(), "foo");
     })
 }
 
@@ -553,7 +565,7 @@ fn file_redirection_match_block() {
             format!("match 3 {{ 1 => 'foo', 3 => 'bar' }} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("bar"));
+        assert_eq!(file_contents(dirs.test().join("result.txt")).trim(), "bar");
     })
 }
 
@@ -565,7 +577,7 @@ fn file_redirection_pattern_match_block() {
             format!("let foo = {{ name: 'bar' }}; match $foo {{ {{ name: 'bar' }} => 'baz' }} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("baz"));
+        assert_eq!(file_contents(dirs.test().join("result.txt")).trim(), "baz");
     })
 }
 
@@ -577,7 +589,10 @@ fn file_redirection_each_block() {
             format!("[1 2 3] | each {{ $in + 1 }} out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("2\n3\n4"));
+        assert_eq!(
+            file_contents(dirs.test().join("result.txt")).trim(),
+            "2\n3\n4"
+        );
     })
 }
 
@@ -589,25 +604,20 @@ fn file_redirection_do_block_with_return() {
             format!("do {{|x| return ($x + 1); return $x}} 4 out> result.txt")
         );
         assert!(actual.status.success());
-        assert!(file_contents(dirs.test().join("result.txt")).trim() == ("5"));
+        assert_eq!(file_contents(dirs.test().join("result.txt")).trim(), "5");
     })
 }
 
 #[rstest::rstest]
-#[ignore]
-// TODO: What result is actually expected here - why the discrepancy to `for` behaviour?
 fn file_redirection_while_block() {
     Playground::setup("file redirection on while", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
             format!("mut x = 0; while $x < 3 {{ $x = $x + 1; echo $x }} o> result.txt")
         );
-        assert!(!actual.status.success());
-        assert!(
-            actual.err.contains("Redirection can not be used with with"),
-            "Should fail"
-        );
-        // assert!(file_contents(dirs.test().join("result.txt")).trim() == ("1\n2\n3"));
+        // Why the discrepancy to `for` behaviour?
+        assert!(actual.status.success());
+        assert_eq!(file_contents(dirs.test().join("result.txt")), "");
     })
 }
 
