@@ -1,8 +1,9 @@
 use crate::LanguageServer;
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
-    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
+    DidOpenTextDocumentParams, LogMessageParams, MessageType, ProgressParams, ProgressParamsValue,
+    ProgressToken, Uri, WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd,
+    WorkDoneProgressReport,
     notification::{
         DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
         DidOpenTextDocument, Notification, Progress,
@@ -65,6 +66,18 @@ impl LanguageServer {
         };
         let notification =
             lsp_server::Notification::new(Progress::METHOD.to_string(), progress_params);
+        self.connection
+            .sender
+            .send(lsp_server::Message::Notification(notification))
+            .into_diagnostic()
+    }
+
+    pub(crate) fn send_log_message(&self, typ: MessageType, message: String) -> Result<()> {
+        let log_params = LogMessageParams { typ, message };
+        let notification = lsp_server::Notification::new(
+            lsp_types::notification::LogMessage::METHOD.to_string(),
+            log_params,
+        );
         self.connection
             .sender
             .send(lsp_server::Message::Notification(notification))

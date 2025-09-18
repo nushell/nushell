@@ -263,9 +263,7 @@ mod hover_tests {
         let resp = send_hover_request(&client_connection, script, line, character);
 
         assert_json_eq!(
-            result_from_message(resp)
-                .pointer("/contents/value")
-                .unwrap(),
+            result_from_message(resp)["contents"]["value"],
             serde_json::json!(expected)
         );
     }
@@ -281,12 +279,7 @@ mod hover_tests {
         open_unchecked(&client_connection, script.clone());
         let resp = send_hover_request(&client_connection, script, 6, 2);
 
-        let hover_text = result_from_message(resp)
-            .pointer("/contents/value")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
+        let hover_text = result_from_message(resp)["contents"]["value"].to_string();
 
         #[cfg(not(windows))]
         assert!(hover_text.contains("SLEEP"));
@@ -321,11 +314,7 @@ mod hover_tests {
         let resp = send_hover_request(&client_connection, script_uri, line, character);
         let result = result_from_message(resp);
 
-        let actual = result
-            .pointer("/contents/value")
-            .unwrap()
-            .to_string()
-            .replace("\\r", "");
+        let actual = result["contents"]["value"].to_string().replace("\\r", "");
 
         assert!(actual.starts_with(expected_prefix));
     }
