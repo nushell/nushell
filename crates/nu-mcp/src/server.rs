@@ -1,48 +1,48 @@
-use std::{
-    borrow::Cow,
-    sync::{Mutex, MutexGuard},
-};
+use std::sync::Arc;
 
 use indoc::formatdoc;
-use nu_engine::eval_block;
-use nu_parser::parse;
-use nu_protocol::{
-    PipelineData, PipelineExecutionData, Value,
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
-    write_all_and_flush,
-};
+use nu_protocol::{PipelineData, UseAnsiColoring, engine::EngineState};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{
         tool::ToolRouter,
         wrapper::{Json, Parameters},
     },
-    model::{Annotated, Content, RawContent, ServerCapabilities, ServerInfo},
+    model::{ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::evaluation::{EvalResult, Evaluator};
+
 pub struct NushellMcpServer {
-    engine_state: Mutex<EngineState>,
     tool_router: ToolRouter<Self>,
+    evaluator: Evaluator,
 }
 
 #[tool_router]
 impl NushellMcpServer {
-    pub fn new(engine_state: EngineState) -> Self {
+    pub fn new(mut engine_state: EngineState) -> Self {
+        if let Some(config) = Arc::get_mut(&mut engine_state.config) {
+            config.use_ansi_coloring = UseAnsiColoring::False;
+            config.color_config.clear();
+        }
+        let engine_state = Arc::new(engine_state);
         NushellMcpServer {
-            engine_state: Mutex::new(engine_state),
             tool_router: Self::tool_router(),
+            evaluator: Evaluator::new(engine_state),
         }
     }
 
-    #[tool(description = "List available Nushell native commands.")]
-    async fn list_commands(&self) -> Result<Json<EvalResult>, McpError> {
-        self.eval("help commands | select name description | where not ($it.name | str starts-with _) | to json", PipelineData::empty())
-            .map(Json)
-    }
+    // #[tool(description = "List available Nushell native commands.")]
+    // async fn list_commands(&self) -> Result<Json<EvalResult>, McpError> {
+    //     self.eval(
+    //         "help commands | select name description | where not ($it.name | str starts-with _)",
+    //         PipelineData::empty(),
+    //     )
+    //     .map(Json)
+    // }
 
     #[tool(
         description = "Find a nushell command by searching command names, descriptions, and search terms"
@@ -52,9 +52,10 @@ impl NushellMcpServer {
         Parameters(CommandNameRequest { name: query }): Parameters<CommandNameRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
         let cmd = format!(
-            "help commands --find {query}| where not ($it.name | str starts-with _) | to json"
+            // "help commands --find {query} | select name description | where not ($it.name | str starts-with _)"
+            "help commands --find {query} | select name description | update name {{ ansi strip }} | update description {{ ansi strip }}"
         );
-        self.eval(&cmd, PipelineData::empty()).map(Json)
+        self.evaluator.eval(&cmd, PipelineData::empty()).map(Json)
     }
 
     #[tool(
@@ -65,7 +66,7 @@ impl NushellMcpServer {
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
         let cmd = format!("help {name}");
-        self.eval(&cmd, PipelineData::empty()).map(Json)
+        self.evaluator.eval(&cmd, PipelineData::empty()).map(Json)
     }
 
     #[tool(description = r#"Execute a command in the nushell.
@@ -104,45 +105,9 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
         &self,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
-        self.eval(&input, PipelineData::empty()).map(Json)
-    }
-
-    fn eval(&self, nu_source: &str, input: PipelineData) -> Result<EvalResult, McpError> {
-        let engine_state = self.engine_state_lock()?;
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        // Parse the source code
-        let block = parse(&mut working_set, None, nu_source.as_bytes(), false);
-
-        // Check for parse errors
-        if !working_set.parse_errors.is_empty() {
-            // ShellError doesn't have ParseError, use LabeledError to contain it.
-            return Err(McpError::invalid_request(
-                "Failed to parse nushell pipeline",
-                None,
-            ));
-        }
-
-        // Eval the block with the input
-        let mut stack = Stack::new().collect_value();
-        let output = eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, input)
-            .map_err(shell_error_to_mcp_error)?;
-
-        pipeline_to_content(output, &engine_state)
-            .map(|content| vec![content])
-            .map(EvalResult)
-            .map_err(|e| McpError::internal_error(format!("Failed to evaluate block: {e}"), None))
-    }
-
-    fn engine_state_lock(&self) -> Result<MutexGuard<EngineState>, McpError> {
-        self.engine_state.lock().map_err(|e| {
-            McpError::internal_error(format!("Failed to acquire engine state lock: {e}"), None)
-        })
+        self.evaluator.eval(&input, PipelineData::empty()).map(Json)
     }
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-struct EvalResult(Vec<Content>);
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct QueryRequest {
@@ -177,44 +142,5 @@ impl ServerHandler for NushellMcpServer {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
-    }
-}
-
-fn shell_error_to_mcp_error(error: nu_protocol::ShellError) -> McpError {
-    //todo - make this more sophisticated
-    McpError::internal_error(format!("ShellError: {error}"), None)
-}
-
-fn pipeline_to_content(
-    pipeline_execution_data: PipelineExecutionData,
-    engine_state: &EngineState,
-) -> Result<Content, McpError> {
-    let span = pipeline_execution_data.span();
-    // todo - this bystream use case won't work
-    if let PipelineData::ByteStream(_stream, ..) = pipeline_execution_data.body {
-        // Copy ByteStreams directly
-        // stream.print(false)
-        Err(McpError::internal_error(
-            Cow::from("ByteStream output is not supported"),
-            None,
-        ))
-    } else {
-        let mut buffer: Vec<u8> = Vec::new();
-        let config = engine_state.get_config();
-        for item in pipeline_execution_data.body {
-            let out = if let Value::Error { error, .. } = item {
-                return Err(shell_error_to_mcp_error(*error));
-            } else {
-                item.to_expanded_string("\n", config)
-            };
-
-            write_all_and_flush(out, &mut buffer, "mcp_output", span, engine_state.signals())
-                .map_err(shell_error_to_mcp_error)?;
-        }
-        let content =
-            RawContent::text(String::from_utf8(buffer).map_err(|e| {
-                McpError::internal_error(format!("Invalid UTF-8 output: {e}"), None)
-            })?);
-        Ok(Annotated::new(content, None))
     }
 }

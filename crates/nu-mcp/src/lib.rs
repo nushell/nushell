@@ -1,9 +1,12 @@
 use nu_protocol::{ShellError, engine::EngineState};
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{transport::stdio, ServiceExt};
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
 use tracing_subscriber::EnvFilter;
 
+use rmcp::ErrorData as McpError;
+
+mod evaluation;
 mod server;
 
 pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError> {
@@ -40,4 +43,9 @@ async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error:
         .waiting()
         .await?;
     Ok(())
+}
+
+pub(crate) fn shell_error_to_mcp_error(error: nu_protocol::ShellError) -> McpError {
+    //todo - make this more sophisticated
+    McpError::internal_error(format!("ShellError: {error}"), None)
 }
