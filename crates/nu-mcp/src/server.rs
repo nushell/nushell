@@ -15,10 +15,10 @@ use nu_protocol::{
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{
-        tool::{Parameters, ToolRouter},
-        wrapper::Json,
+        tool::ToolRouter,
+        wrapper::{Json, Parameters},
     },
-    model::{Annotated, CallToolResult, Content, RawContent, ServerCapabilities, ServerInfo},
+    model::{Annotated, Content, RawContent, ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
@@ -39,9 +39,9 @@ impl NushellMcpServer {
     }
 
     #[tool(description = "List available Nushell native commands.")]
-    async fn list_commands(&self) -> Result<CallToolResult, McpError> {
+    async fn list_commands(&self) -> Result<Json<EvalResult>, McpError> {
         self.eval("help commands | select name description | where not ($it.name | str starts-with _) | to json", PipelineData::empty())
-            .map(CallToolResult::success)
+            .map(Json)
     }
 
     #[tool(
@@ -50,13 +50,11 @@ impl NushellMcpServer {
     async fn find_command(
         &self,
         Parameters(CommandNameRequest { name: query }): Parameters<CommandNameRequest>,
-    ) -> Result<Json<CallToolResult>, McpError> {
+    ) -> Result<Json<EvalResult>, McpError> {
         let cmd = format!(
             "help commands --find {query}| where not ($it.name | str starts-with _) | to json"
         );
-        self.eval(&cmd, PipelineData::empty())
-            .map(CallToolResult::success)
-            .map(Json)
+        self.eval(&cmd, PipelineData::empty()).map(Json)
     }
 
     #[tool(
@@ -65,10 +63,9 @@ impl NushellMcpServer {
     async fn command_help(
         &self,
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<Json<EvalResult>, McpError> {
         let cmd = format!("help {name}");
-        self.eval(&cmd, PipelineData::empty())
-            .map(CallToolResult::success)
+        self.eval(&cmd, PipelineData::empty()).map(Json)
     }
 
     #[tool(description = r#"Execute a command in the nushell.
@@ -106,13 +103,11 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
     async fn evaluate(
         &self,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
-    ) -> Result<Json<CallToolResult>, McpError> {
-        self.eval(&input, PipelineData::empty())
-            .map(CallToolResult::success)
-            .map(Json)
+    ) -> Result<Json<EvalResult>, McpError> {
+        self.eval(&input, PipelineData::empty()).map(Json)
     }
 
-    fn eval(&self, nu_source: &str, input: PipelineData) -> Result<Vec<Content>, McpError> {
+    fn eval(&self, nu_source: &str, input: PipelineData) -> Result<EvalResult, McpError> {
         let engine_state = self.engine_state_lock()?;
         let mut working_set = StateWorkingSet::new(&engine_state);
 
@@ -135,6 +130,7 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
 
         pipeline_to_content(output, &engine_state)
             .map(|content| vec![content])
+            .map(EvalResult)
             .map_err(|e| McpError::internal_error(format!("Failed to evaluate block: {e}"), None))
     }
 
@@ -144,6 +140,9 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
         })
     }
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+struct EvalResult(Vec<Content>);
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct QueryRequest {
@@ -182,7 +181,7 @@ impl ServerHandler for NushellMcpServer {
 }
 
 fn shell_error_to_mcp_error(error: nu_protocol::ShellError) -> McpError {
-    //todo - make this more sophisticated   :w
+    //todo - make this more sophisticated
     McpError::internal_error(format!("ShellError: {error}"), None)
 }
 
