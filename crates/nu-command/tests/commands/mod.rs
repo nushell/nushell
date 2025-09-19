@@ -132,6 +132,7 @@ mod upsert;
 mod url;
 mod use_;
 mod utouch;
+mod view_source;
 mod where_;
 mod which;
 mod while_;
