@@ -45,9 +45,7 @@ impl Evaluator {
             .map_err(shell_error_to_mcp_error)?;
 
         self.pipeline_to_content(output)
-            .inspect(|c| println!("--- content conversion stg 1: {c:#?}"))
             .map(|content| vec![content])
-            .inspect(|c| println!("--- content conversion stg 2: {c:#?}"))
             .map(EvalResult)
             .map_err(|e| McpError::internal_error(format!("Failed to evaluate block: {e}"), None))
     }
