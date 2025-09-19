@@ -551,6 +551,17 @@ impl NuCompleter {
                         break;
                     }
                 }
+
+                // for external executable path completion with spaces, #16712
+                if suggestions.is_empty()
+                    && head.span.contains(pos)
+                    && let Expr::GlobPattern(_, _) = &head.expr
+                {
+                    let (new_span, prefix) =
+                        strip_placeholder_if_any(working_set, &element_expression.span, strip);
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
+                    return self.process_completion(&mut FileCompletion, &ctx);
+                }
             }
             _ => (),
         }

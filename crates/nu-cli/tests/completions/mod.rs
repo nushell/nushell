@@ -740,6 +740,16 @@ fn external_completer_fallback() {
         fs::fixtures().join("external_completions"),
     );
     match_suggestions(&expected, &suggestions);
+
+    // issue #16712
+    let input = "`dir with space/`";
+    let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
+    let suggestions = run_external_completion_within_pwd(
+        block,
+        input,
+        fs::fixtures().join("external_completions"),
+    );
+    match_suggestions(&expected, &suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`
