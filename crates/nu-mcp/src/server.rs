@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use indoc::formatdoc;
-use nu_protocol::{PipelineData, UseAnsiColoring, engine::EngineState};
+use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{
@@ -35,27 +35,26 @@ impl NushellMcpServer {
         }
     }
 
-    // #[tool(description = "List available Nushell native commands.")]
-    // async fn list_commands(&self) -> Result<Json<EvalResult>, McpError> {
-    //     self.eval(
-    //         "help commands | select name description | where not ($it.name | str starts-with _)",
-    //         PipelineData::empty(),
-    //     )
-    //     .map(Json)
-    // }
+    #[tool(description = "List available Nushell native commands.")]
+    async fn list_commands(
+        &self,
+        Parameters(ListCommandsRequest { cursor }): Parameters<ListCommandsRequest>,
+    ) -> Result<Json<EvalResult>, McpError> {
+        self.evaluator.eval("help commands", cursor).map(Json)
+    }
 
     #[tool(
         description = "Find a nushell command by searching command names, descriptions, and search terms"
     )]
     async fn find_command(
         &self,
-        Parameters(CommandNameRequest { name: query }): Parameters<CommandNameRequest>,
+        Parameters(CommandNameRequest {
+            name: query,
+            cursor,
+        }): Parameters<CommandNameRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
-        let cmd = format!(
-            // "help commands --find {query} | select name description | where not ($it.name | str starts-with _)"
-            "help commands --find {query} | select name description | update name {{ ansi strip }} | update description {{ ansi strip }}"
-        );
-        self.evaluator.eval(&cmd, PipelineData::empty()).map(Json)
+        let cmd = format!("help commands --find {query}");
+        self.evaluator.eval(&cmd, cursor).map(Json)
     }
 
     #[tool(
@@ -63,10 +62,10 @@ impl NushellMcpServer {
     )]
     async fn command_help(
         &self,
-        Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
+        Parameters(CommandNameRequest { name, cursor }): Parameters<CommandNameRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
         let cmd = format!("help {name}");
-        self.evaluator.eval(&cmd, PipelineData::empty()).map(Json)
+        self.evaluator.eval(&cmd, cursor).map(Json)
     }
 
     #[tool(description = r#"Execute a command in the nushell.
@@ -103,9 +102,9 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
 "#)]
     async fn evaluate(
         &self,
-        Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
+        Parameters(NuSourceRequest { input, cursor }): Parameters<NuSourceRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
-        self.evaluator.eval(&input, PipelineData::empty()).map(Json)
+        self.evaluator.eval(&input, cursor).map(Json)
     }
 }
 
@@ -113,18 +112,30 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
 struct QueryRequest {
     #[schemars(description = "string to find in command names, descriptions, and search terms")]
     query: String,
+    #[schemars(description = "The cursor for the result of the page.")]
+    cursor: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+struct ListCommandsRequest {
+    #[schemars(description = "The cursor for the result of the page.")]
+    cursor: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct CommandNameRequest {
     #[schemars(description = "The name of the command")]
     name: String,
+    #[schemars(description = "The cursor for the result of the page.")]
+    cursor: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct NuSourceRequest {
     #[schemars(description = "The Nushell source code to evaluate")]
     input: String,
+    #[schemars(description = "The cursor for the result of the page.")]
+    cursor: Option<usize>,
 }
 
 #[tool_handler]

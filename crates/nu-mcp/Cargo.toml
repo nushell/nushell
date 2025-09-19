@@ -18,6 +18,7 @@ tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.6"
+moka = { version = "0.12.10", features = ["sync"] }
 
 [features]
 default = []
