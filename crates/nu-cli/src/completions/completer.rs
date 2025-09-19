@@ -473,7 +473,7 @@ impl NuCompleter {
                                         &ctx,
                                         &mut need_fallback,
                                     );
-                                    // for those arguments that don't need fallback, return early
+                                    // for those arguments that don't need any fallback, return early
                                     if !need_fallback && suggestions.is_empty() {
                                         return results;
                                     }

@@ -516,7 +516,15 @@ fn dotnu_completions() {
     let completion_str = "use `./dir_module/sub module/`";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
-    match_suggestions(&vec!["`./dir_module/sub module/sub.nu`"], &suggestions);
+    match_suggestions(
+        &vec![
+            #[cfg(windows)]
+            "`.\\dir_module\\sub module\\sub.nu`",
+            #[cfg(not(windows))]
+            "`./dir_module/sub module/sub.nu`",
+        ],
+        &suggestions,
+    );
 
     let mut expected = vec![
         "asdf.nu",
