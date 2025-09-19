@@ -558,7 +558,7 @@ impl NuCompleter {
                     && let Expr::GlobPattern(_, _) = &head.expr
                 {
                     let (new_span, prefix) =
-                        strip_placeholder_if_any(working_set, &element_expression.span, strip);
+                        strip_placeholder_if_any(working_set, &head.span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     return self.process_completion(&mut FileCompletion, &ctx);
                 }
