@@ -88,6 +88,11 @@ impl Command for BytesCollect {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Create a byte array from a table",
+                example: "0..3 | each {} | into binary --compact | bytes collect",
+                result: Some(Value::binary(vec![0x00, 0x01, 0x02], Span::test_data())),
+            },
         ]
     }
 }
