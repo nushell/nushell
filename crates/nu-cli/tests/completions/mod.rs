@@ -50,8 +50,8 @@ pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
             // we clean them to compare more exactly with read_dir result.
             s.value
                 .as_str()
-                .trim_start_matches("~")
                 .trim_matches('`')
+                .trim_start_matches("~")
                 .trim_matches('/')
                 .trim_matches('\\')
         })
