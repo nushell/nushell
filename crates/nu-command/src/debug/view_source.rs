@@ -1,5 +1,38 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, DataSource, PipelineMetadata};
+use nu_protocol::{Config, DataSource, DeclId, PipelineMetadata, engine::Visibility};
+
+fn find_decl_in_stack(engine_state: &EngineState, stack: &Stack, name: &[u8]) -> Option<DeclId> {
+    let mut visibility = Visibility::new();
+
+    for overlay_name in stack.active_overlays.iter().rev() {
+        let Some(overlay_id) = engine_state.find_overlay(overlay_name.as_bytes()) else {
+            continue;
+        };
+
+        let overlay_frame = engine_state.get_overlay(overlay_id);
+        visibility.append(&overlay_frame.visibility);
+
+        if let Some(decl_id) = overlay_frame.get_decl(name)
+            && visibility.is_decl_id_visible(&decl_id)
+        {
+            return Some(decl_id);
+        }
+    }
+
+    for idx in (0..engine_state.num_decls()).rev() {
+        let decl_id = DeclId::new(idx);
+        let decl = engine_state.get_decl(decl_id);
+        if decl.name().as_bytes() == name {
+            return Some(decl_id);
+        }
+    }
+
+    None
+}
+
+fn find_decl_with_stack(engine_state: &EngineState, stack: &Stack, name: &[u8]) -> Option<DeclId> {
+    find_decl_in_stack(engine_state, stack, name).or_else(|| engine_state.find_decl(name, &[]))
+}
 
 use std::fmt::Write;
 
@@ -62,7 +95,7 @@ impl Command for ViewSource {
             }
 
             Value::String { val, .. } => {
-                if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
+                if let Some(decl_id) = find_decl_with_stack(engine_state, stack, val.as_bytes()) {
                     // arg is a command
                     let decl = engine_state.get_decl(decl_id);
                     let sig = decl.signature();
