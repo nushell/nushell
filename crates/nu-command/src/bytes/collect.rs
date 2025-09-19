@@ -11,7 +11,10 @@ impl Command for BytesCollect {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes collect")
-            .input_output_types(vec![(Type::List(Box::new(Type::Binary)), Type::Binary), (Type::table(), Type::Binary)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Binary)), Type::Binary),
+                (Type::table(), Type::Binary),
+            ])
             .optional(
                 "separator",
                 SyntaxShape::Binary,
