@@ -531,11 +531,13 @@ fn dotnu_completions() {
         "bar.nu",
         "bat.nu",
         "baz.nu",
+        "foo.nu",
+        "spam.nu",
+        "xyzzy.nu",
         #[cfg(windows)]
         "dir_module\\",
         #[cfg(not(windows))]
         "dir_module/",
-        "foo.nu",
         #[cfg(windows)]
         "lib-dir1\\",
         #[cfg(not(windows))]
@@ -548,8 +550,6 @@ fn dotnu_completions() {
         "lib-dir3\\",
         #[cfg(not(windows))]
         "lib-dir3/",
-        "spam.nu",
-        "xyzzy.nu",
     ];
 
     // Test source completion
@@ -559,8 +559,8 @@ fn dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 
     // Test use completion
-    expected.push("std");
-    expected.push("std-rfc");
+    expected.insert(7, "std-rfc");
+    expected.insert(7, "std");
     let completion_str = "use ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 

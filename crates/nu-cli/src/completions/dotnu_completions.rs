@@ -51,21 +51,9 @@ impl Completer for DotNuCompletion {
             search_dirs.insert(cwd.into_std_path_buf());
         }
 
-        // Fetch the files filtering the ones that ends with .nu
-        // and transform them into suggestions
-        let mut completions = complete_item(
-            false,
-            span,
-            prefix.as_ref(),
-            &search_dirs
-                .iter()
-                .filter_map(|d| d.to_str())
-                .collect::<Vec<_>>(),
-            options,
-            working_set.permanent_state,
-            stack,
-        );
+        let mut completions = Vec::new();
 
+        // Add std virtual paths first
         if self.std_virtual_path {
             let surround_prefix = prefix
                 .as_ref()
@@ -109,27 +97,46 @@ impl Completer for DotNuCompletion {
             completions.extend(matcher.results());
         }
 
+        // Fetch the files
+        completions.extend(complete_item(
+            false,
+            span,
+            prefix.as_ref(),
+            &search_dirs
+                .iter()
+                .filter_map(|d| d.to_str())
+                .collect::<Vec<_>>(),
+            options,
+            working_set.permanent_state,
+            stack,
+        ));
+
+        let into_suggestion = |x: &FileSuggestion| SemanticSuggestion {
+            suggestion: Suggestion {
+                value: x.path.to_string(),
+                style: x.style,
+                span: reedline::Span {
+                    start: x.span.start - offset,
+                    end: x.span.end - offset,
+                },
+                append_whitespace: !x.is_dir,
+                ..Suggestion::default()
+            },
+            kind: Some(SuggestionKind::Module),
+        };
+
+        // Put files atop
         completions
-            .into_iter()
-            // Different base dir, so we list the .nu files or folders
+            .iter()
+            // filtering the files that ends with .nu
             .filter(|it| {
                 // for paths with spaces in them
                 let path = it.path.trim_end_matches('`');
-                path.ends_with(".nu") || it.is_dir
+                path.ends_with(".nu")
             })
-            .map(|x| SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: x.path.to_string(),
-                    style: x.style,
-                    span: reedline::Span {
-                        start: x.span.start - offset,
-                        end: x.span.end - offset,
-                    },
-                    append_whitespace: !x.is_dir,
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Module),
-            })
+            // or directories
+            .chain(completions.iter().filter(|it| it.is_dir))
+            .map(into_suggestion)
             .collect::<Vec<_>>()
     }
 }
