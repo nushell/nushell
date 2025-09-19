@@ -119,3 +119,44 @@ fn into_datetime_from_record_incompatible_with_offset_flag() {
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));
 }
+
+#[test]
+fn test_j_q_format_specifiers_into_datetime() {
+    let actual = nu!(r#"
+        "20211022_200012" | into datetime --format '%J_%Q'
+        "#);
+
+    // Check for the date components - the exact output format may vary
+    assert!(actual.out.contains("22 Oct 2021") || actual.out.contains("2021-10-22"));
+    assert!(actual.out.contains("20:00:12"));
+}
+
+#[test]
+fn test_j_q_format_specifiers_round_trip() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%J_%Q' | into datetime --format '%J_%Q' | format date '%J_%Q'
+        "#);
+
+    assert_eq!(actual.out, "20211022_200012");
+}
+
+#[test]
+fn test_j_format_specifier_date_only() {
+    let actual = nu!(r#"
+        "20211022" | into datetime --format '%J'
+        "#);
+
+    // Check for the date components - time should default to midnight
+    assert!(actual.out.contains("22 Oct 2021") || actual.out.contains("2021-10-22"));
+    assert!(actual.out.contains("00:00:00"));
+}
+
+#[test]
+fn test_q_format_specifier_time_only() {
+    let actual = nu!(r#"
+        "200012" | into datetime --format '%Q'
+        "#);
+
+    // Check for the time components - should parse as time with default date
+    assert!(actual.out.contains("20:00:12"));
+}
