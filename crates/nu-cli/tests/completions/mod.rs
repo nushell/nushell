@@ -50,12 +50,10 @@ pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
             // we clean them to compare more exactly with read_dir result.
             s.value
                 .as_str()
-                .trim_end_matches('`')
-                .trim_end_matches('/')
-                .trim_end_matches('\\')
-                .trim_start_matches('`')
-                .trim_start_matches("~/")
-                .trim_start_matches("~\\")
+                .trim_matches('`')
+                .trim_start_matches("~")
+                .trim_matches('/')
+                .trim_matches('\\')
         })
         .collect();
     pure_suggestions.sort();
@@ -499,11 +497,14 @@ fn dotnu_completions() {
 
     match_suggestions(
         &vec![
-            "mod.nu",
             #[cfg(windows)]
-            "sub module\\`",
+            ".\\dir_module\\mod.nu",
+            #[cfg(windows)]
+            "`.\\dir_module\\sub module\\`",
             #[cfg(not(windows))]
-            "sub module/`",
+            "./dir_module/mod.nu",
+            #[cfg(not(windows))]
+            "`./dir_module/sub module/`",
         ],
         &suggestions,
     );
@@ -515,18 +516,28 @@ fn dotnu_completions() {
     let completion_str = "use `./dir_module/sub module/`";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
-    match_suggestions(&vec!["sub.nu`"], &suggestions);
+    match_suggestions(
+        &vec![
+            #[cfg(windows)]
+            "`.\\dir_module\\sub module\\sub.nu`",
+            #[cfg(not(windows))]
+            "`./dir_module/sub module/sub.nu`",
+        ],
+        &suggestions,
+    );
 
     let mut expected = vec![
         "asdf.nu",
         "bar.nu",
         "bat.nu",
         "baz.nu",
+        "foo.nu",
+        "spam.nu",
+        "xyzzy.nu",
         #[cfg(windows)]
         "dir_module\\",
         #[cfg(not(windows))]
         "dir_module/",
-        "foo.nu",
         #[cfg(windows)]
         "lib-dir1\\",
         #[cfg(not(windows))]
@@ -539,8 +550,6 @@ fn dotnu_completions() {
         "lib-dir3\\",
         #[cfg(not(windows))]
         "lib-dir3/",
-        "spam.nu",
-        "xyzzy.nu",
     ];
 
     // Test source completion
@@ -550,8 +559,8 @@ fn dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 
     // Test use completion
-    expected.push("std");
-    expected.push("std-rfc");
+    expected.insert(7, "std-rfc");
+    expected.insert(7, "std");
     let completion_str = "use ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
@@ -592,19 +601,19 @@ fn dotnu_stdlib_completions() {
     // `export  use` should be recognized as command `export use`
     let completion_str = "export  use std/ass";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["assert"], &suggestions);
+    match_suggestions(&vec!["std/assert"], &suggestions);
 
     let completion_str = "use `std-rfc/cli";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["clip"], &suggestions);
+    match_suggestions(&vec!["`std-rfc/clip"], &suggestions);
 
     let completion_str = "use \"std";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["\"std", "\"std-rfc"], &suggestions);
 
-    let completion_str = "overlay use \'std-rfc/cli";
+    let completion_str = "overlay use 'std-rfc/cli";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["clip"], &suggestions);
+    match_suggestions(&vec!["'std-rfc/clip"], &suggestions);
 }
 
 #[test]
@@ -668,11 +677,11 @@ fn dotnu_completions_const_nu_lib_dirs() {
     {
         let completion_str = "use .\\asdf";
         let suggestions = completer.complete(completion_str, completion_str.len());
-        assert!(suggestions.is_empty());
+        match_suggestions(&vec![".\\asdf.nu"], &suggestions);
     }
     let completion_str = "use ./asdf";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    assert!(suggestions.is_empty());
+    match_suggestions(&vec!["./asdf.nu"], &suggestions);
 }
 
 #[test]
@@ -724,6 +733,16 @@ fn external_completer_fallback() {
 
     // issue #15790
     let input = "foo `dir with space/`";
+    let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
+    let suggestions = run_external_completion_within_pwd(
+        block,
+        input,
+        fs::fixtures().join("external_completions"),
+    );
+    match_suggestions(&expected, &suggestions);
+
+    // issue #16712
+    let input = "`dir with space/`";
     let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
     let suggestions = run_external_completion_within_pwd(
         block,
