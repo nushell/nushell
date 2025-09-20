@@ -119,7 +119,7 @@ with 'transpose' first."#
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
                 Ok(input
                     .into_iter()
-                    .map_while(move |value| {
+                    .map(move |value| {
                         let span = value.span();
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
@@ -127,19 +127,19 @@ with 'transpose' first."#
                                 let mut vals = vec![];
                                 for v in s {
                                     if let Value::Error { .. } = v {
-                                        return Some(v);
+                                        return v;
                                     } else {
                                         vals.push(v)
                                     }
                                 }
-                                Some(Value::list(vals, span))
+                                Value::list(vals, span)
                             }
-                            Ok(data) => Some(data.into_value(head).unwrap_or_else(|err| {
+                            Ok(data) => data.into_value(head).unwrap_or_else(|err| {
                                 Value::error(chain_error_with_input(err, is_error, span), span)
-                            })),
+                            }),
                             Err(error) => {
                                 let error = chain_error_with_input(error, is_error, span);
-                                Some(Value::error(error, span))
+                                Value::error(error, span)
                             }
                         }
                     })
@@ -149,10 +149,10 @@ with 'transpose' first."#
                 if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
                     Ok(chunks
-                        .map_while(move |value| {
+                        .map(move |value| {
                             let value = match value {
                                 Ok(value) => value,
-                                Err(err) => return Some(Value::error(err, head)),
+                                Err(err) => return Value::error(err, head),
                             };
 
                             let span = value.span();
@@ -161,10 +161,10 @@ with 'transpose' first."#
                                 .run_with_value(value)
                                 .and_then(|data| data.into_value(head))
                             {
-                                Ok(value) => Some(value),
+                                Ok(value) => value,
                                 Err(error) => {
                                     let error = chain_error_with_input(error, is_error, span);
-                                    Some(Value::error(error, span))
+                                    Value::error(error, span)
                                 }
                             }
                         })
