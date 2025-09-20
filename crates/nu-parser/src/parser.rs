@@ -4614,9 +4614,13 @@ pub fn parse_list_expression(
                 };
 
                 if let Some(ref ctype) = contained_type {
-                    if *ctype != ty {
-                        contained_type = Some(Type::Any);
-                    }
+                    contained_type = if ctype.is_subtype_of(&ty) {
+                        Some(ty)
+                    } else if ty.is_subtype_of(ctype) {
+                        contained_type
+                    } else {
+                        Some(Type::Any)
+                    };
                 } else {
                     contained_type = Some(ty);
                 }
@@ -4797,8 +4801,10 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         rows.iter_mut()
             .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
             .reduce(|acc, ty| -> Type {
-                if type_compatible(&acc, &ty) {
+                if acc.is_subtype_of(&ty) {
                     ty
+                } else if ty.is_subtype_of(&acc) {
+                    acc
                 } else {
                     Type::Any
                 }
