@@ -74,6 +74,19 @@ impl Jobs {
     }
 
     pub fn most_recent_frozen_job_id(&mut self) -> Option<JobId> {
+        let cached_is_valid = matches!(
+            self.last_frozen_job_id,
+            Some(id) if matches!(self.jobs.get(&id), Some(Job::Frozen(_)))
+        );
+
+        if !cached_is_valid {
+            self.last_frozen_job_id = self
+                .jobs
+                .iter()
+                .filter_map(|(id, job)| matches!(job, Job::Frozen(_)).then_some(*id))
+                .max();
+        }
+
         self.last_frozen_job_id
     }
 

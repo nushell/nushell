@@ -340,7 +340,7 @@ fn jobs_get_group_id_right() {
             sleep 25ms
 
             let pids = job list | where id == $job1 | first | get pids
-            
+
             let pid1 = $pids.0
             let pid2 = $pids.1
 
@@ -354,6 +354,53 @@ fn jobs_get_group_id_right() {
             "#,);
 
     assert_eq!(actual.out, "[true, true, true]");
+}
+
+#[cfg(all(unix, feature = "os"))]
+#[test]
+fn job_unfreeze_ignores_killed_most_recent_job() {
+    let nu_path = nu_test_support::fs::executable_path();
+    let nu_path_str = nu_path.to_string_lossy().into_owned();
+
+    let inner_script = [
+        "^$env.FREEZE_NU_PATH --testbin freeze_self",
+        "^$env.FREEZE_NU_PATH --testbin freeze_self",
+        "let frozen_ids = job list | where type == \"frozen\" | sort-by id | get id",
+        "let job1 = $frozen_ids | get 0",
+        "let job2 = $frozen_ids | get 1",
+        "let exactly_two = ($frozen_ids | length) == 2",
+        "job kill $job2",
+        "job unfreeze",
+        "let after_ids = job list | where type == \"frozen\" | get id",
+        "let none_remaining = ($after_ids == [])",
+        "let job_positive = ($job1 > 0)",
+        "[$exactly_two, $none_remaining, $job_positive] | to nuon",
+    ]
+    .join("; ")
+    .replace('"', "\\\"");
+
+    let script = format!(
+        "^$env.FREEZE_NU_PATH --interactive --no-config-file --no-std-lib --error-style plain -c \"{inner_script}\"",
+    );
+
+    let actual = nu!(
+        envs: vec![(
+            "FREEZE_NU_PATH".to_string(),
+            nu_path_str,
+        )],
+        script
+    );
+
+    assert!(
+        actual.out.trim().ends_with("[true, true, true]"),
+        "unexpected stdout: {}",
+        actual.out
+    );
+    assert!(
+        actual.err.is_empty(),
+        "expected no stderr output, got: {}",
+        actual.err
+    );
 }
 
 #[test]
