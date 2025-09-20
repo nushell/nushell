@@ -5,7 +5,7 @@ use nu_engine::env;
 use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
     Span,
-    ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
+    ast::{Block, Call, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Highlighter, StyledText};
@@ -46,6 +46,203 @@ pub(crate) struct HighlightResult {
     pub(crate) text: StyledText,
     /// The span of any garbage that was highlighted
     pub(crate) found_garbage: Option<Span>,
+}
+
+fn collect_alias_env_spans(block: &Block, working_set: &StateWorkingSet) -> Vec<Span> {
+    let mut spans = Vec::new();
+    collect_alias_env_spans_from_block(block, working_set, &mut spans);
+    spans
+}
+
+fn collect_alias_env_spans_from_block(
+    block: &Block,
+    working_set: &StateWorkingSet,
+    spans: &mut Vec<Span>,
+) {
+    for pipeline in &block.pipelines {
+        for element in &pipeline.elements {
+            collect_alias_env_spans_from_expression(&element.expr, working_set, spans);
+        }
+    }
+}
+
+fn collect_alias_env_spans_from_expression(
+    expr: &Expression,
+    working_set: &StateWorkingSet,
+    spans: &mut Vec<Span>,
+) {
+    match &expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            if decl.name() == "alias" {
+                collect_alias_env_spans_from_alias_call(call, working_set, spans);
+            } else {
+                for argument in &call.arguments {
+                    if let Some(arg_expr) = argument.expr() {
+                        collect_alias_env_spans_from_expression(arg_expr, working_set, spans);
+                    }
+                }
+            }
+        }
+        Expr::Keyword(keyword) => {
+            collect_alias_env_spans_from_expression(&keyword.expr, working_set, spans)
+        }
+        Expr::Block(block_id)
+        | Expr::RowCondition(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::Closure(block_id) => {
+            let block = working_set.get_block(*block_id);
+            collect_alias_env_spans_from_block(block, working_set, spans);
+        }
+        Expr::List(items) => {
+            for item in items {
+                collect_alias_env_spans_from_expression(item.expr(), working_set, spans);
+            }
+        }
+        Expr::Table(table) => {
+            for column in table.columns.iter() {
+                collect_alias_env_spans_from_expression(column, working_set, spans);
+            }
+            for row in table.rows.iter() {
+                for value in row.iter() {
+                    collect_alias_env_spans_from_expression(value, working_set, spans);
+                }
+            }
+        }
+        Expr::Record(items) => {
+            for item in items {
+                match item {
+                    RecordItem::Pair(key, value) => {
+                        collect_alias_env_spans_from_expression(key, working_set, spans);
+                        collect_alias_env_spans_from_expression(value, working_set, spans);
+                    }
+                    RecordItem::Spread(_, expr) => {
+                        collect_alias_env_spans_from_expression(expr, working_set, spans)
+                    }
+                }
+            }
+        }
+        Expr::BinaryOp(lhs, op, rhs) => {
+            collect_alias_env_spans_from_expression(lhs, working_set, spans);
+            collect_alias_env_spans_from_expression(op, working_set, spans);
+            collect_alias_env_spans_from_expression(rhs, working_set, spans);
+        }
+        Expr::UnaryNot(expr) => collect_alias_env_spans_from_expression(expr, working_set, spans),
+        Expr::Collect(_, expr) => collect_alias_env_spans_from_expression(expr, working_set, spans),
+        Expr::ValueWithUnit(value) => {
+            collect_alias_env_spans_from_expression(&value.expr, working_set, spans)
+        }
+        Expr::MatchBlock(matches) => {
+            for (_, expr) in matches {
+                collect_alias_env_spans_from_expression(expr, working_set, spans);
+            }
+        }
+        Expr::StringInterpolation(parts) => {
+            for part in parts {
+                collect_alias_env_spans_from_expression(part, working_set, spans);
+            }
+        }
+        Expr::GlobInterpolation(parts, _) => {
+            for part in parts {
+                collect_alias_env_spans_from_expression(part, working_set, spans);
+            }
+        }
+        Expr::AttributeBlock(attribute_block) => {
+            for attribute in &attribute_block.attributes {
+                collect_alias_env_spans_from_expression(&attribute.expr, working_set, spans);
+            }
+            collect_alias_env_spans_from_expression(&attribute_block.item, working_set, spans);
+        }
+        Expr::FullCellPath(cell_path) => {
+            collect_alias_env_spans_from_expression(&cell_path.head, working_set, spans);
+        }
+        _ => {}
+    }
+}
+
+fn collect_alias_env_spans_from_alias_call(
+    call: &Call,
+    working_set: &StateWorkingSet,
+    spans: &mut Vec<Span>,
+) {
+    if let Some(body_expr) = call.positional_nth(1) {
+        if let Expr::Keyword(keyword) = &body_expr.expr {
+            collect_alias_env_spans_from_alias_body(&keyword.expr, working_set, spans);
+        }
+    }
+}
+
+fn collect_alias_env_spans_from_alias_body(
+    expr: &Expression,
+    working_set: &StateWorkingSet,
+    spans: &mut Vec<Span>,
+) {
+    match &expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            if decl.name() == "with-env" {
+                if let Some(record_expr) = call.positional_nth(0) {
+                    collect_record_pair_spans(record_expr, spans);
+                }
+                for argument in call.arguments.iter().skip(1) {
+                    if let Some(arg_expr) = argument.expr() {
+                        collect_alias_env_spans_from_expression(arg_expr, working_set, spans);
+                    }
+                }
+            } else {
+                for argument in &call.arguments {
+                    if let Some(arg_expr) = argument.expr() {
+                        collect_alias_env_spans_from_expression(arg_expr, working_set, spans);
+                    }
+                }
+            }
+        }
+        Expr::Keyword(keyword) => {
+            collect_alias_env_spans_from_alias_body(&keyword.expr, working_set, spans)
+        }
+        Expr::Block(block_id)
+        | Expr::RowCondition(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::Closure(block_id) => {
+            let block = working_set.get_block(*block_id);
+            collect_alias_env_spans_from_block(block, working_set, spans);
+        }
+        Expr::List(items) => {
+            for item in items {
+                collect_alias_env_spans_from_alias_body(item.expr(), working_set, spans);
+            }
+        }
+        Expr::Record(items) => {
+            for item in items {
+                match item {
+                    RecordItem::Pair(key, value) => {
+                        collect_alias_env_spans_from_alias_body(key, working_set, spans);
+                        collect_alias_env_spans_from_alias_body(value, working_set, spans);
+                    }
+                    RecordItem::Spread(_, expr) => {
+                        collect_alias_env_spans_from_alias_body(expr, working_set, spans)
+                    }
+                }
+            }
+        }
+        _ => {
+            collect_alias_env_spans_from_expression(expr, working_set, spans);
+        }
+    }
+}
+
+fn collect_record_pair_spans(record_expr: &Expression, spans: &mut Vec<Span>) {
+    if let Expr::Record(items) = &record_expr.expr {
+        for item in items {
+            if let RecordItem::Pair(key, value) = item {
+                spans.push(Span::new(key.span.start, value.span.end));
+            }
+        }
+    }
+}
+
+fn span_contains(outer: &Span, inner: &Span) -> bool {
+    outer.start <= inner.start && outer.end >= inner.end
 }
 
 pub(crate) fn highlight_syntax(
@@ -90,6 +287,7 @@ pub(crate) fn highlight_syntax(
     let mut last_seen_span = global_span_offset;
 
     let global_cursor_offset = cursor + global_span_offset;
+    let alias_env_spans = collect_alias_env_spans(&block, &working_set);
     let matching_brackets_pos = find_matching_brackets(
         line,
         &working_set,
@@ -113,50 +311,58 @@ pub(crate) fn highlight_syntax(
                 .to_string();
             result.text.push((Style::new(), gap));
         }
-        let next_token = line
-            [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
-            .to_string();
+        let span = shape.0;
+        let next_token =
+            line[(span.start - global_span_offset)..(span.end - global_span_offset)].to_string();
 
-        let mut add_colored_token = |shape: &FlatShape, text: String| {
-            result
-                .text
-                .push((get_shape_color(shape.as_str(), &config), text));
+        let mut add_colored_token = |span: Span, shape: &FlatShape, text: String| {
+            if alias_env_spans
+                .iter()
+                .any(|alias_span| span_contains(alias_span, &span))
+            {
+                result
+                    .text
+                    .push((get_shape_color("shape_external", &config), text));
+            } else {
+                result
+                    .text
+                    .push((get_shape_color(shape.as_str(), &config), text));
+            }
         };
 
         match shape.1 {
             FlatShape::Garbage => {
                 result.found_garbage.get_or_insert_with(|| {
                     Span::new(
-                        shape.0.start - global_span_offset,
-                        shape.0.end - global_span_offset,
+                        span.start - global_span_offset,
+                        span.end - global_span_offset,
                     )
                 });
-                add_colored_token(&shape.1, next_token)
+                add_colored_token(span, &shape.1, next_token)
             }
-            FlatShape::Nothing => add_colored_token(&shape.1, next_token),
-            FlatShape::Binary => add_colored_token(&shape.1, next_token),
-            FlatShape::Bool => add_colored_token(&shape.1, next_token),
-            FlatShape::Int => add_colored_token(&shape.1, next_token),
-            FlatShape::Float => add_colored_token(&shape.1, next_token),
-            FlatShape::Range => add_colored_token(&shape.1, next_token),
-            FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-            FlatShape::External(_) => add_colored_token(&shape.1, next_token),
-            FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
-            FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
-            FlatShape::Keyword => add_colored_token(&shape.1, next_token),
-            FlatShape::Literal => add_colored_token(&shape.1, next_token),
-            FlatShape::Operator => add_colored_token(&shape.1, next_token),
-            FlatShape::Signature => add_colored_token(&shape.1, next_token),
-            FlatShape::String => add_colored_token(&shape.1, next_token),
-            FlatShape::RawString => add_colored_token(&shape.1, next_token),
-            FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
-            FlatShape::DateTime => add_colored_token(&shape.1, next_token),
+            FlatShape::Nothing => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Binary => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Bool => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Int => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Float => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Range => add_colored_token(span, &shape.1, next_token),
+            FlatShape::InternalCall(_) => add_colored_token(span, &shape.1, next_token),
+            FlatShape::External(_) => add_colored_token(span, &shape.1, next_token),
+            FlatShape::ExternalArg => add_colored_token(span, &shape.1, next_token),
+            FlatShape::ExternalResolved => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Keyword => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Literal => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Operator => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Signature => add_colored_token(span, &shape.1, next_token),
+            FlatShape::String => add_colored_token(span, &shape.1, next_token),
+            FlatShape::RawString => add_colored_token(span, &shape.1, next_token),
+            FlatShape::StringInterpolation => add_colored_token(span, &shape.1, next_token),
+            FlatShape::DateTime => add_colored_token(span, &shape.1, next_token),
             FlatShape::List
             | FlatShape::Table
             | FlatShape::Record
             | FlatShape::Block
             | FlatShape::Closure => {
-                let span = shape.0;
                 let shape = &shape.1;
                 let spans = split_span_by_highlight_positions(
                     line,
@@ -168,7 +374,14 @@ pub(crate) fn highlight_syntax(
                     let start = part.start - span.start;
                     let end = part.end - span.start;
                     let text = next_token[start..end].to_string();
-                    let mut style = get_shape_color(shape.as_str(), &config);
+                    let mut style = if alias_env_spans
+                        .iter()
+                        .any(|alias_span| span_contains(alias_span, &part))
+                    {
+                        get_shape_color("shape_external", &config)
+                    } else {
+                        get_shape_color(shape.as_str(), &config)
+                    };
                     if highlight {
                         style = get_matching_brackets_style(style, &config);
                     }
@@ -176,20 +389,20 @@ pub(crate) fn highlight_syntax(
                 }
             }
 
-            FlatShape::Filepath => add_colored_token(&shape.1, next_token),
-            FlatShape::Directory => add_colored_token(&shape.1, next_token),
-            FlatShape::GlobInterpolation => add_colored_token(&shape.1, next_token),
-            FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
+            FlatShape::Filepath => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Directory => add_colored_token(span, &shape.1, next_token),
+            FlatShape::GlobInterpolation => add_colored_token(span, &shape.1, next_token),
+            FlatShape::GlobPattern => add_colored_token(span, &shape.1, next_token),
             FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
-                add_colored_token(&shape.1, next_token)
+                add_colored_token(span, &shape.1, next_token)
             }
-            FlatShape::Flag => add_colored_token(&shape.1, next_token),
-            FlatShape::Pipe => add_colored_token(&shape.1, next_token),
-            FlatShape::Redirection => add_colored_token(&shape.1, next_token),
-            FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
-            FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
+            FlatShape::Flag => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Pipe => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Redirection => add_colored_token(span, &shape.1, next_token),
+            FlatShape::Custom(..) => add_colored_token(span, &shape.1, next_token),
+            FlatShape::MatchPattern => add_colored_token(span, &shape.1, next_token),
         }
-        last_seen_span = shape.0.end;
+        last_seen_span = span.end;
     }
 
     let remainder = line[(last_seen_span - global_span_offset)..].to_string();
@@ -198,6 +411,108 @@ pub(crate) fn highlight_syntax(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_ansi_term::{Color, Style};
+    use nu_protocol::engine::Stack;
+
+    fn test_engine_and_stack() -> (EngineState, Stack) {
+        let engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        (engine_state, Stack::new())
+    }
+
+    fn highlight_buffer(line: &str) -> Vec<(Style, String)> {
+        let (engine_state, stack) = test_engine_and_stack();
+        let result = highlight_syntax(&engine_state, &stack, line, line.len());
+        result.text.buffer
+    }
+
+    fn styles_for_range(buffer: &[(Style, String)], start: usize, len: usize) -> Vec<Style> {
+        let mut styles = Vec::new();
+        let mut pos = 0;
+        let end = start + len;
+
+        for (style, segment) in buffer {
+            for ch in segment.chars() {
+                let ch_len = ch.len_utf8();
+                let ch_start = pos;
+                let ch_end = ch_start + ch_len;
+
+                if ch_end <= start {
+                    pos = ch_end;
+                    continue;
+                }
+
+                if ch_start >= end {
+                    return styles;
+                }
+
+                if ch_start >= start && ch_start < end {
+                    styles.push(*style);
+                }
+
+                pos = ch_end;
+            }
+        }
+
+        styles
+    }
+
+    #[test]
+    fn alias_env_prefix_tokens_are_command_colored() {
+        let line = r#"alias test = E=ENV sh -c "echo $E""#;
+        let buffer = highlight_buffer(line);
+        let start = line.find("E=ENV").expect("prefix present");
+        let styles = styles_for_range(&buffer, start, "E=ENV".len());
+
+        assert_eq!(styles.len(), "E=ENV".len());
+        assert_eq!(styles[0].foreground, Some(Color::Cyan));
+        for style in &styles[2..] {
+            assert_eq!(style.foreground, Some(Color::Cyan));
+        }
+    }
+
+    #[test]
+    fn pipeline_env_prefix_highlight_is_unchanged() {
+        let line = r#"E=ENV sh -c "echo $E""#;
+        let buffer = highlight_buffer(line);
+        let styles = styles_for_range(&buffer, 0, "E=ENV".len());
+
+        assert_eq!(styles.len(), "E=ENV".len());
+        assert_eq!(styles[0].foreground, Some(Color::Green));
+        for style in &styles[2..] {
+            assert_eq!(style.foreground, Some(Color::Green));
+        }
+    }
+
+    #[test]
+    fn alias_multiple_assignments_not_env_highlighted() {
+        let line = "alias t = A=1 B=2 cmd";
+        let buffer = highlight_buffer(line);
+
+        for pattern in ["A=1", "B=2"] {
+            let start = line.find(pattern).expect("assignment present");
+            let styles = styles_for_range(&buffer, start, pattern.len());
+
+            assert_eq!(styles.len(), pattern.len());
+            assert_eq!(styles[0].foreground, Some(Color::Cyan));
+        }
+    }
+
+    #[test]
+    fn alias_assignment_with_spaces_not_env_highlighted() {
+        let line = r#"alias t = A="x y" cmd"#;
+        let buffer = highlight_buffer(line);
+        let start = line.find(r#"A="x y""#).expect("assignment present");
+        let styles = styles_for_range(&buffer, start, r#"A="x y""#.len());
+
+        assert_eq!(styles.len(), r#"A="x y""#.len());
+        assert_eq!(styles[0].foreground, Some(Color::Cyan));
+    }
 }
 
 fn split_span_by_highlight_positions(
