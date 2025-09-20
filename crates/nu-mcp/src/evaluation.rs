@@ -77,7 +77,6 @@ impl Evaluator {
         };
 
         let (page_size, page_content) = results.get_page(cursor); // .map(|content| vec![content])
-        println!("content: {:?}", page_content);
         Ok(EvalResult {
             results: page_content,
             summary: Summary {
@@ -185,7 +184,6 @@ struct PipelineBuffer {
 
 impl PipelineBuffer {
     fn get_page(&self, index: usize) -> (usize, Content) {
-        println!("Getting page: {index}, total pages: {}", self.pages.len());
         self.pages
             .get(index)
             .map(|page| {

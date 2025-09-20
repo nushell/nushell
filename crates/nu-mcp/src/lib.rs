@@ -1,5 +1,5 @@
 use nu_protocol::{ShellError, engine::EngineState};
-use rmcp::{transport::stdio, ServiceExt};
+use rmcp::{ServiceExt, transport::stdio};
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
 use tracing_subscriber::EnvFilter;
