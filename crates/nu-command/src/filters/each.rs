@@ -118,25 +118,12 @@ with 'transpose' first."#
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
+
                 Ok(input
                     .into_iter()
-                    .map(move |value| {
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        match closure.run_with_value(value) {
-                            // TODO: Should collecting a stream with an error immediately raise the
-                            // error by default (like we do here) be the default?
-                            Ok(PipelineData::ListStream(stream, ..)) => stream
-                                .into_iter()
-                                .map(Value::unwrap_error)
-                                .collect::<Result<Vec<_>, _>>()
-                                .map(|vals| Value::list(vals, span)),
-                            Ok(data) => data.into_value(head),
-                            Err(error) => Err(error),
-                        }
-                        .unwrap_or_else(|error| {
-                            Value::error(chain_error_with_input(error, is_error, span), span)
-                        })
+                    .map(move |val| {
+                        each_map(val, &mut closure, head)
+                            .unwrap_or_else(|error| Value::error(error, head))
                     })
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
@@ -144,24 +131,10 @@ with 'transpose' first."#
                 if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
                     Ok(chunks
-                        .map(move |value| {
-                            let value = match value {
-                                Ok(value) => value,
-                                Err(err) => return Value::error(err, head),
-                            };
-
-                            let span = value.span();
-                            let is_error = value.is_error();
-                            match closure
-                                .run_with_value(value)
-                                .and_then(|data| data.into_value(head))
-                            {
-                                Ok(value) => value,
-                                Err(error) => {
-                                    let error = chain_error_with_input(error, is_error, span);
-                                    Value::error(error, span)
-                                }
-                            }
+                        .map(move |result| {
+                            result
+                                .and_then(|value| each_map(value, &mut closure, head))
+                                .unwrap_or_else(|error| Value::error(error, head))
                         })
                         .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
@@ -182,6 +155,25 @@ with 'transpose' first."#
         })
         .map(|data| data.set_metadata(metadata))
     }
+}
+
+#[inline]
+fn each_map(value: Value, closure: &mut ClosureEval, head: Span) -> Result<Value, ShellError> {
+    let span = value.span();
+    let is_error = value.is_error();
+    closure
+        .run_with_value(value)
+        .and_then(|pipeline_data| match pipeline_data {
+            // TODO: Should collecting a stream with an error immediately raise the
+            // error by default (like we do here) be the default?
+            PipelineData::ListStream(stream, ..) => stream
+                .into_iter()
+                .map(Value::unwrap_error)
+                .collect::<Result<Vec<_>, _>>()
+                .map(|vals| Value::list(vals, head)),
+            data => data.into_value(head),
+        })
+        .map_err(|error| chain_error_with_input(error, is_error, span))
 }
 
 #[cfg(test)]
