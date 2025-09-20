@@ -15,13 +15,17 @@ impl Command for JobUnfreeze {
     }
 
     fn description(&self) -> &str {
-        "Unfreeze a frozen process job in foreground."
+        "Unfreeze the latest existing frozen job in the foreground."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job unfreeze")
             .category(Category::Experimental)
-            .optional("id", SyntaxShape::Int, "The process id to unfreeze.")
+            .optional(
+                "id",
+                SyntaxShape::Int,
+                "The process id to unfreeze. Without an id, resumes the most recently frozen existing job.",
+            )
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
@@ -68,12 +72,12 @@ impl Command for JobUnfreeze {
         vec![
             Example {
                 example: "job unfreeze",
-                description: "Unfreeze the latest frozen job",
+                description: "Unfreeze the most recently frozen existing job",
                 result: None,
             },
             Example {
                 example: "job unfreeze 4",
-                description: "Unfreeze a specific frozen job by its PID",
+                description: "Unfreeze a specific frozen job by its id",
                 result: None,
             },
         ]
@@ -81,7 +85,8 @@ impl Command for JobUnfreeze {
 
     fn extra_description(&self) -> &str {
         r#"When a running process is frozen (with the SIGTSTP signal or with the Ctrl-Z key on unix),
-a background job gets registered for this process, which can then be resumed using this command."#
+a background job gets registered for this process, which can then be resumed using this command.
+When called without an id, this command resumes the most recently frozen existing job."#
     }
 }
 
