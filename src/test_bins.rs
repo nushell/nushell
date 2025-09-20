@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use nix::libc;
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
 use nu_engine::eval_block;
 use nu_parser::parse;
@@ -8,6 +10,7 @@ use nu_protocol::{
     report_parse_error, report_shell_error,
 };
 use nu_std::load_standard_library;
+
 use std::{
     collections::HashMap,
     io::{self, BufRead, Read, Write},
@@ -33,6 +36,8 @@ pub struct Nonu;
 pub struct Chop;
 pub struct Repeater;
 pub struct RepeatBytes;
+#[cfg(unix)]
+pub struct FreezeSelf;
 pub struct NuRepl;
 pub struct InputBytesLength;
 
@@ -288,6 +293,21 @@ impl TestBin for RepeatBytes {
     }
 }
 
+#[cfg(unix)]
+impl TestBin for FreezeSelf {
+    fn help(&self) -> &'static str {
+        "Suspend with SIGTSTP and exit when continued (nu --testbin freeze_self)"
+    }
+
+    fn run(&self) {
+        unsafe {
+            libc::raise(libc::SIGTSTP);
+        }
+
+        std::process::exit(0);
+    }
+}
+
 impl TestBin for NuRepl {
     fn help(&self) -> &'static str {
         "Run a REPL with the given source lines, it must be called with `--testbin=nu_repl`, `--testbin nu_repl` will not work due to argument count logic"
@@ -517,6 +537,10 @@ pub fn new_testbin_dispatcher() -> HashMap<String, Box<dyn TestBin>> {
     dispatcher.insert("chop".to_string(), Box::new(Chop));
     dispatcher.insert("repeater".to_string(), Box::new(Repeater));
     dispatcher.insert("repeat_bytes".to_string(), Box::new(RepeatBytes));
+    #[cfg(unix)]
+    {
+        dispatcher.insert("freeze_self".to_string(), Box::new(FreezeSelf));
+    }
     dispatcher.insert("nu_repl".to_string(), Box::new(NuRepl));
     dispatcher.insert("input_bytes_length".to_string(), Box::new(InputBytesLength));
     dispatcher
