@@ -411,6 +411,19 @@ impl EngineInterface {
         })
     }
 
+    /// Write an OK call response or an error.
+    pub(crate) fn write_ok(
+        &self,
+        result: Result<(), impl Into<LabeledError>>,
+    ) -> Result<(), ShellError> {
+        let response = match result {
+            Ok(()) => PluginCallResponse::Ok,
+            Err(err) => PluginCallResponse::Error(err.into()),
+        };
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
+        self.flush()
+    }
+
     /// Write a call response of either [`PipelineData`] or an error. Returns the stream writer
     /// to finish writing the stream
     pub(crate) fn write_response(
