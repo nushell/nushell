@@ -1,4 +1,4 @@
-# Nushell Config File Documentation
+# Nushell Config File Documentation 
 #
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
@@ -329,7 +329,7 @@ $env.config.table.padding.right = 1
 # truncating_suffix (string): The text to show at the end of the row to indicate that it has
 #                             been truncated. Only valid when `methodology = "truncating"`.
 # wrapping_try_keep_words (bool): true to keep words together based on whitespace
-#                                 false to allow wrapping in the middle of a word.
+#                                 false: to allow wrapping in the middle of a word.
 #                                 Only valid when `methodology = wrapping`.
 $env.config.table.trim = {
   methodology: "wrapping"
@@ -427,6 +427,37 @@ $env.config.float_precision = 2
 # true: The `ls` command will apply the $env.LS_COLORS standard to filenames
 # false: Filenames in the `ls` table will use the color_config for strings
 $env.config.ls.use_ls_colors = true
+
+# ----------------------
+# Pipeline Settings
+# ----------------------
+# $env.config.pipeline.*
+#
+# buffer_size (filesize | int):
+#  The per-write chunk size used when piping output to stdout/stderr.
+#  Default: 8KiB
+#
+#  Accepted types:
+#    - A filesize string (e.g., "8KiB", "64KiB", "1MiB")
+#    - An integer representing bytes (e.g., 8192)
+#
+#  Precedence for the effective value:
+#    1) $env.config.pipeline.buffer_size
+#    2) $env.NU_PIPE_BUFFER_SIZE (environment variable)
+#    3) Built-in default (8KiB)
+#
+#  Notes:
+#    - Larger values may reduce syscall overhead but can increase memory usage
+#      and delay flushes for small outputs.
+#    - Very small values can hurt throughput for high-volume pipelines.
+#
+#  Examples:
+#    $env.config.pipeline.buffer_size = 8192
+#    $env.config.pipeline.buffer_size = "64KiB"
+#
+#  Environment override example:
+#    $env.NU_PIPE_BUFFER_SIZE = "64KiB"
+$env.config.pipeline.buffer_size = "8KiB"
 
 # Hooks
 # -----
