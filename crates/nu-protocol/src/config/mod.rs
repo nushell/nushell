@@ -18,6 +18,7 @@ pub use history::{HistoryConfig, HistoryFileFormat};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
+pub use pipeline::{DEFAULT_PIPELINE_BUFFER_SIZE, PipelineConfig};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use reedline::{CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu};
 pub use rm::RmConfig;
@@ -35,6 +36,7 @@ mod history;
 mod hooks;
 mod ls;
 mod output;
+mod pipeline;
 mod plugin_gc;
 mod prelude;
 mod reedline;
@@ -71,6 +73,7 @@ pub struct Config {
     pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub pipeline: PipelineConfig,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -127,6 +130,8 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
+
+            pipeline: PipelineConfig::default(),
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -188,6 +193,7 @@ impl UpdateFromValue for Config {
                 "highlight_resolved_externals" => {
                     self.highlight_resolved_externals.update(val, path, errors)
                 }
+                "pipeline" => self.pipeline.update(val, path, errors),
                 "plugins" => self.plugins.update(val, path, errors),
                 "plugin_gc" => self.plugin_gc.update(val, path, errors),
                 "menus" => match Vec::from_value(val.clone()) {
