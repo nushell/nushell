@@ -1769,6 +1769,14 @@ impl Value {
         matches!(self, Value::Error { .. })
     }
 
+    /// Extract [ShellError] from [Value::Error]
+    pub fn unwrap_error(self) -> Result<Self, ShellError> {
+        match self {
+            Self::Error { error, .. } => Err(*error),
+            val => Ok(val),
+        }
+    }
+
     pub fn is_true(&self) -> bool {
         matches!(self, Value::Bool { val: true, .. })
     }

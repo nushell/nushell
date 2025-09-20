@@ -111,8 +111,9 @@ with 'transpose' first."#
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Nothing { .. }, ..) => Ok(input),
+            empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
+                return Ok(empty);
+            }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
@@ -123,25 +124,19 @@ with 'transpose' first."#
                         let span = value.span();
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
-                            Ok(PipelineData::ListStream(s, ..)) => {
-                                let mut vals = vec![];
-                                for v in s {
-                                    if let Value::Error { .. } = v {
-                                        return v;
-                                    } else {
-                                        vals.push(v)
-                                    }
-                                }
-                                Value::list(vals, span)
-                            }
-                            Ok(data) => data.into_value(head).unwrap_or_else(|err| {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            }),
-                            Err(error) => {
-                                let error = chain_error_with_input(error, is_error, span);
-                                Value::error(error, span)
-                            }
+                            // TODO: Should collecting a stream with an error immediately raise the
+                            // error by default (like we do here) be the default?
+                            Ok(PipelineData::ListStream(stream, ..)) => stream
+                                .into_iter()
+                                .map(Value::unwrap_error)
+                                .collect::<Result<Vec<_>, _>>()
+                                .map(|vals| Value::list(vals, span)),
+                            Ok(data) => data.into_value(head),
+                            Err(error) => Err(error),
                         }
+                        .unwrap_or_else(|error| {
+                            Value::error(chain_error_with_input(error, is_error, span), span)
+                        })
                     })
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
