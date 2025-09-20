@@ -5775,7 +5775,8 @@ pub fn parse_math_expression(
             working_set.error(ParseError::IncompleteMathExpression(spans[idx - 1]));
 
             expr_stack.push(Expression::garbage(working_set, spans[idx - 1]));
-            expr_stack.push(Expression::garbage(working_set, spans[idx - 1]));
+            let missing_span = Span::new(spans[idx - 1].end, spans[idx - 1].end);
+            expr_stack.push(Expression::garbage(working_set, missing_span));
 
             break;
         }
