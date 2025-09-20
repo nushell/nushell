@@ -5,6 +5,7 @@ mod experimental_options;
 mod ide;
 mod logger;
 mod run;
+#[cfg(not(feature = "mcp"))]
 mod signals;
 #[cfg(unix)]
 mod terminal;
@@ -30,6 +31,7 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
+#[cfg(not(feature = "mcp"))]
 use signals::ctrlc_protection;
 use std::{borrow::Cow, path::PathBuf, str::FromStr, sync::Arc};
 
@@ -101,6 +103,7 @@ fn main() -> Result<()> {
     }
 
     // TODO: make this conditional in the future
+    #[cfg(not(feature = "mcp"))]
     ctrlc_protection(&mut engine_state);
 
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
@@ -457,6 +460,26 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+
+    #[cfg(feature = "mcp")]
+    if parsed_nu_cli_args.mcp {
+        perf!("mcp starting", start_time, use_color);
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut stack = nu_protocol::engine::Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut stack,
+                #[cfg(feature = "plugin")]
+                parsed_nu_cli_args.plugin_file,
+                parsed_nu_cli_args.config_file,
+                parsed_nu_cli_args.env_file,
+                false,
+            );
+        }
+        nu_mcp::initialize_mcp_server(engine_state)?;
+        return Ok(());
+    }
+
     if parsed_nu_cli_args.lsp {
         perf!("lsp starting", start_time, use_color);
 
