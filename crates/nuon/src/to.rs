@@ -137,6 +137,7 @@ fn value_to_string(
         // FIXME: make filesizes use the shortest lossless representation.
         Value::Filesize { val, .. } => Ok(format!("{}b", val.get())),
         Value::Float { val, .. } => Ok(ObviousFloat(*val).to_string()),
+        Value::Decimal { val, .. } => Ok(val.to_string()),
         Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);

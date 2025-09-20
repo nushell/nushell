@@ -1,6 +1,7 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineMetadata, ast::PathMember};
+use nu_protocol::{ast::PathMember, decimal_to_float_error, PipelineMetadata};
+use num_traits::ToPrimitive;
 
 #[derive(Clone)]
 pub struct ToToml;
@@ -62,6 +63,7 @@ fn helper(
         Value::Date { val, .. } => toml::Value::Datetime(to_toml_datetime(val)),
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
+        Value::Decimal { val, .. } => toml::Value::Float(val.to_f64().ok_or_else(|| decimal_to_float_error(v.span()))?),
         Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();

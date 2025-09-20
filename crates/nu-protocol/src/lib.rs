@@ -49,3 +49,13 @@ pub use ty::*;
 pub use value::*;
 
 pub use nu_derive_value::*;
+
+/// Creates a ShellError for decimal to float conversion failures
+pub fn decimal_to_float_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "float".into(),
+        from_type: "decimal".into(),
+        span,
+        help: Some("Decimal value is too large or has too much precision to convert to float".into()),
+    }
+}

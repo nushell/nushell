@@ -19,6 +19,7 @@ pub enum Type {
     Error,
     Filesize,
     Float,
+    Decimal,
     Int,
     List(Box<Type>),
     #[default]
@@ -74,6 +75,7 @@ impl Type {
         match (self, other) {
             (t, u) if t == u => true,
             (Type::Float, Type::Number) => true,
+            (Type::Decimal, Type::Number) => true,
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
@@ -86,7 +88,7 @@ impl Type {
     }
 
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::Int | Type::Float | Type::Number)
+        matches!(self, Type::Int | Type::Float | Type::Decimal | Type::Number)
     }
 
     pub fn is_list(&self) -> bool {
@@ -108,6 +110,7 @@ impl Type {
         match self {
             Type::Int => SyntaxShape::Int,
             Type::Float => SyntaxShape::Float,
+            Type::Decimal => SyntaxShape::Float, // Use Float shape for decimal input
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
@@ -142,6 +145,7 @@ impl Type {
             Type::Duration => String::from("duration"),
             Type::Filesize => String::from("filesize"),
             Type::Float => String::from("float"),
+            Type::Decimal => String::from("decimal"),
             Type::Int => String::from("int"),
             Type::Range => String::from("range"),
             Type::Record(_) => String::from("record"),
@@ -170,6 +174,7 @@ impl Display for Type {
             Type::Duration => write!(f, "duration"),
             Type::Filesize => write!(f, "filesize"),
             Type::Float => write!(f, "float"),
+            Type::Decimal => write!(f, "decimal"),
             Type::Int => write!(f, "int"),
             Type::Range => write!(f, "range"),
             Type::Record(fields) => {
