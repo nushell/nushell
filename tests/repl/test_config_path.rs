@@ -20,6 +20,27 @@ fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
     }
 }
 
+/// The default Nushell config directory, ignoring XDG_CONFIG_HOME
+fn non_xdg_config_dir() -> AbsolutePathBuf {
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    let config_dir = dirs::config_dir().expect("Could not get config directory");
+
+    // On Linux, dirs::config_dir checks $XDG_CONFIG_HOME first, then gets $HOME/.config,
+    // so we have to get $HOME ourselves
+    #[cfg(target_os = "linux")]
+    let config_dir = {
+        let mut dir = dirs::home_dir().expect("Could not get config directory");
+        dir.push(".config");
+        dir
+    };
+
+    let config_dir = config_dir.canonicalize().unwrap_or(config_dir);
+    let mut config_dir_nushell =
+        AbsolutePathBuf::try_from(config_dir).expect("Invalid config directory");
+    config_dir_nushell.push("nushell");
+    config_dir_nushell
+}
+
 /// Make the config directory a symlink that points to a temporary folder, and also makes
 /// the nushell directory inside a symlink.
 /// Returns the path to the `nushell` config folder inside, via the symlink.
@@ -137,11 +158,11 @@ fn test_config_path_helper(
     }
 }
 
+/// Test that the config files are in the right places when XDG_CONFIG_HOME isn't set
 #[test]
 fn test_default_config_path() {
     Playground::setup("default_config_path", |_, playground| {
-        let config_dir = nu_path::nu_config_dir().expect("Could not get config directory");
-        test_config_path_helper(playground, config_dir);
+        test_config_path_helper(playground, non_xdg_config_dir());
     });
 }
 
@@ -271,11 +292,8 @@ fn test_xdg_config_empty() {
         playground.with_env("XDG_CONFIG_HOME", "");
 
         let actual = run(playground, "$nu.default-config-dir");
-        let expected = dirs::config_dir().unwrap().join("nushell");
-        assert_eq!(
-            actual,
-            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
-        );
+        let expected = non_xdg_config_dir();
+        assert_eq!(actual, adjust_canonicalization(expected));
     });
 }
 
@@ -286,11 +304,8 @@ fn test_xdg_config_bad() {
         playground.with_env("XDG_CONFIG_HOME", xdg_config_home);
 
         let actual = run(playground, "$nu.default-config-dir");
-        let expected = dirs::config_dir().unwrap().join("nushell");
-        assert_eq!(
-            actual,
-            adjust_canonicalization(expected.canonicalize().unwrap_or(expected))
-        );
+        let expected = non_xdg_config_dir();
+        assert_eq!(actual, adjust_canonicalization(expected));
 
         #[cfg(not(windows))]
         {
