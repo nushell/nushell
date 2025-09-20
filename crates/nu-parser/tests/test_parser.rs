@@ -3146,4 +3146,25 @@ mod record {
             Some("Invalid characters after closing delimiter".to_string())
         );
     }
+
+    /// https://github.com/nushell/nushell/issues/16713
+    #[test]
+    fn garbage_span_of_incomplete_math_op() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, b"$ a", false);
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        let Expr::BinaryOp(_, op, rhs) = pipeline_el_expr else {
+            panic!("Expected Expr::BinaryOp, but found {pipeline_el_expr:?}");
+        };
+        assert_ne!(op.span, rhs.span)
+    }
 }
