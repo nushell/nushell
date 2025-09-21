@@ -21,9 +21,10 @@ use std::{
     time::Duration,
 };
 use ureq::{
-    Body, Error, RequestBuilder, ResponseExt, SendBody,
+    Body, Error, Proxy, ProxyBuilder, ProxyProtocol, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
 };
+use std::convert::TryInto;
 use url::Url;
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
@@ -89,10 +90,12 @@ pub fn http_client(
         config_builder = config_builder.max_redirects(0);
     }
 
-    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
-        if let Ok(proxy) = ureq::Proxy::new(&http_proxy) {
-            config_builder = config_builder.proxy(Some(proxy));
-        }
+    // Configures the proxy using the following environment variables
+    // HTTP_PROXY, HTTPS_PROXY, NO_PROXY
+    if let Some(builder) = proxy_builder_from_env(engine_state, stack)
+        && let Ok(proxy) = builder.build()
+    {
+        config_builder = config_builder.proxy(Some(proxy));
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
@@ -1009,6 +1012,50 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
         .cloned()
         .and_then(|proxy| proxy.coerce_into_string().ok())
+}
+
+fn retrieve_no_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
+    stack
+        .get_env_var(engine_state, "no_proxy")
+        .or(stack.get_env_var(engine_state, "NO_PROXY"))
+        .cloned()
+        .and_then(|no_proxy| no_proxy.coerce_into_string().ok())
+}
+
+fn proxy_builder_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<ProxyBuilder> {
+
+    let http_proxy = retrieve_http_proxy_from_env(engine_state, stack)?;
+    let uri  = http_proxy.parse::<http::Uri>().ok()?;
+    let authority = uri.authority()?;
+    let scheme = uri.scheme_str().unwrap_or("http");
+    let proto: ProxyProtocol= scheme.try_into().ok()?;
+
+    let mut builder = Proxy::builder(proto)
+                        .host(authority.host());
+
+    if let Some(port) = uri.port() {
+        builder = builder.port(port.as_u16());
+    }
+
+    if let (Some(username), Some(password)) = retrieve_credential_from_authority(authority) {
+        builder = builder
+            .username(username)
+            .password(password);
+    }
+
+    if let Some(no_proxy) = retrieve_no_proxy_from_env(engine_state, stack) {
+        builder = builder.no_proxy(&no_proxy);
+    }
+
+    Some(builder)
+}
+
+fn retrieve_credential_from_authority(authority: &http::uri::Authority) -> (Option<&str>, Option<&str>) {
+    let s = authority.as_str();
+    let user_info = s.rfind('@').map(|i| &s[..i]);
+    let username = user_info.map(|a| a.rfind(':').map(|i| &a[..i]).unwrap_or(a));
+    let password =  user_info.and_then(|a| a.rfind(':').map(|i| &a[i + 1..]));
+    (username, password)
 }
 
 #[cfg(test)]

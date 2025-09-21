@@ -1270,6 +1270,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "cookie_store"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fc4bff745c9b4c7fb1e97b25d13153da2bc7796260141df62378998d070207f"
+dependencies = [
+ "cookie",
+ "document-features",
+ "idna",
+ "indexmap",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "time",
+ "url",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3919,7 +3937,7 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.2.0",
  "update-informer",
- "ureq",
+ "ureq 3.1.2",
  "url",
  "uu_cp",
  "uu_mkdir",
@@ -6554,9 +6572,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-platform-verifier"
-version = "0.5.3"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19787cda76408ec5404443dc8b31795c87cd8fec49762dc75fa727740d34acc1"
+checksum = "be59af91596cac372a6942530653ad0c3a246cdd491aaa9dcaee47f88d67d5a0"
 dependencies = [
  "core-foundation 0.10.0",
  "core-foundation-sys",
@@ -6569,8 +6587,8 @@ dependencies = [
  "rustls-webpki 0.103.3",
  "security-framework 3.0.1",
  "security-framework-sys",
- "webpki-root-certs 0.26.11",
- "windows-sys 0.59.0",
+ "webpki-root-certs 1.0.1",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -7880,7 +7898,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "ureq",
+ "ureq 3.0.12",
 ]
 
 [[package]]
@@ -7890,7 +7908,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f0fde9bc91026e381155f8c67cb354bcd35260b2f4a29bcc84639f762760c39"
 dependencies = [
  "base64 0.22.1",
- "cookie_store",
+ "cookie_store 0.21.1",
+ "der",
+ "flate2",
+ "log",
+ "native-tls",
+ "percent-encoding",
+ "rustls 0.23.28",
+ "rustls-pemfile 2.2.0",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "ureq-proto 0.4.2",
+ "utf-8",
+ "webpki-root-certs 0.26.11",
+ "webpki-roots 0.26.8",
+]
+
+[[package]]
+name = "ureq"
+version = "3.1.2"
+source = "git+https://github.com/algesten/ureq?rev=1ce334d329d5bdcc8f36126f34c7f61ba851c409#1ce334d329d5bdcc8f36126f34c7f61ba851c409"
+dependencies = [
+ "base64 0.22.1",
+ "cookie_store 0.22.0",
  "der",
  "encoding_rs",
  "flate2",
@@ -7904,10 +7945,10 @@ dependencies = [
  "serde",
  "serde_json",
  "socks",
- "ureq-proto",
+ "ureq-proto 0.5.2",
  "utf-8",
- "webpki-root-certs 0.26.11",
- "webpki-roots 0.26.8",
+ "webpki-root-certs 1.0.1",
+ "webpki-roots 1.0.0",
 ]
 
 [[package]]
@@ -7915,6 +7956,18 @@ name = "ureq-proto"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59db78ad1923f2b1be62b6da81fe80b173605ca0d57f85da2e005382adf693f7"
+dependencies = [
+ "base64 0.22.1",
+ "http 1.3.1",
+ "httparse",
+ "log",
+]
+
+[[package]]
+name = "ureq-proto"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60b4531c118335662134346048ddb0e54cc86bd7e81866757873055f0e38f5d2"
 dependencies = [
  "base64 0.22.1",
  "http 1.3.1",
