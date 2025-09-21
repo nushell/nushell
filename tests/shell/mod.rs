@@ -4,6 +4,7 @@ use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
 
 mod environment;
+mod help;
 mod pipeline;
 mod repl;
 
