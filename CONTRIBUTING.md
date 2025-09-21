@@ -219,7 +219,7 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
 
 ### Experimental options
 
-We sometimes add new behavior behind **experimental options**. 
+We sometimes add new behavior behind [**experimental options**](https://www.nushell.sh/blog/2025-07-23-nushell_0_106_0.html#experimental-options-toc). 
 These are opt-in (or opt-out) flags that let us try out changes without affecting everyone by default.
 
 If you introduce a new experimental option, you must also:
