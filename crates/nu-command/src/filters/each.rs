@@ -128,18 +128,18 @@ with 'transpose' first."#
                     .into_pipeline_data(head, engine_state.signals().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(chunks) = stream.chunks() {
-                    let mut closure = ClosureEval::new(engine_state, stack, closure);
-                    Ok(chunks
-                        .map(move |result| {
-                            result
-                                .and_then(|value| each_map(value, &mut closure, head))
-                                .unwrap_or_else(|error| Value::error(error, head))
-                        })
-                        .into_pipeline_data(head, engine_state.signals().clone()))
-                } else {
-                    Ok(PipelineData::empty())
-                }
+                let Some(chunks) = stream.chunks() else {
+                    return Ok(PipelineData::empty().set_metadata(metadata));
+                };
+
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                Ok(chunks
+                    .map(move |result| {
+                        result
+                            .and_then(|value| each_map(value, &mut closure, head))
+                            .unwrap_or_else(|error| Value::error(error, head))
+                    })
+                    .into_pipeline_data(head, engine_state.signals().clone()))
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
