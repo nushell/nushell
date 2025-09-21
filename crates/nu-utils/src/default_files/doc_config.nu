@@ -1,4 +1,4 @@
-# Nushell Config File Documentation 
+# Nushell Config File Documentation
 #
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
@@ -329,7 +329,7 @@ $env.config.table.padding.right = 1
 # truncating_suffix (string): The text to show at the end of the row to indicate that it has
 #                             been truncated. Only valid when `methodology = "truncating"`.
 # wrapping_try_keep_words (bool): true to keep words together based on whitespace
-#                                 false: to allow wrapping in the middle of a word.
+#                                 false to allow wrapping in the middle of a word.
 #                                 Only valid when `methodology = wrapping`.
 $env.config.table.trim = {
   methodology: "wrapping"
