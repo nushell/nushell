@@ -334,6 +334,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoBinary,
             IntoCellPath,
             IntoDatetime,
+            IntoDecimal,
             IntoDuration,
             IntoFloat,
             IntoFilesize,
