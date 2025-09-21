@@ -110,7 +110,7 @@ with 'transpose' first."#
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
 
         let metadata = input.metadata();
-        match input {
+        let result = match input {
             empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
                 return Ok(empty);
             }
@@ -146,13 +146,13 @@ with 'transpose' first."#
             PipelineData::Value(value, ..) => {
                 ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
+        };
+
+        if keep_empty {
+            result
+        } else {
+            result.and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         }
-        .and_then(|x| {
-            x.filter(
-                move |x| if !keep_empty { !x.is_nothing() } else { true },
-                engine_state.signals(),
-            )
-        })
         .map(|data| data.set_metadata(metadata))
     }
 }
