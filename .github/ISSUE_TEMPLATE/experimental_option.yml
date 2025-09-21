@@ -1,0 +1,61 @@
+name: Experimental Option Tracking
+description: Create a tracking issue for an experimental option
+title: "[exp] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You're setting up a tracking issue for an experimental option.
+        We use these issues to track the status of an experimental option and keep all the relevant details in one central space.
+        
+        Make sure you link to this issue in your experimental option on `ExperimentalOptionMarker::ISSUE`.
+        
+        This issue may be closed when the experimental option reaches the end of its lifetime by either
+          - Getting merged as default behavior
+          - Getting marked as discarded
+
+  - type: input
+    id: identifier
+    attributes:
+      label: Identifier
+      description: Put in here the identifier or your experimental option.
+    validations:
+      required: true
+
+  - type: input
+    id: introducing-pr
+    attributes:
+      label: Introducing PR
+      description: Provide the reference to the PR that introduced the option here.
+      placeholder: "#12345"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      description: Select the status of the experimental
+      options:
+        - opt-in
+        - opt-out
+        - deprecated-default
+        - deprecated-discard
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the changing behavior by this experimental option.
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related
+      description: Add here any related issues or PRs
+    validations:
+      required: false
