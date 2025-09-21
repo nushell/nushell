@@ -48,10 +48,10 @@ pub(crate) trait ExperimentalOptionMarker {
     const SINCE: Version;
 
     /// Github issue that tracks this experimental option.
-    /// 
-    /// Experimental options are expected to end their lifetime by either getting a default feature 
-    /// or by getting removed. 
-    /// To track this we want to have a respective issue on Github that tracks the status. 
+    ///
+    /// Experimental options are expected to end their lifetime by either getting a default feature
+    /// or by getting removed.
+    /// To track this we want to have a respective issue on Github that tracks the status.
     const ISSUE: u32;
 }
 
