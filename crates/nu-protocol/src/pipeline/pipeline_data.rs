@@ -1,12 +1,19 @@
+#[cfg(feature = "os")]
+use crate::process::ExitStatusFuture;
 use crate::{
-    ByteStream, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError,
-    Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     location,
     shell_error::{io::IoError, location::Location},
 };
-use std::{borrow::Cow, io::Write};
+use std::{
+    borrow::Cow,
+    io::Write,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -48,8 +55,20 @@ pub enum PipelineData {
 }
 
 impl PipelineData {
-    pub fn empty() -> PipelineData {
+    pub const fn empty() -> PipelineData {
         PipelineData::Empty
+    }
+
+    pub fn value(val: Value, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
+        PipelineData::Value(val, metadata.into())
+    }
+
+    pub fn list_stream(stream: ListStream, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
+        PipelineData::ListStream(stream, metadata.into())
+    }
+
+    pub fn byte_stream(stream: ByteStream, metadata: impl Into<Option<PipelineMetadata>>) -> Self {
+        PipelineData::ByteStream(stream, metadata.into())
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
@@ -88,18 +107,18 @@ impl PipelineData {
 
     /// Change the span of the [`PipelineData`].
     ///
-    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::Empty`].
+    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::empty()`].
     pub fn with_span(self, span: Span) -> Self {
         match self {
-            PipelineData::Empty => PipelineData::Value(Value::nothing(span), None),
+            PipelineData::Empty => PipelineData::value(Value::nothing(span), None),
             PipelineData::Value(value, metadata) => {
-                PipelineData::Value(value.with_span(span), metadata)
+                PipelineData::value(value.with_span(span), metadata)
             }
             PipelineData::ListStream(stream, metadata) => {
-                PipelineData::ListStream(stream.with_span(span), metadata)
+                PipelineData::list_stream(stream.with_span(span), metadata)
             }
             PipelineData::ByteStream(stream, metadata) => {
-                PipelineData::ByteStream(stream.with_span(span), metadata)
+                PipelineData::byte_stream(stream.with_span(span), metadata)
             }
         }
     }
@@ -191,19 +210,19 @@ impl PipelineData {
             PipelineData::ListStream(..) | PipelineData::ByteStream(..) => Ok(self),
             PipelineData::Value(Value::List { .. } | Value::Range { .. }, ref metadata) => {
                 let metadata = metadata.clone();
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     ListStream::new(self.into_iter(), span, engine_state.signals().clone()),
                     metadata,
                 ))
             }
             PipelineData::Value(Value::String { val, .. }, metadata) => {
-                Ok(PipelineData::ByteStream(
+                Ok(PipelineData::byte_stream(
                     ByteStream::read_string(val, span, engine_state.signals().clone()),
                     metadata,
                 ))
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
-                Ok(PipelineData::ByteStream(
+                Ok(PipelineData::byte_stream(
                     ByteStream::read_binary(val, span, engine_state.signals().clone()),
                     metadata,
                 ))
@@ -454,9 +473,9 @@ impl PipelineData {
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
-                Ok(PipelineData::ListStream(stream.map(f), metadata))
+                Ok(PipelineData::list_stream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
                 Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
@@ -473,7 +492,7 @@ impl PipelineData {
         F: FnMut(Value) -> U + 'static + Send,
     {
         match self {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
@@ -491,7 +510,7 @@ impl PipelineData {
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
                 stream.modify(|iter| iter.flat_map(f)),
                 metadata,
             )),
@@ -520,7 +539,7 @@ impl PipelineData {
         F: FnMut(&Value) -> bool + 'static + Send,
     {
         match self {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
@@ -542,7 +561,7 @@ impl PipelineData {
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
                 stream.modify(|iter| iter.filter(f)),
                 metadata,
             )),
@@ -602,9 +621,9 @@ impl PipelineData {
                         }
                         let range_values: Vec<Value> =
                             val.into_range_iter(span, Signals::empty()).collect();
-                        Ok(PipelineData::Value(Value::list(range_values, span), None))
+                        Ok(PipelineData::value(Value::list(range_values, span), None))
                     }
-                    x => Ok(PipelineData::Value(x, metadata)),
+                    x => Ok(PipelineData::value(x, metadata)),
                 }
             }
             _ => Ok(self),
@@ -760,6 +779,19 @@ impl PipelineData {
             },
         }
     }
+
+    // PipelineData might connect to a running process which has an exit status future
+    // Use this method to retrieve that future, it's useful for implementing `pipefail` feature.
+    #[cfg(feature = "os")]
+    pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
+        match self {
+            PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
+            PipelineData::ByteStream(stream, ..) => match stream.source() {
+                ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
+                ByteStreamSource::Child(c) => Some(c.clone_exit_status_future()),
+            },
+        }
+    }
 }
 
 pub fn write_all_and_flush<T>(
@@ -784,7 +816,7 @@ where
     let span = span.unwrap_or(Span::unknown());
     const OUTPUT_CHUNK_SIZE: usize = 8192;
     for chunk in data.as_ref().chunks(OUTPUT_CHUNK_SIZE) {
-        signals.check(span)?;
+        signals.check(&span)?;
         destination
             .write_all(chunk)
             .map_err(|err| io_error_map(err, location!()))?;
@@ -874,14 +906,14 @@ where
     V: Into<Value>,
 {
     fn into_pipeline_data(self) -> PipelineData {
-        PipelineData::Value(self.into(), None)
+        PipelineData::value(self.into(), None)
     }
 
     fn into_pipeline_data_with_metadata(
         self,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
-        PipelineData::Value(self.into(), metadata.into())
+        PipelineData::value(self.into(), metadata.into())
     }
 }
 
@@ -911,7 +943,7 @@ where
         signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
-        PipelineData::ListStream(
+        PipelineData::list_stream(
             ListStream::new(self.into_iter().map(Into::into), span, signals),
             metadata.into(),
         )
@@ -937,4 +969,48 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         value => value.coerce_into_string()?.into_bytes(),
     };
     Ok(bytes)
+}
+
+/// A wrapper to [`PipelineData`] which can also track exit status.
+///
+/// We use exit status tracking to implement the `pipefail` feature.
+pub struct PipelineExecutionData {
+    pub body: PipelineData,
+    #[cfg(feature = "os")]
+    pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+}
+
+impl Deref for PipelineExecutionData {
+    type Target = PipelineData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl PipelineExecutionData {
+    pub fn empty() -> Self {
+        Self {
+            body: PipelineData::empty(),
+            #[cfg(feature = "os")]
+            exit: vec![],
+        }
+    }
+}
+
+impl From<PipelineData> for PipelineExecutionData {
+    #[cfg(feature = "os")]
+    fn from(value: PipelineData) -> Self {
+        let value_span = value.span().unwrap_or_else(Span::unknown);
+        let exit_status_future = value.clone_exit_status_future().map(|f| (f, value_span));
+        Self {
+            body: value,
+            exit: vec![exit_status_future],
+        }
+    }
+
+    #[cfg(not(feature = "os"))]
+    fn from(value: PipelineData) -> Self {
+        Self { body: value }
+    }
 }

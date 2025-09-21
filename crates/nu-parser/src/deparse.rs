@@ -2,9 +2,16 @@ use nu_utils::escape_quote_string;
 
 fn string_should_be_quoted(input: &str) -> bool {
     input.starts_with('$')
-        || input
-            .chars()
-            .any(|c| c == ' ' || c == '(' || c == '\'' || c == '`' || c == '"' || c == '\\')
+        || input.chars().any(|c| {
+            c == ' '
+                || c == '('
+                || c == '\''
+                || c == '`'
+                || c == '"'
+                || c == '\\'
+                || c == ';'
+                || c == '|'
+        })
 }
 
 // Escape rules:
@@ -51,14 +58,17 @@ mod test {
 
     #[test]
     fn test_quote_special() {
-        // check for input arg like this:
-        // nu b.nu "two words" $nake "`123"
-        assert_eq!(
-            escape_for_script_arg("two words"),
-            r#""two words""#.to_string()
-        );
-        assert_eq!(escape_for_script_arg("$nake"), r#""$nake""#.to_string());
-        assert_eq!(escape_for_script_arg("`123"), r#""`123""#.to_string());
+        let cases = vec![
+            ("two words", r#""two words""#),
+            ("$nake", r#""$nake""#),
+            ("`123", r#""`123""#),
+            ("this|cat", r#""this|cat""#),
+            ("this;cat", r#""this;cat""#),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(escape_for_script_arg(input).as_str(), expected);
+        }
     }
 
     #[test]

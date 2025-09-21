@@ -73,19 +73,19 @@ https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
                 "o>>",
                 "redirection append",
                 "redirect stdout of a command, appending to a file",
-                "^cmd1 o> file.txt",
+                "^cmd1 o>> file.txt",
             ),
             HelpExamples::new(
                 "e>>",
                 "stderr redirection append",
                 "redirect stderr of a command, appending to a file",
-                "^cmd1 e> file.txt",
+                "^cmd1 e>> file.txt",
             ),
             HelpExamples::new(
                 "o+e>>",
                 "stdout and stderr redirection append",
                 "redirect stdout and stderr of a command, appending to a file",
-                "^cmd1 o+e> file.txt",
+                "^cmd1 o+e>> file.txt",
             ),
             HelpExamples::new(
                 "o>|",

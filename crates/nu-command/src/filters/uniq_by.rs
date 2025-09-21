@@ -82,7 +82,7 @@ impl Command for UniqBy {
         uniq(engine_state, stack, call, vec, mapper, metadata)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get rows from table filtered by column uniqueness ",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",

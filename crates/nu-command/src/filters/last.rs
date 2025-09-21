@@ -34,7 +34,7 @@ impl Command for Last {
         "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1,2,3] | last 2",
@@ -100,7 +100,7 @@ impl Command for Last {
                 let mut buf = VecDeque::new();
 
                 for row in iterator {
-                    engine_state.signals().check(head)?;
+                    engine_state.signals().check(&head)?;
                     if buf.len() == rows {
                         buf.pop_front();
                     }
@@ -186,7 +186,7 @@ impl Command for Last {
                             }
                         }
                     } else {
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {

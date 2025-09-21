@@ -10,6 +10,43 @@ fn formatter_not_valid() {
 }
 
 #[test]
+fn test_j_q_format_specifiers() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%J_%Q'
+        "#);
+
+    assert_eq!(actual.out, "20211022_200012");
+}
+
+#[test]
+fn test_j_q_format_specifiers_current_time() {
+    let actual = nu!(r#"
+        date now | format date '%J_%Q' | str length
+        "#);
+
+    // Should be exactly 15 characters: YYYYMMDD_HHMMSS
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn test_j_format_specifier_date_only() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%J'
+        "#);
+
+    assert_eq!(actual.out, "20211022");
+}
+
+#[test]
+fn test_q_format_specifier_time_only() {
+    let actual = nu!(r#"
+        "2021-10-22 20:00:12 +01:00" | format date '%Q'
+        "#);
+
+    assert_eq!(actual.out, "200012");
+}
+
+#[test]
 fn fails_without_input() {
     let actual = nu!(r#"
         format date "%c"

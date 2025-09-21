@@ -45,7 +45,7 @@ impl Command for First {
         first_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return the first item of a list/table",
@@ -98,7 +98,8 @@ fn first_helper(
         1
     };
 
-    let metadata = input.metadata();
+    // first 5 bytes of an image/png are not image/png themselves
+    let metadata = input.metadata().map(|m| m.with_content_type(None));
 
     // early exit for `first 0`
     if rows == 0 {
@@ -167,7 +168,7 @@ fn first_helper(
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                Ok(PipelineData::ListStream(
+                Ok(PipelineData::list_stream(
                     stream.modify(|iter| iter.take(rows)),
                     metadata,
                 ))
@@ -176,6 +177,7 @@ fn first_helper(
         PipelineData::ByteStream(stream, metadata) => {
             if stream.type_().is_binary_coercible() {
                 let span = stream.span();
+                let metadata = metadata.map(|m| m.with_content_type(None));
                 if let Some(mut reader) = stream.reader() {
                     if return_single_element {
                         // Take a single byte
@@ -191,7 +193,7 @@ fn first_helper(
                         }
                     } else {
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::read(
                                 reader.take(rows as u64),
                                 head,
@@ -202,7 +204,7 @@ fn first_helper(
                         ))
                     }
                 } else {
-                    Ok(PipelineData::Empty)
+                    Ok(PipelineData::empty())
                 }
             } else {
                 Err(ShellError::OnlySupportsThisInputType {

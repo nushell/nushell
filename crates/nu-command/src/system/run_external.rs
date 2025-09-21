@@ -33,6 +33,11 @@ impl Command for External {
         "Runs external command."
     }
 
+    fn extra_description(&self) -> &str {
+        r#"All externals are run with this command, whether you call it directly with `run-external external` or use `external` or `^external`.
+If you create a custom command with this name, that will be used instead."#
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
@@ -87,7 +92,7 @@ impl Command for External {
             _ => Path::new(&*name_str).to_owned(),
         };
 
-        let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+        let paths = nu_engine::env::path_str(engine_state, stack, call.head).unwrap_or_default();
 
         // On Windows, the user could have run the cmd.exe built-in commands "assoc"
         // and "ftype" to create a file association for an arbitrary file extension.
@@ -246,7 +251,7 @@ impl Command for External {
                 }
                 Err(stream) => {
                     command.stdin(Stdio::piped());
-                    Some(PipelineData::ByteStream(stream, metadata))
+                    Some(PipelineData::byte_stream(stream, metadata))
                 }
             },
             PipelineData::Empty => {
@@ -279,16 +284,16 @@ impl Command for External {
             IoError::new_internal(err, context, nu_protocol::location!())
         })?;
 
-        if let Some(thread_job) = engine_state.current_thread_job() {
-            if !thread_job.try_add_pid(child.pid()) {
-                kill_by_pid(child.pid().into()).map_err(|err| {
-                    ShellError::Io(IoError::new_internal(
-                        err,
-                        "Could not spawn external stdin worker",
-                        nu_protocol::location!(),
-                    ))
-                })?;
-            }
+        if let Some(thread_job) = engine_state.current_thread_job()
+            && !thread_job.try_add_pid(child.pid())
+        {
+            kill_by_pid(child.pid().into()).map_err(|err| {
+                ShellError::Io(IoError::new_internal(
+                    err,
+                    "Could not spawn external stdin worker",
+                    nu_protocol::location!(),
+                ))
+            })?;
         }
 
         // If we need to copy data into the child process, do it now.
@@ -313,7 +318,7 @@ impl Command for External {
 
         let child_pid = child.pid();
 
-        // Wrap the output into a `PipelineData::ByteStream`.
+        // Wrap the output into a `PipelineData::byte_stream`.
         let mut child = ChildProcess::new(
             child,
             merged_stream,
@@ -336,13 +341,13 @@ impl Command for External {
             child.ignore_error(true);
         }
 
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             ByteStream::child(child, call.head),
             None,
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run an external command",
@@ -431,7 +436,7 @@ fn expand_glob(
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
-            signals.check(span)?;
+            signals.check(&span)?;
             if let Ok(arg) = m {
                 let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
                 result.push(arg.into());
@@ -478,7 +483,7 @@ fn resolve_globbed_path_to_cwd_relative(
 ///
 /// Note: Avoid using this function when piping data from an external command to
 /// another external command, because it copies data unnecessarily. Instead,
-/// extract the pipe from the `PipelineData::ByteStream` of the first command
+/// extract the pipe from the `PipelineData::byte_stream` of the first command
 /// and hand it to the second command directly.
 fn write_pipeline_data(
     mut engine_state: EngineState,
@@ -788,22 +793,22 @@ mod test {
         engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
         let mut buf = vec![];
-        let input = PipelineData::Empty;
+        let input = PipelineData::empty();
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
-        let input = PipelineData::Value(Value::string("foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::string("foo", Span::unknown()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
-        let input = PipelineData::Value(Value::binary(b"foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::binary(b"foo", Span::unknown()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
-        let input = PipelineData::ByteStream(
+        let input = PipelineData::byte_stream(
             ByteStream::read(
                 b"foo".as_slice(),
                 Span::unknown(),

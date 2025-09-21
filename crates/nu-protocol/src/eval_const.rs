@@ -38,10 +38,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     let config_path = match nu_path::nu_config_dir() {
         Some(path) => Ok(canonicalize_path(engine_state, path.as_ref())),
-        None => Err(Value::error(
-            ShellError::ConfigDirNotFound { span: Some(span) },
-            span,
-        )),
+        None => Err(Value::error(ShellError::ConfigDirNotFound { span }, span)),
     };
 
     record.push(
@@ -92,6 +89,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             |e| e,
             |mut path| {
                 match engine_state.config.history.file_format {
+                    #[cfg(feature = "sqlite")]
                     HistoryFileFormat::Sqlite => {
                         path.push("history.sqlite3");
                     }
@@ -274,6 +272,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
+    record.push("is-lsp", Value::bool(engine_state.is_lsp, span));
+
     Value::record(record, span)
 }
 
@@ -417,7 +417,7 @@ pub fn eval_constant_with_input(
             let block = working_set.get_block(*block_id);
             eval_const_subexpression(working_set, block, input, expr.span(&working_set))
         }
-        _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
+        _ => eval_constant(working_set, expr).map(|v| PipelineData::value(v, None)),
     }
 }
 

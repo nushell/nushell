@@ -31,7 +31,7 @@ impl PluginCommand for ExprNot {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Creates a not expression",

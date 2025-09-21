@@ -52,7 +52,7 @@ impl Command for GroupBy {
         group_by(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Group items by the \"type\" column's values",
@@ -231,7 +231,12 @@ pub fn group_by(
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
-        return Ok(Value::record(Record::new(), head).into_pipeline_data());
+        let val = if to_table {
+            Value::list(Vec::new(), head)
+        } else {
+            Value::record(Record::new(), head)
+        };
+        return Ok(val.into_pipeline_data());
     }
 
     let grouped = match &groupers[..] {

@@ -1,5 +1,5 @@
 use nu_protocol::{
-    DeclId, ModuleId, Signature, Span, SyntaxShape, Type, Value, VarId,
+    DeclId, ModuleId, Signature, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
     record,
@@ -100,7 +100,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                             record! {
                                 "description" => Value::string(x.description, span),
                                 "example" => Value::string(x.example, span),
-                                "result" => x.result.unwrap_or(Value::nothing(span)),
+                                "result" => x.result.unwrap_or(Value::nothing(span)).with_span(span),
                             },
                             span,
                         )
@@ -206,7 +206,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "is_optional" => Value::bool(false, span),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),
-                "custom_completion" => Value::nothing(span),
+                "completion" => Value::nothing(span),
                 "parameter_default" => Value::nothing(span),
             },
             span,
@@ -214,7 +214,11 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         // required_positional
         for req in &signature.required_positional {
-            let custom = extract_custom_completion_from_arg(self.engine_state, &req.shape);
+            let completion = req
+                .completion
+                .as_ref()
+                .map(|compl| compl.to_value(self.engine_state, span))
+                .unwrap_or(Value::nothing(span));
 
             sig_records.push(Value::record(
                 record! {
@@ -224,7 +228,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "is_optional" => Value::bool(false, span),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&req.desc, span),
-                    "custom_completion" => Value::string(custom, span),
+                    "completion" => completion,
                     "parameter_default" => Value::nothing(span),
                 },
                 span,
@@ -233,7 +237,12 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         // optional_positional
         for opt in &signature.optional_positional {
-            let custom = extract_custom_completion_from_arg(self.engine_state, &opt.shape);
+            let completion = opt
+                .completion
+                .as_ref()
+                .map(|compl| compl.to_value(self.engine_state, span))
+                .unwrap_or(Value::nothing(span));
+
             let default = if let Some(val) = &opt.default_value {
                 val.clone()
             } else {
@@ -248,7 +257,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "is_optional" => Value::bool(true, span),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&opt.desc, span),
-                    "custom_completion" => Value::string(custom, span),
+                    "completion" => completion,
                     "parameter_default" => default,
                 },
                 span,
@@ -258,7 +267,11 @@ impl<'e, 's> ScopeData<'e, 's> {
         // rest_positional
         if let Some(rest) = &signature.rest_positional {
             let name = if rest.name == "rest" { "" } else { &rest.name };
-            let custom = extract_custom_completion_from_arg(self.engine_state, &rest.shape);
+            let completion = rest
+                .completion
+                .as_ref()
+                .map(|compl| compl.to_value(self.engine_state, span))
+                .unwrap_or(Value::nothing(span));
 
             sig_records.push(Value::record(
                 record! {
@@ -268,7 +281,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "is_optional" => Value::bool(true, span),
                     "short_flag" => Value::nothing(span),
                     "description" => Value::string(&rest.desc, span),
-                    "custom_completion" => Value::string(custom, span),
+                    "completion" => completion,
                     // rest_positional does have default, but parser prohibits specifying it?!
                     "parameter_default" => Value::nothing(span),
                 },
@@ -285,11 +298,14 @@ impl<'e, 's> ScopeData<'e, 's> {
                 continue;
             }
 
-            let mut custom_completion_command_name: String = "".to_string();
+            let completion = named
+                .completion
+                .as_ref()
+                .map(|compl| compl.to_value(self.engine_state, span))
+                .unwrap_or(Value::nothing(span));
+
             let shape = if let Some(arg) = &named.arg {
                 flag_type = Value::string("named", span);
-                custom_completion_command_name =
-                    extract_custom_completion_from_arg(self.engine_state, arg);
                 Value::string(arg.to_string(), span)
             } else {
                 flag_type = Value::string("switch", span);
@@ -316,7 +332,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "is_optional" => Value::bool(!named.required, span),
                     "short_flag" => short_flag,
                     "description" => Value::string(&named.desc, span),
-                    "custom_completion" => Value::string(custom_completion_command_name, span),
+                    "completion" => completion,
                     "parameter_default" => default,
                 },
                 span,
@@ -332,7 +348,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "is_optional" => Value::bool(false, span),
                 "short_flag" => Value::nothing(span),
                 "description" => Value::nothing(span),
-                "custom_completion" => Value::nothing(span),
+                "completion" => Value::nothing(span),
                 "parameter_default" => Value::nothing(span),
             },
             span,
@@ -541,17 +557,6 @@ impl<'e, 's> ScopeData<'e, 's> {
             },
             span,
         )
-    }
-}
-
-fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &SyntaxShape) -> String {
-    match shape {
-        SyntaxShape::CompleterWrapper(_, custom_completion_decl_id) => {
-            let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
-            let custom_completion_command_name: &str = custom_completion_command.name();
-            custom_completion_command_name.to_string()
-        }
-        _ => "".to_string(),
     }
 }
 

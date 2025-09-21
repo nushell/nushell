@@ -52,7 +52,7 @@ using `zip { ... } | flatten` instead."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "seq 1 50 | wrap a | interleave { seq 1 50 | wrap b }",
@@ -120,7 +120,7 @@ interleave
             .into_iter()
             .chain(closures.into_iter().map(|closure| {
                 ClosureEvalOnce::new(engine_state, stack, closure)
-                    .run_with_input(PipelineData::Empty)
+                    .run_with_input(PipelineData::empty())
             }))
             .try_for_each(|stream| {
                 stream.and_then(|stream| {

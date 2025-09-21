@@ -46,7 +46,7 @@ impl Command for Whoami {
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the current username",
             example: "whoami",

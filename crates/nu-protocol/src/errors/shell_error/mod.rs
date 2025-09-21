@@ -667,6 +667,20 @@ pub enum ShellError {
         creation_site: Span,
     },
 
+    /// Failed to detect columns
+    ///
+    /// ## Resolution
+    ///
+    /// Use `detect columns --guess` or `parse` instead
+    #[error("Failed to detect columns")]
+    #[diagnostic(code(nu::shell::failed_to_detect_columns))]
+    ColumnDetectionFailure {
+        #[label = "value coming from here"]
+        bad_value: Span,
+        #[label = "tried to detect columns here"]
+        failure_site: Span,
+    },
+
     /// Attempted to us a relative range on an infinite stream
     ///
     /// ## Resolution
@@ -1114,13 +1128,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Operation interrupted by user
-    #[error("Operation interrupted by user")]
-    InterruptedByUser {
-        #[label("This operation was interrupted")]
-        span: Option<Span>,
-    },
-
     /// An attempt to use, as a match guard, an expression that
     /// does not resolve into a boolean
     #[error("Match guard not bool")]
@@ -1186,18 +1193,16 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    // TODO: Update help text once custom const commands are supported
     /// Tried running a command that is not const-compatible
     ///
     /// ## Resolution
     ///
-    /// Only a subset of builtin commands, and custom commands built only from those commands, can
-    /// run at parse time.
+    /// Only a subset of builtin commands can run at parse time.
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help(
-            "Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time."
-        )
+        help("Only a subset of builtin commands can run at parse time.")
     )]
     NotAConstCommand {
         #[label("This command cannot run at parse time.")]
@@ -1220,7 +1225,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     },
 
     #[error("{deprecation_type} deprecated.")]
-    #[diagnostic(code(nu::shell::deprecated))]
+    #[diagnostic(code(nu::shell::deprecated), severity(Warning))]
     DeprecationWarning {
         deprecation_type: &'static str,
         suggestion: String,
@@ -1340,7 +1345,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     )]
     ConfigDirNotFound {
         #[label = "Could not find config directory"]
-        span: Option<Span>,
+        span: Span,
     },
 
     /// XDG_CONFIG_HOME was set to an invalid path
@@ -1380,7 +1385,7 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     DisabledOsSupport {
         msg: String,
         #[label = "while running this code"]
-        span: Option<Span>,
+        span: Span,
     },
 
     #[error(transparent)]
@@ -1418,7 +1423,7 @@ impl ShellError {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
-            "rendered" => Value::string(format_cli_error(working_set, &self), span),
+            "rendered" => Value::string(format_cli_error(working_set, &self, Some("nu::shell::error")), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
@@ -1431,7 +1436,7 @@ impl ShellError {
 
     // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_cli_error(working_set, &self);
+        let msg = format_cli_error(working_set, &self, None);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),

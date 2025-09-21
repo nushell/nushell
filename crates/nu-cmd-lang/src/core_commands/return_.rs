@@ -48,7 +48,7 @@ impl Command for Return {
         unreachable!()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Return early",
             example: r#"def foo [] { return }"#,

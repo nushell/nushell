@@ -41,23 +41,24 @@ impl Completer for NuMenuCompleter {
 
         let block = self.engine_state.get_block(self.block_id);
 
-        if let Some(buffer) = block.signature.get_positional(0) {
-            if let Some(buffer_id) = &buffer.var_id {
-                let line_buffer = Value::string(parsed.remainder, self.span);
-                self.stack.add_var(*buffer_id, line_buffer);
-            }
+        if let Some(buffer) = block.signature.get_positional(0)
+            && let Some(buffer_id) = &buffer.var_id
+        {
+            let line_buffer = Value::string(parsed.remainder, self.span);
+            self.stack.add_var(*buffer_id, line_buffer);
         }
 
-        if let Some(position) = block.signature.get_positional(1) {
-            if let Some(position_id) = &position.var_id {
-                let line_buffer = Value::int(pos as i64, self.span);
-                self.stack.add_var(*position_id, line_buffer);
-            }
+        if let Some(position) = block.signature.get_positional(1)
+            && let Some(position_id) = &position.var_id
+        {
+            let line_buffer = Value::int(pos as i64, self.span);
+            self.stack.add_var(*position_id, line_buffer);
         }
 
         let input = Value::nothing(self.span).into_pipeline_data();
 
-        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
+        let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input)
+            .map(|p| p.body);
 
         if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
             convert_to_suggestions(values, line, pos, self.only_buffer_difference)

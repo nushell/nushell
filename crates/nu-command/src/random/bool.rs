@@ -40,7 +40,7 @@ impl Command for RandomBool {
         bool(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a random boolean value",
@@ -78,7 +78,7 @@ fn bool(
 
     let bool_result: bool = random_bool(probability);
 
-    Ok(PipelineData::Value(Value::bool(bool_result, span), None))
+    Ok(PipelineData::value(Value::bool(bool_result, span), None))
 }
 
 #[cfg(test)]

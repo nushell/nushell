@@ -93,7 +93,7 @@ impl WebTable {
     /// of the table is a header row, meaning it contains at least one `<th>`
     /// cell, the iterator will start on the second row. Use
     /// [`headers`](#method.headers) to access the header row in that case.
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         Iter {
             headers: &self.headers,
             iter: self.data.iter(),
@@ -258,7 +258,7 @@ impl<'a> Row<'a> {
     }
 
     /// Returns an iterator over the cells of the row.
-    pub fn iter(&self) -> std::slice::Iter<String> {
+    pub fn iter(&self) -> std::slice::Iter<'_, String> {
         self.cells.iter()
     }
 }

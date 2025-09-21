@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: if-matches-chain
+language: rust
+severity: error
+message: "This would have been better handled with a `match` expression"
+
+rule:
+  pattern: "$ROOT"
+  matches: if_matches
+
+  # We don't want the match each if-else branch separately, we only want to
+  # match the initial one.
+  # A chain of if-else branches are technically nested (at least in the
+  # tree-sitter AST) so it will contain the following branches too
+  not:
+    inside:
+      kind: else_clause
+
+  # This rule should only match if there are successive `if matches!` branches
+  # and not match the simple case which can be converted to a `if let` easily
+  has:
+    kind: else_clause
+    has:
+      matches: if_matches
+
+labels:
+  ROOT:
+    style: primary
+
+utils:
+  if_matches:
+    kind: if_expression
+    has:
+      field: condition
+      pattern: "matches!"

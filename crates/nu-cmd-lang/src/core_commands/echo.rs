@@ -52,7 +52,7 @@ little reason to use this over just writing the values as-is."#
         true
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Put a list of numbers in the pipeline. This is the same as [1 2 3].",

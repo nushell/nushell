@@ -49,7 +49,7 @@ impl PluginCommand for ArgSort {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns indexes for a sorted series",
@@ -94,7 +94,7 @@ impl PluginCommand for ArgSort {
                 ),
             },
             Example {
-                description: "Returns indexes for a sorted series",
+                description: "Returns indexes for a sorted series and applying a limit",
                 example: "[1 2 2 3 3] | polars into-df | polars arg-sort --limit 2",
                 result: Some(
                     NuDataFrame::try_from_columns(

@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
-use nu_utils::{get_default_config, get_default_env};
+use nu_utils::ConfigFileKind;
 use std::{
     fmt::Write,
     hint::black_box,
@@ -135,6 +135,30 @@ fn bench_load_standard_lib() -> impl IntoBenchmarks {
         b.iter(move || {
             let mut engine = engine.clone();
             load_standard_library(&mut engine)
+        })
+    })]
+}
+
+/// Load all modules of standard library into the engine through a general `use`.
+fn bench_load_use_standard_lib() -> impl IntoBenchmarks {
+    [benchmark_fn("load_use_standard_lib", move |b| {
+        // We need additional commands like `format number` for the standard library
+        let engine = nu_cmd_extra::add_extra_command_context(setup_engine());
+        let commands = Spanned {
+            item: "use std".into(),
+            span: Span::unknown(),
+        };
+        b.iter(move || {
+            let mut engine = engine.clone();
+            let mut stack = Stack::new();
+            let _ = load_standard_library(&mut engine);
+            evaluate_commands(
+                &commands,
+                &mut engine,
+                &mut stack,
+                PipelineData::empty(),
+                Default::default(),
+            )
         })
     })]
 }
@@ -326,8 +350,9 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
 }
 
 fn bench_eval_default_config() -> impl IntoBenchmarks {
-    let default_env = get_default_config().as_bytes().to_vec();
-    let fname = "default_config.nu".to_string();
+    let kind = ConfigFileKind::Config;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_config",
         fname,
@@ -338,8 +363,9 @@ fn bench_eval_default_config() -> impl IntoBenchmarks {
 }
 
 fn bench_eval_default_env() -> impl IntoBenchmarks {
-    let default_env = get_default_env().as_bytes().to_vec();
-    let fname = "default_env.nu".to_string();
+    let kind = ConfigFileKind::Env;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_env",
         fname,
@@ -437,6 +463,7 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
 
 tango_benchmarks!(
     bench_load_standard_lib(),
+    bench_load_use_standard_lib(),
     // Data types
     // Record
     bench_record_create(1),

@@ -37,7 +37,7 @@ impl Command for DebugExperimentalOptions {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             Value::list(
                 nu_experimental::ALL
                     .iter()

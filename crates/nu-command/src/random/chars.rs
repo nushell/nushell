@@ -42,7 +42,7 @@ impl Command for RandomChars {
         chars(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a string with 25 random chars",

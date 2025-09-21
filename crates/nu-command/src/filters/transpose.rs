@@ -75,7 +75,7 @@ impl Command for Transpose {
         transpose(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Transposes the table contents with default column names",
@@ -293,7 +293,7 @@ pub fn transpose(
         })
         .collect::<Vec<Value>>();
     if result_data.len() == 1 && args.as_record {
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             result_data
                 .pop()
                 .expect("already check result only contains one item"),

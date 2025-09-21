@@ -57,7 +57,7 @@ impl Command for Glob {
         vec!["pattern", "files", "folders", "list", "ls"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Search for *.rs files",
@@ -85,7 +85,7 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files for folders that do not begin with c, C, b, M, or s",
+                description: "Search for files or folders that do not begin with c, C, b, M, or s",
                 example: r#"glob "[!cCbMs]*""#,
                 result: None,
             },
@@ -329,7 +329,7 @@ fn glob_to_value(
 ) -> ListStream {
     let map_signals = signals.clone();
     let result = glob_results.filter_map(move |entry| {
-        if let Err(err) = map_signals.check(span) {
+        if let Err(err) = map_signals.check(&span) {
             return Some(Value::error(err, span));
         };
         let file_type = entry.file_type();

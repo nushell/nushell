@@ -43,13 +43,28 @@ impl Command for Fill {
                 (Type::Float, Type::String),
                 (Type::String, Type::String),
                 (Type::Filesize, Type::String),
-                (Type::List(Box::new(Type::Int)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::Float)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
-                (Type::List(Box::new(Type::Filesize)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::Int)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Float)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Filesize)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 // General case for heterogeneous lists
-                (Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::String))),
-                ])
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .allow_variants_without_examples(true)
             .named(
                 "width",
@@ -57,11 +72,20 @@ impl Command for Fill {
                 "The width of the output. Defaults to 1",
                 Some('w'),
             )
-            .named(
-                "alignment",
-                SyntaxShape::String,
-                "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr))",
-                Some('a'),
+            .param(
+                Flag::new("alignment")
+                    .short('a')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "The alignment of the output. Defaults to Left (Left(l), Right(r), \
+                         Center(c/m), MiddleRight(cr/mr))",
+                    )
+                    .completion(Completion::new_list(&[
+                        "left",
+                        "right",
+                        "middle",
+                        "middleright",
+                    ])),
             )
             .named(
                 "character",
@@ -76,7 +100,7 @@ impl Command for Fill {
         vec!["display", "render", "format", "pad", "align", "repeat"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Fill a string on the left side to a width of 15 with the character '─'",

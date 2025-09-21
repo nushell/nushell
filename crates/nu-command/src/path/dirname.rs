@@ -64,7 +64,7 @@ impl Command for PathDirname {
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -86,7 +86,7 @@ impl Command for PathDirname {
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -96,7 +96,7 @@ impl Command for PathDirname {
     }
 
     #[cfg(windows)]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get dirname of a path",
@@ -125,7 +125,7 @@ impl Command for PathDirname {
     }
 
     #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get dirname of a path",

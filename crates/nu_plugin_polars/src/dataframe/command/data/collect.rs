@@ -32,7 +32,7 @@ impl PluginCommand for LazyCollect {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",
@@ -69,7 +69,7 @@ impl PluginCommand for LazyCollect {
                 let mut eager = lazy.collect(call.head)?;
                 // We don't want this converted back to a lazy frame
                 eager.from_lazy = true;
-                Ok(PipelineData::Value(
+                Ok(PipelineData::value(
                     eager
                         .cache(plugin, engine, call.head)?
                         .into_value(call.head),
@@ -94,7 +94,7 @@ impl PluginCommand for LazyCollect {
                 let df = NuDataFrame::from_cache_value(cv.value.clone())?;
 
                 // just return the dataframe, add to cache again to be safe
-                Ok(PipelineData::Value(df.into_value(call.head), None))
+                Ok(PipelineData::value(df.into_value(call.head), None))
             }
             _ => Err(cant_convert_err(
                 &value,

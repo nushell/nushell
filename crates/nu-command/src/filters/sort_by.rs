@@ -53,7 +53,7 @@ impl Command for SortBy {
         "Sort by the given cell path or closure."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sort files by modified date",

@@ -49,7 +49,7 @@ impl Command for BitsShl {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
+                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number)",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -80,7 +80,7 @@ impl Command for BitsShl {
         let number_size = get_number_bytes(number_bytes, head)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
 
@@ -93,7 +93,7 @@ impl Command for BitsShl {
         operate(action, args, input, head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Shift left a number by 7 bits",

@@ -100,8 +100,9 @@ impl Expr {
             | Expr::GlobInterpolation(_, _)
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
-                // so we can discard the previous output by redirecting it to `Null`.
-                (Some(OutDest::Null), None)
+                // but we still need to use the pipeline output, so the previous command
+                // can be stopped with SIGPIPE(in unix).
+                (None, None)
             }
             Expr::VarDecl(_)
             | Expr::Operator(_)

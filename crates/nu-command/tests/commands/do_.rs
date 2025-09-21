@@ -42,7 +42,7 @@ fn do_with_semicolon_break_on_failed_external() {
 
 #[test]
 fn ignore_error_should_work_for_external_command() {
-    let actual = nu!(r#"do -i { nu --testbin fail asdf }; echo post"#);
+    let actual = nu!(r#"do -i { nu --testbin fail 1 }; echo post"#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "post");
@@ -59,4 +59,18 @@ fn run_closure_with_it_using() {
     let actual = nu!(r#"let x = {let it = 3; $it}; do $x"#);
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn required_argument_type_checked() {
+    let actual = nu!(r#"do {|x: string| $x} 4"#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("nu::shell::cant_convert"));
+}
+
+#[test]
+fn optional_argument_type_checked() {
+    let actual = nu!(r#"do {|x?: string| $x} 4"#);
+    assert_eq!(actual.out, "");
+    assert!(actual.err.contains("nu::shell::cant_convert"));
 }

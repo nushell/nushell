@@ -62,7 +62,7 @@ The "row condition" syntax is not supported."#
         ]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Filter items of a list according to a condition",

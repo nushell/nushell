@@ -1,4 +1,4 @@
-use crate::{DeclId, Type};
+use crate::Type;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -28,9 +28,6 @@ pub enum SyntaxShape {
 
     /// A closure is allowed, eg `{|| start this thing}`
     Closure(Option<Vec<SyntaxShape>>),
-
-    /// A [`SyntaxShape`] with custom completion logic
-    CompleterWrapper(Box<SyntaxShape>, DeclId),
 
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
@@ -147,7 +144,6 @@ impl SyntaxShape {
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
-            SyntaxShape::CompleterWrapper(inner, _) => inner.to_type(),
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
@@ -239,7 +235,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
-            SyntaxShape::RowCondition => write!(f, "condition"),
+            SyntaxShape::RowCondition => write!(
+                f,
+                "oneof<condition, {}>",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))
+            ),
             SyntaxShape::MathExpression => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
@@ -248,7 +248,6 @@ impl Display for SyntaxShape {
             SyntaxShape::ExternalArgument => write!(f, "external-argument"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
                 write!(f, "oneof<")?;
                 if let Some((last, rest)) = list.split_last() {

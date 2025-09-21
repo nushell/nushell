@@ -77,7 +77,7 @@ impl SimplePluginCommand for IntoU32 {
         Signature::build(self.name()).input_output_type(Type::Int, Type::Custom("CustomU32".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "340 | into u32",
             description: "Make a u32",
@@ -145,7 +145,7 @@ fn test_into_int_from_u32() -> Result<(), ShellError> {
     let result = PluginTest::new("custom_u32", CustomU32Plugin.into())?
         .eval_with(
             "into int from u32",
-            PipelineData::Value(CustomU32(42).into_value(Span::test_data()), None),
+            PipelineData::value(CustomU32(42).into_value(Span::test_data()), None),
         )?
         .into_value(Span::test_data())?;
     assert_eq!(Value::test_int(42), result);

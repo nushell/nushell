@@ -68,9 +68,18 @@ fn errors_if_column_not_found() {
 
 #[test]
 fn group_by_on_empty_list_returns_empty_record() {
-    let actual = nu!("[[a b]; [1 2]] | where false | group-by a");
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by a | to nuon --raw");
+    let expected = r#"{}"#;
     assert!(actual.err.is_empty());
-    assert!(actual.out.contains("empty record"));
+    assert_eq!(actual.out, expected);
+}
+
+#[test]
+fn group_by_to_table_on_empty_list_returns_empty_list() {
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by --to-table a | to nuon --raw");
+    let expected = r#"[]"#;
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, expected);
 }
 
 #[test]

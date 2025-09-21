@@ -39,7 +39,7 @@ impl Command for IntoRecord {
         into_record(call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert from one row table to record",

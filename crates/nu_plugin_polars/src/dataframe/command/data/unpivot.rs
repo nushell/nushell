@@ -3,13 +3,16 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use polars::{frame::explode::UnpivotArgsIR, prelude::UnpivotArgsDSL};
+use polars::{
+    frame::explode::UnpivotArgsIR,
+    prelude::{UnpivotArgsDSL, cols},
+};
 use polars_ops::pivot::UnpivotDF;
 
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, utils::convert_columns_sm_str},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -61,7 +64,7 @@ impl PluginCommand for Unpivot {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "unpivot on an eager dataframe",
@@ -250,18 +253,17 @@ fn command_lazy(
     call: &EvaluatedCall,
     df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
-    let on_col: Vec<Value> = call.get_flag("on")?.expect("required value");
-
-    let (index_col_string, _index_col_span) = convert_columns_sm_str(index_col, call.head)?;
-    let (on_col_string, _on_col_span) = convert_columns_sm_str(on_col, call.head)?;
+    // todo - allow selectors to be used here
+    let index_col: Vec<String> = call.get_flag("index")?.expect("required value");
+    // todo - allow selectors to be used here
+    let on_col: Vec<String> = call.get_flag("on")?.expect("required value");
 
     let value_name: Option<String> = call.get_flag("value-name")?;
     let variable_name: Option<String> = call.get_flag("variable-name")?;
 
     let unpivot_args = UnpivotArgsDSL {
-        on: on_col_string.iter().cloned().map(Into::into).collect(),
-        index: index_col_string.iter().cloned().map(Into::into).collect(),
+        on: cols(on_col),
+        index: cols(index_col),
         value_name: value_name.map(Into::into),
         variable_name: variable_name.map(Into::into),
     };

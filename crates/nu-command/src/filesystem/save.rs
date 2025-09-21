@@ -191,7 +191,7 @@ impl Command for Save {
                     }
                 }
 
-                Ok(PipelineData::Empty)
+                Ok(PipelineData::empty())
             }
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
@@ -239,7 +239,7 @@ impl Command for Save {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Save a string to foo.txt in the current directory",
@@ -312,10 +312,10 @@ fn check_saving_to_source_file(
         return Err(saving_to_source_file_error(dest));
     }
 
-    if let Some(dest) = stderr_dest {
-        if &dest.item == source {
-            return Err(saving_to_source_file_error(dest));
-        }
+    if let Some(dest) = stderr_dest
+        && &dest.item == source
+    {
+        return Err(saving_to_source_file_error(dest));
     }
 
     Ok(())
@@ -366,7 +366,7 @@ fn convert_to_extension(
         if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
-            eval_block(engine_state, stack, block, input)
+            eval_block(engine_state, stack, block, input).map(|p| p.body)
         } else {
             let call = ast::Call::new(span);
             decl.run(engine_state, stack, &(&call).into(), input)
@@ -456,27 +456,26 @@ fn open_file(
         Err(err) => {
             // In caase of NotFound, search for the missing parent directory.
             // This also presents a TOCTOU (or TOUTOC, technically?)
-            if err.kind() == std::io::ErrorKind::NotFound {
-                if let Some(missing_component) =
+            if err.kind() == std::io::ErrorKind::NotFound
+                && let Some(missing_component) =
                     path.ancestors().skip(1).filter(|dir| !dir.exists()).last()
-                {
-                    // By looking at the postfix to remove, rather than the prefix
-                    // to keep, we are able to handle relative paths too.
-                    let components_to_remove = path
-                        .strip_prefix(missing_component)
-                        .expect("Stripping ancestor from a path should never fail")
-                        .as_os_str()
-                        .as_encoded_bytes();
+            {
+                // By looking at the postfix to remove, rather than the prefix
+                // to keep, we are able to handle relative paths too.
+                let components_to_remove = path
+                    .strip_prefix(missing_component)
+                    .expect("Stripping ancestor from a path should never fail")
+                    .as_os_str()
+                    .as_encoded_bytes();
 
-                    return Err(ShellError::Io(IoError::new(
-                        ErrorKind::DirectoryNotFound,
-                        engine_state
-                            .span_match_postfix(span, components_to_remove)
-                            .map(|(pre, _post)| pre)
-                            .unwrap_or(span),
-                        PathBuf::from(missing_component),
-                    )));
-                }
+                return Err(ShellError::Io(IoError::new(
+                    ErrorKind::DirectoryNotFound,
+                    engine_state
+                        .span_match_postfix(span, components_to_remove)
+                        .map(|(pre, _post)| pre)
+                        .unwrap_or(span),
+                    PathBuf::from(missing_component),
+                )));
             }
 
             Err(ShellError::Io(IoError::new(err, span, PathBuf::from(path))))
@@ -543,7 +542,7 @@ fn stream_to_file(
         let mut reader = BufReader::new(source);
 
         let res = loop {
-            if let Err(err) = signals.check(span) {
+            if let Err(err) = signals.check(&span) {
                 bar.abandoned_msg("# Cancelled #".to_owned());
                 return Err(err);
             }

@@ -26,6 +26,11 @@ impl Command for CommandlineEdit {
                 "replaces the current contents of the buffer (default)",
                 Some('r'),
             )
+            .switch(
+                "accept",
+                "immediately executes the result after edit",
+                Some('A'),
+            )
             .required(
                 "str",
                 SyntaxShape::String,
@@ -61,6 +66,9 @@ impl Command for CommandlineEdit {
             repl.buffer = str;
             repl.cursor_pos = repl.buffer.len();
         }
+
+        repl.accept = call.has_flag(engine_state, stack, "accept")?;
+
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
 }

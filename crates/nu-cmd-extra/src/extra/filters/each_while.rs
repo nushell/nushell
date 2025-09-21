@@ -31,7 +31,7 @@ impl Command for EachWhile {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let stream_test_1 = vec![Value::test_int(2), Value::test_int(4)];
         let stream_test_2 = vec![
             Value::test_string("Output: 1"),
@@ -72,7 +72,7 @@ impl Command for EachWhile {
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
@@ -109,7 +109,7 @@ impl Command for EachWhile {
                         .fuse()
                         .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
-                    Ok(PipelineData::Empty)
+                    Ok(PipelineData::empty())
                 }
             }
             // This match allows non-iterables to be accepted,

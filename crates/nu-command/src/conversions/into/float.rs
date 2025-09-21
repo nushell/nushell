@@ -52,7 +52,7 @@ impl Command for IntoFloat {
         operate(action, args, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert string to float in table",

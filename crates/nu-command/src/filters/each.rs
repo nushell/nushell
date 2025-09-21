@@ -48,7 +48,7 @@ with 'transpose' first."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
@@ -90,6 +90,11 @@ with 'transpose' first."#
                     Value::nothing(Span::test_data()),
                 ])),
             },
+            Example {
+                example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
+                description: "Update value if not null, otherwise do nothing",
+                result: None,
+            },
         ]
     }
 
@@ -106,7 +111,8 @@ with 'transpose' first."#
 
         let metadata = input.metadata();
         match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
+            PipelineData::Value(Value::Nothing { .. }, ..) => Ok(input),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
@@ -164,7 +170,7 @@ with 'transpose' first."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
-                    Ok(PipelineData::Empty)
+                    Ok(PipelineData::empty())
                 }
             }
             // This match allows non-iterables to be accepted,

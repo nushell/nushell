@@ -30,7 +30,7 @@ impl PluginCommand for ShapeDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Shows row and column shape",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars shape",

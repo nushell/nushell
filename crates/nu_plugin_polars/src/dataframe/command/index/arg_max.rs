@@ -35,7 +35,7 @@ impl PluginCommand for ArgMax {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Returns index for max value",
             example: "[1 3 2] | polars into-df | polars arg-max",

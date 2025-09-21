@@ -30,7 +30,7 @@ impl PluginCommand for ToRepr {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Shows dataframe in repr format",
@@ -98,7 +98,7 @@ fn dataframe_command(
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
     let value = Value::string(format!("{df}"), call.head);
-    Ok(PipelineData::Value(value, None))
+    Ok(PipelineData::value(value, None))
 }
 
 #[cfg(test)]

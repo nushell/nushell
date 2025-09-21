@@ -37,7 +37,7 @@ impl Command for RandomFloat {
         float(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a default float value between 0 and 1",
@@ -93,9 +93,9 @@ fn float(
                 Bound::Unbounded => random_range(range.start()..f64::MAX),
             };
 
-            Ok(PipelineData::Value(Value::float(value, span), None))
+            Ok(PipelineData::value(Value::float(value, span), None))
         }
-        None => Ok(PipelineData::Value(
+        None => Ok(PipelineData::value(
             Value::float(random_range(0.0..1.0), span),
             None,
         )),

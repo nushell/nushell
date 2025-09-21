@@ -46,7 +46,7 @@ impl PluginCommand for DropDuplicates {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df

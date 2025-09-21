@@ -35,7 +35,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         vec!["add", "concatenate"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[0 1 2 3] | append 4",

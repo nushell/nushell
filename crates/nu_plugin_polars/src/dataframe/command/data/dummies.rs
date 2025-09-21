@@ -23,6 +23,8 @@ impl PluginCommand for Dummies {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .switch("drop-first", "Drop first row", Some('d'))
+            .switch("drop-nulls", "Drop nulls", Some('n'))
+            .switch("separator", "Optional separator", Some('s'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -30,7 +32,7 @@ impl PluginCommand for Dummies {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create new dataframe with dummy variables from a dataframe",
@@ -86,18 +88,20 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let drop_first: bool = call.has_flag("drop-first")?;
+    let drop_nulls: bool = call.has_flag("drop-nulls")?;
+    let separator: Option<String> = call.get_flag("separator")?;
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let polars_df =
-        df.as_ref()
-            .to_dummies(None, drop_first)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error calculating dummies".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: Some("The only allowed column types for dummies are String or Int".into()),
-                inner: vec![],
-            })?;
+    let polars_df = df
+        .as_ref()
+        .to_dummies(separator.as_deref(), drop_first, drop_nulls)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error calculating dummies".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: Some("The only allowed column types for dummies are String or Int".into()),
+            inner: vec![],
+        })?;
 
     let df: NuDataFrame = polars_df.into();
     df.to_pipeline_data(plugin, engine, call.head)

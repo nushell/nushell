@@ -38,7 +38,7 @@ impl PluginCommand for QCutSeries {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Divide a column into three categories according to pre-defined quantile probabilities.",
             example: r#"[-2, -1, 0, 1, 2] | polars into-df | polars qcut [0.25, 0.75] --labels ["a", "b", "c"]"#,

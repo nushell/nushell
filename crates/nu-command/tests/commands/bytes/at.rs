@@ -75,3 +75,12 @@ pub fn test_string_returns_correct_slice_for_max_end() {
     let actual = nu!("\"Hello World\" | encode utf8 | bytes at 6..<11 | decode");
     assert_eq!(actual.out, "World");
 }
+
+#[test]
+pub fn test_drops_content_type() {
+    let actual = nu!(format!(
+        "open {} | bytes at 3..5 | metadata | get content_type? | describe",
+        file!(),
+    ));
+    assert_eq!(actual.out, "nothing", "Expected content_type to be dropped");
+}

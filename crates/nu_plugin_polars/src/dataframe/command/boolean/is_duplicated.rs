@@ -31,7 +31,7 @@ impl PluginCommand for IsDuplicated {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create mask indicating duplicated values",

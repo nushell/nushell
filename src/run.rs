@@ -45,7 +45,7 @@ pub(crate) fn run_commands(
                 engine_state,
                 &mut stack,
                 parsed_nu_cli_args.env_file,
-                true,
+                nu_utils::ConfigFileKind::Env,
                 create_scaffold,
             );
         } else {
@@ -63,7 +63,7 @@ pub(crate) fn run_commands(
                 engine_state,
                 &mut stack,
                 parsed_nu_cli_args.config_file,
-                false,
+                nu_utils::ConfigFileKind::Config,
                 create_scaffold,
             );
         }
@@ -135,7 +135,7 @@ pub(crate) fn run_file(
                 engine_state,
                 &mut stack,
                 parsed_nu_cli_args.env_file,
-                true,
+                nu_utils::ConfigFileKind::Env,
                 create_scaffold,
             );
         } else {
@@ -149,7 +149,7 @@ pub(crate) fn run_file(
                 engine_state,
                 &mut stack,
                 parsed_nu_cli_args.config_file,
-                false,
+                nu_utils::ConfigFileKind::Config,
                 create_scaffold,
             );
         }

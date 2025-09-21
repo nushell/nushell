@@ -247,7 +247,7 @@ impl Command for UTouch {
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Creates \"fixture.json\"",

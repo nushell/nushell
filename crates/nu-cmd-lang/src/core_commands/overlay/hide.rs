@@ -96,10 +96,11 @@ impl Command for OverlayHide {
         for (name, val) in env_vars_to_keep {
             stack.add_env_var(name, val);
         }
+        stack.update_config(engine_state)?;
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Keep a custom command after hiding the overlay",

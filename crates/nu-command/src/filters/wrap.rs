@@ -36,7 +36,7 @@ impl Command for Wrap {
         let metadata = input.metadata();
 
         match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => Ok(input
@@ -53,7 +53,7 @@ impl Command for Wrap {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Wrap a list into a table with a given column name",

@@ -117,7 +117,12 @@ fn bit_and_or() -> TestResult {
 
 #[test]
 fn pow() -> TestResult {
-    run_test("3 ** 3", "27")
+    run_test("3 ** 3", "27").unwrap();
+    run_test("2 ** 1 ** 2", "2").unwrap();
+    run_test("2 ** 3 ** 2 ** 1 ** 5", "512").unwrap();
+    run_test("1.42 ** 2 ** 1.01 ** 9", "2.1135450418757156").unwrap();
+    run_test("2.571 ** 3.1 ** 2.18", "67804.81966071267").unwrap();
+    run_test("2.0 ** 3.0 ** 4.0", "2417851639229258349412352.0")
 }
 
 #[test]

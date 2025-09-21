@@ -23,7 +23,7 @@ impl PluginCommand for ListDF {
         Signature::build(self.name()).category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
             example: r#"let test = ([[a b];[1 2] [3 4]] | polars into-df);

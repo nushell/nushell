@@ -1,7 +1,12 @@
+use std::sync::LazyLock;
+
 use super::parser::datetime_in_timezone;
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local, LocalResult, TimeZone};
 use nu_engine::command_prelude::*;
+
+static TIMEZONES: LazyLock<Vec<&'static str>> =
+    LazyLock::new(|| chrono_tz::TZ_VARIANTS.iter().map(|tz| tz.name()).collect());
 
 #[derive(Clone)]
 pub struct DateToTimezone;
@@ -15,7 +20,12 @@ impl Command for DateToTimezone {
         Signature::build("date to-timezone")
             .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .required("time zone", SyntaxShape::String, "Time zone description.")
+            .param(
+                PositionalArg::new("time zone", SyntaxShape::String)
+                    .desc("Time zone description.")
+                    .completion(Completion::new_list(TIMEZONES.as_slice()))
+                    .required(),
+            )
             .category(Category::Date)
     }
 
@@ -50,7 +60,7 @@ impl Command for DateToTimezone {
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -59,7 +69,7 @@ impl Command for DateToTimezone {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let example_result_1 = || match FixedOffset::east_opt(5 * 3600)
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)

@@ -29,7 +29,7 @@ impl Command for FromUrl {
         from_url(input, head)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",
@@ -55,7 +55,7 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
                 .map(|(k, v)| (k, Value::string(v, head)))
                 .collect();
 
-            Ok(PipelineData::Value(Value::record(record, head), metadata))
+            Ok(PipelineData::value(Value::record(record, head), metadata))
         }
         _ => Err(ShellError::UnsupportedInput {
             msg: "String not compatible with URL encoding".to_string(),

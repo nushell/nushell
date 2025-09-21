@@ -57,7 +57,7 @@ impl Command for Lines {
                     src_span: value.span(),
                 }),
             },
-            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
                 let stream = stream.modify(|iter| {
                     iter.filter_map(move |value| {
@@ -81,7 +81,7 @@ impl Command for Lines {
                     .flatten()
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(lines) = stream.lines() {
@@ -98,7 +98,7 @@ impl Command for Lines {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,

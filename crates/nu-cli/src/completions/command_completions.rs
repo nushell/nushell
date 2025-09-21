@@ -31,57 +31,57 @@ impl CommandCompletion {
 
         let paths = working_set.permanent_state.get_env_var_insensitive("path");
 
-        if let Some((_, paths)) = paths {
-            if let Ok(paths) = paths.as_list() {
-                for path in paths {
-                    let path = path.coerce_str().unwrap_or_default();
+        if let Some((_, paths)) = paths
+            && let Ok(paths) = paths.as_list()
+        {
+            for path in paths {
+                let path = path.coerce_str().unwrap_or_default();
 
-                    if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
-                        while let Some(Ok(item)) = contents.next() {
-                            if working_set
-                                .permanent_state
-                                .config
-                                .completions
-                                .external
-                                .max_results
-                                <= suggs.len() as i64
-                            {
-                                break;
-                            }
-                            let Ok(name) = item.file_name().into_string() else {
-                                continue;
-                            };
-                            let value = if matched_internal(&name) {
-                                format!("^{name}")
-                            } else {
-                                name.clone()
-                            };
-                            if suggs.contains_key(&value) {
-                                continue;
-                            }
-                            // TODO: check name matching before a relative heavy IO involved
-                            // `is_executable` for performance consideration, should avoid
-                            // duplicated `match_aux` call for matched items in the future
-                            if matcher.matches(&name) && is_executable::is_executable(item.path()) {
-                                // If there's an internal command with the same name, adds ^cmd to the
-                                // matcher so that both the internal and external command are included
-                                matcher.add(&name, value.clone());
-                                suggs.insert(
-                                    value.clone(),
-                                    SemanticSuggestion {
-                                        suggestion: Suggestion {
-                                            value,
-                                            span: sugg_span,
-                                            append_whitespace: true,
-                                            ..Default::default()
-                                        },
-                                        kind: Some(SuggestionKind::Command(
-                                            CommandType::External,
-                                            None,
-                                        )),
+                if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
+                    while let Some(Ok(item)) = contents.next() {
+                        if working_set
+                            .permanent_state
+                            .config
+                            .completions
+                            .external
+                            .max_results
+                            <= suggs.len() as i64
+                        {
+                            break;
+                        }
+                        let Ok(name) = item.file_name().into_string() else {
+                            continue;
+                        };
+                        let value = if matched_internal(&name) {
+                            format!("^{name}")
+                        } else {
+                            name.clone()
+                        };
+                        if suggs.contains_key(&value) {
+                            continue;
+                        }
+                        // TODO: check name matching before a relative heavy IO involved
+                        // `is_executable` for performance consideration, should avoid
+                        // duplicated `match_aux` call for matched items in the future
+                        if matcher.matches(&name) && is_executable::is_executable(item.path()) {
+                            // If there's an internal command with the same name, adds ^cmd to the
+                            // matcher so that both the internal and external command are included
+                            matcher.add(&name, value.clone());
+                            suggs.insert(
+                                value.clone(),
+                                SemanticSuggestion {
+                                    suggestion: Suggestion {
+                                        value,
+                                        span: sugg_span,
+                                        append_whitespace: true,
+                                        ..Default::default()
                                     },
-                                );
-                            }
+                                    kind: Some(SuggestionKind::Command(
+                                        CommandType::External,
+                                        None,
+                                    )),
+                                },
+                            );
                         }
                     }
                 }

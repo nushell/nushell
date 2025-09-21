@@ -1,7 +1,10 @@
 #[cfg(windows)]
 use crossterm_winapi::{ConsoleMode, Handle};
 use lscolors::LsColors;
-use std::io::{self, Result, Write};
+use std::{
+    fmt::Display,
+    io::{self, Result, Write},
+};
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]
@@ -84,29 +87,68 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConfigFileKind {
+    Config,
+    Env,
+}
+
 // See default_files/README.md for a description of these files
-pub fn get_default_env() -> &'static str {
-    include_str!("default_files/default_env.nu")
+impl ConfigFileKind {
+    pub const fn default(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/default_config.nu"),
+            Self::Env => include_str!("default_files/default_env.nu"),
+        }
+    }
+
+    pub const fn scaffold(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/scaffold_config.nu"),
+            Self::Env => include_str!("default_files/scaffold_env.nu"),
+        }
+    }
+
+    pub const fn doc(self) -> &'static str {
+        match self {
+            Self::Config => include_str!("default_files/doc_config.nu"),
+            Self::Env => include_str!("default_files/doc_env.nu"),
+        }
+    }
+
+    pub const fn name(self) -> &'static str {
+        match self {
+            ConfigFileKind::Config => "Config",
+            ConfigFileKind::Env => "Environment config",
+        }
+    }
+
+    pub const fn path(self) -> &'static str {
+        match self {
+            ConfigFileKind::Config => "config.nu",
+            ConfigFileKind::Env => "env.nu",
+        }
+    }
+
+    pub const fn default_path(self) -> &'static str {
+        match self {
+            ConfigFileKind::Config => "default_config.nu",
+            ConfigFileKind::Env => "default_env.nu",
+        }
+    }
+
+    pub const fn nu_const_path(self) -> &'static str {
+        match self {
+            ConfigFileKind::Config => "config-path",
+            ConfigFileKind::Env => "env-path",
+        }
+    }
 }
 
-pub fn get_scaffold_env() -> &'static str {
-    include_str!("default_files/scaffold_env.nu")
-}
-
-pub fn get_doc_env() -> &'static str {
-    include_str!("default_files/doc_env.nu")
-}
-
-pub fn get_default_config() -> &'static str {
-    include_str!("default_files/default_config.nu")
-}
-
-pub fn get_scaffold_config() -> &'static str {
-    include_str!("default_files/scaffold_config.nu")
-}
-
-pub fn get_doc_config() -> &'static str {
-    include_str!("default_files/doc_config.nu")
+impl Display for ConfigFileKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
 }
 
 pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {

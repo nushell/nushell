@@ -44,7 +44,7 @@ impl PluginCommand for ToNu {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let rec_1 = Value::test_record(record! {
             "index" => Value::test_int(0),
             "a" =>     Value::test_int(1),
@@ -106,15 +106,15 @@ fn command(
         PolarsPluginObject::NuLazyFrame(lazy) => dataframe_command(call, lazy.collect(call.head)?),
         PolarsPluginObject::NuExpression(expr) => {
             let value = expr.to_value(call.head)?;
-            Ok(PipelineData::Value(value, None))
+            Ok(PipelineData::value(value, None))
         }
         PolarsPluginObject::NuDataType(dt) => {
             let value = dt.base_value(call.head)?;
-            Ok(PipelineData::Value(value, None))
+            Ok(PipelineData::value(value, None))
         }
         PolarsPluginObject::NuSchema(schema) => {
             let value = schema.base_value(call.head)?;
-            Ok(PipelineData::Value(value, None))
+            Ok(PipelineData::value(value, None))
         }
         _ => Err(cant_convert_err(
             &value,
@@ -147,7 +147,7 @@ fn dataframe_command(call: &EvaluatedCall, df: NuDataFrame) -> Result<PipelineDa
 
     let value = Value::list(values, call.head);
 
-    Ok(PipelineData::Value(value, None))
+    Ok(PipelineData::value(value, None))
 }
 
 #[cfg(test)]

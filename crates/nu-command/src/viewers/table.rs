@@ -2,7 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -25,7 +25,6 @@ use nu_utils::{get_ls_colors, terminal_size};
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
 
-const STREAM_PAGE_SIZE: usize = 1000;
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
 #[derive(Clone)]
@@ -53,11 +52,12 @@ impl Command for Table {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
-            .named(
-                "theme",
-                SyntaxShape::String,
-                "set a table mode/theme",
-                Some('t'),
+            .param(
+                Flag::new("theme")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc("set a table mode/theme")
+                    .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
                 "index",
@@ -129,7 +129,7 @@ impl Command for Table {
         handle_table_command(input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",
@@ -424,13 +424,13 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
         PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
+            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
         ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
-            Ok(PipelineData::ByteStream(
+            Ok(PipelineData::byte_stream(
                 pretty_hex_stream(stream, input.call.head),
                 None,
             ))
@@ -439,16 +439,16 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let signals = input.engine_state.signals().clone();
             let stream = ListStream::new(vals.into_iter(), span, signals);
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
 
             handle_row_stream(input, stream, metadata)
         }
         PipelineData::ListStream(stream, metadata) => {
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_record(input, val.into_owned())
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
@@ -464,7 +464,7 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             let signals = input.engine_state.signals().clone();
             let stream =
                 ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
-            input.data = PipelineData::Empty;
+            input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
         x => Ok(x),
@@ -694,12 +694,11 @@ fn handle_row_stream(
                     // Only the name column gets special colors, for now
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
-                        if let Value::String { val, .. } = value {
-                            if let Some(val) =
+                        if let Value::String { val, .. } = value
+                            && let Some(val) =
                                 render_path_name(val, &config, &ls_colors, input.cwd.clone(), span)
-                            {
-                                *value = val;
-                            }
+                        {
+                            *value = val;
                         }
                     }
                 }
@@ -761,7 +760,7 @@ fn handle_row_stream(
         Signals::empty(),
         ByteStreamType::String,
     );
-    Ok(PipelineData::ByteStream(stream, None))
+    Ok(PipelineData::byte_stream(stream, None))
 }
 
 fn make_clickable_link(
@@ -878,7 +877,8 @@ impl Iterator for PagingTableCreator {
                 // Pull from stream until time runs out or we have enough items
                 (batch, end) = stream_collect(
                     &mut self.stream,
-                    STREAM_PAGE_SIZE,
+                    self.config.table.stream_page_size.get() as usize,
+                    self.config.table.batch_duration,
                     self.engine_state.signals(),
                 );
             }
@@ -931,6 +931,7 @@ impl Iterator for PagingTableCreator {
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
+    batch_duration: Duration,
     signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
@@ -940,12 +941,13 @@ fn stream_collect(
     for (i, item) in stream.enumerate() {
         batch.push(item);
 
-        // If we've been buffering over a second, go ahead and send out what we have so far
-        if (Instant::now() - start_time).as_secs() >= 1 {
+        // We buffer until `$env.config.table.batch_duration`, then we send out what we have so far
+        if (Instant::now() - start_time) >= batch_duration {
             end = false;
             break;
         }
 
+        // Or until we reached `$env.config.table.stream_page_size`.
         if i + 1 == size {
             end = false;
             break;
@@ -1165,28 +1167,34 @@ fn convert_table_to_output(
     }
 }
 
+const SUPPORTED_TABLE_MODES: &[&str] = &[
+    "basic",
+    "compact",
+    "compact_double",
+    "default",
+    "heavy",
+    "light",
+    "none",
+    "reinforced",
+    "rounded",
+    "thin",
+    "with_love",
+    "psql",
+    "markdown",
+    "dots",
+    "restructured",
+    "ascii_rounded",
+    "basic_compact",
+    "single",
+    "double",
+];
+
 fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-        Value::test_string("single"),
-        Value::test_string("double"),
-    ]
+    SUPPORTED_TABLE_MODES
+        .iter()
+        .copied()
+        .map(Value::test_string)
+        .collect()
 }
 
 fn create_table_opts<'a>(

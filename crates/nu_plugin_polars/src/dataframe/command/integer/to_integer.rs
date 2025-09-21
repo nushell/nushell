@@ -1,16 +1,17 @@
 use crate::{
     PolarsPlugin,
     values::{
-        Column, CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject,
+        Column, CustomValueSupport, NuDataFrame, NuDataType, NuExpression, PolarsPluginObject,
         PolarsPluginType, cant_convert_err,
     },
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
-use polars::prelude::lit;
+use polars::prelude::{DataType, Expr, lit};
 
 #[derive(Clone)]
 pub struct ToInteger;
@@ -32,6 +33,17 @@ impl PluginCommand for ToInteger {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .switch("strict", "Raises an error as opposed to converting to null", Some('s'))
+            .optional(
+                "base",
+                SyntaxShape::Any,
+                "An integer or expression representing the base (radix) of the number system (default is 10)",
+            )
+            .optional(
+                "dtype",
+                SyntaxShape::Any,
+                "Data type to cast to (defaults is i64)",
+                )
             .input_output_type(
                 Type::Custom("expression".into()),
                 Type::Custom("expression".into()),
@@ -39,7 +51,7 @@ impl PluginCommand for ToInteger {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Modifies strings to integer",
             example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars integer) | polars collect",
@@ -78,7 +90,27 @@ fn command(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let res: NuExpression = expr.into_polars().str().to_integer(lit(10), false).into();
+    let strict: bool = call.has_flag("strict")?;
+
+    let base: Expr = call
+        .opt(0)?
+        .map(|ref v| NuExpression::try_from_value(plugin, v))
+        .transpose()?
+        .map(|e| e.into_polars())
+        .unwrap_or(lit(10));
+
+    let dtype: Option<DataType> = call
+        .opt(1)?
+        .map(|ref v| NuDataType::try_from_value(plugin, v))
+        .transpose()?
+        .map(|dt| dt.to_polars());
+
+    let res: NuExpression = expr
+        .into_polars()
+        .str()
+        .to_integer(base, dtype, strict)
+        .into();
+
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

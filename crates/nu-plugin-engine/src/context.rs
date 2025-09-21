@@ -117,7 +117,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
                 match value {
                     Value::Closure { val, .. } => {
                         ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
-                            .run_with_input(PipelineData::Empty)
+                            .run_with_input(PipelineData::empty())
                             .and_then(|data| data.into_value(span))
                             .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
@@ -215,7 +215,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(&self.engine_state);
 
-        eval_block_with_early_return(&self.engine_state, stack, block, input)
+        eval_block_with_early_return(&self.engine_state, stack, block, input).map(|p| p.body)
     }
 
     fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError> {

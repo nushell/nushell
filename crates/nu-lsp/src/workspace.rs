@@ -16,9 +16,9 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
@@ -105,16 +105,12 @@ impl LanguageServer {
         &mut self,
         params: &DocumentHighlightParams,
     ) -> Option<Vec<DocumentHighlight>> {
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document_position_params.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
         let (block, file_span, working_set) =
-            self.parse_file(&mut engine_state, &path_uri, false)?;
+            self.parse_file(&mut engine_state, path_uri, false)?;
         let docs = &self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         let location = file.offset_at(params.text_document_position_params.position) as usize
             + file_span.start;
         let (id, cursor_span) = find_id(&block, &working_set, &location)?;
@@ -122,10 +118,9 @@ impl LanguageServer {
         let definition_span = Self::find_definition_span_by_id(&working_set, &id);
         if let Some(extra_span) =
             Self::reference_not_in_ast(&id, &working_set, definition_span, file_span, cursor_span)
+            && !refs.contains(&extra_span)
         {
-            if !refs.contains(&extra_span) {
-                refs.push(extra_span);
-            }
+            refs.push(extra_span);
         }
         Some(
             refs.iter()
@@ -177,30 +172,52 @@ impl LanguageServer {
         self.occurrences = BTreeMap::new();
         // start with a clean engine state
         self.need_parse = true;
-        let path_uri = params.text_document_position.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document_position.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
 
-        let (working_set, id, span, file_span) = self
+        let (mut working_set, id, span, file_span) = self
             .parse_and_find(
                 &mut engine_state,
-                &path_uri,
+                path_uri,
                 params.text_document_position.position,
             )
             .ok()?;
-        let current_workspace_folder = self.get_workspace_folder_by_uri(&path_uri)?;
+
+        let mut id_tracker = IDTracker::new(id.clone(), span, file_span, &working_set);
+        let Some(workspace_uri) = self
+            .get_workspace_folder_by_uri(path_uri)
+            .map(|folder| folder.uri.clone())
+        else {
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+            return Some(
+                Self::find_reference_in_file(
+                    &mut working_set,
+                    self.docs.lock().ok()?.get_document(path_uri)?,
+                    uri_to_path(path_uri).as_path(),
+                    &mut id_tracker,
+                    definition_span,
+                )
+                .into_iter()
+                .map(|range| Location {
+                    uri: path_uri.clone(),
+                    range,
+                })
+                .collect(),
+            );
+        };
+
         let token = params
             .work_done_progress_params
             .work_done_token
-            .to_owned()
+            .clone()
             .unwrap_or(ProgressToken::Number(1));
 
-        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
-                current_workspace_folder,
+                workspace_uri,
                 token.clone(),
                 "Finding references ...".to_string(),
                 id_tracker,
@@ -244,11 +261,11 @@ impl LanguageServer {
         // start with a clean engine state
         self.need_parse = true;
 
-        let path_uri = params.text_document.uri.to_owned();
-        let mut engine_state = self.new_engine_state(Some(&path_uri));
+        let path_uri = &params.text_document.uri;
+        let mut engine_state = self.new_engine_state(Some(path_uri));
 
-        let (working_set, id, span, file_span) =
-            self.parse_and_find(&mut engine_state, &path_uri, params.position)?;
+        let (mut working_set, id, span, file_span) =
+            self.parse_and_find(&mut engine_state, path_uri, params.position)?;
 
         if let Id::Value(_) = id {
             return Err(miette!("\nRename only works for variable/command."));
@@ -264,7 +281,7 @@ impl LanguageServer {
             Err(err) => return Err(miette!(err.to_string())),
         };
         let file = docs
-            .get_document(&path_uri)
+            .get_document(path_uri)
             .ok_or_else(|| miette!("\nFailed to get document"))?;
         let range = span_to_range(&span, file, file_span.start);
         let response = PrepareRenameResponse::Range(range);
@@ -277,17 +294,31 @@ impl LanguageServer {
             }))
             .into_diagnostic()?;
 
-        let current_workspace_folder = self
-            .get_workspace_folder_by_uri(&path_uri)
-            .ok_or_else(|| miette!("\nCurrent file is not in any workspace"))?;
+        let mut id_tracker = IDTracker::new(id.clone(), span, file_span, &working_set);
+        let Some(workspace_uri) = self
+            .get_workspace_folder_by_uri(path_uri)
+            .map(|folder| folder.uri.clone())
+        else {
+            let definition_span = Self::find_definition_span_by_id(&working_set, &id);
+            self.occurrences.insert(
+                path_uri.clone(),
+                Self::find_reference_in_file(
+                    &mut working_set,
+                    file,
+                    uri_to_path(path_uri).as_path(),
+                    &mut id_tracker,
+                    definition_span,
+                ),
+            );
+            return Ok(());
+        };
         // now continue parsing on other files in the workspace
-        let id_tracker = IDTracker::new(id, span, file_span, &working_set);
         // make sure the parsing result of current file is merged in the state
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         self.channels = self
             .find_reference_in_workspace(
                 engine_state,
-                current_workspace_folder,
+                workspace_uri,
                 ProgressToken::Number(0),
                 "Preparing rename ...".to_string(),
                 id_tracker,
@@ -301,7 +332,8 @@ impl LanguageServer {
         file: &FullTextDocument,
         fp: &Path,
         id_tracker: &mut IDTracker,
-    ) -> Option<Vec<Span>> {
+        definition_span: Option<Span>,
+    ) -> Vec<Range> {
         let block = nu_parser::parse(
             working_set,
             fp.to_str(),
@@ -317,20 +349,35 @@ impl LanguageServer {
                 .find_module_by_span(id_tracker.file_span)
                 .is_some()
         {
-            if let Some(new_block) = working_set.find_block_by_span(id_tracker.file_span) {
-                if let Some((new_id, _)) =
+            if let Some(new_block) = working_set.find_block_by_span(id_tracker.file_span)
+                && let Some((new_id, _)) =
                     ast::find_id(&new_block, working_set, &id_tracker.span.start)
-                {
-                    id_tracker.id = new_id;
-                }
+            {
+                id_tracker.id = new_id;
             }
             id_tracker.renewed = true;
         }
-        let references: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
+        let mut refs: Vec<Span> = find_reference_by_id(&block, working_set, &id_tracker.id);
+
+        let file_span = working_set
+            .get_span_for_filename(fp.to_string_lossy().as_ref())
+            .unwrap_or(Span::unknown());
+        if let Some(extra_span) = Self::reference_not_in_ast(
+            &id_tracker.id,
+            working_set,
+            definition_span,
+            file_span,
+            id_tracker.span,
+        ) && !refs.contains(&extra_span)
+        {
+            refs.push(extra_span)
+        }
 
         // add_block to avoid repeated parsing
         working_set.add_block(block);
-        (!references.is_empty()).then_some(references)
+        refs.iter()
+            .map(|span| span_to_range(span, file, file_span.start))
+            .collect()
     }
 
     /// NOTE: for arguments whose declaration is in a signature
@@ -342,22 +389,23 @@ impl LanguageServer {
         file_span: Span,
         sample_span: Span,
     ) -> Option<Span> {
-        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span) {
-            if file_span.contains_span(decl_span) && decl_span.end > decl_span.start {
-                let content = working_set.get_span_contents(decl_span);
-                let leading_dashes = content
-                    .iter()
-                    // remove leading dashes for flags
-                    .take_while(|c| *c == &b'-')
-                    .count();
-                let start = decl_span.start + leading_dashes;
-                return content.get(leading_dashes..).and_then(|name| {
-                    name.starts_with(name_ref).then_some(Span {
-                        start,
-                        end: start + sample_span.end - sample_span.start,
-                    })
-                });
-            }
+        if let (Id::Variable(_, name_ref), Some(decl_span)) = (&id, definition_span)
+            && file_span.contains_span(decl_span)
+            && decl_span.end > decl_span.start
+        {
+            let content = working_set.get_span_contents(decl_span);
+            let leading_dashes = content
+                .iter()
+                // remove leading dashes for flags
+                .take_while(|c| *c == &b'-')
+                .count();
+            let start = decl_span.start + leading_dashes;
+            return content.get(leading_dashes..).and_then(|name| {
+                name.starts_with(name_ref).then_some(Span {
+                    start,
+                    end: start + sample_span.end - sample_span.start,
+                })
+            });
         }
         None
     }
@@ -367,7 +415,7 @@ impl LanguageServer {
     fn find_reference_in_workspace(
         &self,
         engine_state: EngineState,
-        current_workspace_folder: WorkspaceFolder,
+        workspace_uri: Uri,
         token: ProgressToken,
         message: String,
         mut id_tracker: IDTracker,
@@ -378,23 +426,36 @@ impl LanguageServer {
         let (data_sender, data_receiver) = crossbeam_channel::unbounded::<InternalMessage>();
         let (cancel_sender, cancel_receiver) = crossbeam_channel::bounded::<bool>(1);
         let engine_state = Arc::new(engine_state);
-        let docs = self.docs.clone();
+        let text_documents = self.docs.clone();
         self.send_progress_begin(token.clone(), message)?;
 
         std::thread::spawn(move || -> Result<()> {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let scripts: Vec<PathBuf> =
-                match find_nu_scripts_in_folder(&current_workspace_folder.uri) {
-                    Ok(it) => it,
-                    Err(_) => {
-                        data_sender
-                            .send(InternalMessage::Cancelled(token.clone()))
-                            .ok();
-                        return Ok(());
-                    }
+            let mut scripts: HashSet<_> = match find_nu_scripts_in_folder(&workspace_uri) {
+                Ok(it) => it,
+                Err(_) => {
+                    data_sender
+                        .send(InternalMessage::Cancelled(token.clone()))
+                        .ok();
+                    return Ok(());
                 }
-                .filter_map(|p| p.ok())
-                .collect();
+            }
+            .filter_map(|p| p.ok())
+            .collect();
+
+            // For unsaved new files
+            let mut opened_scripts = HashSet::new();
+            let docs = match text_documents.lock() {
+                Ok(it) => it,
+                Err(err) => return Err(miette!(err.to_string())),
+            };
+            for uri in docs.documents().keys() {
+                let fp = uri_to_path(uri);
+                opened_scripts.insert(fp.clone());
+                scripts.insert(fp);
+            }
+            drop(docs);
+
             let len = scripts.len();
             let definition_span = Self::find_definition_span_by_id(&working_set, &id_tracker.id);
             let bytes_to_search = id_tracker.name.to_owned();
@@ -412,12 +473,18 @@ impl LanguageServer {
                 }
                 let percentage = (i * 100 / len) as u32;
                 let uri = path_to_uri(fp);
-                let docs = match docs.lock() {
-                    Ok(it) => it,
-                    Err(err) => return Err(miette!(err.to_string())),
-                };
-                let file = if let Some(file) = docs.get_document(&uri) {
-                    file
+                let file = if opened_scripts.contains(fp) {
+                    let docs = match text_documents.lock() {
+                        Ok(it) => it,
+                        Err(err) => return Err(miette!(err.to_string())),
+                    };
+                    let Some(file) = docs.get_document(&uri) else {
+                        continue;
+                    };
+                    let doc_copy =
+                        FullTextDocument::new("nu".to_string(), 0, file.get_content(None).into());
+                    drop(docs);
+                    doc_copy
                 } else {
                     let file_bytes = match fs::read(fp) {
                         Ok(it) => it,
@@ -434,73 +501,107 @@ impl LanguageServer {
                             .into_diagnostic()?;
                         continue;
                     }
-                    &FullTextDocument::new(
+                    FullTextDocument::new(
                         "nu".to_string(),
                         0,
                         String::from_utf8_lossy(&file_bytes).into(),
                     )
                 };
-                let _ = Self::find_reference_in_file(&mut working_set, file, fp, &mut id_tracker)
-                    .map(|mut refs| {
-                        let file_span = working_set
-                            .get_span_for_filename(fp.to_string_lossy().as_ref())
-                            .unwrap_or(Span::unknown());
-                        if let Some(extra_span) = Self::reference_not_in_ast(
-                            &id_tracker.id,
-                            &working_set,
-                            definition_span,
-                            file_span,
-                            id_tracker.span,
-                        ) {
-                            if !refs.contains(&extra_span) {
-                                refs.push(extra_span)
-                            }
-                        }
-                        let ranges = refs
-                            .iter()
-                            .map(|span| span_to_range(span, file, file_span.start))
-                            .collect();
-                        data_sender
-                            .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
-                            .ok();
-                        data_sender
-                            .send(InternalMessage::OnGoing(token.clone(), percentage))
-                            .ok();
-                    });
+                let ranges = Self::find_reference_in_file(
+                    &mut working_set,
+                    &file,
+                    fp,
+                    &mut id_tracker,
+                    definition_span,
+                );
+                data_sender
+                    .send(InternalMessage::RangeMessage(RangePerDoc { uri, ranges }))
+                    .ok();
+                data_sender
+                    .send(InternalMessage::OnGoing(token.clone(), percentage))
+                    .ok();
             }
             data_sender
                 .send(InternalMessage::Finished(token))
-                .into_diagnostic()?;
-            Ok(())
+                .into_diagnostic()
         });
         Ok((cancel_sender, Arc::new(data_receiver)))
     }
 
-    fn get_workspace_folder_by_uri(&self, uri: &Uri) -> Option<WorkspaceFolder> {
+    fn get_workspace_folder_by_uri(&self, uri: &Uri) -> Option<&WorkspaceFolder> {
         let uri_string = uri.to_string();
-        self.workspace_folders
-            .iter()
-            .find_map(|(_, folder)| {
-                uri_string
-                    .starts_with(&folder.uri.to_string())
-                    .then_some(folder)
-            })
-            .cloned()
+        self.workspace_folders.iter().find_map(|(_, folder)| {
+            uri_string
+                .starts_with(&folder.uri.to_string())
+                .then_some(folder)
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, send_hover_request};
+    use crate::tests::{initialize_language_server, open, open_unchecked, send_hover_request};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
+    use lsp_types::notification::{LogMessage, Notification, Progress};
     use lsp_types::{
         DocumentHighlightParams, InitializeParams, PartialResultParams, Position, ReferenceContext,
         ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
         WorkDoneProgressParams, WorkspaceFolder, request, request::Request,
     };
     use nu_test_support::fs::fixtures;
+    use rstest::rstest;
+
+    // Helper functions to reduce JSON duplication
+    fn make_range(
+        start_line: u32,
+        start_char: u32,
+        end_line: u32,
+        end_char: u32,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "start": { "line": start_line, "character": start_char },
+            "end": { "line": end_line, "character": end_char }
+        })
+    }
+
+    fn make_location_ref(
+        uri_suffix: &str,
+        start_line: u32,
+        start_char: u32,
+        end_line: u32,
+        end_char: u32,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "uri": uri_suffix,
+            "range": make_range(start_line, start_char, end_line, end_char)
+        })
+    }
+
+    fn make_text_edit(
+        start_line: u32,
+        start_char: u32,
+        end_line: u32,
+        end_char: u32,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "range": make_range(start_line, start_char, end_line, end_char),
+            "newText": "new"
+        })
+    }
+
+    fn make_highlight(
+        start_line: u32,
+        start_char: u32,
+        end_line: u32,
+        end_char: u32,
+    ) -> serde_json::Value {
+        serde_json::json!({
+            "range": make_range(start_line, start_char, end_line, end_char),
+            "kind": 1
+        })
+    }
 
     fn send_reference_request(
         client_connection: &Connection,
@@ -636,24 +737,161 @@ mod tests {
     /// Should not exit on malformed init_params
     #[test]
     fn malformed_init_params() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
             Some(serde_json::json!({ "workspaceFolders": serde_json::Value::Null })),
         );
-        script.push("foo.nu");
+        let mut script = fixtures();
+        script.push("lsp/workspace/foo.nu");
         let script = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script);
+        let notification = open_unchecked(&client_connection, script.clone());
+        assert_json_eq!(
+            notification,
+            serde_json::json!({
+                "method": "textDocument/publishDiagnostics",
+                "params": {
+                    "uri": script,
+                    "diagnostics": []
+                }
+            })
+        );
     }
 
-    #[test]
-    fn command_reference_in_workspace() {
+    #[rstest]
+    #[case::command_reference(
+        "foo.nu", (0, 12), true,
+        vec![make_location_ref("bar", 4, 2, 4, 7), make_location_ref("foo", 0, 11, 0, 16)],
+    )]
+    #[case::single_file_without_workspace_folder_param(
+        "foo.nu", (0, 12), false,
+        vec![make_location_ref("foo", 0, 11, 0, 16)],
+    )]
+    #[case::new_file(
+        "no_such_file.nu", (0, 5), true,
+        vec![make_location_ref("no_such_file", 0, 4, 0, 7)],
+    )]
+    #[case::new_file_without_workspace_folder_param(
+        "no_such_file.nu", (0, 5), false,
+        vec![make_location_ref("no_such_file", 0, 4, 0, 7)],
+    )]
+    #[case::quoted_command_reference(
+        "bar.nu", (0, 23), true,
+        vec![make_location_ref("bar", 5, 4, 5, 11), make_location_ref("foo", 6, 13, 6, 20)],
+    )]
+    #[case::module_path_reference(
+        "baz.nu", (0, 12), true,
+        vec![make_location_ref("bar", 0, 4, 0, 12), make_location_ref("baz", 6, 4, 6, 12)],
+    )]
+    fn reference_in_workspace(
+        #[case] main_file: &str,
+        #[case] cursor_position: (u32, u32),
+        #[case] with_workspace_folder: bool,
+        #[case] expected_refs: Vec<serde_json::Value>,
+    ) {
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
+        script.push("lsp/workspace");
+        let (client_connection, _recv) = initialize_language_server(
+            None,
+            serde_json::to_value(InitializeParams {
+                workspace_folders: with_workspace_folder.then_some(vec![WorkspaceFolder {
+                    uri: path_to_uri(&script),
+                    name: "random name".to_string(),
+                }]),
+                ..Default::default()
+            })
+            .ok(),
+        );
+        script.push(main_file);
+        let file_exists = script.is_file();
+        let script = path_to_uri(&script);
+
+        if file_exists {
+            open_unchecked(&client_connection, script.clone());
+        } else {
+            let _ = open(
+                &client_connection,
+                script.clone(),
+                Some("def foo [] {}".into()),
+            );
+        }
+
+        let message_num = if with_workspace_folder {
+            if file_exists { 6 } else { 7 }
+        } else {
+            1
+        };
+        let (line, character) = cursor_position;
+        let messages = send_reference_request(
+            &client_connection,
+            script.clone(),
+            line,
+            character,
+            message_num,
+        );
+        assert_eq!(messages.len(), message_num);
+        let mut has_response = false;
+        for message in messages {
+            match message {
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
+                Message::Response(r) => {
+                    has_response = true;
+                    let result = r.result.unwrap();
+                    let array = result.as_array().unwrap();
+
+                    for expected_ref in &expected_refs {
+                        let mut expected = expected_ref.clone();
+                        let uri_placeholder = expected["uri"].as_str().unwrap();
+                        let actual_uri = if uri_placeholder
+                            == main_file.strip_suffix(".nu").unwrap()
+                        {
+                            script.to_string()
+                        } else {
+                            script
+                                .to_string()
+                                .replace(main_file.strip_suffix(".nu").unwrap(), uri_placeholder)
+                        };
+                        expected["uri"] = serde_json::json!(actual_uri);
+                        assert!(array.contains(&expected));
+                    }
+                }
+                _ => panic!("unexpected message type"),
+            }
+        }
+        assert!(has_response);
+    }
+
+    #[rstest]
+    #[case::quoted_command(
+        "foo.nu", (6, 12), (6, 11),
+        make_range(6, 13, 6, 20),
+        vec![
+            ("foo", vec![make_text_edit(6, 13, 6, 20)]),
+            ("bar", vec![make_text_edit(5, 4, 5, 11), make_text_edit(0, 22, 0, 29)])
+        ]
+    )]
+    #[case::module_command(
+        "baz.nu", (1, 47), (6, 11),
+        make_range(1, 41, 1, 56),
+        vec![
+            ("foo", vec![make_text_edit(10, 16, 10, 29)]),
+            ("baz", vec![make_text_edit(1, 41, 1, 56), make_text_edit(2, 0, 2, 5), make_text_edit(9, 20, 9, 33)])
+        ]
+    )]
+    #[case::command_argument(
+        "foo.nu", (3, 5), (3, 5),
+        make_range(3, 3, 3, 8),
+        vec![("foo", vec![make_text_edit(3, 3, 3, 8), make_text_edit(1, 4, 1, 9)])]
+    )]
+    fn rename_operations(
+        #[case] main_file: &str,
+        #[case] prepare_position: (u32, u32),
+        #[case] rename_position: (u32, u32),
+        #[case] expected_prepare: serde_json::Value,
+        #[case] expected_changes: Vec<(&str, Vec<serde_json::Value>)>,
+    ) {
+        let mut script = fixtures();
+        script.push("lsp/workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
             serde_json::to_value(InitializeParams {
@@ -665,186 +903,18 @@ mod tests {
             })
             .ok(),
         );
-        script.push("foo.nu");
+        script.push(main_file);
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
 
         let message_num = 6;
-        let messages =
-            send_reference_request(&client_connection, script.clone(), 0, 12, message_num);
-        assert_eq!(messages.len(), message_num);
-        let mut has_response = false;
-        for message in messages {
-            match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => {
-                    has_response = true;
-                    let result = r.result.unwrap();
-                    let array = result.as_array().unwrap();
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script.to_string().replace("foo", "bar"),
-                                "range": { "start": { "line": 4, "character": 2 }, "end": { "line": 4, "character": 7 } }
-                            }
-                        )
-                    ));
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script,
-                                "range": { "start": { "line": 0, "character": 11 }, "end": { "line": 0, "character": 16 } }
-                            }
-                        )
-                    ));
-                }
-                _ => panic!("unexpected message type"),
-            }
-        }
-        assert!(has_response);
-    }
-
-    #[test]
-    fn quoted_command_reference_in_workspace() {
-        let mut script_path = fixtures();
-        script_path.push("lsp");
-        script_path.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(
-            None,
-            serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script_path),
-                    name: "random name".to_string(),
-                }]),
-                ..Default::default()
-            })
-            .ok(),
-        );
-        script_path.push("bar.nu");
-        let script = path_to_uri(&script_path);
-        script_path.pop();
-        script_path.push("foo.nu");
-        let script_foo = path_to_uri(&script_path);
-
-        open_unchecked(&client_connection, script.clone());
-        // to mimic switching back and forth in editors,
-        // note this action will trigger parsing for diagnostics,
-        // thus changing the cached `StateDelta`
-        open_unchecked(&client_connection, script_foo);
-
-        let message_num = 6;
-        let messages =
-            send_reference_request(&client_connection, script.clone(), 0, 23, message_num);
-        assert_eq!(messages.len(), message_num);
-        let mut has_response = false;
-        for message in messages {
-            match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => {
-                    has_response = true;
-                    let result = r.result.unwrap();
-                    let array = result.as_array().unwrap();
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script,
-                                "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } }
-                            }
-                        )
-                    ));
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script.to_string().replace("bar", "foo"),
-                                "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } }
-                            }
-                        )
-                    ));
-                }
-                _ => panic!("unexpected message type"),
-            }
-        }
-        assert!(has_response);
-    }
-
-    #[test]
-    fn module_path_reference_in_workspace() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(
-            None,
-            serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script),
-                    name: "random name".to_string(),
-                }]),
-                ..Default::default()
-            })
-            .ok(),
-        );
-        script.push("baz.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let message_num = 6;
-        let messages =
-            send_reference_request(&client_connection, script.clone(), 0, 12, message_num);
-        assert_eq!(messages.len(), message_num);
-        let mut has_response = false;
-        for message in messages {
-            match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => {
-                    has_response = true;
-                    let result = r.result.unwrap();
-                    let array = result.as_array().unwrap();
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script.to_string().replace("baz", "bar"),
-                                "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 12 } }
-                            }
-                        )
-                    ));
-                    assert!(array.contains(&serde_json::json!(
-                            {
-                                "uri": script,
-                                "range": { "start": { "line": 6, "character": 4 }, "end": { "line": 6, "character": 12 } }
-                            }
-                        )
-                    ));
-                }
-                _ => panic!("unexpected message type"),
-            }
-        }
-        assert!(has_response);
-    }
-
-    #[test]
-    fn rename_quoted_command() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(
-            None,
-            serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script),
-                    name: "random name".to_string(),
-                }]),
-                ..Default::default()
-            })
-            .ok(),
-        );
-        script.push("foo.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let message_num = 6;
+        let (prep_line, prep_char) = prepare_position;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
-            6,
-            12,
+            prep_line,
+            prep_char,
             message_num,
             false,
         );
@@ -852,214 +922,39 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
-                    assert_json_eq!(
-                        r.result,
-                        serde_json::json!({
-                            "start": { "line": 6, "character": 13 },
-                            "end": { "line": 6, "character": 20 }
-                        }),
-                    )
+                    assert_json_eq!(r.result, expected_prepare)
                 }
                 _ => panic!("unexpected message type"),
             }
         }
         assert!(has_response);
 
-        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
+        let (rename_line, rename_char) = rename_position;
+        if let Message::Response(r) =
+            send_rename_request(&client_connection, script.clone(), rename_line, rename_char)
         {
             let changes = r.result.unwrap()["changes"].clone();
-            assert_json_eq!(
-                changes[script.to_string()],
-                serde_json::json!([
-                    {
-                        "range": { "start": { "line": 6, "character": 13 }, "end": { "line": 6, "character": 20 } },
-                        "newText": "new"
-                    }
-                ])
-            );
-            let changs_bar = changes[script.to_string().replace("foo", "bar")]
-                .as_array()
-                .unwrap();
-            assert!(
-                changs_bar.contains(
-                &serde_json::json!({
-                    "range": { "start": { "line": 5, "character": 4 }, "end": { "line": 5, "character": 11 } },
-                    "newText": "new"
-                })
-            ));
-            assert!(
-                changs_bar.contains(
-                &serde_json::json!({
-                    "range": { "start": { "line": 0, "character": 22 }, "end": { "line": 0, "character": 29 } },
-                    "newText": "new"
-                })
-            ));
-        } else {
-            panic!()
-        }
-    }
 
-    #[test]
-    fn rename_module_command() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(
-            None,
-            serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script),
-                    name: "random name".to_string(),
-                }]),
-                ..Default::default()
-            })
-            .ok(),
-        );
-        script.push("baz.nu");
-        let script = path_to_uri(&script);
+            for (file_suffix, expected_file_changes) in expected_changes {
+                let file_uri = if file_suffix == main_file.strip_suffix(".nu").unwrap() {
+                    script.to_string()
+                } else {
+                    script
+                        .to_string()
+                        .replace(main_file.strip_suffix(".nu").unwrap(), file_suffix)
+                };
 
-        open_unchecked(&client_connection, script.clone());
-
-        let message_num = 6;
-        let messages = send_rename_prepare_request(
-            &client_connection,
-            script.clone(),
-            1,
-            47,
-            message_num,
-            false,
-        );
-        assert_eq!(messages.len(), message_num);
-        let mut has_response = false;
-        for message in messages {
-            match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => {
-                    has_response = true;
-                    assert_json_eq!(
-                        r.result,
-                        serde_json::json!({
-                            "start": { "line": 1, "character": 41 },
-                            "end": { "line": 1, "character": 56 }
-                        }),
-                    )
+                let actual_changes = changes[file_uri.clone()].as_array().unwrap();
+                for expected_change in expected_file_changes {
+                    assert!(
+                        actual_changes.contains(&expected_change),
+                        "Expected change {expected_change:?} not found in actual changes for file {file_uri}",
+                    );
                 }
-                _ => panic!("unexpected message type"),
             }
-        }
-        assert!(has_response);
-
-        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 6, 11)
-        {
-            let changes = r.result.unwrap()["changes"].clone();
-            assert_json_eq!(
-                changes[script.to_string().replace("baz", "foo")],
-                serde_json::json!([
-                    {
-                        "range": { "start": { "line": 10, "character": 16 }, "end": { "line": 10, "character": 29 } },
-                        "newText": "new"
-                    }
-                ])
-            );
-            let changs_baz = changes[script.to_string()].as_array().unwrap();
-            assert!(
-                changs_baz.contains(
-                &serde_json::json!({
-                    "range": { "start": { "line": 1, "character": 41 }, "end": { "line": 1, "character": 56 } },
-                    "newText": "new"
-                })
-            ));
-            assert!(
-                changs_baz.contains(
-                &serde_json::json!({
-                    "range": { "start": { "line": 2, "character": 0 }, "end": { "line": 2, "character": 5 } },
-                    "newText": "new"
-                })
-            ));
-            assert!(
-                changs_baz.contains(
-                &serde_json::json!({
-                    "range": { "start": { "line": 9, "character": 20 }, "end": { "line": 9, "character": 33 } },
-                    "newText": "new"
-                })
-            ));
-        } else {
-            panic!()
-        }
-    }
-
-    #[test]
-    fn rename_command_argument() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
-        let (client_connection, _recv) = initialize_language_server(
-            None,
-            serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
-                    uri: path_to_uri(&script),
-                    name: "random name".to_string(),
-                }]),
-                ..Default::default()
-            })
-            .ok(),
-        );
-        script.push("foo.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-
-        let message_num = 6;
-        let messages = send_rename_prepare_request(
-            &client_connection,
-            script.clone(),
-            3,
-            5,
-            message_num,
-            false,
-        );
-        assert_eq!(messages.len(), message_num);
-        let mut has_response = false;
-        for message in messages {
-            match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
-                Message::Response(r) => {
-                    has_response = true;
-                    assert_json_eq!(
-                        r.result,
-                        serde_json::json!({
-                            "start": { "line": 3, "character": 3 },
-                            "end": { "line": 3, "character": 8 }
-                        }),
-                    )
-                }
-                _ => panic!("unexpected message type"),
-            }
-        }
-        assert!(has_response);
-
-        if let Message::Response(r) = send_rename_request(&client_connection, script.clone(), 3, 5)
-        {
-            assert_json_eq!(
-                r.result,
-                serde_json::json!({
-                    "changes": {
-                        script.to_string(): [
-                            {
-                                "range": { "start": { "line": 3, "character": 3 }, "end": { "line": 3, "character": 8 } },
-                                "newText": "new"
-                            },
-                            {
-                                "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 9 } },
-                                "newText": "new"
-                            }
-                        ]
-                    }
-                }),
-            )
         } else {
             panic!()
         }
@@ -1068,8 +963,7 @@ mod tests {
     #[test]
     fn rename_cancelled() {
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
+        script.push("lsp/workspace");
         let (client_connection, _recv) = initialize_language_server(
             None,
             serde_json::to_value(InitializeParams {
@@ -1086,7 +980,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 3;
+        let message_num = 4;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
@@ -1107,7 +1001,13 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => {
+                    if n.method == LogMessage::METHOD {
+                        assert_json_eq!(n.params["message"], "Workspace-wide search took too long!")
+                    } else {
+                        assert_eq!(n.method, Progress::METHOD)
+                    };
+                }
                 // the response of the preempting hover request
                 Message::Response(r) => {
                     has_response = true;
@@ -1161,99 +1061,45 @@ mod tests {
         assert!(working_set.find_block_by_span(span_foo).is_some())
     }
 
-    #[test]
-    fn document_highlight_variable() {
+    #[rstest]
+    #[case::variable(
+        "workspace/foo.nu", (3, 5),
+        serde_json::json!([make_highlight(3, 3, 3, 8), make_highlight(1, 4, 1, 9)])
+    )]
+    #[case::module_alias_first(
+        "goto/use_module.nu", (1, 26),
+        serde_json::json!([make_highlight(1, 25, 1, 33), make_highlight(2, 30, 2, 38)])
+    )]
+    #[case::module_alias_second(
+        "goto/use_module.nu", (0, 10),
+        serde_json::json!([make_highlight(0, 4, 0, 13), make_highlight(1, 12, 1, 21)])
+    )]
+    #[case::module_record_first(
+        "workspace/baz.nu", (8, 0),
+        serde_json::json!([make_highlight(6, 26, 6, 33), make_highlight(8, 1, 8, 8)])
+    )]
+    #[case::module_record_second(
+        "workspace/baz.nu", (10, 7),
+        serde_json::json!([make_highlight(10, 4, 10, 12), make_highlight(11, 1, 11, 8)])
+    )]
+    fn document_highlight_request(
+        #[case] filename: &str,
+        #[case] cursor_position: (u32, u32),
+        #[case] expected: serde_json::Value,
+    ) {
         let mut script = fixtures();
         script.push("lsp");
-        script.push("workspace");
-        script.push("foo.nu");
+        script.push(filename);
         let script = path_to_uri(&script);
 
         let (client_connection, _recv) = initialize_language_server(None, None);
         open_unchecked(&client_connection, script.clone());
 
-        let message = send_document_highlight_request(&client_connection, script, 3, 5);
+        let (line, character) = cursor_position;
+        let message = send_document_highlight_request(&client_connection, script, line, character);
         let Message::Response(r) = message else {
             panic!("unexpected message type");
         };
-        assert_json_eq!(
-            r.result,
-            serde_json::json!([
-                { "range": { "start": { "line": 3, "character": 3 }, "end": { "line": 3, "character": 8 } }, "kind": 1 },
-                { "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 9 } }, "kind": 1 }
-            ]),
-        );
-    }
-
-    #[test]
-    fn document_highlight_module_alias() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("goto");
-        script.push("use_module.nu");
-        let script = path_to_uri(&script);
-
-        let (client_connection, _recv) = initialize_language_server(None, None);
-        open_unchecked(&client_connection, script.clone());
-
-        let message = send_document_highlight_request(&client_connection, script.clone(), 1, 26);
-        let Message::Response(r) = message else {
-            panic!("unexpected message type");
-        };
-        assert_json_eq!(
-            r.result,
-            serde_json::json!([
-                { "range": { "start": { "line": 1, "character": 25 }, "end": { "line": 1, "character": 33 } }, "kind": 1 },
-                { "range": { "start": { "line": 2, "character": 30 }, "end": { "line": 2, "character": 38 } }, "kind": 1 }
-            ]),
-        );
-
-        let message = send_document_highlight_request(&client_connection, script, 0, 10);
-        let Message::Response(r) = message else {
-            panic!("unexpected message type");
-        };
-        assert_json_eq!(
-            r.result,
-            serde_json::json!([
-                { "range": { "start": { "line": 0, "character": 4 }, "end": { "line": 0, "character": 13 } }, "kind": 1 },
-                { "range": { "start": { "line": 1, "character": 12 }, "end": { "line": 1, "character": 21 } }, "kind": 1 }
-            ]),
-        );
-    }
-
-    #[test]
-    fn document_highlight_module_record() {
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("workspace");
-        script.push("baz.nu");
-        let script = path_to_uri(&script);
-
-        let (client_connection, _recv) = initialize_language_server(None, None);
-        open_unchecked(&client_connection, script.clone());
-
-        let message = send_document_highlight_request(&client_connection, script.clone(), 8, 0);
-        let Message::Response(r) = message else {
-            panic!("unexpected message type");
-        };
-        assert_json_eq!(
-            r.result,
-            serde_json::json!([
-                { "range": { "start": { "line": 6, "character": 26 }, "end": { "line": 6, "character": 33 } }, "kind": 1 },
-                { "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 8, "character": 8 } }, "kind": 1 },
-            ]),
-        );
-
-        let message = send_document_highlight_request(&client_connection, script, 10, 7);
-        let Message::Response(r) = message else {
-            panic!("unexpected message type");
-        };
-        assert_json_eq!(
-            r.result,
-            serde_json::json!([
-                { "range": { "start": { "line": 10, "character": 4 }, "end": { "line": 10, "character": 12 } }, "kind": 1 },
-                { "range": { "start": { "line": 11, "character": 1 }, "end": { "line": 11, "character": 8 } }, "kind": 1 },
-            ]),
-        );
+        assert_json_eq!(r.result, expected);
     }
 }

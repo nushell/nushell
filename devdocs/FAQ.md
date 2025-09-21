@@ -29,7 +29,7 @@ Approximate flow:
     - `return Err(ShellError::...)` and you're done in a `Command::run`
 4. Do you want to report a warning but not stop execution?
     - **NEVER** `println!`, we can write to stderr if necessary but...
-    - good practice: `nu_protocol::cli_error::report_error` or `report_error_new`
+    - good practice: `nu_protocol::report_error::report_error` or `report_error_new`
         - depending on whether you have access to a `StateWorkingSet`
     - if only relevant to in the field debugging: `log`-crate macros.
 

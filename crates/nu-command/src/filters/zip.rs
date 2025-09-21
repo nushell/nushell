@@ -32,7 +32,7 @@ impl Command for Zip {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let test_row_1 = Value::list(
             vec![Value::test_int(1), Value::test_int(4)],
             Span::test_data(),
@@ -103,7 +103,7 @@ impl Command for Zip {
         let metadata = input.metadata();
         let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
-            ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::Empty)?
+            ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::empty())?
         } else {
             other.into_pipeline_data()
         };

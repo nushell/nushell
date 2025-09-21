@@ -330,3 +330,19 @@ fn correct_scope_variables_fields() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "false");
 }
+
+#[test]
+fn example_results_have_valid_span() {
+    let inp = &[
+        "scope commands",
+        "| where name == 'do'",
+        "| first",
+        "| get examples",
+        "| where result == 177",
+        "| get 0.result",
+        "| metadata",
+        "| view span $in.span.start $in.span.end",
+    ];
+    let actual = nu!(&inp.join(" "));
+    assert_eq!(actual.out, "scope commands");
+}

@@ -1,36 +1,42 @@
 use crate::Span;
 use miette::Diagnostic;
-use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
 
-use super::ReportMode;
+use crate::{ReportMode, Reportable};
 
-#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
+#[derive(Clone, Debug, Error, Diagnostic)]
+#[diagnostic(severity(Warning))]
 pub enum ParseWarning {
+    /// A parse-time deprectaion. Indicates that something will be removed in a future release.
+    ///
+    /// Use [`ShellWarning::Deprecated`](crate::ShellWarning::Deprecated) if this is a deprecation
+    /// which is only detectable at run-time.
     #[error("{dep_type} deprecated.")]
     #[diagnostic(code(nu::parser::deprecated))]
-    DeprecationWarning {
+    Deprecated {
         dep_type: String,
+        label: String,
         #[label("{label}")]
         span: Span,
-        label: String,
-        report_mode: ReportMode,
         #[help]
         help: Option<String>,
+        report_mode: ReportMode,
     },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
-            ParseWarning::DeprecationWarning { span, .. } => *span,
+            ParseWarning::Deprecated { span, .. } => *span,
         }
     }
+}
 
-    pub fn report_mode(&self) -> ReportMode {
+impl Reportable for ParseWarning {
+    fn report_mode(&self) -> ReportMode {
         match self {
-            ParseWarning::DeprecationWarning { report_mode, .. } => *report_mode,
+            ParseWarning::Deprecated { report_mode, .. } => *report_mode,
         }
     }
 }
@@ -39,7 +45,7 @@ impl ParseWarning {
 impl Hash for ParseWarning {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            ParseWarning::DeprecationWarning {
+            ParseWarning::Deprecated {
                 dep_type, label, ..
             } => {
                 dep_type.hash(state);

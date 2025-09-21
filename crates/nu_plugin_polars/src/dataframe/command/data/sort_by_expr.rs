@@ -51,7 +51,7 @@ impl PluginCommand for LazySortBy {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sort dataframe by one column",
@@ -149,7 +149,8 @@ impl PluginCommand for LazySortBy {
             nulls_last: vec![nulls_last],
             multithreaded: true,
             maintain_order,
-            // todo - expose limit
+            // Applying a limit here will result in a panic
+            // it is not supported by polars in this context
             limit: None,
         };
 

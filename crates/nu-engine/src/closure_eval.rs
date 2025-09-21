@@ -37,7 +37,7 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 /// let mut closure = ClosureEval::new(engine_state, stack, closure);
 /// let iter = Vec::<Value>::new()
 ///     .into_iter()
-///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::Empty));
+///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::empty()));
 /// ```
 ///
 /// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
@@ -146,7 +146,7 @@ impl ClosureEval {
     pub fn run_with_input(&mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
         self.arg_index = 0;
         self.stack.with_env(&self.env_vars, &self.env_hidden);
-        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input)
+        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
@@ -175,7 +175,7 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure)
 ///     .add_arg(value)
-///     .run_with_input(PipelineData::Empty);
+///     .run_with_input(PipelineData::empty());
 /// ```
 ///
 /// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
@@ -261,7 +261,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        (self.eval)(self.engine_state, &mut self.stack, self.block, input)
+        (self.eval)(self.engine_state, &mut self.stack, self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.

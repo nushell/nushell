@@ -15,6 +15,7 @@ pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
+pub use nu_utils::MultiLife;
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
@@ -36,7 +37,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
-    ops::{Bound, ControlFlow, Deref},
+    ops::{Bound, ControlFlow},
     path::PathBuf,
 };
 
@@ -89,6 +90,7 @@ pub enum Value {
         internal_span: Span,
     },
     Duration {
+        /// The duration in nanoseconds.
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
@@ -396,7 +398,7 @@ impl Value {
     ///     );
     /// }
     /// ```
-    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+    pub fn coerce_str(&self) -> Result<Cow<'_, str>, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
@@ -1082,30 +1084,6 @@ impl Value {
         &'out self,
         cell_path: &[PathMember],
     ) -> Result<Cow<'out, Value>, ShellError> {
-        enum MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            Out(&'out T),
-            Local(&'local T),
-        }
-
-        impl<'out, 'local, T> Deref for MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            type Target = T;
-
-            fn deref(&self) -> &Self::Target {
-                match *self {
-                    MultiLife::Out(x) => x,
-                    MultiLife::Local(x) => x,
-                }
-            }
-        }
-
         // A dummy value is required, otherwise rust doesn't allow references, which we need for
         // the `std::ptr::eq` comparison
         let mut store: Value = Value::test_nothing();
@@ -2256,11 +2234,14 @@ impl Default for Value {
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // Compare two floating point numbers. The decision interval for equality is dynamically
-        // scaled as the value being compared increases in magnitude.
+        // scaled as the value being compared increases in magnitude (using relative epsilon-based
+        // tolerance). Implementation is similar to python's `math.isclose()` function:
+        // https://docs.python.org/3/library/math.html#math.isclose. Fallback to the default strict
+        // float comparison if the difference exceeds the error epsilon.
         fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
-            let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
+            let prec = f64::EPSILON.max(val.abs().max(other.abs()) * f64::EPSILON);
 
-            if (other - val).abs() < prec {
+            if (other - val).abs() <= prec {
                 return Some(Ordering::Equal);
             }
 
@@ -3689,14 +3670,12 @@ impl Value {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::In),
                         lhs: lhs.get_type(),
@@ -3761,14 +3740,12 @@ impl Value {
                 rhs,
             ),
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::NotIn),
                         lhs: lhs.get_type(),

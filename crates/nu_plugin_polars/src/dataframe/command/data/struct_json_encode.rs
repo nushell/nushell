@@ -27,7 +27,7 @@ impl PluginCommand for StructJsonEncode {
             .input_output_type(Type::custom("expression"), Type::custom("expression"))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Encode a struct as JSON",
             example: r#"[[id person]; [1 {name: "Bob", age: 36}] [2 {name: "Betty", age: 63}]] 

@@ -53,7 +53,7 @@ impl Command for StrStats {
         stats(working_set.permanent(), call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Count the number of words in a string",
@@ -102,7 +102,7 @@ fn stats(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
+    if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
     input.map(

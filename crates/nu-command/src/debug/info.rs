@@ -44,7 +44,7 @@ impl Command for DebugInfo {
         Ok(all_columns(call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "View process information",
             example: "debug info",

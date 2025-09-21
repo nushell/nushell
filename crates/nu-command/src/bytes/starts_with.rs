@@ -84,7 +84,7 @@ impl Command for BytesStartsWith {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Checks if binary starts with `0x[1F FF AA]`",

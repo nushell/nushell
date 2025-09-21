@@ -50,7 +50,7 @@ fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
     table.set_indent(opts.config.table.padding);
 
     for (i, (key, value)) in record.into_iter().enumerate() {
-        opts.signals.check(opts.span)?;
+        opts.signals.check(&opts.span)?;
 
         let value = nu_value_to_string_colored(&value, opts.config, &opts.style_computer);
 
@@ -100,7 +100,7 @@ fn create_table_with_header(
     table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
-        opts.signals.check(opts.span)?;
+        opts.signals.check(&opts.span)?;
         check_value(&item)?;
 
         for (col, header) in headers.iter().enumerate() {
@@ -137,7 +137,7 @@ fn create_table_with_header_and_index(
     table.set_row(0, head.clone());
 
     for (row, item) in input.into_iter().enumerate() {
-        opts.signals.check(opts.span)?;
+        opts.signals.check(&opts.span)?;
         check_value(&item)?;
 
         let text = get_table_row_index(&item, opts.config, row, row_offset);
@@ -164,7 +164,7 @@ fn create_table_with_no_header(
     table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
-        opts.signals.check(opts.span)?;
+        opts.signals.check(&opts.span)?;
         check_value(&item)?;
 
         let (text, style) = get_string_value(&item, opts);
@@ -186,7 +186,7 @@ fn create_table_with_no_header_and_index(
     table.set_indent(opts.config.table.padding);
 
     for (row, item) in input.into_iter().enumerate() {
-        opts.signals.check(opts.span)?;
+        opts.signals.check(&opts.span)?;
         check_value(&item)?;
 
         let index = get_table_row_index(&item, opts.config, row, row_offset);

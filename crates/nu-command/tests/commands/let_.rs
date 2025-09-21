@@ -123,3 +123,15 @@ fn let_raw_string() {
     let actual = nu!(r#"let x = r#'abc'#; $x"#);
     assert_eq!(actual.out, "abc");
 }
+
+#[test]
+fn let_malformed_type() {
+    let actual = nu!("let foo: )a");
+    assert!(actual.err.contains("unbalanced ( and )"));
+
+    let actual = nu!("let foo: }a");
+    assert!(actual.err.contains("unbalanced { and }"));
+
+    let actual = nu!("mut : , a");
+    assert!(actual.err.contains("unknown type"));
+}

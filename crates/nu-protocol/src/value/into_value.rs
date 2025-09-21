@@ -1,6 +1,9 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
-use std::{borrow::Borrow, collections::HashMap};
+use std::{
+    borrow::{Borrow, Cow},
+    collections::HashMap,
+};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -202,6 +205,21 @@ where
     }
 }
 
+/// This blanket implementation permits the use of [`Cow<'_, B>`] ([`Cow<'_, str>`] etc) based on
+/// the [IntoValue] implementation of `B`'s owned form ([str] => [String]).
+///
+/// It's meant to make using the [IntoValue] derive macro on types that contain [Cow] fields
+/// possible.
+impl<B> IntoValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: IntoValue,
+{
+    fn into_value(self, span: Span) -> Value {
+        <B::Owned as IntoValue>::into_value(self.into_owned(), span)
+    }
+}
+
 impl<K, V> IntoValue for HashMap<K, V>
 where
     K: Borrow<str> + Into<String>,
@@ -220,6 +238,16 @@ where
             .map(|(k, v)| (k.into(), v.into_value(span)))
             .collect::<Record>()
             .into_value(span)
+    }
+}
+
+impl IntoValue for std::time::Duration {
+    fn into_value(self, span: Span) -> Value {
+        let val: u128 = self.as_nanos();
+        debug_assert!(val <= i64::MAX as u128, "duration value too large");
+        // Capping is the best effort here.
+        let val: i64 = val.try_into().unwrap_or(i64::MAX);
+        Value::duration(val, span)
     }
 }
 

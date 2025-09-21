@@ -1,4 +1,4 @@
-use crate::repl::tests::{TestResult, fail_test, run_test};
+use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
 use rstest::rstest;
 
 #[test]
@@ -177,4 +177,63 @@ fn in_oneof_block_expected_type(#[case] input: &str) -> TestResult {
 #[test]
 fn in_oneof_block_expected_block() -> TestResult {
     fail_test("match 1 { 0 => { try 3 } }", "expected block")
+}
+
+#[test]
+fn pipeline_multiple_types() -> TestResult {
+    // https://github.com/nushell/nushell/issues/15485
+    run_test_contains("{year: 2019} | into datetime | date humanize", "years ago")
+}
+
+const MULTIPLE_TYPES_DEFS: &str = "
+def foo []: [int -> int, int -> string] {
+  if $in > 2 { 'hi' } else 4
+}
+def bar []: [int -> filesize, string -> string] {
+  if $in == 'hi' { 'meow' } else { into filesize }
+}
+";
+
+#[test]
+fn pipeline_multiple_types_custom() -> TestResult {
+    run_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            5 | foo | str trim"
+        ),
+        "hi",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_string() -> TestResult {
+    run_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            5 | foo | bar | str trim"
+        ),
+        "meow",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_int() -> TestResult {
+    run_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            2 | foo | bar | format filesize B"
+        ),
+        "4 B",
+    )
+}
+
+#[test]
+fn pipeline_multiple_types_propagate_error() -> TestResult {
+    fail_test(
+        &format!(
+            "{MULTIPLE_TYPES_DEFS}
+            2 | foo | bar | values"
+        ),
+        "parser::input_type_mismatch",
+    )
 }
