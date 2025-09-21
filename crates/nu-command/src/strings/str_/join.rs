@@ -60,7 +60,7 @@ impl Command for StrJoin {
         run(working_set.permanent(), call, input, separator)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a string from input",

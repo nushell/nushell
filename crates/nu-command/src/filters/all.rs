@@ -28,7 +28,7 @@ impl Command for All {
         vec!["every", "and"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Check if a list contains only true values",

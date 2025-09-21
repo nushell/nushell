@@ -37,7 +37,7 @@ impl PluginCommand for ExprSum {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sums all columns in a dataframe",

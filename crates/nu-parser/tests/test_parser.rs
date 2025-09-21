@@ -499,9 +499,13 @@ pub fn parse_binary_with_invalid_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[90]", true);
+    let block = parse(&mut working_set, None, b"0o[90]", true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
@@ -519,7 +523,11 @@ pub fn parse_binary_with_multi_byte_char() {
     let contents = b"0x[\xEF\xBF\xBD]";
     let block = parse(&mut working_set, None, contents, true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
@@ -737,11 +745,14 @@ pub fn parse_attribute_block_check_spans() {
 
 #[test]
 pub fn parse_attributes_check_values() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     @echo "hello world"
@@ -767,12 +778,15 @@ pub fn parse_attributes_check_values() {
 
 #[test]
 pub fn parse_attributes_alias() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(Alias));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     alias "attr test" = attr echo
@@ -795,12 +809,15 @@ pub fn parse_attributes_alias() {
 
 #[test]
 pub fn parse_attributes_external_alias() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(Alias));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     alias "attr test" = ^echo
@@ -824,12 +841,15 @@ pub fn parse_attributes_external_alias() {
 #[test]
 pub fn parse_if_in_const_expression() {
     // https://github.com/nushell/nushell/issues/15321
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Const));
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(IfMocked));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = b"const foo = if t";
     let _ = parse(&mut working_set, None, source, false);

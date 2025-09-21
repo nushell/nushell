@@ -39,7 +39,7 @@ impl PluginCommand for SetSeries {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Shifts the values by a given period",
             example: r#"let s = ([1 2 2 3 3] | polars into-df | polars shift 2);

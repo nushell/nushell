@@ -120,7 +120,7 @@ impl Command for StrIndexOf {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns index of string in input",

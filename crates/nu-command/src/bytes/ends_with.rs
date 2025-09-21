@@ -107,7 +107,7 @@ impl Command for BytesEndsWith {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Checks if binary ends with `0x[AA]`",

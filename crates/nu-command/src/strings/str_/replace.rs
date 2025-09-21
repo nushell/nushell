@@ -138,7 +138,7 @@ impl Command for StrReplace {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Find and replace the first occurrence of a substring",

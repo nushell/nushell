@@ -40,7 +40,7 @@ impl Command for MathArcTan {
         let head = call.head;
         let use_degrees = call.has_flag(engine_state, stack, "degrees")?;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -49,7 +49,7 @@ impl Command for MathArcTan {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let pi = std::f64::consts::PI;
         vec![
             Example {

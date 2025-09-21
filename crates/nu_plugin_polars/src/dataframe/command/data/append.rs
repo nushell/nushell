@@ -44,7 +44,7 @@ impl PluginCommand for AppendDF {
         "Appends a new dataframe."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Appends a dataframe as new columns",

@@ -32,7 +32,7 @@ impl PluginCommand for ExprImplode {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Create two lists for columns a and b with all the rows as values.",
             example: "[[a b]; [1 4] [2 5] [3 6]] | polars into-df | polars select (polars col '*' | polars implode) | polars collect",

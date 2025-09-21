@@ -113,7 +113,7 @@ impl Command for ToHtml {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs an HTML string representing the contents of this table",

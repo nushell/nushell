@@ -57,10 +57,10 @@ This command never blocks.
 
         let id = JobId::new(id_arg.item);
 
-        if let Some(tag) = tag_arg {
-            if tag.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: tag.span });
-            }
+        if let Some(tag) = tag_arg
+            && tag.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue { span: tag.span });
         }
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
@@ -100,7 +100,7 @@ This command never blocks.
         Ok(Value::nothing(head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",

@@ -38,7 +38,7 @@ impl Command for SplitChars {
         vec!["character", "separate", "divide"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Split the string into a list of characters",

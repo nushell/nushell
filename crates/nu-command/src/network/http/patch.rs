@@ -68,11 +68,18 @@ impl Command for HttpPatch {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(nu_protocol::Completion::new_list(
+                        super::client::RedirectMode::MODES,
+                    )),
             )
             .filter()
             .category(Category::Network)
@@ -100,7 +107,7 @@ impl Command for HttpPatch {
         run_patch(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Patch content to example.com",

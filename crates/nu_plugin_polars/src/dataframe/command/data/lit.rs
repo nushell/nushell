@@ -29,7 +29,7 @@ impl PluginCommand for ExprLit {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Created a literal expression and converts it to a nu object",
@@ -47,7 +47,7 @@ impl PluginCommand for ExprLit {
                         "expr" =>  Value::test_string("literal"),
                         "value" => Value::test_string("dyn int: 1744502400000000000"),
                     }),
-                    "dtype" => Value::test_string("Datetime(Nanoseconds, None)"),
+                    "dtype" => Value::test_string("Datetime('ns')"),
                     "cast_options" => Value::test_string("STRICT")
                 })),
             },
@@ -59,7 +59,7 @@ impl PluginCommand for ExprLit {
                         "expr" =>  Value::test_string("literal"),
                         "value" => Value::test_string("dyn int: 10800000000000"),
                     }),
-                    "dtype" => Value::test_string("Duration(Nanoseconds)"),
+                    "dtype" => Value::test_string("Duration('ns')"),
                     "cast_options" => Value::test_string("STRICT")
                 })),
             },

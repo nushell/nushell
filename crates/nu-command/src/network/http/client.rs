@@ -74,6 +74,10 @@ pub enum RedirectMode {
     Manual,
 }
 
+impl RedirectMode {
+    pub(crate) const MODES: &[&str] = &["follow", "error", "manual"];
+}
+
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
@@ -90,10 +94,9 @@ pub fn http_client(
         config_builder = config_builder.max_redirects(0);
     }
 
-    // Configures the proxy using the following environment variables
-    // HTTP_PROXY, HTTPS_PROXY, NO_PROXY
-    if let Some(builder) = proxy_builder_from_env(engine_state, stack)
-        && let Ok(proxy) = builder.build()
+
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack)
+        && let Ok(proxy) = ureq::Proxy::new(&http_proxy)
     {
         config_builder = config_builder.proxy(Some(proxy));
     };
@@ -965,16 +968,15 @@ pub(crate) fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineDat
 
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { val, .. } = val {
-                if let Some((
+            if let Value::Record { val, .. } = val
+                && let Some((
                     _col,
                     Value::String {
                         val: header_name, ..
                     },
                 )) = val.get_index(0)
-                {
-                    return name == header_name;
-                }
+            {
+                return name == header_name;
             }
             false
         });

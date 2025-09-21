@@ -47,7 +47,7 @@ consecutive elements that share the same closure result value into lists."#
         chunk_by(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Chunk data into runs of larger than zero or not.",

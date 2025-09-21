@@ -112,20 +112,20 @@ fn try_find_id_in_def(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a declaration id
-    if let Some(id_ref) = id_ref {
-        if !matches!(id_ref, Id::Declaration(_)) {
-            return None;
-        }
+    if let Some(id_ref) = id_ref
+        && !matches!(id_ref, Id::Declaration(_))
+    {
+        return None;
     }
     let mut span = None;
     for arg in call.arguments.iter() {
         if location.is_none_or(|pos| arg.span().contains(*pos)) {
             // String means this argument is the name
-            if let Argument::Positional(expr) = arg {
-                if let Expr::String(_) = &expr.expr {
-                    span = Some(expr.span);
-                    break;
-                }
+            if let Argument::Positional(expr) = arg
+                && let Expr::String(_) = &expr.expr
+            {
+                span = Some(expr.span);
+                break;
             }
             // if we do care the location,
             // reaching here means this argument is not the name
@@ -134,21 +134,33 @@ fn try_find_id_in_def(
             }
         }
     }
-    let (name, span) = strip_quotes(span?, working_set);
-    let decl_id = Id::Declaration(working_set.find_decl(&name).or_else(|| {
-        // for defs inside def
+
+    let block_span_of_this_def = call.positional_iter().last()?.span;
+    let decl_on_spot = |decl_id: &DeclId| -> bool {
+        working_set
+            .get_decl(*decl_id)
+            .block_id()
+            .and_then(|block_id| working_set.get_block(block_id).span)
+            .is_some_and(|block_span| block_span == block_span_of_this_def)
+    };
+
+    let (_, span) = strip_quotes(span?, working_set);
+    let id_found = if let Some(id_r) = id_ref {
+        let Id::Declaration(decl_id_ref) = id_r else {
+            return None;
+        };
+        decl_on_spot(decl_id_ref).then_some(id_r.clone())?
+    } else {
+        // Find declaration by name, e.g. `workspace.find_decl`, is not reliable
+        // considering shadowing and overlay prefixes
         // TODO: get scope by position
         // https://github.com/nushell/nushell/issues/15291
-        (0..working_set.num_decls()).rev().find_map(|id| {
+        Id::Declaration((0..working_set.num_decls()).rev().find_map(|id| {
             let decl_id = DeclId::new(id);
-            let decl = working_set.get_decl(decl_id);
-            let span = working_set.get_block(decl.block_id()?).span?;
-            call.span().contains_span(span).then_some(decl_id)
-        })
-    })?);
-    id_ref
-        .is_none_or(|id_r| decl_id == *id_r)
-        .then_some((decl_id, span))
+            decl_on_spot(&decl_id).then_some(decl_id)
+        })?)
+    };
+    Some((id_found, span))
 }
 
 /// For situations like
@@ -168,10 +180,10 @@ fn try_find_id_in_mod(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a module id
-    if let Some(id_ref) = id_ref {
-        if !matches!(id_ref, Id::Module(_, _)) {
-            return None;
-        }
+    if let Some(id_ref) = id_ref
+        && !matches!(id_ref, Id::Module(_, _))
+    {
+        return None;
     }
 
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
@@ -357,10 +369,10 @@ fn try_find_id_in_overlay(
     id_ref: Option<&Id>,
 ) -> Option<(Id, Span)> {
     // skip if the id to search is not a module id
-    if let Some(id_ref) = id_ref {
-        if !matches!(id_ref, Id::Module(_, _)) {
-            return None;
-        }
+    if let Some(id_ref) = id_ref
+        && !matches!(id_ref, Id::Module(_, _))
+    {
+        return None;
     }
     let check_location = |span: &Span| location.is_none_or(|pos| span.contains(*pos));
     let module_from_parser_info = |span: Span, name: &str| {
@@ -439,10 +451,10 @@ fn find_id_in_expr(
             }
         }
         Expr::ExternalCall(head, _) => {
-            if head.span.contains(*location) {
-                if let Expr::GlobPattern(cmd, _) = &head.expr {
-                    return FindMapResult::Found((Id::External(cmd.clone()), head.span));
-                }
+            if head.span.contains(*location)
+                && let Expr::GlobPattern(cmd, _) = &head.expr
+            {
+                return FindMapResult::Found((Id::External(cmd.clone()), head.span));
             }
             FindMapResult::Continue
         }
@@ -514,8 +526,8 @@ fn find_reference_by_id_in_expr(
         (Expr::VarDecl(vid1), Id::Variable(vid2, _)) if *vid1 == *vid2 => vec![expr.span],
         // also interested in `var_id` in call.arguments of `use` command
         // and `module_id` in `module` command
-        (Expr::Call(call), _) => {
-            if matches!(id, Id::Declaration(decl_id) if call.decl_id == *decl_id) {
+        (Expr::Call(call), _) => match id {
+            Id::Declaration(decl_id) if call.decl_id == *decl_id => {
                 vec![command_name_span_from_call_head(
                     working_set,
                     call.decl_id,
@@ -523,14 +535,11 @@ fn find_reference_by_id_in_expr(
                 )]
             }
             // Check for misc matches (use, module, etc.)
-            else if let Some((_, span_found)) =
-                try_find_id_in_misc(call, working_set, None, Some(id))
-            {
-                vec![span_found]
-            } else {
-                vec![]
-            }
-        }
+            _ => try_find_id_in_misc(call, working_set, None, Some(id))
+                .map(|(_, span_found)| span_found)
+                .into_iter()
+                .collect::<Vec<_>>(),
+        },
         _ => vec![],
     }
 }

@@ -30,7 +30,7 @@ impl Command for TakeWhile {
         "Take elements of the input while a predicate is true."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Take while the element is negative",

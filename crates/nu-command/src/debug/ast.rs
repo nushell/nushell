@@ -34,7 +34,7 @@ impl Command for Ast {
             .category(Category::Debug)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print the ast of a string",

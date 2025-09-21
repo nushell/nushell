@@ -124,7 +124,7 @@ pub trait PluginCommand: Sync {
     /// `PluginTest::test_command_examples()` from the
     /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
     /// plugin tests to automatically test that examples produce the `result`s as specified.
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![]
     }
 
@@ -262,7 +262,7 @@ pub trait SimplePluginCommand: Sync {
     /// `PluginTest::test_command_examples()` from the
     /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
     /// plugin tests to automatically test that examples produce the `result`s as specified.
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![]
     }
 
@@ -297,7 +297,7 @@ where
 {
     type Plugin = <Self as SimplePluginCommand>::Plugin;
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         <Self as SimplePluginCommand>::examples(self)
     }
 

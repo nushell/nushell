@@ -342,11 +342,11 @@ impl Stats {
 
     /// Read ahead-behind information between the local and upstream branches
     fn read_ahead_behind(&mut self, repo: &Repository, local: &Branch, upstream: &Branch) {
-        if let (Some(local), Some(upstream)) = (local.get().target(), upstream.get().target()) {
-            if let Ok((ahead, behind)) = repo.graph_ahead_behind(local, upstream) {
-                self.ahead = ahead as u16;
-                self.behind = behind as u16;
-            }
+        if let (Some(local), Some(upstream)) = (local.get().target(), upstream.get().target())
+            && let Ok((ahead, behind)) = repo.graph_ahead_behind(local, upstream)
+        {
+            self.ahead = ahead as u16;
+            self.behind = behind as u16;
         }
     }
 }

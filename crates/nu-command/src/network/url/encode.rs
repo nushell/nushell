@@ -56,7 +56,7 @@ impl Command for UrlEncode {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Encode a url with escape characters",

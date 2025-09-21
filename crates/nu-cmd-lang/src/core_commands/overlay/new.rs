@@ -64,7 +64,7 @@ This command is a parser keyword. For details, check:
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Create an empty overlay",
             example: r#"overlay new spam"#,

@@ -1,9 +1,6 @@
 use crate::{
     PolarsPlugin,
-    dataframe::{
-        utils::{extract_sm_strs, extract_strings},
-        values::NuLazyFrame,
-    },
+    dataframe::{utils::extract_strings, values::NuLazyFrame},
     values::{
         CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
     },
@@ -16,7 +13,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{IntoSeries, UniqueKeepStrategy};
+use polars::prelude::{IntoSeries, UniqueKeepStrategy, cols};
 
 #[derive(Clone)]
 pub struct Unique;
@@ -63,7 +60,7 @@ impl PluginCommand for Unique {
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Returns unique values from a series",
@@ -233,7 +230,12 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     let last = call.has_flag("last")?;
     let maintain = call.has_flag("maintain-order")?;
+    // todo: allow selectors to be passed in
     let subset: Option<Value> = call.get_flag("subset")?;
+    let subset = match subset {
+        Some(value) => Some(cols(extract_strings(value)?)),
+        None => None,
+    };
 
     let strategy = if last {
         UniqueKeepStrategy::Last
@@ -243,16 +245,8 @@ fn command_lazy(
 
     let lazy = lazy.to_polars();
     let lazy: NuLazyFrame = if maintain {
-        let subset = match subset {
-            Some(value) => Some(extract_strings(value)?),
-            None => None,
-        };
         lazy.unique(subset, strategy).into()
     } else {
-        let subset = match subset {
-            Some(value) => Some(extract_sm_strs(value)?),
-            None => None,
-        };
         lazy.unique_stable(subset, strategy).into()
     };
     lazy.to_pipeline_data(plugin, engine, call.head)

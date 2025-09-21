@@ -5,6 +5,8 @@ use nu_protocol::ast::{self, Expr, Expression};
 
 use std::collections::VecDeque;
 
+static DAYS_OF_THE_WEEK: [&str; 7] = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+
 #[derive(Clone)]
 pub struct Cal;
 
@@ -35,11 +37,13 @@ impl Command for Cal {
                 "Display a year-long calendar for the specified year",
                 None,
             )
-            .named(
-                "week-start",
-                SyntaxShape::String,
-                "Display the calendar with the specified day as the first day of the week",
-                None,
+            .param(
+                Flag::new("week-start")
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Display the calendar with the specified day as the first day of the week",
+                    )
+                    .completion(Completion::new_list(DAYS_OF_THE_WEEK.as_slice())),
             )
             .switch(
                 "month-names",
@@ -68,7 +72,7 @@ impl Command for Cal {
         cal(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "This month's calendar",
@@ -248,10 +252,10 @@ fn add_months_of_year_to_table(
     for month_number in start_month..=end_month {
         let mut new_current_day_option: Option<u32> = None;
 
-        if let Some(current_day) = current_day_option {
-            if month_number == current_month {
-                new_current_day_option = Some(current_day)
-            }
+        if let Some(current_day) = current_day_option
+            && month_number == current_month
+        {
+            new_current_day_option = Some(current_day)
         }
 
         let add_month_to_table_result = add_month_to_table(
@@ -296,7 +300,7 @@ fn add_month_to_table(
         },
     };
 
-    let mut days_of_the_week = ["su", "mo", "tu", "we", "th", "fr", "sa"];
+    let mut days_of_the_week = DAYS_OF_THE_WEEK;
     let mut total_start_offset: u32 = month_helper.day_number_of_week_month_starts_on;
 
     if let Some(week_start_day) = &arguments.week_start {
@@ -309,7 +313,9 @@ fn add_month_to_table(
             total_start_offset %= days_of_the_week.len() as u32;
         } else {
             return Err(ShellError::TypeMismatch {
-                err_message: "The specified week start day is invalid, expected one of ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa']".to_string(),
+                err_message: format!(
+                    "The specified week start day is invalid, expected one of {DAYS_OF_THE_WEEK:?}"
+                ),
                 span: week_start_day.span,
             });
         }
@@ -361,19 +367,19 @@ fn add_month_to_table(
 
                 value = Value::int(adjusted_day_number as i64, tag);
 
-                if let Some(current_day) = current_day_option {
-                    if current_day == adjusted_day_number {
-                        // This colors the current day
-                        let header_style =
-                            style_computer.compute("header", &Value::nothing(Span::unknown()));
+                if let Some(current_day) = current_day_option
+                    && current_day == adjusted_day_number
+                {
+                    // This colors the current day
+                    let header_style =
+                        style_computer.compute("header", &Value::nothing(Span::unknown()));
 
-                        value = Value::string(
-                            header_style
-                                .paint(adjusted_day_number.to_string())
-                                .to_string(),
-                            tag,
-                        );
-                    }
+                    value = Value::string(
+                        header_style
+                            .paint(adjusted_day_number.to_string())
+                            .to_string(),
+                        tag,
+                    );
                 }
             }
 

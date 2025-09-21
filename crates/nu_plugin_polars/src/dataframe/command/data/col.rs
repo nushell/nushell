@@ -41,7 +41,7 @@ impl PluginCommand for ExprCol {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Creates a named column expression and converts it to a nu object",
@@ -145,7 +145,7 @@ impl PluginCommand for ExprCol {
         let expr: NuExpression = match as_type {
             false => match names.as_slice() {
                 [single] => polars::prelude::col(single).into(),
-                _ => polars::prelude::cols(&names).into(),
+                _ => polars::prelude::cols(&names).as_expr().into(),
             },
             true => {
                 let dtypes = names
@@ -154,7 +154,10 @@ impl PluginCommand for ExprCol {
                     .collect::<Result<Vec<DataType>, ShellError>>()
                     .map_err(LabeledError::from)?;
 
-                polars::prelude::dtype_cols(dtypes).into()
+                polars::prelude::dtype_cols(dtypes)
+                    .as_selector()
+                    .as_expr()
+                    .into()
             }
         };
 

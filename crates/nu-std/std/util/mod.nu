@@ -15,6 +15,7 @@ export def --env "path add" [
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths: any  # the paths to add to $env.PATH.
 ]: [nothing -> nothing, nothing -> list<path>] {
+    ignore # discard the input, otherwise the `metadata` call below would fail
     let span = (metadata $paths).span
     let paths = $paths | flatten
 

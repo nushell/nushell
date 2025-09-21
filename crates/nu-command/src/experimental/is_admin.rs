@@ -33,7 +33,7 @@ impl Command for IsAdmin {
         Ok(Value::bool(is_root(), call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
             example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,

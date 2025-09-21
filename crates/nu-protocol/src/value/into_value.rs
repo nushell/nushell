@@ -241,6 +241,16 @@ where
     }
 }
 
+impl IntoValue for std::time::Duration {
+    fn into_value(self, span: Span) -> Value {
+        let val: u128 = self.as_nanos();
+        debug_assert!(val <= i64::MAX as u128, "duration value too large");
+        // Capping is the best effort here.
+        let val: i64 = val.try_into().unwrap_or(i64::MAX);
+        Value::duration(val, span)
+    }
+}
+
 // Nu Types
 
 impl IntoValue for Range {

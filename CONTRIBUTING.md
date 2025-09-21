@@ -39,6 +39,8 @@ Please make sure to consider both the *intended changes*, such as additions or d
 
 If you're not sure what to put here, or need some help, **a core team member would be glad to help you out**. We may also make some tweaks to your release notes section. Please don't take it personally, we just want to make sure our release notes are polished and easy to understand. Once the release notes section is finalized, we'll add the `notes:ready` label to indicate that your summary section is ready to be included in the actual release notes.
 
+If you want to write the best possible release notes summary (we appreciate it!), we have a couple guides we use to make sure the release notes are up to our standards before marking them as ready. The [how to prepare PRs for release notes](devdocs/HOWTOS.md#how-to-prepare-PRs-for-release-notes) explains the process we go through to make sure that PRs are properly labeled, and explains how formatting within the PR affects the generated release notes. The [release notes summary style guide](devdocs/HOWTOS.md#how-to-prepare-PRs-for-release-notes) explains the conventions we follow in our release notes, and might help if you're not sure how to word your release notes summary.
+
 #### Structuring your summary
 
 For smaller changes, **a simple one to two sentence explanation** is sufficient. If that's all you need to explain the impact of the change, keep any further details out of the release notes summary. Summaries which are a single line will appear as a bullet point in our release notes.

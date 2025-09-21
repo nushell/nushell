@@ -6,15 +6,17 @@ use crate::completions::{
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
-use nu_parser::{flatten_expression, parse, parse_module_file_or_dir};
+use nu_parser::{FlatShape, flatten_expression, parse, parse_module_file_or_dir};
 use nu_protocol::{
-    PipelineData, Span, Type, Value,
+    Completion, PipelineData, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
+
+use super::StaticCompletion;
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -349,7 +351,7 @@ impl NuCompleter {
                     let span = arg.span();
                     if span.contains(pos) {
                         // Get custom completion from PositionalArg or Flag
-                        let custom_completion_decl_id = {
+                        let completion = {
                             // Check PositionalArg or Flag from Signature
                             let signature = working_set.get_decl(call.decl_id).signature();
 
@@ -369,7 +371,7 @@ impl NuCompleter {
                                                     )
                                                 })
                                             });
-                                        flag.and_then(|f| f.custom_completion)
+                                        flag.and_then(|f| f.completion)
                                     }
                                 }
                                 // For positional arguments, check PositionalArg
@@ -378,36 +380,57 @@ impl NuCompleter {
                                     let arg_pos = positional_arg_indices.len();
                                     signature
                                         .get_positional(arg_pos)
-                                        .and_then(|pos_arg| pos_arg.custom_completion)
+                                        .and_then(|pos_arg| pos_arg.completion.clone())
                                 }
                                 _ => None,
                             }
                         };
 
-                        if let Some(decl_id) = custom_completion_decl_id {
-                            // for `--foo <tab>` and `--foo=<tab>`, the arg span should be trimmed
-                            let (new_span, prefix) = if matches!(arg, Argument::Named(_)) {
-                                strip_placeholder_with_rsplit(
+                        if let Some(completion) = completion {
+                            // for `--foo ..a|` and `--foo=..a|` (`|` represents the cursor), the
+                            // arg span should be trimmed:
+                            // - split the given span with `predicate` (b == '=' || b == ' '), and
+                            //   take the rightmost part:
+                            //   - "--foo ..a" => ["--foo", "..a"] => "..a"
+                            //   - "--foo=..a" => ["--foo", "..a"] => "..a"
+                            // - strip placeholder (`a`) if present
+                            let (new_span, prefix) = match arg {
+                                Argument::Named(_) => strip_placeholder_with_rsplit(
                                     working_set,
                                     &span,
                                     |b| *b == b'=' || *b == b' ',
                                     strip,
-                                )
-                            } else {
-                                strip_placeholder_if_any(working_set, &span, strip)
+                                ),
+                                _ => strip_placeholder_if_any(working_set, &span, strip),
                             };
                             let ctx = Context::new(working_set, new_span, prefix, offset);
 
-                            let mut completer = CustomCompletion::new(
-                                decl_id,
-                                prefix_str.into(),
-                                pos - offset,
-                                FileCompletion,
-                            );
-
-                            // Prioritize argument completions over (sub)commands
-                            suggestions.splice(0..0, self.process_completion(&mut completer, &ctx));
-                            break;
+                            match completion {
+                                Completion::Command(decl_id) => {
+                                    let mut completer = CustomCompletion::new(
+                                        decl_id,
+                                        prefix_str.into(),
+                                        pos - offset,
+                                        FileCompletion,
+                                    );
+                                    // Prioritize argument completions over (sub)commands
+                                    suggestions.splice(
+                                        0..0,
+                                        self.process_completion(&mut completer, &ctx),
+                                    );
+                                    break;
+                                }
+                                Completion::List(list) => {
+                                    let mut completer = StaticCompletion::new(list);
+                                    // Prioritize argument completions over (sub)commands
+                                    suggestions.splice(
+                                        0..0,
+                                        self.process_completion(&mut completer, &ctx),
+                                    );
+                                    // We don't want to fallback to file completion here
+                                    return suggestions;
+                                }
+                            }
                         }
 
                         // normal arguments completion
@@ -438,7 +461,8 @@ impl NuCompleter {
                                 Argument::Positional(expr) => {
                                     let command_head = working_set.get_decl(call.decl_id).name();
                                     positional_arg_indices.push(arg_idx);
-                                    self.argument_completion_helper(
+                                    let mut need_fallback = suggestions.is_empty();
+                                    let results = self.argument_completion_helper(
                                         PositionalArguments {
                                             command_head,
                                             positional_arg_indices,
@@ -447,8 +471,13 @@ impl NuCompleter {
                                         },
                                         pos,
                                         &ctx,
-                                        suggestions.is_empty(),
-                                    )
+                                        &mut need_fallback,
+                                    );
+                                    // for those arguments that don't need any fallback, return early
+                                    if !need_fallback && suggestions.is_empty() {
+                                        return results;
+                                    }
+                                    results
                                 }
                                 _ => vec![],
                             },
@@ -488,18 +517,21 @@ impl NuCompleter {
                             let mut text_spans: Vec<String> =
                                 flatten_expression(working_set, element_expression)
                                     .iter()
-                                    .map(|(span, _)| {
-                                        let bytes = working_set.get_span_contents(*span);
+                                    .map(|(span, shape)| {
+                                        let bytes = if let FlatShape::External(span) = shape {
+                                            // Use expanded alias span
+                                            working_set.get_span_contents(**span)
+                                        } else {
+                                            working_set.get_span_contents(*span)
+                                        };
                                         String::from_utf8_lossy(bytes).to_string()
                                     })
                                     .collect();
                             let mut new_span = span;
                             // strip the placeholder
-                            if strip {
-                                if let Some(last) = text_spans.last_mut() {
-                                    last.pop();
-                                    new_span = Span::new(span.start, span.end.saturating_sub(1));
-                                }
+                            if strip && let Some(last) = text_spans.last_mut() {
+                                last.pop();
+                                new_span = Span::new(span.start, span.end.saturating_sub(1));
                             }
                             if let Some(external_result) =
                                 self.external_completion(closure, &text_spans, offset, new_span)
@@ -518,6 +550,17 @@ impl NuCompleter {
                         }
                         break;
                     }
+                }
+
+                // for external executable path completion with spaces, #16712
+                if suggestions.is_empty()
+                    && head.span.contains(pos)
+                    && let Expr::GlobPattern(_, _) = &head.expr
+                {
+                    let (new_span, prefix) =
+                        strip_placeholder_if_any(working_set, &head.span, strip);
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
+                    return self.process_completion(&mut FileCompletion, &ctx);
                 }
             }
             _ => (),
@@ -576,7 +619,7 @@ impl NuCompleter {
         argument_info: PositionalArguments,
         pos: usize,
         ctx: &Context,
-        need_fallback: bool,
+        need_fallback: &mut bool,
     ) -> Vec<SemanticSuggestion> {
         let PositionalArguments {
             command_head,
@@ -588,8 +631,10 @@ impl NuCompleter {
         match command_head {
             // complete module file/directory
             "use" | "export use" | "overlay use" | "source-env"
-                if positional_arg_indices.len() == 1 =>
+                if positional_arg_indices.len() <= 1 =>
             {
+                *need_fallback = false;
+
                 return self.process_completion(
                     &mut DotNuCompletion {
                         std_virtual_path: command_head != "source-env",
@@ -600,6 +645,8 @@ impl NuCompleter {
             // NOTE: if module file already specified,
             // should parse it to get modules/commands/consts to complete
             "use" | "export use" => {
+                *need_fallback = false;
+
                 let Some(Argument::Positional(Expression {
                     expr: Expr::String(module_name),
                     span,
@@ -664,6 +711,8 @@ impl NuCompleter {
                 }
             }
             "which" => {
+                *need_fallback = false;
+
                 let mut completer = CommandCompletion {
                     internals: true,
                     externals: true,
@@ -679,7 +728,7 @@ impl NuCompleter {
             Expr::Directory(_, _) => self.process_completion(&mut DirectoryCompletion, ctx),
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
             // fallback to file completion if necessary
-            _ if need_fallback => file_completion_helper(),
+            _ if *need_fallback => file_completion_helper(),
             _ => vec![],
         }
     }
@@ -721,19 +770,19 @@ impl NuCompleter {
             .captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         // Line
-        if let Some(pos_arg) = block.signature.required_positional.first() {
-            if let Some(var_id) = pos_arg.var_id {
-                callee_stack.add_var(
-                    var_id,
-                    Value::list(
-                        spans
-                            .iter()
-                            .map(|it| Value::string(it, Span::unknown()))
-                            .collect(),
-                        Span::unknown(),
-                    ),
-                );
-            }
+        if let Some(pos_arg) = block.signature.required_positional.first()
+            && let Some(var_id) = pos_arg.var_id
+        {
+            callee_stack.add_var(
+                var_id,
+                Value::list(
+                    spans
+                        .iter()
+                        .map(|it| Value::string(it, Span::unknown()))
+                        .collect(),
+                    Span::unknown(),
+                ),
+            );
         }
 
         let result = eval_block::<WithoutDebug>(
@@ -741,7 +790,8 @@ impl NuCompleter {
             &mut callee_stack,
             block,
             PipelineData::empty(),
-        );
+        )
+        .map(|p| p.body);
 
         match result.and_then(|data| data.into_value(span)) {
             Ok(Value::List { vals, .. }) => {

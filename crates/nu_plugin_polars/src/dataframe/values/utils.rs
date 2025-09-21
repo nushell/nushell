@@ -1,5 +1,4 @@
 use nu_protocol::{ShellError, Span, Spanned, Value};
-use polars::prelude::PlSmallStr;
 
 // Default value used when selecting rows from dataframe
 pub const DEFAULT_ROWS: usize = 5;
@@ -82,47 +81,6 @@ pub(crate) fn convert_columns_string(
             }
         })
         .collect::<Result<Vec<String>, _>>()?;
-
-    Ok((res, col_span))
-}
-
-// Converts a Vec<Value> to a Vec<String> with a Span marking the whole
-// location of the columns for error referencing
-pub(crate) fn convert_columns_sm_str(
-    columns: Vec<Value>,
-    span: Span,
-) -> Result<(Vec<PlSmallStr>, Span), ShellError> {
-    // First column span
-    let mut col_span = columns
-        .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Empty column list".into(),
-            msg: "Empty list found for command".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
-        .map(|v| v.span())?;
-
-    let res = columns
-        .into_iter()
-        .map(|value| {
-            let span = value.span();
-            match value {
-                Value::String { val, .. } => {
-                    col_span = col_span.merge(span);
-                    Ok(val.into())
-                }
-                _ => Err(ShellError::GenericError {
-                    error: "Incorrect column format".into(),
-                    msg: "Only string as column name".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-            }
-        })
-        .collect::<Result<Vec<PlSmallStr>, _>>()?;
 
     Ok((res, col_span))
 }

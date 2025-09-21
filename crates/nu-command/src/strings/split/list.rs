@@ -23,9 +23,16 @@ impl Command for SubCommand {
             )
             .switch(
                 "regex",
-                "separator is a regular expression, matching values that can be coerced into a string",
-                Some('r'))
-            .named("split", SyntaxShape::String, "Whether to split lists before, after, or on (default) the separator", None)
+                "separator is a regular expression, matching values that can be coerced into a \
+                 string",
+                Some('r'),
+            )
+            .param(
+                Flag::new("split")
+                    .arg(SyntaxShape::String)
+                    .desc("Whether to split lists before, after, or on (default) the separator")
+                    .completion(Completion::new_list(&["before", "after", "on"])),
+            )
             .category(Category::Filters)
     }
 
@@ -37,7 +44,7 @@ impl Command for SubCommand {
         vec!["separate", "divide", "regex"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Split a list of chars into two lists",

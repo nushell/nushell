@@ -40,7 +40,7 @@ impl Command for Mktemp {
             .category(Category::FileSystem)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Make a temporary file with the given suffix in the current working directory.",

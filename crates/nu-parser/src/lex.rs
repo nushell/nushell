@@ -194,9 +194,9 @@ pub fn lex_item(
             } else {
                 // We encountered a closing `}` delimiter, but the last opening
                 // delimiter was not a `{`. This is an error.
+                *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
-                *curr_offset += 1;
                 return (
                     Token {
                         contents: TokenContents::Item,
@@ -205,7 +205,7 @@ pub fn lex_item(
                     Some(ParseError::Unbalanced(
                         "{".to_string(),
                         "}".to_string(),
-                        Span::new(span.end, span.end + 1),
+                        Span::new(span.end - 1, span.end),
                     )),
                 );
             }
@@ -219,9 +219,9 @@ pub fn lex_item(
             } else {
                 // We encountered a closing `)` delimiter, but the last opening
                 // delimiter was not a `(`. This is an error.
+                *curr_offset += 1;
                 let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
-                *curr_offset += 1;
                 return (
                     Token {
                         contents: TokenContents::Item,
@@ -230,7 +230,7 @@ pub fn lex_item(
                     Some(ParseError::Unbalanced(
                         "(".to_string(),
                         ")".to_string(),
-                        Span::new(span.end, span.end + 1),
+                        Span::new(span.end - 1, span.end),
                     )),
                 );
             }
@@ -559,16 +559,16 @@ fn lex_internal(
             curr_offset += 1;
 
             // If the next character is `|`, we're looking at a `||`.
-            if let Some(c) = state.input.get(curr_offset) {
-                if *c == b'|' {
-                    let idx = curr_offset;
-                    curr_offset += 1;
-                    state.output.push(Token::new(
-                        TokenContents::PipePipe,
-                        Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
-                    ));
-                    continue;
-                }
+            if let Some(c) = state.input.get(curr_offset)
+                && *c == b'|'
+            {
+                let idx = curr_offset;
+                curr_offset += 1;
+                state.output.push(Token::new(
+                    TokenContents::PipePipe,
+                    Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
+                ));
+                continue;
             }
 
             // Otherwise, it's just a regular `|` token.

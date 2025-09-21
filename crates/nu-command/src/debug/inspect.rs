@@ -49,7 +49,7 @@ impl Command for Inspect {
         Ok(original_input.into_pipeline_data_with_metadata(input_metadata))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Inspect pipeline results",
             example: "ls | inspect | get name | inspect",

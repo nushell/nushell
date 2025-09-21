@@ -46,7 +46,7 @@ impl Command for Ps {
         run_ps(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List the system processes",

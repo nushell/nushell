@@ -10,4 +10,4 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Check spelling
-        uses: crate-ci/typos@v1.35.5
+        uses: crate-ci/typos@v1.36.2

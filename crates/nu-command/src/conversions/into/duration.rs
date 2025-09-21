@@ -58,11 +58,14 @@ impl Command for IntoDuration {
                 (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
-            .named(
-                "unit",
-                SyntaxShape::String,
-                "Unit to convert number into (will have an effect only with integer input)",
-                Some('u'),
+            .param(
+                Flag::new("unit")
+                    .short('u')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "Unit to convert number into (will have an effect only with integer input)",
+                    )
+                    .completion(Completion::new_list(SUPPORTED_DURATION_UNITS.as_slice())),
             )
             .rest(
                 "rest",
@@ -121,7 +124,7 @@ impl Command for IntoDuration {
         operate(action, args, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert duration string to duration value",
@@ -224,21 +227,19 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
         DURATION_UNIT_GROUPS,
         Type::Duration,
         |x| x,
-    ) {
-        if let Expr::ValueWithUnit(value) = expression.expr {
-            if let Expr::Int(x) = value.expr.expr {
-                match value.unit.item {
-                    Unit::Nanosecond => return Ok(x),
-                    Unit::Microsecond => return Ok(x * 1000),
-                    Unit::Millisecond => return Ok(x * 1000 * 1000),
-                    Unit::Second => return Ok(x * NS_PER_SEC),
-                    Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-                    Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-                    Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-                    _ => {}
-                }
-            }
+    ) && let Expr::ValueWithUnit(value) = expression.expr
+        && let Expr::Int(x) = value.expr.expr
+    {
+        match value.unit.item {
+            Unit::Nanosecond => return Ok(x),
+            Unit::Microsecond => return Ok(x * 1000),
+            Unit::Millisecond => return Ok(x * 1000 * 1000),
+            Unit::Second => return Ok(x * NS_PER_SEC),
+            Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
+            Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
+            Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
+            Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
+            _ => {}
         }
     }
 
@@ -252,18 +253,18 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let value_span = input.span();
     let unit_option = &args.unit;
 
-    if let Value::Record { .. } | Value::Duration { .. } = input {
-        if let Some(unit) = unit_option {
-            return Value::error(
-                ShellError::IncompatibleParameters {
-                    left_message: "got a record as input".into(),
-                    left_span: head,
-                    right_message: "the units should be included in the record".into(),
-                    right_span: unit.span,
-                },
-                head,
-            );
-        }
+    if let Value::Record { .. } | Value::Duration { .. } = input
+        && let Some(unit) = unit_option
+    {
+        return Value::error(
+            ShellError::IncompatibleParameters {
+                left_message: "got a record as input".into(),
+                left_span: head,
+                right_message: "the units should be included in the record".into(),
+                right_span: unit.span,
+            },
+            head,
+        );
     }
 
     let unit = match unit_option {

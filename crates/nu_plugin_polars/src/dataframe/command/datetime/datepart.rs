@@ -46,7 +46,7 @@ impl PluginCommand for ExprDatePart {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let dt = DateTime::<FixedOffset>::parse_from_str(
             "2021-12-30T01:02:03.123456789 +0000",
             "%Y-%m-%dT%H:%M:%S.%9f %z",

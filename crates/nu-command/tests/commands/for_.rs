@@ -40,3 +40,14 @@ fn failed_for_should_break_running() {
         print 3");
     assert!(!actual.out.contains('3'));
 }
+
+#[test]
+fn for_loops_dont_collect_source() {
+    let actual = nu!("
+        for i in (seq 1 10 | each { print -n $in; $in}) {
+            print -n $i
+            if $i >= 5 { break }
+        }
+    ");
+    assert_eq!(actual.out, "1122334455");
+}

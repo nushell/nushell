@@ -310,7 +310,7 @@ pub(crate) fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -
     Value::record(record, Span::unknown())
 }
 
-fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {
+pub fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {
     match ts_string {
         "ms" => Ok(TimeUnit::Milliseconds),
         "us" | "μs" => Ok(TimeUnit::Microseconds),
@@ -341,10 +341,10 @@ pub(crate) fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
 }
 
 pub(super) fn get_categories(dtype: &DataType) -> Option<Vec<String>> {
-    if let DataType::Enum(Some(rev_mapping), _) = dtype {
+    if let DataType::Enum(frozen_categories, _) = dtype {
         Some(
-            rev_mapping
-                .get_categories()
+            frozen_categories
+                .categories()
                 .iter()
                 .filter_map(|v| v.map(ToString::to_string))
                 .collect::<Vec<String>>(),

@@ -28,10 +28,14 @@ impl Command for QueryDb {
     }
 
     fn description(&self) -> &str {
-        "Query a database using SQL."
+        "Query a SQLite database with SQL statements."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn extra_description(&self) -> &str {
+        "This command is only supported for local or in-memory SQLite databases."
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Execute SQL against a SQLite database",

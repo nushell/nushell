@@ -5,12 +5,13 @@ use nu_protocol::{
 };
 
 use chrono::DateTime;
-use polars_ops::pivot::{PivotAgg, pivot_stable};
+use polars::prelude::Expr;
+use polars_lazy::frame::pivot::{pivot, pivot_stable};
 
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{Column, CustomValueSupport, PolarsPluginObject},
+    values::{Column, CustomValueSupport, NuExpression, PolarsPluginObject},
 };
 
 use crate::values::NuDataFrame;
@@ -51,8 +52,8 @@ impl PluginCommand for PivotDF {
             )
             .named(
                 "aggregate",
-                SyntaxShape::String,
-                "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last",
+                SyntaxShape::Any,
+                "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last, or a custom expression",
                 Some('a'),
             )
             .named(
@@ -71,6 +72,11 @@ impl PluginCommand for PivotDF {
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
                 Some('t'),
             )
+            .switch(
+                "stable",
+                "Perform a stable pivot.",
+                None,
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -78,7 +84,7 @@ impl PluginCommand for PivotDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Perform a pivot in order to show individuals test score by subject",
@@ -226,26 +232,38 @@ fn command_eager(
     let (index_col_string, ..) = convert_columns_string(index_col, call.head)?;
     let (val_col_string, ..) = convert_columns_string(val_col, call.head)?;
 
-    let aggregate: Option<PivotAgg> = call
-        .get_flag::<String>("aggregate")?
-        .map(pivot_agg_for_str)
+    let aggregate: Option<Expr> = call
+        .get_flag::<Value>("aggregate")?
+        .map(|val| pivot_agg_for_value(plugin, val))
         .transpose()?;
 
     let separator: Option<String> = call.get_flag::<String>("separator")?;
 
     let sort = call.has_flag("sort")?;
-
+    let stable = call.has_flag("stable")?;
     let polars_df = df.to_polars();
-    // todo add other args
-    let pivoted = pivot_stable(
-        &polars_df,
-        &on_col_string,
-        Some(&index_col_string),
-        Some(&val_col_string),
-        sort,
-        aggregate,
-        separator.as_deref(),
-    )
+
+    let pivoted = if stable {
+        pivot_stable(
+            &polars_df,
+            &on_col_string,
+            Some(&index_col_string),
+            Some(&val_col_string),
+            sort,
+            aggregate,
+            separator.as_deref(),
+        )
+    } else {
+        pivot(
+            &polars_df,
+            &on_col_string,
+            Some(&index_col_string),
+            Some(&val_col_string),
+            sort,
+            aggregate,
+            separator.as_deref(),
+        )
+    }
     .map_err(|e| ShellError::GenericError {
         error: format!("Pivot error: {e}"),
         msg: "".into(),
@@ -316,23 +334,38 @@ fn check_column_datatypes<T: AsRef<str>>(
     Ok(())
 }
 
-fn pivot_agg_for_str(agg: impl AsRef<str>) -> Result<PivotAgg, ShellError> {
-    match agg.as_ref() {
-        "first" => Ok(PivotAgg::First),
-        "sum" => Ok(PivotAgg::Sum),
-        "min" => Ok(PivotAgg::Min),
-        "max" => Ok(PivotAgg::Max),
-        "mean" => Ok(PivotAgg::Mean),
-        "median" => Ok(PivotAgg::Median),
-        "count" => Ok(PivotAgg::Count),
-        "last" => Ok(PivotAgg::Last),
-        s => Err(ShellError::GenericError {
-            error: format!("{s} is not a valid aggregation"),
+fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellError> {
+    match agg {
+        Value::String { val, .. } => match val.as_str() {
+            "first" => Ok(polars::prelude::first().as_expr()),
+            "sum" => Ok(polars::prelude::sum("*")),
+            "min" => Ok(polars::prelude::min("*")),
+            "max" => Ok(polars::prelude::max("*")),
+            "mean" => Ok(polars::prelude::mean("*")),
+            "median" => Ok(polars::prelude::median("*")),
+            "count" => Ok(polars::prelude::len()),
+            "len" => Ok(polars::prelude::len()),
+            "last" => Ok(polars::prelude::last().as_expr()),
+            s => Err(ShellError::GenericError {
+                error: format!("{s} is not a valid aggregation"),
+                msg: "".into(),
+                span: None,
+                help: Some(
+                    "Use one of the following: first, sum, min, max, mean, median, count, last"
+                        .into(),
+                ),
+                inner: vec![],
+            }),
+        },
+        Value::Custom { .. } => {
+            let expr = NuExpression::try_from_value(plugin, &agg)?;
+            Ok(expr.into_polars())
+        }
+        _ => Err(ShellError::GenericError {
+            error: "Aggregation must be a string or expression".into(),
             msg: "".into(),
-            span: None,
-            help: Some(
-                "Use one of the following: first, sum, min, max, mean, median, count, last".into(),
-            ),
+            span: Some(agg.span()),
+            help: None,
             inner: vec![],
         }),
     }

@@ -48,7 +48,7 @@ If a message is received while this command is executing, it may also be discard
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "job flush",
             description: "Clear the mailbox of the current job.",

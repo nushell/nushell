@@ -213,6 +213,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
     IncorrectValue(String, #[label("unexpected {0}")] Span, String),
 
+    #[error("Invalid binary string.")]
+    #[diagnostic(code(nu::parser::invalid_binary_string), help("{1}"))]
+    InvalidBinaryString(#[label("invalid binary string")] Span, String),
+
     #[error("Multiple rest params.")]
     #[diagnostic(code(nu::parser::multiple_rest_params))]
     MultipleRestParams(#[label = "multiple rest params"] Span),
@@ -588,6 +592,7 @@ impl ParseError {
             ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
+            ParseError::InvalidBinaryString(s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(_, s) => *s,
             ParseError::EnvVarNotVar(_, s) => *s,

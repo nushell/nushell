@@ -44,7 +44,7 @@ impl PluginCommand for Summary {
             )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "list dataframe descriptives",
             example: "[[a b]; [1 1] [1 1]] | polars into-df | polars summary",

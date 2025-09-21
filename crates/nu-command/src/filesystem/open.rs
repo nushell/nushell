@@ -257,7 +257,7 @@ impl Command for Open {
         }
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Open a file, with structure (based on file extension or SQLite database header)",

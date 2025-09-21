@@ -95,7 +95,8 @@ impl Command for SourceEnv {
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, &block, input);
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, &block, input)
+            .map(|p| p.body);
 
         // Merge the block's environment to the current stack
         redirect_env(engine_state, caller_stack, &callee_stack);
@@ -107,7 +108,7 @@ impl Command for SourceEnv {
         result
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sources the environment from foo.nu in the current context",

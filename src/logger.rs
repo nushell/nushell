@@ -115,10 +115,7 @@ pub fn configure(
     let log_target = LogTarget::from(target);
 
     // Only TermLogger supports color output
-    if matches!(
-        log_target,
-        LogTarget::Stdout | LogTarget::Stderr | LogTarget::Mixed
-    ) {
+    if let LogTarget::Stdout | LogTarget::Stderr | LogTarget::Mixed = log_target {
         Level::iter().for_each(|level| set_colored_level(builder, level));
     }
 

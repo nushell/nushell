@@ -39,7 +39,7 @@ impl PluginCommand for ProfileDF {
 The units of the timings are microseconds."#
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Profile a lazy dataframe",
             example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]

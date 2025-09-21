@@ -19,7 +19,7 @@ impl SimplePluginCommand for Generate {
         Signature::build(self.name()).category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "custom-value generate",
             description: "Generate a new CoolCustomValue",

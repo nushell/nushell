@@ -1,10 +1,12 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
+#[cfg(feature = "os")]
+use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
     DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    PipelineData, PipelineExecutionData, PipelineMetadata, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -20,13 +22,12 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineExecutionData, ShellError> {
     // Rust does not check recursion limits outside of const evaluation.
     // But nu programs run in the same process as the shell.
     // To prevent a stack overflow in user code from crashing the shell,
@@ -49,7 +50,7 @@ pub fn eval_ir_block<D: DebugContext>(
         // the heap allocation here by reusing buffers - our allocator is fast enough
         let mut registers = Vec::with_capacity(ir_block.register_count as usize);
         for _ in 0..ir_block.register_count {
-            registers.push(PipelineData::empty());
+            registers.push(PipelineExecutionData::empty());
         }
 
         // Initialize file storage.
@@ -109,7 +110,7 @@ struct EvalContext<'a> {
     /// Scratch space to use for `match`
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
-    registers: &'a mut [PipelineData],
+    registers: &'a mut [PipelineExecutionData],
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
 }
@@ -117,7 +118,7 @@ struct EvalContext<'a> {
 impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with a new value
     #[inline]
-    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
+    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineExecutionData) {
         // log::trace!("{reg_id} <- {new_value:?}");
         self.registers[reg_id.get() as usize] = new_value;
     }
@@ -130,17 +131,19 @@ impl<'a> EvalContext<'a> {
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
-    fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
+    fn take_reg(&mut self, reg_id: RegId) -> PipelineExecutionData {
         // log::trace!("<- {reg_id}");
         std::mem::replace(
             &mut self.registers[reg_id.get() as usize],
-            PipelineData::empty(),
+            PipelineExecutionData::empty(),
         )
     }
 
     /// Clone data from a register. Must be collected first.
     fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
-        match &self.registers[reg_id.get() as usize] {
+        // NOTE: here just clone the inner PipelineData
+        // it's suitable for current usage.
+        match &self.registers[reg_id.get() as usize].body {
             PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(val, meta) => Ok(PipelineData::value(val.clone(), meta.clone())),
             _ => Err(ShellError::IrEvalError {
@@ -162,7 +165,9 @@ impl<'a> EvalContext<'a> {
 
     /// Take and implicitly collect a register to a value
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        let data = self.take_reg(reg_id);
+        // NOTE: in collect, it maybe good to pick the inner PipelineData
+        // directly, and drop the ExitStatus queue.
+        let data = self.take_reg(reg_id).body;
         let span = data.span().unwrap_or(fallback_span);
         data.into_value(span)
     }
@@ -181,9 +186,9 @@ fn eval_ir_block_impl<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     ir_block: &IrBlock,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineExecutionData, ShellError> {
     if !ctx.registers.is_empty() {
-        ctx.registers[0] = input;
+        ctx.registers[0] = PipelineExecutionData::from(input);
     }
 
     // Program counter, starts at zero.
@@ -214,9 +219,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            Ok(InstructionResult::Return(reg_id)) => {
-                return Ok(ctx.take_reg(reg_id));
-            }
+            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
             Err(
                 err @ (ShellError::Return { .. }
                 | ShellError::Continue { .. }
@@ -263,14 +266,16 @@ fn prepare_error_handler(
             // Create the error value and put it in the register
             ctx.put_reg(
                 reg_id,
-                error
-                    .item
-                    .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
-                    .into_pipeline_data(),
+                PipelineExecutionData::from(
+                    error
+                        .item
+                        .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
+                        .into_pipeline_data(),
+                ),
             );
         } else {
             // Set the register to empty
-            ctx.put_reg(reg_id, PipelineData::empty());
+            ctx.put_reg(reg_id, PipelineExecutionData::empty());
         }
     }
 }
@@ -305,7 +310,10 @@ fn eval_instruction<D: DebugContext>(
         }),
         Instruction::LoadLiteral { dst, lit } => load_literal(ctx, *dst, lit, *span),
         Instruction::LoadValue { dst, val } => {
-            ctx.put_reg(*dst, Value::clone(val).into_pipeline_data());
+            ctx.put_reg(
+                *dst,
+                PipelineExecutionData::from(Value::clone(val).into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::Move { dst, src } => {
@@ -315,19 +323,20 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Clone { dst, src } => {
             let data = ctx.clone_reg(*src, *span)?;
-            ctx.put_reg(*dst, data);
+            ctx.put_reg(*dst, PipelineExecutionData::from(data));
             Ok(Continue)
         }
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
-            let value = collect(data, *span)?;
-            ctx.put_reg(*src_dst, value);
+            // NOTE: is it ok to just using `data.inner`?
+            let value = collect(data.body, *span)?;
+            ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
         Instruction::Span { src_dst } => {
-            let data = ctx.take_reg(*src_dst);
-            let spanned = data.with_span(*span);
-            ctx.put_reg(*src_dst, spanned);
+            let mut data = ctx.take_reg(*src_dst);
+            data.body = data.body.with_span(*span);
+            ctx.put_reg(*src_dst, data);
             Ok(Continue)
         }
         Instruction::Drop { src } => {
@@ -344,14 +353,17 @@ fn eval_instruction<D: DebugContext>(
                 let stack = &mut ctx
                     .stack
                     .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.drain_to_out_dests(ctx.engine_state, stack)?
+                data.body.drain_to_out_dests(ctx.engine_state, stack)?
             };
-            ctx.put_reg(*src, res);
+            ctx.put_reg(*src, PipelineExecutionData::from(res));
             Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
             let value = get_var(ctx, *var_id, *span)?;
-            ctx.put_reg(*dst, value.into_pipeline_data());
+            ctx.put_reg(
+                *dst,
+                PipelineExecutionData::from(value.into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::StoreVariable { var_id, src } => {
@@ -367,7 +379,7 @@ fn eval_instruction<D: DebugContext>(
             let key = ctx.get_str(*key, *span)?;
             if let Some(value) = get_env_var_case_insensitive(ctx, key) {
                 let new_value = value.clone().into_pipeline_data();
-                ctx.put_reg(*dst, new_value);
+                ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
             } else {
                 // FIXME: using the same span twice, shouldn't this really be
@@ -384,7 +396,10 @@ fn eval_instruction<D: DebugContext>(
             let value = get_env_var_case_insensitive(ctx, key)
                 .cloned()
                 .unwrap_or(Value::nothing(*span));
-            ctx.put_reg(*dst, value.into_pipeline_data());
+            ctx.put_reg(
+                *dst,
+                PipelineExecutionData::from(value.into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::StoreEnv { key, src } => {
@@ -530,12 +545,12 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let is_external = if let PipelineData::ByteStream(stream, ..) = &src {
+            let is_external = if let PipelineData::ByteStream(stream, ..) = &src.body {
                 stream.source().is_external()
             } else {
                 false
             };
-            if let Err(err) = src.write_to(file.as_ref()) {
+            if let Err(err) = src.body.write_to(file.as_ref()) {
                 if is_external {
                     ctx.stack.set_last_error(&err);
                 }
@@ -556,7 +571,9 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
-            let mut result = eval_call::<D>(ctx, *decl_id, *span, input)?;
+            // take out exit status future first.
+            let input_data = input.body;
+            let mut result = eval_call::<D>(ctx, *decl_id, *span, input_data)?;
             if need_backtrace {
                 match &mut result {
                     PipelineData::ByteStream(s, ..) => s.push_caller_span(*span),
@@ -564,7 +581,25 @@ fn eval_instruction<D: DebugContext>(
                     _ => (),
                 };
             }
-            ctx.put_reg(*src_dst, result);
+            // After eval_call, attach result's exit_status_future
+            // to `original_exit`, so all exit_status_future are tracked
+            // in the new PipelineData, and wrap it into `PipelineExecutionData`
+            #[cfg(feature = "os")]
+            {
+                let mut original_exit = input.exit;
+                let result_exit_status_future =
+                    result.clone_exit_status_future().map(|f| (f, *span));
+                original_exit.push(result_exit_status_future);
+                ctx.put_reg(
+                    *src_dst,
+                    PipelineExecutionData {
+                        body: result,
+                        exit: original_exit,
+                    },
+                );
+            }
+            #[cfg(not(feature = "os"))]
+            ctx.put_reg(*src_dst, PipelineExecutionData { body: result });
             Ok(Continue)
         }
         Instruction::StringAppend { src_dst, val } => {
@@ -582,12 +617,15 @@ fn eval_instruction<D: DebugContext>(
             string.push_str(&operand);
 
             let new_string_value = Value::string(string, string_span);
-            ctx.put_reg(*src_dst, new_string_value.into_pipeline_data());
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(new_string_value.into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::GlobFrom { src_dst, no_expand } => {
             let string_value = ctx.collect_reg(*src_dst, *span)?;
-            let glob_value = if matches!(string_value, Value::Glob { .. }) {
+            let glob_value = if let Value::Glob { .. } = string_value {
                 // It already is a glob, so don't touch it.
                 string_value
             } else {
@@ -595,7 +633,10 @@ fn eval_instruction<D: DebugContext>(
                 let string = string_value.into_string()?;
                 Value::glob(string, *no_expand, *span)
             };
-            ctx.put_reg(*src_dst, glob_value.into_pipeline_data());
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(glob_value.into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::ListPush { src_dst, item } => {
@@ -604,7 +645,10 @@ fn eval_instruction<D: DebugContext>(
             let list_span = list_value.span();
             let mut list = list_value.into_list()?;
             list.push(item);
-            ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(Value::list(list, list_span).into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::ListSpread { src_dst, items } => {
@@ -619,7 +663,10 @@ fn eval_instruction<D: DebugContext>(
             };
             let mut list = list_value.into_list()?;
             list.extend(items);
-            ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
+            ctx.put_reg(
+                *src_dst,
+                PipelineExecutionData::from(Value::list(list, list_span).into_pipeline_data()),
+            );
             Ok(Continue)
         }
         Instruction::RecordInsert { src_dst, key, val } => {
@@ -640,7 +687,9 @@ fn eval_instruction<D: DebugContext>(
 
             ctx.put_reg(
                 *src_dst,
-                Value::record(record, record_span).into_pipeline_data(),
+                PipelineExecutionData::from(
+                    Value::record(record, record_span).into_pipeline_data(),
+                ),
             );
             Ok(Continue)
         }
@@ -667,7 +716,9 @@ fn eval_instruction<D: DebugContext>(
             }
             ctx.put_reg(
                 *src_dst,
-                Value::record(record, record_span).into_pipeline_data(),
+                PipelineExecutionData::from(
+                    Value::record(record, record_span).into_pipeline_data(),
+                ),
             );
             Ok(Continue)
         }
@@ -676,7 +727,7 @@ fn eval_instruction<D: DebugContext>(
             let negated = !bool.as_bool()?;
             ctx.put_reg(
                 *src_dst,
-                Value::bool(negated, bool.span()).into_pipeline_data(),
+                PipelineExecutionData::from(Value::bool(negated, bool.span()).into_pipeline_data()),
             );
             Ok(Continue)
         }
@@ -684,11 +735,14 @@ fn eval_instruction<D: DebugContext>(
         Instruction::FollowCellPath { src_dst, path } => {
             let data = ctx.take_reg(*src_dst);
             let path = ctx.take_reg(*path);
-            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                let value = data.follow_cell_path(&path.members, *span)?;
-                ctx.put_reg(*src_dst, value.into_pipeline_data());
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
+                let value = data.body.follow_cell_path(&path.members, *span)?;
+                ctx.put_reg(
+                    *src_dst,
+                    PipelineExecutionData::from(value.into_pipeline_data()),
+                );
                 Ok(Continue)
-            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
@@ -700,11 +754,14 @@ fn eval_instruction<D: DebugContext>(
         Instruction::CloneCellPath { dst, src, path } => {
             let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
-            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
                 let value = value.follow_cell_path(&path.members)?;
-                ctx.put_reg(*dst, value.into_owned().into_pipeline_data());
+                ctx.put_reg(
+                    *dst,
+                    PipelineExecutionData::from(value.into_owned().into_pipeline_data()),
+                );
                 Ok(Continue)
-            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
@@ -721,14 +778,17 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let metadata = data.metadata();
             // Change the span because we're modifying it
-            let mut value = data.into_value(*span)?;
+            let mut value = data.body.into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
-            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
                 value.upsert_data_at_cell_path(&path.members, new_value)?;
-                ctx.put_reg(*src_dst, value.into_pipeline_data_with_metadata(metadata));
+                ctx.put_reg(
+                    *src_dst,
+                    PipelineExecutionData::from(value.into_pipeline_data_with_metadata(metadata)),
+                );
                 Ok(Continue)
-            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path.body {
                 Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
@@ -741,7 +801,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);
             let data_span = data.span();
-            let val = match data {
+            let val = match data.body {
                 PipelineData::Value(Value::Bool { val, .. }, _) => val,
                 PipelineData::Value(Value::Error { error, .. }, _) => {
                     return Err(*error);
@@ -842,7 +902,10 @@ fn load_literal(
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(dst, PipelineData::value(value, None));
+    ctx.put_reg(
+        dst,
+        PipelineExecutionData::from(PipelineData::value(value, None)),
+    );
     Ok(InstructionResult::Continue)
 }
 
@@ -997,7 +1060,10 @@ fn binary_op(
         }
     };
 
-    ctx.put_reg(lhs_dst, PipelineData::value(result, None));
+    ctx.put_reg(
+        lhs_dst,
+        PipelineExecutionData::from(PipelineData::value(result, None)),
+    );
 
     Ok(InstructionResult::Continue)
 }
@@ -1050,7 +1116,8 @@ fn eval_call<D: DebugContext>(
             callee_stack.recursion_count += 1;
 
             let result =
-                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+                eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                    .map(|p| p.body);
 
             // Move environment variables back into the caller stack scope if requested to do so
             if block.redirect_env {
@@ -1458,9 +1525,13 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
 }
 
 /// Helper for drain behavior.
-fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
+fn drain(
+    ctx: &mut EvalContext<'_>,
+    data: PipelineExecutionData,
+) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
-    match data {
+
+    match data.body {
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             let callback_spans = stream.get_caller_spans().clone();
@@ -1499,6 +1570,16 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
         }
         PipelineData::Value(..) | PipelineData::Empty => {}
     }
+
+    let pipefail = nu_experimental::PIPE_FAIL.get();
+    if !pipefail {
+        return Ok(Continue);
+    }
+    #[cfg(feature = "os")]
+    {
+        check_exit_status_future(data.exit).map(|_| Continue)
+    }
+    #[cfg(not(feature = "os"))]
     Ok(Continue)
 }
 
@@ -1565,14 +1646,14 @@ fn eval_iterate(
     end_index: usize,
 ) -> Result<InstructionResult, ShellError> {
     let mut data = ctx.take_reg(stream);
-    if let PipelineData::ListStream(list_stream, _) = &mut data {
+    if let PipelineData::ListStream(list_stream, _) = &mut data.body {
         // Modify the stream, taking one value off, and branching if it's empty
         if let Some(val) = list_stream.next_value() {
-            ctx.put_reg(dst, val.into_pipeline_data());
+            ctx.put_reg(dst, PipelineExecutionData::from(val.into_pipeline_data()));
             ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
             Ok(InstructionResult::Continue)
         } else {
-            ctx.put_reg(dst, PipelineData::empty());
+            ctx.put_reg(dst, PipelineExecutionData::empty());
             Ok(InstructionResult::Branch(end_index))
         }
     } else {
@@ -1582,10 +1663,10 @@ fn eval_iterate(
         let span = data.span().unwrap_or(Span::unknown());
         ctx.put_reg(
             stream,
-            PipelineData::list_stream(
-                ListStream::new(data.into_iter(), span, Signals::EMPTY),
+            PipelineExecutionData::from(PipelineData::list_stream(
+                ListStream::new(data.body.into_iter(), span, Signals::EMPTY),
                 metadata,
-            ),
+            )),
         );
         eval_iterate(ctx, dst, stream, end_index)
     }

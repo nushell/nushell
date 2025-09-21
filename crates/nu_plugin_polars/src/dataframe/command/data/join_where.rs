@@ -33,7 +33,7 @@ impl PluginCommand for LazyJoinWhere {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Join two lazy dataframes with a condition",
             example: r#"let df_a = ([[name cash];[Alice 5] [Bob 10]] | polars into-lazy)

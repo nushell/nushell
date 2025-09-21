@@ -19,7 +19,7 @@ impl Command for ConfigFlatten {
         "Show the current configuration in a flattened form."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the current configuration in a flattened form",
             example: "config flatten",

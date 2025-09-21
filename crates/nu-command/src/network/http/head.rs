@@ -6,6 +6,8 @@ use crate::network::http::client::{
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 
+use super::client::RedirectMode;
+
 #[derive(Clone)]
 pub struct HttpHead;
 
@@ -51,11 +53,16 @@ impl Command for HttpHead {
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
             .category(Category::Network)
@@ -83,7 +90,7 @@ impl Command for HttpHead {
         run_head(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get headers from example.com",

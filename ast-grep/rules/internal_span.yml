@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: internal_span
+language: rust
+severity: warning
+message: "Using `internal_span` directly is deprecated."
+note: "You can get the span using the `Value::span()` method."
+
+ignores:
+  - "crates/nu-protocol/src/value/*.rs"
+
+rule:
+  regex: "internal_span"
+  any:
+    - kind: field_identifier
+    - kind: shorthand_field_identifier
+  inside:
+    kind: struct_pattern
+    stopBy: end
+
+fix: ".."

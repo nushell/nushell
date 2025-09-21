@@ -31,7 +31,7 @@ impl Command for HelpExterns {
             .allow_variants_without_examples(true)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "show all externs",

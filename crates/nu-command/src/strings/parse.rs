@@ -41,7 +41,7 @@ impl Command for Parse {
             .category(Category::Strings)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Parse a string into two named columns",

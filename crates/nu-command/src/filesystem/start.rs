@@ -65,7 +65,7 @@ impl Command for Start {
             inner: vec![],
         })
     }
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Open a text file with the default text editor",

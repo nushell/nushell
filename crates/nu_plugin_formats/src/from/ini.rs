@@ -24,7 +24,7 @@ impl SimplePluginCommand for FromIni {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         examples()
     }
 

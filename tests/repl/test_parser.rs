@@ -728,40 +728,45 @@ fn unbalanced_parens2() -> TestResult {
     fail_test(r#"("("))"#, "unbalanced ( and )")
 }
 
-#[test]
-fn plugin_use_with_string_literal() -> TestResult {
-    fail_test(
-        r#"plugin use 'nu-plugin-math'"#,
-        "Plugin registry file not set",
-    )
-}
+#[cfg(feature = "plugin")]
+mod plugin_tests {
+    use super::*;
 
-#[test]
-fn plugin_use_with_string_constant() -> TestResult {
-    let input = "\
-const file = 'nu-plugin-math'
-plugin use $file
-";
-    // should not fail with `not a constant`
-    fail_test(input, "Plugin registry file not set")
-}
+    #[test]
+    fn plugin_use_with_string_literal() -> TestResult {
+        fail_test(
+            r#"plugin use 'nu-plugin-math'"#,
+            "Plugin registry file not set",
+        )
+    }
 
-#[test]
-fn plugin_use_with_string_variable() -> TestResult {
-    let input = "\
-let file = 'nu-plugin-math'
-plugin use $file
-";
-    fail_test(input, "Value is not a parse-time constant")
-}
+    #[test]
+    fn plugin_use_with_string_constant() -> TestResult {
+        let input = "\
+            const file = 'nu-plugin-math'
+            plugin use $file
+            ";
+        // should not fail with `not a constant`
+        fail_test(input, "Plugin registry file not set")
+    }
 
-#[test]
-fn plugin_use_with_non_string_constant() -> TestResult {
-    let input = "\
-const file = 6
-plugin use $file
-";
-    fail_test(input, "expected string, found int")
+    #[test]
+    fn plugin_use_with_string_variable() -> TestResult {
+        let input = "\
+            let file = 'nu-plugin-math'
+            plugin use $file
+            ";
+        fail_test(input, "Value is not a parse-time constant")
+    }
+
+    #[test]
+    fn plugin_use_with_non_string_constant() -> TestResult {
+        let input = "\
+            const file = 6
+            plugin use $file
+            ";
+        fail_test(input, "expected string, found int")
+    }
 }
 
 #[test]
@@ -1041,4 +1046,46 @@ fn external_argument_with_subexpressions() -> TestResult {
 #[test]
 fn quote_escape_but_not_env_shorthand() -> TestResult {
     run_test(r#""\"=foo""#, "\"=foo")
+}
+
+// https://github.com/nushell/nushell/issues/16586
+#[test]
+fn redefine_def_should_not_panic() -> TestResult {
+    fail_test(r#"def def (=a|s)>"#, "Unclosed delimiter")
+}
+
+#[test]
+fn table_literal_column_var() -> TestResult {
+    run_test(
+        r#"
+            let column_name = 'column0'
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "foo",
+    )
+}
+
+#[test]
+fn table_literal_column_var_parse_err() -> TestResult {
+    fail_test(
+        r#"
+            let column_name = {a: 123}
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "must be a string",
+    )
+}
+
+#[test]
+fn table_literal_column_var_shell_err() -> TestResult {
+    fail_test(
+        r#"
+            let column_name = echo {a: 123}
+            let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
+            $tbl.column0.0
+        "#,
+        "can't convert",
+    )
 }

@@ -118,18 +118,14 @@ impl LanguageServer {
         &mut self,
         params: &SignatureHelpParams,
     ) -> Option<SignatureHelp> {
-        let path_uri = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_owned();
+        let path_uri = &params.text_document_position_params.text_document.uri;
         let docs = self.docs.lock().ok()?;
-        let file = docs.get_document(&path_uri)?;
+        let file = docs.get_document(path_uri)?;
         let location = file.offset_at(params.text_document_position_params.position) as usize;
         let file_text = file.get_content(None).to_owned();
         drop(docs);
 
-        let engine_state = self.new_engine_state(Some(&path_uri));
+        let engine_state = self.new_engine_state(Some(path_uri));
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         // NOTE: in case the cursor is at the end of the call expression
@@ -137,7 +133,7 @@ impl LanguageServer {
             || file_text
                 .get(location - 1..location)
                 .is_some_and(|s| s.chars().all(|c| c.is_whitespace()));
-        let file_path = uri_to_path(&path_uri);
+        let file_path = uri_to_path(path_uri);
         let filename = if need_placeholder {
             "lsp_signature_helper_temp_file"
         } else {
@@ -173,18 +169,12 @@ impl LanguageServer {
         let active_signature = working_set.get_decl(active_call.decl_id).signature();
         let label = get_signature_label(&active_signature, false);
 
-        let mut param_num_before_pos = 0;
-        for arg in active_call.arguments.iter() {
-            // skip flags
-            if matches!(arg, Argument::Named(_)) {
-                continue;
-            }
-            if arg.span().end <= pos_to_search {
-                param_num_before_pos += 1;
-            } else {
-                break;
-            }
-        }
+        let param_num_before_pos = active_call
+            .arguments
+            .iter()
+            .filter(|&arg| !matches!(arg, Argument::Named(..)))
+            .take_while(|&arg| arg.span().end <= pos_to_search)
+            .count() as u32;
 
         let str_to_doc = |s: String| {
             Some(Documentation::MarkupContent(MarkupContent {
@@ -252,6 +242,7 @@ mod tests {
         request::{Request, SignatureHelpRequest},
     };
     use nu_test_support::fs::fixtures;
+    use rstest::rstest;
 
     fn send_signature_help_request(
         client_connection: &Connection,
@@ -281,127 +272,119 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn signature_help_on_builtins() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("signature.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        let resp = send_signature_help_request(&client_connection, script.clone(), 0, 15);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "signatures": [{
-                    "label": "str substring {flags} <range> ...(rest)",
-                    "parameters": [ ],
-                    "activeParameter": 0
-                }],
-                "activeSignature": 0
-            })
-        );
-
-        let resp = send_signature_help_request(&client_connection, script.clone(), 0, 17);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{ "activeParameter": 0 }], "activeSignature": 0 })
-        );
-
-        let resp = send_signature_help_request(&client_connection, script.clone(), 0, 18);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{ "activeParameter": 1 }], "activeSignature": 0 })
-        );
-
-        let resp = send_signature_help_request(&client_connection, script.clone(), 0, 22);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{ "activeParameter": 1 }], "activeSignature": 0 })
-        );
-
-        let resp = send_signature_help_request(&client_connection, script.clone(), 7, 0);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{
+    #[rstest]
+    #[case::str_substring_pos_15(
+        None,
+        (0, 15),
+        serde_json::json!({
+            "signatures": [{
                 "label": "str substring {flags} <range> ...(rest)",
-                "activeParameter": 1
-            }]})
-        );
-
-        let resp = send_signature_help_request(&client_connection, script.clone(), 4, 0);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{
-                "label": "str substring {flags} <range> ...(rest)",
+                "parameters": [ ],
                 "activeParameter": 0
-            }]})
-        );
-
-        let resp = send_signature_help_request(&client_connection, script, 16, 6);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({ "signatures": [{
-                "label": "echo {flags} ...(rest)",
-                "activeParameter": 0
-            }]})
-        );
-    }
-
-    #[test]
-    fn signature_help_on_custom_commands() {
-        let config_str = r#"export def "foo bar" [
+            }],
+            "activeSignature": 0
+        })
+    )]
+    #[case::str_substring_pos_17(
+        None,
+        (0, 17),
+        serde_json::json!({ "signatures": [{ "activeParameter": 0 }], "activeSignature": 0 })
+    )]
+    #[case::str_substring_pos_18(
+        None,
+        (0, 18),
+        serde_json::json!({ "signatures": [{ "activeParameter": 1 }], "activeSignature": 0 })
+    )]
+    #[case::str_substring_pos_22(
+        None,
+        (0, 22),
+        serde_json::json!({ "signatures": [{ "activeParameter": 1 }], "activeSignature": 0 })
+    )]
+    #[case::str_substring_line_7(
+        None,
+        (7, 0),
+        serde_json::json!({ "signatures": [{
+            "label": "str substring {flags} <range> ...(rest)",
+            "activeParameter": 1
+        }]})
+    )]
+    #[case::str_substring_line_4(
+        None,
+        (4, 0),
+        serde_json::json!({ "signatures": [{
+            "label": "str substring {flags} <range> ...(rest)",
+            "activeParameter": 0
+        }]})
+    )]
+    #[case::echo_command(
+        None,
+        (16, 6),
+        serde_json::json!({ "signatures": [{
+            "label": "echo {flags} ...(rest)",
+            "activeParameter": 0
+        }]})
+    )]
+    #[case::custom_command_foo_bar(
+        Some(r#"export def "foo bar" [
     p1: int
     p2: string, # doc
     p3?: int = 1
-] {}"#;
-        let (client_connection, _recv) = initialize_language_server(Some(config_str), None);
+] {}"#),
+        (9, 11),
+        serde_json::json!({
+            "signatures": [{
+                "label": "foo bar {flags} <p1> <p2> (p3)",
+                "parameters": [
+                    {"label": "p1", "documentation": {"value": ": `<int>`"}},
+                    {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
+                    {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
+                ],
+                "activeParameter": 1
+            }],
+            "activeSignature": 0,
+            "activeParameter": 1
+        })
+    )]
+    #[case::custom_command_foo_baz(
+        Some(r#"export def "foo bar" [
+    p1: int
+    p2: string, # doc
+    p3?: int = 1
+] {}"#),
+        (10, 15),
+        serde_json::json!({
+            "signatures": [{
+                "label": "foo baz {flags} <p1> <p2> (p3)",
+                "parameters": [
+                    {"label": "p1", "documentation": {"value": ": `<int>`"}},
+                    {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
+                    {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
+                    {"label": "-h, --help", "documentation": {"value": " - Display the help message for this command"}},
+                ],
+                "activeParameter": 2
+            }],
+            "activeSignature": 0,
+            "activeParameter": 2
+        })
+    )]
+    fn signature_help_request(
+        #[case] config: Option<&str>,
+        #[case] cursor_position: (u32, u32),
+        #[case] expected: serde_json::Value,
+    ) {
+        let (client_connection, _recv) = initialize_language_server(config, None);
 
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("hints");
-        script.push("signature.nu");
+        script.push("lsp/hints/signature.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_signature_help_request(&client_connection, script.clone(), 9, 11);
-        assert_json_include!(
-            actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "signatures": [{
-                    "label": "foo bar {flags} <p1> <p2> (p3)",
-                    "parameters": [
-                        {"label": "p1", "documentation": {"value": ": `<int>`"}},
-                        {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
-                        {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
-                    ],
-                    "activeParameter": 1
-                }],
-                "activeSignature": 0,
-                "activeParameter": 1
-            })
-        );
+        let (line, character) = cursor_position;
+        let resp = send_signature_help_request(&client_connection, script, line, character);
 
-        let resp = send_signature_help_request(&client_connection, script, 10, 15);
         assert_json_include!(
             actual: result_from_message(resp),
-            expected: serde_json::json!({
-                "signatures": [{
-                    "label": "foo baz {flags} <p1> <p2> (p3)",
-                    "parameters": [
-                        {"label": "p1", "documentation": {"value": ": `<int>`"}},
-                        {"label": "p2", "documentation": {"value": ": `<string>` - doc"}},
-                        {"label": "p3", "documentation": {"value": ": `<int>` - (optional, default: `1`)"}},
-                        {"label": "-h, --help", "documentation": {"value": " - Display the help message for this command"}},
-                    ],
-                    "activeParameter": 2
-                }],
-                "activeSignature": 0,
-                "activeParameter": 2
-            })
+            expected: expected
         );
     }
 }
