@@ -18,5 +18,5 @@ impl ExperimentalOptionMarker for Example {
     const DESCRIPTION: &'static str = "This is an example of an experimental option.";
     const STATUS: Status = Status::DeprecatedDiscard;
     const SINCE: Version = (0, 105, 2);
-    const PR: u32 = 16028;
+    const ISSUE: u32 = 0;
 }

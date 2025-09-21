@@ -57,7 +57,7 @@ impl Command for DebugExperimentalOptions {
                                     let (major, minor, patch) = option.since();
                                     format!("{major}.{minor}.{patch}")
                                 }, call.head),
-                                "pr" => Value::string(option.pr_url(), call.head)
+                                "issue" => Value::string(option.issue_url(), call.head)
                             },
                             call.head,
                         )

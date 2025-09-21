@@ -47,11 +47,12 @@ pub(crate) trait ExperimentalOptionMarker {
     /// a historic record.
     const SINCE: Version;
 
-    /// PR number that introduced this experimental option.
-    ///
-    /// To make this work, add a placeholder value here when developing and then, after opening the
-    /// PR, update this value.
-    const PR: u32;
+    /// Github issue that tracks this experimental option.
+    /// 
+    /// Experimental options are expected to end their lifetime by either getting a default feature 
+    /// or by getting removed. 
+    /// To track this we want to have a respective issue on Github that tracks the status. 
+    const ISSUE: u32;
 }
 
 // Export only the static values.

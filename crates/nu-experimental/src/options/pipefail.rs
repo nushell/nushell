@@ -17,4 +17,6 @@ impl ExperimentalOptionMarker for PipeFail {
         If an external command fails within a pipeline, $env.LAST_EXIT_CODE is set \
         to the exit code of rightmost command which failed.";
     const STATUS: Status = Status::OptIn;
+    const SINCE: Version = (0, 107, 1);
+    const ISSUE: u32 = 0;
 }

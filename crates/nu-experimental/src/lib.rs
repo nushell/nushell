@@ -129,14 +129,14 @@ impl ExperimentalOption {
         self.marker.since()
     }
 
-    pub fn pr_id(&self) -> u32 {
-        self.marker.pr()
+    pub fn issue_id(&self) -> u32 {
+        self.marker.issue()
     }
 
-    pub fn pr_url(&self) -> String {
+    pub fn issue_url(&self) -> String {
         format!(
-            "https://github.com/nushell/nushell/pull/{}",
-            self.marker.pr()
+            "https://github.com/nushell/nushell/issues/{}",
+            self.marker.issue()
         )
     }
 
@@ -220,7 +220,7 @@ pub(crate) trait DynExperimentalOptionMarker {
     fn description(&self) -> &'static str;
     fn status(&self) -> Status;
     fn since(&self) -> Version;
-    fn pr(&self) -> u32;
+    fn issue(&self) -> u32;
 }
 
 impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
@@ -240,7 +240,7 @@ impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
         M::SINCE
     }
 
-    fn pr(&self) -> u32 {
-        M::PR
+    fn issue(&self) -> u32 {
+        M::ISSUE
     }
 }
