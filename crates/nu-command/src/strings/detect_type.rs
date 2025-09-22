@@ -13,7 +13,7 @@ impl Command for DetectType {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::String, Type::Any)
+            .input_output_types(vec![(Type::String, Type::Any), (Type::Any, Type::Any)])
             .switch(
                 "prefer-filesize",
                 "For ints display them as human-readable file sizes",
