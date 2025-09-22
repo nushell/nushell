@@ -13,8 +13,8 @@ use nu_protocol::{
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
-    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, default_emacs_keybindings,
-    default_vi_insert_keybindings, default_vi_normal_keybindings,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, TraversalDirection,
+    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 use std::sync::Arc;
 
@@ -28,6 +28,7 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
       columns: 4
       col_width: 20
       col_padding: 2
+      tab_traversal: "horizontal"
   }
   style: {
       text: green,
@@ -284,6 +285,23 @@ pub(crate) fn add_columnar_menu(
                 let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
             }
+            Err(_) => columnar_menu,
+        };
+
+        columnar_menu = match extract_value("tab_traversal", val, span) {
+            Ok(tab_traversal) => match tab_traversal.coerce_str()?.as_ref() {
+                "vertical" => columnar_menu.with_traversal_direction(TraversalDirection::Vertical),
+                "horizontal" => {
+                    columnar_menu.with_traversal_direction(TraversalDirection::Horizontal)
+                }
+                str => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "'horizontal' or 'vertical'".into(),
+                        actual: format!("'{str}'"),
+                        span: tab_traversal.span(),
+                    });
+                }
+            },
             Err(_) => columnar_menu,
         };
     }
