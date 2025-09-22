@@ -3,6 +3,7 @@ mod base;
 mod char_;
 mod detect;
 mod detect_columns;
+mod detect_type;
 mod detect_types;
 mod encode_decode;
 mod format;
@@ -19,6 +20,7 @@ pub use base::{
 pub use char_::Char;
 pub use detect::Detect;
 pub use detect_columns::*;
+pub use detect_type::*;
 pub use detect_types::*;
 pub use encode_decode::*;
 pub use format::*;
