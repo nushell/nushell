@@ -57,6 +57,7 @@ impl Command for DetectType {
                 example: "'1,234,567' | detect type",
                 result: Some(Value::test_int(1_234_567)),
             },
+            #[allow(clippy::approx_constant, reason = "approx PI in examples is fine")]
             Example {
                 description: "Float from decimal",
                 example: "'3.14' | detect type",

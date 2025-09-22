@@ -29,7 +29,6 @@ impl Command for IntoValue {
                 "For ints display them as human-readable file sizes",
                 Some('f'),
             )
-            .allow_variants_without_examples(true)
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
