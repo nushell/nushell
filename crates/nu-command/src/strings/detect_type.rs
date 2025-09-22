@@ -20,6 +20,7 @@ impl Command for DetectType {
                 Some('f'),
             )
             .category(Category::Strings)
+            .allow_variants_without_examples(true)
     }
 
     fn description(&self) -> &str {
