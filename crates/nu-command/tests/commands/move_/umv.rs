@@ -266,7 +266,7 @@ fn errors_if_renaming_directory_to_an_existing_file() {
             cwd: dirs.test(),
             "mv mydir empty.txt"
         );
-        assert!(actual.err.contains("mv-error-non-directory-to-directory"),);
+        assert!(actual.err.contains("NonDirectoryToDirectory"),);
     })
 }
 
@@ -279,7 +279,7 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "mv mydir mydir/mydir_2/"
         );
-        assert!(actual.err.contains("mv-error-self-target-subdirectory"));
+        assert!(actual.err.contains("SelfTargetSubdirectory"));
     });
 }
 
