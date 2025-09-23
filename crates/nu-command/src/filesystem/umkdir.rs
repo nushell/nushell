@@ -82,19 +82,39 @@ impl Command for UMkdir {
             context: None,
         };
 
+        let mut verbose_out = String::new();
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
                 return Err(ShellError::GenericError {
-                    error: format!("{error}"),
+                    error: format!("error: {:#?}", error),
                     msg: format!("{error}"),
                     span: None,
                     help: None,
                     inner: vec![],
                 });
             }
+            if is_verbose {
+                verbose_out.push_str(
+                    format!(
+                        "{} ",
+                        &dir.as_path()
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                    )
+                    .as_str(),
+                );
+            }
         }
 
-        Ok(PipelineData::empty())
+        if is_verbose {
+            Ok(PipelineData::value(
+                Value::string(verbose_out.trim(), call.head),
+                None,
+            ))
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

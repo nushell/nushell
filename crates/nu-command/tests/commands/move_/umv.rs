@@ -230,7 +230,7 @@ fn errors_if_destination_doesnt_exist() {
             "mv empty.txt does/not/exist/"
         );
 
-        assert!(actual.err.contains("failed to access"));
+        assert!(actual.err.contains("FailedToAccessNotADirectory"));
     })
 }
 
@@ -266,8 +266,7 @@ fn errors_if_renaming_directory_to_an_existing_file() {
             cwd: dirs.test(),
             "mv mydir empty.txt"
         );
-        assert!(actual.err.contains("cannot overwrite non-directory"),);
-        assert!(actual.err.contains("with directory"),);
+        assert!(actual.err.contains("mv-error-non-directory-to-directory"),);
     })
 }
 
@@ -280,8 +279,7 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "mv mydir mydir/mydir_2/"
         );
-        assert!(actual.err.contains("cannot move"));
-        assert!(actual.err.contains("to a subdirectory"));
+        assert!(actual.err.contains("mv-error-self-target-subdirectory"));
     });
 }
 
@@ -402,7 +400,7 @@ fn mv_directory_with_same_name() {
                  mv testdir ..
             "#
         );
-        assert!(actual.err.contains("Directory not empty"));
+        assert!(actual.err.contains("mv-error-directory-not-empty"));
     })
 }
 

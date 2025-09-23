@@ -274,7 +274,7 @@ impl Command for UCp {
                 CpError::NotAllFilesCopied => {}
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: format!("{error}"),
+                        error: format!("error: {:#?}", error),
                         msg: format!("{error}"),
                         span: None,
                         help: None,
