@@ -100,7 +100,7 @@ impl Command for Mktemp {
             dry_run: false,
             quiet: false,
             suffix,
-            template,
+            template: template.into(),
             tmpdir,
             treat_as_template: true,
         };
