@@ -163,16 +163,7 @@ fn each_map(value: Value, closure: &mut ClosureEval, head: Span) -> Result<Value
     let is_error = value.is_error();
     closure
         .run_with_value(value)
-        .and_then(|pipeline_data| match pipeline_data {
-            // TODO: Should collecting a stream with an error immediately raise the
-            // error by default (like we do here) be the default?
-            PipelineData::ListStream(stream, ..) => stream
-                .into_iter()
-                .map(Value::unwrap_error)
-                .collect::<Result<Vec<_>, _>>()
-                .map(|vals| Value::list(vals, head)),
-            data => data.into_value(head),
-        })
+        .and_then(|pipeline_data| pipeline_data.into_value(head))
         .map_err(|error| chain_error_with_input(error, is_error, span))
 }
 

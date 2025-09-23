@@ -75,8 +75,13 @@ impl ListStream {
     }
 
     /// Collect the values of a [`ListStream`] into a list [`Value`].
-    pub fn into_value(self) -> Value {
-        Value::list(self.stream.collect(), self.span)
+    pub fn into_value(self) -> Result<Value, ShellError> {
+        Ok(Value::list(
+            self.stream
+                .map(Value::unwrap_error)
+                .collect::<Result<_, _>>()?,
+            self.span,
+        ))
     }
 
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.
