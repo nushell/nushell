@@ -2110,7 +2110,7 @@ fn get_value_member<'a>(
                     }
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_int(current.span(), *count, *origin_span)
+                    match val.follow_path_int(current.span(), *count, *origin_span, *optional)
                     {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
@@ -2207,8 +2207,13 @@ fn get_value_member<'a>(
                     Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
-                    {
+                    match val.follow_path_string(
+                        current.span(),
+                        column_name.clone(),
+                        *origin_span,
+                        *optional,
+                        *casing,
+                    ) {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
                             if *optional {
