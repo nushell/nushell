@@ -65,6 +65,14 @@ fn errors_in_nested_each_show() {
 }
 
 #[test]
+fn errors_in_nested_each_full_chain() {
+    let actual = nu!(r#" 0..1 | each {|i| 0..1 | each {|j| error make {msg: boom} } } "#);
+
+    let eval_block_with_input_count = actual.err.matches("eval_block_with_input").count();
+    assert_eq!(eval_block_with_input_count, 2);
+}
+
+#[test]
 fn each_noop_on_single_null() {
     let actual = nu!("null | each { \"test\" } | describe");
 
