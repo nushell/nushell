@@ -79,10 +79,7 @@ impl Command for DetectType {
                 description: "Date Y-M-D",
                 example: "'2022-01-01' | detect type",
                 result: Some(Value::test_date(
-                    Local
-                        .with_ymd_and_hms(2022, 01, 01, 0, 0, 0)
-                        .unwrap()
-                        .into(),
+                    Local.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap().into(),
                 )),
             },
             Example {
