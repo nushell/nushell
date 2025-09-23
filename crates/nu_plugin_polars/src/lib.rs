@@ -19,7 +19,9 @@ mod cache;
 mod cloud;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator};
+use nu_protocol::{
+    CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing,
+};
 use tokio::runtime::Runtime;
 use values::CustomValueType;
 
@@ -170,6 +172,8 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
         index: Spanned<usize>,
+        // TODO: check if we should respect these
+        _optional: bool,
     ) -> Result<Value, LabeledError> {
         let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
             CustomValueType::NuDataFrame(cv) => {
@@ -202,6 +206,9 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
         column_name: Spanned<String>,
+        // TODO: check if we should respect these
+        _optional: bool,
+        _casing: Casing,
     ) -> Result<Value, LabeledError> {
         let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
             CustomValueType::NuDataFrame(cv) => {
