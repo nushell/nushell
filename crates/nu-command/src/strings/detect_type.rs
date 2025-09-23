@@ -1,4 +1,5 @@
 use crate::parse_date_from_string;
+use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
 use std::sync::LazyLock;
@@ -77,18 +78,29 @@ impl Command for DetectType {
             Example {
                 description: "Date Y-M-D",
                 example: "'2022-01-01' | detect type",
-                // Parsing depends on timezone, so we just assert it runs
-                result: None,
+                result: Some(Value::test_date(
+                    Local
+                        .with_ymd_and_hms(2022, 01, 01, 0, 0, 0)
+                        .unwrap()
+                        .into(),
+                )),
             },
             Example {
                 description: "Date with time and offset",
                 example: "'2022-01-01T00:00:00Z' | detect type",
-                result: None,
+                result: Some(Value::test_date(
+                    Utc.with_ymd_and_hms(2022, 1, 1, 0, 0, 0).unwrap().into(),
+                )),
             },
             Example {
                 description: "Date D-M-Y",
                 example: "'31-12-2021' | detect type",
-                result: None,
+                result: Some(Value::test_date(
+                    Local
+                        .with_ymd_and_hms(2021, 12, 31, 0, 0, 0)
+                        .unwrap()
+                        .into(),
+                )),
             },
             Example {
                 description: "Unknown stays a string",
