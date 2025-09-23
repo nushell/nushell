@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
+    SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -999,8 +999,12 @@ impl PluginInterface {
         &self,
         value: Spanned<PluginCustomValueWithSource>,
         index: Spanned<usize>,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathInt(index))
+        self.custom_value_op_expecting_value(
+            value,
+            CustomValueOp::FollowPathInt { index, optional },
+        )
     }
 
     /// Follow a named cell path on a custom value - e.g. `value.column`.
@@ -1008,8 +1012,17 @@ impl PluginInterface {
         &self,
         value: Spanned<PluginCustomValueWithSource>,
         column_name: Spanned<String>,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
-        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathString(column_name))
+        self.custom_value_op_expecting_value(
+            value,
+            CustomValueOp::FollowPathString {
+                column_name,
+                optional,
+                casing,
+            },
+        )
     }
 
     /// Invoke comparison logic for custom values.
@@ -1236,8 +1249,8 @@ impl CurrentCallState {
                 // Handle anything within the op.
                 match op {
                     CustomValueOp::ToBaseValue => Ok(()),
-                    CustomValueOp::FollowPathInt(_) => Ok(()),
-                    CustomValueOp::FollowPathString(_) => Ok(()),
+                    CustomValueOp::FollowPathInt { .. } => Ok(()),
+                    CustomValueOp::FollowPathString { .. } => Ok(()),
                     CustomValueOp::PartialCmp(value) => self.prepare_value(value, source),
                     CustomValueOp::Operation(_, value) => self.prepare_value(value, source),
                     CustomValueOp::Dropped => Ok(()),

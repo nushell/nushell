@@ -3,7 +3,7 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
+    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value, casing::Casing,
     engine::EngineState, shell_error::io::IoError,
 };
 use rusqlite::{
@@ -380,6 +380,7 @@ impl CustomValue for SQLiteDatabase {
         _self_span: Span,
         _index: usize,
         path_span: Span,
+        _optional: bool,
     ) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
         Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span: path_span })
@@ -390,6 +391,8 @@ impl CustomValue for SQLiteDatabase {
         _self_span: Span,
         column_name: String,
         path_span: Span,
+        _optional: bool,
+        _casing: Casing,
     ) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, path_span)?;
         read_single_table(db, column_name, path_span, &self.signals)
