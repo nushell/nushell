@@ -116,7 +116,7 @@ struct EvalContext<'a> {
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
     registers: &'a mut [PipelineExecutionData],
-    /// Temporarly exit future, used to implement pipefail feature by
+    /// Temporarily exit future, used to implement pipefail feature by
     /// Instruction::RecordExitFuture and Instruction::TrackExitFuture
     tmp_exit_future: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
     /// Holds open files used by redirections
@@ -139,7 +139,7 @@ impl<'a> EvalContext<'a> {
 
     /// clone exit status future from a register.
     #[inline]
-    fn clone_exit_stauts(
+    fn clone_exit_status(
         &self,
         reg_id: RegId,
     ) -> Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>> {
@@ -907,7 +907,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::RecordInputExitFuture { src } => {
             #[cfg(feature = "os")]
             {
-                let input = ctx.clone_exit_stauts(*src);
+                let input = ctx.clone_exit_status(*src);
                 ctx.tmp_exit_future = input;
             }
             Ok(Continue)
