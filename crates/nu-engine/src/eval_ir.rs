@@ -1,8 +1,6 @@
-use std::{
-    borrow::Cow,
-    fs::File,
-    sync::{Arc, Mutex},
-};
+#[cfg(feature = "os")]
+use std::sync::Mutex;
+use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
@@ -71,8 +69,8 @@ pub fn eval_ir_block<D: DebugContext>(
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
-                #[cfg(feature = "os")]
                 registers: &mut registers[..],
+                #[cfg(feature = "os")]
                 tmp_exit_future: vec![],
                 files: &mut files[..],
             },
