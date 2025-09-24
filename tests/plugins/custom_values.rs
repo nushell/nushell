@@ -1,4 +1,4 @@
-use nu_test_support::nu_with_plugins;
+use nu_test_support::{nu_with_plugins, playground::Playground};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -294,4 +294,30 @@ fn custom_value_into_string() {
     );
 
     assert_eq!(actual.out, "I used to be a custom value! My data was (abc)");
+}
+
+#[test]
+fn save_custom_values() {
+    Playground::setup("save custom values", |_, playground| {
+        let actual_unimplemented = nu_with_plugins!(
+            cwd: playground.cwd(),
+            plugin: ("nu_plugin_custom_values"),
+            "custom-value generate | save file"
+        );
+        assert!(
+            actual_unimplemented
+                .err
+                .contains("Custom value does not implement `save`")
+        );
+
+        nu_with_plugins!(
+            cwd: playground.cwd(),
+            plugin: ("nu_plugin_custom_values"),
+            "custom-value generate2 | save file"
+        );
+
+        let file_path = playground.cwd().join("file");
+        let content = std::fs::read_to_string(file_path).unwrap();
+        assert_eq!(content, "xyz"); // "xyz" is the content when using generate2
+    });
 }
