@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UMv;
@@ -83,6 +84,9 @@ impl Command for UMv {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("mv");
+
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
@@ -196,8 +200,8 @@ impl Command for UMv {
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
-                error: format!("error: {error:#?}"),
-                msg: format!("{error}"),
+                error: format!("{error}"),
+                msg: translate!(&error.to_string()),
                 span: None,
                 help: None,
                 inner: Vec::new(),

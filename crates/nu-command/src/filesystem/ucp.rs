@@ -6,6 +6,7 @@ use nu_protocol::{
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, CpError, UpdateMode};
+use uucore::{localized_help_template, translate};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
@@ -117,6 +118,9 @@ impl Command for UCp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("cp");
+
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
             (UpdateMode::IfOlder, CopyMode::Update)
@@ -273,9 +277,10 @@ impl Command for UCp {
                 // code should still be EXIT_ERR as does GNU cp
                 CpError::NotAllFilesCopied => {}
                 _ => {
+                    eprintln!("here");
                     return Err(ShellError::GenericError {
-                        error: format!("error: {error:#?}"),
-                        msg: format!("{error}"),
+                        error: format!("{error}"),
+                        msg: translate!(&error.to_string()),
                         span: None,
                         help: None,
                         inner: vec![],

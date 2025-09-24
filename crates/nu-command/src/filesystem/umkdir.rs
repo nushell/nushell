@@ -4,6 +4,7 @@ use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
 use uucore::mode;
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UMkdir;
@@ -57,6 +58,9 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("mkdir");
+
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut directories = call
@@ -86,8 +90,8 @@ impl Command for UMkdir {
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
                 return Err(ShellError::GenericError {
-                    error: format!("error: {error:#?}"),
-                    msg: format!("{error}"),
+                    error: format!("{error}"),
+                    msg: translate!(&error.to_string()),
                     span: None,
                     help: None,
                     inner: vec![],

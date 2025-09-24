@@ -511,20 +511,16 @@ fn copy_identical_file_impl(progress: bool) {
             "cp {} same.txt same.txt",
             progress_flag,
         );
-        assert!(actual.err.contains("cp-error-same-file"));
 
-        // The errors from uutils are pretty terrible now
-        // This doesn't work any longer
-        // assert!(actual.err.contains("Copy aborted"));
-        // let msg = format!(
-        //     "'{}' and '{}' are the same file",
-        //     dirs.test().join("same.txt").display(),
-        //     dirs.test().join("same.txt").display(),
-        // );
-        // // debug messages in CI
-        // if !actual.err.contains(&msg) {
-        //     panic!("stderr was: {}", actual.err);
-        // }
+        let msg = format!(
+            "'{}' and '{}' are the same file",
+            dirs.test().join("same.txt").display(),
+            dirs.test().join("same.txt").display(),
+        );
+        // debug messages in CI
+        if !actual.err.contains(&msg) {
+            panic!("stderr was: {}", actual.err);
+        }
     });
 }
 
@@ -892,7 +888,36 @@ fn test_cp_debug_default() {
         TEST_HELLO_WORLD_DEST
         );
 
-        assert!(actual.out.contains("cp-debug-copy-offload"));
+        #[cfg(target_os = "macos")]
+        if !actual
+            .out
+            .contains("copy offload: unknown, reflink: unsupported, sparse detection: unsupported")
+        {
+            panic!("{}", format!("Failure: stdout was \n{}", actual.out));
+        }
+
+        #[cfg(target_os = "linux")]
+        if !actual
+            .out
+            .contains("copy offload: yes, reflink: unsupported, sparse detection: no")
+        {
+            panic!("{}", format!("Failure: stdout was \n{}", actual.out));
+        }
+
+        #[cfg(target_os = "freebsd")]
+        if !actual.out.contains(
+            "copy offload: unsupported, reflink: unsupported, sparse detection: unsupported",
+        ) {
+            panic!("{}", format!("Failure: stdout was \n{}", actual.out));
+        }
+
+        #[cfg(windows)]
+        if !actual.out.contains(
+            "copy offload: unsupported, reflink: unsupported, sparse detection: unsupported",
+        ) {
+            panic!("{}", format!("Failure: stdout was \n{}", actual.out));
+        }
+        // assert!(actual.out.contains("cp-debug-copy-offload"));
     });
 }
 
