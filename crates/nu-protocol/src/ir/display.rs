@@ -262,9 +262,11 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::Return { src } => {
                 write!(f, "{:WIDTH$} {src}", "return")
             }
+            #[cfg(feature = "os")]
             Instruction::RecordInputExitFuture { src } => {
                 write!(f, "{:WIDTH$} {src}", "record-input-exit-future")
             }
+            #[cfg(feature = "os")]
             Instruction::TrackExitFuture { dst } => {
                 write!(f, "{:WIDTH$} {dst}", "track-exit-future")
             }
