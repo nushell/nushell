@@ -6,6 +6,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{NuGlob, shell_error::io::IoError};
 use std::path::PathBuf;
 use uu_touch::{ChangeTimes, InputFile, Options, Source, error::TouchError};
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UTouch;
@@ -79,6 +80,9 @@ impl Command for UTouch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("touch");
+
         let change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
         let change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
@@ -214,7 +218,7 @@ impl Command for UTouch {
             let nu_err = match err {
                 TouchError::TouchFileError { path, index, error } => ShellError::GenericError {
                     error: format!("Could not touch {}", path.display()),
-                    msg: error.to_string(),
+                    msg: translate!(&error.to_string()),
                     span: Some(file_globs[index].span),
                     help: None,
                     inner: Vec::new(),
@@ -234,8 +238,8 @@ impl Command for UTouch {
                     ))
                 }
                 _ => ShellError::GenericError {
-                    error: err.to_string(),
-                    msg: err.to_string(),
+                    error: format!("{err}"),
+                    msg: translate!(&err.to_string()),
                     span: Some(call.head),
                     help: None,
                     inner: Vec::new(),

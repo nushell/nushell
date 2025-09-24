@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{Value, record};
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UName;
@@ -31,6 +32,9 @@ impl Command for UName {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("uname");
+
         let span = call.head;
         // Simulate `uname -all` is called every time
         let opts = uu_uname::Options {
@@ -46,7 +50,7 @@ impl Command for UName {
         };
         let output = uu_uname::UNameOutput::new(&opts).map_err(|e| ShellError::GenericError {
             error: format!("{e}"),
-            msg: format!("{e}"),
+            msg: translate!(&e.to_string()),
             span: None,
             help: None,
             inner: Vec::new(),
