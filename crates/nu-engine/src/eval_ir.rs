@@ -137,7 +137,7 @@ impl<'a> EvalContext<'a> {
         &self.registers[reg_id.get() as usize]
     }
 
-    /// Borrow the contents of a register.
+    /// clone exit status future from a register.
     #[inline]
     fn clone_exit_stauts(
         &self,
