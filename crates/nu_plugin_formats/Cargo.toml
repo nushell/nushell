@@ -19,7 +19,7 @@ indexmap = { workspace = true }
 eml-parser = "0.1"
 ical = "0.11"
 rust-ini = "0.21.0"
-plist = "1.7"
+plist = "1.8"
 chrono = "0.4"
 
 [dev-dependencies]

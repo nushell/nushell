@@ -1,6 +1,5 @@
 mod cache;
 mod columns;
-mod fetch;
 mod open;
 mod profile;
 mod resource;
@@ -17,7 +16,6 @@ mod to_schema;
 
 pub use self::open::OpenDataFrame;
 use crate::PolarsPlugin;
-use fetch::LazyFetch;
 use nu_plugin::PluginCommand;
 pub use schema::SchemaCmd;
 pub use shape::ShapeDF;
@@ -31,7 +29,6 @@ pub(crate) fn core_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
     vec![
         Box::new(columns::ColumnsDF),
         Box::new(cache::LazyCache),
-        Box::new(LazyFetch),
         Box::new(OpenDataFrame),
         Box::new(profile::ProfileDF),
         Box::new(Summary),

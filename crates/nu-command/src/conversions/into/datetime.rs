@@ -422,9 +422,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     let parse_as_string = |val: &str| {
         match dateformat {
-            Some(dt_format) => match DateTime::parse_from_str(val, &dt_format.item.0) {
-                Ok(dt) => {
-                    match timezone {
+            Some(dt_format) => {
+                // Handle custom format specifiers for compact formats
+                let format_str = dt_format
+                    .item
+                    .0
+                    .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
+                    .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
+                match DateTime::parse_from_str(val, &format_str) {
+                    Ok(dt) => match timezone {
                         None => Value::date(dt, head),
                         Some(Spanned { item, span }) => match item {
                             Zone::Utc => Value::date(dt, head),
@@ -464,10 +470,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 *span,
                             ),
                         },
-                    }
-                }
-                Err(reason) => {
-                    parse_with_format(val, &dt_format.item.0, head).unwrap_or_else(|_| {
+                    },
+                    Err(reason) => parse_with_format(val, &format_str, head).unwrap_or_else(|_| {
                         Value::error(
                             ShellError::CantConvert {
                                 to_type: format!(
@@ -478,15 +482,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 span: head,
                                 help: Some(
                                     "you can use `into datetime` without a format string to \
-                                     enable flexible parsing"
+                                         enable flexible parsing"
                                         .to_string(),
                                 ),
                             },
                             head,
                         )
-                    })
+                    }),
                 }
-            },
+            }
 
             // Tries to automatically parse the date
             // (i.e. without a format string)

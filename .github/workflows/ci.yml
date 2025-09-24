@@ -99,11 +99,20 @@ jobs:
       - name: Install Nushell
         run: cargo install --path . --locked --force
 
-      - name: Upload Nushell build
+      - name: Upload Nushell build (Ubuntu and macOS)
         uses: actions/upload-artifact@v4
+        if: runner.os != 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
           path: "~/.cargo/bin/nu"
+          retention-days: 14
+
+      - name: Upload Nushell build (Windows)
+        uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
+          path: 'C:\Users\runneradmin\.cargo\bin\nu.exe'
           retention-days: 14
 
       - name: Standard library tests

@@ -199,7 +199,11 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = date_time.format_localized(formatter, locale);
+    // Handle custom format specifiers for compact formats
+    let processed_formatter = formatter
+        .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
+        .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
+    let format = date_time.format_localized(&processed_formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),

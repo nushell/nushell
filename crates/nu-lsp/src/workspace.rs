@@ -541,9 +541,10 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, send_hover_request};
+    use crate::tests::{initialize_language_server, open, open_unchecked, send_hover_request};
     use assert_json_diff::assert_json_eq;
     use lsp_server::{Connection, Message};
+    use lsp_types::notification::{LogMessage, Notification, Progress};
     use lsp_types::{
         DocumentHighlightParams, InitializeParams, PartialResultParams, Position, ReferenceContext,
         ReferenceParams, RenameParams, TextDocumentIdentifier, TextDocumentPositionParams, Uri,
@@ -759,20 +760,33 @@ mod tests {
 
     #[rstest]
     #[case::command_reference(
-        "foo.nu", (0, 12),
+        "foo.nu", (0, 12), true,
         vec![make_location_ref("bar", 4, 2, 4, 7), make_location_ref("foo", 0, 11, 0, 16)],
     )]
+    #[case::single_file_without_workspace_folder_param(
+        "foo.nu", (0, 12), false,
+        vec![make_location_ref("foo", 0, 11, 0, 16)],
+    )]
+    #[case::new_file(
+        "no_such_file.nu", (0, 5), true,
+        vec![make_location_ref("no_such_file", 0, 4, 0, 7)],
+    )]
+    #[case::new_file_without_workspace_folder_param(
+        "no_such_file.nu", (0, 5), false,
+        vec![make_location_ref("no_such_file", 0, 4, 0, 7)],
+    )]
     #[case::quoted_command_reference(
-        "bar.nu", (0, 23),
+        "bar.nu", (0, 23), true,
         vec![make_location_ref("bar", 5, 4, 5, 11), make_location_ref("foo", 6, 13, 6, 20)],
     )]
     #[case::module_path_reference(
-        "baz.nu", (0, 12),
+        "baz.nu", (0, 12), true,
         vec![make_location_ref("bar", 0, 4, 0, 12), make_location_ref("baz", 6, 4, 6, 12)],
     )]
     fn reference_in_workspace(
         #[case] main_file: &str,
         #[case] cursor_position: (u32, u32),
+        #[case] with_workspace_folder: bool,
         #[case] expected_refs: Vec<serde_json::Value>,
     ) {
         let mut script = fixtures();
@@ -780,7 +794,7 @@ mod tests {
         let (client_connection, _recv) = initialize_language_server(
             None,
             serde_json::to_value(InitializeParams {
-                workspace_folders: Some(vec![WorkspaceFolder {
+                workspace_folders: with_workspace_folder.then_some(vec![WorkspaceFolder {
                     uri: path_to_uri(&script),
                     name: "random name".to_string(),
                 }]),
@@ -789,11 +803,24 @@ mod tests {
             .ok(),
         );
         script.push(main_file);
+        let file_exists = script.is_file();
         let script = path_to_uri(&script);
 
-        open_unchecked(&client_connection, script.clone());
+        if file_exists {
+            open_unchecked(&client_connection, script.clone());
+        } else {
+            let _ = open(
+                &client_connection,
+                script.clone(),
+                Some("def foo [] {}".into()),
+            );
+        }
 
-        let message_num = 6;
+        let message_num = if with_workspace_folder {
+            if file_exists { 6 } else { 7 }
+        } else {
+            1
+        };
         let (line, character) = cursor_position;
         let messages = send_reference_request(
             &client_connection,
@@ -806,7 +833,7 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
                     let result = r.result.unwrap();
@@ -895,7 +922,7 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => assert_eq!(n.method, Progress::METHOD),
                 Message::Response(r) => {
                     has_response = true;
                     assert_json_eq!(r.result, expected_prepare)
@@ -953,7 +980,7 @@ mod tests {
 
         open_unchecked(&client_connection, script.clone());
 
-        let message_num = 3;
+        let message_num = 4;
         let messages = send_rename_prepare_request(
             &client_connection,
             script.clone(),
@@ -974,7 +1001,13 @@ mod tests {
         let mut has_response = false;
         for message in messages {
             match message {
-                Message::Notification(n) => assert_eq!(n.method, "$/progress"),
+                Message::Notification(n) => {
+                    if n.method == LogMessage::METHOD {
+                        assert_json_eq!(n.params["message"], "Workspace-wide search took too long!")
+                    } else {
+                        assert_eq!(n.method, Progress::METHOD)
+                    };
+                }
                 // the response of the preempting hover request
                 Message::Response(r) => {
                     has_response = true;

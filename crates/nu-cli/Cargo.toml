@@ -50,7 +50,7 @@ which = { workspace = true }
 [features]
 plugin = ["nu-plugin-engine"]
 system-clipboard = ["reedline/system_clipboard"]
-sqlite = ["reedline/sqlite"]
+sqlite = ["reedline/sqlite", "nu-protocol/sqlite"]
 
 [lints]
 workspace = true

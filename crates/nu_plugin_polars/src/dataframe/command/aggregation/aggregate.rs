@@ -170,7 +170,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Last(e)
             | polars::prelude::AggExpr::Mean(e)
             | polars::prelude::AggExpr::Implode(e)
-            | polars::prelude::AggExpr::Count(e, _)
+            | polars::prelude::AggExpr::Count { input: e, .. }
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
             | polars::prelude::AggExpr::Std(e, _)
@@ -183,26 +183,21 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Sort { expr, .. }
         | Expr::Gather { expr, .. }
         | Expr::SortBy { expr, .. }
-        | Expr::Exclude(expr, _)
-        | Expr::Alias(expr, _)
         | Expr::KeepName(expr)
         | Expr::Explode { input: expr, .. } => get_col_name(expr.as_ref()),
         Expr::Ternary { .. }
         | Expr::AnonymousFunction { .. }
         | Expr::Function { .. }
-        | Expr::Columns(_)
-        | Expr::DtypeColumn(_)
         | Expr::Literal(_)
         | Expr::BinaryExpr { .. }
         | Expr::Window { .. }
-        | Expr::Wildcard
         | Expr::RenameAlias { .. }
         | Expr::Len
-        | Expr::Nth(_)
         | Expr::SubPlan(_, _)
-        | Expr::IndexColumn(_)
         | Expr::Selector(_)
         | Expr::Field(_)
+        | Expr::Alias(_, _)
+        | Expr::DataTypeFunction(_)
         | Expr::Eval { .. } => None,
     }
 }

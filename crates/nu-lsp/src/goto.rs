@@ -15,6 +15,17 @@ impl LanguageServer {
         for cached_file in files.into_iter() {
             if cached_file.covered_span.contains(span.start) {
                 let path = Path::new(&*cached_file.name);
+                // skip nu-std files
+                // TODO: maybe find them in vendor directories?
+                if path.is_relative() {
+                    let _ = self.send_log_message(
+                        lsp_types::MessageType::WARNING,
+                        format!(
+                            "Location found in file {path:?}, but absolute path is expected. Skipping..."
+                        ),
+                    );
+                    continue;
+                }
                 let target_uri = path_to_uri(path);
                 if let Some(file) = self.docs.lock().ok()?.get_document(&target_uri) {
                     return Some(Location {
@@ -97,9 +108,9 @@ impl LanguageServer {
 #[cfg(test)]
 mod tests {
     use crate::path_to_uri;
-    use crate::tests::{initialize_language_server, open_unchecked, result_from_message};
+    use crate::tests::{initialize_language_server, open, open_unchecked, result_from_message};
     use assert_json_diff::assert_json_eq;
-    use lsp_server::{Connection, Message};
+    use lsp_server::{Connection, Message, Notification};
     use lsp_types::{
         GotoDefinitionParams, PartialResultParams, Position, TextDocumentIdentifier,
         TextDocumentPositionParams, Uri, WorkDoneProgressParams,
@@ -146,7 +157,7 @@ mod tests {
         let script = path_to_uri(&none_existent_path);
         let resp = send_goto_definition_request(&client_connection, script, 0, 0);
 
-        assert_json_eq!(result_from_message(resp), serde_json::json!(null));
+        assert_json_eq!(result_from_message(resp), serde_json::Value::Null);
     }
 
     #[rstest]
@@ -189,20 +200,74 @@ mod tests {
         if let Some(name) = expected_file {
             target_uri = target_uri.replace(filename, name);
         }
-        assert_json_eq!(
-            result.pointer("/uri").unwrap(),
-            serde_json::json!(target_uri)
-        );
+        assert_json_eq!(result["uri"], serde_json::json!(target_uri));
         let (line, character) = expected_start;
         assert_json_eq!(
-            result.pointer("/range/start").unwrap(),
+            result["range"]["start"],
             serde_json::json!({ "line": line, "character": character })
         );
         if let Some((line, character)) = expected_end {
             assert_json_eq!(
-                result.pointer("/range/end").unwrap(),
+                result["range"]["end"],
                 serde_json::json!({ "line": line, "character": character })
             );
+        }
+    }
+
+    #[test]
+    // https://github.com/nushell/nushell/issues/16539
+    fn goto_definition_in_new_file() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp/no_such_file.nu");
+        let script = path_to_uri(&script);
+
+        let file_content = r#"def foo [] {}; foo"#;
+        let _ = open(
+            &client_connection,
+            script.clone(),
+            Some(file_content.into()),
+        );
+        let resp = send_goto_definition_request(
+            &client_connection,
+            script.clone(),
+            0,
+            file_content.len() as u32 - 1,
+        );
+        let result = result_from_message(resp);
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "uri": script,
+                "range": {
+                    "start": { "line": 0, "character": 11 },
+                    "end": { "line": 0, "character": 13 }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn goto_definition_on_stdlib_should_not_panic() {
+        let (client_connection, _recv) = initialize_language_server(None, None);
+
+        let mut script = fixtures();
+        script.push("lsp/goto/use_module.nu");
+        let script = path_to_uri(&script);
+
+        open_unchecked(&client_connection, script.clone());
+        let resp = send_goto_definition_request(&client_connection, script, 7, 19);
+        match resp {
+            Message::Notification(Notification { params, .. }) => {
+                assert!(
+                    params["message"]
+                        .to_string()
+                        .contains("absolute path is expected")
+                );
+            }
+            _ => panic!("Unexpected message!"),
         }
     }
 }

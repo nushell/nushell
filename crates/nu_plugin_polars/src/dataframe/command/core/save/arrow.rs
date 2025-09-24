@@ -1,43 +1,42 @@
-use std::fs::File;
+use std::{fs::File, path::PathBuf};
 
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{IpcWriter, SerWriter, SinkOptions};
-use polars_io::ipc::IpcWriterOptions;
+use polars::prelude::{IpcWriter, IpcWriterOptions, SerWriter, SinkOptions};
 
 use crate::{
     command::core::resource::Resource,
     values::{NuDataFrame, NuLazyFrame},
 };
 
-use super::{polars_file_save_error, sink_target_from_string};
+use super::polars_file_save_error;
 
 pub(crate) fn command_lazy(
     _call: &EvaluatedCall,
     lazy: &NuLazyFrame,
     resource: Resource,
 ) -> Result<(), ShellError> {
-    let file_path = sink_target_from_string(resource.path.clone());
+    let file_path = resource.as_string();
     let file_span = resource.span;
-    debug!("Writing ipc file {}", resource.path);
+    debug!("Writing ipc file {file_path}");
     lazy.to_polars()
         .sink_ipc(
-            file_path,
+            resource.clone().into(),
             IpcWriterOptions::default(),
             resource.cloud_options,
             SinkOptions::default(),
         )
         .and_then(|l| l.collect())
         .map(|_| {
-            debug!("Wrote ipc file {}", resource.path);
+            debug!("Wrote ipc file {file_path}");
         })
         .map_err(|e| polars_file_save_error(e, file_span))
 }
 
 pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), ShellError> {
-    let file_path = resource.path;
     let file_span = resource.span;
+    let file_path: PathBuf = resource.try_into()?;
     let mut file = File::create(file_path).map_err(|e| ShellError::GenericError {
         error: format!("Error with file name: {e}"),
         msg: "".into(),

@@ -258,6 +258,17 @@ mod tests {
             "kind": 6
         }
     ]))]
+    #[case::local_variable("var.nu", (5, 10), None, serde_json::json!([
+        {
+            "label": "$bar",
+            "labelDetails": { "description": "variable" },
+            "textEdit": {
+                "newText": "$bar",
+                "range": { "start": { "character": 7, "line": 5 }, "end": { "character": 10, "line": 5 } }
+            },
+            "kind": 6
+        }
+    ]))]
     #[case::keyword("keyword.nu", (0, 2), None, serde_json::json!([
         {
             "label": "overlay",
@@ -377,11 +388,11 @@ mod tests {
     ]))]
     #[case::use_clip("use.nu", (5, 22), None, serde_json::json!([
         {
-            "label": "clip",
+            "label": "std-rfc/clip",
             "labelDetails": { "description": "module" },
             "textEdit": {
-                "newText": "clip",
-                "range": { "start": { "character": 19, "line": 5 }, "end": { "character": 23, "line": 5 } }
+                "newText": "std-rfc/clip",
+                "range": { "start": { "character": 11, "line": 5 }, "end": { "character": 23, "line": 5 } }
             },
             "kind": 9
         }

@@ -1,8 +1,9 @@
 use crate::LanguageServer;
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
-    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
+    DidOpenTextDocumentParams, LogMessageParams, MessageType, ProgressParams, ProgressParamsValue,
+    ProgressToken, Uri, WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd,
+    WorkDoneProgressReport,
     notification::{
         DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
         DidOpenTextDocument, Notification, Progress,
@@ -65,6 +66,18 @@ impl LanguageServer {
         };
         let notification =
             lsp_server::Notification::new(Progress::METHOD.to_string(), progress_params);
+        self.connection
+            .sender
+            .send(lsp_server::Message::Notification(notification))
+            .into_diagnostic()
+    }
+
+    pub(crate) fn send_log_message(&self, typ: MessageType, message: String) -> Result<()> {
+        let log_params = LogMessageParams { typ, message };
+        let notification = lsp_server::Notification::new(
+            lsp_types::notification::LogMessage::METHOD.to_string(),
+            log_params,
+        );
         self.connection
             .sender
             .send(lsp_server::Message::Notification(notification))
@@ -136,8 +149,7 @@ impl LanguageServer {
 mod tests {
     use crate::path_to_uri;
     use crate::tests::{
-        initialize_language_server, open, open_unchecked, result_from_message, send_hover_request,
-        update,
+        initialize_language_server, open_unchecked, result_from_message, send_hover_request, update,
     };
     use assert_json_diff::assert_json_eq;
     use lsp_types::Range;
@@ -195,8 +207,6 @@ hello"#,
         script.push("lsp/notifications/issue_11522.nu");
         let script = path_to_uri(&script);
 
-        let result = open(&client_connection, script);
-
-        assert_eq!(result.map(|_| ()), Ok(()))
+        open_unchecked(&client_connection, script);
     }
 }

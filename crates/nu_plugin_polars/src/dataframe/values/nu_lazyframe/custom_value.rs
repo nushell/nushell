@@ -105,7 +105,7 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         _self_span: Span,
         index: nu_protocol::Spanned<usize>,
     ) -> Result<Value, ShellError> {
-        let expr = NuExpression::from(nth(index.item as i64));
+        let expr = NuExpression::from(nth(index.item as i64).as_expr());
         expr.cache_and_to_value(plugin, engine, index.span)
     }
 

@@ -2,8 +2,8 @@
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_textdocument::{FullTextDocument, TextDocuments};
 use lsp_types::{
-    InlayHint, OneOf, Position, Range, ReferencesOptions, RenameOptions, SemanticToken,
-    SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
+    InlayHint, MessageType, OneOf, Position, Range, ReferencesOptions, RenameOptions,
+    SemanticToken, SemanticTokenType, SemanticTokensLegend, SemanticTokensOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, SignatureHelpOptions,
     TextDocumentSyncKind, Uri, WorkDoneProgressOptions, WorkspaceFolder,
     WorkspaceFoldersServerCapabilities, WorkspaceServerCapabilities,
@@ -291,6 +291,10 @@ impl LanguageServer {
     pub(crate) fn cancel_background_thread(&mut self) {
         if let Some((sender, _)) = &self.channels {
             sender.send(true).ok();
+            let _ = self.send_log_message(
+                MessageType::WARNING,
+                "Workspace-wide search took too long!".into(),
+            );
         }
     }
 
@@ -510,7 +514,7 @@ mod tests {
 
         let _initialize_response = client_connection
             .receiver
-            .recv_timeout(Duration::from_secs(2))
+            .recv_timeout(Duration::from_secs(5))
             .unwrap();
 
         (client_connection, recv)
@@ -576,14 +580,17 @@ mod tests {
         client_connection: &Connection,
         uri: Uri,
     ) -> lsp_server::Notification {
-        open(client_connection, uri).unwrap()
+        open(client_connection, uri, None).unwrap()
     }
 
     pub(crate) fn open(
         client_connection: &Connection,
         uri: Uri,
+        new_text: Option<String>,
     ) -> Result<lsp_server::Notification, String> {
-        let text = std::fs::read_to_string(uri_to_path(&uri)).map_err(|e| e.to_string())?;
+        let text = new_text
+            .or_else(|| std::fs::read_to_string(uri_to_path(&uri)).ok())
+            .ok_or("Failed to read file.")?;
 
         client_connection
             .sender
