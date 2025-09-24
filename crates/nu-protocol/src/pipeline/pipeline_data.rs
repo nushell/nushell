@@ -192,7 +192,7 @@ impl PipelineData {
                     Ok(value)
                 }
             }
-            PipelineData::ListStream(stream, ..) => Ok(stream.into_value()),
+            PipelineData::ListStream(stream, ..) => stream.into_value(),
             PipelineData::ByteStream(stream, ..) => stream.into_value(),
         }
     }
