@@ -5207,6 +5207,14 @@ pub fn parse_closure_expression(
 
     let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
+    // NOTE: closures need to be compiled eagerly due to these reasons:
+    //  - their `Block`s (which contains their `IrBlock`) are stored in the working_set
+    //  - Ir compiler does not have mutable access to the working_set and can't attach `IrBlock`s
+    //  to existing `Block`s
+    // so they can't be compiled as part of their parent `Block`'s compilation
+    //
+    // If the compiler used a mechanism similar to the `EngineState`/`StateWorkingSet` divide, we
+    // could defer all compilation and apply the generated delta to `StateWorkingSet` afterwards.
     if working_set.parse_errors.is_empty() {
         compile_block(working_set, &mut output);
     }
@@ -6650,9 +6658,15 @@ pub fn parse_block(
     block
 }
 
-/// Compile an IR block for the `Block`, adding a compile error on failure
+/// Compile an [IrBlock][nu_protocol::ir::IrBlock] for the [Block], adding a compile error on
+/// failure.
+///
+/// To compile a block that's already in the [StateWorkingSet] use [compile_block_with_id]
 pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     if !working_set.parse_errors.is_empty() {
+        // This means there might be a bug in the parser, since calling this function while parse
+        // errors are present is a logic error. However, it's not fatal and it's best to continue
+        // without doing anything.
         log::error!("compile_block called with parse errors");
         return;
     }
@@ -6665,18 +6679,25 @@ pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     }
 }
 
+/// Compile an [IrBlock][nu_protocol::ir::IrBlock] for a [Block] that's already in the
+/// [StateWorkingSet] using its id, adding a compile error on failure.
 pub fn compile_block_with_id(working_set: &mut StateWorkingSet<'_>, block_id: BlockId) {
     if !working_set.parse_errors.is_empty() {
+        // This means there might be a bug in the parser, since calling this function while parse
+        // errors are present is a logic error. However, it's not fatal and it's best to continue
+        // without doing anything.
+        log::error!("compile_block_with_id called with parse errors");
         return;
     }
-    let ir_block = match nu_engine::compile(working_set, working_set.get_block(block_id)) {
-        Ok(ir_block) => Some(ir_block),
+
+    match nu_engine::compile(working_set, working_set.get_block(block_id)) {
+        Ok(ir_block) => {
+            working_set.get_block_mut(block_id).ir_block = Some(ir_block);
+        }
         Err(err) => {
             working_set.compile_errors.push(err);
-            None
         }
     };
-    working_set.get_block_mut(block_id).ir_block = ir_block;
 }
 
 pub fn discover_captures_in_closure(
@@ -7178,6 +7199,8 @@ pub fn parse(
         }
     };
 
+    // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them
+    // to be compiled later.
     if working_set.parse_errors.is_empty() {
         compile_block(working_set, Arc::make_mut(&mut output));
     }
