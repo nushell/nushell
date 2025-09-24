@@ -19,7 +19,7 @@ impl Command for DebugExperimentalOptions {
                     (String::from("status"), Type::String),
                     (String::from("description"), Type::String),
                     (String::from("since"), Type::String),
-                    (String::from("pr"), Type::String),
+                    (String::from("issue"), Type::String),
                 ])),
             )
             .add_help()
