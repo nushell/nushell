@@ -185,6 +185,11 @@ fn compile_pipeline(
             err: spec_redirect_modes.err.or(next_redirect_modes.err),
         };
 
+        if let Some(input) = in_reg {
+            builder.push(
+                Instruction::RecordInputExitFuture { src: input }.into_spanned(element.expr.span),
+            );
+        }
         compile_expression(
             working_set,
             builder,
@@ -200,6 +205,8 @@ fn compile_pipeline(
             // Clean up the redirection
             finish_redirection(builder, redirect_modes, out_reg)?;
         }
+
+        builder.push(Instruction::TrackExitFuture { dst: out_reg }.into_spanned(element.expr.span));
 
         // The next pipeline element takes input from this output
         in_reg = Some(out_reg);

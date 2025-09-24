@@ -285,6 +285,8 @@ impl BlockBuilder {
             Instruction::PopErrorHandler => Ok(()),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
+            Instruction::RecordInputExitFuture { src } => Ok(()),
+            Instruction::TrackExitFuture { .. } => Ok(()),
         };
 
         // Add more context to the error
