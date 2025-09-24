@@ -4613,13 +4613,10 @@ pub fn parse_list_expression(
                     (ListItem::Item(arg), ty)
                 };
 
-                if let Some(ref ctype) = contained_type {
-                    if *ctype != ty {
-                        contained_type = Some(Type::Any);
-                    }
-                } else {
-                    contained_type = Some(ty);
-                }
+                contained_type = match contained_type {
+                    Some(ctype) => Some(ctype.widen(ty)),
+                    None => Some(ty),
+                };
 
                 args.push(arg);
 
@@ -4796,13 +4793,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut mk_ty = || -> Type {
         rows.iter_mut()
             .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
-            .reduce(|acc, ty| -> Type {
-                if type_compatible(&acc, &ty) {
-                    ty
-                } else {
-                    Type::Any
-                }
-            })
+            .reduce(|acc, ty| -> Type { acc.widen(ty) })
             .unwrap_or_default()
     };
 
