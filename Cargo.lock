@@ -4271,7 +4271,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "strum_macros 0.26.4",
+ "strum_macros 0.27.2",
  "tempfile",
  "thiserror 2.0.12",
  "typetag",
