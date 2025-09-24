@@ -139,6 +139,7 @@ impl<'a> EvalContext<'a> {
         &self.registers[reg_id.get() as usize]
     }
 
+    #[cfg(feature = "os")]
     /// clone exit status future from a register.
     #[inline]
     fn clone_exit_status(
