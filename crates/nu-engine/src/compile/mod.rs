@@ -185,10 +185,15 @@ fn compile_pipeline(
             err: spec_redirect_modes.err.or(next_redirect_modes.err),
         };
 
-        if let Some(input) = in_reg {
-            builder.push(
-                Instruction::RecordInputExitFuture { src: input }.into_spanned(element.expr.span),
-            );
+        // Normally `in_reg` and `out_reg` are same, so we need to save
+        // ExitFuture before evaluating expression.
+        if nu_experimental::PIPE_FAIL.get() {
+            if let Some(input) = in_reg {
+                builder.push(
+                    Instruction::RecordInputExitFuture { src: input }
+                        .into_spanned(element.expr.span),
+                )?;
+            }
         }
         compile_expression(
             working_set,
@@ -206,7 +211,11 @@ fn compile_pipeline(
             finish_redirection(builder, redirect_modes, out_reg)?;
         }
 
-        builder.push(Instruction::TrackExitFuture { dst: out_reg }.into_spanned(element.expr.span));
+        if nu_experimental::PIPE_FAIL.get() {
+            builder.push(
+                Instruction::TrackExitFuture { dst: out_reg }.into_spanned(element.expr.span),
+            )?;
+        }
 
         // The next pipeline element takes input from this output
         in_reg = Some(out_reg);

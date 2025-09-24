@@ -905,26 +905,32 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Return { src } => Ok(Return(*src)),
         Instruction::RecordInputExitFuture { src } => {
-            let input = ctx.clone_exit_stauts(*src);
-            ctx.tmp_exit_future = input;
+            #[cfg(feature = "os")]
+            {
+                let input = ctx.clone_exit_stauts(*src);
+                ctx.tmp_exit_future = input;
+            }
             Ok(Continue)
         }
         Instruction::TrackExitFuture { dst } => {
-            // attach result's exit_status_future to `ctx.tmp`
-            // so all exit_status_future are tracked
-            // in the new PipelineData, and wrap it into `PipelineExecutionData`
-            let mut original_exit = vec![];
-            original_exit.append(&mut ctx.tmp_exit_future);
-            let output = ctx.take_reg(*dst);
-            let mut result_exit_status_future = output.exit;
-            original_exit.append(&mut result_exit_status_future);
-            ctx.put_reg(
-                *dst,
-                PipelineExecutionData {
-                    body: output.body,
-                    exit: original_exit,
-                },
-            );
+            #[cfg(feature = "os")]
+            {
+                // attach result's exit_status_future to `ctx.tmp_exit_future`
+                // so all exit_status_future are tracked in the new PipelineData
+                // and wrap it into `PipelineExecutionData`
+                let mut original_exit = vec![];
+                original_exit.append(&mut ctx.tmp_exit_future);
+                let output = ctx.take_reg(*dst);
+                let mut result_exit_status_future = output.exit;
+                original_exit.append(&mut result_exit_status_future);
+                ctx.put_reg(
+                    *dst,
+                    PipelineExecutionData {
+                        body: output.body,
+                        exit: original_exit,
+                    },
+                );
+            }
             Ok(Continue)
         }
     }
