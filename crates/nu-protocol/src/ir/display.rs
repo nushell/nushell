@@ -263,10 +263,10 @@ impl fmt::Display for FmtInstruction<'_> {
                 write!(f, "{:WIDTH$} {src}", "return")
             }
             Instruction::RecordInputExitFuture { src } => {
-                write!(f, "{:WIDTH$} {src}", "dummy")
+                write!(f, "{:WIDTH$} {src}", "record-input-exit-future")
             }
             Instruction::TrackExitFuture { dst } => {
-                write!(f, "{:WIDTH$} {dst}", "chain-result")
+                write!(f, "{:WIDTH$} {dst}", "track-exit-future")
             }
         }
     }
