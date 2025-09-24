@@ -3970,7 +3970,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
- "quick-xml 0.37.5",
+ "quick-xml 0.38.3",
  "rand 0.9.0",
  "rand_chacha 0.9.0",
  "rayon",
