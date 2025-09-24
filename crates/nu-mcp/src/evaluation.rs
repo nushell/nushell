@@ -194,3 +194,40 @@ impl PipelineBuffer {
             .unwrap_or((0, Content::new(RawContent::text(""), None)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_cmd_lang::create_default_context;
+    use nu_protocol::{Span, record};
+
+    #[test]
+    fn test_evaluator() -> Result<(), Box<dyn std::error::Error>> {
+        let values: Vec<Value> = (0..3)
+            .map(|index| {
+                Value::record(
+                    record! {
+                        "index" => Value::int(index, Span::test_data()),
+                        "text" => Value::string(lipsum::lipsum(MAX_PAGE_SIZE / 2),Span::test_data())
+                    },
+                    Span::test_data(),
+                )
+            })
+            .collect();
+        let values = Value::list(values, Span::test_data());
+        let engine_state = create_default_context();
+
+        let nuon_values = nuon::to_nuon(
+            &engine_state,
+            &values,
+            nuon::ToStyle::Default,
+            Some(Span::test_data()),
+            false,
+        )?;
+        let evaluator = Evaluator::new(Arc::new(engine_state));
+        let result = evaluator.eval(&nuon_values, None)?;
+        assert_eq!(result.summary.total, 3);
+        assert!(result.summary.next_cursor.is_some());
+        Ok(())
+    }
+}

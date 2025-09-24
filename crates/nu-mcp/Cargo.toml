@@ -26,3 +26,8 @@ mcp = []
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+lipsum = "0.9.1"
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.107.1" }
+nuon = { path = "../nuon", version = "0.107.1" }
