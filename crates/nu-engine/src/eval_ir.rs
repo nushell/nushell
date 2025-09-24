@@ -71,6 +71,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
+                #[cfg(feature = "os")]
                 registers: &mut registers[..],
                 tmp_exit_future: vec![],
                 files: &mut files[..],
@@ -116,6 +117,7 @@ struct EvalContext<'a> {
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
     registers: &'a mut [PipelineExecutionData],
+    #[cfg(feature = "os")]
     /// Temporarily exit future, used to implement pipefail feature by
     /// Instruction::RecordExitFuture and Instruction::TrackExitFuture
     tmp_exit_future: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
