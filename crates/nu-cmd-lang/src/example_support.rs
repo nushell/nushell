@@ -229,6 +229,9 @@ impl std::fmt::Debug for DebuggableValue<'_> {
             Value::Float { val, .. } => {
                 write!(f, "{val:?}f")
             }
+            Value::Decimal { val, .. } => {
+                write!(f, "{val:?}")
+            }
             Value::Filesize { val, .. } => {
                 write!(f, "Filesize({val:?})")
             }

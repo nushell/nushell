@@ -572,6 +572,7 @@ fn value_should_be_printed(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::Float { .. }
+        | Value::Decimal { .. }
         | Value::Closure { .. }
         | Value::Nothing { .. } => {
             if !pattern.search_terms.is_empty() {

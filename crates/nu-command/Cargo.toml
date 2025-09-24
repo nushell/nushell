@@ -96,6 +96,7 @@ rusqlite = { workspace = true, features = [
 	"chrono",
 	"column_decltype",
 ], optional = true }
+rust_decimal = { workspace = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }
 rmp = { workspace = true }

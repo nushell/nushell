@@ -68,6 +68,10 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
                 Value::Filesize { .. } => Ok(Value::filesize(0, span)),
                 Value::Duration { .. } => Ok(Value::duration(0, span)),
                 Value::Int { .. } | Value::Float { .. } => Ok(Value::int(0, span)),
+                Value::Decimal { .. } => {
+                    use rust_decimal::Decimal;
+                    Ok(Value::decimal(Decimal::ZERO, span))
+                }
                 _ => Ok(Value::nothing(head)),
             }
         }
@@ -84,6 +88,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
         match value {
             Value::Int { .. }
             | Value::Float { .. }
+            | Value::Decimal { .. }
             | Value::Filesize { .. }
             | Value::Duration { .. } => {
                 acc = acc.add(head, value, head)?;

@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use nu_protocol::decimal_to_float_error;
+use rust_decimal::prelude::ToPrimitive;
 
 #[derive(Clone)]
 pub struct ToYaml;
@@ -108,6 +110,7 @@ pub fn value_to_yaml_value(
         Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
+        Value::Decimal { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(val.to_f64().ok_or_else(|| decimal_to_float_error(v.span()))?)),
         Value::String { val, .. } | Value::Glob { val, .. } => {
             serde_yaml::Value::String(val.clone())
         }

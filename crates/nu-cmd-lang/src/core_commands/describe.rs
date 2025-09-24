@@ -358,6 +358,12 @@ fn describe_value_inner(
             "rust_type" => Value::string(type_of(&val), head),
             "value" => value,
         }),
+        Value::Decimal { val, .. } => Description::Record(record! {
+            "type" => Value::string("decimal", head),
+            "detailed_type" => Value::string(value_type, head),
+            "rust_type" => Value::string(type_of(&val), head),
+            "value" => value,
+        }),
         Value::Filesize { val, .. } => Description::Record(record! {
             "type" => Value::string("filesize", head),
             "detailed_type" => Value::string(value_type, head),

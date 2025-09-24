@@ -144,6 +144,7 @@ quote = "1.0"
 rand = "0.9"
 getrandom = "0.2" # pick same version that rand requires
 rand_chacha = "0.9"
+rust_decimal = "1.36"
 ratatui = "0.29"
 rayon = "1.11"
 reedline = "0.42.0"
@@ -241,6 +242,7 @@ multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
+rust_decimal = { workspace = true }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows

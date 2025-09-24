@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineMetadata, ast::PathMember};
+use nu_protocol::{ast::PathMember, decimal_to_float_error, PipelineMetadata};
+use num_traits::ToPrimitive;
 
 #[derive(Clone)]
 pub struct ToJson;
@@ -123,6 +124,7 @@ pub fn value_to_json_value(
         Value::Duration { val, .. } => nu_json::Value::I64(*val),
         Value::Date { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Float { val, .. } => nu_json::Value::F64(*val),
+        Value::Decimal { val, .. } => nu_json::Value::F64(val.to_f64().ok_or_else(|| decimal_to_float_error(v.span()))?),
         Value::Int { val, .. } => nu_json::Value::I64(*val),
         Value::Nothing { .. } => nu_json::Value::Null,
         Value::String { val, .. } => nu_json::Value::String(val.to_string()),

@@ -166,6 +166,7 @@ fn local_into_string(
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => ObviousFloat(val).to_string(),
+        Value::Decimal { val, .. } => val.to_string(),
         Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {

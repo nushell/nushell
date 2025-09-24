@@ -367,7 +367,11 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         Type::String => Ok("TEXT"),
         Type::Int => Ok("INTEGER"),
         Type::Float => Ok("REAL"),
-        Type::Number => Ok("REAL"),
+        // TODO Sqlite Decimal extension stores numbers as text. I think rounding to REAL here is fine;
+        // it does mean that the type transitions back to floating, but that is real, unless we store as text,
+        // and I'm not sure at this moment where the parsing back to decimal would take place.
+        Type::Decimal => Ok("REAL"),
+        Type::Number => Ok("DECIMAL"),
         Type::Binary => Ok("BLOB"),
         Type::Bool => Ok("BOOLEAN"),
         Type::Date => Ok("DATETIME"),

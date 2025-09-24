@@ -94,6 +94,7 @@ impl<'a> StyleComputer<'a> {
             Value::Date { .. } => TextStyle::with_style(Left, s),
             Value::Range { .. } => TextStyle::with_style(Left, s),
             Value::Float { .. } => TextStyle::with_style(Right, s),
+            Value::Decimal { .. } => TextStyle::with_style(Right, s),
             Value::String { .. } => TextStyle::with_style(Left, s),
             Value::Glob { .. } => TextStyle::with_style(Left, s),
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
