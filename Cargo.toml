@@ -170,7 +170,7 @@ strum_macros = "0.27"
 syn = "2.0"
 sysinfo = "0.36"
 tabled = { version = "0.20", default-features = false }
-tempfile = "3.22"
+tempfile = "3.23"
 thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.8"
