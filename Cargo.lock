@@ -796,34 +796,13 @@ checksum = "3572b24445a122332bb25a2637248d62ca8b567351d98b1194ca4132c61810bd"
 
 [[package]]
 name = "brotli"
-version = "7.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc97b8f16f944bba54f0433f07e30be199b6dc2bd25937444bbad560bcea29bd"
-dependencies = [
- "alloc-no-stdlib",
- "alloc-stdlib",
- "brotli-decompressor 4.0.1",
-]
-
-[[package]]
-name = "brotli"
 version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bd8b9603c7aa97359dbd97ecf258968c95f3adddd6db2f7e7a5bef101c84560"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
- "brotli-decompressor 5.0.0",
-]
-
-[[package]]
-name = "brotli-decompressor"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a45bd2e4095a8b518033b128020dd4a55aab1c0a381ba4404a472630f4bc362"
-dependencies = [
- "alloc-no-stdlib",
- "alloc-stdlib",
+ "brotli-decompressor",
 ]
 
 [[package]]
@@ -3905,7 +3884,7 @@ dependencies = [
  "alphanumeric-sort",
  "base64 0.22.1",
  "bracoxide",
- "brotli 7.0.0",
+ "brotli",
  "byteorder",
  "bytesize",
  "calamine",
@@ -4242,7 +4221,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.107.1"
 dependencies = [
- "brotli 7.0.0",
+ "brotli",
  "bytes",
  "chrono",
  "chrono-humanize",
@@ -5534,7 +5513,7 @@ checksum = "cc1d769180dec070df0dc4b89299b364bf2cfe32b218ecc4ddd8f1a49ae60669"
 dependencies = [
  "async-stream",
  "base64 0.22.1",
- "brotli 8.0.2",
+ "brotli",
  "bytemuck",
  "ethnum",
  "flate2",
