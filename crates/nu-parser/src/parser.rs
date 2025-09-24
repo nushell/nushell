@@ -1305,15 +1305,6 @@ pub fn parse_internal_call(
                 &positional.shape,
             );
 
-            // The block expression that needs to be compiled eagerly is an `export-env` block.
-            // This is true whether it's part of a module or not
-            match arg.expr {
-                Expr::Block(block_id) if signature.name == "export-env" => {
-                    compile_block_with_id(working_set, block_id);
-                }
-                _ => {}
-            };
-
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                 working_set.error(ParseError::TypeMismatch(
                     positional.shape.to_type(),
@@ -5986,7 +5977,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
             b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"hide" => {
+            | b"export-env" | b"hide" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
@@ -6140,6 +6131,7 @@ pub fn parse_builtin_commands(
         b"extern" => parse_extern(working_set, lite_command, None),
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
+        b"export-env" => parse_export_env(working_set, &lite_command.parts).0,
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         b"let" => parse_let(
