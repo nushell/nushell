@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{CustomValue, ShellError, Span, Value, ast::Operator};
+use nu_protocol::{CustomValue, ShellError, Span, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
 
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,7 @@ impl CustomValue for PluginCustomValue {
         _self_span: Span,
         _index: usize,
         _path_span: Span,
+        _optional: bool,
     ) -> Result<Value, ShellError> {
         panic!("follow_path_int() not available on plugin custom value without source");
     }
@@ -72,6 +73,8 @@ impl CustomValue for PluginCustomValue {
         _self_span: Span,
         _column_name: String,
         _path_span: Span,
+        _optional: bool,
+        _casing: Casing,
     ) -> Result<Value, ShellError> {
         panic!("follow_path_string() not available on plugin custom value without source");
     }

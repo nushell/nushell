@@ -17,7 +17,7 @@ use nu_plugin_core::{
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
     CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Spanned,
-    Value, ast::Operator,
+    Value, ast::Operator, casing::Casing,
 };
 use thiserror::Error;
 
@@ -145,11 +145,12 @@ pub trait Plugin: Sync {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
         index: Spanned<usize>,
+        optional: bool,
     ) -> Result<Value, LabeledError> {
         let _ = engine;
         custom_value
             .item
-            .follow_path_int(custom_value.span, index.item, index.span)
+            .follow_path_int(custom_value.span, index.item, index.span, optional)
             .map_err(LabeledError::from)
     }
 
@@ -162,11 +163,19 @@ pub trait Plugin: Sync {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
         column_name: Spanned<String>,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, LabeledError> {
         let _ = engine;
         custom_value
             .item
-            .follow_path_string(custom_value.span, column_name.item, column_name.span)
+            .follow_path_string(
+                custom_value.span,
+                column_name.item,
+                column_name.span,
+                optional,
+                casing,
+            )
             .map_err(LabeledError::from)
     }
 
@@ -605,17 +614,21 @@ fn custom_value_op(
                 .write_response(result)
                 .and_then(|writer| writer.write())
         }
-        CustomValueOp::FollowPathInt(index) => {
+        CustomValueOp::FollowPathInt { index, optional } => {
             let result = plugin
-                .custom_value_follow_path_int(engine, local_value, index)
+                .custom_value_follow_path_int(engine, local_value, index, optional)
                 .map(|value| PipelineData::value(value, None));
             engine
                 .write_response(result)
                 .and_then(|writer| writer.write())
         }
-        CustomValueOp::FollowPathString(column_name) => {
+        CustomValueOp::FollowPathString {
+            column_name,
+            optional,
+            casing,
+        } => {
             let result = plugin
-                .custom_value_follow_path_string(engine, local_value, column_name)
+                .custom_value_follow_path_string(engine, local_value, column_name, optional, casing)
                 .map(|value| PipelineData::value(value, None));
             engine
                 .write_response(result)

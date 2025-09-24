@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt};
 
-use crate::{ShellError, Span, Type, Value, ast::Operator};
+use crate::{ShellError, Span, Type, Value, ast::Operator, casing::Casing};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -30,28 +30,52 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Any representation used to downcast object to its original type (mutable reference)
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
 
-    /// Follow cell path by numeric index (e.g. rows)
+    /// Follow cell path by numeric index (e.g. rows).
+    ///
+    /// Let `$val` be the custom value then these are the fields passed to this method:
+    /// ```text
+    ///      ╭── index [path_span]
+    ///      ┴
+    /// $val.0?
+    /// ──┬─  ┬
+    ///   │   ╰── optional, `true` if present
+    ///   ╰── self [self_span]
+    /// ```
     fn follow_path_int(
         &self,
         self_span: Span,
         index: usize,
         path_span: Span,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        let _ = (self_span, index);
+        let _ = (self_span, index, optional);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.type_name(),
             span: path_span,
         })
     }
 
-    /// Follow cell path by string key (e.g. columns)
+    /// Follow cell path by string key (e.g. columns).
+    ///
+    /// Let `$val` be the custom value then these are the fields passed to this method:
+    /// ```text
+    ///         ╭── column_name [path_span]
+    ///         │   ╭── casing, `Casing::Insensitive` if present
+    ///      ───┴── ┴
+    /// $val.column?!
+    /// ──┬─       ┬
+    ///   │        ╰── optional, `true` if present
+    ///   ╰── self [self_span]
+    /// ```
     fn follow_path_string(
         &self,
         self_span: Span,
         column_name: String,
         path_span: Span,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
-        let _ = (self_span, column_name);
+        let _ = (self_span, column_name, optional, casing);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.type_name(),
             span: path_span,
