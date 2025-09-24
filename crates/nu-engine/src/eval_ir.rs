@@ -907,33 +907,29 @@ fn eval_instruction<D: DebugContext>(
             })
         }
         Instruction::Return { src } => Ok(Return(*src)),
+        #[cfg(feature = "os")]
         Instruction::RecordInputExitFuture { src } => {
-            #[cfg(feature = "os")]
-            {
-                let input = ctx.clone_exit_status(*src);
-                ctx.tmp_exit_future = input;
-            }
+            let input = ctx.clone_exit_status(*src);
+            ctx.tmp_exit_future = input;
             Ok(Continue)
         }
+        #[cfg(feature = "os")]
         Instruction::TrackExitFuture { dst } => {
-            #[cfg(feature = "os")]
-            {
-                // attach result's exit_status_future to `ctx.tmp_exit_future`
-                // so all exit_status_future are tracked in the new PipelineData
-                // and wrap it into `PipelineExecutionData`
-                let mut original_exit = vec![];
-                original_exit.append(&mut ctx.tmp_exit_future);
-                let output = ctx.take_reg(*dst);
-                let mut result_exit_status_future = output.exit;
-                original_exit.append(&mut result_exit_status_future);
-                ctx.put_reg(
-                    *dst,
-                    PipelineExecutionData {
-                        body: output.body,
-                        exit: original_exit,
-                    },
-                );
-            }
+            // attach result's exit_status_future to `ctx.tmp_exit_future`
+            // so all exit_status_future are tracked in the new PipelineData
+            // and wrap it into `PipelineExecutionData`
+            let mut original_exit = vec![];
+            original_exit.append(&mut ctx.tmp_exit_future);
+            let output = ctx.take_reg(*dst);
+            let mut result_exit_status_future = output.exit;
+            original_exit.append(&mut result_exit_status_future);
+            ctx.put_reg(
+                *dst,
+                PipelineExecutionData {
+                    body: output.body,
+                    exit: original_exit,
+                },
+            );
             Ok(Continue)
         }
     }

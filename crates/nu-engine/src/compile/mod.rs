@@ -185,6 +185,7 @@ fn compile_pipeline(
             err: spec_redirect_modes.err.or(next_redirect_modes.err),
         };
 
+        #[cfg(feature = "os")]
         // Normally `in_reg` and `out_reg` are same, so we need to save
         // ExitFuture before evaluating expression.
         if nu_experimental::PIPE_FAIL.get() {
@@ -211,6 +212,7 @@ fn compile_pipeline(
             finish_redirection(builder, redirect_modes, out_reg)?;
         }
 
+        #[cfg(feature = "os")]
         if nu_experimental::PIPE_FAIL.get() {
             builder.push(
                 Instruction::TrackExitFuture { dst: out_reg }.into_spanned(element.expr.span),

@@ -259,8 +259,10 @@ pub enum Instruction {
     ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },
+    #[cfg(feature = "os")]
     /// Pipefail feature: Record exit future before the execution of pipeline elements.
     RecordInputExitFuture { src: RegId },
+    #[cfg(feature = "os")]
     /// Pipefail feature: Append exit future to another one which has been recorded.
     TrackExitFuture { dst: RegId },
 }
@@ -335,7 +337,9 @@ impl Instruction {
             Instruction::PopErrorHandler => None,
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
+            #[cfg(feature = "os")]
             Instruction::RecordInputExitFuture { src: src_dst, .. } => Some(src_dst),
+            #[cfg(feature = "os")]
             Instruction::TrackExitFuture { dst, .. } => Some(dst),
         }
     }

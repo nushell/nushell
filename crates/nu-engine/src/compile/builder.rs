@@ -285,7 +285,9 @@ impl BlockBuilder {
             Instruction::PopErrorHandler => Ok(()),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
+            #[cfg(feature = "os")]
             Instruction::RecordInputExitFuture { .. } => Ok(()),
+            #[cfg(feature = "os")]
             Instruction::TrackExitFuture { .. } => Ok(()),
         };
 
