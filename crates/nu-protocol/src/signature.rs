@@ -319,6 +319,8 @@ pub struct Signature {
     pub is_filter: bool,
     pub creates_scope: bool,
     pub allows_unknown_args: bool,
+    /// TODO: Use a proper type here
+    pub complete: Option<Option<DeclId>>,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
 }
@@ -354,6 +356,7 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+            complete: None,
         }
     }
 

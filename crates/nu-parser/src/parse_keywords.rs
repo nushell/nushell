@@ -1013,6 +1013,30 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
+            "complete" => match <Option<Spanned<String>>>::from_value(value) {
+                Ok(Some(Spanned { item, span })) => {
+                    if let Some(decl) = working_set.find_decl(item.as_bytes()) {
+                        // TODO: Enforce command signature? Not before settling on a unified
+                        // custom completion api
+                        signature.complete = Some(Some(decl));
+                    } else {
+                        working_set.error(ParseError::UnknownCommand(span));
+                    }
+                }
+                Ok(None) => {
+                    signature.complete = Some(None);
+                }
+                Err(_) => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_completer".into(),
+                        msg: "Value couldn't be converted to a completer".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr complete` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
             _ => {
                 attribute_vals.push((name, value));
             }
