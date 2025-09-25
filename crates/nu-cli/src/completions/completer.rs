@@ -719,6 +719,15 @@ impl NuCompleter {
                 };
                 return self.process_completion(&mut completer, ctx);
             }
+            "attr complete" => {
+                *need_fallback = false;
+
+                let mut completer = CommandCompletion {
+                    internals: true,
+                    externals: false,
+                };
+                return self.process_completion(&mut completer, ctx);
+            }
             _ => (),
         }
 
