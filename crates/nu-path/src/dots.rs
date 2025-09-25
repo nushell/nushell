@@ -1,6 +1,6 @@
 #[cfg(windows)]
 use omnipath::WinPathExt;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 
 /// Normalize the path, expanding occurrences of n-dots.
 ///
@@ -17,6 +17,7 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
     let path = path.as_ref();
 
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
+    let mut has_special_prefix = false;
     for component in crate::components(path) {
         match component {
             Component::Normal(s) if is_ndots(s) => {
@@ -25,6 +26,21 @@ pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
                 for _ in 0..n - 1 {
                     result.push("..");
                 }
+            }
+            Component::Prefix(prefix) => {
+                match prefix.kind() {
+                    Prefix::Disk(_) => {
+                        // Here, only the disk letter gets parsed as prefix,
+                        // so the following RootDir component makes sense
+                    }
+                    _ => {
+                        has_special_prefix = true;
+                    }
+                }
+                result.push(component)
+            }
+            Component::RootDir if has_special_prefix => {
+                // Ignore; this would add a trailing backslash to the path that wasn't in the input
             }
             _ => result.push(component),
         }
@@ -51,6 +67,7 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
 
     let path = path.as_ref();
 
+    let mut has_special_prefix = false;
     let mut result = PathBuf::with_capacity(path.as_os_str().len());
     for component in crate::components(path) {
         match component {
@@ -59,6 +76,21 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
             }
             Component::CurDir if last_component_is_normal(&result) => {
                 // no-op
+            }
+            Component::Prefix(prefix) => {
+                match prefix.kind() {
+                    Prefix::Disk(_) => {
+                        // Here, only the disk letter gets parsed as prefix,
+                        // so the following RootDir component makes sense
+                    }
+                    _ => {
+                        has_special_prefix = true;
+                    }
+                }
+                result.push(component)
+            }
+            Component::RootDir if has_special_prefix => {
+                // Ignore; this would add a trailing backslash to the path that wasn't in the input
             }
             _ => {
                 let prev_component = result.components().next_back();
@@ -192,6 +224,54 @@ mod test_expand_ndots {
         let path = Path::new("./...");
         assert_path_eq!(expand_ndots_safe(path), "./...");
     }
+
+    #[test]
+    fn unc_share_no_dots() {
+        let path = Path::new(r"\\server\share");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn unc_file_no_dots() {
+        let path = Path::new(r"\\server\share\dir\file.nu");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn verbatim_no_dots() {
+        let path = Path::new(r"\\?\pictures\elephants");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn verbatim_unc_share_no_dots() {
+        let path = Path::new(r"\\?\UNC\server\share");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn verbatim_unc_file_no_dots() {
+        let path = Path::new(r"\\?\UNC\server\share\dir\file.nu");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn verbatim_disk_no_dots() {
+        let path = Path::new(r"\\?\c:\");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn device_path_no_dots() {
+        let path = Path::new(r"\\.\CON");
+        assert_path_eq!(expand_ndots(path), path);
+    }
+
+    #[test]
+    fn disk_no_dots() {
+        let path = Path::new(r"c:\Users\Ellie\nu_scripts");
+        assert_path_eq!(expand_ndots(path), path);
+    }
 }
 
 #[cfg(test)]
@@ -246,5 +326,61 @@ mod test_expand_dots {
         let path = Path::new("/foo/bar/../../../../baz");
         let expected = if cfg!(windows) { r"\baz" } else { "/baz" };
         assert_path_eq!(expand_dots(path), expected);
+    }
+
+    #[test]
+    fn unc_share_no_dots() {
+        let path = Path::new(r"\\server\share");
+        assert_path_eq!(expand_dots(path), path);
+    }
+
+    #[test]
+    fn unc_file_no_dots() {
+        let path = Path::new(r"\\server\share\dir\file.nu");
+        assert_path_eq!(expand_dots(path), path);
+    }
+
+    #[test]
+    #[ignore = "bug in upstream library"]
+    fn verbatim_no_dots() {
+        // omnipath::windows::sys::Path::to_winuser_path seems to turn this verbatim path into a device path
+        let path = Path::new(r"\\?\pictures\elephants");
+        assert_path_eq!(expand_dots(path), path);
+    }
+
+    #[cfg_attr(not(windows), ignore = "only for Windows")]
+    #[test]
+    fn verbatim_unc_share_no_dots() {
+        let path = Path::new(r"\\?\UNC\server\share");
+        let expected = Path::new(r"\\server\share");
+        assert_path_eq!(expand_dots(path), expected);
+    }
+
+    #[cfg_attr(not(windows), ignore = "only for Windows")]
+    #[test]
+    fn verbatim_unc_file_no_dots() {
+        let path = Path::new(r"\\?\UNC\server\share\dir\file.nu");
+        let expected = Path::new(r"\\server\share\dir\file.nu");
+        assert_path_eq!(expand_dots(path), expected);
+    }
+
+    #[cfg_attr(not(windows), ignore = "only for Windows")]
+    #[test]
+    fn verbatim_disk_no_dots() {
+        let path = Path::new(r"\\?\C:\");
+        let expected = Path::new(r"C:\");
+        assert_path_eq!(expand_dots(path), expected);
+    }
+
+    #[test]
+    fn device_path_no_dots() {
+        let path = Path::new(r"\\.\CON");
+        assert_path_eq!(expand_dots(path), path);
+    }
+
+    #[test]
+    fn disk_no_dots() {
+        let path = Path::new(r"c:\Users\Ellie\nu_scripts");
+        assert_path_eq!(expand_dots(path), path);
     }
 }
