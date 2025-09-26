@@ -5,18 +5,16 @@ use crate::completions::{
     base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_engine::eval_block;
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    Completion, PipelineData, Span, Spanned, Type, Value,
+    Completion, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
-    debugger::WithoutDebug,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
 
-use super::{StaticCompletion, custom_completions::get_command_arguments};
+use super::{StaticCompletion, custom_completions::ExternalCompletion};
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -509,25 +507,31 @@ impl NuCompleter {
                                 }
                             }
                         }
+
                         // resort to external completer set in config
-                        let config = self.engine_state.get_config();
-                        if let Some(closure) = config.completions.external.completer.as_ref() {
-                            let mut text_spans =
-                                get_command_arguments(working_set, element_expression);
-                            let mut new_span = span;
-                            // strip the placeholder
-                            if strip && let Some(last) = text_spans.item.last_mut() {
-                                last.item.pop();
-                                new_span = Span::new(span.start, span.end.saturating_sub(1));
-                            }
-                            if let Some(external_result) =
-                                self.external_completion(closure, text_spans, offset, new_span)
-                            {
+                        let closure = self
+                            .engine_state
+                            .get_config()
+                            .completions
+                            .external
+                            .completer
+                            .as_ref();
+
+                        if let Some(closure) = closure {
+                            let mut external_completion =
+                                ExternalCompletion::new(closure, element_expression, strip);
+
+                            let ctx = Context::new(working_set, span, b"", offset);
+                            let external_results =
+                                self.process_completion(&mut external_completion, &ctx);
+
+                            if !external_completion.need_fallback {
                                 // Prioritize external results over (sub)commands
-                                suggestions.splice(0..0, external_result);
+                                suggestions.splice(0..0, external_results);
                                 return suggestions;
                             }
                         }
+
                         // for external path arguments with spaces, please check issue #15790
                         if suggestions.is_empty() {
                             let (new_span, prefix) =
@@ -751,65 +755,6 @@ impl NuCompleter {
             ctx.offset,
             &options,
         )
-    }
-
-    fn external_completion(
-        &self,
-        closure: &Closure,
-        Spanned {
-            item: args,
-            span: args_span,
-        }: Spanned<Vec<Spanned<String>>>,
-        offset: usize,
-        span: Span,
-    ) -> Option<Vec<SemanticSuggestion>> {
-        let block = self.engine_state.get_block(closure.block_id);
-        let mut callee_stack = self
-            .stack
-            .captures_to_stack_preserve_out_dest(closure.captures.clone());
-
-        // Line
-        if let Some(pos_arg) = block.signature.required_positional.first()
-            && let Some(var_id) = pos_arg.var_id
-        {
-            callee_stack.add_var(
-                var_id,
-                Value::list(
-                    args.into_iter()
-                        .map(|Spanned { item, span }| Value::string(item, span))
-                        .collect(),
-                    args_span,
-                ),
-            );
-        }
-
-        let result = eval_block::<WithoutDebug>(
-            &self.engine_state,
-            &mut callee_stack,
-            block,
-            PipelineData::empty(),
-        )
-        .map(|p| p.body);
-
-        match result.and_then(|data| data.into_value(span)) {
-            Ok(Value::List { vals, .. }) => {
-                let result =
-                    map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
-                Some(result)
-            }
-            Ok(Value::Nothing { .. }) => None,
-            Ok(value) => {
-                log::error!(
-                    "External completer returned invalid value of type {}",
-                    value.get_type()
-                );
-                Some(vec![])
-            }
-            Err(err) => {
-                log::error!("failed to eval completer block: {err}");
-                Some(vec![])
-            }
-        }
     }
 }
 
