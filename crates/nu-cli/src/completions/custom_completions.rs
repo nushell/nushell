@@ -265,6 +265,99 @@ pub fn get_command_arguments(
         .into_spanned(span)
 }
 
+pub struct CustomCommandWideCompletion<'e> {
+    decl_id: DeclId,
+    expression: &'e Expression,
+    strip: bool,
+    pub need_fallback: bool,
+}
+
+impl<'a> CustomCommandWideCompletion<'a> {
+    pub fn new(completer_decl_id: DeclId, expression: &'a Expression, strip: bool) -> Self {
+        Self {
+            decl_id: completer_decl_id,
+            expression,
+            strip,
+            need_fallback: false,
+        }
+    }
+}
+
+impl<'a> Completer for CustomCommandWideCompletion<'a> {
+    fn fetch(
+        &mut self,
+        working_set: &StateWorkingSet,
+        stack: &Stack,
+        _prefix: impl AsRef<str>,
+        span: Span,
+        offset: usize,
+        _options: &CompletionOptions,
+    ) -> Vec<SemanticSuggestion> {
+        let Some(block_id) = working_set.get_decl(self.decl_id).block_id() else {
+            self.need_fallback = true;
+            return vec![];
+        };
+        let block = working_set.get_block(block_id);
+
+        let Spanned {
+            item: mut args,
+            span: args_span,
+        } = get_command_arguments(working_set, self.expression);
+
+        let mut new_span = span;
+        // strip the placeholder
+        if self.strip
+            && let Some(last) = args.last_mut()
+        {
+            last.item.pop();
+            new_span = Span::new(span.start, span.end.saturating_sub(1));
+        }
+
+        let Some(var_id) = block
+            .signature
+            .required_positional
+            .first()
+            .and_then(|pos_arg| pos_arg.var_id)
+        else {
+            // TODO: raise an error
+            return vec![];
+        };
+
+        let mut stack_mut = stack.clone();
+        stack_mut.add_var(
+            var_id,
+            Value::list(
+                args.into_iter()
+                    .map(|Spanned { item, span }| Value::string(item, span))
+                    .collect(),
+                args_span,
+            ),
+        );
+        let mut new_engine_state;
+        let engine_state = if self.decl_id.get() < working_set.permanent_state.num_decls() {
+            working_set.permanent_state
+        } else {
+            new_engine_state = working_set.permanent_state.clone();
+            let _ = new_engine_state.merge_delta(working_set.delta.clone());
+            &new_engine_state
+        };
+        let result = nu_engine::eval_block::<WithoutDebug>(
+            engine_state,
+            &mut stack_mut,
+            block,
+            PipelineData::empty(),
+        )
+        .map(|p| p.body);
+
+        if let Some(results) = convert_whole_command_completion_results(offset, new_span, result) {
+            results
+        } else {
+            self.need_fallback = true;
+            vec![]
+        }
+    }
+}
+
 /// Converts the output of the external completion closure and whole command custom completion
 /// commands'
 fn convert_whole_command_completion_results(

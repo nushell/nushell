@@ -14,7 +14,10 @@ use nu_protocol::{
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
 
-use super::{StaticCompletion, custom_completions::ExternalCompletion};
+use super::{
+    StaticCompletion,
+    custom_completions::{CustomCommandWideCompletion, ExternalCompletion},
+};
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -356,11 +359,11 @@ impl NuCompleter {
                         continue;
                     }
 
+                    let signature = working_set.get_decl(call.decl_id).signature();
+
                     // Get custom completion from PositionalArg or Flag
                     let completion = {
                         // Check PositionalArg or Flag from Signature
-                        let signature = working_set.get_decl(call.decl_id).signature();
-
                         match arg {
                             // For named arguments, check Flag
                             Argument::Named((name, short, value)) => {
@@ -432,6 +435,50 @@ impl NuCompleter {
                                 // We don't want to fallback to file completion here
                                 return suggestions;
                             }
+                        }
+                    } else if let Some(command_wide_completer) = signature.complete {
+                        let global_completer = self
+                            .engine_state
+                            .get_config()
+                            .completions
+                            .external
+                            .completer
+                            .as_ref();
+
+                        match (command_wide_completer, global_completer) {
+                            (Some(completer_decl_id), _) => {
+                                let mut completion = CustomCommandWideCompletion::new(
+                                    completer_decl_id,
+                                    element_expression,
+                                    strip,
+                                );
+
+                                let ctx = Context::new(working_set, span, b"", offset);
+                                let results = self.process_completion(&mut completion, &ctx);
+
+                                if !completion.need_fallback {
+                                    // Prioritize external results over (sub)commands
+                                    suggestions.splice(0..0, results);
+                                    return suggestions;
+                                }
+                            }
+                            (None, Some(completer_closure)) => {
+                                let mut completion = ExternalCompletion::new(
+                                    completer_closure,
+                                    element_expression,
+                                    strip,
+                                );
+
+                                let ctx = Context::new(working_set, span, b"", offset);
+                                let results = self.process_completion(&mut completion, &ctx);
+
+                                if !completion.need_fallback {
+                                    // Prioritize external results over (sub)commands
+                                    suggestions.splice(0..0, results);
+                                    return suggestions;
+                                }
+                            }
+                            (None, None) => {}
                         }
                     }
 
