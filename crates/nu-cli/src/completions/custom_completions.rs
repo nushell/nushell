@@ -3,8 +3,9 @@ use crate::completions::{
     completer::map_value_completions,
 };
 use nu_engine::eval_call;
+use nu_parser::{FlatShape, flatten_expression};
 use nu_protocol::{
-    DeclId, PipelineData, Span, Type, Value,
+    DeclId, IntoSpanned, PipelineData, Span, Spanned, Type, Value,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -165,4 +166,25 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 .collect()
         }
     }
+}
+
+pub fn get_command_arguments(
+    working_set: &StateWorkingSet<'_>,
+    element_expression: &Expression,
+) -> Spanned<Vec<Spanned<String>>> {
+    let span = element_expression.span(&working_set);
+    flatten_expression(working_set, element_expression)
+        .iter()
+        .map(|(span, shape)| {
+            let bytes = working_set.get_span_contents(match shape {
+                // Use expanded alias span
+                FlatShape::External(span) => **span,
+                _ => *span,
+            });
+            String::from_utf8_lossy(bytes)
+                .into_owned()
+                .into_spanned(*span)
+        })
+        .collect::<Vec<_>>()
+        .into_spanned(span)
 }

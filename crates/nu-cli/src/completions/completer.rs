@@ -6,9 +6,9 @@ use crate::completions::{
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
-use nu_parser::{FlatShape, flatten_expression, parse, parse_module_file_or_dir};
+use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    Completion, PipelineData, Span, Type, Value,
+    Completion, PipelineData, Span, Spanned, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
@@ -16,7 +16,7 @@ use nu_protocol::{
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
 
-use super::StaticCompletion;
+use super::{StaticCompletion, custom_completions::get_command_arguments};
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -512,27 +512,16 @@ impl NuCompleter {
                         // resort to external completer set in config
                         let config = self.engine_state.get_config();
                         if let Some(closure) = config.completions.external.completer.as_ref() {
-                            let mut text_spans: Vec<String> =
-                                flatten_expression(working_set, element_expression)
-                                    .iter()
-                                    .map(|(span, shape)| {
-                                        let bytes = if let FlatShape::External(span) = shape {
-                                            // Use expanded alias span
-                                            working_set.get_span_contents(**span)
-                                        } else {
-                                            working_set.get_span_contents(*span)
-                                        };
-                                        String::from_utf8_lossy(bytes).to_string()
-                                    })
-                                    .collect();
+                            let mut text_spans =
+                                get_command_arguments(working_set, element_expression);
                             let mut new_span = span;
                             // strip the placeholder
-                            if strip && let Some(last) = text_spans.last_mut() {
-                                last.pop();
+                            if strip && let Some(last) = text_spans.item.last_mut() {
+                                last.item.pop();
                                 new_span = Span::new(span.start, span.end.saturating_sub(1));
                             }
                             if let Some(external_result) =
-                                self.external_completion(closure, &text_spans, offset, new_span)
+                                self.external_completion(closure, text_spans, offset, new_span)
                             {
                                 // Prioritize external results over (sub)commands
                                 suggestions.splice(0..0, external_result);
@@ -767,7 +756,10 @@ impl NuCompleter {
     fn external_completion(
         &self,
         closure: &Closure,
-        spans: &[String],
+        Spanned {
+            item: args,
+            span: args_span,
+        }: Spanned<Vec<Spanned<String>>>,
         offset: usize,
         span: Span,
     ) -> Option<Vec<SemanticSuggestion>> {
@@ -783,11 +775,10 @@ impl NuCompleter {
             callee_stack.add_var(
                 var_id,
                 Value::list(
-                    spans
-                        .iter()
-                        .map(|it| Value::string(it, Span::unknown()))
+                    args.into_iter()
+                        .map(|Spanned { item, span }| Value::string(item, span))
                         .collect(),
-                    Span::unknown(),
+                    args_span,
                 ),
             );
         }
