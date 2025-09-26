@@ -1,6 +1,6 @@
 name: Experimental Option Tracking
 description: Create a tracking issue for an experimental option
-title: "[exp] "
+labels: category:experimental-option
 body:
   - type: markdown
     attributes:
