@@ -1,6 +1,7 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
+    DeclId, FilesizeUnit, Flag, ParameterSet, ParseError, PositionalArg, Signature, Span,
+    SyntaxShape, Type, Unit,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -703,6 +704,288 @@ pub fn parse_call_missing_req_flag() {
     assert!(matches!(
         working_set.parse_errors.first(),
         Some(ParseError::MissingRequiredFlag(..))
+    ));
+}
+
+#[test]
+fn parse_signature_parameter_set_attribute() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let contents = b"[ @[set=branch mandatory] --branch: string ]";
+    let _ = working_set.add_file("test.nu".into(), contents);
+
+    let expr = parse_signature(&mut working_set, Span::new(0, contents.len()));
+    assert!(working_set.parse_errors.is_empty());
+
+    let Expr::Signature(sig) = expr.expr else {
+        panic!("expected signature expression");
+    };
+
+    assert_eq!(sig.named.len(), 1);
+    let flag = &sig.named[0];
+    let set = flag.parameter_set.as_ref().expect("parameter set");
+    assert_eq!(set.name, "branch");
+    assert!(set.mandatory);
+}
+
+#[test]
+fn parse_signature_mandatory_without_set_errors() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let contents = b"[ @[mandatory] --branch: string ]";
+    let _ = working_set.add_file("test.nu".into(), contents);
+    let _ = parse_signature(&mut working_set, Span::new(0, contents.len()));
+
+    assert!(working_set
+        .parse_errors
+        .iter()
+        .any(|err| matches!(err, ParseError::LabeledError(_, msg, _) if msg.contains("mandatory requires"))));
+}
+
+#[test]
+fn parse_signature_positional_parameter_set_attribute() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let contents = b"[ @[set=branch mandatory] branch: string ]";
+    let _ = working_set.add_file("test.nu".into(), contents);
+
+    let expr = parse_signature(&mut working_set, Span::new(0, contents.len()));
+    assert!(working_set.parse_errors.is_empty());
+
+    let Expr::Signature(sig) = expr.expr else {
+        panic!("expected signature expression");
+    };
+
+    assert_eq!(sig.required_positional.len(), 1);
+    let positional = &sig.required_positional[0];
+    let set = positional.parameter_set.as_ref().expect("parameter set");
+    assert_eq!(set.name, "branch");
+    assert!(set.mandatory);
+}
+
+#[test]
+fn parse_signature_rest_parameter_set_attribute() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let contents = b"[ @[set=files mandatory] ...files: string ]";
+    let _ = working_set.add_file("test.nu".into(), contents);
+
+    let expr = parse_signature(&mut working_set, Span::new(0, contents.len()));
+    assert!(working_set.parse_errors.is_empty());
+
+    let Expr::Signature(sig) = expr.expr else {
+        panic!("expected signature expression");
+    };
+
+    let rest = sig.rest_positional.as_ref().expect("rest positional");
+    let set = rest.parameter_set.as_ref().expect("parameter set");
+    assert_eq!(set.name, "files");
+    assert!(set.mandatory);
+}
+
+fn add_parameter_set_signature(working_set: &mut StateWorkingSet) {
+    let mut sig = Signature::build("foo");
+    sig.named.push(Flag {
+        long: "branch".to_string(),
+        short: None,
+        arg: Some(SyntaxShape::String),
+        required: false,
+        desc: String::new(),
+        completion: None,
+        var_id: None,
+        default_value: None,
+        parameter_set: Some(ParameterSet::new("branch").mandatory()),
+    });
+    sig.named.push(Flag {
+        long: "track".to_string(),
+        short: None,
+        arg: Some(SyntaxShape::String),
+        required: false,
+        desc: String::new(),
+        completion: None,
+        var_id: None,
+        default_value: None,
+        parameter_set: Some(ParameterSet::new("branch")),
+    });
+    sig.named.push(Flag {
+        long: "path".to_string(),
+        short: None,
+        arg: Some(SyntaxShape::String),
+        required: false,
+        desc: String::new(),
+        completion: None,
+        var_id: None,
+        default_value: None,
+        parameter_set: Some(ParameterSet::new("files").mandatory()),
+    });
+
+    working_set.add_decl(sig.predeclare());
+}
+
+#[test]
+fn parse_call_parameter_set_valid() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_parameter_set_signature(&mut working_set);
+
+    parse(
+        &mut working_set,
+        None,
+        b"foo --branch main --track origin",
+        true,
+    );
+
+    assert!(working_set.parse_errors.is_empty());
+}
+
+#[test]
+fn parse_call_parameter_set_conflict() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_parameter_set_signature(&mut working_set);
+
+    parse(
+        &mut working_set,
+        None,
+        b"foo --branch main --path ./here",
+        true,
+    );
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::ParameterSetConflict { .. })
+    ));
+}
+
+#[test]
+fn parse_call_parameter_set_missing_mandatory() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"foo --track origin", true);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::MissingParameterSetMember { .. })
+    ));
+}
+
+fn add_positional_parameter_set_signature(working_set: &mut StateWorkingSet) {
+    let mut sig = Signature::build("bar");
+    sig.optional_positional.push(
+        PositionalArg::new("branch", SyntaxShape::String)
+            .with_parameter_set(ParameterSet::new("branch").mandatory()),
+    );
+    sig.named.push(
+        Flag::new("track")
+            .arg(SyntaxShape::String)
+            .with_parameter_set(ParameterSet::new("branch")),
+    );
+    sig.optional_positional.push(
+        PositionalArg::new("path", SyntaxShape::String)
+            .with_parameter_set(ParameterSet::new("files").mandatory()),
+    );
+
+    working_set.add_decl(sig.predeclare());
+}
+
+#[test]
+fn parse_call_positional_parameter_set_valid() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_positional_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"bar main --track origin", true);
+
+    assert!(working_set.parse_errors.is_empty());
+}
+
+#[test]
+fn parse_call_positional_parameter_set_conflict() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_positional_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"bar main ./path", true);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::ParameterSetConflict { .. })
+    ));
+}
+
+#[test]
+fn parse_call_positional_parameter_set_missing_mandatory() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_positional_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"bar --track origin", true);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::MissingParameterSetMember { .. })
+    ));
+}
+
+fn add_rest_parameter_set_signature(working_set: &mut StateWorkingSet) {
+    let mut sig = Signature::build("baz");
+    sig.named.push(
+        Flag::new("branch")
+            .arg(SyntaxShape::String)
+            .with_parameter_set(ParameterSet::new("branch").mandatory()),
+    );
+    sig.rest_positional = Some(
+        PositionalArg::new("files", SyntaxShape::String)
+            .with_parameter_set(ParameterSet::new("files").mandatory()),
+    );
+    sig.named
+        .push(Flag::new("all").with_parameter_set(ParameterSet::new("files")));
+
+    working_set.add_decl(sig.predeclare());
+}
+
+#[test]
+fn parse_call_rest_parameter_set_valid() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_rest_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"baz --all file1 file2", true);
+
+    assert!(working_set.parse_errors.is_empty());
+}
+
+#[test]
+fn parse_call_rest_parameter_set_conflict() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_rest_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"baz --branch main file1", true);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::ParameterSetConflict { .. })
+    ));
+}
+
+#[test]
+fn parse_call_rest_parameter_set_missing_mandatory() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    add_rest_parameter_set_signature(&mut working_set);
+
+    parse(&mut working_set, None, b"baz --all", true);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::MissingParameterSetMember { .. })
     ));
 }
 

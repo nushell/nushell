@@ -360,6 +360,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
                 var_id: Some(*var_id),
                 default_value: None,
                 completion: None,
+                parameter_set: None,
             },
         );
     }

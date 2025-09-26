@@ -46,6 +46,7 @@ fn test_signature_chained() {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         })
     );
     assert_eq!(
@@ -57,6 +58,7 @@ fn test_signature_chained() {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         })
     );
     assert_eq!(
@@ -68,6 +70,7 @@ fn test_signature_chained() {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         })
     );
 
@@ -82,6 +85,7 @@ fn test_signature_chained() {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         })
     );
 
@@ -96,6 +100,7 @@ fn test_signature_chained() {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         })
     );
 }

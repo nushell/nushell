@@ -410,6 +410,34 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::missing_required_flag))]
     MissingRequiredFlag(String, #[label("missing required flag {0}")] Span),
 
+    #[error("Parameters from different parameter sets cannot be used together.")]
+    #[diagnostic(
+        code(nu::parser::parameter_set_conflict),
+        help("Use parameters from only one parameter set.")
+    )]
+    ParameterSetConflict {
+        left_set: String,
+        left_param: String,
+        #[label("{left_param} is part of '{left_set}'")]
+        left_span: Span,
+        right_set: String,
+        right_param: String,
+        #[label("{right_param} is part of '{right_set}'")]
+        right_span: Span,
+    },
+
+    #[error("Missing parameter for parameter set '{set}'.")]
+    #[diagnostic(
+        code(nu::parser::missing_parameter_set_member),
+        help("Add {member} to use the '{set}' parameter set.")
+    )]
+    MissingParameterSetMember {
+        set: String,
+        member: String,
+        #[label("missing {member} for '{set}'")]
+        span: Span,
+    },
+
     #[error("Incomplete math expression.")]
     #[diagnostic(code(nu::parser::incomplete_math_expression))]
     IncompleteMathExpression(#[label = "incomplete math expression"] Span),
@@ -627,6 +655,8 @@ impl ParseError {
             ParseError::InputMismatch(_, s) => *s,
             ParseError::OutputMismatch(_, _, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
+            ParseError::ParameterSetConflict { left_span, .. } => *left_span,
+            ParseError::MissingParameterSetMember { span, .. } => *span,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,
             ParseError::InternalError(_, s) => *s,
