@@ -1298,12 +1298,29 @@ pub fn parse_internal_call(
                 continue;
             }
 
+            let compile_error_count = working_set.compile_errors.len();
+
             let arg = parse_multispan_value(
                 working_set,
                 &spans[..end],
                 &mut spans_idx,
                 &positional.shape,
             );
+
+            // HACK: try-catch's signature defines the catch block as a Closure, even though it's
+            // used like a Block. Because closures are compiled eagerly, this ends up making the
+            // following code technically invalid:
+            // ```nu
+            // loop { try { } catch {|e| break } }
+            // ```
+            // Thus, we discard the compilation error here
+            if let SyntaxShape::Keyword(ref keyword, ..) = positional.shape
+                && keyword == b"catch"
+                && let [nu_protocol::CompileError::NotInALoop { .. }] =
+                    &working_set.compile_errors[compile_error_count..]
+            {
+                working_set.compile_errors.truncate(compile_error_count);
+            }
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                 working_set.error(ParseError::TypeMismatch(
@@ -5198,6 +5215,18 @@ pub fn parse_closure_expression(
 
     let mut output = parse_block(working_set, &output[amt_to_skip..], span, false, false);
 
+    // NOTE: closures need to be compiled eagerly due to these reasons:
+    //  - their `Block`s (which contains their `IrBlock`) are stored in the working_set
+    //  - Ir compiler does not have mutable access to the working_set and can't attach `IrBlock`s
+    //  to existing `Block`s
+    // so they can't be compiled as part of their parent `Block`'s compilation
+    //
+    // If the compiler used a mechanism similar to the `EngineState`/`StateWorkingSet` divide, we
+    // could defer all compilation and apply the generated delta to `StateWorkingSet` afterwards.
+    if working_set.parse_errors.is_empty() {
+        compile_block(working_set, &mut output);
+    }
+
     if let Some(signature) = signature {
         output.signature = signature.0;
     }
@@ -5964,7 +5993,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
             b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
-            | b"hide" => {
+            | b"export-env" | b"hide" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
@@ -6118,6 +6147,7 @@ pub fn parse_builtin_commands(
         b"extern" => parse_extern(working_set, lite_command, None),
         // `parse_export_in_block` also handles attributes by itself
         b"export" => parse_export_in_block(working_set, lite_command),
+        b"export-env" => parse_export_env(working_set, &lite_command.parts).0,
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         b"let" => parse_let(
@@ -6633,23 +6663,49 @@ pub fn parse_block(
         working_set.parse_errors.extend_from_slice(&errors);
     }
 
-    // Do not try to compile blocks that are subexpressions, or when we've already had a parse
-    // failure as that definitely will fail to compile
-    if !is_subexpression && working_set.parse_errors.is_empty() {
-        compile_block(working_set, &mut block);
-    }
-
     block
 }
 
-/// Compile an IR block for the `Block`, adding a compile error on failure
+/// Compile an [IrBlock][nu_protocol::ir::IrBlock] for the [Block], adding a compile error on
+/// failure.
+///
+/// To compile a block that's already in the [StateWorkingSet] use [compile_block_with_id]
 pub fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
+    if !working_set.parse_errors.is_empty() {
+        // This means there might be a bug in the parser, since calling this function while parse
+        // errors are present is a logic error. However, it's not fatal and it's best to continue
+        // without doing anything.
+        log::error!("compile_block called with parse errors");
+        return;
+    }
+
     match nu_engine::compile(working_set, block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
         }
         Err(err) => working_set.compile_errors.push(err),
     }
+}
+
+/// Compile an [IrBlock][nu_protocol::ir::IrBlock] for a [Block] that's already in the
+/// [StateWorkingSet] using its id, adding a compile error on failure.
+pub fn compile_block_with_id(working_set: &mut StateWorkingSet<'_>, block_id: BlockId) {
+    if !working_set.parse_errors.is_empty() {
+        // This means there might be a bug in the parser, since calling this function while parse
+        // errors are present is a logic error. However, it's not fatal and it's best to continue
+        // without doing anything.
+        log::error!("compile_block_with_id called with parse errors");
+        return;
+    }
+
+    match nu_engine::compile(working_set, working_set.get_block(block_id)) {
+        Ok(ir_block) => {
+            working_set.get_block_mut(block_id).ir_block = Some(ir_block);
+        }
+        Err(err) => {
+            working_set.compile_errors.push(err);
+        }
+    };
 }
 
 pub fn discover_captures_in_closure(
@@ -7150,6 +7206,12 @@ pub fn parse(
             Arc::new(parse_block(working_set, &output, new_span, scoped, false))
         }
     };
+
+    // Top level `Block`s are compiled eagerly, as they don't have a parent which would cause them
+    // to be compiled later.
+    if working_set.parse_errors.is_empty() {
+        compile_block(working_set, Arc::make_mut(&mut output));
+    }
 
     let mut seen = vec![];
     let mut seen_blocks = HashMap::new();
