@@ -663,6 +663,8 @@ pub(crate) fn compile_while(
     builder.jump(loop_.break_label, call.head)?;
     builder.add_comment("end while");
 
+    builder.load_empty(io_reg)?;
+
     builder.set_label(true_label, builder.here())?;
 
     compile_block(
@@ -729,7 +731,7 @@ pub(crate) fn compile_for(
     let block = working_set.get_block(block_id);
 
     // Ensure io_reg is marked so we don't use it
-    builder.mark_register(io_reg)?;
+    builder.load_empty(io_reg)?;
 
     let stream_reg = builder.next_register()?;
 
@@ -766,6 +768,8 @@ pub(crate) fn compile_for(
         }
         .into_spanned(var_decl_arg.span),
     )?;
+
+    builder.load_empty(io_reg)?;
 
     // Do the body of the block
     compile_block(
