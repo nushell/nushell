@@ -70,7 +70,7 @@ impl Evaluator {
         };
 
         let cursor = cursor.unwrap_or(0);
-        let next_cursor = if (cursor + 1) < results.total {
+        let next_cursor = if (cursor + 1) < results.pages.len() {
             Some(cursor + 1)
         } else {
             None
@@ -116,7 +116,7 @@ impl Evaluator {
                 let out = if let Value::Error { error, .. } = item {
                     return Err(shell_error_to_mcp_error(*error));
                 } else {
-                    item.to_expanded_string("\n", config)
+                    item.to_expanded_string("\n", config) + "\n"
                 };
 
                 // Check to see if we have exceeded our page size.
