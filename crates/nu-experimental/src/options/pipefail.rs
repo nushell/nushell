@@ -18,5 +18,5 @@ impl ExperimentalOptionMarker for PipeFail {
         to the exit code of rightmost command which failed.";
     const STATUS: Status = Status::OptIn;
     const SINCE: Version = (0, 107, 1);
-    const ISSUE: u32 = 0;
+    const ISSUE: u32 = 16760;
 }
