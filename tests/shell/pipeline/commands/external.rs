@@ -731,12 +731,16 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
     )
 }
 
-// FIXME: ignore these cases for now, the value inside a pipeline
-// makes all previous exit status untracked.
-// #[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 10)]
-// #[case("nu --testbin fail 20 | 10 | nu --testbin fail", 20)]
-// #[case("30 | nu --testbin fail | nu --testbin fail 30", 1)]
 #[rstest]
+#[case("let x = 10; nu --testbin fail 10 | nu --testbin fail 20 | $x", 20)]
+#[case("let x = 10; nu --testbin fail 20 | $x | nu --testbin fail", 1)]
+#[case("let x = 10; $x| nu --testbin fail | nu --testbin fail 30", 30)]
+#[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 20)]
+#[case("nu --testbin fail 20 | 10 | nu --testbin fail", 1)]
+#[case("30 | nu --testbin fail | nu --testbin fail 30", 30)]
+#[case("10 + 20 | nu --testbin fail 30 | nu --testbin fail", 1)]
+#[case("nu --testbin fail | nu --testbin fail 30 | 10 + 20", 30)]
+#[case("30 | $in + 10 | nu --testbin fail | nu --testbin fail 3", 3)]
 #[case("nu --testbin fail | print aa", 1)]
 #[case("nu --testbin nonu a | print bb", 0)]
 #[case("nu --testbin fail 30 | nu --testbin nonu a | print aa", 30)]
