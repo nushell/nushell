@@ -14,10 +14,7 @@ use nu_protocol::{
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::sync::Arc;
 
-use super::{
-    StaticCompletion,
-    custom_completions::{CustomCommandWideCompletion, ExternalCompletion},
-};
+use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
 /// Used as the function `f` in find_map Traverse
 ///
@@ -437,48 +434,38 @@ impl NuCompleter {
                             }
                         }
                     } else if let Some(command_wide_completer) = signature.complete {
-                        let global_completer = self
-                            .engine_state
-                            .get_config()
-                            .completions
-                            .external
-                            .completer
-                            .as_ref();
+                        let completion = match command_wide_completer {
+                            Some(decl_id) => CommandWideCompletion::command(
+                                working_set,
+                                decl_id,
+                                element_expression,
+                                strip,
+                            ),
+                            None => self
+                                .engine_state
+                                .get_config()
+                                .completions
+                                .external
+                                .completer
+                                .as_ref()
+                                .map(|closure| {
+                                    CommandWideCompletion::closure(
+                                        closure,
+                                        element_expression,
+                                        strip,
+                                    )
+                                }),
+                        };
 
-                        match (command_wide_completer, global_completer) {
-                            (Some(completer_decl_id), _) => {
-                                let mut completion = CustomCommandWideCompletion::new(
-                                    completer_decl_id,
-                                    element_expression,
-                                    strip,
-                                );
+                        if let Some(mut completion) = completion {
+                            let ctx = Context::new(working_set, span, b"", offset);
+                            let results = self.process_completion(&mut completion, &ctx);
 
-                                let ctx = Context::new(working_set, span, b"", offset);
-                                let results = self.process_completion(&mut completion, &ctx);
-
-                                if !completion.need_fallback {
-                                    // Prioritize external results over (sub)commands
-                                    suggestions.splice(0..0, results);
-                                    return suggestions;
-                                }
+                            if !completion.need_fallback {
+                                // Prioritize external results over (sub)commands
+                                suggestions.splice(0..0, results);
+                                return suggestions;
                             }
-                            (None, Some(completer_closure)) => {
-                                let mut completion = ExternalCompletion::new(
-                                    completer_closure,
-                                    element_expression,
-                                    strip,
-                                );
-
-                                let ctx = Context::new(working_set, span, b"", offset);
-                                let results = self.process_completion(&mut completion, &ctx);
-
-                                if !completion.need_fallback {
-                                    // Prioritize external results over (sub)commands
-                                    suggestions.splice(0..0, results);
-                                    return suggestions;
-                                }
-                            }
-                            (None, None) => {}
                         }
                     }
 
@@ -556,25 +543,24 @@ impl NuCompleter {
                         }
 
                         // resort to external completer set in config
-                        let closure = self
+                        let completion = self
                             .engine_state
                             .get_config()
                             .completions
                             .external
                             .completer
-                            .as_ref();
+                            .as_ref()
+                            .map(|closure| {
+                                CommandWideCompletion::closure(closure, element_expression, strip)
+                            });
 
-                        if let Some(closure) = closure {
-                            let mut external_completion =
-                                ExternalCompletion::new(closure, element_expression, strip);
-
+                        if let Some(mut completion) = completion {
                             let ctx = Context::new(working_set, span, b"", offset);
-                            let external_results =
-                                self.process_completion(&mut external_completion, &ctx);
+                            let results = self.process_completion(&mut completion, &ctx);
 
-                            if !external_completion.need_fallback {
+                            if !completion.need_fallback {
                                 // Prioritize external results over (sub)commands
-                                suggestions.splice(0..0, external_results);
+                                suggestions.splice(0..0, results);
                                 return suggestions;
                             }
                         }

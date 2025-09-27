@@ -5,7 +5,7 @@ use crate::completions::{
 use nu_engine::eval_call;
 use nu_parser::{FlatShape, flatten_expression};
 use nu_protocol::{
-    DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value,
+    BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
@@ -168,82 +168,6 @@ impl<T: Completer> Completer for CustomCompletion<T> {
     }
 }
 
-pub struct ExternalCompletion<'a> {
-    closure: &'a Closure,
-    expression: &'a Expression,
-    strip: bool,
-    pub need_fallback: bool,
-}
-
-impl<'a> ExternalCompletion<'a> {
-    pub fn new(closure: &'a Closure, expression: &'a Expression, strip: bool) -> Self {
-        Self {
-            closure,
-            expression,
-            strip,
-            need_fallback: false,
-        }
-    }
-}
-
-impl<'e> Completer for ExternalCompletion<'e> {
-    fn fetch(
-        &mut self,
-        working_set: &StateWorkingSet,
-        stack: &Stack,
-        _prefix: impl AsRef<str>,
-        span: Span,
-        offset: usize,
-        _options: &CompletionOptions,
-    ) -> Vec<SemanticSuggestion> {
-        let Spanned {
-            item: mut args,
-            span: args_span,
-        } = get_command_arguments(working_set, self.expression);
-        let mut new_span = span;
-        // strip the placeholder
-        if self.strip
-            && let Some(last) = args.last_mut()
-        {
-            last.item.pop();
-            new_span = Span::new(span.start, span.end.saturating_sub(1));
-        }
-
-        let block = working_set.permanent_state.get_block(self.closure.block_id);
-        let mut callee_stack =
-            stack.captures_to_stack_preserve_out_dest(self.closure.captures.clone());
-
-        if let Some(pos_arg) = block.signature.required_positional.first()
-            && let Some(var_id) = pos_arg.var_id
-        {
-            callee_stack.add_var(
-                var_id,
-                Value::list(
-                    args.into_iter()
-                        .map(|Spanned { item, span }| Value::string(item, span))
-                        .collect(),
-                    args_span,
-                ),
-            );
-        }
-
-        let result = nu_engine::eval_block::<WithoutDebug>(
-            working_set.permanent_state,
-            &mut callee_stack,
-            block,
-            PipelineData::empty(),
-        )
-        .map(|p| p.body);
-
-        if let Some(results) = convert_whole_command_completion_results(offset, new_span, result) {
-            results
-        } else {
-            self.need_fallback = true;
-            vec![]
-        }
-    }
-}
-
 pub fn get_command_arguments(
     working_set: &StateWorkingSet<'_>,
     element_expression: &Expression,
@@ -265,17 +189,38 @@ pub fn get_command_arguments(
         .into_spanned(span)
 }
 
-pub struct CustomCommandWideCompletion<'e> {
-    decl_id: DeclId,
+pub struct CommandWideCompletion<'e> {
+    block_id: BlockId,
+    captures: Vec<(VarId, Value)>,
     expression: &'e Expression,
     strip: bool,
     pub need_fallback: bool,
 }
 
-impl<'a> CustomCommandWideCompletion<'a> {
-    pub fn new(completer_decl_id: DeclId, expression: &'a Expression, strip: bool) -> Self {
+impl<'a> CommandWideCompletion<'a> {
+    pub fn command(
+        working_set: &StateWorkingSet<'_>,
+        decl_id: DeclId,
+        expression: &'a Expression,
+        strip: bool,
+    ) -> Option<Self> {
+        let block_id = (decl_id.get() < working_set.num_decls())
+            .then(|| working_set.get_decl(decl_id))
+            .and_then(|command| command.block_id())?;
+
+        Some(Self {
+            block_id,
+            captures: vec![],
+            expression,
+            strip,
+            need_fallback: false,
+        })
+    }
+
+    pub fn closure(closure: &'a Closure, expression: &'a Expression, strip: bool) -> Self {
         Self {
-            decl_id: completer_decl_id,
+            block_id: closure.block_id,
+            captures: closure.captures.clone(),
             expression,
             strip,
             need_fallback: false,
@@ -283,7 +228,7 @@ impl<'a> CustomCommandWideCompletion<'a> {
     }
 }
 
-impl<'a> Completer for CustomCommandWideCompletion<'a> {
+impl<'a> Completer for CommandWideCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -293,12 +238,6 @@ impl<'a> Completer for CustomCommandWideCompletion<'a> {
         offset: usize,
         _options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let Some(block_id) = working_set.get_decl(self.decl_id).block_id() else {
-            self.need_fallback = true;
-            return vec![];
-        };
-        let block = working_set.get_block(block_id);
-
         let Spanned {
             item: mut args,
             span: args_span,
@@ -313,37 +252,34 @@ impl<'a> Completer for CustomCommandWideCompletion<'a> {
             new_span = Span::new(span.start, span.end.saturating_sub(1));
         }
 
-        let Some(var_id) = block
-            .signature
-            .required_positional
-            .first()
-            .and_then(|pos_arg| pos_arg.var_id)
-        else {
-            // TODO: raise an error
-            return vec![];
-        };
+        let block = working_set.get_block(self.block_id);
+        let mut callee_stack = stack.captures_to_stack_preserve_out_dest(self.captures.clone());
 
-        let mut stack_mut = stack.clone();
-        stack_mut.add_var(
-            var_id,
-            Value::list(
-                args.into_iter()
-                    .map(|Spanned { item, span }| Value::string(item, span))
-                    .collect(),
-                args_span,
-            ),
-        );
+        if let Some(pos_arg) = block.signature.required_positional.first()
+            && let Some(var_id) = pos_arg.var_id
+        {
+            callee_stack.add_var(
+                var_id,
+                Value::list(
+                    args.into_iter()
+                        .map(|Spanned { item, span }| Value::string(item, span))
+                        .collect(),
+                    args_span,
+                ),
+            );
+        }
         let mut new_engine_state;
-        let engine_state = if self.decl_id.get() < working_set.permanent_state.num_decls() {
+        let engine_state = if self.block_id.get() < working_set.permanent_state.num_decls() {
             working_set.permanent_state
         } else {
             new_engine_state = working_set.permanent_state.clone();
             let _ = new_engine_state.merge_delta(working_set.delta.clone());
             &new_engine_state
         };
+
         let result = nu_engine::eval_block::<WithoutDebug>(
             engine_state,
-            &mut stack_mut,
+            &mut callee_stack,
             block,
             PipelineData::empty(),
         )
