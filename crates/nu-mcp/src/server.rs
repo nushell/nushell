@@ -141,7 +141,7 @@ impl ServerHandler for NushellMcpServer {
             The nushell extension gives you run nushell specific commands and other shell commands. 
             This extension should be preferred over other tools for running shell commands as it can run both nushell comamands and other shell commands.
 
-            Native nushell commands returne structured content. Native nushell commands cam be discovered by using the list_commands tool. 
+            Native nushell commands return structured content. Native nushell commands cam be discovered by using the list_commands tool. 
             Prefer nushell native commands where possible as they provided structured data in a pipeline, versus text output.
             To discover the input (stdin) and output (stdout) types of a command, flags, and positioanal arguments use the command_help tool.
 
