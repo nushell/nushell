@@ -4,37 +4,64 @@ use std-rfc/iter only
 # Cross-platform unzipping for artifacts
 module unzip {
   export def main [
-    file: string, # Name of file within zip to extract
+    filename: string, # Name of file within zip to extract
     span: record # Span for error reporting
   ]: binary -> binary {
-    if (which "unzip" | is-not-empty) and (^unzip -h) has "Info-ZIP" {
-      infozip $file
-    } else {
-      error make {
-        msg: "Command not found"
-        help: "Install one of the following programs: 7z, unzip, tar (Windows only)"
-        label: {
-          text: "unable to unzip artifact"
-          span: $span
-        }
+    # Store zip file to temporary file
+    let zipfile = do {|file| save -fp $file; $file } (mktemp -t)
+
+    let programs = [
+      [preconditions, closure];
+      [(which "gzip" | is-not-empty), { gzip $zipfile }]
+      [((which "tar" | is-not-empty) and $nu.os-info.name == "windows"), { tar $zipfile $filename }]
+      [(which "7z" | is-not-empty), { 7z $zipfile $filename }]
+      [(which "unzip" | is-not-empty), { unzip $zipfile $filename }]
+    ]
+
+    # Attempt available programs
+    for program in $programs {
+      if not $program.preconditions {
+        continue
+      }
+
+      try {
+        let out = do $program.closure $zipfile
+        rm $zipfile
+        return $out
       }
     }
-  }
 
-  # Write input to a file, and call closure with path to file
-  def with-tmpfile [func: closure]: binary -> any {
-    let file = do {|file| save -fp $file; $file } (mktemp -t)
-    let out = do $func $file
-    rm $file
-    $out
-  }
-
-  # Use "unzip" from Info-ZIP
-  def infozip [file: string] {
-    # Info-ZIP's unzip can't read from stdin, so write to a tempfile first
-    with-tmpfile {|tmpfile|
-      ^unzip -p $tmpfile $file
+    error make {
+      msg: "Command not found"
+      help: "Install one of the following programs: gzip, 7z, unzip, tar (Windows only)"
+      label: {
+        text: "failed to unzip artifact"
+        span: $span
+      }
     }
+
+    # BUG: Unreachable echo to appease parse-time type checking
+    echo
+  }
+
+  # tar can unzip files on Windows
+  def tar [zipfile: string, filename: string] {
+    ^tar -Oxf $zipfile $filename
+  }
+
+  # Some versions of gzip can extract single files from zip files
+  def gzip [zipfile: string] {
+    open -r $zipfile | ^gzip -d
+  }
+
+  # Use 7zip
+  def 7z [zipfile: string, filename: string] {
+    ^7z x $zipfile -so $filename
+  }
+
+  # Use unzip tool (Info-ZIP, macOS, BSD)
+  def unzip [zipfile: string, filename: string] {
+    ^unzip -p $zipfile $filename
   }
 }
 
