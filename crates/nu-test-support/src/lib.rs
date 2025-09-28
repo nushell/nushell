@@ -36,14 +36,7 @@ impl Outcome {
 ///
 /// Warning: Will not correctly handle statements that are not `;` separated!
 pub fn pipeline(commands: &str) -> String {
-    commands
-        .trim()
-        .lines()
-        .map(|line| line.trim())
-        .collect::<Vec<&str>>()
-        .join(" ")
-        .trim_end()
-        .to_string()
+    commands.to_string()
 }
 
 pub fn nu_repl_code(source_lines: &[&str]) -> String {
