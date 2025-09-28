@@ -10,7 +10,7 @@ impl Command for AttrCategory {
 
     fn signature(&self) -> Signature {
         Signature::build("attr category")
-            .input_output_type(Type::Nothing, Type::list(Type::String))
+            .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
             .required(
                 "category",
