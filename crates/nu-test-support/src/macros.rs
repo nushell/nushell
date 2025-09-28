@@ -263,7 +263,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     let mut paths = crate::shell_os_paths();
     paths.insert(0, test_bins.into());
 
-    let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
+    let commands = commands.as_ref();
 
     let paths_joined = match std::env::join_paths(paths) {
         Ok(all) => all,
@@ -300,14 +300,11 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         command.arg("--no-std-lib");
     }
     // Use plain errors to help make error text matching more consistent
-    command.args(["--error-style", "plain"]);
-    command
-        .arg(format!("-c {}", escape_quote_string(&commands)))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    command.args(["--error-style", "plain", "--commands", commands]);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     // Uncomment to debug the command being run:
-    // println!("=== command\n{command:?}\n");
+    // println!("=== command\n{command:#?}\n");
 
     let process = match command.spawn() {
         Ok(child) => child,
