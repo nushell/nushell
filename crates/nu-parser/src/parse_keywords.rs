@@ -2,7 +2,8 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{
-        CallKind, compile_block, parse_attribute, parse_redirection, redirecting_builtin_error,
+        CallKind, compile_block, compile_block_with_id, parse_attribute, parse_redirection,
+        redirecting_builtin_error,
     },
     type_check::{check_block_input_output, type_compatible},
 };
@@ -629,8 +630,14 @@ fn parse_def_inner(
                         expr: Expr::Closure(block_id),
                         ..
                     } => {
-                        let block = working_set.get_block_mut(*block_id);
-                        block.signature = Box::new(sig.clone());
+                        // Custom command bodies' are compiled eagerly
+                        // 1.  `module`s are not compiled, since they aren't ran/don't have any
+                        //     executable code. So `def`s inside modules have to be compiled by
+                        //     themselves.
+                        // 2.  `def` calls in scripts/runnable code don't *run* any code either,
+                        //     they are handled completely by the parser.
+                        compile_block_with_id(working_set, *block_id);
+                        working_set.get_block_mut(*block_id).signature = Box::new(sig.clone());
                     }
                     _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
@@ -1744,6 +1751,15 @@ pub fn parse_export_env(
         Span::concat(spans),
         Type::Any,
     )]);
+
+    // Since modules are parser constructs, `export-env` blocks don't have anything to drive their
+    // compilation when they are inside modules
+    //
+    // When they appear not inside module definitions but inside runnable code (script, `def`
+    // block, etc), their body is used more or less like a closure, which are also compiled eagerly
+    //
+    // This handles both of these cases
+    compile_block_with_id(working_set, block_id);
 
     (pipeline, Some(block_id))
 }
