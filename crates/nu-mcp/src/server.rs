@@ -35,25 +35,18 @@ impl NushellMcpServer {
         }
     }
 
-    #[tool(description = "List available Nushell native commands.")]
+    #[tool(description = r#"List available Nushell native commands. 
+By default all available commands will be returned. To find a specific command by searching command names, descriptions and search terms, use the find parameter."#)]
     async fn list_commands(
         &self,
-        Parameters(ListCommandsRequest { cursor }): Parameters<ListCommandsRequest>,
+        Parameters(ListCommandsRequest { find, cursor }): Parameters<ListCommandsRequest>,
     ) -> Result<Json<EvalResult>, McpError> {
-        self.evaluator.eval("help commands", cursor).map(Json)
-    }
+        let cmd = if let Some(f) = find {
+            format!("help commands --find {f}")
+        } else {
+            "help commands".to_string()
+        };
 
-    #[tool(
-        description = "Find a nushell command by searching command names, descriptions, and search terms"
-    )]
-    async fn find_command(
-        &self,
-        Parameters(CommandNameRequest {
-            name: query,
-            cursor,
-        }): Parameters<CommandNameRequest>,
-    ) -> Result<Json<EvalResult>, McpError> {
-        let cmd = format!("help commands --find {query}");
         self.evaluator.eval(&cmd, cursor).map(Json)
     }
 
@@ -69,37 +62,45 @@ impl NushellMcpServer {
     }
 
     #[tool(description = r#"Execute a command in the nushell.
- 
-This will return the output and error concatenated into a single string, as
-you would see from running on the command line. There will also be an indication
-of if the command succeeded or failed.
+    This will return the output and error concatenated into a single string, as
+    you would see from running on the command line. There will also be an indication
+    of if the command succeeded or failed.
 
-Prefer nushell native commands where possible as they work within a nushell pipeline as oppposed to converting the pipeline to text.
+    Avoid commands that produce a large amount of output, and consider piping those outputs to files.
+    If you need to run a long lived command, background it - e.g. `uvicorn main:app &` so that
+    this tool does not run indefinitely.
 
-To find a nushell command, use the find_command tool, or list all commands with the list_commands tool.
+    If the polars commands are available, prefer it for working with parquet, jsonl, ndjson, csv files, and avro files. 
+    It is much more efficient than the other Nushell commands or other non-nushell commands. 
+    It exposes much of the functionality of the polars dataframe library. Start the pipeline with `plugin use polars`
 
-To learn more about how to use a command, use the command_help tool.
+    An example of converting a nushell table output to a polars dataframe:
+    ```nu
+    ps | polars into-df | polars collect
+    ```
 
-Avoid commands that produce a large amount of output, and consider piping those outputs to files.
-If you need to run a long lived command, background it - e.g. `uvicorn main:app &` so that
-this tool does not run indefinitely.
+    An example of converting a polars dataframe back to a nushell table in order to run other nushell commands:
+    ```nu
+    polars open file.parquet | polars into-nu
+    ````
 
-Nushell specific commands will return a nushell table. Piping these commands to `to text` will return text and `to json` will return JSON. 
-In order to find out what columns are available use the `columns` command. For example `ps | columns` will return the columns available from the `ps` command.
+    An example of opening a parquet file, selecting columns, and saving to a new parquet file:
+    ```nu
+    polars open file.parquet | polars select name status | polars save file2
+    ```
 
-If the polars command is available, prefer it for working with parquet, jsonl, ndjson, csv files, and avro files. It is much more efficient than the default Nushell commands or other non-nushell commands. It exposes much of the functionality of the polars dataframe library. The polars command has sub commands for opening and saving these file types via `polars open` and `polars save`, do not use the `open` and `save` command for these file types. When working with polars run all commands within a single pipeline if possible (e.g `polars open file.parquet | polars select name status | polars save file2.parquet`). The command `polars collect` must be run in order to collect the data into a table, otherwise it will return a lazy frame which is not useful for display purposes. When saving output to a file the entire pipeline must be run in one command. `polars collect` is not needed when saving to a file, as the file will be written directly from the lazy frame.
+    **Important**: If it is available, use ripgrep - `rg` - exclusively when you need to locate a file or a code reference,
+    other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`
+    - List files by name: `rg --files | rg <filename>`
+    - List files that contain a regex: `rg '<regex>' -l`
 
-**Important**: Use ripgrep - `rg` - exclusively when you need to locate a file or a code reference,
-other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`
-- List files by name: `rg --files | rg <filename>`
-- List files that contain a regex: `rg '<regex>' -l`
-
-**Important**: Each shell command runs in its own process. Things like directory changes or
-sourcing files do not persist between tool calls. So you may need to repeat them each time by
-stringing together commands, e.g. `cd example; ls` or `source env/bin/activate && pip install numpy`
-- Multiple commands: Use ; to chain commands, avoid newlines
-- Pathnames: Use absolute paths and avoid cd unless explicitly requested
-"#)]
+    **Important**: Each shell command runs in its own process. Things like directory changes or
+    sourcing files do not persist between tool calls. So you may need to repeat them each time by
+    stringing together commands, e.g. `cd example; ls` or `source env/bin/activate && pip install numpy`
+    - Multiple commands: Use ; to chain commands, avoid newlines
+    - Pathnames: Use absolute paths and avoid cd unless explicitly requested
+    - Setting environment variables or other variables will not persist between calls 
+    "#)]
     async fn evaluate(
         &self,
         Parameters(NuSourceRequest { input, cursor }): Parameters<NuSourceRequest>,
@@ -109,15 +110,9 @@ stringing together commands, e.g. `cd example; ls` or `source env/bin/activate &
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-struct QueryRequest {
-    #[schemars(description = "string to find in command names, descriptions, and search terms")]
-    query: String,
-    #[schemars(description = "The cursor for the result of the page.")]
-    cursor: Option<usize>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct ListCommandsRequest {
+    #[schemars(description = "string to find in command names, descriptions, and search term")]
+    find: Option<String>,
     #[schemars(description = "The cursor for the result of the page.")]
     cursor: Option<usize>,
 }
@@ -146,6 +141,15 @@ impl ServerHandler for NushellMcpServer {
             The nushell extension gives you run nushell specific commands and other shell commands. 
             This extension should be preferred over other tools for running shell commands as it can run both nushell comamands and other shell commands.
 
+            Native nushell commands return structured content. Native nushell commands cam be discovered by using the list_commands tool. 
+            Prefer nushell native commands where possible as they provided structured data in a pipeline, versus text output.
+            To discover the input (stdin) and output (stdout) types of a command, flags, and positioanal arguments use the command_help tool.
+
+            Nushell native commands will return structured content. Piping of commands that return a table, list, or record to `to text` will return plain text and `to json` will return json text. 
+            In order to find out what columns are available use the `columns` command. For example `ps | columns` will return the columns available from the `ps` command.
+
+            To find a nushell command or to see all available commands use the list_commands tool.
+            To learn more about how to use a command, use the command_help tool.
             You can use the eval tool to run any command that would work on the relevant operating system.
             Use the eval tool as needed to locate files or interact with the project.
             "#
