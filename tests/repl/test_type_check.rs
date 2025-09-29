@@ -141,6 +141,43 @@ fn record_subtyping_works() -> TestResult {
     )
 }
 
+#[rstest]
+// [ int, number ] is widened to list<number>
+#[case("let n: number = 1; let foo = [ 1, $n ];", "list<number>")]
+// supertype of list elements (records)
+#[case("let foo = [ { a: 1 }, { a: 1, b: 2 } ];", "list<record<a: int>>")]
+// [ list supertype, table ]
+#[case(
+    "let foo = [ [ { a: 1 } ], [ [a, b]; [1, 2] ] ];",
+    "list<list<record<a: int>>>"
+)]
+// [ list, table supertype ]
+#[case("let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];", "list<table<a: int>>")]
+// disjoint element types: any
+#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<any>")]
+// `bar: int` and `bar: number` are widened to table<bar: number>
+#[case(
+    "let n: number = 1; let foo = [ [bar]; [1], [$n] ];",
+    "table<bar: number>"
+)]
+// supertype of table values (records)
+#[case(
+    "let foo = [ [item]; [ {a: 1} ], [ {a: 1, b: 1 } ] ];",
+    "table<item: record<a: int>>"
+)]
+// disjoint table values: any
+#[case("let foo = [ [bar]; [1], [true] ];", "table<bar: any>")]
+#[test]
+fn collection_supertype_inference(
+    #[case] assignment: &str,
+    #[case] expected_type: &str,
+) -> TestResult {
+    run_test(
+        &format!(r#"{assignment} scope variables | where name == "$foo" | first | get type"#),
+        expected_type,
+    )
+}
+
 #[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(

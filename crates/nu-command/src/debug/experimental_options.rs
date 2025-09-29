@@ -18,6 +18,8 @@ impl Command for DebugExperimentalOptions {
                     (String::from("enabled"), Type::Bool),
                     (String::from("status"), Type::String),
                     (String::from("description"), Type::String),
+                    (String::from("since"), Type::String),
+                    (String::from("issue"), Type::String),
                 ])),
             )
             .add_help()
@@ -51,6 +53,11 @@ impl Command for DebugExperimentalOptions {
                                     Status::DeprecatedDefault => "deprecated-default"
                                 }, call.head),
                                 "description" => Value::string(option.description(), call.head),
+                                "since" => Value::string({
+                                    let (major, minor, patch) = option.since();
+                                    format!("{major}.{minor}.{patch}")
+                                }, call.head),
+                                "issue" => Value::string(option.issue_url(), call.head)
                             },
                             call.head,
                         )

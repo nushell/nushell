@@ -27,4 +27,6 @@ impl ExperimentalOptionMarker for ReorderCellPaths {
 \
         Reorder the parts of cell-path when accessing a cell in a table, always select the row before selecting the column.";
     const STATUS: Status = Status::OptIn;
+    const SINCE: Version = (0, 105, 2);
+    const ISSUE: u32 = 16766;
 }

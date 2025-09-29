@@ -1,0 +1,33 @@
+[package]
+name = "nu-mcp"
+version = "0.107.1"
+edition = "2024"
+
+[dependencies]
+futures = "0.3.31"
+nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
+nu-engine = { path = "../nu-engine", version = "0.107.1" }
+nu-parser = { path = "../nu-parser", version = "0.107.1" }
+
+rmcp = { version = "0.6", features = ["server", "transport-io", "schemars"] }
+schemars = "1.0.4"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { version = "1.46.1", features = ["full"] }
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+bytes = { workspace = true }
+indoc = "2.0.6"
+moka = { version = "0.12.10", features = ["sync"] }
+
+[features]
+default = []
+mcp = []
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+lipsum = "0.9.1"
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.107.1" }
+nuon = { path = "../nuon", version = "0.107.1" }

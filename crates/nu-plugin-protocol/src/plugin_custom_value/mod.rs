@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, path::Path};
 
-use nu_protocol::{CustomValue, ShellError, Span, Value, ast::Operator, casing::Casing};
+use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
 
 use serde::{Deserialize, Serialize};
@@ -91,6 +91,15 @@ impl CustomValue for PluginCustomValue {
         _right: &Value,
     ) -> Result<Value, ShellError> {
         panic!("operation() not available on plugin custom value without source");
+    }
+
+    fn save(
+        &self,
+        _path: Spanned<&Path>,
+        _value_span: Span,
+        _save_span: Span,
+    ) -> Result<(), ShellError> {
+        panic!("save() not available on plugin custom value without source");
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

@@ -10,6 +10,7 @@ Welcome to Nushell and thank you for considering contributing!
   - [Tests](#tests)
   - [Useful commands](#useful-commands)
   - [Debugging tips](#debugging-tips)
+  - [Experimental options](#experimental-options)
 - [Git etiquette](#git-etiquette)
 - [License](#license)
 
@@ -215,6 +216,24 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
+
+### Experimental options
+
+We sometimes add new behavior behind [**experimental options**](https://www.nushell.sh/blog/2025-07-23-nushell_0_106_0.html#experimental-options-toc). 
+These are opt-in (or opt-out) flags that let us try out changes without affecting everyone by default.
+Before introducing a new option, make sure the core team agrees roughly with that experimental option.
+
+If you introduce a new experimental option, you must also:
+
+1. **Open a tracking issue** using the [Experimental Option Tracking template](https://github.com/nushell/nushell/issues/new/choose).  
+  - Link the issue in your implementation using `ExperimentalOptionMarker::ISSUE`.
+
+2. **Document the behavior** in the tracking issue with a short description and before/after examples.
+
+3. **Update the status** in the tracking issue when the option moves forward (becomes default) or is discarded.
+
+This ensures experimental options are discoverable, tracked properly, and easy to follow up on later.
+
 
 ## Git etiquette
 

@@ -7,7 +7,9 @@ pub(crate) fn add_command_context(engine_state: EngineState) -> EngineState {
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     let engine_state = nu_cli::add_cli_context(engine_state);
-    nu_explore::add_explore_context(engine_state)
+    let mut engine_state = nu_explore::add_explore_context(engine_state);
+    nu_command::IntoValue::add_deprecated_call(&mut engine_state);
+    engine_state
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, path::Path};
 
-use crate::{ShellError, Span, Type, Value, ast::Operator, casing::Casing};
+use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -107,6 +107,35 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
             op_span: op,
             unsupported_span: lhs_span,
             help: None,
+        })
+    }
+
+    /// Save custom value to disk.
+    ///
+    /// This method is used in `save` to save a custom value to disk.
+    /// This is done before opening any file, so saving can be handled differently.
+    ///
+    /// The default impl just returns an error.
+    fn save(
+        &self,
+        path: Spanned<&Path>,
+        value_span: Span,
+        save_span: Span,
+    ) -> Result<(), ShellError> {
+        let _ = path;
+        Err(ShellError::GenericError {
+            error: "Cannot save custom value".into(),
+            msg: format!("Saving custom value {} failed", self.type_name()),
+            span: Some(save_span),
+            help: None,
+            inner: vec![
+                ShellError::GenericError {
+                error: "Custom value does not implement `save`".into(),
+                msg: format!("{} doesn't implement saving to disk", self.type_name()),
+                span: Some(value_span),
+                help: Some("Check the plugin's documentation for this value type. It might use a different way to save.".into()),
+                inner: vec![],
+            }],
         })
     }
 

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, path::Path, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
@@ -233,6 +233,16 @@ impl CustomValue for PluginCustomValueWithSource {
                 operator.into_spanned(op_span),
                 right.clone(),
             )
+    }
+
+    fn save(
+        &self,
+        path: Spanned<&Path>,
+        value_span: Span,
+        save_span: Span,
+    ) -> Result<(), ShellError> {
+        self.get_plugin(Some(value_span), "save")?
+            .custom_value_save(self.clone().into_spanned(value_span), path, save_span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

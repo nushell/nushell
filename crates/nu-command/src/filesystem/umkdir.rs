@@ -4,6 +4,7 @@ use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
 use uucore::mode;
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UMkdir;
@@ -57,6 +58,9 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("mkdir");
+
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut directories = call
@@ -74,19 +78,47 @@ impl Command for UMkdir {
             });
         }
 
+        let config = uu_mkdir::Config {
+            recursive: IS_RECURSIVE,
+            mode: get_mode(),
+            verbose: is_verbose,
+            set_selinux_context: false,
+            context: None,
+        };
+
+        let mut verbose_out = String::new();
         for dir in directories {
-            if let Err(error) = mkdir(&dir, IS_RECURSIVE, get_mode(), is_verbose) {
+            if let Err(error) = mkdir(&dir, &config) {
                 return Err(ShellError::GenericError {
                     error: format!("{error}"),
-                    msg: format!("{error}"),
+                    msg: translate!(&error.to_string()),
                     span: None,
                     help: None,
                     inner: vec![],
                 });
             }
+            if is_verbose {
+                verbose_out.push_str(
+                    format!(
+                        "{} ",
+                        &dir.as_path()
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                    )
+                    .as_str(),
+                );
+            }
         }
 
-        Ok(PipelineData::empty())
+        if is_verbose {
+            Ok(PipelineData::value(
+                Value::string(verbose_out.trim(), call.head),
+                None,
+            ))
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
