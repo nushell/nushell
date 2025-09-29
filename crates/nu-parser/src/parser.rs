@@ -1298,12 +1298,29 @@ pub fn parse_internal_call(
                 continue;
             }
 
+            let compile_error_count = working_set.compile_errors.len();
+
             let arg = parse_multispan_value(
                 working_set,
                 &spans[..end],
                 &mut spans_idx,
                 &positional.shape,
             );
+
+            // HACK: try-catch's signature defines the catch block as a Closure, even though it's
+            // used like a Block. Because closures are compiled eagerly, this ends up making the
+            // following code technically invalid:
+            // ```nu
+            // loop { try { } catch {|e| break } }
+            // ```
+            // Thus, we discard the compilation error here
+            if let SyntaxShape::Keyword(ref keyword, ..) = positional.shape
+                && keyword == b"catch"
+                && let [nu_protocol::CompileError::NotInALoop { .. }] =
+                    &working_set.compile_errors[compile_error_count..]
+            {
+                working_set.compile_errors.truncate(compile_error_count);
+            }
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                 working_set.error(ParseError::TypeMismatch(

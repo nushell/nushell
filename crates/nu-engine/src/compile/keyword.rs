@@ -808,20 +808,15 @@ pub(crate) fn compile_break(
     _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    if builder.is_in_loop() {
-        builder.load_empty(io_reg)?;
-        builder.push_break(call.head)?;
-        builder.add_comment("break");
-    } else {
-        // Fall back to calling the command if we can't find the loop target statically
-        builder.push(
-            Instruction::Call {
-                decl_id: call.decl_id,
-                src_dst: io_reg,
-            }
-            .into_spanned(call.head),
-        )?;
+    if !builder.is_in_loop() {
+        return Err(CompileError::NotInALoop {
+            msg: "'break' can only be used inside a loop".to_string(),
+            span: Some(call.head),
+        });
     }
+    builder.load_empty(io_reg)?;
+    builder.push_break(call.head)?;
+    builder.add_comment("break");
     Ok(())
 }
 
@@ -833,20 +828,15 @@ pub(crate) fn compile_continue(
     _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    if builder.is_in_loop() {
-        builder.load_empty(io_reg)?;
-        builder.push_continue(call.head)?;
-        builder.add_comment("continue");
-    } else {
-        // Fall back to calling the command if we can't find the loop target statically
-        builder.push(
-            Instruction::Call {
-                decl_id: call.decl_id,
-                src_dst: io_reg,
-            }
-            .into_spanned(call.head),
-        )?;
+    if !builder.is_in_loop() {
+        return Err(CompileError::NotInALoop {
+            msg: "'continue' can only be used inside a loop".to_string(),
+            span: Some(call.head),
+        });
     }
+    builder.load_empty(io_reg)?;
+    builder.push_continue(call.head)?;
+    builder.add_comment("continue");
     Ok(())
 }
 
