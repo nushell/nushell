@@ -22,6 +22,7 @@ pub fn add_default_context(mut engine_state: EngineState) -> EngineState {
             Attr,
             AttrCategory,
             AttrComplete,
+            AttrCompleteExternal,
             AttrDeprecated,
             AttrExample,
             AttrSearchTerms,

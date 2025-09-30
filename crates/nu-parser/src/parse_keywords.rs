@@ -1013,8 +1013,8 @@ fn handle_special_attributes(
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
-            "complete" => match <Option<Spanned<String>>>::from_value(value) {
-                Ok(Some(Spanned { item, span })) => {
+            "complete" => match <Spanned<String>>::from_value(value) {
+                Ok(Spanned { item, span }) => {
                     if let Some(decl) = working_set.find_decl(item.as_bytes()) {
                         // TODO: Enforce command signature? Not before settling on a unified
                         // custom completion api
@@ -1023,13 +1023,25 @@ fn handle_special_attributes(
                         working_set.error(ParseError::UnknownCommand(span));
                     }
                 }
-                Ok(None) => {
-                    signature.complete = Some(None);
-                }
                 Err(_) => {
                     let e = ShellError::GenericError {
                         error: "nu::shell::invalid_completer".into(),
                         msg: "Value couldn't be converted to a completer".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr complete` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
+            "complete external" => match value {
+                Value::Nothing { .. } => {
+                    signature.complete = Some(None);
+                }
+                _ => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_completer".into(),
+                        msg: "This attribute shouldn't return anything".into(),
                         span: Some(val_span),
                         help: Some("Is `attr complete` shadowed?".into()),
                         inner: vec![],

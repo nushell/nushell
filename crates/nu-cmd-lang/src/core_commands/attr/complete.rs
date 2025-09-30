@@ -10,12 +10,9 @@ impl Command for AttrComplete {
 
     fn signature(&self) -> Signature {
         Signature::build("attr complete")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
-            .optional(
+            .required(
                 "completer",
                 SyntaxShape::String,
                 "Name of the completion command command.",
@@ -24,7 +21,7 @@ impl Command for AttrComplete {
     }
 
     fn description(&self) -> &str {
-        "Attribute for enabling use of the external completer, or addition of a custom one, to command."
+        "Attribute for adding a custom completer that acts on the whole command."
     }
 
     fn run(
@@ -34,8 +31,8 @@ impl Command for AttrComplete {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-        run_impl(arg, call.span())
+        let arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        run_impl(arg)
     }
 
     fn run_const(
@@ -44,8 +41,8 @@ impl Command for AttrComplete {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg: Option<Spanned<String>> = call.opt_const(working_set, 0)?;
-        run_impl(arg, call.span())
+        let arg: Spanned<String> = call.req_const(working_set, 0)?;
+        run_impl(arg)
     }
 
     fn is_const(&self) -> bool {
@@ -57,9 +54,53 @@ impl Command for AttrComplete {
     }
 }
 
-fn run_impl(arg: Option<Spanned<String>>, head: Span) -> Result<PipelineData, ShellError> {
-    Ok(arg
-        .map(|Spanned { item, span }| Value::string(item, span))
-        .unwrap_or(Value::nothing(head))
-        .into_pipeline_data())
+fn run_impl(Spanned { item, span }: Spanned<String>) -> Result<PipelineData, ShellError> {
+    Ok(Value::string(item, span).into_pipeline_data())
+}
+
+#[derive(Clone)]
+pub struct AttrCompleteExternal;
+
+impl Command for AttrCompleteExternal {
+    fn name(&self) -> &str {
+        "attr complete external"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("attr complete external")
+            .input_output_type(Type::Nothing, Type::Nothing)
+            .allow_variants_without_examples(true)
+            .category(Category::Core)
+    }
+
+    fn description(&self) -> &str {
+        "Attribute for enabling use of the external completer for internal commands."
+    }
+
+    fn run(
+        &self,
+        _: &EngineState,
+        _: &mut Stack,
+        _: &Call,
+        _: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::empty())
+    }
+
+    fn run_const(
+        &self,
+        _: &StateWorkingSet,
+        _: &Call,
+        _: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::empty())
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![]
+    }
 }
