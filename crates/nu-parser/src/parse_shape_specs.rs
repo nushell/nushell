@@ -1,5 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
+use std::borrow::Cow;
+
 use crate::{TokenContents, lex::lex_signature, parser::parse_value};
 use nu_protocol::{
     Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape, Type, Value,
@@ -112,14 +114,15 @@ pub fn parse_completer(
                     // choose to use "full"/record suggestions even if they get no benefit from
                     // that *not*, and when support for the other properties land their completions
                     // will improve without any extra intervention.
-                    Value::Record { mut val, .. } => val
-                        .remove("value")
+                    Value::Record { val, .. } => val
+                        .get("value")
                         .ok_or(ShellError::CantFindColumn {
                             col_name: "value".into(),
                             span: None,
                             src_span: span,
                         })
-                        .and_then(Value::coerce_into_string),
+                        .and_then(Value::coerce_str)
+                        .map(Cow::into_owned),
                     val => val.coerce_into_string(),
                 }
             })

@@ -367,6 +367,48 @@ export def say [
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn list_completions_defined_inline() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = /* lang=nu */ r#"
+        export def say [
+          animal: string@[cat dog]
+        ] { }
+
+        say "#;
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn list_completions_from_constant_and_allows_record() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = /* lang=nu */ r#"
+        const animals = [
+            cat
+            {value: "dog"}
+        ]
+        export def say [
+          animal: string@$animals
+        ] { }
+
+        say "#;
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
+    match_suggestions(&expected, &suggestions);
+}
+
 /// External command only if starts with `^`
 #[test]
 fn external_commands() {
