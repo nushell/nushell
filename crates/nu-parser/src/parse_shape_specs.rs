@@ -99,16 +99,40 @@ pub fn parse_completer(
     };
 
     let completion = match val {
+        // Static list completions
         Value::List { vals, .. } => vals
             .into_iter()
-            .map(|e| e.coerce_into_string())
+            .map(|val| {
+                let span = val.span();
+                match val {
+                    // TODO: currently `Completion::List` only supports simple string suggestions,
+                    // but it will likely support description and style properties as well.
+                    //
+                    // For that reason records with a "value" field are accepted. So one can use
+                    // choose to use "full"/record suggestions even if they get no benefit from
+                    // that *not*, and when support for the other properties land their completions
+                    // will improve without any extra intervention.
+                    Value::Record { mut val, .. } => val
+                        .remove("value")
+                        .ok_or(ShellError::CantFindColumn {
+                            col_name: "value".into(),
+                            span: None,
+                            src_span: span,
+                        })
+                        .and_then(Value::coerce_into_string),
+                    val => val.coerce_into_string(),
+                }
+            })
             .collect::<Result<Vec<_>, ShellError>>()
-            .map_err(|err: ShellError| err.wrap(working_set, span))
+            .map_err(|err| err.wrap(working_set, span))
             .map(|vals| Completion::List(NuCow::Owned(vals))),
+
+        // Command completions
         Value::String { val, .. } => working_set
             .find_decl(val.as_bytes())
             .map(Completion::Command)
             .ok_or(ParseError::UnknownCommand(span)),
+
         val => Err(ParseError::OperatorUnsupportedType {
             op: "parameter completer",
             unsupported: val.get_type(),
