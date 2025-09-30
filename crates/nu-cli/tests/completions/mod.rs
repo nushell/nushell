@@ -774,6 +774,50 @@ fn external_completer_invalid() {
 }
 
 #[test]
+fn command_wide_completion_external() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        @complete external
+        extern "gh" []
+
+        gh alias one two"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let got = suggestions
+        .iter()
+        .map(|s| s.value.as_str())
+        .collect::<Vec<_>>();
+    let expacted = vec!["gh", "alias", "one", "two"];
+
+    assert_eq!(got, expacted);
+}
+
+#[test]
+fn command_wide_completion_custom() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete foo" [spans: list] {
+            $spans ++ [some more]
+        }
+
+        @complete "nu-complete foo"
+        def --wrapped "foo" [...rest] {}
+
+        foo bar baz"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let got = suggestions
+        .iter()
+        .map(|s| s.value.as_str())
+        .collect::<Vec<_>>();
+    let expacted = vec!["foo", "bar", "baz", "some", "more"];
+
+    assert_eq!(got, expacted);
+}
+
+#[test]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();
