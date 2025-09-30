@@ -15,13 +15,13 @@ impl Command for AttrComplete {
             .required(
                 "completer",
                 SyntaxShape::String,
-                "Name of the completion command command.",
+                "Name of the completion command.",
             )
             .category(Category::Core)
     }
 
     fn description(&self) -> &str {
-        "Attribute for adding a custom completer that acts on the whole command."
+        "Attribute for using another command as a completion source for all arguments."
     }
 
     fn run(
@@ -50,7 +50,17 @@ impl Command for AttrComplete {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![]
+        vec![Example {
+            description: "Use another command as completion source",
+            example: "\
+                def complete-foo [spans: list<string>] {\n    \
+                    [bar baz qux spam eggs] | where $it not-in $spans\n\
+                }\n\n\
+                @complete 'complete-foo'\n\
+                def foo [...args] { $args }\
+            ",
+            result: None,
+        }]
     }
 }
 
@@ -101,6 +111,15 @@ impl Command for AttrCompleteExternal {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![]
+        vec![Example {
+            description: "Use the external completer for a wrapper command",
+            example: "\
+                @complete external\n\
+                def --wrapped jc [...args] {\n    \
+                    ^jc ...$args | from json\n\
+                }\
+            ",
+            result: None,
+        }]
     }
 }
