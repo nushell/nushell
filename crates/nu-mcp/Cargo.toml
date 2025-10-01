@@ -9,7 +9,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugi
 nu-engine = { path = "../nu-engine", version = "0.107.1" }
 nu-parser = { path = "../nu-parser", version = "0.107.1" }
 
-rmcp = { version = "0.6", features = ["server", "transport-io", "schemars"] }
+rmcp = { version = "0.7", features = ["server", "transport-io", "schemars"] }
 schemars = "1.0.4"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
