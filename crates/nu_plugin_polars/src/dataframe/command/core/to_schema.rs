@@ -25,7 +25,7 @@ impl PluginCommand for ToSchema {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Convert a record into a schema and back to a nu object",
             example: r#"{a: str, b: u8} | polars into-schema | polars into-nu"#,

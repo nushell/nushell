@@ -58,7 +58,7 @@ impl Command for IntoGlob {
         glob_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert string to glob",

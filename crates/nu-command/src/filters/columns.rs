@@ -25,7 +25,7 @@ impl Command for Columns {
         "This is a counterpart to `values`, which produces a list of columns' values."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "{ acronym:PWD, meaning:'Print Working Directory' } | columns",
@@ -74,7 +74,7 @@ impl Command for Columns {
 fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     match input {
-        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(v, ..) => {
             let span = v.span();
             let cols = match v {

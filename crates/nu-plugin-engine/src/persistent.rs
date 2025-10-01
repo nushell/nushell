@@ -319,12 +319,11 @@ impl RegisteredPlugin for PersistentPlugin {
             handlers.register(Box::new(move |action| {
                 // write a signal packet through the PluginInterface if the plugin is alive and
                 // running
-                if let Some(plugin) = plugin.upgrade() {
-                    if let Ok(mutable) = plugin.mutable.lock() {
-                        if let Some(ref running) = mutable.running {
-                            let _ = running.interface.signal(action);
-                        }
-                    }
+                if let Some(plugin) = plugin.upgrade()
+                    && let Ok(mutable) = plugin.mutable.lock()
+                    && let Some(ref running) = mutable.running
+                {
+                    let _ = running.interface.signal(action);
                 }
             }))?
         };

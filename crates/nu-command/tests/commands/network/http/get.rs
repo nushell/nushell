@@ -334,6 +334,14 @@ fn http_get_timeout() {
         format!("http get --max-time 100ms {url}", url = server.url()).as_str()
     ));
 
-    assert!(&actual.err.contains("nu::shell::io::timed_out"));
-    assert!(&actual.err.contains("Timed out"));
+    assert!(
+        &actual.err.contains("nu::shell::io::timed_out"),
+        "unexpected error: {:?}",
+        actual.err
+    );
+    assert!(
+        &actual.err.contains("Timed out"),
+        "unexpected error: {:?}",
+        actual.err
+    );
 }

@@ -16,7 +16,7 @@ impl Command for Hide {
             .optional(
                 "members",
                 SyntaxShape::Any,
-                "Which members of the module to import.",
+                "Which members of the module to hide.",
             )
             .category(Category::Core)
     }
@@ -50,7 +50,7 @@ This command is a parser keyword. For details, check:
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Hide the alias just defined",

@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UMv;
@@ -20,7 +21,7 @@ impl Command for UMv {
         "Move files or directories using uutils/coreutils mv."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Rename a file",
@@ -83,6 +84,9 @@ impl Command for UMv {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("mv");
+
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
@@ -95,9 +99,9 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
         let update = if call.has_flag(engine_state, stack, "update")? {
-            UpdateMode::ReplaceIfOlder
+            UpdateMode::IfOlder
         } else {
-            UpdateMode::ReplaceAll
+            UpdateMode::All
         };
 
         #[allow(deprecated)]
@@ -186,17 +190,18 @@ impl Command for UMv {
             progress_bar: progress,
             verbose,
             suffix: String::from("~"),
-            backup: BackupMode::NoBackup,
+            backup: BackupMode::None,
             update,
             target_dir: None,
             no_target_dir: false,
             strip_slashes: false,
             debug: false,
+            context: None,
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
                 error: format!("{error}"),
-                msg: format!("{error}"),
+                msg: translate!(&error.to_string()),
                 span: None,
                 help: None,
                 inner: Vec::new(),

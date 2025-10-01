@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::Deref};
 
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    ListStream, Signals,
+    ListStream, ReportMode, ShellWarning, Signals,
     ast::{Expr, Expression},
     report_shell_warning,
 };
@@ -73,7 +73,7 @@ impl Command for Default {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Give a default 'target' column to all file entries",
@@ -82,7 +82,7 @@ impl Command for Default {
             },
             Example {
                 description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
-                example: "$env | get --ignore-errors MY_ENV | default 'abc'",
+                example: "$env | get --optional MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
             Example {
@@ -163,7 +163,7 @@ fn default(
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
+        if let PipelineData::Value(Value::Record { .. }, _) = input {
             let record = input.into_value(input_span)?.into_record()?;
             fill_record(
                 record,
@@ -227,7 +227,7 @@ fn default(
         // stream's internal state already preserves the original signals config, so if this
         // Signals::empty list stream gets interrupted it will be caught by the underlying iterator
         let ls = ListStream::new(stream, span, Signals::empty());
-        Ok(PipelineData::ListStream(ls, metadata))
+        Ok(PipelineData::list_stream(ls, metadata))
     // Otherwise, return the input as is
     } else {
         Ok(input)
@@ -236,7 +236,7 @@ fn default(
 
 /// A wrapper around the default value to handle closures and caching values
 enum DefaultValue {
-    Uncalculated(Spanned<ClosureEval>),
+    Uncalculated(Box<Spanned<ClosureEval>>),
     Calculated(Value),
 }
 
@@ -258,7 +258,7 @@ impl DefaultValue {
         match value {
             Value::Closure { val, .. } => {
                 let closure_eval = ClosureEval::new(engine_state, stack, *val);
-                DefaultValue::Uncalculated(closure_eval.into_spanned(span))
+                DefaultValue::Uncalculated(Box::new(closure_eval.into_spanned(span)))
             }
             _ => DefaultValue::Calculated(value),
         }
@@ -269,7 +269,7 @@ impl DefaultValue {
             DefaultValue::Uncalculated(closure) => {
                 let value = closure
                     .item
-                    .run_with_input(PipelineData::Empty)?
+                    .run_with_input(PipelineData::empty())?
                     .into_value(closure.span)?;
                 *self = DefaultValue::Calculated(value.clone());
                 Ok(value)
@@ -282,7 +282,7 @@ impl DefaultValue {
     fn single_run_pipeline_data(self) -> Result<PipelineData, ShellError> {
         match self {
             DefaultValue::Uncalculated(mut closure) => {
-                closure.item.run_with_input(PipelineData::Empty)
+                closure.item.run_with_input(PipelineData::empty())
             }
             DefaultValue::Calculated(val) => Ok(val.into_pipeline_data()),
         }
@@ -329,7 +329,7 @@ fn closure_variable_warning(
         (Value::Closure { .. }, true) => {
             let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
             let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
-            let suggestion = match span_contents {
+            let label = match span_contents {
                 Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
                 Cow::Owned(s) if s.deref() == "$carapace_completer" => {
                     carapace_suggestion.to_string()
@@ -339,14 +339,15 @@ fn closure_variable_warning(
 
             report_shell_warning(
                 engine_state,
-                &ShellError::DeprecationWarning {
-                    deprecation_type: "Behavior",
-                    suggestion,
+                &ShellWarning::Deprecated {
+                    dep_type: "Behavior".to_string(),
+                    label,
                     span,
                     help: Some(
                         r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
-In a future release, closures passed by variable will also be lazily evaluated.",
+In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
                     ),
+                    report_mode: ReportMode::FirstUse,
                 },
             );
 

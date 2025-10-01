@@ -53,7 +53,7 @@ impl Command for IntoCellPath {
         into_cell_path(call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert integer into cell path",
@@ -175,16 +175,16 @@ fn record_to_path_member(
 
     let mut member = value_to_path_member(value, span)?;
 
-    if let Some(optional) = record.get("optional") {
-        if optional.as_bool()? {
-            member.make_optional();
-        }
+    if let Some(optional) = record.get("optional")
+        && optional.as_bool()?
+    {
+        member.make_optional();
     };
 
-    if let Some(insensitive) = record.get("insensitive") {
-        if insensitive.as_bool()? {
-            member.make_insensitive();
-        }
+    if let Some(insensitive) = record.get("insensitive")
+        && insensitive.as_bool()?
+    {
+        member.make_insensitive();
     };
 
     Ok(member)

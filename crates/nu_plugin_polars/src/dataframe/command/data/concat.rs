@@ -53,7 +53,7 @@ impl PluginCommand for ConcatDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Concatenates two dataframes with the dataframe in the pipeline.",

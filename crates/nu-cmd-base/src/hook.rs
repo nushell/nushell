@@ -3,9 +3,9 @@ use nu_engine::{eval_block, eval_block_with_early_return, redirect_env};
 use nu_parser::parse;
 use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
-    cli_error::{report_parse_error, report_shell_error},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
+    report_error::{report_parse_error, report_shell_error},
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -119,7 +119,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -239,7 +239,9 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+                            .map(|p| p.body)
+                        {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -318,7 +320,8 @@ fn run_hook(
         &mut callee_stack,
         block,
         input,
-    )?;
+    )?
+    .body;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);

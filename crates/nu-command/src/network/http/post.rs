@@ -1,7 +1,7 @@
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
@@ -18,7 +18,11 @@ impl Command for HttpPost {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "The URL to post to.")
-            .optional("data", SyntaxShape::Any, "The contents of the post body. Required unless part of a pipeline.")
+            .optional(
+                "data",
+                SyntaxShape::Any,
+                "The contents of the post body. Required unless part of a pipeline.",
+            )
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -68,11 +72,18 @@ impl Command for HttpPost {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(nu_protocol::Completion::new_list(
+                        super::client::RedirectMode::MODES,
+                    )),
             )
             .filter()
             .category(Category::Network)
@@ -100,7 +111,7 @@ impl Command for HttpPost {
         run_post(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Post content to example.com",
@@ -169,19 +180,19 @@ pub fn run_post(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .opt::<Value>(engine_state, stack, 1)?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
-    if let HttpBody::None = data {
+    let Some(data) = data else {
         return Err(ShellError::GenericError {
             error: "Data must be provided either through pipeline or positional argument".into(),
             msg: "".into(),
@@ -189,7 +200,7 @@ pub fn run_post(
             help: None,
             inner: vec![],
         });
-    }
+    };
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
@@ -228,9 +239,9 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
+    let (response, request_headers) = send_request(
         engine_state,
-        request.clone(),
+        request,
         args.data,
         args.content_type,
         call.head,
@@ -243,15 +254,20 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
+    let response = response?;
+
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

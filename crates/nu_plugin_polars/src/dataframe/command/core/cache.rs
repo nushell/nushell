@@ -29,7 +29,7 @@ impl PluginCommand for LazyCache {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Caches the result into a new LazyFrame",
             example: "[[a b]; [6 2] [4 2] [2 2]] | polars into-df 

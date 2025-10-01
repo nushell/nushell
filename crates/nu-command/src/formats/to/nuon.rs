@@ -75,7 +75,7 @@ impl Command for ToNuon {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a NUON string representing the contents of this list, compact by default",

@@ -403,7 +403,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
                 })
             ),
-            FlatShape::External => println!(
+            FlatShape::External(_) => println!(
                 "{}",
                 json!({
                     "hover": "external",

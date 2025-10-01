@@ -35,7 +35,7 @@ impl PluginCommand for ArgMin {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Returns index for min value",
             example: "[1 3 2] | polars into-df | polars arg-min",

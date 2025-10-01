@@ -4,7 +4,7 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
-    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError,
+    CompileError, ErrorStyle, ParseError, ParseWarning, ShellError, ShellWarning,
     engine::{EngineState, StateWorkingSet},
 };
 use miette::{
@@ -17,19 +17,33 @@ use thiserror::Error;
 /// This error exists so that we can defer SourceCode handling. It simply
 /// forwards most methods, except for `.source_code()`, which we provide.
 #[derive(Error)]
-#[error("{0}")]
-struct CliError<'src>(
-    pub &'src dyn miette::Diagnostic,
-    pub &'src StateWorkingSet<'src>,
-);
-
-#[derive(Default)]
-pub struct ReportLog {
-    // A bloom-filter like structure to store the hashes of `ParseWarning`s,
-    // without actually permanently storing the entire warning in memory.
-    // May rarely result in warnings incorrectly being unreported upon hash collision.
-    parse_warnings: Vec<u64>,
+#[error("{diagnostic}")]
+struct CliError<'src> {
+    diagnostic: &'src dyn miette::Diagnostic,
+    working_set: &'src StateWorkingSet<'src>,
+    // error code to use if `diagnostic` doesn't provide one
+    default_code: Option<&'static str>,
 }
+
+impl<'src> CliError<'src> {
+    pub fn new(
+        diagnostic: &'src dyn miette::Diagnostic,
+        working_set: &'src StateWorkingSet<'src>,
+        default_code: Option<&'static str>,
+    ) -> Self {
+        CliError {
+            diagnostic,
+            working_set,
+            default_code,
+        }
+    }
+}
+
+/// A bloom-filter like structure to store the hashes of warnings,
+/// without actually permanently storing the entire warning in memory.
+/// May rarely result in warnings incorrectly being unreported upon hash collision.
+#[derive(Default)]
+pub struct ReportLog(Vec<u64>);
 
 /// How a warning/error should be reported
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -38,13 +52,21 @@ pub enum ReportMode {
     EveryUse,
 }
 
+/// For warnings/errors which have a ReportMode that dictates when they are reported
+pub trait Reportable {
+    fn report_mode(&self) -> ReportMode;
+}
+
 /// Returns true if this warning should be reported
-fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bool {
-    match warning.report_mode() {
+fn should_show_reportable<R>(engine_state: &EngineState, reportable: &R) -> bool
+where
+    R: Reportable + Hash,
+{
+    match reportable.report_mode() {
         ReportMode::EveryUse => true,
         ReportMode::FirstUse => {
             let mut hasher = DefaultHasher::new();
-            warning.hash(&mut hasher);
+            reportable.hash(&mut hasher);
             let hash = hasher.finish();
 
             let mut report_log = engine_state
@@ -52,10 +74,10 @@ fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bo
                 .lock()
                 .expect("report log lock is poisioned");
 
-            match report_log.parse_warnings.contains(&hash) {
+            match report_log.0.contains(&hash) {
                 true => false,
                 false => {
-                    report_log.parse_warnings.push(hash);
+                    report_log.0.push(hash);
                     true
                 }
             }
@@ -63,45 +85,64 @@ fn should_show_warning(engine_state: &EngineState, warning: &ParseWarning) -> bo
     }
 }
 
-pub fn format_cli_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) -> String {
-    format!("Error: {:?}", CliError(error, working_set))
+pub fn format_cli_error(
+    working_set: &StateWorkingSet,
+    error: &dyn miette::Diagnostic,
+    default_code: Option<&'static str>,
+) -> String {
+    format!(
+        "Error: {:?}",
+        CliError::new(error, working_set, default_code)
+    )
 }
 
 pub fn report_shell_error(engine_state: &EngineState, error: &ShellError) {
     if engine_state.config.display_errors.should_show(error) {
-        report_error(&StateWorkingSet::new(engine_state), error)
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, error, "nu::shell::error")
     }
 }
 
-pub fn report_shell_warning(engine_state: &EngineState, warning: &ShellError) {
-    if engine_state.config.display_errors.should_show(warning) {
-        report_warning(&StateWorkingSet::new(engine_state), warning)
+pub fn report_shell_warning(engine_state: &EngineState, warning: &ShellWarning) {
+    if should_show_reportable(engine_state, warning) {
+        report_warning(
+            &StateWorkingSet::new(engine_state),
+            warning,
+            "nu::shell::warning",
+        );
     }
 }
 
 pub fn report_parse_error(working_set: &StateWorkingSet, error: &ParseError) {
-    report_error(working_set, error);
+    report_error(working_set, error, "nu::parser::error");
 }
 
 pub fn report_parse_warning(working_set: &StateWorkingSet, warning: &ParseWarning) {
-    if should_show_warning(working_set.permanent(), warning) {
-        report_warning(working_set, warning);
+    if should_show_reportable(working_set.permanent(), warning) {
+        report_warning(working_set, warning, "nu::parser::warning");
     }
 }
 
 pub fn report_compile_error(working_set: &StateWorkingSet, error: &CompileError) {
-    report_error(working_set, error);
+    report_error(working_set, error, "nu::compile::error");
 }
 
 pub fn report_experimental_option_warning(
     working_set: &StateWorkingSet,
     warning: &dyn miette::Diagnostic,
 ) {
-    report_warning(working_set, warning);
+    report_warning(working_set, warning, "nu::experimental_option::warning");
 }
 
-fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
-    eprintln!("Error: {:?}", CliError(error, working_set));
+fn report_error(
+    working_set: &StateWorkingSet,
+    error: &dyn miette::Diagnostic,
+    default_code: &'static str,
+) {
+    eprintln!(
+        "Error: {:?}",
+        CliError::new(error, working_set, Some(default_code))
+    );
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
@@ -109,8 +150,15 @@ fn report_error(working_set: &StateWorkingSet, error: &dyn miette::Diagnostic) {
     }
 }
 
-fn report_warning(working_set: &StateWorkingSet, warning: &dyn miette::Diagnostic) {
-    eprintln!("Warning: {:?}", CliError(warning, working_set));
+fn report_warning(
+    working_set: &StateWorkingSet,
+    warning: &dyn miette::Diagnostic,
+    default_code: &'static str,
+) {
+    eprintln!(
+        "Warning: {:?}",
+        CliError::new(warning, working_set, Some(default_code))
+    );
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
@@ -120,9 +168,9 @@ fn report_warning(working_set: &StateWorkingSet, warning: &dyn miette::Diagnosti
 
 impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let config = self.1.get_config();
+        let config = self.working_set.get_config();
 
-        let ansi_support = config.use_ansi_coloring.get(self.1.permanent());
+        let ansi_support = config.use_ansi_coloring.get(self.working_set.permanent());
 
         let error_style = &config.error_style;
 
@@ -150,39 +198,42 @@ impl std::fmt::Debug for CliError<'_> {
 
 impl miette::Diagnostic for CliError<'_> {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        self.0.code()
+        self.diagnostic.code().or_else(|| {
+            self.default_code
+                .map(|code| Box::new(code) as Box<dyn std::fmt::Display>)
+        })
     }
 
     fn severity(&self) -> Option<Severity> {
-        self.0.severity()
+        self.diagnostic.severity()
     }
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        self.0.help()
+        self.diagnostic.help()
     }
 
     fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        self.0.url()
+        self.diagnostic.url()
     }
 
     fn labels<'a>(&'a self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + 'a>> {
-        self.0.labels()
+        self.diagnostic.labels()
     }
 
     // Finally, we redirect the source_code method to our own source.
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        if let Some(source_code) = self.0.source_code() {
+        if let Some(source_code) = self.diagnostic.source_code() {
             Some(source_code)
         } else {
-            Some(&self.1)
+            Some(&self.working_set)
         }
     }
 
     fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
-        self.0.related()
+        self.diagnostic.related()
     }
 
     fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
-        self.0.diagnostic_source()
+        self.diagnostic.diagnostic_source()
     }
 }

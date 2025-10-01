@@ -80,19 +80,19 @@ impl Command for Du {
         let tag = call.head;
         let min_size: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "min-size")?;
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
-        if let Some(ref max_depth) = max_depth {
-            if max_depth.item < 0 {
-                return Err(ShellError::NeedsPositiveValue {
-                    span: max_depth.span,
-                });
-            }
+        if let Some(ref max_depth) = max_depth
+            && max_depth.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue {
+                span: max_depth.span,
+            });
         }
-        if let Some(ref min_size) = min_size {
-            if min_size.item < 0 {
-                return Err(ShellError::NeedsPositiveValue {
-                    span: min_size.span,
-                });
-            }
+        if let Some(ref min_size) = min_size
+            && min_size.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue {
+                span: min_size.span,
+            });
         }
         let deref = call.has_flag(engine_state, stack, "deref")?;
         let long = call.has_flag(engine_state, stack, "long")?;
@@ -150,7 +150,7 @@ impl Command for Du {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Disk usage of the current directory",
             example: "du",

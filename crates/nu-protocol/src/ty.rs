@@ -9,6 +9,7 @@ use strum_macros::EnumIter;
 pub enum Type {
     Any,
     Binary,
+    Block,
     Bool,
     CellPath,
     Closure,
@@ -81,8 +82,25 @@ impl Type {
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
             }
-            (Type::Table(_), Type::List(_)) => true,
+            (Type::Table(_), Type::List(that)) if matches!(**that, Type::Any) => true,
+            (Type::Table(this), Type::List(that)) => {
+                matches!(that.as_ref(), Type::Record(that) if is_subtype_collection(this, that))
+            }
+            (Type::List(this), Type::Table(that)) => {
+                matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
+            }
             _ => false,
+        }
+    }
+
+    /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
+    pub fn widen(self, other: Type) -> Type {
+        if self.is_subtype_of(&other) {
+            other
+        } else if other.is_subtype_of(&self) {
+            self
+        } else {
+            Type::Any
         }
     }
 
@@ -112,6 +130,7 @@ impl Type {
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
+            Type::Block => SyntaxShape::Block, // FIXME needs more accuracy
             Type::Closure => SyntaxShape::Closure(None), // FIXME needs more accuracy
             Type::CellPath => SyntaxShape::CellPath,
             Type::Duration => SyntaxShape::Duration,
@@ -136,6 +155,7 @@ impl Type {
         match self {
             Type::Closure => String::from("closure"),
             Type::Bool => String::from("bool"),
+            Type::Block => String::from("block"),
             Type::CellPath => String::from("cell-path"),
             Type::Date => String::from("datetime"),
             Type::Duration => String::from("duration"),
@@ -161,6 +181,7 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Type::Block => write!(f, "block"),
             Type::Closure => write!(f, "closure"),
             Type::Bool => write!(f, "bool"),
             Type::CellPath => write!(f, "cell-path"),
@@ -209,6 +230,26 @@ impl Display for Type {
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Glob => write!(f, "glob"),
+        }
+    }
+}
+
+/// Get a string nicely combining multiple types
+///
+/// Helpful for listing types in errors
+pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
+    use std::fmt::Write as _;
+    match types {
+        [] => None,
+        [one] => Some(one.to_string()),
+        [one, two] => Some(format!("{one} {join_word} {two}")),
+        [initial @ .., last] => {
+            let mut out = String::new();
+            for ele in initial {
+                let _ = write!(out, "{ele}, ");
+            }
+            let _ = write!(out, "{join_word} {last}");
+            Some(out)
         }
     }
 }

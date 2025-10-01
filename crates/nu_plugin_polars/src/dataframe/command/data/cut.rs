@@ -37,7 +37,7 @@ impl PluginCommand for CutSeries {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Divide the column into three categories.",
             example: r#"[-2, -1, 0, 1, 2] | polars into-df | polars cut [-1, 1] --labels ["a", "b", "c"]"#,

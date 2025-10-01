@@ -21,7 +21,7 @@ impl Command for FromYaml {
         "Parse text as .yaml/.yml and create table."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         get_examples()
     }
 
@@ -66,7 +66,7 @@ impl Command for FromYml {
         from_yaml(input, head)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         get_examples()
     }
 }

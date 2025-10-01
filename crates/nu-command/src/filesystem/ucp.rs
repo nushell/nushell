@@ -5,7 +5,8 @@ use nu_protocol::{
     shell_error::{self, io::IoError},
 };
 use std::path::PathBuf;
-use uu_cp::{BackupMode, CopyMode, UpdateMode};
+use uu_cp::{BackupMode, CopyMode, CpError, UpdateMode};
+use uucore::{localized_help_template, translate};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
@@ -65,7 +66,7 @@ impl Command for UCp {
             .category(Category::FileSystem)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Copy myfile to dir_b",
@@ -117,11 +118,14 @@ impl Command for UCp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("cp");
+
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
-            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+            (UpdateMode::IfOlder, CopyMode::Update)
         } else {
-            (UpdateMode::ReplaceAll, CopyMode::Copy)
+            (UpdateMode::All, CopyMode::Copy)
         };
 
         let force = call.has_flag(engine_state, stack, "force")?;
@@ -252,7 +256,7 @@ impl Command for UCp {
             dereference: !recursive,
             progress_bar: progress,
             attributes_only: false,
-            backup: BackupMode::NoBackup,
+            backup: BackupMode::None,
             copy_contents: false,
             cli_dereference: false,
             copy_mode,
@@ -264,16 +268,19 @@ impl Command for UCp {
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
+            set_selinux_context: false,
+            context: None,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
             match error {
                 // code should still be EXIT_ERR as does GNU cp
-                uu_cp::Error::NotAllFilesCopied => {}
+                CpError::NotAllFilesCopied => {}
                 _ => {
+                    eprintln!("here");
                     return Err(ShellError::GenericError {
                         error: format!("{error}"),
-                        msg: format!("{error}"),
+                        msg: translate!(&error.to_string()),
                         span: None,
                         help: None,
                         inner: vec![],

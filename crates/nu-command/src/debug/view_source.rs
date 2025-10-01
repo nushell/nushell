@@ -230,7 +230,7 @@ impl Command for ViewSource {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "View the source of a code block",

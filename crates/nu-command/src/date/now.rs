@@ -35,7 +35,7 @@ impl Command for DateNow {
         Ok(Value::date(dt.with_timezone(dt.offset()), head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get the current date and format it in a given format string.",

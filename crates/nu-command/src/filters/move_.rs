@@ -46,7 +46,7 @@ impl Command for Move {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
@@ -229,13 +229,13 @@ fn move_record_columns(
                         });
                     }
 
-                    if matches!(location, Location::After(..)) {
+                    if let Location::After(..) = location {
                         out.push(inp_col.clone(), inp_val.clone());
                     }
 
                     insert_moved(record, span, &column_idx, &mut out)?;
 
-                    if matches!(location, Location::Before(..)) {
+                    if let Location::Before(..) = location {
                         out.push(inp_col.clone(), inp_val.clone());
                     }
                 } else if !column_idx.contains(&i) {

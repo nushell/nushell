@@ -376,50 +376,50 @@ fn get_command_documentation(
         }
     }
 
-    if !command.is_keyword() && !sig.input_output_types.is_empty() {
-        if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
-            // FIXME: we may want to make this the span of the help command in the future
-            let span = Span::unknown();
-            let mut vals = vec![];
-            for (input, output) in &sig.input_output_types {
-                vals.push(Value::record(
-                    record! {
-                        "input" => Value::string(input.to_string(), span),
-                        "output" => Value::string(output.to_string(), span),
-                    },
-                    span,
-                ));
-            }
-
-            let caller_stack = &mut Stack::new().collect_value();
-            if let Ok(result) = eval_call::<WithoutDebug>(
-                engine_state,
-                caller_stack,
-                &Call {
-                    decl_id,
-                    head: span,
-                    arguments: vec![Argument::Named((
-                        Spanned {
-                            item: "width".to_string(),
-                            span: Span::unknown(),
-                        },
-                        None,
-                        Some(Expression::new_unknown(
-                            Expr::Int(get_term_width() as i64 - 2), // padding, see below
-                            Span::unknown(),
-                            Type::Int,
-                        )),
-                    ))],
-                    parser_info: HashMap::new(),
+    if !command.is_keyword()
+        && !sig.input_output_types.is_empty()
+        && let Some(decl_id) = engine_state.find_decl(b"table", &[])
+    {
+        // FIXME: we may want to make this the span of the help command in the future
+        let span = Span::unknown();
+        let mut vals = vec![];
+        for (input, output) in &sig.input_output_types {
+            vals.push(Value::record(
+                record! {
+                    "input" => Value::string(input.to_string(), span),
+                    "output" => Value::string(output.to_string(), span),
                 },
-                PipelineData::Value(Value::list(vals, span), None),
-            ) {
-                if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
-                    for line in str.lines() {
-                        let _ = writeln!(long_desc, "  {line}");
-                    }
-                }
+                span,
+            ));
+        }
+
+        let caller_stack = &mut Stack::new().collect_value();
+        if let Ok(result) = eval_call::<WithoutDebug>(
+            engine_state,
+            caller_stack,
+            &Call {
+                decl_id,
+                head: span,
+                arguments: vec![Argument::Named((
+                    Spanned {
+                        item: "width".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    Some(Expression::new_unknown(
+                        Expr::Int(get_term_width() as i64 - 2), // padding, see below
+                        Span::unknown(),
+                        Type::Int,
+                    )),
+                ))],
+                parser_info: HashMap::new(),
+            },
+            PipelineData::value(Value::list(vals, span), None),
+        ) && let Ok((str, ..)) = result.collect_string_strict(span)
+        {
+            let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
+            for line in str.lines() {
+                let _ = writeln!(long_desc, "  {line}");
             }
         }
     }
@@ -487,7 +487,7 @@ fn get_command_documentation(
                             engine_state,
                             stack,
                             &(&table_call).into(),
-                            PipelineData::Value(result.clone(), None),
+                            PipelineData::value(result.clone(), None),
                         )
                         .ok()
                 });
@@ -497,8 +497,9 @@ fn get_command_documentation(
                     long_desc,
                     "  {}",
                     item.to_expanded_string("", nu_config)
+                        .trim_end()
+                        .trim_start_matches(|c: char| c.is_whitespace() && c != ' ')
                         .replace('\n', "\n  ")
-                        .trim()
                 );
             }
         }
@@ -521,24 +522,22 @@ fn update_ansi_from_config(
         let argument_opt = get_argument_for_color_value(nu_config, color, span, span_id);
 
         // Call ansi command using argument
-        if let Some(argument) = argument_opt {
-            if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call::<WithoutDebug>(
-                    engine_state,
-                    caller_stack,
-                    &Call {
-                        decl_id,
-                        head: span,
-                        arguments: vec![argument],
-                        parser_info: HashMap::new(),
-                    },
-                    PipelineData::Empty,
-                ) {
-                    if let Ok((str, ..)) = result.collect_string_strict(span) {
-                        *ansi_code = str;
-                    }
-                }
-            }
+        if let Some(argument) = argument_opt
+            && let Some(decl_id) = engine_state.find_decl(b"ansi", &[])
+            && let Ok(result) = eval_call::<WithoutDebug>(
+                engine_state,
+                caller_stack,
+                &Call {
+                    decl_id,
+                    head: span,
+                    arguments: vec![argument],
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::empty(),
+            )
+            && let Ok((str, ..)) = result.collect_string_strict(span)
+        {
+            *ansi_code = str;
         }
     }
 }
@@ -648,14 +647,6 @@ impl HelpStyle {
     }
 }
 
-/// Make syntax shape presentable by stripping custom completer info
-fn document_shape(shape: &SyntaxShape) -> &SyntaxShape {
-    match shape {
-        SyntaxShape::CompleterWrapper(inner_shape, _) => inner_shape,
-        _ => shape,
-    }
-}
-
 #[derive(PartialEq)]
 enum PositionalKind {
     Required,
@@ -686,15 +677,14 @@ fn write_positional(
                 long_desc,
                 "{help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>",
                 String::from_utf8_lossy(kw),
-                document_shape(shape),
+                shape,
             );
         }
         _ => {
             let _ = write!(
                 long_desc,
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
-                positional.name,
-                document_shape(&positional.shape),
+                positional.name, &positional.shape,
             );
         }
     };
@@ -735,6 +725,51 @@ pub enum FormatterValue<'a> {
     CodeString(&'a str),
 }
 
+fn write_flag_to_long_desc<F>(
+    flag: &nu_protocol::Flag,
+    long_desc: &mut String,
+    help_subcolor_one: &str,
+    help_subcolor_two: &str,
+    formatter: &mut F,
+) where
+    F: FnMut(FormatterValue) -> String,
+{
+    // Indentation
+    long_desc.push_str("  ");
+    // Short flag shown before long flag
+    if let Some(short) = flag.short {
+        let _ = write!(long_desc, "{help_subcolor_one}-{short}{RESET}");
+        if !flag.long.is_empty() {
+            let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
+        }
+    }
+    if !flag.long.is_empty() {
+        let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
+    }
+    if flag.required {
+        long_desc.push_str(" (required parameter)")
+    }
+    // Type/Syntax shape info
+    if let Some(arg) = &flag.arg {
+        let _ = write!(long_desc, " <{help_subcolor_two}{arg}{RESET}>");
+    }
+    if !flag.desc.is_empty() {
+        let _ = write!(
+            long_desc,
+            ": {}",
+            &formatter(FormatterValue::CodeString(&flag.desc))
+        );
+    }
+    if let Some(value) = &flag.default_value {
+        let _ = write!(
+            long_desc,
+            " (default: {})",
+            &formatter(FormatterValue::DefaultValue(value))
+        );
+    }
+    long_desc.push('\n');
+}
+
 pub fn get_flags_section<F>(
     signature: &Signature,
     help_style: &HelpStyle,
@@ -749,46 +784,26 @@ where
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
-    for flag in &signature.named {
-        // Indentation
-        long_desc.push_str("  ");
-        // Short flag shown before long flag
-        if let Some(short) = flag.short {
-            let _ = write!(long_desc, "{help_subcolor_one}-{short}{RESET}");
-            if !flag.long.is_empty() {
-                let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
-            }
-        }
-        if !flag.long.is_empty() {
-            let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
-        }
-        if flag.required {
-            long_desc.push_str(" (required parameter)")
-        }
-        // Type/Syntax shape info
-        if let Some(arg) = &flag.arg {
-            let _ = write!(
-                long_desc,
-                " <{help_subcolor_two}{}{RESET}>",
-                document_shape(arg)
-            );
-        }
-        if !flag.desc.is_empty() {
-            let _ = write!(
-                long_desc,
-                ": {}",
-                &formatter(FormatterValue::CodeString(&flag.desc))
-            );
-        }
-        if let Some(value) = &flag.default_value {
-            let _ = write!(
-                long_desc,
-                " (default: {})",
-                &formatter(FormatterValue::DefaultValue(value))
-            );
-        }
-        long_desc.push('\n');
+
+    let help = signature.named.iter().find(|flag| flag.long == "help");
+    let required = signature.named.iter().filter(|flag| flag.required);
+    let optional = signature
+        .named
+        .iter()
+        .filter(|flag| !flag.required && flag.long != "help");
+
+    let flags = required.chain(help).chain(optional);
+
+    for flag in flags {
+        write_flag_to_long_desc(
+            flag,
+            &mut long_desc,
+            help_subcolor_one,
+            help_subcolor_two,
+            &mut formatter,
+        );
     }
+
     long_desc
 }
 

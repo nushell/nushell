@@ -44,7 +44,7 @@ impl Command for MathSqrt {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
@@ -68,7 +68,7 @@ impl Command for MathSqrt {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         if let PipelineData::Value(
@@ -87,7 +87,7 @@ impl Command for MathSqrt {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the square root of each number in a list",
             example: "[9 16] | math sqrt",

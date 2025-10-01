@@ -70,7 +70,8 @@ impl Command for Do {
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
+            .map(|p| p.body);
 
         if has_env {
             // Merge the block's environment to the current stack
@@ -83,7 +84,7 @@ impl Command for Do {
                 #[cfg(not(feature = "os"))]
                 return Err(ShellError::DisabledOsSupport {
                     msg: "Cannot create a thread to receive stdout message.".to_string(),
-                    span: Some(span),
+                    span,
                 });
 
                 #[cfg(feature = "os")]
@@ -157,12 +158,12 @@ impl Command for Do {
                         if !stderr_msg.is_empty() {
                             child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr_msg))));
                         }
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::child(child, span),
                             metadata,
                         ))
                     }
-                    Err(stream) => Ok(PipelineData::ByteStream(stream, metadata)),
+                    Err(stream) => Ok(PipelineData::byte_stream(stream, metadata)),
                 }
             }
             Ok(PipelineData::ByteStream(mut stream, metadata))
@@ -176,7 +177,7 @@ impl Command for Do {
                 if let ByteStreamSource::Child(child) = stream.source_mut() {
                     child.ignore_error(true);
                 }
-                Ok(PipelineData::ByteStream(stream, metadata))
+                Ok(PipelineData::byte_stream(stream, metadata))
             }
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_all_errors => {
                 Ok(PipelineData::empty())
@@ -189,13 +190,13 @@ impl Command for Do {
                         value
                     }
                 });
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
             r => r,
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Run the closure",
@@ -264,7 +265,7 @@ fn bind_args_to(
             .expect("internal error: all custom parameters must have var_ids");
         if let Some(result) = val_iter.next() {
             let param_type = param.shape.to_type();
-            if required && !result.is_subtype_of(&param_type) {
+            if !result.is_subtype_of(&param_type) {
                 return Err(ShellError::CantConvert {
                     to_type: param.shape.to_type().to_string(),
                     from_type: result.get_type().to_string(),

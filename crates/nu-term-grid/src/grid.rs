@@ -282,7 +282,7 @@ impl Grid {
 
     fn columns_dimensions(&self, num_columns: usize) -> Dimensions {
         let mut num_lines = self.cells.len() / num_columns;
-        if self.cells.len() % num_columns != 0 {
+        if !self.cells.len().is_multiple_of(num_columns) {
             num_lines += 1;
         }
 
@@ -315,7 +315,7 @@ impl Grid {
                 col_total_width_so_far += cell.width;
             } else {
                 let mut theoretical_max_num_lines = self.cell_count / theoretical_min_num_cols;
-                if self.cell_count % theoretical_min_num_cols != 0 {
+                if !self.cell_count.is_multiple_of(theoretical_min_num_cols) {
                     theoretical_max_num_lines += 1;
                 }
                 return theoretical_max_num_lines;
@@ -374,7 +374,7 @@ impl Grid {
             // The number of columns is the number of cells divided by the number
             // of lines, *rounded up*.
             let mut num_columns = self.cell_count / num_lines;
-            if self.cell_count % num_lines != 0 {
+            if !self.cell_count.is_multiple_of(num_lines) {
                 num_columns += 1;
             }
             // Early abort: if there are so many columns that the width of the

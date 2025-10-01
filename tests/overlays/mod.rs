@@ -198,7 +198,7 @@ fn new_overlay_from_const_name() {
     let inp = &[
         "const mod = 'spam'",
         "overlay new $mod",
-        "overlay list | last",
+        "overlay list | last | get name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -212,7 +212,7 @@ fn hide_overlay_from_const_name() {
         "const mod = 'spam'",
         "overlay new $mod",
         "overlay hide $mod",
-        "overlay list | str join ' '",
+        "overlay list | where active == true | get name | str join ' '",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -410,7 +410,7 @@ fn hide_overlay_scoped_env() {
 
 #[test]
 fn list_default_overlay() {
-    let inp = &["overlay list | last"];
+    let inp = &["overlay list | last | get name"];
 
     let actual = nu!(&inp.join("; "));
     let actual_repl = nu!(nu_repl_code(inp));
@@ -424,7 +424,7 @@ fn list_last_overlay() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
-        "overlay list | last",
+        "overlay list | last | get name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -439,7 +439,7 @@ fn list_overlay_scoped() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use spam",
-        "do { overlay list | last }",
+        "do { overlay list | last | get name }",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -695,7 +695,7 @@ fn reset_overrides() {
 
 #[test]
 fn overlay_new() {
-    let inp = &["overlay new spam", "overlay list | last"];
+    let inp = &["overlay new spam", "overlay list | last | get name"];
 
     let actual = nu!(&inp.join("; "));
     let actual_repl = nu!(nu_repl_code(inp));
@@ -919,6 +919,74 @@ fn overlay_use_export_env() {
 }
 
 #[test]
+fn overlay_use_export_env_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB"]"#);
+    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB"]"#);
+}
+
+#[test]
+fn overlay_hide_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "overlay hide",
+        "$out ++= [(20MB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    // Can't hide overlay within the same source file
+    // let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+    assert_eq!(actual_repl.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+}
+
+#[test]
+fn overlay_use_after_hide_config_affected() {
+    let inp = &[
+        "mut out = []",
+        "$env.config.filesize.unit = 'metric'",
+        "$out ++= [(20MB | into string)]",
+        "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        "overlay hide",
+        "$out ++= [(20MB | into string)]",
+        "overlay use spam",
+        "$out ++= [(20MiB | into string)]",
+        r#"$out | to json --raw"#,
+    ];
+
+    // Can't hide overlay within the same source file
+    // let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    // assert_eq!(actual.out, r#"["20.0 MB","20.0 MiB","20.0 MB"]"#);
+    assert_eq!(
+        actual_repl.out,
+        r#"["20.0 MB","20.0 MiB","20.0 MB","20.0 MiB"]"#
+    );
+}
+
+#[test]
 fn overlay_use_export_env_hide() {
     let inp = &[
         "$env.FOO = 'foo'",
@@ -1012,7 +1080,7 @@ fn overlay_use_find_scoped_module() {
                     module spam { }
 
                     overlay use spam
-                    overlay list | last
+                    overlay list | last | get name
                 }
             ";
 
@@ -1128,7 +1196,7 @@ fn overlay_trim_single_quote() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         "overlay use 'spam'",
-        "overlay list | last ",
+        "overlay list | last | get name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1159,7 +1227,7 @@ fn overlay_trim_double_quote() {
     let inp = &[
         r#"module spam { export def foo [] { "foo" } }"#,
         r#"overlay use "spam" "#,
-        "overlay list | last ",
+        "overlay list | last | get name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1360,7 +1428,7 @@ fn alias_overlay_use_2() {
         "module spam { export alias b = overlay use inner }",
         "use spam",
         "spam b",
-        "overlay list | get 1",
+        "overlay list | get 1.name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1379,7 +1447,7 @@ fn alias_overlay_use_3() {
         "module spam { export alias b = overlay use inner }",
         "use spam b",
         "b",
-        "overlay list | get 1",
+        "overlay list | get 1.name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1397,7 +1465,7 @@ fn alias_overlay_new() {
         "alias on = overlay new",
         "on spam",
         "on eggs",
-        "overlay list | last",
+        "overlay list | last | get name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -1537,4 +1605,18 @@ fn test_overlay_use_with_printing_current_file() {
             dirs.test().join("foo").join("mod.nu").to_string_lossy()
         );
     });
+}
+
+#[test]
+fn report_errors_in_export_env() {
+    let inp = &[
+        r#"module spam { export-env { error make -u {msg: "reported"} } }"#,
+        "overlay use spam",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.contains("reported"));
+    assert!(actual_repl.err.contains("reported"));
 }

@@ -43,7 +43,7 @@ impl PluginCommand for QueryDf {
         vec!["dataframe", "sql", "search"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Query dataframe using SQL",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars query 'select a from df'",

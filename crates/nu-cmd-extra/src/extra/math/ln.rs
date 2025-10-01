@@ -38,13 +38,13 @@ impl Command for MathLn {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the natural logarithm of e",
             example: "2.7182818 | math ln | math round --precision 4",

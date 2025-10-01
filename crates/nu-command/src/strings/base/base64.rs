@@ -58,7 +58,7 @@ impl Command for DecodeBase64 {
         EXTRA_USAGE
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Decode a Base64 string",
@@ -131,7 +131,7 @@ impl Command for EncodeBase64 {
         EXTRA_USAGE
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Encode a string with Base64",

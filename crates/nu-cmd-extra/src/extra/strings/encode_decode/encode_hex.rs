@@ -1,4 +1,4 @@
-use super::hex::{operate, ActionType};
+use super::hex::{ActionType, operate};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -33,7 +33,7 @@ impl Command for EncodeHex {
         "Encode a binary value using hex."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Encode binary data",
             example: "0x[09 F9 11 02 9D 74 E3 5B D8 41 56 C5 63 56 88 C0] | encode hex",

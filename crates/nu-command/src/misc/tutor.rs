@@ -45,7 +45,7 @@ impl Command for Tutor {
         tutor(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Begin the tutorial",

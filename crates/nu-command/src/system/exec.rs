@@ -125,7 +125,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Execute external 'ps aux' tool",

@@ -18,54 +18,53 @@ pub fn check_example_input_and_output_types_match_command_signature(
     let mut witnessed_type_transformations = HashSet::<(Type, Type)>::new();
 
     // Skip tests that don't have results to compare to
-    if let Some(example_output) = example.result.as_ref() {
-        if let Some(example_input) =
+    if let Some(example_output) = example.result.as_ref()
+        && let Some(example_input) =
             eval_pipeline_without_terminal_expression(example.example, cwd, engine_state)
-        {
-            let example_matches_signature =
-                signature_input_output_types
-                    .iter()
-                    .any(|(sig_in_type, sig_out_type)| {
-                        example_input.is_subtype_of(sig_in_type)
-                            && example_output.is_subtype_of(sig_out_type)
-                            && {
-                                witnessed_type_transformations
-                                    .insert((sig_in_type.clone(), sig_out_type.clone()));
-                                true
-                            }
-                    });
+    {
+        let example_matches_signature =
+            signature_input_output_types
+                .iter()
+                .any(|(sig_in_type, sig_out_type)| {
+                    example_input.is_subtype_of(sig_in_type)
+                        && example_output.is_subtype_of(sig_out_type)
+                        && {
+                            witnessed_type_transformations
+                                .insert((sig_in_type.clone(), sig_out_type.clone()));
+                            true
+                        }
+                });
 
-            let example_input_type = example_input.get_type();
-            let example_output_type = example_output.get_type();
+        let example_input_type = example_input.get_type();
+        let example_output_type = example_output.get_type();
 
-            // The example type checks as a cell path operation if both:
-            // 1. The command is declared to operate on cell paths.
-            // 2. The example_input_type is list or record or table, and the example
-            //    output shape is the same as the input shape.
-            let example_matches_signature_via_cell_path_operation = signature_operates_on_cell_paths
+        // The example type checks as a cell path operation if both:
+        // 1. The command is declared to operate on cell paths.
+        // 2. The example_input_type is list or record or table, and the example
+        //    output shape is the same as the input shape.
+        let example_matches_signature_via_cell_path_operation = signature_operates_on_cell_paths
                        && example_input_type.accepts_cell_paths()
                        // TODO: This is too permissive; it should make use of the signature.input_output_types at least.
                        && example_output_type.to_shape() == example_input_type.to_shape();
 
-            if !(example_matches_signature || example_matches_signature_via_cell_path_operation) {
-                panic!(
-                    "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
+        if !(example_matches_signature || example_matches_signature_via_cell_path_operation) {
+            panic!(
+                "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
                        However, this does not match the declared signature: {:?}.{} \
                        For this command `operates_on_cell_paths()` is {}.",
-                    example.example,
-                    example_input_type,
-                    example_output_type,
-                    signature_input_output_types,
-                    if signature_input_output_types.is_empty() {
-                        " (Did you forget to declare the input and output types for the command?)"
-                    } else {
-                        ""
-                    },
-                    signature_operates_on_cell_paths
-                );
-            };
+                example.example,
+                example_input_type,
+                example_output_type,
+                signature_input_output_types,
+                if signature_input_output_types.is_empty() {
+                    " (Did you forget to declare the input and output types for the command?)"
+                } else {
+                    ""
+                },
+                signature_operates_on_cell_paths
+            );
         };
-    }
+    };
     witnessed_type_transformations
 }
 
@@ -131,6 +130,7 @@ pub fn eval_block(
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
+        .map(|p| p.body)
         .and_then(|data| data.into_value(Span::test_data()))
         .unwrap_or_else(|err| {
             report_shell_error(engine_state, &err);

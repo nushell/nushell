@@ -26,7 +26,7 @@ impl PluginCommand for ColumnsDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Dataframe columns",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns",
@@ -67,7 +67,7 @@ fn command(
 
     let names = Value::list(names, call.head);
 
-    Ok(PipelineData::Value(names, None))
+    Ok(PipelineData::value(names, None))
 }
 
 #[cfg(test)]

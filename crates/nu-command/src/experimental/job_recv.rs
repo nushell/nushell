@@ -32,7 +32,7 @@ Messages may have numeric flags attached to them. This commands supports filteri
 If no tag is specified, this command will accept any message.
 
 If no message with the specified tag (if any) is available in the mailbox, this command will block the current thread until one arrives.
-By default this command block indefinitely until a matching message arrives, but a timeout duration can be specified. 
+By default this command block indefinitely until a matching message arrives, but a timeout duration can be specified.
 If a timeout duration of zero is specified, it will succeed only if there already is a message in the mailbox.
 
 Note: When using par-each, only one thread at a time can utilize this command.
@@ -70,17 +70,15 @@ in no particular order, regardless of the specified timeout parameter.
 
         let tag_arg: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "tag")?;
 
-        if let Some(tag) = tag_arg {
-            if tag.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: tag.span });
-            }
+        if let Some(tag) = tag_arg
+            && tag.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue { span: tag.span });
         }
 
         let tag = tag_arg.map(|it| it.item as FilterTag);
 
-        let duration: Option<i64> = call.get_flag(engine_state, stack, "timeout")?;
-
-        let timeout = duration.map(|it| Duration::from_nanos(it as u64));
+        let timeout: Option<Duration> = call.get_flag(engine_state, stack, "timeout")?;
 
         let mut mailbox = engine_state
             .current_job
@@ -99,7 +97,7 @@ in no particular order, regardless of the specified timeout parameter.
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "job recv",
@@ -114,6 +112,11 @@ in no particular order, regardless of the specified timeout parameter.
             Example {
                 example: "job recv --timeout 0sec",
                 description: "Get a message or fail if no message is available immediately",
+                result: None,
+            },
+            Example {
+                example: "job spawn { sleep 1sec; 'hi' | job send 0 }; job recv",
+                description: "Receive a message from a newly-spawned job",
                 result: None,
             },
         ]

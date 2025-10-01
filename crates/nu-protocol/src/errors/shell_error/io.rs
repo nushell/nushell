@@ -1,3 +1,5 @@
+#[cfg(doc)] // allow mentioning this in doc comments
+use super::ShellError;
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
     error::Error as StdError,
@@ -9,6 +11,16 @@ use thiserror::Error;
 use crate::Span;
 
 use super::location::Location;
+
+/// Alias for a `Result` with the error type [`ErrorKind`] by default.
+///
+/// This may be used in all situations that would usually return an [`std::io::Error`] but are
+/// already part of the [`nu_protocol`](crate) crate and can therefore interact with
+/// [`shell_error::io`](self) directly.
+///
+/// To make programming inside this module easier, you can pass the `E` type with another error.
+/// This avoids the annoyance of having a shadowed `Result`.
+pub type Result<T, E = ErrorKind> = std::result::Result<T, E>;
 
 /// Represents an I/O error in the [`ShellError::Io`] variant.
 ///
@@ -93,7 +105,7 @@ pub struct IoError {
     /// and is part of [`std::io::Error`].
     /// If a kind cannot be represented by it, consider adding a new variant to [`ErrorKind`].
     ///
-    /// Only in very rare cases should [`std::io::ErrorKind::other()`] be used, make sure you provide
+    /// Only in very rare cases should [`std::io::Error::other()`] be used, make sure you provide
     /// `additional_context` to get useful errors in these cases.
     pub kind: ErrorKind,
 
@@ -158,13 +170,22 @@ pub enum ErrorKind {
     #[allow(private_interfaces)]
     Std(std::io::ErrorKind, Sealed),
 
+    /// Killing a job process failed.
+    ///
+    /// This error is part [`ShellError::Io`](super::ShellError::Io) instead of
+    /// [`ShellError::Job`](super::ShellError::Job) as this error occurs because some I/O operation
+    /// failed on the OS side.
+    /// And not part of our logic.
+    KillJobProcess,
+
     NotAFile,
 
     /// The file or directory is in use by another program.
     ///
     /// On Windows, this maps to
-    /// [`ERROR_SHARING_VIOLATION`](windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
+    /// [`ERROR_SHARING_VIOLATION`](::windows::Win32::Foundation::ERROR_SHARING_VIOLATION) and
     /// prevents access like deletion or modification.
+    #[cfg_attr(not(windows), allow(rustdoc::broken_intra_doc_links))]
     AlreadyInUse,
 
     // use these variants in cases where we know precisely whether a file or directory was expected
@@ -375,7 +396,31 @@ impl From<&std::io::Error> for ErrorKind {
             }
         }
 
+        #[cfg(debug_assertions)]
+        if err.kind() == std::io::ErrorKind::Other {
+            panic!(
+                "\
+suspicious conversion:
+    tried to convert `std::io::Error` with `std::io::ErrorKind::Other`
+    into `nu_protocol::shell_error::io::ErrorKind`
+
+I/O errors should always be specific, provide more context
+
+{err:#?}\
+            "
+            )
+        }
+
         ErrorKind::Std(err.kind(), Sealed)
+    }
+}
+
+impl From<nu_system::KillByPidError> for ErrorKind {
+    fn from(value: nu_system::KillByPidError) -> Self {
+        match value {
+            nu_system::KillByPidError::Output(error) => error.into(),
+            nu_system::KillByPidError::KillProcess => ErrorKind::KillJobProcess,
+        }
     }
 }
 
@@ -400,6 +445,7 @@ impl Display for ErrorKind {
                 let (first, rest) = msg.split_at(1);
                 write!(f, "{}{}", first.to_uppercase(), rest)
             }
+            ErrorKind::KillJobProcess => write!(f, "Killing job process failed"),
             ErrorKind::NotAFile => write!(f, "Not a file"),
             ErrorKind::AlreadyInUse => write!(f, "Already in use"),
             ErrorKind::FileNotFound => write!(f, "File not found"),
@@ -437,6 +483,7 @@ impl Diagnostic for IoError {
                 std::io::ErrorKind::Other => code.push_str("other"),
                 kind => code.push_str(&kind.to_string().to_lowercase().replace(" ", "_")),
             },
+            ErrorKind::KillJobProcess => code.push_str("kill_job_process"),
             ErrorKind::NotAFile => code.push_str("not_a_file"),
             ErrorKind::AlreadyInUse => code.push_str("already_in_use"),
             ErrorKind::FileNotFound => code.push_str("file_not_found"),

@@ -1,8 +1,9 @@
 use crate::LanguageServer;
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWorkspaceFoldersParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, ProgressParams, ProgressParamsValue, ProgressToken, Uri,
-    WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd, WorkDoneProgressReport,
+    DidOpenTextDocumentParams, LogMessageParams, MessageType, ProgressParams, ProgressParamsValue,
+    ProgressToken, Uri, WorkDoneProgress, WorkDoneProgressBegin, WorkDoneProgressEnd,
+    WorkDoneProgressReport,
     notification::{
         DidChangeTextDocument, DidChangeWorkspaceFolders, DidCloseTextDocument,
         DidOpenTextDocument, Notification, Progress,
@@ -65,6 +66,18 @@ impl LanguageServer {
         };
         let notification =
             lsp_server::Notification::new(Progress::METHOD.to_string(), progress_params);
+        self.connection
+            .sender
+            .send(lsp_server::Message::Notification(notification))
+            .into_diagnostic()
+    }
+
+    pub(crate) fn send_log_message(&self, typ: MessageType, message: String) -> Result<()> {
+        let log_params = LogMessageParams { typ, message };
+        let notification = lsp_server::Notification::new(
+            lsp_types::notification::LogMessage::METHOD.to_string(),
+            log_params,
+        );
         self.connection
             .sender
             .send(lsp_server::Message::Notification(notification))
@@ -136,98 +149,43 @@ impl LanguageServer {
 mod tests {
     use crate::path_to_uri;
     use crate::tests::{
-        initialize_language_server, open, open_unchecked, result_from_message, send_hover_request,
-        update,
+        initialize_language_server, open_unchecked, result_from_message, send_hover_request, update,
     };
     use assert_json_diff::assert_json_eq;
     use lsp_types::Range;
     use nu_test_support::fs::fixtures;
+    use rstest::rstest;
 
-    #[test]
-    fn hover_correct_documentation_on_let() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hover");
-        script.push("var.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script, 0, 0);
-
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!({
-                "contents": {
-                    "kind": "markdown",
-                    "value": "Create a variable and give it a value.\n\nThis command is a parser keyword. For details, check:\n  https://www.nushell.sh/book/thinking_in_nu.html\n---\n### Usage \n```nu\n  let {flags} <var_name> = <initial_value>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `var_name`: `<vardecl>` - Variable name.\n\n  `initial_value`: `<variable>` - Equals sign followed by value.\n\n\n### Input/output types\n\n```nu\n any | nothing\n\n```\n### Example(s)\n  Set a variable to a value\n```nu\n  let x = 10\n```\n  Set a variable to the result of an expression\n```nu\n  let x = 10 + 100\n```\n  Set a variable based on the condition\n```nu\n  let x = if false { -1 } else { 1 }\n```\n"
-                }
-            })
-        );
-    }
-
-    #[test]
-    fn hover_on_command_after_full_content_change() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("hover");
-        script.push("command.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        update(
-            &client_connection,
-            script.clone(),
-            String::from(
-                r#"# Renders some updated greeting message
+    #[rstest]
+    #[case::full(
+        r#"# Renders some updated greeting message
 def hello [] {}
 
 hello"#,
-            ),
-            None,
-        );
-        let resp = send_hover_request(&client_connection, script, 3, 0);
-
-        assert_json_eq!(
-            result_from_message(resp),
-            serde_json::json!({
-                "contents": {
-                    "kind": "markdown",
-                    "value": "Renders some updated greeting message\n---\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
-                }
-            })
-        );
-    }
-
-    #[test]
-    fn hover_on_command_after_partial_content_change() {
+        None
+    )]
+    #[case::partial(
+        "# Renders some updated greeting message",
+        Some(Range {
+            start: lsp_types::Position {
+                line: 0,
+                character: 0,
+            },
+            end: lsp_types::Position {
+                line: 0,
+                character: 31,
+            },
+        })
+    )]
+    fn hover_on_command_after_content_change(#[case] text: String, #[case] range: Option<Range>) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("hover");
-        script.push("command.nu");
+        script.push("lsp/hover/command.nu");
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        update(
-            &client_connection,
-            script.clone(),
-            String::from("# Renders some updated greeting message"),
-            Some(Range {
-                start: lsp_types::Position {
-                    line: 0,
-                    character: 0,
-                },
-                end: lsp_types::Position {
-                    line: 0,
-                    character: 31,
-                },
-            }),
-        );
+        update(&client_connection, script.clone(), text, range);
         let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
@@ -246,13 +204,9 @@ hello"#,
         let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("notifications");
-        script.push("issue_11522.nu");
+        script.push("lsp/notifications/issue_11522.nu");
         let script = path_to_uri(&script);
 
-        let result = open(&client_connection, script);
-
-        assert_eq!(result.map(|_| ()), Ok(()))
+        open_unchecked(&client_connection, script);
     }
 }

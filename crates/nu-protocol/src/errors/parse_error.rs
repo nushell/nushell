@@ -60,13 +60,13 @@ pub enum ParseError {
 
     #[error("Command does not support {0} input.")]
     #[diagnostic(code(nu::parser::input_type_mismatch))]
-    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+    InputMismatch(String, #[label("command doesn't support {0} input")] Span),
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
     OutputMismatch(
         Type,
-        Type,
+        String,
         #[label("expected {0}, but command outputs {1}")] Span,
     ),
 
@@ -212,6 +212,10 @@ pub enum ParseError {
     #[error("Incorrect value")]
     #[diagnostic(code(nu::parser::incorrect_value), help("{2}"))]
     IncorrectValue(String, #[label("unexpected {0}")] Span, String),
+
+    #[error("Invalid binary string.")]
+    #[diagnostic(code(nu::parser::invalid_binary_string), help("{1}"))]
+    InvalidBinaryString(#[label("invalid binary string")] Span, String),
 
     #[error("Multiple rest params.")]
     #[diagnostic(code(nu::parser::multiple_rest_params))]
@@ -588,6 +592,7 @@ impl ParseError {
             ParseError::NameIsBuiltinVar(_, s) => *s,
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
+            ParseError::InvalidBinaryString(s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
             ParseError::VariableNotFound(_, s) => *s,
             ParseError::EnvVarNotVar(_, s) => *s,

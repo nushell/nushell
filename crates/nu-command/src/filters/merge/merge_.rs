@@ -38,7 +38,7 @@ repeating this process with row 1, and so on."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[a b c] | wrap name | merge ( [47 512 618] | wrap id )",

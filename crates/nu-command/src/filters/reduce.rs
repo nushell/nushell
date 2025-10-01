@@ -39,7 +39,7 @@ impl Command for Reduce {
         vec!["map", "fold", "foldl"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
@@ -119,11 +119,11 @@ impl Command for Reduce {
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         for value in iter {
-            engine_state.signals().check(head)?;
+            engine_state.signals().check(&head)?;
             acc = closure
                 .add_arg(value)
                 .add_arg(acc.clone())
-                .run_with_input(PipelineData::Value(acc, None))?
+                .run_with_input(PipelineData::value(acc, None))?
                 .into_value(head)?;
         }
 

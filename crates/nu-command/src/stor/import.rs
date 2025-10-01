@@ -31,7 +31,7 @@ impl Command for StorImport {
         vec!["sqlite", "open", "database", "restore", "file"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Import a sqlite database file into the in-memory sqlite database",
             example: "stor import --file-name nudb.sqlite",

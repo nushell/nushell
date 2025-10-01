@@ -31,7 +31,7 @@ impl PluginCommand for ExprCount {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Count the number of non-null values in a column",
             example: r#"[[a]; ["foo"] ["bar"] [null]] | polars into-df 

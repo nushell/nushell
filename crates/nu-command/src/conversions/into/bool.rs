@@ -56,7 +56,7 @@ impl Command for IntoBool {
         into_bool(engine_state, stack, call, input, relaxed)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert value to boolean in table",

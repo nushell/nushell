@@ -30,7 +30,7 @@ impl Command for UrlBuildQuery {
         vec!["convert", "record", "table"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a query string representing the contents of this record",

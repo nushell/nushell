@@ -54,7 +54,7 @@ When updating a specific index, the closure will instead be run once. The first 
         update(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Update a column value",
@@ -210,7 +210,7 @@ fn update(
                     }
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             } else {
                 let stream = stream.map(move |mut value| {
                     if let Err(e) =
@@ -222,7 +222,7 @@ fn update(
                     }
                 });
 
-                Ok(PipelineData::ListStream(stream, metadata))
+                Ok(PipelineData::list_stream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

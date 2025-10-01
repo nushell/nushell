@@ -74,7 +74,7 @@ the output of 'path parse' and 'path split' subcommands."#
     }
 
     #[cfg(windows)]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Append a filename to a path",
@@ -118,7 +118,7 @@ the output of 'path parse' and 'path split' subcommands."#
     }
 
     #[cfg(not(windows))]
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Append a filename to a path",
@@ -168,12 +168,12 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     let metadata = input.metadata();
 
     match input {
-        PipelineData::Value(val, md) => Ok(PipelineData::Value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::Value(
-            handle_value(stream.into_value(), args, head),
+        PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
+        PipelineData::ListStream(stream, ..) => Ok(PipelineData::value(
+            handle_value(stream.into_value()?, args, head),
             metadata,
         )),
-        PipelineData::ByteStream(stream, ..) => Ok(PipelineData::Value(
+        PipelineData::ByteStream(stream, ..) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),

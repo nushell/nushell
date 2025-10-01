@@ -35,7 +35,7 @@ impl PluginCommand for CacheGet {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get a stored object",
             example: r#"let df = ([[a b];[1 2] [3 4]] | polars into-df);
@@ -72,7 +72,7 @@ impl PluginCommand for CacheGet {
             Value::nothing(call.head)
         };
 
-        Ok(PipelineData::Value(value, None))
+        Ok(PipelineData::value(value, None))
     }
 }
 

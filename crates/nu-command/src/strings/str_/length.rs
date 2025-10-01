@@ -7,6 +7,7 @@ use unicode_segmentation::UnicodeSegmentation;
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
+    chars: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -34,13 +35,18 @@ impl Command for StrLength {
             .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
-                "count length using grapheme clusters (all visible chars have length 1)",
+                "count length in grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count length using UTF-8 bytes (default; all non-ASCII chars have length 2+)",
+                "count length in UTF-8 bytes (default; all non-ASCII chars have length 2+)",
                 Some('b'),
+            )
+            .switch(
+                "chars",
+                "count length in chars",
+                Some('c'),
             )
             .rest(
                 "rest",
@@ -70,12 +76,14 @@ impl Command for StrLength {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let chars = call.has_flag(engine_state, stack, "chars")?;
         run(
             cell_paths,
             engine_state,
             call,
             input,
             grapheme_flags(engine_state, stack, call)?,
+            chars,
         )
     }
 
@@ -86,34 +94,41 @@ impl Command for StrLength {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let chars = call.has_flag_const(working_set, "chars")?;
         run(
             cell_paths,
             working_set.permanent(),
             call,
             input,
             grapheme_flags_const(working_set, call)?,
+            chars,
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return the lengths of a string",
+                description: "Return the lengths of a string in bytes",
                 example: "'hello' | str length",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Count length using grapheme clusters",
+                description: "Count length of a string in grapheme clusters",
                 example: "'🇯🇵ほげ ふが ぴよ' | str length  --grapheme-clusters",
                 result: Some(Value::test_int(9)),
             },
             Example {
-                description: "Return the lengths of multiple strings",
+                description: "Return the lengths of multiple strings in bytes",
                 example: "['hi' 'there'] | str length",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(5)],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Return the lengths of a string in chars",
+                example: "'hällo' | str length --chars",
+                result: Some(Value::test_int(5)),
             },
         ]
     }
@@ -125,10 +140,12 @@ fn run(
     call: &Call,
     input: PipelineData,
     graphemes: bool,
+    chars: bool,
 ) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
         graphemes,
+        chars,
     };
     operate(action, args, input, call.head, engine_state.signals())
 }
@@ -138,6 +155,8 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
         Value::String { val, .. } => Value::int(
             if arg.graphemes {
                 val.graphemes(true).count()
+            } else if arg.chars {
+                val.chars().count()
             } else {
                 val.len()
             } as i64,
@@ -167,6 +186,7 @@ mod test {
         let options = Arguments {
             cell_paths: None,
             graphemes: false,
+            chars: false,
         };
 
         let actual = action(&word, &options, Span::test_data());

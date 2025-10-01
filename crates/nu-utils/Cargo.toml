@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.105.2"
+version = "0.107.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -17,13 +17,16 @@ bench = false
 bench = false
 
 [dependencies]
+byteyarn.workspace = true
 crossterm = { workspace = true, optional = true }
 fancy-regex = { workspace = true }
+lean_string.workspace = true
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 log = { workspace = true }
+memchr = { workspace = true }
 num-format = { workspace = true }
 strip-ansi-escapes = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sys-locale = "0.3"
 unicase = "2.8.0"

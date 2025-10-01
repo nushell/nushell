@@ -37,7 +37,7 @@ impl SimplePluginCommand for One {
         vec!["example"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "example one 3 bb",
             description: "running example with an int value and string value",

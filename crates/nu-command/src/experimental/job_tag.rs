@@ -53,7 +53,7 @@ impl Command for JobTag {
         Ok(Value::nothing(head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "let id = job spawn { sleep 10sec }; job tag $id abc ",

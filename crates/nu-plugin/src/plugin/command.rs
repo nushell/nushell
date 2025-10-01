@@ -124,7 +124,7 @@ pub trait PluginCommand: Sync {
     /// `PluginTest::test_command_examples()` from the
     /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
     /// plugin tests to automatically test that examples produce the `result`s as specified.
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![]
     }
 
@@ -262,7 +262,7 @@ pub trait SimplePluginCommand: Sync {
     /// `PluginTest::test_command_examples()` from the
     /// [`nu-plugin-test-support`](https://docs.rs/nu-plugin-test-support) crate can be used in
     /// plugin tests to automatically test that examples produce the `result`s as specified.
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![]
     }
 
@@ -297,7 +297,7 @@ where
 {
     type Plugin = <Self as SimplePluginCommand>::Plugin;
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         <Self as SimplePluginCommand>::examples(self)
     }
 
@@ -320,9 +320,9 @@ where
         // simpler signature in Plugin
         let span = input.span().unwrap_or(call.head);
         let input_value = input.into_value(span)?;
-        // Wrap the output in PipelineData::Value
+        // Wrap the output in PipelineData::value
         <Self as SimplePluginCommand>::run(self, plugin, engine, call, &input_value)
-            .map(|value| PipelineData::Value(value, None))
+            .map(|value| PipelineData::value(value, None))
     }
 
     fn search_terms(&self) -> Vec<&str> {

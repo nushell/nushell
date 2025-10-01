@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt, path::Path};
 
-use crate::{ShellError, Span, Type, Value, ast::Operator};
+use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
@@ -30,28 +30,52 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// Any representation used to downcast object to its original type (mutable reference)
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
 
-    /// Follow cell path by numeric index (e.g. rows)
+    /// Follow cell path by numeric index (e.g. rows).
+    ///
+    /// Let `$val` be the custom value then these are the fields passed to this method:
+    /// ```text
+    ///      ╭── index [path_span]
+    ///      ┴
+    /// $val.0?
+    /// ──┬─  ┬
+    ///   │   ╰── optional, `true` if present
+    ///   ╰── self [self_span]
+    /// ```
     fn follow_path_int(
         &self,
         self_span: Span,
         index: usize,
         path_span: Span,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        let _ = (self_span, index);
+        let _ = (self_span, index, optional);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.type_name(),
             span: path_span,
         })
     }
 
-    /// Follow cell path by string key (e.g. columns)
+    /// Follow cell path by string key (e.g. columns).
+    ///
+    /// Let `$val` be the custom value then these are the fields passed to this method:
+    /// ```text
+    ///         ╭── column_name [path_span]
+    ///         │   ╭── casing, `Casing::Insensitive` if present
+    ///      ───┴── ┴
+    /// $val.column?!
+    /// ──┬─       ┬
+    ///   │        ╰── optional, `true` if present
+    ///   ╰── self [self_span]
+    /// ```
     fn follow_path_string(
         &self,
         self_span: Span,
         column_name: String,
         path_span: Span,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
-        let _ = (self_span, column_name);
+        let _ = (self_span, column_name, optional, casing);
         Err(ShellError::IncompatiblePathAccess {
             type_name: self.type_name(),
             span: path_span,
@@ -83,6 +107,35 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
             op_span: op,
             unsupported_span: lhs_span,
             help: None,
+        })
+    }
+
+    /// Save custom value to disk.
+    ///
+    /// This method is used in `save` to save a custom value to disk.
+    /// This is done before opening any file, so saving can be handled differently.
+    ///
+    /// The default impl just returns an error.
+    fn save(
+        &self,
+        path: Spanned<&Path>,
+        value_span: Span,
+        save_span: Span,
+    ) -> Result<(), ShellError> {
+        let _ = path;
+        Err(ShellError::GenericError {
+            error: "Cannot save custom value".into(),
+            msg: format!("Saving custom value {} failed", self.type_name()),
+            span: Some(save_span),
+            help: None,
+            inner: vec![
+                ShellError::GenericError {
+                error: "Custom value does not implement `save`".into(),
+                msg: format!("{} doesn't implement saving to disk", self.type_name()),
+                span: Some(value_span),
+                help: Some("Check the plugin's documentation for this value type. It might use a different way to save.".into()),
+                inner: vec![],
+            }],
         })
     }
 

@@ -37,7 +37,7 @@ impl Command for StorDelete {
         vec!["sqlite", "remove", "table", "saving", "drop"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Delete a table from the in-memory sqlite database",
@@ -87,37 +87,36 @@ impl Command for StorDelete {
             Signals::empty(),
         ));
 
-        if let Some(new_table_name) = table_name_opt {
-            if let Ok(conn) = db.open_connection() {
-                let sql_stmt = match where_clause_opt {
-                    None => {
-                        // We're deleting an entire table
-                        format!("DROP TABLE {new_table_name}")
-                    }
-                    Some(where_clause) => {
-                        // We're just deleting some rows
-                        let mut delete_stmt = format!("DELETE FROM {new_table_name} ");
+        if let Some(new_table_name) = table_name_opt
+            && let Ok(conn) = db.open_connection()
+        {
+            let sql_stmt = match where_clause_opt {
+                None => {
+                    // We're deleting an entire table
+                    format!("DROP TABLE {new_table_name}")
+                }
+                Some(where_clause) => {
+                    // We're just deleting some rows
+                    let mut delete_stmt = format!("DELETE FROM {new_table_name} ");
 
-                        // Yup, this is a bit janky, but I'm not sure a better way to do this without having
-                        // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
-                        // and other sql syntax. So, for now, just type a sql where clause as a string.
-                        delete_stmt.push_str(&format!("WHERE {where_clause}"));
-                        delete_stmt
-                    }
-                };
+                    // Yup, this is a bit janky, but I'm not sure a better way to do this without having
+                    // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
+                    // and other sql syntax. So, for now, just type a sql where clause as a string.
+                    delete_stmt.push_str(&format!("WHERE {where_clause}"));
+                    delete_stmt
+                }
+            };
 
-                // dbg!(&sql_stmt);
-                conn.execute(&sql_stmt, [])
-                    .map_err(|err| ShellError::GenericError {
-                        error:
-                            "Failed to delete using the SQLite connection in memory from delete.rs."
-                                .into(),
-                        msg: err.to_string(),
-                        span: Some(Span::test_data()),
-                        help: None,
-                        inner: vec![],
-                    })?;
-            }
+            // dbg!(&sql_stmt);
+            conn.execute(&sql_stmt, [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to delete using the SQLite connection in memory from delete.rs."
+                        .into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
         }
         // dbg!(db.clone());
         Ok(Value::custom(db, span).into_pipeline_data())

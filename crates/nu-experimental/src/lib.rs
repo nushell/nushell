@@ -125,6 +125,21 @@ impl ExperimentalOption {
         self.marker.status()
     }
 
+    pub fn since(&self) -> Version {
+        self.marker.since()
+    }
+
+    pub fn issue_id(&self) -> u32 {
+        self.marker.issue()
+    }
+
+    pub fn issue_url(&self) -> String {
+        format!(
+            "https://github.com/nushell/nushell/issues/{}",
+            self.marker.issue()
+        )
+    }
+
     pub fn get(&self) -> bool {
         self.value
             .load(Ordering::Relaxed)
@@ -204,6 +219,8 @@ pub(crate) trait DynExperimentalOptionMarker {
     fn identifier(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn status(&self) -> Status;
+    fn since(&self) -> Version;
+    fn issue(&self) -> u32;
 }
 
 impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
@@ -217,5 +234,13 @@ impl<M: options::ExperimentalOptionMarker> DynExperimentalOptionMarker for M {
 
     fn status(&self) -> Status {
         M::STATUS
+    }
+
+    fn since(&self) -> Version {
+        M::SINCE
+    }
+
+    fn issue(&self) -> u32 {
+        M::ISSUE
     }
 }

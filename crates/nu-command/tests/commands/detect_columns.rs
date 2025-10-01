@@ -94,3 +94,10 @@ drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~(char nl)
         assert_eq!(out.out, "true");
     })
 }
+
+#[test]
+fn detect_columns_may_fail() {
+    let out =
+        nu!(r#""meooooow cat\nkitty kitty woof" | try { detect columns } catch { "failed" }"#);
+    assert_eq!(out.out, "failed");
+}

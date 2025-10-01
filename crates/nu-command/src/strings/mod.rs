@@ -1,7 +1,9 @@
 mod ansi;
 mod base;
 mod char_;
+mod detect;
 mod detect_columns;
+mod detect_type;
 mod encode_decode;
 mod format;
 mod guess_width;
@@ -15,7 +17,9 @@ pub use base::{
     EncodeBase64, EncodeHex,
 };
 pub use char_::Char;
+pub use detect::Detect;
 pub use detect_columns::*;
+pub use detect_type::*;
 pub use encode_decode::*;
 pub use format::*;
 pub use parse::*;
@@ -47,7 +51,13 @@ pub fn grapheme_flags(
     }
     if g_flag && call.has_flag(engine_state, stack, "code-points")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --code-points (-c)".to_string(),
+            span: call.head,
+        })?
+    }
+    if g_flag && call.has_flag(engine_state, stack, "chars")? {
+        Err(ShellError::IncompatibleParametersSingle {
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --chars (-c)".to_string(),
             span: call.head,
         })?
     }

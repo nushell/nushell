@@ -55,8 +55,14 @@ Since this command has no output, there is no point in piping it with other comm
     ) -> Result<PipelineData, ShellError> {
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
-        let to_stderr = call.has_flag(engine_state, stack, "stderr")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
+
+        // if we're in the LSP *always* print to stderr
+        let to_stderr = if engine_state.is_lsp {
+            true
+        } else {
+            call.has_flag(engine_state, stack, "stderr")?
+        };
 
         // This will allow for easy printing of pipelines as well
         if !args.is_empty() {
@@ -74,10 +80,10 @@ Since this command has no output, there is no point in piping it with other comm
                 }
             }
         } else if !input.is_nothing() {
-            if let PipelineData::ByteStream(stream, _) = &mut input {
-                if let ByteStreamSource::Child(child) = stream.source_mut() {
-                    child.ignore_error(true);
-                }
+            if let PipelineData::ByteStream(stream, _) = &mut input
+                && let ByteStreamSource::Child(child) = stream.source_mut()
+            {
+                child.ignore_error(true);
             }
             if raw {
                 input.print_raw(engine_state, no_newline, to_stderr)?;
@@ -89,7 +95,7 @@ Since this command has no output, there is no point in piping it with other comm
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print 'hello world'",

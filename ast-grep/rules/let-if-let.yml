@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: let-if-let-some
+language: rust
+severity: hint
+message: "This pattern can be confusing due to the repetition of `let` and `=`"
+note: "It can be rewritten using `.map()` and `unwrap_or`/`unwrap_or_else` methods"
+
+rule:
+  kind: let_declaration
+  pattern: |
+    let $$$PAT = if let Some($VAR) = $$$EXPR {
+        $$$THEN
+    } else {
+        $$$ELSE
+    };
+
+# Multiple fix suggestions are supported after ast-grep 38.4
+fix:
+  - title: Lazy
+    template: |
+      let $$$PAT = $$$EXPR.map(|$VAR| {
+          $$$THEN
+      })
+      .unwrap_or_else(|| {
+          $$$ELSE
+      });
+  - title: Simple
+    template: "let $$$PAT = $$$EXPR.map(|$VAR| { $$$THEN }).unwrap_or($$$ELSE);"

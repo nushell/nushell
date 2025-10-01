@@ -31,7 +31,9 @@ impl Command for Help {
     }
 
     fn extra_description(&self) -> &str {
-        r#"`help word` searches for "word" in commands, aliases and modules, in that order."#
+        r#"`help word` searches for "word" in commands, aliases and modules, in that order.
+If you want your own help implementation, create a custom command named `help` and it will also be used for `--help` invocations.
+There already is an alternative `help` command in the standard library you can try with `use std/help`."#
     }
 
     fn run(
@@ -102,7 +104,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "show help for single command, alias, or module",

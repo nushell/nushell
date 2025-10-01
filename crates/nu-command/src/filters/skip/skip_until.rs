@@ -34,7 +34,7 @@ impl Command for SkipUntil {
         vec!["ignore"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Skip until the element is positive",

@@ -305,9 +305,38 @@ fn nullify_holes() -> TestResult {
 }
 
 #[test]
-fn get_insensitive() -> TestResult {
+fn get_with_insensitive_cellpath() -> TestResult {
     run_test(
         r#"[[name, age]; [a, 1] [b, 2]] | get NAmE! | select 0 | get 0"#,
         "a",
+    )
+}
+
+#[test]
+fn ignore_case_flag() -> TestResult {
+    run_test(
+        r#"
+            [
+                [Origin, Crate, Versions];
+                [World, {Name: "nu-cli"}, ['0.21', '0.22']]
+            ]
+            | get --ignore-case crate.name.0
+        "#,
+        "nu-cli",
+    )?;
+    run_test(
+        r#"
+            [
+                [Origin, Crate, Versions];
+                [World, {Name: "nu-cli"}, ['0.21', '0.22']]
+            ]
+            | select --ignore-case origin
+            | to nuon --raw
+        "#,
+        r#"[[origin];[World]]"#,
+    )?;
+    run_test(
+        r#"{A: {B: 3, C: 5}} | reject --ignore-case a.b | to nuon --raw"#,
+        "{A:{C:5}}",
     )
 }

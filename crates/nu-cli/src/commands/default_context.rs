@@ -17,12 +17,16 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
             CommandlineGetCursor,
             CommandlineSetCursor,
             History,
-            HistoryImport,
-            HistorySession,
             Keybindings,
             KeybindingsDefault,
             KeybindingsList,
             KeybindingsListen,
+        };
+
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            HistoryImport,
+            HistorySession
         };
 
         working_set.render()

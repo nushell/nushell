@@ -55,7 +55,7 @@ impl Command for MathMedian {
         run_with_function(call, input, median)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the median of a list of numbers",
@@ -85,7 +85,7 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
-    let take = if values.len() % 2 == 0 {
+    let take = if values.len().is_multiple_of(2) {
         Pick::MedianAverage
     } else {
         Pick::Median

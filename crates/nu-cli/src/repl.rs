@@ -34,9 +34,11 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf,
 };
+#[cfg(feature = "sqlite")]
+use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, Reedline, SqliteBackedHistory, Vi,
+    HistorySessionId, Reedline, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -325,7 +327,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Right before we start our prompt and take input from the user, fire the "pre_prompt" hook
+    // Check all the environment variables they ask for
+    // fire the "env_change" hook
+    if let Err(error) = hook::eval_env_change_hook(
+        &engine_state.get_config().hooks.env_change.clone(),
+        engine_state,
+        &mut stack,
+    ) {
+        report_shell_error(engine_state, &error)
+    }
+    perf!("env-change hook", start_time, use_color);
+
+    start_time = std::time::Instant::now();
+    // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
     if let Err(err) = hook::eval_hooks(
         engine_state,
         &mut stack,
@@ -336,18 +350,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         report_shell_error(engine_state, &err);
     }
     perf!("pre-prompt hook", start_time, use_color);
-
-    start_time = std::time::Instant::now();
-    // Next, check all the environment variables they ask for
-    // fire the "env_change" hook
-    if let Err(error) = hook::eval_env_change_hook(
-        &engine_state.get_config().hooks.env_change.clone(),
-        engine_state,
-        &mut stack,
-    ) {
-        report_shell_error(engine_state, &error)
-    }
-    perf!("env-change hook", start_time, use_color);
 
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
@@ -448,10 +450,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
-        if history.sync_on_enter {
-            if let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {}", e);
-            }
+        if history.sync_on_enter
+            && let Err(e) = line_editor.sync_history()
+        {
+            warn!("Failed to sync history: {e}");
         }
 
         perf!("sync_history", start_time, use_color);
@@ -491,7 +493,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // CLEAR STACK-REFERENCE 1
         .with_highlighter(Box::<NoOpHighlighter>::default())
         // CLEAR STACK-REFERENCE 2
-        .with_completer(Box::<DefaultCompleter>::default());
+        .with_completer(Box::<DefaultCompleter>::default())
+        // Ensure immediately accept is always cleared
+        .with_immediately_accept(false);
 
     // Let's grab the shell_integration configs
     let shell_integration_osc2 = config.shell_integration.osc2;
@@ -510,10 +514,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let line_editor_input_time = std::time::Instant::now();
     match input {
         Ok(Signal::Success(repl_cmd_line_text)) => {
-            let history_supports_meta = matches!(
-                engine_state.history_config().map(|h| h.file_format),
-                Some(HistoryFileFormat::Sqlite)
-            );
+            let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
+                #[cfg(feature = "sqlite")]
+                Some(HistoryFileFormat::Sqlite) => true,
+                _ => false,
+            };
 
             if history_supports_meta {
                 prepare_history_metadata(
@@ -638,16 +643,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
             );
 
-            if history_supports_meta {
-                if let Err(e) = fill_in_result_related_history_metadata(
+            if history_supports_meta
+                && let Err(e) = fill_in_result_related_history_metadata(
                     &repl_cmd_line_text,
                     engine_state,
                     cmd_duration,
                     &mut stack,
                     &mut line_editor,
-                ) {
-                    warn!("Could not fill in result related history metadata: {e}");
-                }
+                )
+            {
+                warn!("Could not fill in result related history metadata: {e}");
             }
 
             if shell_integration_osc2 {
@@ -671,7 +676,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 run_shell_integration_reset_application_mode();
             }
 
-            flush_engine_state_repl_buffer(engine_state, &mut line_editor);
+            line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
@@ -934,7 +939,7 @@ fn do_run_cmd(
     entry_num: usize,
     use_color: bool,
 ) -> Reedline {
-    trace!("eval source: {}", s);
+    trace!("eval source: {s}");
 
     let mut cmds = s.split_whitespace();
 
@@ -1126,7 +1131,10 @@ fn run_shell_integration_reset_application_mode() {
 ///
 /// Clear the screen and output anything remaining in the EngineState buffer.
 ///
-fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &mut Reedline) {
+fn flush_engine_state_repl_buffer(
+    engine_state: &mut EngineState,
+    mut line_editor: Reedline,
+) -> Reedline {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     line_editor.run_edit_commands(&[
         EditCommand::Clear,
@@ -1136,8 +1144,13 @@ fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &
             select: false,
         },
     ]);
+    if repl.accept {
+        line_editor = line_editor.with_immediately_accept(true)
+    }
+    repl.accept = false;
     repl.buffer = "".to_string();
     repl.cursor_pos = 0;
+    line_editor
 }
 
 ///
@@ -1222,6 +1235,7 @@ fn update_line_editor_history(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
+        #[cfg(feature = "sqlite")]
         HistoryFileFormat::Sqlite => Box::new(
             SqliteBackedHistory::with_file(
                 history_path.to_path_buf(),

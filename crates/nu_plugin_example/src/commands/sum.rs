@@ -30,7 +30,7 @@ impl PluginCommand for Sum {
         vec!["example"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "example seq 1 5 | example sum",
             description: "sum values from 1 to 5",
@@ -57,7 +57,7 @@ impl PluginCommand for Sum {
                     .with_label("can't be used here", call.head));
             }
         }
-        Ok(PipelineData::Value(acc.to_value(call.head), None))
+        Ok(PipelineData::value(acc.to_value(call.head), None))
     }
 }
 

@@ -93,7 +93,7 @@ impl Command for PathSelf {
         Ok(out.into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get the path of the current file",

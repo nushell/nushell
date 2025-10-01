@@ -19,7 +19,7 @@ impl SimplePluginCommand for QueryJson {
     }
 
     fn extra_description(&self) -> &str {
-        "query json uses the gjson crate https://github.com/tidwall/gjson.rs to query json data. The query syntax is available at https://github.com/tidwall/gjson/blob/master/SYNTAX.md."
+        "query json uses the gjson crate https://github.com/tidwall/gjson.rs to query json data."
     }
 
     fn signature(&self) -> Signature {
@@ -28,7 +28,7 @@ impl SimplePluginCommand for QueryJson {
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Get a list of children from a json object",

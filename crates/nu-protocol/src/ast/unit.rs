@@ -35,6 +35,20 @@ pub enum Unit {
     Week,
 }
 
+// TODO: something like `Filesize::from_unit` in the future?
+fn duration_mul_and_check(size: i64, factor: i64, span: Span) -> Result<Value, ShellError> {
+    match size.checked_mul(factor) {
+        Some(val) => Ok(Value::duration(val, span)),
+        None => Err(ShellError::GenericError {
+            error: "duration too large".into(),
+            msg: "duration too large".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }),
+    }
+}
+
 impl Unit {
     pub fn build_value(self, size: i64, span: Span) -> Result<Value, ShellError> {
         match self {
@@ -52,49 +66,13 @@ impl Unit {
                 }
             }
             Unit::Nanosecond => Ok(Value::duration(size, span)),
-            Unit::Microsecond => Ok(Value::duration(size * 1000, span)),
-            Unit::Millisecond => Ok(Value::duration(size * 1000 * 1000, span)),
-            Unit::Second => Ok(Value::duration(size * 1000 * 1000 * 1000, span)),
-            Unit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-                Some(val) => Ok(Value::duration(val, span)),
-                None => Err(ShellError::GenericError {
-                    error: "duration too large".into(),
-                    msg: "duration too large".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-            },
-            Unit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-                Some(val) => Ok(Value::duration(val, span)),
-                None => Err(ShellError::GenericError {
-                    error: "duration too large".into(),
-                    msg: "duration too large".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-            },
-            Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                Some(val) => Ok(Value::duration(val, span)),
-                None => Err(ShellError::GenericError {
-                    error: "duration too large".into(),
-                    msg: "duration too large".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-            },
-            Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                Some(val) => Ok(Value::duration(val, span)),
-                None => Err(ShellError::GenericError {
-                    error: "duration too large".into(),
-                    msg: "duration too large".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-            },
+            Unit::Microsecond => duration_mul_and_check(size, 1000, span),
+            Unit::Millisecond => duration_mul_and_check(size, 1000 * 1000, span),
+            Unit::Second => duration_mul_and_check(size, 1000 * 1000 * 1000, span),
+            Unit::Minute => duration_mul_and_check(size, 1000 * 1000 * 1000 * 60, span),
+            Unit::Hour => duration_mul_and_check(size, 1000 * 1000 * 1000 * 60 * 60, span),
+            Unit::Day => duration_mul_and_check(size, 1000 * 1000 * 1000 * 60 * 60 * 24, span),
+            Unit::Week => duration_mul_and_check(size, 1000 * 1000 * 1000 * 60 * 60 * 24 * 7, span),
         }
     }
 

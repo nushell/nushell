@@ -57,7 +57,7 @@ If the path does not exist, null will be returned."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -78,7 +78,7 @@ If the path does not exist, null will be returned."#
         };
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -87,7 +87,7 @@ If the path does not exist, null will be returned."#
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Show type of a filepath",
