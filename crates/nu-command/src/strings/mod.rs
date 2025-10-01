@@ -51,7 +51,13 @@ pub fn grapheme_flags(
     }
     if g_flag && call.has_flag(engine_state, stack, "code-points")? {
         Err(ShellError::IncompatibleParametersSingle {
-            msg: "Incompatible flags: --grapheme-clusters (-g) and --utf-8-bytes (-b)".to_string(),
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --code-points (-c)".to_string(),
+            span: call.head,
+        })?
+    }
+    if g_flag && call.has_flag(engine_state, stack, "chars")? {
+        Err(ShellError::IncompatibleParametersSingle {
+            msg: "Incompatible flags: --grapheme-clusters (-g) and --chars (-c)".to_string(),
             span: call.head,
         })?
     }
