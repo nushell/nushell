@@ -4502,7 +4502,7 @@ dependencies = [
  "typetag",
  "web-time",
  "windows 0.56.0",
- "windows-sys 0.48.0",
+ "windows-sys 0.61.0",
 ]
 
 [[package]]
