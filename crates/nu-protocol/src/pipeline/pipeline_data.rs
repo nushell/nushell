@@ -1002,6 +1002,12 @@ pub trait IntoInterruptiblePipelineData {
     ) -> PipelineData;
 }
 
+impl Into<Result<Value, ShellError>> for Value {
+    fn into(self) -> Result<Value, ShellError> {
+        Ok(self)
+    }
+}
+
 impl<I> IntoInterruptiblePipelineData for I
 where
     I: IntoIterator + Send + 'static,
