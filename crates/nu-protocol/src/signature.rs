@@ -26,6 +26,35 @@ impl From<Flag> for Parameter {
     }
 }
 
+/// Describes membership in a mutually exclusive parameter set.
+///
+/// Parameters that belong to the same set may be used together, but
+/// parameters from different sets are mutually exclusive. The `mandatory`
+/// flag indicates that once the set is selected, the annotated parameter
+/// must also be supplied by the caller.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ParameterSet {
+    pub name: String,
+    #[serde(default)]
+    pub mandatory: bool,
+}
+
+impl ParameterSet {
+    #[inline]
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            mandatory: false,
+        }
+    }
+
+    #[inline]
+    pub fn mandatory(mut self) -> Self {
+        self.mandatory = true;
+        self
+    }
+}
+
 /// The signature definition of a named flag that either accepts a value or acts as a toggle flag
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
@@ -39,6 +68,8 @@ pub struct Flag {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
+    #[serde(default)]
+    pub parameter_set: Option<ParameterSet>,
 }
 
 impl Flag {
@@ -53,6 +84,7 @@ impl Flag {
             completion: None,
             var_id: None,
             default_value: None,
+            parameter_set: None,
         }
     }
 
@@ -95,6 +127,12 @@ impl Flag {
             ..self
         }
     }
+
+    #[inline]
+    pub fn with_parameter_set(mut self, set: ParameterSet) -> Self {
+        self.parameter_set = Some(set);
+        self
+    }
 }
 
 /// The signature definition for a positional argument
@@ -108,6 +146,8 @@ pub struct PositionalArg {
     // For custom commands
     pub var_id: Option<VarId>,
     pub default_value: Option<Value>,
+    #[serde(default)]
+    pub parameter_set: Option<ParameterSet>,
 }
 
 impl PositionalArg {
@@ -120,6 +160,7 @@ impl PositionalArg {
             completion: None,
             var_id: None,
             default_value: None,
+            parameter_set: None,
         }
     }
 
@@ -152,6 +193,12 @@ impl PositionalArg {
     #[inline]
     pub fn rest(self) -> Parameter {
         Parameter::Rest(self)
+    }
+
+    #[inline]
+    pub fn with_parameter_set(mut self, set: ParameterSet) -> Self {
+        self.parameter_set = Some(set);
+        self
     }
 }
 
@@ -419,6 +466,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         };
         self.named.push(flag);
         self
@@ -522,6 +570,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
@@ -541,6 +590,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
@@ -566,6 +616,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
@@ -606,6 +657,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
@@ -630,6 +682,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
@@ -653,6 +706,7 @@ impl Signature {
             var_id: None,
             default_value: None,
             completion: None,
+            parameter_set: None,
         });
 
         self
