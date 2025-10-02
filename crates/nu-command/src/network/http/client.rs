@@ -258,9 +258,9 @@ pub fn send_request(
 ) -> (Result<Response, ShellError>, Headers) {
     let mut request_headers = Headers::new();
     let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
-    // hard code serialze_types to false because closures probably shouldn't be
+    // hard code serialize_types to false because closures probably shouldn't be
     // deserialized for send_request but it's required by send_json_request
-    let serialze_types = false;
+    let serialize_types = false;
     let response = match body {
         HttpBody::ByteStream(byte_stream) => {
             let req = if let Some(content_type) = content_type {
@@ -296,7 +296,7 @@ pub fn send_request(
                     req,
                     span,
                     signals,
-                    serialze_types,
+                    serialize_types,
                 ),
                 BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {

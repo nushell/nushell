@@ -617,8 +617,8 @@ nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP serve
             "... and 90 crates more (use --limit N",
         ];
         let got = guess_width.read_all();
-        for (row_indx, row) in got.into_iter().enumerate() {
-            assert_eq!(row[0], first_column_want[row_indx]);
+        for (row_index, row) in got.into_iter().enumerate() {
+            assert_eq!(row[0], first_column_want[row_index]);
         }
     }
 
