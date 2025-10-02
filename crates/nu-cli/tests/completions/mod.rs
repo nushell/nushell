@@ -784,13 +784,8 @@ fn command_wide_completion_external() {
         gh alias one two"#;
 
     let suggestions = completer.complete(sample, sample.len());
-    let got = suggestions
-        .iter()
-        .map(|s| s.value.as_str())
-        .collect::<Vec<_>>();
-    let expacted = vec!["gh", "alias", "one", "two"];
-
-    assert_eq!(got, expacted);
+    let expected = vec!["gh", "alias", "one", "two"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
@@ -808,13 +803,8 @@ fn command_wide_completion_custom() {
         foo bar baz"#;
 
     let suggestions = completer.complete(sample, sample.len());
-    let got = suggestions
-        .iter()
-        .map(|s| s.value.as_str())
-        .collect::<Vec<_>>();
-    let expacted = vec!["foo", "bar", "baz", "some", "more"];
-
-    assert_eq!(got, expacted);
+    let expected = vec!["foo", "bar", "baz", "some", "more"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]

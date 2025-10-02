@@ -461,9 +461,10 @@ impl NuCompleter {
                             let ctx = Context::new(working_set, span, b"", offset);
                             let results = self.process_completion(&mut completion, &ctx);
 
+                            // Prioritize external results over (sub)commands
+                            suggestions.splice(0..0, results);
+
                             if !completion.need_fallback {
-                                // Prioritize external results over (sub)commands
-                                suggestions.splice(0..0, results);
                                 return suggestions;
                             }
                         }
@@ -558,9 +559,10 @@ impl NuCompleter {
                             let ctx = Context::new(working_set, span, b"", offset);
                             let results = self.process_completion(&mut completion, &ctx);
 
+                            // Prioritize external results over (sub)commands
+                            suggestions.splice(0..0, results);
+
                             if !completion.need_fallback {
-                                // Prioritize external results over (sub)commands
-                                suggestions.splice(0..0, results);
                                 return suggestions;
                             }
                         }
