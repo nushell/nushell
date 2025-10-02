@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: value-variant-direct
+language: rust
+severity: error
+message: "Use one of the value variant helpers"
+
+ignores:
+  - "crates/nu-protocol/src/value/*.rs"
+
+rule:
+  kind: struct_expression
+  has:
+    kind: scoped_type_identifier
+    has:
+      kind: identifier
+      pattern: Value
