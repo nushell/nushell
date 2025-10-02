@@ -152,14 +152,14 @@ fn add_impl(input: &[u8], args: &Arguments, span: Span) -> Value {
                 Value::binary(result, span)
             }
         }
-        Some(mut indx) => {
+        Some(mut index) => {
             let inserted_index = if args.end {
-                input.len().saturating_sub(indx)
+                input.len().saturating_sub(index)
             } else {
-                if indx > input.len() {
-                    indx = input.len()
+                if index > input.len() {
+                    index = input.len()
                 }
-                indx
+                index
             };
             let mut result = vec![];
             let mut prev_data = input[..inserted_index].to_vec();

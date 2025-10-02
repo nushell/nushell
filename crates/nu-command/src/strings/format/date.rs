@@ -101,7 +101,7 @@ impl Command for FormatDate {
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL ovverides LC_TIME, LC_TIME overrides LANG
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
@@ -135,7 +135,7 @@ impl Command for FormatDate {
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
 
         // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL ovverides LC_TIME, LC_TIME overrides LANG
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
