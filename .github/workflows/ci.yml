@@ -25,11 +25,7 @@ jobs:
         # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 22.04 is closer to EOL (June 2027)
-        #
-        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
-        # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
-        # removed and we're only building the `polars` plugin instead
-        platform: [windows-latest, macos-13, ubuntu-22.04]
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
@@ -149,11 +145,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
-        # instead of 14 GB) which is too little for us right now.
-        #
-        # Failure occurring with clippy for rust 1.77.2
-        platform: [windows-latest, macos-13, ubuntu-22.04]
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
