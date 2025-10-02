@@ -835,6 +835,35 @@ fn parameter_completion_overrides_command_wide_completion() {
 }
 
 #[test]
+fn command_wide_completion_flag_completion() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete cmd" [spans: list] {
+            [command wide completion]
+        }
+
+        def "nu-complete cmd bar" [] {
+            [bar specific]
+        }
+
+        @complete "nu-complete cmd"
+        def "cmd" [
+            --switch(-s)
+            --flag(-f): string
+            foo: string,
+            bar: string@"nu-complete cmd bar",
+            ...rest
+        ] {}
+
+        cmd -"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["--flag", "--help", "--switch", "-f", "-h", "-s"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();

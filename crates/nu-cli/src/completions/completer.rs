@@ -434,6 +434,30 @@ impl NuCompleter {
                             }
                         }
                     } else if let Some(command_wide_completer) = signature.complete {
+                        let (new_span, prefix) =
+                            strip_placeholder_if_any(working_set, &span, strip);
+                        let ctx = Context::new(working_set, new_span, prefix, offset);
+                        let flag_completion_helper = || {
+                            let mut flag_completions = FlagCompletion {
+                                decl_id: call.decl_id,
+                            };
+                            self.process_completion(&mut flag_completions, &ctx)
+                        };
+
+                        match arg {
+                            // flags
+                            Argument::Named(_) | Argument::Unknown(_)
+                                if prefix.starts_with(b"-") =>
+                            {
+                                return flag_completion_helper();
+                            }
+                            // only when `strip` == false
+                            Argument::Positional(_) if prefix == b"-" => {
+                                return flag_completion_helper();
+                            }
+                            _ => (),
+                        };
+
                         let completion = match command_wide_completer {
                             Some(decl_id) => CommandWideCompletion::command(
                                 working_set,
