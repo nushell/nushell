@@ -1307,19 +1307,33 @@ fn edit_from_record(
         "copyselectionsystem" => EditCommand::CopySelectionSystem,
         #[cfg(feature = "system-clipboard")]
         "pastesystem" => EditCommand::PasteSystem,
-        "cutinside" => {
+        "cutinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::CutInside { left, right }
+            EditCommand::CutInsidePair { left, right }
         }
-        "yankinside" => {
+        "copyinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::YankInside { left, right }
+            EditCommand::CopyInsidePair { left, right }
+        }
+        "cutaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CutAroundPair { left, right }
+        }
+        "copyaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CopyAroundPair { left, right }
         }
         str => {
             return Err(ShellError::InvalidValue {
