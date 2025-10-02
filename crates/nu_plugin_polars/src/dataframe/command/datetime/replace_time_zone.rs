@@ -226,16 +226,20 @@ impl PluginCommand for ReplaceTimeZone {
         let value = input.into_value(call.head)?;
 
         let ambiguous = match call.get_flag::<Value>("ambiguous")? {
-            Some(Value::String { val, internal_span }) => match val.as_str() {
-                "raise" | "earliest" | "latest" => Ok(val),
-                _ => Err(ShellError::GenericError {
-                    error: "Invalid argument value".into(),
-                    msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                    span: Some(internal_span),
-                    help: None,
-                    inner: vec![],
-                }),
-            },
+            Some(v @ Value::String { .. }) => {
+                let span = v.span();
+                let val = v.into_string()?;
+                match val.as_str() {
+                    "raise" | "earliest" | "latest" => Ok(val),
+                    _ => Err(ShellError::GenericError {
+                        error: "Invalid argument value".into(),
+                        msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }),
+                }
+            }
             Some(Value::Nothing { .. }) => Ok("null".into()),
             Some(_) => unreachable!("Argument only accepts string or null."),
             None => Ok("raise".into()),
@@ -243,12 +247,12 @@ impl PluginCommand for ReplaceTimeZone {
         .map_err(LabeledError::from)?;
 
         let nonexistent = match call.get_flag::<Value>("nonexistent")? {
-            Some(Value::String { val, internal_span }) => match val.as_str() {
+            Some(v @ Value::String { .. }) => match v.as_str()? {
                 "raise" => Ok(NonExistent::Raise),
                 _ => Err(ShellError::GenericError {
                     error: "Invalid argument value".into(),
                     msg: "`nonexistent` must be one of raise or null".into(),
-                    span: Some(internal_span),
+                    span: Some(v.span()),
                     help: None,
                     inner: vec![],
                 }),
