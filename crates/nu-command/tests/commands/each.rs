@@ -78,3 +78,22 @@ fn each_noop_on_single_null() {
 
     assert_eq!(actual.out, "nothing");
 }
+
+#[test]
+fn each_flatten_dont_collect() {
+    let collected = nu!(r##"
+        def round  [] { each {|e| print -n $"\(($e)\)"; $e } }
+        def square [] { each {|e| print -n  $"[($e)]";  $e } }
+        [0 3] | each {|e| $e..<($e + 3) | round } | flatten | square | ignore
+    "##);
+
+    assert_eq!(collected.out, r#"(0)(1)(2)[0][1][2](3)(4)(5)[3][4][5]"#);
+
+    let streamed = nu!(r##"
+        def round  [] { each {|e| print -n $"\(($e)\)"; $e } }
+        def square [] { each {|e| print -n  $"[($e)]";  $e } }
+        [0 3] | each --flatten {|e| $e..<($e + 3) | round } | square | ignore
+    "##);
+
+    assert_eq!(streamed.out, r#"(0)[0](1)[1](2)[2](3)[3](4)[4](5)[5]"#);
+}
