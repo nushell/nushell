@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 mod simple {
     use super::*;
@@ -17,17 +17,14 @@ mod simple {
                 "#,
             )]);
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    open key_value_separated_arepa_ingredients.txt
-                    | lines
-                    | each { |it| echo $it | parse "{Name}={Value}" }
-                    | flatten
-                    | get 1
-                    | get Value
-                "#
-            ));
+            let actual = nu!(cwd: dirs.test(), r#"
+                open key_value_separated_arepa_ingredients.txt
+                | lines
+                | each { |it| echo $it | parse "{Name}={Value}" }
+                | flatten
+                | get 1
+                | get Value
+            "#);
 
             assert_eq!(actual.out, "JTParsed");
         })
@@ -35,52 +32,44 @@ mod simple {
 
     #[test]
     fn double_open_curly_evaluates_to_a_single_curly() {
-        let actual = nu!(pipeline(
-            r#"
-                echo "{abc}123"
-                | parse "{{abc}{name}"
-                | get name.0
-            "#
-        ));
+        let actual = nu!(r#"
+            echo "{abc}123"
+            | parse "{{abc}{name}"
+            | get name.0
+        "#);
         assert_eq!(actual.out, "123");
     }
 
     #[test]
     fn properly_escapes_text() {
-        let actual = nu!(pipeline(
-            r#"
-                echo "(abc)123"
-                | parse "(abc){name}"
-                | get name.0
-            "#
-        ));
+        let actual = nu!(r#"
+            echo "(abc)123"
+            | parse "(abc){name}"
+            | get name.0
+        "#);
 
         assert_eq!(actual.out, "123");
     }
 
     #[test]
     fn properly_captures_empty_column() {
-        let actual = nu!(pipeline(
-            r#"
-                echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
-                | parse "{timestamp}:{level}:{tag}:{entry}"
-                | get entry
-                | get 1
-            "#
-        ));
+        let actual = nu!(r#"
+            echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+            | parse "{timestamp}:{level}:{tag}:{entry}"
+            | get entry
+            | get 1
+        "#);
 
         assert_eq!(actual.out, "something bad happened");
     }
 
     #[test]
     fn errors_when_missing_closing_brace() {
-        let actual = nu!(pipeline(
-            r#"
-                echo "(abc)123"
-                | parse "(abc){name"
-                | get name
-            "#
-        ));
+        let actual = nu!(r#"
+            echo "(abc)123"
+            | parse "(abc){name"
+            | get name
+        "#);
 
         assert!(
             actual
@@ -91,13 +80,11 @@ mod simple {
 
     #[test]
     fn ignore_multiple_placeholder() {
-        let actual = nu!(pipeline(
-            r#"
-                echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
-                | parse "{_}:{level}:{_}:{entry}"
-                | to json -r
-            "#
-        ));
+        let actual = nu!(r#"
+            echo ["1:INFO:component:all is well" "2:ERROR::something bad happened"]
+            | parse "{_}:{level}:{_}:{entry}"
+            | to json -r
+        "#);
 
         assert_eq!(
             actual.out,
@@ -124,15 +111,12 @@ mod regex {
         Playground::setup("parse_test_regex_1", |dirs, sandbox| {
             sandbox.with_files(&nushell_git_log_oneline());
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    open nushell_git_log_oneline.txt
-                    | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
-                    | get 1
-                    | get PR
-                "#
-            ));
+            let actual = nu!(cwd: dirs.test(), r#"
+                open nushell_git_log_oneline.txt
+                | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
+                | get 1
+                | get PR
+            "#);
 
             assert_eq!(actual.out, "1842");
         })
@@ -143,15 +127,12 @@ mod regex {
         Playground::setup("parse_test_regex_2", |dirs, sandbox| {
             sandbox.with_files(&nushell_git_log_oneline());
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    open nushell_git_log_oneline.txt
-                    | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
-                    | get 1
-                    | get capture0
-                "#
-            ));
+            let actual = nu!(cwd: dirs.test(), r#"
+                open nushell_git_log_oneline.txt
+                | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
+                | get 1
+                | get capture0
+            "#);
 
             assert_eq!(actual.out, "b89976da");
         })
@@ -162,15 +143,12 @@ mod regex {
         Playground::setup("parse_test_regex_3", |dirs, sandbox| {
             sandbox.with_files(&nushell_git_log_oneline());
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    open nushell_git_log_oneline.txt
-                    | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
-                    | get 1
-                    | get capture1
-                "#
-            ));
+            let actual = nu!(cwd: dirs.test(), r#"
+                open nushell_git_log_oneline.txt
+                | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
+                | get 1
+                | get capture1
+            "#);
 
             assert_eq!(actual.out, "let format access variables also");
         })
@@ -181,13 +159,10 @@ mod regex {
         Playground::setup("parse_test_regex_1", |dirs, sandbox| {
             sandbox.with_files(&nushell_git_log_oneline());
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
-                    open nushell_git_log_oneline.txt
-                    | parse --regex "(?P<Hash>\\w+ unfinished capture group"
-                "#
-            ));
+            let actual = nu!(cwd: dirs.test(), r#"
+                open nushell_git_log_oneline.txt
+                | parse --regex "(?P<Hash>\\w+ unfinished capture group"
+            "#);
 
             assert!(
                 actual
@@ -207,14 +182,12 @@ mod regex {
 
     #[test]
     fn parse_does_not_truncate_list_streams() {
-        let actual = nu!(pipeline(
-            r#"
-                [a b c]
-                | each {|x| $x}
-                | parse --regex "[ac]"
-                | length
-            "#
-        ));
+        let actual = nu!(r#"
+            [a b c]
+            | each {|x| $x}
+            | parse --regex "[ac]"
+            | length
+        "#);
 
         assert_eq!(actual.out, "2");
     }

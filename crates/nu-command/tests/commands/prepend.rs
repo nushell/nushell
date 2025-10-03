@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn adds_a_row_to_the_beginning() {
@@ -14,15 +14,12 @@ fn adds_a_row_to_the_beginning() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | lines
-                | prepend "pollo loco"
-                | get 0
-                "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | lines
+            | prepend "pollo loco"
+            | get 0
+            "#);
 
         assert_eq!(actual.out, "pollo loco");
     })

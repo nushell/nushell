@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_options_is_success() {
@@ -12,15 +12,12 @@ fn http_options_is_success() {
         .with_header("Allow", "OPTIONS, GET")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http options {url}
+    let actual = nu!(
+        r#"
+        http options {}
         "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+        server.url()
+    );
 
     assert!(!actual.out.is_empty())
 }
@@ -31,15 +28,12 @@ fn http_options_failed_due_to_server_error() {
 
     let _mock = server.mock("OPTIONS", "/").with_status(400).create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http options {url}
+    let actual = nu!(
+        r#"
+        http options {}
         "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+        server.url()
+    );
 
     assert!(actual.err.contains("Bad request (400)"))
 }
@@ -55,9 +49,7 @@ fn http_options_timeout() {
         })
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http options --max-time 100ms {url}", url = server.url()).as_str()
-    ));
+    let actual = nu!("http options --max-time 100ms {}", server.url());
 
     assert!(&actual.err.contains("nu::shell::io::timed_out"));
     assert!(&actual.err.contains("Timed out"));

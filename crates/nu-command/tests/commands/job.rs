@@ -194,44 +194,45 @@ fn first_job_id_is_one() {
 
 #[test]
 fn job_list_adds_jobs_correctly() {
-    let actual = nu!(format!(
+    let actual = nu!(
         r#"
-            let list0 = job list | get id;
-            let job1 = job spawn {{ job recv }};
-            let list1 = job list | get id;
-            let job2 = job spawn {{ job recv }};
-            let list2 = job list | get id;
-            let job3 = job spawn {{ job recv }};
-            let list3 = job list | get id;
-            [({}), ({}), ({}), ({})] | to nuon
-            "#,
+        let list0 = job list | get id;
+        let job1 = job spawn {{ job recv }};
+        let list1 = job list | get id;
+        let job2 = job spawn {{ job recv }};
+        let list2 = job list | get id;
+        let job3 = job spawn {{ job recv }};
+        let list3 = job list | get id;
+        [({}), ({}), ({}), ({})] | to nuon
+        "#,
         "$list0 == []",
         "$list1 == [$job1]",
         "($list2 | sort) == ([$job1, $job2] | sort)",
         "($list3 | sort) == ([$job1, $job2, $job3] | sort)"
-    ));
+    );
 
     assert_eq!(actual.out, "[true, true, true, true]");
 }
 
 #[test]
 fn jobs_get_removed_from_list_after_termination() {
-    let actual = nu!(format!(
+    let actual = nu!(
         r#"
-            let job = job spawn {{ job recv }};
-
-            let list0 = job list | get id;
-
-            "die!" | job send $job
-
-            sleep 0.2sec
-
-            let list1 = job list | get id;
-
-            [({}) ({})] | to nuon
-            "#,
-        "$list0 == [$job]", "$list1 == []",
-    ));
+        let job = job spawn {{ job recv }};
+    
+        let list0 = job list | get id;
+    
+        "die!" | job send $job
+    
+        sleep 0.2sec
+    
+        let list1 = job list | get id;
+    
+        [({}) ({})] | to nuon
+        "#,
+        "$list0 == [$job]",
+        "$list1 == []",
+    );
 
     assert_eq!(actual.out, "[true, true]");
 }
@@ -240,47 +241,49 @@ fn jobs_get_removed_from_list_after_termination() {
 // so these tests can fail less often
 #[test]
 fn job_list_shows_pids() {
-    let actual = nu!(format!(
+    let actual = nu!(
         r#"
-            let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 2sec" }};
-            sleep 500ms;
-            let list0 = job list | where id == $job1 | first | get pids;
-            sleep 1sec;
-            let list1 = job list | where id == $job1 | first | get pids;
-            [({}), ({}), ({})] | to nuon
-            "#,
-        "($list0 | length) == 2", "($list1 | length) == 1", "$list1.0 in $list0",
-    ));
+        let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 2sec" }};
+        sleep 500ms;
+        let list0 = job list | where id == $job1 | first | get pids;
+        sleep 1sec;
+        let list1 = job list | where id == $job1 | first | get pids;
+        [({}), ({}), ({})] | to nuon
+        "#,
+        "($list0 | length) == 2",
+        "($list1 | length) == 1",
+        "$list1.0 in $list0",
+    );
 
     assert_eq!(actual.out, "[true, true, true]");
 }
 
 #[test]
 fn killing_job_removes_it_from_table() {
-    let actual = nu!(format!(
+    let actual = nu!(
         r#"
-            let job1 = job spawn {{ job recv }}
-            let job2 = job spawn {{ job recv }}
-            let job3 = job spawn {{ job recv }}
-
-            let list_before = job list | get id
-
-            job kill $job1
-            let list_after_kill_1 = job list | get id
-
-            job kill $job2
-            let list_after_kill_2 = job list | get id
-
-            job kill $job3
-            let list_after_kill_3 = job list | get id
-            
-            [({}) ({}) ({}) ({})] | to nuon
-            "#,
+        let job1 = job spawn {{ job recv }}
+        let job2 = job spawn {{ job recv }}
+        let job3 = job spawn {{ job recv }}
+    
+        let list_before = job list | get id
+    
+        job kill $job1
+        let list_after_kill_1 = job list | get id
+    
+        job kill $job2
+        let list_after_kill_2 = job list | get id
+    
+        job kill $job3
+        let list_after_kill_3 = job list | get id
+        
+        [({}) ({}) ({}) ({})] | to nuon
+        "#,
         "($list_before | sort) == ([$job1 $job2 $job3] | sort)",
         "($list_after_kill_1 | sort) == ([$job2 $job3] | sort)",
         "($list_after_kill_2 | sort) == ([$job3] | sort)",
         "$list_after_kill_3 == []",
-    ));
+    );
 
     assert_eq!(actual.out, "[true, true, true, true]");
 }
@@ -290,26 +293,27 @@ fn killing_job_removes_it_from_table() {
 #[test]
 #[cfg(not(target_os = "macos"))]
 fn killing_job_kills_pids() {
-    let actual = nu!(format!(
+    let actual = nu!(
         r#"
-            let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 1sec" }}
-
-            sleep 25ms
-
-            let pids = job list | where id == $job1 | get pids
-
-            let child_pids_before = ps | where ppid == $nu.pid
-
-            job kill $job1
-            
-            sleep 25ms
-
-            let child_pids_after = ps | where ppid == $nu.pid
-
-            [({}) ({})] | to nuon
-            "#,
-        "($child_pids_before | length) == 2", "$child_pids_after == []",
-    ));
+        let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 1sec" }}
+    
+        sleep 25ms
+    
+        let pids = job list | where id == $job1 | get pids
+    
+        let child_pids_before = ps | where ppid == $nu.pid
+    
+        job kill $job1
+        
+        sleep 25ms
+    
+        let child_pids_after = ps | where ppid == $nu.pid
+    
+        [({}) ({})] | to nuon
+        "#,
+        "($child_pids_before | length) == 2",
+        "$child_pids_after == []",
+    );
 
     assert_eq!(actual.out, "[true, true]");
 }

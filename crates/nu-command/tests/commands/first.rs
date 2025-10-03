@@ -106,9 +106,9 @@ fn errors_on_empty_list_when_no_rows_given() {
 
 #[test]
 fn gets_first_bytes_and_drops_content_type() {
-    let actual = nu!(format!(
+    let actual = nu!(
         "open {} | first 3 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
     assert_eq!(actual.out, "nothing");
 }

@@ -1,21 +1,19 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 use pretty_assertions::assert_str_eq;
 
 #[test]
 fn multiword_commands_have_their_parent_commands() {
-    let out = nu!(pipeline(
-        r#"
+    let out = nu!(r#"
+        scope commands
+        | where type == built-in and name like ' '
+        | where ($it.name | split row ' ' | first) not-in (
             scope commands
-            | where type == built-in and name like ' '
-            | where ($it.name | split row ' ' | first) not-in (
-                scope commands
-                | where type in [keyword built-in]
-                | get name
-            )
+            | where type in [keyword built-in]
             | get name
-            | to json --raw
-        "#
-    ));
+        )
+        | get name
+        | to json --raw
+    "#);
 
     assert_str_eq!(
         "[]",

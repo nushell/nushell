@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn simple_get_record() {
@@ -105,14 +105,11 @@ fn fetches_more_than_one_column_path() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open sample.toml
-                | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
-                | get 2
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open sample.toml
+            | get fortune_tellers.2.name fortune_tellers.0.name fortune_tellers.1.name
+            | get 2
+        ");
 
         assert_eq!(actual.out, "JT");
     })

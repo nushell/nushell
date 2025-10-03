@@ -251,14 +251,16 @@ fn test_alternate_config_path() {
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --config {config_path:?} -c '$nu.config-path'")
+        "nu --config {:?} -c '$nu.config-path'",
+        config_path
     );
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --env-config {env_path:?} -c '$nu.env-path'")
+        "nu --env-config {:?} -c '$nu.env-path'",
+        env_path
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }
@@ -274,14 +276,16 @@ fn use_last_config_path() {
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --config non-existing-path --config another-random-path.nu --config {config_path:?} -c '$nu.config-path'")
+        "nu --config non-existing-path --config another-random-path.nu --config {:?} -c '$nu.config-path'",
+        config_path
     );
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --env-config non-existing-path --env-config {env_path:?} -c '$nu.env-path'")
+        "nu --env-config non-existing-path --env-config {:?} -c '$nu.env-path'",
+        env_path
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }

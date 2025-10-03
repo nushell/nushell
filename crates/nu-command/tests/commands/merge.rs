@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn row() {
@@ -12,14 +12,16 @@ fn row() {
          ["Andrés Robalino", "Guayaquil Ecuador", 1],
          ["JT Turner", "New Zealand", 1]]"#;
 
-    let actual = nu!(pipeline(&format!(
-        r#" ({left_sample})
-              | merge ({right_sample})
-              | where country in ["Guayaquil Ecuador" "New Zealand"]
-              | get luck
-              | math sum
-                "#
-    )));
+    let actual = nu!(
+        r#" ({})
+          | merge ({})
+          | where country in ["Guayaquil Ecuador" "New Zealand"]
+          | get luck
+          | math sum
+            "#,
+        left_sample,
+        right_sample
+    );
 
     assert_eq!(actual.out, "2");
 }

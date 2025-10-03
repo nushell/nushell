@@ -1,6 +1,6 @@
 use nu_test_support::fs::{Stub, file_contents};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use std::io::Write;
 
 #[test]
@@ -331,16 +331,12 @@ fn save_file_correct_relative_path() {
 #[test]
 fn save_same_file_with_extension() {
     Playground::setup("save_test_16", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                echo 'world'
-                | save --raw hello.md;
-                open --raw hello.md
-                | save --raw --force hello.md
-            "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save --raw hello.md;
+            open --raw hello.md
+            | save --raw --force hello.md
+        ");
 
         assert!(
             actual
@@ -353,17 +349,13 @@ fn save_same_file_with_extension() {
 #[test]
 fn save_same_file_with_extension_pipeline() {
     Playground::setup("save_test_17", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                echo 'world'
-                | save --raw hello.md;
-                open --raw hello.md
-                | prepend 'hello'
-                | save --raw --force hello.md
-            "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save --raw hello.md;
+            open --raw hello.md
+            | prepend 'hello'
+            | save --raw --force hello.md
+        ");
 
         assert!(
             actual
@@ -376,16 +368,12 @@ fn save_same_file_with_extension_pipeline() {
 #[test]
 fn save_same_file_without_extension() {
     Playground::setup("save_test_18", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                echo 'world'
-                | save hello;
-                open hello
-                | save --force hello
-            "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save hello;
+            open hello
+            | save --force hello
+        ");
 
         assert!(
             actual
@@ -398,17 +386,13 @@ fn save_same_file_without_extension() {
 #[test]
 fn save_same_file_without_extension_pipeline() {
     Playground::setup("save_test_19", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                echo 'world'
-                | save hello;
-                open hello
-                | prepend 'hello'
-                | save --force hello
-            "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save hello;
+            open hello
+            | prepend 'hello'
+            | save --force hello
+        ");
 
         assert!(
             actual
@@ -423,12 +407,10 @@ fn save_with_custom_converter() {
     Playground::setup("save_with_custom_converter", |dirs, _| {
         let file = dirs.test().join("test.ndjson");
 
-        nu!(cwd: dirs.test(), pipeline(
-            r#"
-                def "to ndjson" []: any -> string { each { to json --raw } | to text --no-newline } ;
-                {a: 1, b: 2} | save test.ndjson
-            "#
-        ));
+        nu!(cwd: dirs.test(), r#"
+            def "to ndjson" []: any -> string { each { to json --raw } | to text --no-newline } ;
+            {a: 1, b: 2} | save test.ndjson
+        "#);
 
         let actual = file_contents(file);
         assert_eq!(actual, r#"{"a":1,"b":2}"#);
@@ -438,17 +420,15 @@ fn save_with_custom_converter() {
 #[test]
 fn save_same_file_with_collect() {
     Playground::setup("save_test_20", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline("
-                echo 'world'
-                | save hello;
-                open hello
-                | prepend 'hello'
-                | collect
-                | save --force hello;
-                open hello
-            ")
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save hello;
+            open hello
+            | prepend 'hello'
+            | collect
+            | save --force hello;
+            open hello
+        ");
         assert!(actual.status.success());
         assert_eq!("helloworld", actual.out);
     })
@@ -457,18 +437,16 @@ fn save_same_file_with_collect() {
 #[test]
 fn save_same_file_with_collect_and_filter() {
     Playground::setup("save_test_21", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline("
-                echo 'world'
-                | save hello;
-                open hello
-                | prepend 'hello'
-                | collect
-                | filter { true }
-                | save --force hello;
-                open hello
-            ")
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            echo 'world'
+            | save hello;
+            open hello
+            | prepend 'hello'
+            | collect
+            | filter { true }
+            | save --force hello;
+            open hello
+        ");
         assert!(actual.status.success());
         assert_eq!("helloworld", actual.out);
     })

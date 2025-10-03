@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn from_ssv_text_to_table() {
@@ -15,15 +15,12 @@ fn from_ssv_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open oc_get_svc.txt
-                | from ssv
-                | get 0
-                | get IP
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open oc_get_svc.txt
+            | from ssv
+            | get 0
+            | get IP
+        "#);
 
         assert_eq!(actual.out, "172.30.78.158");
     })
@@ -42,15 +39,12 @@ fn from_ssv_text_to_table_with_separator_specified() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open oc_get_svc.txt
-                | from ssv --minimum-spaces 3
-                | get 0
-                | get IP
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open oc_get_svc.txt
+            | from ssv --minimum-spaces 3
+            | get 0
+            | get IP
+        "#);
 
         assert_eq!(actual.out, "172.30.78.158");
     })
@@ -68,26 +62,20 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
             "#,
         )]);
 
-        let aligned_columns = nu!(
-        cwd: dirs.test(), pipeline(
-            r#"
-                open oc_get_svc.txt
-                | from ssv --noheaders -a
-                | first
-                | get column0
-            "#
-        ));
+        let aligned_columns = nu!(cwd: dirs.test(), r#"
+            open oc_get_svc.txt
+            | from ssv --noheaders -a
+            | first
+            | get column0
+        "#);
 
-        let separator_based = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open oc_get_svc.txt
-                | from ssv --noheaders
-                | first
-                | get column0
-
-            "#
-        ));
+        let separator_based = nu!(cwd: dirs.test(), r#"
+            open oc_get_svc.txt
+            | from ssv --noheaders
+            | first
+            | get column0
+        
+        "#);
 
         assert_eq!(aligned_columns.out, separator_based.out);
         assert_eq!(separator_based.out, "docker-registry");

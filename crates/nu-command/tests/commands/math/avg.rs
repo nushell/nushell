@@ -1,15 +1,12 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn can_average_numbers() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-             open sgml_description.json
-             | get glossary.GlossDiv.GlossList.GlossEntry.Sections
-             | math avg
-         "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+         open sgml_description.json
+         | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+         | math avg
+     "#);
 
     assert_eq!(actual.out, "101.5")
 }

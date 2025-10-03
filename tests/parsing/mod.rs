@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -108,13 +108,10 @@ fn parse_file_relative_to_parsed_file_simple() {
                 "#,
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                source-env lol/lol/lol.nu;
-                $env.LOL
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            source-env lol/lol/lol.nu;
+            $env.LOL
+        ");
 
         assert_eq!(actual.out, "lol");
     })
@@ -132,7 +129,7 @@ fn predecl_signature_single_inp_out_type() {
             ",
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("nu spam1.nu"));
+        let actual = nu!(cwd: dirs.test(), "nu spam1.nu");
 
         assert_eq!(actual.out, "foo");
     })
@@ -152,7 +149,7 @@ fn predecl_signature_multiple_inp_out_types() {
             ",
             )]);
 
-            let actual = nu!(cwd: dirs.test(), pipeline("nu spam2.nu"));
+            let actual = nu!(cwd: dirs.test(), "nu spam2.nu");
 
             assert_eq!(actual.out, "foo");
         },
@@ -189,13 +186,10 @@ fn parse_file_relative_to_parsed_file() {
                 ",
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                source-env lol/lol/lol.nu;
-                $env.LOL
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            source-env lol/lol/lol.nu;
+            $env.LOL
+        ");
 
         assert_eq!(actual.out, "foo lol lol");
     })
@@ -225,13 +219,10 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
                 ",
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                source-env lol/lol.nu;
-                $env.FOO
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            source-env lol/lol.nu;
+            $env.FOO
+        ");
 
         assert_eq!(actual.out, "good");
     })
@@ -255,12 +246,9 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
                 ",
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                source-env lol/lol.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            source-env lol/lol.nu
+        ");
 
         assert!(actual.err.contains("File not found"));
     })

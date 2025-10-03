@@ -1,18 +1,15 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_simple() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            alias bar = use sample_def.nu greet;
-            bar;
-            greet
-        "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        alias bar = use sample_def.nu greet;
+        bar;
+        greet
+    "#);
 
     assert_eq!(actual.out, "hello");
 }
@@ -20,13 +17,10 @@ fn alias_simple() {
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_1() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            overlay use ./activate-foo.nu;
-            scope aliases | find deactivate-foo | length
-        "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        overlay use ./activate-foo.nu;
+        scope aliases | find deactivate-foo | length
+    "#);
 
     assert_eq!(actual.out, "1");
 }
@@ -34,14 +28,11 @@ fn alias_hiding_1() {
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_2() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            overlay use ./activate-foo.nu;
-            deactivate-foo;
-            scope aliases | find deactivate-foo | length
-        "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        overlay use ./activate-foo.nu;
+        deactivate-foo;
+        scope aliases | find deactivate-foo | length
+    "#);
 
     assert_eq!(actual.out, "0");
 }
@@ -71,18 +62,16 @@ fn cant_alias_keyword() {
 
 #[test]
 fn alias_wont_recurse() {
-    let actual = nu!(pipeline(
-        "
-            module myspamsymbol {
-                export def myfoosymbol [prefix: string, msg: string] {
-                    $prefix + $msg
-                }
-            };
-            use myspamsymbol myfoosymbol;
-            alias myfoosymbol = myfoosymbol 'hello';
-            myfoosymbol ' world'
-        "
-    ));
+    let actual = nu!("
+        module myspamsymbol {
+            export def myfoosymbol [prefix: string, msg: string] {
+                $prefix + $msg
+            }
+        };
+        use myspamsymbol myfoosymbol;
+        alias myfoosymbol = myfoosymbol 'hello';
+        myfoosymbol ' world'
+    ");
 
     assert_eq!(actual.out, "hello world");
     assert!(actual.err.is_empty());
@@ -99,14 +88,11 @@ fn alias_wont_recurse2() {
                 alias spam = spam 'spam'
             "#,
         )]);
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                def spam [what: string] { 'spam ' + $what };
-                source spam.nu;
-                spam
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            def spam [what: string] { 'spam ' + $what };
+            source spam.nu;
+            spam
+        "#);
 
         assert_eq!(actual.out, "spam spam");
         assert!(actual.err.is_empty());

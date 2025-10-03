@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn early_return_if_true() {
@@ -16,20 +16,14 @@ fn early_return_if_false() {
 
 #[test]
 fn return_works_in_script_without_def_main() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "nu -n early_return.nu"
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "nu -n early_return.nu");
 
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn return_works_in_script_with_def_main() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        pipeline("nu -n early_return_outside_main.nu")
-    );
+    let actual = nu!(cwd: "tests/fixtures/formats", "nu -n early_return_outside_main.nu");
     assert!(actual.err.is_empty());
 }
 

@@ -1,12 +1,10 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn test_char_list_outputs_table() {
-    let actual = nu!(pipeline(
-        r#"
-            char --list | length
-        "#
-    ));
+    let actual = nu!(r#"
+        char --list | length
+    "#);
 
     assert_eq!(actual.out, "113");
 }

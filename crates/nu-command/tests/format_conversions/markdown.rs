@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn md_empty() {
@@ -56,21 +56,19 @@ fn md_table_pretty() {
 
 #[test]
 fn md_combined() {
-    let actual = nu!(pipeline(
-        r#"
-            def title [] {
-                echo [[H1]; ["Nu top meals"]]
-            };
-
-            def meals [] {
-                echo [[dish]; [Arepa] [Taco] [Pizza]]
-            };
-
-            title
-            | append (meals)
-            | to md --per-element --pretty
-        "#
-    ));
+    let actual = nu!(r#"
+        def title [] {
+            echo [[H1]; ["Nu top meals"]]
+        };
+    
+        def meals [] {
+            echo [[dish]; [Arepa] [Taco] [Pizza]]
+        };
+    
+        title
+        | append (meals)
+        | to md --per-element --pretty
+    "#);
 
     assert_eq!(
         actual.out,

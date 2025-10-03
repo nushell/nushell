@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 
@@ -369,11 +369,9 @@ fn help_modules_main_2() {
 
 #[test]
 fn nothing_type_annotation() {
-    let actual = nu!(pipeline(
-        "
-        def foo []: nothing -> nothing {};
-        help commands | where name == foo | get input_output.0.output.0
-    "
-    ));
+    let actual = nu!("
+    def foo []: nothing -> nothing {};
+    help commands | where name == foo | get input_output.0.output.0
+        ");
     assert_eq!(actual.out, "nothing");
 }

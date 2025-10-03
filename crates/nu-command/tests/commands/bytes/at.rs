@@ -78,9 +78,9 @@ pub fn test_string_returns_correct_slice_for_max_end() {
 
 #[test]
 pub fn test_drops_content_type() {
-    let actual = nu!(format!(
+    let actual = nu!(
         "open {} | bytes at 3..5 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
     assert_eq!(actual.out, "nothing", "Expected content_type to be dropped");
 }

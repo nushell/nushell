@@ -119,7 +119,6 @@ fn separate_redirection() {
 
 #[test]
 fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
-    use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
     Playground::setup("external with many stderr message", |dirs, sandbox| {
         let bytes: usize = 81920;
@@ -129,14 +128,10 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
         }
         sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
-        nu!(
-            cwd: dirs.test(), pipeline(
-                "
-                $env.LARGE = (open --raw a_large_file.txt);
-                nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
-                "
-            ),
-        );
+        nu!(cwd: dirs.test(), "
+        $env.LARGE = (open --raw a_large_file.txt);
+        nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
+        ");
 
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
@@ -145,14 +140,10 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
         // not hangs in append mode either.
         let cloned_body = large_file_body.clone();
         large_file_body.push_str(&format!("\n{cloned_body}"));
-        nu!(
-            cwd: dirs.test(), pipeline(
-                "
-                $env.LARGE = (open --raw a_large_file.txt);
-                nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt
-                "
-            ),
-        );
+        nu!(cwd: dirs.test(), "
+        $env.LARGE = (open --raw a_large_file.txt);
+        nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt
+        ");
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
         assert_eq!(actual, format!("{large_file_body}\n"));

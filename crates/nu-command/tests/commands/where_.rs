@@ -1,6 +1,4 @@
 use nu_test_support::nu;
-#[cfg(feature = "sqlite")]
-use nu_test_support::pipeline;
 
 #[test]
 fn filters_by_unit_size_comparison() {
@@ -86,68 +84,53 @@ fn where_uses_enumerate_index() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn binary_operator_comparisons() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get ints
-            | first 4
-            | where z > 4200
-            | get z.0
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first 4
+        | where z > 4200
+        | get z.0
+    ");
 
     assert_eq!(actual.out, "4253");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get ints
-            | first 4
-            | where z >= 4253
-            | get z.0
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first 4
+        | where z >= 4253
+        | get z.0
+    ");
 
     assert_eq!(actual.out, "4253");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get ints
-            | first 4
-            | where z < 10
-            | get z.0
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first 4
+        | where z < 10
+        | get z.0
+    ");
 
     assert_eq!(actual.out, "1");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get ints
-            | first 4
-            | where z <= 1
-            | get z.0
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first 4
+        | where z <= 1
+        | get z.0
+    ");
 
     assert_eq!(actual.out, "1");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get ints
-            | where z != 1
-            | first
-            | get z
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | where z != 1
+        | first
+        | get z
+    ");
 
     assert_eq!(actual.out, "42");
 }
@@ -155,27 +138,21 @@ fn binary_operator_comparisons() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn contains_operator() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get strings
-            | where x =~ ell
-            | length
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | where x =~ ell
+        | length
+    ");
 
     assert_eq!(actual.out, "4");
 
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get strings
-            | where x !~ ell
-            | length
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | where x !~ ell
+        | length
+    ");
 
     assert_eq!(actual.out, "2");
 }

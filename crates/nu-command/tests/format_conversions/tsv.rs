@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_to_tsv_text_and_from_tsv_text_back_into_table() {
@@ -34,18 +34,15 @@ fn table_to_tsv_text() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open tsv_text_sample.txt
-                | lines
-                | split column "\t" a b c d origin
-                | last 1
-                | to tsv
-                | lines
-                | select 1
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open tsv_text_sample.txt
+            | lines
+            | split column "\t" a b c d origin
+            | last 1
+            | to tsv
+            | lines
+            | select 1
+        "#);
 
         assert!(actual.out.contains("Colombia"));
     })
@@ -63,16 +60,13 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open tsv_text_sample.txt
-                | lines
-                | split column "\t" a b c d origin
-                | last 1
-                | to tsv --noheaders
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open tsv_text_sample.txt
+            | lines
+            | split column "\t" a b c d origin
+            | last 1
+            | to tsv --noheaders
+        "#);
 
         assert!(actual.out.contains("Colombia"));
     })
@@ -80,11 +74,9 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
 
 #[test]
 fn table_to_tsv_float_doesnt_become_int() {
-    let actual = nu!(pipeline(
-        r#"
-            [[a]; [1.0]] | to tsv | from tsv | get 0.a | describe
-        "#
-    ));
+    let actual = nu!(r#"
+        [[a]; [1.0]] | to tsv | from tsv | get 0.a | describe
+    "#);
 
     assert_eq!(actual.out, "float")
 }
@@ -102,15 +94,12 @@ fn from_tsv_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_amigos.txt
-                | from tsv
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_amigos.txt
+            | from tsv
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -133,15 +122,12 @@ fn from_tsv_text_with_comments_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r##"
-                open los_tres_caballeros.txt
-                | from tsv --comment "#"
-                | get rusty_luck
-                | length
-            "##
-        ));
+        let actual = nu!(cwd: dirs.test(), r##"
+            open los_tres_caballeros.txt
+            | from tsv --comment "#"
+            | get rusty_luck
+            | length
+        "##);
 
         assert_eq!(actual.out, "3");
     })
@@ -160,15 +146,12 @@ fn from_tsv_text_with_custom_quotes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from tsv --quote "'"
-                | first
-                | get first_name
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from tsv --quote "'"
+            | first
+            | get first_name
+        "#);
 
         assert_eq!(actual.out, "And'rés");
     })
@@ -187,15 +170,12 @@ fn from_tsv_text_with_custom_escapes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r"
-                open los_tres_caballeros.txt
-                | from tsv --escape '\'
-                | first
-                | get first_name
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), r"
+            open los_tres_caballeros.txt
+            | from tsv --escape '\'
+            | first
+            | get first_name
+        ");
 
         assert_eq!(actual.out, "And\"rés");
     })
@@ -213,15 +193,12 @@ fn from_tsv_text_skipping_headers_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_amigos.txt
-                | from tsv --noheaders
-                | get column2
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_amigos.txt
+            | from tsv --noheaders
+            | get column2
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -240,16 +217,13 @@ fn from_tsv_text_with_missing_columns_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from tsv --flexible
-                | get -o rusty_luck
-                | compact
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from tsv --flexible
+            | get -o rusty_luck
+            | compact
+            | length
+        "#);
 
         assert_eq!(actual.out, "2");
     })
@@ -268,13 +242,10 @@ fn from_tsv_text_with_multiple_char_comment() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --comment "li"
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --comment "li"
+        "#);
 
         assert!(actual.err.contains("single character separator"));
     })
@@ -293,13 +264,10 @@ fn from_tsv_text_with_wrong_type_comment() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --comment ('123' | into int)
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --comment ('123' | into int)
+        "#);
 
         assert!(actual.err.contains("can't convert int to char"));
     })

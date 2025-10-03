@@ -56,7 +56,7 @@ fn fancy_default_errors() {
         r#"force_error "My error""#,
     ]);
 
-    let actual = nu!(format!("try {{ {code} }}"));
+    let actual = nu!("try {{ {} }}", code);
 
     assert_eq!(
         actual.err,
@@ -80,7 +80,7 @@ fn narratable_errors() {
         r#"force_error "my error""#,
     ]);
 
-    let actual = nu!(format!("try {{ {code} }}"));
+    let actual = nu!("try {{ {} }}", code);
 
     assert_eq!(
         actual.err,

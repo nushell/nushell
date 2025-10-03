@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn base64_defaults_to_encoding_with_standard_character_type() {
@@ -56,26 +56,18 @@ fn error_invalid_decode_value() {
 
 #[test]
 fn md5_works_with_file() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        open sample.db --raw | hash md5
-        "#
-        )
-    );
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+    open sample.db --raw | hash md5
+    "#);
 
     assert_eq!(actual.out, "4de97601d232c427977ef11db396c951");
 }
 
 #[test]
 fn sha256_works_with_file() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-        open sample.db --raw | hash sha256
-        "#
-        )
-    );
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+    open sample.db --raw | hash sha256
+    "#);
 
     assert_eq!(
         actual.out,

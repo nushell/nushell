@@ -95,7 +95,7 @@ fn into_int_datetime1() {
 #[case("2052-04-13T12:09:14.123456789-05:00", "2596640954123456789")] // future date > 2038 epoch
 #[case("1902-04-13T12:09:14.123456789-05:00", "-2137042245876543211")] // past date < 1970
 fn into_int_datetime(#[case] time_in: &str, #[case] int_out: &str) {
-    let actual = nu!(&format!(
+    let actual = nu!(format!(
         r#""{time_in}" | into datetime --format "%+" | into int"#
     ));
 

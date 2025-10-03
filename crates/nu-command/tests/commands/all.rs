@@ -1,13 +1,11 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn checks_all_rows_are_true() {
-    let actual = nu!(pipeline(
-        r#"
-            echo  [ "Andrés", "Andrés", "Andrés" ]
-            | all {|it| $it == "Andrés" }
-        "#
-    ));
+    let actual = nu!(r#"
+        echo  [ "Andrés", "Andrés", "Andrés" ]
+        | all {|it| $it == "Andrés" }
+    "#);
 
     assert_eq!(actual.out, "true");
 }
@@ -28,18 +26,16 @@ fn checks_all_rows_are_true_with_param() {
 
 #[test]
 fn checks_all_columns_of_a_table_is_true() {
-    let actual = nu!(pipeline(
-        "
-            echo [
-                    [  first_name, last_name,   rusty_at, likes  ];
-                    [      Andrés,  Robalino, '10/11/2013',   1    ]
-                    [    JT,    Turner, '10/12/2013',   1    ]
-                    [      Darren, Schroeder, '10/11/2013',   1    ]
-                    [      Yehuda,      Katz, '10/11/2013',   1    ]
-            ]
-            | all {|x| $x.likes > 0 }
-        "
-    ));
+    let actual = nu!("
+        echo [
+                [  first_name, last_name,   rusty_at, likes  ];
+                [      Andrés,  Robalino, '10/11/2013',   1    ]
+                [    JT,    Turner, '10/12/2013',   1    ]
+                [      Darren, Schroeder, '10/11/2013',   1    ]
+                [      Yehuda,      Katz, '10/11/2013',   1    ]
+        ]
+        | all {|x| $x.likes > 0 }
+    ");
 
     assert_eq!(actual.out, "true");
 }
@@ -47,13 +43,11 @@ fn checks_all_columns_of_a_table_is_true() {
 #[test]
 fn checks_if_all_returns_error_with_invalid_command() {
     // Using `with-env` to remove `st` possibly being an external program
-    let actual = nu!(pipeline(
-        r#"
-            with-env {PATH: ""} {
-                [red orange yellow green blue purple] | all {|it| ($it | st length) > 4 }
-            }
-        "#
-    ));
+    let actual = nu!(r#"
+        with-env {PATH: ""} {
+            [red orange yellow green blue purple] | all {|it| ($it | st length) > 4 }
+        }
+    "#);
 
     assert!(
         actual.err.contains("Command `st` not found") && actual.err.contains("Did you mean `ast`?")
