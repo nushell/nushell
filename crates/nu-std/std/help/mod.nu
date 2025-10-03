@@ -753,15 +753,105 @@ def scope-commands [
     }
 }
 
+def parse-helper-string [value: string] {
+    let trimmed = (
+        $value
+        | str trim
+        | str replace --regex '^\^' ""
+    )
+
+    if ($trimmed | is-empty) {
+        []
+    } else if ($trimmed | str starts-with "[") {
+        try {
+            parse-helper-command ($trimmed | from nuon)
+        } catch {
+            $trimmed
+                | split row " "
+                | where {|part| ($part | str length) > 0 }
+        }
+    } else {
+        $trimmed
+            | split row " "
+            | where {|part| ($part | str length) > 0 }
+    }
+}
+
+def parse-helper-command [value] {
+    if ($value | is-empty) {
+        []
+    } else {
+        let desc = $value | describe
+
+        if ($desc | str starts-with "list") {
+            $value
+                | each {|item| $item | into string | str trim }
+                | where {|part| ($part | str length) > 0 }
+        } else if $desc == "string" {
+            parse-helper-string $value
+        } else {
+            [($value | into string | str trim)]
+                | where {|part| ($part | str length) > 0 }
+        }
+    }
+}
+
+def apply-helper-extra [helper_extra: list<any>, windows: bool] {
+    if ($helper_extra | is-empty) {
+        if $windows {
+            $in | collect
+        } else {
+            $in
+        }
+    } else {
+        $in | run-external ...$helper_extra
+    }
+}
+
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
     let target_command = $command | str join " " | str replace "^" ""
+    let windows = ($nu.os-info.name == "windows")
+    let helper_setting = $env.NU_HELPER? | default "man"
+    let helper_cmd = parse-helper-command $helper_setting
+    let helper_is_dash_help = ($helper_cmd == ["--help"])
+    let helper_extra = parse-helper-command ($env.NU_HELPER_EXTRA? | default [])
+    let base_command = (
+        $target_command
+        | split row " "
+        | where {|part| ($part | str length) > 0 }
+    )
+    let help_invocation = ($base_command | append "--help")
+
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-    if $env.NU_HELPER? == "--help" {
-        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+
+    if $helper_is_dash_help {
+        run-external ...$help_invocation
+        | apply-helper-extra $helper_extra $windows
     } else {
-        ^($env.NU_HELPER? | default "man") $target_command
+        let help_stream = (try {
+            run-external ...$help_invocation
+        } catch {|err|
+            if ($helper_cmd | is-empty) {
+                error make $err
+            } else {
+                return (
+                    run-external ...($helper_cmd | append $target_command)
+                    | apply-helper-extra $helper_extra $windows
+                )
+            }
+        })
+
+        let exit_code = ($env.LAST_EXIT_CODE? | default 0)
+        let help_output = ($help_stream | apply-helper-extra $helper_extra $windows)
+
+        if ($exit_code != 0) and ($helper_cmd | is-not-empty) {
+            run-external ...($helper_cmd | append $target_command)
+            | apply-helper-extra $helper_extra $windows
+        } else {
+            $help_output
+        }
     }
 }
 
