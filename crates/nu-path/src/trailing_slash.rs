@@ -112,4 +112,13 @@ mod tests {
             strip_trailing_slash(Path::new(r"\\foo\bar\"))
         );
     }
+
+    #[cfg_attr(not(windows), ignore = "only for Windows")]
+    #[test]
+    fn strip_trailing_windows_device() {
+        assert_eq!(
+            Path::new(r"\\.\foo"),
+            strip_trailing_slash(Path::new(r"\\.\foo\"))
+        );
+    }
 }
