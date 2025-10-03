@@ -17,17 +17,13 @@ fn use_module_file_within_block() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-                "
-                    def bar [] {
-                        use spam.nu foo;
-                        foo
-                    };
-                    bar
-                "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            def bar [] {
+                use spam.nu foo;
+                foo
+            };
+            bar
+        ");
 
         assert_eq!(actual.out, "hello world");
     })
@@ -50,14 +46,10 @@ fn use_keeps_doc_comments() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-                "
-                    use spam.nu foo;
-                    help foo
-                "
-            )
-        );
+        let actual = nu!(cwd: dirs.test(), "
+            use spam.nu foo;
+            help foo
+        ");
 
         assert!(actual.out.contains("this is my foo command"));
         assert!(actual.out.contains("this is an x parameter"));

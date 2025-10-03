@@ -4,15 +4,12 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn limit_set_soft1() {
     Playground::setup("limit_set_soft1", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                let soft = (ulimit -s | first | get soft);
-                ulimit -s -H $soft;
-                let hard = (ulimit -s | first | get hard);
-                $soft == $hard
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            let soft = (ulimit -s | first | get soft);
+            ulimit -s -H $soft;
+            let hard = (ulimit -s | first | get hard);
+            $soft == $hard
+        ");
 
         assert!(actual.out.contains("true"));
     });
@@ -21,15 +18,12 @@ fn limit_set_soft1() {
 #[test]
 fn limit_set_soft2() {
     Playground::setup("limit_set_soft2", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                let soft = (ulimit -s | first | get soft);
-                ulimit -s -H soft;
-                let hard = (ulimit -s | first | get hard);
-                $soft == $hard
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            let soft = (ulimit -s | first | get soft);
+            ulimit -s -H soft;
+            let hard = (ulimit -s | first | get hard);
+            $soft == $hard
+        ");
 
         assert!(actual.out.contains("true"));
     });
@@ -38,15 +32,12 @@ fn limit_set_soft2() {
 #[test]
 fn limit_set_hard1() {
     Playground::setup("limit_set_hard1", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                let hard = (ulimit -s | first | get hard);
-                ulimit -s $hard;
-                let soft = (ulimit -s | first | get soft);
-                $soft == $hard
-           "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            let hard = (ulimit -s | first | get hard);
+            ulimit -s $hard;
+            let soft = (ulimit -s | first | get soft);
+            $soft == $hard
+                   ");
 
         assert!(actual.out.contains("true"));
     });
@@ -55,15 +46,12 @@ fn limit_set_hard1() {
 #[test]
 fn limit_set_hard2() {
     Playground::setup("limit_set_hard2", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                let hard = (ulimit -s | first | get hard);
-                ulimit -s hard;
-                let soft = (ulimit -s | first | get soft);
-                $soft == $hard
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            let hard = (ulimit -s | first | get hard);
+            ulimit -s hard;
+            let soft = (ulimit -s | first | get soft);
+            $soft == $hard
+        ");
 
         assert!(actual.out.contains("true"));
     });
@@ -72,9 +60,7 @@ fn limit_set_hard2() {
 #[test]
 fn limit_set_invalid1() {
     Playground::setup("limit_set_invalid1", |dirs, _sandbox| {
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
-        "
+        let actual = nu!(cwd: dirs.test(), "
             let hard = (ulimit -s | first | get hard);
             match $hard {
                 \"unlimited\" => { echo \"unlimited\" },
@@ -83,8 +69,7 @@ fn limit_set_invalid1() {
                     ulimit -s $new
                 }
             }
-        "
-        ));
+        ");
 
         assert!(
             actual.out.contains("unlimited")
@@ -175,29 +160,26 @@ fn limit_set_invalid5() {
 #[test]
 fn limit_set_filesize1() {
     Playground::setup("limit_set_filesize1", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                let hard = (ulimit -c | first | get hard);
-                match $hard {
-                    \"unlimited\" => {
-                        ulimit -c 1Mib;
-                        ulimit -c
-                        | first
-                        | get soft
-                    },
-                    $x if $x >= 1024 * 1024 => {
-                        ulimit -c 1Mib;
-                        ulimit -c
-                        | first
-                        | get soft
-                    }
-                    _ => {
-                        echo \"hard limit too small\"
-                    }
+        let actual = nu!(cwd: dirs.test(), "
+            let hard = (ulimit -c | first | get hard);
+            match $hard {
+                \"unlimited\" => {
+                    ulimit -c 1Mib;
+                    ulimit -c
+                    | first
+                    | get soft
+                },
+                $x if $x >= 1024 * 1024 => {
+                    ulimit -c 1Mib;
+                    ulimit -c
+                    | first
+                    | get soft
                 }
-            "
-        ));
+                _ => {
+                    echo \"hard limit too small\"
+                }
+            }
+        ");
 
         assert!(actual.out.eq("1024") || actual.out.eq("hard limit too small"));
     });

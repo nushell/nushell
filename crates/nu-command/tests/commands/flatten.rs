@@ -2,39 +2,33 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn flatten_nested_tables_with_columns() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
-                 [[origin, people]; [Nu, ('nuno' | wrap name)]]
-            | flatten --all | flatten --all
-            | get name
-            | str join ','
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
+             [[origin, people]; [Nu, ('nuno' | wrap name)]]
+        | flatten --all | flatten --all
+        | get name
+        | str join ','
+    "#);
 
     assert_eq!(actual.out, "Andres,nuno");
 }
 
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
-            [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
-            | flatten --all | flatten --all
-            | get meal
-            | str join ','
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
+        [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
+        | flatten --all | flatten --all
+        | get meal
+        | str join ','
+    "#);
 
     assert_eq!(actual.out, "arepa,nurepa");
 }
 
 #[test]
 fn flatten_nested_tables() {
-    let actual = nu!(pipeline(
-        "echo [[Andrés, Nicolás, Robalino]] | flatten | get 1"
-    ));
+    let actual = nu!("echo [[Andrés, Nicolás, Robalino]] | flatten | get 1");
 
     assert_eq!(actual.out, "Nicolás");
 }

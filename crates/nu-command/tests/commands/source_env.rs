@@ -35,14 +35,11 @@ fn sources_also_files_under_custom_lib_dirs_path() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: ".", pipeline(
-            "
-                source-env my_library.nu ;
-
-                hello
-            "
-        ));
+        let actual = nu!(cwd: ".", "
+            source-env my_library.nu ;
+        
+            hello
+        ");
 
         assert_eq!(actual.out, "hello nu");
     })
@@ -325,12 +322,9 @@ fn source_env_const_file() {
 
 #[test]
 fn source_respects_early_return() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            source early_return.nu
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        source early_return.nu
+    ");
 
     assert!(actual.err.is_empty());
 }

@@ -9,12 +9,10 @@ fn string_fill_plain() {
 
 #[test]
 fn string_fill_fancy() {
-    let actual = nu!(pipeline(
-        r#"
-            $"(ansi red)a(ansi green)\u{65}\u{308}(ansi cyan)c(ansi reset)" 
-            | fill --alignment center --character "+" --width 5
-            "#
-    ));
+    let actual = nu!(r#"
+        $"(ansi red)a(ansi green)\u{65}\u{308}(ansi cyan)c(ansi reset)" 
+        | fill --alignment center --character "+" --width 5
+        "#);
 
     assert_eq!(
         actual.out,

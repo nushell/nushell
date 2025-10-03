@@ -64,10 +64,7 @@ fn create_directory_two_parents_up_using_multiple_dots() {
 #[test]
 fn print_created_paths() {
     Playground::setup("mkdir_test_2", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            pipeline("mkdir -v dir_1 dir_2 dir_3")
-        );
+        let actual = nu!(cwd: dirs.test(), "mkdir -v dir_1 dir_2 dir_3");
 
         assert!(files_exist_at(&["dir_1", "dir_2", "dir_3"], dirs.test()));
 

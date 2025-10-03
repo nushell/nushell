@@ -169,14 +169,12 @@ mod columns {
         format!(
             "echo '{}' | {}",
             bits,
-            pipeline(
-                r#"
-            split chars
-            | each { |it| $it | into int }
-            | rotate --ccw
-            | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
-        "#
-            )
+            r#"
+                    split chars
+                    | each { |it| $it | into int }
+                    | rotate --ccw
+                    | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
+                "#
         )
     }
 }

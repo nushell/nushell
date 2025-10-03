@@ -507,12 +507,9 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         }
         sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                cat a_large_file.txt | table --width=80
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            cat a_large_file.txt | table --width=80
+        ");
 
         assert_eq!(actual.out, large_file_body);
     })
@@ -663,10 +660,7 @@ fn test_expand_big_0() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --width=80 --expand"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --width=80 --expand");
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────╮",
@@ -856,10 +850,7 @@ fn test_expand_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=120"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=120");
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────╮",
@@ -1051,10 +1042,7 @@ fn test_expand_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=60"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=60");
 
         _print_lines(&actual.out, 60);
 
@@ -1317,10 +1305,7 @@ fn test_expand_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=40"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=40");
 
         _print_lines(&actual.out, 40);
 
@@ -2593,10 +2578,7 @@ fn test_collapse_big_0() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --width=80 --collapse"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --width=80 --collapse");
 
         _print_lines(&actual.out, 80);
 
@@ -2782,10 +2764,7 @@ fn test_collapse_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --collapse --width=160"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --collapse --width=160");
 
         _print_lines(&actual.out, 111);
 
