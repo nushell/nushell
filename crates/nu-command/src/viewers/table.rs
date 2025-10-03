@@ -871,7 +871,7 @@ impl Iterator for PagingTableCreator {
         match self.table_config.abbreviation {
             Some(abbr) => {
                 (batch, _, end) =
-                    stream_collect_abbriviated(&mut self.stream, abbr, self.engine_state.signals());
+                    stream_collect_abbreviated(&mut self.stream, abbr, self.engine_state.signals());
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
@@ -961,7 +961,7 @@ fn stream_collect(
     (batch, end)
 }
 
-fn stream_collect_abbriviated(
+fn stream_collect_abbreviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
@@ -995,7 +995,7 @@ fn stream_collect_abbriviated(
 
     let have_filled_list = head.len() == size && tail.len() == size;
     if have_filled_list {
-        let dummy = get_abbriviated_dummy(&head, &tail);
+        let dummy = get_abbreviated_dummy(&head, &tail);
         head.insert(size, dummy)
     }
 
@@ -1004,7 +1004,7 @@ fn stream_collect_abbriviated(
     (head, read, end)
 }
 
-fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
+fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
     let dummy = || Value::string(String::from("..."), Span::unknown());
     let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
 

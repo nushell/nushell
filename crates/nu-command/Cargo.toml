@@ -143,7 +143,7 @@ webpki-roots = { workspace = true, optional = true }
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
 
-[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]

@@ -51,7 +51,7 @@
 /// ```
 #[macro_export]
 macro_rules! nu {
-    // In the `@options` phase, we restucture all the
+    // In the `@options` phase, we restructure all the
     // `$field_1: $value_1, $field_2: $value_2, ...`
     // pairs to a structure like
     // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.
@@ -127,7 +127,7 @@ macro_rules! nu {
 
 #[macro_export]
 macro_rules! nu_with_std {
-    // In the `@options` phase, we restucture all the
+    // In the `@options` phase, we restructure all the
     // `$field_1: $value_1, $field_2: $value_2, ...`
     // pairs to a structure like
     // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.

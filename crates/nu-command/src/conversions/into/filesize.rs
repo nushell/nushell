@@ -148,7 +148,7 @@ fn i64_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     let no_comma_string = a_string.replace(locale.separator(), "");
     let clean_string = no_comma_string.trim();
 
-    // Hadle negative file size
+    // Handle negative file size
     if let Some(stripped_negative_string) = clean_string.strip_prefix('-') {
         match stripped_negative_string.parse::<bytesize::ByteSize>() {
             Ok(n) => i64_from_byte_size(n, true, span),

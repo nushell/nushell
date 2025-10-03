@@ -80,8 +80,25 @@ impl Type {
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
             }
-            (Type::Table(_), Type::List(_)) => true,
+            (Type::Table(_), Type::List(that)) if matches!(**that, Type::Any) => true,
+            (Type::Table(this), Type::List(that)) => {
+                matches!(that.as_ref(), Type::Record(that) if is_subtype_collection(this, that))
+            }
+            (Type::List(this), Type::Table(that)) => {
+                matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
+            }
             _ => false,
+        }
+    }
+
+    /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
+    pub fn widen(self, other: Type) -> Type {
+        if self.is_subtype_of(&other) {
+            other
+        } else if other.is_subtype_of(&self) {
+            self
+        } else {
+            Type::Any
         }
     }
 

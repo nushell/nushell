@@ -23,12 +23,12 @@ pub mod test_util;
 
 use nu_protocol::{
     ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator,
+    PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator, casing::Casing,
     engine::Closure,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
@@ -198,13 +198,25 @@ pub enum CustomValueOp {
     /// [`to_base_value()`](nu_protocol::CustomValue::to_base_value)
     ToBaseValue,
     /// [`follow_path_int()`](nu_protocol::CustomValue::follow_path_int)
-    FollowPathInt(Spanned<usize>),
+    FollowPathInt {
+        index: Spanned<usize>,
+        optional: bool,
+    },
     /// [`follow_path_string()`](nu_protocol::CustomValue::follow_path_string)
-    FollowPathString(Spanned<String>),
+    FollowPathString {
+        column_name: Spanned<String>,
+        optional: bool,
+        casing: Casing,
+    },
     /// [`partial_cmp()`](nu_protocol::CustomValue::partial_cmp)
     PartialCmp(Value),
     /// [`operation()`](nu_protocol::CustomValue::operation)
     Operation(Spanned<Operator>, Value),
+    /// [`save()`](nu_protocol::CustomValue::save)
+    Save {
+        path: Spanned<PathBuf>,
+        save_call_span: Span,
+    },
     /// Notify that the custom value has been dropped, if
     /// [`notify_plugin_on_drop()`](nu_protocol::CustomValue::notify_plugin_on_drop) is true
     Dropped,
@@ -215,10 +227,11 @@ impl CustomValueOp {
     pub fn name(&self) -> &'static str {
         match self {
             CustomValueOp::ToBaseValue => "to_base_value",
-            CustomValueOp::FollowPathInt(_) => "follow_path_int",
-            CustomValueOp::FollowPathString(_) => "follow_path_string",
+            CustomValueOp::FollowPathInt { .. } => "follow_path_int",
+            CustomValueOp::FollowPathString { .. } => "follow_path_string",
             CustomValueOp::PartialCmp(_) => "partial_cmp",
             CustomValueOp::Operation(_, _) => "operation",
+            CustomValueOp::Save { .. } => "save",
             CustomValueOp::Dropped => "dropped",
         }
     }
@@ -352,6 +365,7 @@ pub enum StreamMessage {
 /// Response to a [`PluginCall`]. The type parameter determines the output type for pipeline data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCallResponse<D> {
+    Ok,
     Error(LabeledError),
     Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
@@ -367,6 +381,7 @@ impl<D> PluginCallResponse<D> {
         f: impl FnOnce(D) -> Result<T, ShellError>,
     ) -> Result<PluginCallResponse<T>, ShellError> {
         Ok(match self {
+            PluginCallResponse::Ok => PluginCallResponse::Ok,
             PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
             PluginCallResponse::Metadata(meta) => PluginCallResponse::Metadata(meta),
             PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),

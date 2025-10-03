@@ -12,11 +12,12 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, engine::Sequence,
+    SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, btree_map},
+    path::Path,
     sync::{Arc, OnceLock, mpsc},
 };
 
@@ -999,8 +1000,12 @@ impl PluginInterface {
         &self,
         value: Spanned<PluginCustomValueWithSource>,
         index: Spanned<usize>,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathInt(index))
+        self.custom_value_op_expecting_value(
+            value,
+            CustomValueOp::FollowPathInt { index, optional },
+        )
     }
 
     /// Follow a named cell path on a custom value - e.g. `value.column`.
@@ -1008,8 +1013,17 @@ impl PluginInterface {
         &self,
         value: Spanned<PluginCustomValueWithSource>,
         column_name: Spanned<String>,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
-        self.custom_value_op_expecting_value(value, CustomValueOp::FollowPathString(column_name))
+        self.custom_value_op_expecting_value(
+            value,
+            CustomValueOp::FollowPathString {
+                column_name,
+                optional,
+                casing,
+            },
+        )
     }
 
     /// Invoke comparison logic for custom values.
@@ -1044,6 +1058,32 @@ impl PluginInterface {
         right: Value,
     ) -> Result<Value, ShellError> {
         self.custom_value_op_expecting_value(left, CustomValueOp::Operation(operator, right))
+    }
+
+    /// Invoke saving operation on a custom value.
+    pub fn custom_value_save(
+        &self,
+        value: Spanned<PluginCustomValueWithSource>,
+        path: Spanned<&Path>,
+        save_call_span: Span,
+    ) -> Result<(), ShellError> {
+        // Check that the value came from the right source
+        value.item.verify_source(value.span, &self.state.source)?;
+
+        let call = PluginCall::CustomValueOp(
+            value.map(|cv| cv.without_source()),
+            CustomValueOp::Save {
+                path: path.map(ToOwned::to_owned),
+                save_call_span,
+            },
+        );
+        match self.plugin_call(call, None)? {
+            PluginCallResponse::Ok => Ok(()),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response to custom value save() call".into(),
+            }),
+        }
     }
 
     /// Notify the plugin about a dropped custom value.
@@ -1236,10 +1276,11 @@ impl CurrentCallState {
                 // Handle anything within the op.
                 match op {
                     CustomValueOp::ToBaseValue => Ok(()),
-                    CustomValueOp::FollowPathInt(_) => Ok(()),
-                    CustomValueOp::FollowPathString(_) => Ok(()),
+                    CustomValueOp::FollowPathInt { .. } => Ok(()),
+                    CustomValueOp::FollowPathString { .. } => Ok(()),
                     CustomValueOp::PartialCmp(value) => self.prepare_value(value, source),
                     CustomValueOp::Operation(_, value) => self.prepare_value(value, source),
+                    CustomValueOp::Save { .. } => Ok(()),
                     CustomValueOp::Dropped => Ok(()),
                 }
             }

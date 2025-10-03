@@ -76,8 +76,8 @@ export def light-theme [] {
         empty: blue
         # Closures can be used to choose colors for specific values.
         # The value (in this case, a bool) is piped into the closure.
-        # eg) {|| if $in { 'dark_cyan' } else { 'dark_gray' } }
-        bool: dark_cyan
+        # eg) {|| if $in { 'darkcyan' } else { 'dark_gray' } }
+        bool: darkcyan
         int: dark_gray
         filesize: cyan_bold
         duration: dark_gray

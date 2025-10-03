@@ -170,7 +170,7 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
         PipelineData::ListStream(stream, ..) => Ok(PipelineData::value(
-            handle_value(stream.into_value(), args, head),
+            handle_value(stream.into_value()?, args, head),
             metadata,
         )),
         PipelineData::ByteStream(stream, ..) => Ok(PipelineData::value(

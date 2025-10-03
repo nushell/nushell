@@ -2,6 +2,7 @@
 use nu_protocol::{
     CustomValue, ShellError, Span, Type, Value,
     ast::{self, Math, Operator},
+    casing::Casing,
 };
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -69,14 +70,15 @@ impl CustomValue for CoolCustomValue {
         _self_span: Span,
         index: usize,
         path_span: Span,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        if index == 0 {
-            Ok(Value::string(&self.cool, path_span))
-        } else {
-            Err(ShellError::AccessBeyondEnd {
+        match (index, optional) {
+            (0, _) => Ok(Value::string(&self.cool, path_span)),
+            (_, true) => Ok(Value::nothing(path_span)),
+            _ => Err(ShellError::AccessBeyondEnd {
                 max_idx: 0,
                 span: path_span,
-            })
+            }),
         }
     }
 
@@ -85,15 +87,22 @@ impl CustomValue for CoolCustomValue {
         self_span: Span,
         column_name: String,
         path_span: Span,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
-        if column_name == "cool" {
-            Ok(Value::string(&self.cool, path_span))
-        } else {
-            Err(ShellError::CantFindColumn {
+        let column_name = match casing {
+            Casing::Sensitive => column_name,
+            Casing::Insensitive => column_name.to_lowercase(),
+        };
+
+        match (column_name.as_str(), optional) {
+            ("cool", _) => Ok(Value::string(&self.cool, path_span)),
+            (_, true) => Ok(Value::nothing(path_span)),
+            _ => Err(ShellError::CantFindColumn {
                 col_name: column_name,
                 span: Some(path_span),
                 src_span: self_span,
-            })
+            }),
         }
     }
 

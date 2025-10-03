@@ -1,8 +1,10 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, path::Path, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
-use nu_protocol::{CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator};
+use nu_protocol::{
+    CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing,
+};
 use serde::Serialize;
 
 use crate::{PluginInterface, PluginSource};
@@ -173,11 +175,13 @@ impl CustomValue for PluginCustomValueWithSource {
         self_span: Span,
         index: usize,
         path_span: Span,
+        optional: bool,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_int(
                 self.clone().into_spanned(self_span),
                 index.into_spanned(path_span),
+                optional,
             )
     }
 
@@ -186,11 +190,15 @@ impl CustomValue for PluginCustomValueWithSource {
         self_span: Span,
         column_name: String,
         path_span: Span,
+        optional: bool,
+        casing: Casing,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_string(
                 self.clone().into_spanned(self_span),
                 column_name.into_spanned(path_span),
+                optional,
+                casing,
             )
     }
 
@@ -225,6 +233,16 @@ impl CustomValue for PluginCustomValueWithSource {
                 operator.into_spanned(op_span),
                 right.clone(),
             )
+    }
+
+    fn save(
+        &self,
+        path: Spanned<&Path>,
+        value_span: Span,
+        save_span: Span,
+    ) -> Result<(), ShellError> {
+        self.get_plugin(Some(value_span), "save")?
+            .custom_value_save(self.clone().into_spanned(value_span), path, save_span)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

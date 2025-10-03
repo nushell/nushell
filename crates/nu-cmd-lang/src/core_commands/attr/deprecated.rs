@@ -11,10 +11,7 @@ impl Command for AttrDeprecated {
 
     fn signature(&self) -> Signature {
         Signature::build("attr deprecated")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_type(Type::Nothing, Type::record())
             .optional(
                 "message",
                 SyntaxShape::String,
@@ -52,11 +49,15 @@ impl Command for AttrDeprecated {
     }
 
     fn extra_description(&self) -> &str {
-        "Mark a command (default) or flag/switch (--flag) as deprecated. By default, only the first usage will trigger a deprecation warning.
-
-A help message can be included to provide more context for the deprecation, such as what to use as a replacement.
-
-Also consider setting the category to deprecated with @category deprecated"
+        "\
+            Mark a command (default) or flag/switch (--flag) as deprecated. \
+            By default, only the first usage will trigger a deprecation warning.\n\
+            \n\
+            A help message can be included to provide more context for the deprecation, \
+            such as what to use as a replacement.\n\
+            \n\
+            Also consider setting the category to deprecated with @category deprecated\
+        "
     }
 
     fn run(
