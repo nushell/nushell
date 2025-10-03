@@ -3,15 +3,13 @@ use std::str::FromStr;
 
 #[test]
 fn all() {
-    let sample = r#"
-                {
-                    meals: [
-                        {description: "1 large egg", calories: 90},
-                        {description: "1 cup white rice", calories: 250},
-                        {description: "1 tablespoon fish oil", calories: 108}
-                    ]
-                }
-            "#;
+    let sample = r#"{
+        meals: [
+            {description: "1 large egg", calories: 90},
+            {description: "1 cup white rice", calories: 250},
+            {description: "1 tablespoon fish oil", calories: 108}
+        ]
+    }"#;
 
     let actual = nu!(pipeline(&format!(
         r#"

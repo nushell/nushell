@@ -9,16 +9,14 @@ fn chunk_by_on_empty_input_returns_empty_list() {
 
 #[test]
 fn chunk_by_strings_works() {
-    let sample = r#"
-                [a a a b b b c c c a a a]
-            "#;
+    let sample = r#"[a a a b b b c c c a a a]"#;
 
     let actual = nu!(pipeline(&format!(
         r#"
-                {sample}
-                | chunk-by {{|it| $it}}
-                | to nuon
-            "#
+            {sample}
+            | chunk-by {{|it| $it}}
+            | to nuon
+        "#
     )));
 
     assert_eq!(actual.out, "[[a, a, a], [b, b, b], [c, c, c], [a, a, a]]");

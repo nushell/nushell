@@ -2,12 +2,12 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn wrap_rows_into_a_row() {
-    let sample = r#"
-                [[first_name, last_name];
-                 [Andrés, Robalino],
-                 [JT, Turner],
-                 [Yehuda, Katz]]
-            "#;
+    let sample = r#"[
+        [first_name, last_name];
+        [Andrés, Robalino],
+        [JT, Turner],
+        [Yehuda, Katz]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         "
@@ -24,12 +24,12 @@ fn wrap_rows_into_a_row() {
 
 #[test]
 fn wrap_rows_into_a_table() {
-    let sample = r#"
-                [[first_name, last_name];
-                 [Andrés, Robalino],
-                 [JT, Turner],
-                 [Yehuda, Katz]]
-            "#;
+    let sample = r#"[
+        [first_name, last_name];
+        [Andrés, Robalino],
+        [JT, Turner],
+        [Yehuda, Katz]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         "

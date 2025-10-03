@@ -449,11 +449,11 @@ fn table_expand_record_1() {
 
 #[test]
 fn table_expand_record_2() {
-    let structure = "{\
-        field1: [ a, b, c ],\
-        field2: [ 123, 234, 345 ],\
-        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
-        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
+    let structure = "{
+        field1: [ a, b, c ],
+        field2: [ 123, 234, 345 ],
+        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],
+        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }
     }";
     let actual = nu!(format!("{structure} | table --width=80 --expand"));
 

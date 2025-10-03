@@ -4,17 +4,15 @@ mod rows {
     use super::*;
 
     fn table() -> String {
-        pipeline(
-            r#"
-            echo [
-                [service, status];
+        r#"[
+            [service, status];
 
-                [ruby,      DOWN]
-                [db,        DOWN]
-                [nud,       DOWN]
-                [expected,  HERE]
-            ]"#,
-        )
+            [ruby,      DOWN]
+            [db,        DOWN]
+            [nud,       DOWN]
+            [expected,  HERE]
+        ]"#
+        .to_string()
     }
 
     #[test]
@@ -56,18 +54,16 @@ mod columns {
     use super::*;
 
     fn table() -> String {
-        pipeline(
-            r#"
-            echo [
-                [commit_author, origin,      stars];
+        r#"[
+            [commit_author, origin,      stars];
 
-                [     "Andres",     EC, amarillito]
-                [     "Darren",     US,      black]
-                [   "JT",     US,      black]
-                [     "Yehuda",     US,      black]
-                [      "Jason",     CA,       gold]
-            ]"#,
-        )
+            [     "Andres",     EC, amarillito]
+            [     "Darren",     US,      black]
+            [   "JT",     US,      black]
+            [     "Yehuda",     US,      black]
+            [      "Jason",     CA,       gold]
+        ]"#
+        .to_string()
     }
 
     #[test]

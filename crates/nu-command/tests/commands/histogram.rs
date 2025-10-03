@@ -1,11 +1,12 @@
 use nu_test_support::{nu, pipeline};
 
-const SAMPLE_INPUT: &str = r#"
-                    [[first_name, last_name, rusty_at];
-                     [Andrés, Robalino, Ecuador],
-                     [JT, Turner, "Estados Unidos"],
-                     [Yehuda, Katz, "Estados Unidos"]]
-            "#;
+const SAMPLE_INPUT: &str = /* lang=nu */
+    r#"[
+    [first_name, last_name, rusty_at];
+    [Andrés, Robalino, Ecuador],
+    [JT, Turner, "Estados Unidos"],
+    [Yehuda, Katz, "Estados Unidos"]
+]"#;
 
 #[test]
 fn summarizes_by_column_given() {

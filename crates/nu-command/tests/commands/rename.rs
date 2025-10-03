@@ -2,12 +2,12 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn changes_the_column_name() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         "         {sample}
@@ -23,12 +23,12 @@ fn changes_the_column_name() {
 
 #[test]
 fn keeps_remaining_original_names_given_less_new_names_than_total_original_names() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         r#"
@@ -46,12 +46,12 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
 
 #[test]
 fn errors_if_no_columns_present() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         "
@@ -65,12 +65,12 @@ fn errors_if_no_columns_present() {
 
 #[test]
 fn errors_if_columns_param_is_empty() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
     let actual = nu!(pipeline(&format!(
         r#"

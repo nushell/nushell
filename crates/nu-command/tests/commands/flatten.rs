@@ -3,9 +3,12 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn flatten_nested_tables_with_columns() {
     let actual = nu!(r#"
-        echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
-             [[origin, people]; [Nu, ('nuno' | wrap name)]]
-        | flatten --all | flatten --all
+        [
+            [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
+            [[origin, people]; [Nu, ('nuno' | wrap name)]]
+        ]
+        | flatten --all
+        | flatten --all
         | get name
         | str join ','
     "#);
@@ -16,9 +19,30 @@ fn flatten_nested_tables_with_columns() {
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
     let actual = nu!(r#"
-        echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
-        [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
-        | flatten --all | flatten --all
+        (
+            echo [
+                [origin, people];
+                [
+                    Ecuador,
+                    (echo [
+                        [name, meal];
+                        ['Andres', 'arepa']
+                    ])
+                ]
+            ]
+            [
+                [origin, people];
+                [
+                    USA,
+                    (echo [
+                        [name, meal];
+                        ['Katz', 'nurepa']
+                    ])
+                ]
+            ]
+        )
+        | flatten --all
+        | flatten --all
         | get meal
         | str join ','
     "#);
