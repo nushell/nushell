@@ -4,20 +4,18 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [
-                [first_name, last_name, rusty_at, type];
-
-                [Andrés Robalino '10/11/2013' A]
-                [JT Turner '10/12/2013' B]
-                [Yehuda Katz '10/11/2013' A]
-            ]
-            | select rusty_at last_name
-            | get 0
-            | get last_name
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [
+            [first_name, last_name, rusty_at, type];
+    
+            [Andrés Robalino '10/11/2013' A]
+            [JT Turner '10/12/2013' B]
+            [Yehuda Katz '10/11/2013' A]
+        ]
+        | select rusty_at last_name
+        | get 0
+        | get last_name
+    "#);
 
     assert_eq!(actual.out, "Robalino");
 }
@@ -61,56 +59,50 @@ fn complex_nested_columns() {
 
 #[test]
 fn fails_if_given_unknown_column_name() {
-    let actual = nu!(pipeline(
-        r#"
-            [
-                [first_name, last_name, rusty_at, type];
-
-                [Andrés Robalino '10/11/2013' A]
-                [JT Turner '10/12/2013' B]
-                [Yehuda Katz '10/11/2013' A]
-            ]
-            | select rrusty_at first_name
-        "#
-    ));
+    let actual = nu!(r#"
+        [
+            [first_name, last_name, rusty_at, type];
+    
+            [Andrés Robalino '10/11/2013' A]
+            [JT Turner '10/12/2013' B]
+            [Yehuda Katz '10/11/2013' A]
+        ]
+        | select rrusty_at first_name
+    "#);
 
     assert!(actual.err.contains("nu::shell::name_not_found"));
 }
 
 #[test]
 fn column_names_with_spaces() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [
-                ["first name", "last name"];
-
-                [Andrés Robalino]
-                [Andrés Jnth]
-            ]
-            | select "last name"
-            | get "last name"
-            | str join " "
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [
+            ["first name", "last name"];
+    
+            [Andrés Robalino]
+            [Andrés Jnth]
+        ]
+        | select "last name"
+        | get "last name"
+        | str join " "
+    "#);
 
     assert_eq!(actual.out, "Robalino Jnth");
 }
 
 #[test]
 fn ignores_duplicate_columns_selected() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [
-                ["first name", "last name"];
-
-                [Andrés Robalino]
-                [Andrés Jnth]
-            ]
-            | select "first name" "last name" "first name"
-            | columns
-            | str join " "
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [
+            ["first name", "last name"];
+    
+            [Andrés Robalino]
+            [Andrés Jnth]
+        ]
+        | select "first name" "last name" "first name"
+        | columns
+        | str join " "
+    "#);
 
     assert_eq!(actual.out, "first name last name");
 }
@@ -120,15 +112,12 @@ fn selects_a_row() {
     Playground::setup("select_test_1", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls
-                | sort-by name
-                | select 0
-                | get name.0
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls
+            | sort-by name
+            | select 0
+            | get name.0
+        ");
 
         assert_eq!(actual.out, "arepas.txt");
     });
@@ -145,15 +134,12 @@ fn selects_many_rows() {
     Playground::setup("select_test_2", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls
-                | get name
-                | select 1 0
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls
+            | get name
+            | select 1 0
+            | length
+        ");
 
         assert_eq!(actual.out, "2");
     });

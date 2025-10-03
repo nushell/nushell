@@ -233,16 +233,13 @@ mod it_evaluation {
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
 
-            let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
+            let actual = nu!(cwd: dirs.test(), "
                 ls
                 | sort-by name
                 | get name
                 | each { |it| nu --testbin cococo $it }
                 | get 1
-                "
-            ));
+                ");
 
             assert_eq!(actual.out, "jt_likes_cake.txt");
         })
@@ -259,15 +256,12 @@ mod it_evaluation {
                 ",
             )]);
 
-            let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
+            let actual = nu!(cwd: dirs.test(), "
                 open nu_candies.txt
                 | lines
                 | each { |it| nu --testbin chop $it}
                 | get 1
-                "
-            ));
+                ");
 
             assert_eq!(actual.out, "AndrásWithKitKat");
         })
@@ -291,13 +285,10 @@ mod it_evaluation {
                 "#,
             )]);
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
-                    open sample.toml
-                    | nu --testbin cococo $in.nu_party_venue
-                "
-            ));
+            let actual = nu!(cwd: dirs.test(), "
+                open sample.toml
+                | nu --testbin cococo $in.nu_party_venue
+            ");
 
             assert_eq!(actual.out, "zion");
         })
@@ -310,26 +301,22 @@ mod stdin_evaluation {
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
-        let actual = nu!(pipeline(
-            r#"
-                nu --testbin nonu "where's the nuline?" | length
-            "#
-        ));
+        let actual = nu!(r#"
+            nu --testbin nonu "where's the nuline?" | length
+        "#);
 
         assert_eq!(actual.err, "");
     }
 
     #[test]
     fn does_not_block_indefinitely() {
-        let stdout = nu!(pipeline(
-            "
-                ( nu --testbin iecho yes
-                | nu --testbin chop
-                | nu --testbin chop
-                | lines
-                | first )
-            "
-        ))
+        let stdout = nu!("
+            ( nu --testbin iecho yes
+            | nu --testbin chop
+            | nu --testbin chop
+            | lines
+            | first )
+        ")
         .out;
 
         assert_eq!(stdout, "y");
@@ -518,12 +505,9 @@ mod external_command_arguments {
                     EmptyFile("ferris_not_here.txt"),
                 ]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
+                let actual = nu!(cwd: dirs.test(), "
                     nu --testbin cococo ...(ls | get name)
-                "
-                ));
+                ");
 
                 assert_eq!(
                     actual.out,
@@ -544,12 +528,9 @@ mod external_command_arguments {
                     EmptyFile("ferris_not_here.txt"),
                 ]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
+                let actual = nu!(cwd: dirs.test(), "
                     nu --testbin cococo (ls | sort-by name | get name).1
-                "
-                ));
+                ");
 
                 assert_eq!(actual.out, "ferris_not_here.txt");
             },
@@ -566,12 +547,9 @@ mod external_command_arguments {
 
                 sandbox.with_files(&[EmptyFile("cd/jt_likes_cake.txt")]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
+                let actual = nu!(cwd: dirs.test(), r#"
                     nu --testbin cococo $"(pwd)/cd"
-                "#
-                ));
+                "#);
 
                 assert!(actual.out.contains("cd"));
             },

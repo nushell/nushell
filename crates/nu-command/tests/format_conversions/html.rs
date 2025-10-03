@@ -2,11 +2,9 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn out_html_simple() {
-    let actual = nu!(pipeline(
-        r#"
-            echo 3 | to html
-        "#
-    ));
+    let actual = nu!(r#"
+        echo 3 | to html
+    "#);
 
     assert_eq!(
         actual.out,

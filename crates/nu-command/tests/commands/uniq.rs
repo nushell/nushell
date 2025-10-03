@@ -85,43 +85,37 @@ fn nested_json_structures() {
 
 #[test]
 fn uniq_when_keys_out_of_order() {
-    let actual = nu!(pipeline(
-        r#"
-            [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3], "a": "a"}]
-            | uniq
-            | length
-        "#
-    ));
+    let actual = nu!(r#"
+        [{"a": "a", "b": [1,2,3]}, {"b": [1,2,3], "a": "a"}]
+        | uniq
+        | length
+    "#);
 
     assert_eq!(actual.out, "1");
 }
 
 #[test]
 fn uniq_counting() {
-    let actual = nu!(pipeline(
-        r#"
-            ["A", "B", "A"]
-            | wrap item
-            | uniq --count
-            | flatten
-            | where item == A
-            | get count
-            | get 0
-        "#
-    ));
+    let actual = nu!(r#"
+        ["A", "B", "A"]
+        | wrap item
+        | uniq --count
+        | flatten
+        | where item == A
+        | get count
+        | get 0
+    "#);
     assert_eq!(actual.out, "2");
 
-    let actual = nu!(pipeline(
-        r#"
-            ["A", "B", "A"]
-            | wrap item
-            | uniq --count
-            | flatten
-            | where item == B
-            | get count
-            | get 0
-        "#
-    ));
+    let actual = nu!(r#"
+        ["A", "B", "A"]
+        | wrap item
+        | uniq --count
+        | flatten
+        | where item == B
+        | get count
+        | get 0
+    "#);
     assert_eq!(actual.out, "1");
 }
 
@@ -148,12 +142,10 @@ fn uniq_simple_vals_strs() {
 
 #[test]
 fn table() {
-    let actual = nu!(pipeline(
-        "
-            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
-            | uniq
-        "
-    ));
+    let actual = nu!("
+        [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+        | uniq
+    ");
 
     let expected = nu!(
         "[[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]"
@@ -163,44 +155,40 @@ fn table() {
 
 #[test]
 fn table_with_ignore_case() {
-    let actual = nu!(pipeline(
-        r#"
-            [[origin, people];
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Martin', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'Bitoque', carbs: 100}]
-                    ]
-                )],
-            ] | uniq --ignore-case
-        "#
-    ));
+    let actual = nu!(r#"
+        [[origin, people];
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Martin', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'Bitoque', carbs: 100}]
+                ]
+            )],
+        ] | uniq --ignore-case
+    "#);
 
-    let expected = nu!(pipeline(
-        r#"
-        echo [[origin, people];
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Martin', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-            ]
-        "#
-    ));
+    let expected = nu!(r#"
+    echo [[origin, people];
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Martin', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+        ]
+    "#);
 
     assert_eq!(actual.out, expected.out);
 }

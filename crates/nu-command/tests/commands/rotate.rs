@@ -14,20 +14,18 @@ fn counter_clockwise() {
     "#,
     );
 
-    let expected = nu!(pipeline(
-        r#"
-        echo [
-            [  column0, column1, column2, column3];
-
-            [ EXPECTED,    XX1,      XX2,     XX3]
-            [     col2,  "|||",    "|||",   "|||"]
-            [     col1,    ---,      ---,     ---]
-        ]
-        | where column0 == EXPECTED
-        | get column1 column2 column3
-        | str join "-"
-        "#,
-    ));
+    let expected = nu!(r#"
+    echo [
+        [  column0, column1, column2, column3];
+    
+        [ EXPECTED,    XX1,      XX2,     XX3]
+        [     col2,  "|||",    "|||",   "|||"]
+        [     col1,    ---,      ---,     ---]
+    ]
+    | where column0 == EXPECTED
+    | get column1 column2 column3
+    | str join "-"
+    "#);
 
     let actual = nu!(format!(
         "{} | {}",
@@ -59,20 +57,18 @@ fn clockwise() {
     "#,
     );
 
-    let expected = nu!(pipeline(
-        r#"
-        echo [
-            [ column0, column1, column2,  column3];
-
-            [     ---,     ---,     ---,     col1]
-            [   "|||",   "|||",   "|||",     col2]
-            [     XX3,     XX2,     XX1, EXPECTED]
-        ]
-        | where column3 == EXPECTED
-        | get column0 column1 column2
-        | str join "-"
-        "#,
-    ));
+    let expected = nu!(r#"
+    echo [
+        [ column0, column1, column2,  column3];
+    
+        [     ---,     ---,     ---,     col1]
+        [   "|||",   "|||",   "|||",     col2]
+        [     XX3,     XX2,     XX1, EXPECTED]
+    ]
+    | where column3 == EXPECTED
+    | get column0 column1 column2
+    | str join "-"
+    "#);
 
     let actual = nu!(format!(
         "{} | {}",
