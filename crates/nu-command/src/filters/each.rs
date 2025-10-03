@@ -21,7 +21,20 @@ iterate over each record, not necessarily each cell within it.
 Avoid passing single records to this command. Since a record is a
 one-row structure, 'each' will only run once, behaving similar to 'do'.
 To iterate over a record's values, use 'items' or try converting it to a table
-with 'transpose' first."#
+with 'transpose' first.
+
+
+By default, for each input there is a single output value.
+If the closure returns a stream rather than value, the stream is collected
+completely, and the resulting value becomes one of the items in `each`'s output.
+
+To receive items from those streams without waiting for the whole stream to be
+collected, `each --flatten` can be used.
+Instead of waiting for the stream to be collected before returning the result as
+a single item, `each --flatten` will return each item as soon as they are received.
+
+This "flattens" the output, turning an output that would otherwise be a
+list of lists like `list<list<string>>` into a flat list like `list<string>`."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -99,6 +112,16 @@ with 'transpose' first."#
             Example {
                 example: r#"$env.name? | each { $"hello ($in)" } | default "bye""#,
                 description: "Update value if not null, otherwise do nothing",
+                result: None,
+            },
+            Example {
+                description: "Scan through multiple files without pause",
+                example: "\
+                    ls *.txt \
+                    | each --flatten {|f| open $f.name | lines } \
+                    | find -i 'note: ' \
+                    | str join \"\\n\"\
+                    ",
                 result: None,
             },
         ]
