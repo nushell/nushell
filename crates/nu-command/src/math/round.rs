@@ -56,7 +56,7 @@ impl Command for MathRound {
         }
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),
@@ -78,7 +78,7 @@ impl Command for MathRound {
         }
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(
             move |value| operate(value, head, precision_param),

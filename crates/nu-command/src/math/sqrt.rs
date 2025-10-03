@@ -49,7 +49,7 @@ impl Command for MathSqrt {
         }
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(move |value| operate(value, head), engine_state.signals())
     }
@@ -67,7 +67,7 @@ impl Command for MathSqrt {
         }
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(
             move |value| operate(value, head),

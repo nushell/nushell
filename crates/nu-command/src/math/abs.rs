@@ -50,7 +50,7 @@ impl Command for MathAbs {
         let head = call.head;
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(move |value| abs_helper(value, head), engine_state.signals())
     }
@@ -64,7 +64,7 @@ impl Command for MathAbs {
         let head = call.head;
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         input.map(
             move |value| abs_helper(value, head),

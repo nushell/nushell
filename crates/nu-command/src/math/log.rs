@@ -52,7 +52,7 @@ impl Command for MathLog {
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         log(base, call.head, input, engine_state.signals())
     }
@@ -67,7 +67,7 @@ impl Command for MathLog {
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
         if let PipelineData::Value(ref v @ Value::Range { ref val, .. }, ..) = input {
             let span = v.span();
-            ensure_bounded(&val, span, head)?;
+            ensure_bounded(val, span, head)?;
         }
         log(base, call.head, input, working_set.permanent().signals())
     }
