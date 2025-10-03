@@ -28,7 +28,7 @@ impl CustomValue for NuLazyFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuLazyFrame".into()
+        "polars_lazyframe".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

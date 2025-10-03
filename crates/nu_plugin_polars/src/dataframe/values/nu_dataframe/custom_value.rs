@@ -27,7 +27,7 @@ impl CustomValue for NuDataFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuDataFrame".into()
+        "polars_dataframe".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

@@ -14,7 +14,7 @@ use polars::prelude::Expr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-const TYPE_NAME: &str = "NuExpression";
+const TYPE_NAME: &str = "polars_expression";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NuExpressionCustomValue {

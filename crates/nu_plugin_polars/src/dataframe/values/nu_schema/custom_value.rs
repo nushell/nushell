@@ -20,7 +20,7 @@ impl CustomValue for NuSchemaCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuSchema".into()
+        "polars_schema".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

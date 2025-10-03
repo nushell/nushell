@@ -19,7 +19,7 @@ impl CustomValue for NuLazyGroupByCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuLazyGroupBy".into()
+        "polars_group_by".into()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
