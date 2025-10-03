@@ -233,14 +233,16 @@ impl Command for Save {
                 };
 
                 // Save custom value however they implement saving
-                if let PipelineData::Value(Value::Custom { val, internal_span }, ..) = converted {
+                if let PipelineData::Value(v @ Value::Custom { .. }, ..) = converted {
+                    let val_span = v.span();
+                    let val = v.into_custom_value()?;
                     return val
                         .save(
                             Spanned {
                                 item: &path.item,
                                 span: path.span,
                             },
-                            internal_span,
+                            val_span,
                             span,
                         )
                         .map(|()| PipelineData::empty());

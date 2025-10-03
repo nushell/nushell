@@ -2,7 +2,7 @@
 
 id: internal_span
 language: rust
-severity: warning
+severity: error
 message: "Using `internal_span` directly is deprecated."
 note: "You can get the span using the `Value::span()` method."
 

@@ -114,19 +114,16 @@ impl Command for UpdateCells {
 
         let metadata = input.metadata();
 
+        let span = input.span();
         match input {
-            PipelineData::Value(
-                Value::Record {
-                    ref mut val,
-                    internal_span,
-                },
-                ..,
-            ) => {
+            PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
+                // SAFETY: we have a value in the input, so we must have a span
+                let span = span.expect("value had no span");
                 let val = val.to_mut();
                 update_record(
                     val,
                     &mut ClosureEval::new(engine_state, stack, closure),
-                    internal_span,
+                    span,
                     columns.as_ref(),
                 );
                 Ok(input)
