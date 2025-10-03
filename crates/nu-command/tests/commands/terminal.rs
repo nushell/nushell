@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 // Inside nu! stdout is piped so it won't be a terminal
 #[test]

@@ -1,5 +1,4 @@
 use nu_test_support::nu;
-use nu_test_support::pipeline;
 
 #[test]
 fn errors_on_conflicting_metadata_flags() {

@@ -14,7 +14,7 @@ mod stddev;
 mod sum;
 mod variance;
 
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn one_arg() {

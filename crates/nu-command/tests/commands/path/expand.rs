@@ -1,7 +1,7 @@
 use nu_path::Path;
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn expands_path_with_dot() {

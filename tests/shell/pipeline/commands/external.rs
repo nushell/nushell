@@ -223,7 +223,7 @@ fn subexpression_does_not_implicitly_capture() {
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
 
     #[test]
     fn takes_rows_of_nu_value_strings() {
@@ -297,7 +297,6 @@ mod it_evaluation {
 
 mod stdin_evaluation {
     use super::nu;
-    use nu_test_support::pipeline;
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
@@ -493,7 +492,7 @@ mod tilde_expansion {
 mod external_command_arguments {
     use super::nu;
     use nu_test_support::fs::Stub::EmptyFile;
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
     #[test]
     fn expands_table_of_primitives_to_positional_arguments() {
         Playground::setup(

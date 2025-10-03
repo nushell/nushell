@@ -119,7 +119,6 @@ fn separate_redirection() {
 
 #[test]
 fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
-    use nu_test_support::pipeline;
     use nu_test_support::playground::Playground;
     Playground::setup("external with many stderr message", |dirs, sandbox| {
         let bytes: usize = 81920;
