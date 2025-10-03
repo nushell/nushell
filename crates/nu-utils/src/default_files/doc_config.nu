@@ -428,6 +428,37 @@ $env.config.float_precision = 2
 # false: Filenames in the `ls` table will use the color_config for strings
 $env.config.ls.use_ls_colors = true
 
+# ----------------------
+# Pipeline Settings
+# ----------------------
+# $env.config.pipeline.*
+#
+# buffer_size (filesize | int):
+#  The per-write chunk size used when piping output to stdout/stderr.
+#  Default: 8KiB
+#
+#  Accepted types:
+#    - A filesize string (e.g., "8KiB", "64KiB", "1MiB")
+#    - An integer representing bytes (e.g., 8192)
+#
+#  Precedence for the effective value:
+#    1) $env.config.pipeline.buffer_size
+#    2) $env.NU_PIPE_BUFFER_SIZE (environment variable)
+#    3) Built-in default (8KiB)
+#
+#  Notes:
+#    - Larger values may reduce syscall overhead but can increase memory usage
+#      and delay flushes for small outputs.
+#    - Very small values can hurt throughput for high-volume pipelines.
+#
+#  Examples:
+#    $env.config.pipeline.buffer_size = 8192
+#    $env.config.pipeline.buffer_size = "64KiB"
+#
+#  Environment override example:
+#    $env.NU_PIPE_BUFFER_SIZE = "64KiB"
+$env.config.pipeline.buffer_size = "8KiB"
+
 # Hooks
 # -----
 # $env.config.hooks is a record containing the five different types of Nushell hooks.
