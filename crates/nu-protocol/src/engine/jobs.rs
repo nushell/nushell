@@ -144,7 +144,7 @@ pub enum Job {
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
-    tag: Option<String>,
+    pub tag: Option<String>,
     pub sender: Sender<Mail>,
 }
 

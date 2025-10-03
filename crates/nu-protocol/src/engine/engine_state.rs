@@ -226,6 +226,7 @@ impl EngineState {
         let mut rec = record! {
             "files" => Value::list(self.files.iter().map(|f| Value::string(f.name.to_string(), Span::unknown())).collect(), Span::unknown()),
             "virtual_paths" => Value::list(self.virtual_paths.iter().map(|(name, _)| Value::string(name.clone(), Span::unknown())).collect(), Span::unknown()),
+            // populate vars from the view state command itself since most of this information isn't super helpful
             // "vars" => Value::list(self.vars.iter().enumerate().map(|(i, v)| Value::record(record! {
             //     "id" => Value::int(i as i64, Span::unknown()),
             //     "type" => Value::string(v.ty.to_string(), Span::unknown()),
@@ -236,6 +237,7 @@ impl EngineState {
                 "id" => Value::int(i as i64, Span::unknown()),
                 "name" => Value::string(d.name().to_string(), Span::unknown()),
             }, Span::unknown())).collect(), Span::unknown()),
+            // blocks don't have a ton of useful information, just show their IDs for now
             "blocks" => Value::list(self.blocks.iter().enumerate().map(|(i, _)| Value::int(i as i64, Span::unknown())).collect(), Span::unknown()),
             "modules" => Value::list(
                 self.modules.iter().enumerate().map(|(i, module)| {
@@ -255,9 +257,13 @@ impl EngineState {
                     .filter_map(|i| {
                         let module_id = ModuleId::new(i);
                         self.get_module_comments(module_id).map(|comments| {
+                            let comment_strings: Vec<String> = comments.iter()
+                                .map(|span| String::from_utf8_lossy(self.get_span_contents(*span)).to_string())
+                                .collect();
                             Value::record(record! {
                                 "module_id" => Value::int(i as i64, Span::unknown()),
                                 "num_comments" => Value::int(comments.len() as i64, Span::unknown()),
+                                "comments" => Value::string(comment_strings.join("\n"), Span::unknown())
                             }, Span::unknown())
                         })
                     })
@@ -268,6 +274,12 @@ impl EngineState {
                 "num_overlays" => Value::int(self.scope.overlays.len() as i64, Span::unknown()),
                 "num_active_overlays" => Value::int(self.scope.active_overlays.len() as i64, Span::unknown()),
             }, Span::unknown()),
+            "overlays" => Value::list(self.scope.overlays.iter().map(|(name, _)| Value::string(String::from_utf8_lossy(name).to_string(), Span::unknown())).collect(), Span::unknown()),
+            "active_overlays" => Value::list(self.scope.active_overlays.iter().map(|id| Value::string(String::from_utf8_lossy(self.get_overlay_name(*id)).to_string(), Span::unknown())).collect(), Span::unknown()),
+            "num_env_vars" => Value::int(self.env_vars.values().map(|m| m.len()).sum::<usize>() as i64, Span::unknown()),
+            "env_var_count_by_overlay" => Value::record(self.env_vars.iter().map(|(k, v)| (k.clone(), Value::int(v.len() as i64, Span::unknown()))).collect(), Span::unknown()),
+
+            // Not a lot useful to show the actual signals here
             "has_signal_handlers" => Value::bool(self.signal_handlers.is_some(), Span::unknown()),
             "env_vars" => Value::record(
                 self.env_vars.iter().map(|(overlay_name, env_map)| {
@@ -279,8 +291,12 @@ impl EngineState {
                 }).collect(),
                 Span::unknown()
             ),
-            "previous_env_vars" => Value::int(self.previous_env_vars.len() as i64, Span::unknown()),
-            "config_items" => Value::int(0, Span::unknown()), // config is complex, just indicate it exists
+            "previous_env_vars" => Value::record(
+                self.previous_env_vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+                Span::unknown()
+            ),
+            // config is in env_vars
+            //"config_items" => Value::int(0, Span::unknown()), // config is complex, just indicate it exists
             "pipeline_externals_state" => Value::record(record! {
                 "depth" => Value::int(self.pipeline_externals_state.0.load(Ordering::Relaxed) as i64, Span::unknown()),
                 "exit_code" => Value::int(self.pipeline_externals_state.1.load(Ordering::Relaxed) as i64, Span::unknown()),
@@ -299,10 +315,12 @@ impl EngineState {
                 }
             },
             "table_decl_id" => self.table_decl_id.map(|id| Value::int(id.get() as i64, Span::unknown())).unwrap_or(Value::nothing(Span::unknown())),
+            // usually both the config.nu and env.nu paths are here
             "config_path" => Value::record(self.config_path.iter().map(|(k, v)| (k.clone(), Value::string(v.to_string_lossy().to_string(), Span::unknown()))).collect(), Span::unknown()),
             "history_enabled" => Value::bool(self.history_enabled, Span::unknown()),
             "history_session_id" => Value::int(self.history_session_id, Span::unknown()),
             "current_file" => self.file.as_ref().map(|p| Value::string(p.to_string_lossy().to_string(), Span::unknown())).unwrap_or(Value::nothing(Span::unknown())),
+            // not sure if this is right
             "regex_cache" => {
                 if let Ok(cache) = self.regex_cache.lock() {
                     let patterns: Vec<Value> = cache.iter().map(|(pattern, regex)| {
@@ -330,16 +348,18 @@ impl EngineState {
             "debugger_available" => Value::bool(!Mutex::is_poisoned(&self.debugger), Span::unknown()),
             "report_log_available" => Value::bool(!Mutex::is_poisoned(&self.report_log), Span::unknown()),
             "jobs_available" => Value::bool(!Mutex::is_poisoned(&self.jobs), Span::unknown()),
-            "current_job" => Value::record(record! {
-                "id" => Value::int(self.current_job.id.get() as i64, Span::unknown()),
-                "has_background_thread" => Value::bool(self.current_job.background_thread_job.is_some(), Span::unknown()),
-                "mailbox_available" => Value::bool(!Mutex::is_poisoned(&self.current_job.mailbox), Span::unknown()),
-            }, Span::unknown()),
-            "current_job_id" => Value::int(self.current_job.id.get() as i64, Span::unknown()),
-            "is_background_job" => Value::bool(self.is_background_job(), Span::unknown()),
-            "has_root_job_sender" => Value::bool(true, Span::unknown()), // root_job_sender always exists
+            "current_job" => {
+                let tag_name = self.current_job.background_thread_job.as_ref()
+                    .and_then(|job| job.tag.clone())
+                    .unwrap_or_default();
+                Value::record(record! {
+                    "id" => Value::int(self.current_job.id.get() as i64, Span::unknown()),
+                    "has_background_thread" => Value::bool(self.is_background_job(), Span::unknown()),
+                    "tag" => Value::string(tag_name, Span::unknown()),
+                    "mailbox_available" => Value::bool(!Mutex::is_poisoned(&self.current_job.mailbox), Span::unknown()),
+                }, Span::unknown())
+            },
             "exit_warning_given" => Value::bool(self.exit_warning_given.load(Ordering::Relaxed), Span::unknown()),
-
             "num_files" => Value::int(self.num_files() as i64, Span::unknown()),
             "num_virtual_paths" => Value::int(self.num_virtual_paths() as i64, Span::unknown()),
             "num_vars" => Value::int(self.num_vars() as i64, Span::unknown()),
@@ -347,10 +367,6 @@ impl EngineState {
             "num_blocks" => Value::int(self.num_blocks() as i64, Span::unknown()),
             "num_modules" => Value::int(self.num_modules() as i64, Span::unknown()),
             "num_spans" => Value::int(self.num_spans() as i64, Span::unknown()),
-            "overlays" => Value::list(self.scope.overlays.iter().map(|(name, _)| Value::string(String::from_utf8_lossy(name).to_string(), Span::unknown())).collect(), Span::unknown()),
-            "active_overlays" => Value::list(self.scope.active_overlays.iter().map(|id| Value::string(String::from_utf8_lossy(self.get_overlay_name(*id)).to_string(), Span::unknown())).collect(), Span::unknown()),
-            "num_env_vars" => Value::int(self.env_vars.values().map(|m| m.len()).sum::<usize>() as i64, Span::unknown()),
-            "env_var_count_by_overlay" => Value::record(self.env_vars.iter().map(|(k, v)| (k.clone(), Value::int(v.len() as i64, Span::unknown()))).collect(), Span::unknown()),
         };
 
         #[cfg(feature = "plugin")]
