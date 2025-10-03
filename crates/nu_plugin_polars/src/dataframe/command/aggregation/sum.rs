@@ -30,8 +30,8 @@ impl PluginCommand for ExprSum {
                     Type::Custom("expression".into()),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

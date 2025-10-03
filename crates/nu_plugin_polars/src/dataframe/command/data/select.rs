@@ -30,8 +30,8 @@ impl PluginCommand for LazySelect {
                 "Expression(s) that define the column selection",
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

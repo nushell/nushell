@@ -39,8 +39,8 @@ impl PluginCommand for Shift {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
                 ),
                 (
                     Type::Custom("expression".into()),

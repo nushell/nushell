@@ -42,8 +42,8 @@ impl PluginCommand for AsDate {
             .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
                 ),
                 (
                     Type::Custom("expression".into()),

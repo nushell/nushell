@@ -66,8 +66,8 @@ impl PluginCommand for Cumulative {
             .switch("reverse", "Reverse cumulative calculation", Some('r'))
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
                 ),
                 (
                     Type::Custom("expression".into()),

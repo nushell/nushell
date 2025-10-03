@@ -29,8 +29,8 @@ impl PluginCommand for ArgUnique {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

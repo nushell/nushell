@@ -38,8 +38,8 @@ impl PluginCommand for LazyFlatten {
                     Type::Custom("expression".into()),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

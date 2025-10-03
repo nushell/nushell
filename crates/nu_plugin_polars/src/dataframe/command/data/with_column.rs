@@ -33,8 +33,8 @@ impl PluginCommand for WithColumn {
                 "series to be added or expressions used to define the new columns",
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("dataframe or lazyframe".into()))
     }

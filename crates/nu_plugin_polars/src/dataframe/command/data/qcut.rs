@@ -32,8 +32,8 @@ impl PluginCommand for QCutSeries {
             .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
             .switch("allow_duplicates", "If set, duplicates in the resulting quantiles are dropped, rather than raising an error. This can happen even with unique probabilities, depending on the data.", Some('d'))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

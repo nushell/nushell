@@ -33,8 +33,8 @@ impl PluginCommand for Summary {
         Signature::build(self.name())
             .category(Category::Custom("dataframe".into()))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .named(
                 "quantiles",

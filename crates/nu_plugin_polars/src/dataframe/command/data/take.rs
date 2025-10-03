@@ -31,8 +31,8 @@ impl PluginCommand for TakeDF {
                 "list of indices used to take data",
             )
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

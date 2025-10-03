@@ -27,8 +27,8 @@ impl PluginCommand for LazyJoinWhere {
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
             .required("condition", SyntaxShape::Any, "Condition")
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

@@ -26,8 +26,8 @@ impl PluginCommand for Dummies {
             .switch("drop-nulls", "Drop nulls", Some('n'))
             .switch("separator", "Optional separator", Some('s'))
             .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
+                Type::Custom("polars_dataframe".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }
