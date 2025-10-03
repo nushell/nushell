@@ -55,8 +55,8 @@ impl PluginCommand for Replace {
                 Some('t'),
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("polars_expression".into()),
+                Type::Custom("polars_expression".into()),
             )
             .category(Category::Custom("expression".into()))
     }

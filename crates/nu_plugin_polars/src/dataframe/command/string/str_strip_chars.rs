@@ -38,8 +38,8 @@ impl PluginCommand for StrStripChars {
             .switch("start", "Strip from start of strings only", Some('s'))
             .switch("end", "Strip from end of strings only", Some('e'))
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("polars_expression".into()),
+                Type::Custom("polars_expression".into()),
             )])
             .category(Category::Custom("dataframe".into()))
     }

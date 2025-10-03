@@ -58,8 +58,8 @@ impl PluginCommand for AsDateTime {
                     Type::Custom("polars_dataframe".into()),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
             ])
             .required("format", SyntaxShape::String, "formatting date time string")

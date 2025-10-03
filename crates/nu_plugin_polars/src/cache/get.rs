@@ -30,7 +30,7 @@ impl PluginCommand for CacheGet {
             .required("key", SyntaxShape::String, "Key of objects to get")
             .input_output_types(vec![
                 (Type::Any, Type::Custom("polars_dataframe".into())),
-                (Type::Any, Type::Custom("expression".into())),
+                (Type::Any, Type::Custom("polars_expression".into())),
             ])
             .category(Category::Custom("dataframe".into()))
     }

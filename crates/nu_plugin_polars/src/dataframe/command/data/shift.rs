@@ -43,8 +43,8 @@ impl PluginCommand for Shift {
                     Type::Custom("polars_dataframe".into()),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
             ])
             .category(Category::Custom("dataframe or lazyframe".into()))

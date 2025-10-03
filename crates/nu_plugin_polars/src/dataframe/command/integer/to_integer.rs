@@ -45,8 +45,8 @@ impl PluginCommand for ToInteger {
                 "Data type to cast to (defaults is i64)",
                 )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("polars_expression".into()),
+                Type::Custom("polars_expression".into()),
             )
             .category(Category::Custom("dataframe".into()))
     }

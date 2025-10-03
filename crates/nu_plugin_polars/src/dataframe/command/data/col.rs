@@ -37,7 +37,7 @@ impl PluginCommand for ExprCol {
                 "Additional columns to be used. Cannot be '*'",
             )
             .switch("type", "Treat column names as type names", Some('t'))
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, Type::Custom("polars_expression".into()))
             .category(Category::Custom("expression".into()))
     }
 

@@ -46,8 +46,8 @@ impl PluginCommand for AsDate {
                     Type::Custom("polars_dataframe".into()),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

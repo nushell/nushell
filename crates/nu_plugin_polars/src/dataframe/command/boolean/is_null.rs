@@ -30,8 +30,8 @@ impl PluginCommand for IsNull {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
                 (
                     Type::Custom("polars_dataframe".into()),

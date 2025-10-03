@@ -33,8 +33,8 @@ impl PluginCommand for StrFTime {
             .required("fmt", SyntaxShape::String, "Format rule")
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
                 (
                     Type::Custom("polars_dataframe".into()),

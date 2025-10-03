@@ -104,8 +104,8 @@ impl PluginCommand for ExprMath {
                 "Extra arguments required by some functions",
             )
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("polars_expression".into()),
+                Type::Custom("polars_expression".into()),
             )])
             .category(Category::Custom("dataframe".into()))
     }

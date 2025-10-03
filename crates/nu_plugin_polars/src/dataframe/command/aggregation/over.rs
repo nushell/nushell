@@ -32,8 +32,8 @@ impl PluginCommand for Over {
                 "Expression(s) that define the partition window",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                Type::Custom("polars_expression".into()),
+                Type::Custom("polars_expression".into()),
             )
             .category(Category::Custom("lazyframe".into()))
     }

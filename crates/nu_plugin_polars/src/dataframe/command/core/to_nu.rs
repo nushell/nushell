@@ -36,7 +36,7 @@ impl PluginCommand for ToNu {
             .switch("tail", "shows tail rows", Some('t'))
             .switch("index", "add an index column", Some('i'))
             .input_output_types(vec![
-                (Type::Custom("expression".into()), Type::Any),
+                (Type::Custom("polars_expression".into()), Type::Any),
                 (Type::Custom("polars_dataframe".into()), Type::table()),
                 (Type::Custom("datatype".into()), Type::Any),
                 (Type::Custom("schema".into()), Type::Any),

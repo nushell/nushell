@@ -37,8 +37,8 @@ impl PluginCommand for StrSlice {
             .named("length", SyntaxShape::Int, "optional length", Some('l'))
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    Type::Custom("polars_expression".into()),
+                    Type::Custom("polars_expression".into()),
                 ),
                 (
                     Type::Custom("polars_dataframe".into()),
