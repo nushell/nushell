@@ -859,6 +859,98 @@ fn external_completer_invalid() {
 }
 
 #[test]
+fn command_wide_completion_external() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        @complete external
+        extern "gh" []
+
+        gh alias one two"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["gh", "alias", "one", "two"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn command_wide_completion_custom() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete foo" [spans: list] {
+            $spans ++ [some more]
+        }
+
+        @complete "nu-complete foo"
+        def --wrapped "foo" [...rest] {}
+
+        foo bar baz"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["foo", "bar", "baz", "some", "more"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn parameter_completion_overrides_command_wide_completion() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete cmd" [spans: list] {
+            [command wide completion]
+        }
+
+        def "nu-complete cmd bar" [] {
+            [bar specific]
+        }
+
+        @complete "nu-complete cmd"
+        def --wrapped "cmd" [
+            foo: string,
+            bar: string@"nu-complete cmd bar",
+            ...rest
+        ] {}
+
+        cmd one "#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["bar", "specific"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn command_wide_completion_flag_completion() {
+    let mut completer = custom_completer();
+
+    let sample = /* lang=nu */ r#"
+        def "nu-complete cmd" [spans: list] {
+            let last = $spans | last
+            [command wide --with --external]
+            | where $it starts-with $last
+        }
+
+        def "nu-complete cmd bar" [] {
+            [bar specific]
+        }
+
+        @complete "nu-complete cmd"
+        def --wrapped "cmd" [
+            --switch(-s)
+            --flag(-f): string
+            foo: string,
+            bar: string@"nu-complete cmd bar",
+            ...rest
+        ] {}
+
+        cmd -"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["--flag", "--switch", "-f", "-s", "--with", "--external"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
 fn file_completions() {
     // Create a new engine
     let (dir, dir_str, engine, stack) = new_engine();

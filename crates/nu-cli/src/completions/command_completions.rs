@@ -12,6 +12,7 @@ use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
+// TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
 pub struct CommandCompletion {
     /// Whether to include internal commands
     pub internals: bool,
