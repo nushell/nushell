@@ -512,6 +512,65 @@ impl PipelineData {
         }
     }
 
+    /// Simplified mapper to help with simple values, allowing `ShellError` in output. For full iterator support use `.into_iter()` instead
+    pub fn try_map<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
+    where
+        Self: Sized,
+        F: FnMut(Value) -> Result<Value, ShellError> + 'static + Send,
+    {
+        match self {
+            PipelineData::Value(value, metadata) => {
+                let span = value.span();
+                let pipeline = match value {
+                    Value::List { vals, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            vals.into_iter().map(move |val| f(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    Value::Range { val, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty())
+                                .map(move |val| f(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    value => match f(value) {
+                        Ok(Value::Error { error, .. }) => return Err(*error),
+                        v => v.into_pipeline_data(span, signals.clone()),
+                    },
+                };
+                Ok(pipeline.set_metadata(metadata))
+            }
+            PipelineData::Empty => Ok(PipelineData::empty()),
+            PipelineData::ListStream(stream, metadata) => {
+                let span = stream.span();
+                Ok(PipelineData::list_stream(
+                    ListStream::new(
+                        stream
+                            .into_iter()
+                            .map(move |val| val.and_then(|val2| f(val2))),
+                        span,
+                        signals.clone(),
+                    ),
+                    metadata,
+                ))
+            }
+            PipelineData::ByteStream(stream, metadata) => {
+                let span = stream.span();
+                Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(
+                    span,
+                    signals.clone(),
+                    metadata,
+                ))
+            }
+        }
+    }
+
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
     pub fn flat_map<U, F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
