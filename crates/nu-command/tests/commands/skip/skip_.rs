@@ -23,9 +23,9 @@ fn fail_on_non_iterator() {
 
 #[test]
 fn skips_bytes_and_drops_content_type() {
-    let actual = nu!(format!(
+    let actual = nu!(
         "open {} | skip 3 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
     assert_eq!(actual.out, "nothing");
 }

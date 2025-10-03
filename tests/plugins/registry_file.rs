@@ -120,9 +120,8 @@ fn plugin_add_to_custom_path() {
     Playground::setup("plugin add to custom path", |dirs, _playground| {
         let result = nu!(
             cwd: dirs.test(),
-            &format!("
-                plugin add --plugin-config test-plugin-file.msgpackz '{}'
-            ", example_plugin_path.display())
+            "plugin add --plugin-config test-plugin-file.msgpackz '{}'",
+            example_plugin_path.display()
         );
 
         assert!(result.status.success());
@@ -297,10 +296,8 @@ fn plugin_rm_using_filename() {
 
         let result = nu!(
             cwd: dirs.test(),
-            &format!(
-                "plugin rm --plugin-config test-plugin-file.msgpackz '{}'",
-                example_plugin_path.display()
-            )
+            "plugin rm --plugin-config test-plugin-file.msgpackz '{}'",
+            example_plugin_path.display()
         );
         assert!(result.status.success());
         assert!(result.err.trim().is_empty());
@@ -497,9 +494,8 @@ fn plugin_add_then_use_with_custom_path() {
     Playground::setup("plugin add to custom path", |dirs, _playground| {
         let result_add = nu!(
             cwd: dirs.test(),
-            &format!("
-                plugin add --plugin-config test-plugin-file.msgpackz '{}'
-            ", example_plugin_path.display())
+            "plugin add --plugin-config test-plugin-file.msgpackz '{}'",
+            example_plugin_path.display()
         );
 
         assert!(result_add.status.success());

@@ -2,8 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn counter_clockwise() {
-    let table = pipeline(
-        r#"
+    let table = r#"
         echo [
             [col1, col2, EXPECTED];
 
@@ -11,8 +10,8 @@ fn counter_clockwise() {
             [---, "|||",      XX2]
             [---, "|||",      XX3]
         ]
-    "#,
-    );
+    "#
+    .to_string();
 
     let expected = nu!(r#"
     echo [
@@ -27,26 +26,25 @@ fn counter_clockwise() {
     | str join "-"
     "#);
 
-    let actual = nu!(format!(
+    let actual = nu!(
         "{} | {}",
         table,
         pipeline(
             r#"
-            rotate --ccw
-            | where column0 == EXPECTED
-            | get column1 column2 column3
-            | str join "-"
-        "#
+        rotate --ccw
+        | where column0 == EXPECTED
+        | get column1 column2 column3
+        | str join "-"
+    "#
         )
-    ));
+    );
 
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn clockwise() {
-    let table = pipeline(
-        r#"
+    let table = r#"
         echo [
             [col1,  col2, EXPECTED];
 
@@ -54,8 +52,8 @@ fn clockwise() {
             [ ---, "|||",      XX2]
             [ ---, "|||",      XX3]
         ]
-    "#,
-    );
+    "#
+    .to_string();
 
     let expected = nu!(r#"
     echo [
@@ -70,18 +68,18 @@ fn clockwise() {
     | str join "-"
     "#);
 
-    let actual = nu!(format!(
+    let actual = nu!(
         "{} | {}",
         table,
         pipeline(
             r#"
-            rotate
-            | where column3 == EXPECTED
-            | get column0 column1 column2
-            | str join "-"
-        "#
+        rotate
+        | where column3 == EXPECTED
+        | get column0 column1 column2
+        | str join "-"
+    "#
         )
-    ));
+    );
 
     assert_eq!(actual.out, expected.out);
 }

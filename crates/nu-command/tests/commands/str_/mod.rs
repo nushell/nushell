@@ -364,10 +364,10 @@ fn substring_of_empty_string() {
 
 #[test]
 fn substring_drops_content_type() {
-    let actual = nu!(format!(
+    let actual = nu!(
         "open {} | str substring 0..2 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
     assert_eq!(actual.out, "nothing");
 }
 

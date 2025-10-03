@@ -52,9 +52,7 @@ fn flatten_row_column_explicitly() {
                 ]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        "{sample} | flatten people --all | where name == Andres | length"
-    )));
+    let actual = nu!("{sample} | flatten people --all | where name == Andres | length");
 
     assert_eq!(actual.out, "1");
 }
@@ -80,9 +78,7 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
                 ]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        "{sample} | flatten --all | flatten people city | get city_name | length"
-    )));
+    let actual = nu!("{sample} | flatten --all | flatten people city | get city_name | length");
 
     assert_eq!(actual.out, "4");
 }
@@ -108,9 +104,7 @@ fn flatten_table_columns_explicitly() {
                 ]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        "{sample} | flatten city --all | where people.name == Katz | length",
-    )));
+    let actual = nu!("{sample} | flatten city --all | where people.name == Katz | length",);
 
     assert_eq!(actual.out, "2");
 }
@@ -138,7 +132,7 @@ fn flatten_more_than_one_column_that_are_subtables_not_supported() {
                 ]
             "#;
 
-    let actual = nu!(pipeline(&format!("{sample} | flatten tags city --all")));
+    let actual = nu!("{sample} | flatten tags city --all");
 
     assert!(actual.err.contains("tried flattening"));
     assert!(actual.err.contains("but is flattened already"));

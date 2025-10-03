@@ -13,14 +13,12 @@ fn all() {
                 }
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"
-                {sample}
-                | get meals
-                | get calories
-                | math sum
-            "#
-    )));
+    let actual = nu!(r#"
+            {sample}
+            | get meals
+            | get calories
+            | math sum
+        "#);
 
     assert_eq!(actual.out, "448");
 }

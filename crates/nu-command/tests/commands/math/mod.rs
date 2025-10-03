@@ -233,10 +233,10 @@ fn floor_div_mod() {
 
 #[test]
 fn floor_div_mod_overflow() {
-    let actual = nu!(format!("{} // -1", i64::MIN));
+    let actual = nu!("{} // -1", i64::MIN);
     assert!(actual.err.contains("overflow"));
 
-    let actual = nu!(format!("{} mod -1", i64::MIN));
+    let actual = nu!("{} mod -1", i64::MIN);
     assert!(actual.err.contains("overflow"));
 }
 
@@ -251,10 +251,10 @@ fn floor_div_mod_zero() {
 
 #[test]
 fn floor_div_mod_large_num() {
-    let actual = nu!(format!("{} // {}", i64::MAX, i64::MAX / 2));
+    let actual = nu!("{} // {}", i64::MAX, i64::MAX / 2);
     assert_eq!(actual.out, "2");
 
-    let actual = nu!(format!("{} mod {}", i64::MAX, i64::MAX / 2));
+    let actual = nu!("{} mod {}", i64::MAX, i64::MAX / 2);
     assert_eq!(actual.out, "1");
 }
 

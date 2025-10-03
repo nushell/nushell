@@ -9,14 +9,12 @@ fn changes_the_column_name() {
              ["Jason Gedge"]]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        "         {sample}
-                | wrap name
-                | rename mosqueteros
-                | get mosqueteros
-                | length
-                "
-    )));
+    let actual = nu!("         {sample}
+            | wrap name
+            | rename mosqueteros
+            | get mosqueteros
+            | length
+            ");
 
     assert_eq!(actual.out, "4");
 }
@@ -30,16 +28,14 @@ fn keeps_remaining_original_names_given_less_new_names_than_total_original_names
              ["Jason Gedge"]]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"
-                {sample}
-                | wrap name
-                | default "arepa!" hit
-                | rename mosqueteros
-                | get hit
-                | length
-                "#
-    )));
+    let actual = nu!(r#"
+            {sample}
+            | wrap name
+            | default "arepa!" hit
+            | rename mosqueteros
+            | get hit
+            | length
+            "#);
 
     assert_eq!(actual.out, "4");
 }
@@ -53,12 +49,10 @@ fn errors_if_no_columns_present() {
              ["Jason Gedge"]]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        "
-                {sample}
-                | rename mosqueteros
-                "
-    )));
+    let actual = nu!("
+            {sample}
+            | rename mosqueteros
+            ");
 
     assert!(actual.err.contains("command doesn't support"));
 }
@@ -72,14 +66,12 @@ fn errors_if_columns_param_is_empty() {
              ["Jason Gedge"]]
             "#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"
-                {sample}
-                | wrap name
-                | default "arepa!" hit
-                | rename --column {{}}
-                "#
-    )));
+    let actual = nu!(r#"
+            {sample}
+            | wrap name
+            | default "arepa!" hit
+            | rename --column {{}}
+            "#);
 
     assert!(actual.err.contains("The column info cannot be empty"));
 }

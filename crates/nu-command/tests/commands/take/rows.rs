@@ -9,14 +9,12 @@ fn rows() {
          [Jason , 2],
          [Yehuda, 1]]"#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"
-                {sample}
-                | take 3
-                | get lucky_code
-                | math sum
-                "#
-    )));
+    let actual = nu!(r#"
+            {sample}
+            | take 3
+            | get lucky_code
+            | math sum
+            "#);
 
     assert_eq!(actual.out, "4");
 }
@@ -61,10 +59,10 @@ fn works_with_binary_list() {
 
 #[test]
 fn takes_bytes_and_drops_content_type() {
-    let actual = nu!(format!(
+    let actual = nu!(
         "open {} | take 3 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
 
     assert_eq!(actual.out, "nothing");
 }

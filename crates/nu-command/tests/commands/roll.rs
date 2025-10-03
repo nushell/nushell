@@ -4,8 +4,7 @@ mod rows {
     use super::*;
 
     fn table() -> String {
-        pipeline(
-            r#"
+        r#"
             echo [
                 [service, status];
 
@@ -13,40 +12,40 @@ mod rows {
                 [db,        DOWN]
                 [nud,       DOWN]
                 [expected,  HERE]
-            ]"#,
-        )
+            ]"#
+        .to_string()
     }
 
     #[test]
     fn can_roll_down() {
-        let actual = nu!(format!(
+        let actual = nu!(
             "{} | {}",
             table(),
             pipeline(
                 "
-                roll down
-                | first
-                | get status
-            "
+            roll down
+            | first
+            | get status
+        "
             )
-        ));
+        );
 
         assert_eq!(actual.out, "HERE");
     }
 
     #[test]
     fn can_roll_up() {
-        let actual = nu!(format!(
+        let actual = nu!(
             "{} | {}",
             table(),
             pipeline(
                 "
-                roll up --by 3
-                | first
-                | get status
-            "
+            roll up --by 3
+            | first
+            | get status
+        "
             )
-        ));
+        );
 
         assert_eq!(actual.out, "HERE");
     }
@@ -56,8 +55,7 @@ mod columns {
     use super::*;
 
     fn table() -> String {
-        pipeline(
-            r#"
+        r#"
             echo [
                 [commit_author, origin,      stars];
 
@@ -66,40 +64,40 @@ mod columns {
                 [   "JT",     US,      black]
                 [     "Yehuda",     US,      black]
                 [      "Jason",     CA,       gold]
-            ]"#,
-        )
+            ]"#
+        .to_string()
     }
 
     #[test]
     fn can_roll_left() {
-        let actual = nu!(format!(
+        let actual = nu!(
             "{} | {}",
             table(),
             pipeline(
                 r#"
-            roll left
-            | columns
-            | str join "-"
-        "#
+        roll left
+        | columns
+        | str join "-"
+                "#
             )
-        ));
+        );
 
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
 
     #[test]
     fn can_roll_right() {
-        let actual = nu!(format!(
+        let actual = nu!(
             "{} | {}",
             table(),
             pipeline(
                 r#"
-            roll right --by 2
-            | columns
-            | str join "-"
-        "#
+        roll right --by 2
+        | columns
+        | str join "-"
+                "#
             )
-        ));
+        );
 
         assert_eq!(actual.out, "origin-stars-commit_author");
     }
@@ -111,9 +109,8 @@ mod columns {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
         let expected_value = ThirtyTwo(32, "bit1-bit2-bit3-bit4-bit5-bit6-bit7-bit8");
 
-        let actual = nu!(format!(
-            "{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' "
-        ));
+        let actual =
+            nu!("{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' ");
 
         assert_eq!(actual.out, expected_value.1);
     }
@@ -145,8 +142,7 @@ mod columns {
 
         // this pipeline takes the nu bitstring row literal, computes it's
         // decimal value.
-        let nu_row_literal_bitstring_to_decimal_value_pipeline = pipeline(
-            r#"
+        let nu_row_literal_bitstring_to_decimal_value_pipeline = r#"
             transpose bit --ignore-titles
             | get bit
             | reverse
@@ -155,14 +151,12 @@ mod columns {
                 $it.item * (2 ** $it.index)
             }
             | math sum
-        "#,
-        );
+        "#
+        .to_string();
         println!(
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
-        nu!(
-            format!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}")
-        ).out
+        nu!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}").out
     }
 
     fn bitstring_to_nu_row_pipeline(bits: &str) -> String {

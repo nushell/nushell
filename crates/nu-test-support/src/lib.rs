@@ -45,7 +45,7 @@ pub fn nu_repl_code(source_lines: &[&str]) -> String {
     for line in source_lines.iter() {
         // convert each "line" to really be a single line to prevent nu! macro joining the newlines
         // with ';'
-        let line = pipeline(line);
+        let line = line.to_string();
 
         out.push('`');
         out.push_str(&line);
@@ -70,20 +70,18 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::pipeline;
 
     #[test]
     fn constructs_a_pipeline() {
-        let actual = pipeline(
-            r#"
+        let actual = r#"
                 open los_tres_amigos.txt
                 | from-csv
                 | get rusty_luck
                 | into int
                 | math sum
                 | echo "$it"
-            "#,
-        );
+            "#
+        .to_string();
 
         assert_eq!(
             actual,

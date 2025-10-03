@@ -632,7 +632,7 @@ fn deep_import_aliased_external_args(
             }
         }
     ";
-    let actual = nu!(format!("{module_decl}; {input}"));
+    let actual = nu!("{}; {}", module_decl, input);
     assert_eq!(actual.out, "bar");
 }
 
