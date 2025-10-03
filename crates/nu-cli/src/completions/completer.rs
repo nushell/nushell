@@ -434,28 +434,30 @@ impl NuCompleter {
                             }
                         }
                     } else if let Some(command_wide_completer) = signature.complete {
-                        let (new_span, prefix) =
-                            strip_placeholder_if_any(working_set, &span, strip);
-                        let ctx = Context::new(working_set, new_span, prefix, offset);
-                        let flag_completion_helper = || {
-                            let mut flag_completions = FlagCompletion {
-                                decl_id: call.decl_id,
+                        let flag_completions = {
+                            let (new_span, prefix) =
+                                strip_placeholder_if_any(working_set, &span, strip);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
+                            let flag_completion_helper = || {
+                                let mut flag_completions = FlagCompletion {
+                                    decl_id: call.decl_id,
+                                };
+                                self.process_completion(&mut flag_completions, &ctx)
                             };
-                            self.process_completion(&mut flag_completions, &ctx)
-                        };
 
-                        match arg {
-                            // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
-                                return flag_completion_helper();
+                            match arg {
+                                // flags
+                                Argument::Named(_) | Argument::Unknown(_)
+                                    if prefix.starts_with(b"-") =>
+                                {
+                                    flag_completion_helper()
+                                }
+                                // only when `strip` == false
+                                Argument::Positional(_) if prefix == b"-" => {
+                                    flag_completion_helper()
+                                }
+                                _ => vec![],
                             }
-                            // only when `strip` == false
-                            Argument::Positional(_) if prefix == b"-" => {
-                                return flag_completion_helper();
-                            }
-                            _ => (),
                         };
 
                         let completion = match command_wide_completer {
@@ -485,8 +487,12 @@ impl NuCompleter {
                             let ctx = Context::new(working_set, span, b"", offset);
                             let results = self.process_completion(&mut completion, &ctx);
 
+                            // Prioritize flag completions above everything else
+                            let flags_length = flag_completions.len();
+                            suggestions.splice(0..0, flag_completions);
+
                             // Prioritize external results over (sub)commands
-                            suggestions.splice(0..0, results);
+                            suggestions.splice(flags_length..flags_length, results);
 
                             if !completion.need_fallback {
                                 return suggestions;

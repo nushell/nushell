@@ -840,7 +840,9 @@ fn command_wide_completion_flag_completion() {
 
     let sample = /* lang=nu */ r#"
         def "nu-complete cmd" [spans: list] {
-            [command wide completion]
+            let last = $spans | last
+            [command wide --with --external]
+            | where $it starts-with $last
         }
 
         def "nu-complete cmd bar" [] {
@@ -848,7 +850,7 @@ fn command_wide_completion_flag_completion() {
         }
 
         @complete "nu-complete cmd"
-        def "cmd" [
+        def --wrapped "cmd" [
             --switch(-s)
             --flag(-f): string
             foo: string,
@@ -859,7 +861,7 @@ fn command_wide_completion_flag_completion() {
         cmd -"#;
 
     let suggestions = completer.complete(sample, sample.len());
-    let expected = vec!["--flag", "--help", "--switch", "-f", "-h", "-s"];
+    let expected = vec!["--flag", "--switch", "-f", "-s", "--with", "--external"];
     match_suggestions(&expected, &suggestions);
 }
 
