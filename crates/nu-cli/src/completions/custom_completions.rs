@@ -268,17 +268,11 @@ impl<'a> Completer for CommandWideCompletion<'a> {
                 ),
             );
         }
-        let mut new_engine_state;
-        let engine_state = if self.block_id.get() < working_set.permanent_state.num_decls() {
-            working_set.permanent_state
-        } else {
-            new_engine_state = working_set.permanent_state.clone();
-            let _ = new_engine_state.merge_delta(working_set.delta.clone());
-            &new_engine_state
-        };
+        let mut engine_state = working_set.permanent_state.clone();
+        let _ = engine_state.merge_delta(working_set.delta.clone());
 
         let result = nu_engine::eval_block::<WithoutDebug>(
-            engine_state,
+            &engine_state,
             &mut callee_stack,
             block,
             PipelineData::empty(),
