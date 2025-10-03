@@ -9,12 +9,15 @@ fn rows() {
          [Jason , 2],
          [Yehuda, 1]]"#;
 
-    let actual = nu!(r#"
-            {sample}
+    let actual = nu!(
+        r#"
+            {}
             | take 3
             | get lucky_code
             | math sum
-            "#);
+            "#,
+        sample
+    );
 
     assert_eq!(actual.out, "4");
 }

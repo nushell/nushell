@@ -10,14 +10,14 @@ const SAMPLE_CSV_CONTENT: &str = r#"
             "#;
 #[test]
 fn removes_duplicate_rows() {
-    let actual = nu!("{SAMPLE_CSV_CONTENT} | uniq | length ");
+    let actual = nu!("{} | uniq | length ", SAMPLE_CSV_CONTENT);
 
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn uniq_values() {
-    let actual = nu!("{SAMPLE_CSV_CONTENT} | select type | uniq | length ",);
+    let actual = nu!("{} | select type | uniq | length ", SAMPLE_CSV_CONTENT);
 
     assert_eq!(actual.out, "2");
 }
@@ -76,7 +76,7 @@ fn nested_json_structures() {
               ]
             "#;
 
-    let actual = nu!("'{sample}' | from json | uniq | length");
+    let actual = nu!("'{}' | from json | uniq | length", sample);
 
     assert_eq!(actual.out, "3");
 }

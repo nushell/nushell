@@ -449,13 +449,13 @@ fn table_expand_record_1() {
 
 #[test]
 fn table_expand_record_2() {
-    let structure = "{\
-        field1: [ a, b, c ],\
-        field2: [ 123, 234, 345 ],\
-        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
-        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
+    let structure = "{
+        field1: [ a, b, c ],
+        field2: [ 123, 234, 345 ],
+        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],
+        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }
     }";
-    let actual = nu!("{structure} | table --width=80 --expand");
+    let actual = nu!("{} | table --width=80 --expand", structure);
 
     assert_eq!(
         actual.out,
@@ -3682,8 +3682,10 @@ fn table_footer_inheritance() {
         field5: [ [ x1, x2, x3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
     }}"
     );
-    let actual =
-        nu!("$env.config.table.footer_inheritance = true; {structure} | table --width=80 --expand");
+    let actual = nu!(
+        "$env.config.table.footer_inheritance = true; {} | table --width=80 --expand",
+        structure
+    );
 
     assert_eq!(actual.out.match_indices("head1").count(), 2);
     assert_eq!(actual.out.match_indices("head2").count(), 2);

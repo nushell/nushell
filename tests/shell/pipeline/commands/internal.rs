@@ -459,7 +459,7 @@ fn proper_shadow_let_aliases() {
 fn block_params_override() {
     let actual = nu!("
         [1, 2, 3] | each { |a| echo $it }
-        ");
+    ");
     assert!(actual.err.contains("variable not found"));
 }
 

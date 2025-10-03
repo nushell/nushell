@@ -9,9 +9,9 @@ fn chunk_by_on_empty_input_returns_empty_list() {
 
 #[test]
 fn chunk_by_strings_works() {
-    let sample = r#"
-        [a a a b b b c c c a a a]
-    "#;
+    let sample = "\
+        [a a a b b b c c c a a a]\
+    ";
 
     let actual = nu!(
         r#"
@@ -49,9 +49,12 @@ fn chunk_by_field_works() {
         cool: true
     } ]"#;
 
-    let actual = nu!(r#"{sample}
+    let actual = nu!(
+        r#"{}
        | chunk-by {{|it| $it.cool}}
-       | length"#);
+       | length"#,
+        sample
+    );
 
     assert_eq!(actual.out, "2");
 }

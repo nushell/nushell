@@ -32,13 +32,6 @@ impl Outcome {
     }
 }
 
-/// Reformat a multiline pipeline into a single line for use with `nu -c`
-///
-/// Warning: Will not correctly handle statements that are not `;` separated!
-pub fn pipeline(commands: &str) -> String {
-    commands.to_string()
-}
-
 pub fn nu_repl_code(source_lines: &[&str]) -> String {
     let mut out = String::from("nu --testbin=nu_repl ...[ ");
 
@@ -66,26 +59,4 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     }
 
     original_paths
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn constructs_a_pipeline() {
-        let actual = r#"
-                open los_tres_amigos.txt
-                | from-csv
-                | get rusty_luck
-                | into int
-                | math sum
-                | echo "$it"
-            "#
-        .to_string();
-
-        assert_eq!(
-            actual,
-            r#"open los_tres_amigos.txt | from-csv | get rusty_luck | into int | math sum | echo "$it""#
-        );
-    }
 }

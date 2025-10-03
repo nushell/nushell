@@ -2,76 +2,83 @@ use nu_test_support::nu;
 
 #[test]
 fn changes_the_column_name() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
-    let actual = nu!("         {sample}
+    let actual = nu!(
+        "
+            {}
             | wrap name
             | rename mosqueteros
             | get mosqueteros
             | length
-            ");
+            ",
+        sample
+    );
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn keeps_remaining_original_names_given_less_new_names_than_total_original_names() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
-    let actual = nu!(r#"
-            {sample}
+    let actual = nu!(
+        r#"
+            {}
             | wrap name
             | default "arepa!" hit
             | rename mosqueteros
             | get hit
             | length
-            "#);
+            "#,
+        sample
+    );
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn errors_if_no_columns_present() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
-    let actual = nu!("
-            {sample}
-            | rename mosqueteros
-            ");
+    let actual = nu!("{} | rename mosqueteros", sample);
 
     assert!(actual.err.contains("command doesn't support"));
 }
 
 #[test]
 fn errors_if_columns_param_is_empty() {
-    let sample = r#"
-            [["Andrés N. Robalino"],
-             ["JT Turner"],
-             ["Yehuda Katz"],
-             ["Jason Gedge"]]
-            "#;
+    let sample = r#"[
+        ["Andrés N. Robalino"],
+        ["JT Turner"],
+        ["Yehuda Katz"],
+        ["Jason Gedge"]
+    ]"#;
 
-    let actual = nu!(r#"
-            {sample}
+    let actual = nu!(
+        r#"
+            {}
             | wrap name
             | default "arepa!" hit
             | rename --column {{}}
-            "#);
+            "#,
+        sample
+    );
 
     assert!(actual.err.contains("The column info cannot be empty"));
 }

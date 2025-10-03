@@ -3,7 +3,7 @@ use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
     fs::{Stub, line_ending},
-    nu, pipeline,
+    nu,
     playground::{Dirs, Playground},
 };
 use rand::{
@@ -471,10 +471,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> AbsolutePathBuf {
         testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
     let testdb = testdb_path.to_str().unwrap();
 
-    let nucmd = nu!(
-        cwd: testdir,
-        pipeline(&format!("{nu_table} | into sqlite {testdb}"))
-    );
+    let nucmd = nu!(cwd: testdir, "{} | into sqlite {}", nu_table, testdb);
 
     assert!(nucmd.status.success());
     testdb_path

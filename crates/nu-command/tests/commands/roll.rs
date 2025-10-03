@@ -1,18 +1,17 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 mod rows {
     use super::*;
 
     fn table() -> String {
-        r#"
-            echo [
-                [service, status];
+        r#"[
+            [service, status];
 
-                [ruby,      DOWN]
-                [db,        DOWN]
-                [nud,       DOWN]
-                [expected,  HERE]
-            ]"#
+            [ruby,      DOWN]
+            [db,        DOWN]
+            [nud,       DOWN]
+            [expected,  HERE]
+        ]"#
         .to_string()
     }
 
@@ -21,13 +20,11 @@ mod rows {
         let actual = nu!(
             "{} | {}",
             table(),
-            pipeline(
-                "
+            r#"
             roll down
             | first
             | get status
-        "
-            )
+            "#
         );
 
         assert_eq!(actual.out, "HERE");
@@ -38,13 +35,11 @@ mod rows {
         let actual = nu!(
             "{} | {}",
             table(),
-            pipeline(
-                "
+            r#"
             roll up --by 3
             | first
             | get status
-        "
-            )
+            "#
         );
 
         assert_eq!(actual.out, "HERE");
@@ -55,16 +50,15 @@ mod columns {
     use super::*;
 
     fn table() -> String {
-        r#"
-            echo [
-                [commit_author, origin,      stars];
+        r#"[
+            [commit_author, origin,      stars];
 
-                [     "Andres",     EC, amarillito]
-                [     "Darren",     US,      black]
-                [   "JT",     US,      black]
-                [     "Yehuda",     US,      black]
-                [      "Jason",     CA,       gold]
-            ]"#
+            [     "Andres",     EC, amarillito]
+            [     "Darren",     US,      black]
+            [   "JT",     US,      black]
+            [     "Yehuda",     US,      black]
+            [      "Jason",     CA,       gold]
+        ]"#
         .to_string()
     }
 
@@ -73,13 +67,11 @@ mod columns {
         let actual = nu!(
             "{} | {}",
             table(),
-            pipeline(
-                r#"
-        roll left
-        | columns
-        | str join "-"
-                "#
-            )
+            r#"
+            roll left
+            | columns
+            | str join "-"
+            "#
         );
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -90,13 +82,11 @@ mod columns {
         let actual = nu!(
             "{} | {}",
             table(),
-            pipeline(
-                r#"
-        roll right --by 2
-        | columns
-        | str join "-"
-                "#
-            )
+            (r#"
+            roll right --by 2
+            | columns
+            | str join "-"
+            "#)
         );
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -109,8 +99,10 @@ mod columns {
         let four_bitstring = bitstring_to_nu_row_pipeline("00000100");
         let expected_value = ThirtyTwo(32, "bit1-bit2-bit3-bit4-bit5-bit6-bit7-bit8");
 
-        let actual =
-            nu!("{four_bitstring} | roll right --by 3 --cells-only | columns | str join '-' ");
+        let actual = nu!(
+            "{} | roll right --by 3 --cells-only | columns | str join '-' ",
+            four_bitstring
+        );
 
         assert_eq!(actual.out, expected_value.1);
     }
@@ -156,7 +148,12 @@ mod columns {
         println!(
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
-        nu!("{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}").out
+        nu!(
+            "{} | roll left --by 3 | {}",
+            bitstring_as_nu_row_pipeline,
+            nu_row_literal_bitstring_to_decimal_value_pipeline
+        )
+        .out
     }
 
     fn bitstring_to_nu_row_pipeline(bits: &str) -> String {

@@ -1,5 +1,5 @@
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn limit_set_soft1() {
@@ -134,24 +134,22 @@ fn limit_set_invalid5() {
 
     Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
         let actual = nu!(
-            cwd: dirs.test(), pipeline(
-                format!(
-                "
-                    let hard = (ulimit -c | first | get hard);
-                    match $hard {{
-                        \"unlimited\" => {{
-                            ulimit -c -S 0;
-                            ulimit -c {max};
-                            ulimit -c
-                            | first
-                            | get soft
-                        }},
-                        _ => {{
-                            echo \"unlimited\"
-                        }}
+            cwd: dirs.test(),
+            r#"
+                let hard = (ulimit -c | first | get hard);
+                match $hard {{
+                    "unlimited" => {{
+                        ulimit -c -S 0;
+                        ulimit -c {};
+                        ulimit -c | first | get soft
+                    }},
+                    _ => {{
+                        echo "unlimited"
                     }}
-                ").as_str()
-        ));
+                }}
+            "#,
+            max
+        );
 
         assert!(actual.out.eq("unlimited"));
     });

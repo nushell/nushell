@@ -3,9 +3,12 @@ use nu_test_support::nu;
 #[test]
 fn flatten_nested_tables_with_columns() {
     let actual = nu!(r#"
-        echo [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
-             [[origin, people]; [Nu, ('nuno' | wrap name)]]
-        | flatten --all | flatten --all
+        [
+            [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
+            [[origin, people]; [Nu, ('nuno' | wrap name)]]
+        ]
+        | flatten --all
+        | flatten --all
         | get name
         | str join ','
     "#);
@@ -16,9 +19,30 @@ fn flatten_nested_tables_with_columns() {
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
     let actual = nu!(r#"
-        echo [[origin, people]; [Ecuador, (echo [[name, meal]; ['Andres', 'arepa']])]]
-        [[origin, people]; [USA, (echo [[name, meal]; ['Katz', 'nurepa']])]]
-        | flatten --all | flatten --all
+        (
+            echo [
+                [origin, people];
+                [
+                    Ecuador,
+                    (echo [
+                        [name, meal];
+                        ['Andres', 'arepa']
+                    ])
+                ]
+            ]
+            [
+                [origin, people];
+                [
+                    USA,
+                    (echo [
+                        [name, meal];
+                        ['Katz', 'nurepa']
+                    ])
+                ]
+            ]
+        )
+        | flatten --all
+        | flatten --all
         | get meal
         | str join ','
     "#);
@@ -52,7 +76,10 @@ fn flatten_row_column_explicitly() {
                 ]
             "#;
 
-    let actual = nu!("{sample} | flatten people --all | where name == Andres | length");
+    let actual = nu!(
+        "{} | flatten people --all | where name == Andres | length",
+        sample
+    );
 
     assert_eq!(actual.out, "1");
 }
@@ -78,7 +105,10 @@ fn flatten_row_columns_having_same_column_names_flats_separately() {
                 ]
             "#;
 
-    let actual = nu!("{sample} | flatten --all | flatten people city | get city_name | length");
+    let actual = nu!(
+        "{} | flatten --all | flatten people city | get city_name | length",
+        sample
+    );
 
     assert_eq!(actual.out, "4");
 }
@@ -104,7 +134,10 @@ fn flatten_table_columns_explicitly() {
                 ]
             "#;
 
-    let actual = nu!("{sample} | flatten city --all | where people.name == Katz | length",);
+    let actual = nu!(
+        "{} | flatten city --all | where people.name == Katz | length",
+        sample
+    );
 
     assert_eq!(actual.out, "2");
 }
@@ -132,7 +165,7 @@ fn flatten_more_than_one_column_that_are_subtables_not_supported() {
                 ]
             "#;
 
-    let actual = nu!("{sample} | flatten tags city --all");
+    let actual = nu!("{} | flatten tags city --all", sample);
 
     assert!(actual.err.contains("tried flattening"));
     assert!(actual.err.contains("but is flattened already"));

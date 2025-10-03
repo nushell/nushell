@@ -22,35 +22,36 @@ fn regular_columns() {
 
 #[test]
 fn complex_nested_columns() {
-    let sample = r#"
-                {
-                    "nu": {
-                        "committers": [
-                            {"name": "Andrés N. Robalino"},
-                            {"name": "JT Turner"},
-                            {"name": "Yehuda Katz"}
-                        ],
-                        "releases": [
-                            {"version": "0.2"}
-                            {"version": "0.8"},
-                            {"version": "0.9999999"}
-                        ],
-                        "0xATYKARNU": [
-                            ["Th", "e", " "],
-                            ["BIG", " ", "UnO"],
-                            ["punto", "cero"]
-                        ]
-                    }
-                }
-            "#;
+    let sample = r#"{
+        "nu": {
+            "committers": [
+                {"name": "Andrés N. Robalino"},
+                {"name": "JT Turner"},
+                {"name": "Yehuda Katz"}
+            ],
+            "releases": [
+                {"version": "0.2"}
+                {"version": "0.8"},
+                {"version": "0.9999999"}
+            ],
+            "0xATYKARNU": [
+                ["Th", "e", " "],
+                ["BIG", " ", "UnO"],
+                ["punto", "cero"]
+            ]
+        }
+    }"#;
 
-    let actual = nu!(r#"
-            {sample}
+    let actual = nu!(
+        r#"
+            {}
             | select nu."0xATYKARNU" nu.committers.name nu.releases.version
             | get "nu.releases.version"
             | where $it > "0.8"
             | get 0
-        "#);
+        "#,
+        sample
+    );
 
     assert_eq!(actual.out, "0.9999999");
 }

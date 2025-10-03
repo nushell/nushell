@@ -325,7 +325,7 @@ mod stdin_evaluation {
 mod external_words {
     use super::nu;
     use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
 
     #[test]
     fn relaxed_external_words() {
@@ -376,10 +376,10 @@ mod external_words {
             )]);
 
             let actual = nu!(
-                cwd: dirs.test(), (
+                cwd: dirs.test(),
                 "nu --testbin meow {} | from toml | get nu_party_venue",
                 nu_path_argument
-            ));
+            );
 
             assert_eq!(actual.out, "zion");
         })

@@ -2,23 +2,24 @@ use nu_test_support::nu;
 
 #[test]
 fn discards_rows_where_given_column_is_empty() {
-    let sample_json = r#"
-                {
-                    "amigos": [
-                        {"name":   "Yehuda", "rusty_luck": 1},
-                        {"name": "JT", "rusty_luck": 1},
-                        {"name":   "Andres", "rusty_luck": 1},
-                        {"name":"GorbyPuff"}
-                    ]
-                }
-            "#;
+    let sample_json = r#"{
+        "amigos": [
+            {"name":   "Yehuda", "rusty_luck": 1},
+            {"name": "JT", "rusty_luck": 1},
+            {"name":   "Andres", "rusty_luck": 1},
+            {"name":"GorbyPuff"}
+        ]
+    }"#;
 
-    let actual = nu!("
-            {sample_json}
+    let actual = nu!(
+        "
+            {}
             | get amigos
             | compact rusty_luck
             | length
-        ");
+        ",
+        sample_json
+    );
 
     assert_eq!(actual.out, "3");
 }

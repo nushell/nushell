@@ -1,21 +1,25 @@
 use nu_test_support::nu;
 
-const SAMPLE_INPUT: &str = r#"
-                    [[first_name, last_name, rusty_at];
-                     [Andrés, Robalino, Ecuador],
-                     [JT, Turner, "Estados Unidos"],
-                     [Yehuda, Katz, "Estados Unidos"]]
-            "#;
+const SAMPLE_INPUT: &str = /* lang=nu */
+    r#"[
+    [first_name, last_name, rusty_at];
+    [Andrés, Robalino, Ecuador],
+    [JT, Turner, "Estados Unidos"],
+    [Yehuda, Katz, "Estados Unidos"]
+]"#;
 
 #[test]
 fn summarizes_by_column_given() {
-    let actual = nu!(r#"
-            {SAMPLE_INPUT}
+    let actual = nu!(
+        r#"
+            {}
             | histogram rusty_at countries --percentage-type relative
             | where rusty_at == "Ecuador"
             | get countries
             | get 0
-        "#);
+        "#,
+        SAMPLE_INPUT
+    );
 
     assert_eq!(
         actual.out,
@@ -26,13 +30,16 @@ fn summarizes_by_column_given() {
 
 #[test]
 fn summarizes_by_column_given_with_normalize_percentage() {
-    let actual = nu!(r#"
-            {SAMPLE_INPUT}
+    let actual = nu!(
+        r#"
+            {}
             | histogram rusty_at countries
             | where rusty_at == "Ecuador"
             | get countries
             | get 0
-        "#);
+        "#,
+        SAMPLE_INPUT
+    );
 
     assert_eq!(actual.out, "*********************************");
     // 33%
@@ -40,14 +47,17 @@ fn summarizes_by_column_given_with_normalize_percentage() {
 
 #[test]
 fn summarizes_by_values() {
-    let actual = nu!(r#"
-            {SAMPLE_INPUT}
+    let actual = nu!(
+        r#"
+            {}
             | get rusty_at
             | histogram
             | where value == "Estados Unidos"
             | get count
             | get 0
-        "#);
+        "#,
+        SAMPLE_INPUT
+    );
 
     assert_eq!(actual.out, "2");
 }

@@ -2,19 +2,22 @@ use nu_test_support::nu;
 
 #[test]
 fn removes_duplicate_rows() {
-    let sample = r#"
-                    [[first_name , last_name, rusty_at, type];
-                     [Andrés     , Robalino, "10/11/2013", A],
-                     [Afonso     , Turner, "10/12/2013", B],
-                     [Yehuda     , Katz, "10/11/2013", A],
-                     [JT         , Turner, "11/12/2011", O]]
-            "#;
+    let sample = r#"[
+        [first_name , last_name, rusty_at, type];
+        [Andrés     , Robalino, "10/11/2013", A],
+        [Afonso     , Turner, "10/12/2013", B],
+        [Yehuda     , Katz, "10/11/2013", A],
+        [JT         , Turner, "11/12/2011", O]
+    ]"#;
 
-    let actual = nu!("
-            {sample}
+    let actual = nu!(
+        "
+            {}
             | uniq-by last_name
             | length
-        ");
+        ",
+        sample
+    );
 
     assert_eq!(actual.out, "3");
 }
