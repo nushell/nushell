@@ -8,7 +8,7 @@ use crate::{ConfigWarning, ReportMode, Reportable};
 #[derive(Clone, Debug, Error, Diagnostic)]
 #[diagnostic(severity(Warning))]
 pub enum ShellWarning {
-    /// A parse-time deprectaion. Indicates that something will be removed in a future release.
+    /// A parse-time deprecation. Indicates that something will be removed in a future release.
     ///
     /// Use [`ParseWarning::Deprecated`](crate::ParseWarning::Deprecated) if this is a deprecation
     /// which is detectable at parse-time.

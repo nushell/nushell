@@ -63,7 +63,7 @@ fn test_cd_html_color_flag_dark_false() {
 #[ignore]
 fn test_no_color_flag() {
     // TODO replace with something potentially more stable, otherwise this test needs to be
-    // manuallly updated when ever the help output changes
+    // manually updated when ever the help output changes
     let actual = nu!(r#"
                 cd --help | to html --no-color
             "#);

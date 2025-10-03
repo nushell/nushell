@@ -10,7 +10,9 @@ use nu_cli::NuCompleter;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, expand_tilde};
-use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
+use nu_protocol::{
+    Config, ParseError, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet,
+};
 use nu_std::load_standard_library;
 use nu_test_support::fs;
 use reedline::{Completer, Suggestion};
@@ -365,6 +367,89 @@ export def say [
     // including only subcommand completions
     let expected: Vec<_> = vec!["cat", "dog"];
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn list_completions_defined_inline() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = /* lang=nu */ r#"
+        export def say [
+          animal: string@[cat dog]
+        ] { }
+
+        say "#;
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn list_completions_extern() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = /* lang=nu */ r#"
+        export extern say [
+          animal: string@[cat dog]
+        ]
+
+        say "#;
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn list_completions_from_constant_and_allows_record() {
+    let (_, _, engine, stack) = new_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let completion_str = /* lang=nu */ r#"
+        const animals = [
+            cat
+            {value: "dog"}
+        ]
+        export def say [
+          animal: string@$animals
+        ] { }
+
+        say "#;
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    // including only subcommand completions
+    let expected: Vec<_> = vec!["cat", "dog"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn list_completions_invalid_type() {
+    let (_, _, engine, _) = new_engine();
+
+    let record = /* lang=nu */ r#"
+        const animals = {cat: "meow", dog: "woof!"}
+        export def say [
+          animal: string@$animals
+        ] { }
+    "#;
+
+    let mut working_set = StateWorkingSet::new(&engine);
+    let _ = parse(&mut working_set, None, record.as_bytes(), false);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::OperatorUnsupportedType { .. }))
+    );
 }
 
 /// External command only if starts with `^`
