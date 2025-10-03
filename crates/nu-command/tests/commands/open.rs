@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use rstest::rstest;
 
 #[test]

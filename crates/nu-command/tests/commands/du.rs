@@ -1,5 +1,5 @@
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::{nu, pipeline, playground::Playground};
+use nu_test_support::{nu, playground::Playground};
 use rstest::rstest;
 
 #[test]

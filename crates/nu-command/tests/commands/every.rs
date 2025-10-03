@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn gets_all_rows_by_every_zero() {

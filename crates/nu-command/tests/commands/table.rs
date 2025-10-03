@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 
 #[test]
 fn table_0() {
@@ -497,7 +497,7 @@ fn table_expand_record_2() {
 #[cfg(not(windows))]
 fn external_with_too_much_stdout_should_not_hang_nu() {
     use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::pipeline;
+
     use nu_test_support::playground::Playground;
     Playground::setup("external with too much stdout", |dirs, sandbox| {
         let bytes: usize = 81920;

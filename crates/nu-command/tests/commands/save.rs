@@ -1,6 +1,6 @@
 use nu_test_support::fs::{Stub, file_contents};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use std::io::Write;
 
 #[test]

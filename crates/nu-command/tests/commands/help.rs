@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 

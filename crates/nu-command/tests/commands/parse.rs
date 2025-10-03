@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 mod simple {
     use super::*;
