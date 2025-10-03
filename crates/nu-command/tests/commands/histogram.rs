@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 const SAMPLE_INPUT: &str = r#"
                     [[first_name, last_name, rusty_at];

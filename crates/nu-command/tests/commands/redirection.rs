@@ -459,9 +459,9 @@ fn pipe_redirection_in_let_and_mut(
     #[case] redir: &str,
     #[case] output: &str,
 ) {
-    let actual = nu!(
+    let actual = nu!(format!(
         "$env.BAZ = 'foo'; {keyword} v = nu --testbin echo_env_mixed out-err BAZ BAZ {redir} str length; $v"
-    );
+    ));
     assert_eq!(actual.out, output);
 }
 

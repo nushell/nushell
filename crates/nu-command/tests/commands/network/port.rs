@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 use std::net::TcpListener;
 use std::sync::mpsc;
 
