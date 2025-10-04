@@ -104,17 +104,13 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 ])),
             },
             Example {
-                example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
+                example: r#"[1 2 3 2] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description: "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
-            },
-            Example {
-                example: r#"[1 2 3] | each {|e| if $e == 2 { "found 2!"} }"#,
-                description: "Iterate over each element, keeping null results",
                 result: Some(Value::test_list(vec![
-                    Value::nothing(Span::test_data()),
-                    Value::test_string("found 2!"),
-                    Value::nothing(Span::test_data()),
+                    Value::test_nothing(),
+                    Value::test_string("found 2 at 1!"),
+                    Value::test_nothing(),
+                    Value::test_string("found 2 at 3!"),
                 ])),
             },
             Example {

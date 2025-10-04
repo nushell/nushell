@@ -295,7 +295,9 @@ export def custom [
                 if ($record.level == $log_level) {
                     $record.ansi
                 }
-            } | first
+            }
+            | compact
+            | first
         )
     } else {
         $ansi
