@@ -31,6 +31,10 @@ impl Command for Compact {
         "Creates a table with non-empty rows."
     }
 
+    fn extra_description(&self) -> &str {
+        "Can be used to remove `null` or empty values from lists and records too."
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["empty", "remove"]
     }
@@ -90,6 +94,14 @@ impl Command for Compact {
                     Value::test_int(4),
                     Value::test_int(5),
                 ])),
+            },
+            Example {
+                description: "Filter out all instances of null from a record",
+                example: r#"{a: 1, b: null, c: 3} | compact"#,
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "c" =>  Value::test_int(3),
+                })),
             },
         ]
     }
