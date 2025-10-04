@@ -38,6 +38,7 @@ impl Command for IntoString {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (Type::CellPath, Type::String),
                 (Type::Range, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
@@ -141,6 +142,11 @@ impl Command for IntoString {
                 example: "9day | into string",
                 result: Some(Value::test_string("1wk 2day")),
             },
+            Example {
+                description: "convert cell-path to string",
+                example: "$.name | into string",
+                result: Some(Value::test_string("$.name")),
+            },
         ]
     }
 }
@@ -217,6 +223,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val, span),
         Value::Glob { val, .. } => Value::string(val, span),
+        Value::CellPath { val, .. } => Value::string(val.to_string(), span),
         Value::Filesize { val, .. } => {
             if group_digits {
                 let decimal_value = digits.unwrap_or(0) as usize;
