@@ -40,14 +40,21 @@ impl Command for Compact {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-        input.filter(
-            move |item| do_keep_row(item, empty, columns.as_slice()),
-            engine_state.signals(),
-        )
+
+        match input {
+            PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
+                val.to_mut().retain(|_, val| do_keep_value(val, empty));
+                Ok(input)
+            }
+            _ => input.filter(
+                move |item| do_keep_row(item, empty, columns.as_slice()),
+                engine_state.signals(),
+            ),
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
