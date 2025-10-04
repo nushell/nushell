@@ -40,14 +40,27 @@ impl Command for Compact {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-        input.filter(
-            move |item| do_keep_row(item, empty, columns.as_slice()),
-            engine_state.signals(),
-        )
+
+        match input {
+            PipelineData::Value(
+                Value::Record {
+                    val: ref mut record,
+                    ..
+                },
+                _,
+            ) => {
+                record.to_mut().retain(|_, val| do_keep_value(val, empty));
+                Ok(input)
+            }
+            _ => input.filter(
+                move |item| do_keep_row(item, empty, columns.as_slice()),
+                engine_state.signals(),
+            ),
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -100,9 +113,10 @@ fn do_keep_row(row: &Value, compact_empties: bool, columns: &[impl AsRef<str>]) 
     let do_keep = move |value| do_keep_value(value, compact_empties);
 
     if let Ok(record) = row.as_record() {
-        columns
-            .iter()
-            .all(|col| record.get(col).map(do_keep).unwrap_or(false))
+        do_keep(row)
+            && columns
+                .iter()
+                .all(|col| record.get(col).map(do_keep).unwrap_or(false))
     } else {
         do_keep(row)
     }
