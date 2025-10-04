@@ -10,10 +10,10 @@ impl Command for Compact {
 
     fn signature(&self) -> Signature {
         Signature::build("compact")
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::List(Box::new(Type::Any)),
-            )])
+            .input_output_types(vec![
+                (Type::record(), Type::record()),
+                (Type::list(Type::Any), Type::list(Type::Any)),
+            ])
             .switch(
                 "empty",
                 "also compact empty items like \"\", {}, and []",
@@ -43,7 +43,11 @@ impl Command for Compact {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let empty = call.has_flag(engine_state, stack, "empty")?;
-        compact(engine_state, stack, call, input, empty)
+        let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+        input.filter(
+            move |item| do_keep_row(item, empty, columns.as_slice()),
+            engine_state.signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -84,70 +88,23 @@ impl Command for Compact {
     }
 }
 
-pub fn compact(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
-    compact_empties: bool,
-) -> Result<PipelineData, ShellError> {
-    let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-    let metadata = input.metadata();
-    input
-        .filter(
-            move |item| {
-                match item {
-                    // Nothing is filtered out
-                    Value::Nothing { .. } => false,
-                    Value::Record { val, .. } => {
-                        for column in columns.iter() {
-                            match val.get(column) {
-                                None => return false,
-                                Some(x) => {
-                                    if let Value::Nothing { .. } = x {
-                                        return false;
-                                    }
-                                    if compact_empties {
-                                        // check if the value is one of the empty value
-                                        if match x {
-                                            Value::String { val, .. } => val.is_empty(),
-                                            Value::Record { val, .. } => val.is_empty(),
-                                            Value::List { vals, .. } => vals.is_empty(),
-                                            _ => false,
-                                        } {
-                                            // one of the empty value found so skip now
-                                            return false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
+fn do_keep_value(value: &Value, compact_empties: bool) -> bool {
+    let remove = match compact_empties {
+        true => value.is_empty(),
+        false => value.is_nothing(),
+    };
+    !remove
+}
 
-                        if compact_empties && val.is_empty() {
-                            return false;
-                        }
-                        // No defined columns contained Nothing
-                        true
-                    }
-                    Value::List { vals, .. } => {
-                        if compact_empties && vals.is_empty() {
-                            return false;
-                        }
-                        true
-                    }
-                    Value::String { val, .. } => {
-                        if compact_empties && val.is_empty() {
-                            return false;
-                        }
-                        true
-                    }
-                    // Any non-Nothing, non-record should be kept
-                    _ => true,
-                }
-            },
-            engine_state.signals(),
-        )
-        .map(|m| m.set_metadata(metadata))
+fn do_keep_row(row: &Value, compact_empties: bool, columns: &[impl AsRef<str>]) -> bool {
+    let do_keep = move |value| do_keep_value(value, compact_empties);
+
+    do_keep(row)
+        && row.as_record().map_or(true, |record| {
+            columns
+                .iter()
+                .all(|col| record.get(col).map(do_keep).unwrap_or(false))
+        })
 }
 
 #[cfg(test)]
