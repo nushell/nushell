@@ -1,0 +1,21 @@
+id: internal_span
+snapshots:
+  ? |
+    match value {
+      Value::List { vals, internal_span } => "",
+      _ => ""
+    }
+  : fixed: |
+      match value {
+        Value::List { vals, .. } => "",
+        _ => ""
+      }
+    labels:
+    - source: internal_span
+      style: primary
+      start: 36
+      end: 49
+    - source: Value::List { vals, internal_span }
+      style: secondary
+      start: 16
+      end: 51

@@ -1,0 +1,19 @@
+id: format-in-nu-macro
+valid:
+  - |
+    nu!(
+      cwd: here,
+      "print 'Hello {}'",
+      name,
+    )
+  - nu!("just a command")
+  - nu!("if this { then that }")
+  - nu!("if this {{ then {} }}", that)
+invalid:
+  - |
+    let actual = nu!(format!(
+        r#"{sample}
+        | chunk-by {{|it| $it.cool}}
+        | length"#,
+    ));
+

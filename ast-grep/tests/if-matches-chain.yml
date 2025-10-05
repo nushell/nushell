@@ -1,0 +1,19 @@
+id: if-matches-chain
+invalid:
+  - |
+    if matches!(shape, SyntaxShape::Closure(_)) {
+      parse_closure();
+    } else if matches!(shape, SyntaxShape::Block(_)) {
+      parse_block();
+    } else if matches!(shape, SyntaxShape::MatchBlock) {
+      parse_match_block();
+    } else {
+      parse_other();
+    }
+valid:
+  - |
+    if matches!(shape, SyntaxShape::Closure(_)) {
+      parse_closure();
+    } else {
+      dont();
+    }
