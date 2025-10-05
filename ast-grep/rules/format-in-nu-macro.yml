@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rust_rule.json
+
+id: format-in-nu-macro
+language: rust
+severity: error
+message: "`nu!` macro already supports format strings, use of `format!` is unnecessary"
+
+rule:
+  pattern:
+    context: $FORMAT!($$$_)
+    selector: identifier
+  kind: identifier
+  regex: "^format$"
+  inside:
+    stopBy: end
+    kind: token_tree
+    inside:
+      pattern: nu!($$$_)
+
+labels:
+  FORMAT:
+    style: primary
