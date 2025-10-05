@@ -93,10 +93,10 @@ pub fn http_client(
         config_builder = config_builder.max_redirects(0);
     }
 
-    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
-        if let Ok(proxy) = ureq::Proxy::new(&http_proxy) {
-            config_builder = config_builder.proxy(Some(proxy));
-        }
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack)
+        && let Ok(proxy) = ureq::Proxy::new(&http_proxy)
+    {
+        config_builder = config_builder.proxy(Some(proxy));
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
@@ -258,9 +258,9 @@ pub fn send_request(
 ) -> (Result<Response, ShellError>, Headers) {
     let mut request_headers = Headers::new();
     let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
-    // hard code serialze_types to false because closures probably shouldn't be
+    // hard code serialize_types to false because closures probably shouldn't be
     // deserialized for send_request but it's required by send_json_request
-    let serialze_types = false;
+    let serialize_types = false;
     let response = match body {
         HttpBody::ByteStream(byte_stream) => {
             let req = if let Some(content_type) = content_type {
@@ -296,7 +296,7 @@ pub fn send_request(
                     req,
                     span,
                     signals,
-                    serialze_types,
+                    serialize_types,
                 ),
                 BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {
@@ -966,16 +966,15 @@ pub(crate) fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineDat
 
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
-            if let Value::Record { val, .. } = val {
-                if let Some((
+            if let Value::Record { val, .. } = val
+                && let Some((
                     _col,
                     Value::String {
                         val: header_name, ..
                     },
                 )) = val.get_index(0)
-                {
-                    return name == header_name;
-                }
+            {
+                return name == header_name;
             }
             false
         });

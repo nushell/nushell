@@ -34,6 +34,7 @@ nu-std = { path = "../nu-std", version = "0.107.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.107.1" }
 
 assert-json-diff = "2.0"
+rstest = { workspace = true, default-features = false }
 
 [lints]
 workspace = true

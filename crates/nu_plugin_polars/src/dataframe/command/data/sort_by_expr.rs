@@ -51,7 +51,7 @@ impl PluginCommand for LazySortBy {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sort dataframe by one column",

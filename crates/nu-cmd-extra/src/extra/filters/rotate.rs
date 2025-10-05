@@ -30,7 +30,7 @@ impl Command for Rotate {
         "Rotates a table or record clockwise (default) or counter-clockwise (use --ccw flag)."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",

@@ -83,7 +83,7 @@ impl Command for MathVariance {
         run_with_function(call, input, compute_variance(sample))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get the variance of a list of numbers",

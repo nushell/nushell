@@ -1,4 +1,4 @@
-use nu_test_support::nu_with_plugins;
+use nu_test_support::{nu_with_plugins, playground::Playground};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -81,24 +81,68 @@ fn can_get_describe_plugin_custom_values() {
 
 #[test]
 fn can_get_plugin_custom_value_int_cell_path() {
-    let actual = nu_with_plugins!(
+    let zero_index = nu_with_plugins!(
         cwd: "tests",
         plugin: ("nu_plugin_custom_values"),
         "(custom-value generate).0"
     );
+    assert_eq!(zero_index.out, "abc");
 
-    assert_eq!(actual.out, "abc");
+    let one_index = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).1"
+    );
+    assert!(one_index.err.contains("nu::shell::access_beyond_end"));
+
+    let one_index_optional = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).1? | describe"
+    );
+    assert_eq!(one_index_optional.out, "nothing");
 }
 
 #[test]
 fn can_get_plugin_custom_value_string_cell_path() {
-    let actual = nu_with_plugins!(
+    let cool = nu_with_plugins!(
         cwd: "tests",
         plugin: ("nu_plugin_custom_values"),
         "(custom-value generate).cool"
     );
+    assert_eq!(cool.out, "abc");
 
-    assert_eq!(actual.out, "abc");
+    let meh = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).meh"
+    );
+    assert!(meh.err.contains("nu::shell::column_not_found"));
+
+    let meh_optional = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).meh? | describe"
+    );
+    assert_eq!(meh_optional.out, "nothing");
+
+    let cool_capitalized_sensitive = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).COOL"
+    );
+    assert!(
+        cool_capitalized_sensitive
+            .err
+            .contains("nu::shell::column_not_found")
+    );
+
+    let cool_capitalized_insensitive = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "(custom-value generate).COOL!"
+    );
+    assert_eq!(cool_capitalized_insensitive.out, "abc");
 }
 
 #[test]
@@ -250,4 +294,30 @@ fn custom_value_into_string() {
     );
 
     assert_eq!(actual.out, "I used to be a custom value! My data was (abc)");
+}
+
+#[test]
+fn save_custom_values() {
+    Playground::setup("save custom values", |_, playground| {
+        let actual_unimplemented = nu_with_plugins!(
+            cwd: playground.cwd(),
+            plugin: ("nu_plugin_custom_values"),
+            "custom-value generate | save file"
+        );
+        assert!(
+            actual_unimplemented
+                .err
+                .contains("Custom value does not implement `save`")
+        );
+
+        nu_with_plugins!(
+            cwd: playground.cwd(),
+            plugin: ("nu_plugin_custom_values"),
+            "custom-value generate2 | save file"
+        );
+
+        let file_path = playground.cwd().join("file");
+        let content = std::fs::read_to_string(file_path).unwrap();
+        assert_eq!(content, "xyz"); // "xyz" is the content when using generate2
+    });
 }

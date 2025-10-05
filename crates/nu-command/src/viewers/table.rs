@@ -2,7 +2,7 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr};
+use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
 use lscolors::{LsColors, Style};
 use url::Url;
@@ -25,7 +25,6 @@ use nu_utils::{get_ls_colors, terminal_size};
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
 
-const STREAM_PAGE_SIZE: usize = 1000;
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
 #[derive(Clone)]
@@ -130,7 +129,7 @@ impl Command for Table {
         handle_table_command(input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",
@@ -695,12 +694,11 @@ fn handle_row_stream(
                     // Only the name column gets special colors, for now
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
-                        if let Value::String { val, .. } = value {
-                            if let Some(val) =
+                        if let Value::String { val, .. } = value
+                            && let Some(val) =
                                 render_path_name(val, &config, &ls_colors, input.cwd.clone(), span)
-                            {
-                                *value = val;
-                            }
+                        {
+                            *value = val;
                         }
                     }
                 }
@@ -873,13 +871,14 @@ impl Iterator for PagingTableCreator {
         match self.table_config.abbreviation {
             Some(abbr) => {
                 (batch, _, end) =
-                    stream_collect_abbriviated(&mut self.stream, abbr, self.engine_state.signals());
+                    stream_collect_abbreviated(&mut self.stream, abbr, self.engine_state.signals());
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
                 (batch, end) = stream_collect(
                     &mut self.stream,
-                    STREAM_PAGE_SIZE,
+                    self.config.table.stream_page_size.get() as usize,
+                    self.config.table.batch_duration,
                     self.engine_state.signals(),
                 );
             }
@@ -932,6 +931,7 @@ impl Iterator for PagingTableCreator {
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
+    batch_duration: Duration,
     signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
@@ -941,12 +941,13 @@ fn stream_collect(
     for (i, item) in stream.enumerate() {
         batch.push(item);
 
-        // If we've been buffering over a second, go ahead and send out what we have so far
-        if (Instant::now() - start_time).as_secs() >= 1 {
+        // We buffer until `$env.config.table.batch_duration`, then we send out what we have so far
+        if (Instant::now() - start_time) >= batch_duration {
             end = false;
             break;
         }
 
+        // Or until we reached `$env.config.table.stream_page_size`.
         if i + 1 == size {
             end = false;
             break;
@@ -960,7 +961,7 @@ fn stream_collect(
     (batch, end)
 }
 
-fn stream_collect_abbriviated(
+fn stream_collect_abbreviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
@@ -994,7 +995,7 @@ fn stream_collect_abbriviated(
 
     let have_filled_list = head.len() == size && tail.len() == size;
     if have_filled_list {
-        let dummy = get_abbriviated_dummy(&head, &tail);
+        let dummy = get_abbreviated_dummy(&head, &tail);
         head.insert(size, dummy)
     }
 
@@ -1003,7 +1004,7 @@ fn stream_collect_abbriviated(
     (head, read, end)
 }
 
-fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
+fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
     let dummy = || Value::string(String::from("..."), Span::unknown());
     let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
 

@@ -59,7 +59,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "{a: 1, b: {c: 2, d: 3}} | merge deep {b: {d: 4, e: 5}}",

@@ -32,7 +32,7 @@ impl PluginCommand for ForEach {
             .category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "ls | get name | example for-each { |f| ^file $f }",
             description: "example with an external command",

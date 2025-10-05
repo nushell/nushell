@@ -1,6 +1,6 @@
 use chrono::Local;
 use nu_engine::command_prelude::*;
-use nu_utils::{get_scaffold_config, get_scaffold_env};
+use nu_utils::ConfigFileKind;
 use std::{io::Write, path::PathBuf};
 
 #[derive(Clone)]
@@ -25,7 +25,7 @@ impl Command for ConfigReset {
         "Reset nushell environment configurations to default, and saves old config files in the config location as oldconfig.nu and oldenv.nu."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "reset nushell configuration files",
             example: "config reset",
@@ -48,9 +48,10 @@ impl Command for ConfigReset {
             return Err(ShellError::ConfigDirNotFound { span: call.head });
         };
         if !only_env {
+            let kind = ConfigFileKind::Config;
             let mut nu_config = config_path.clone();
-            nu_config.push("config.nu");
-            let config_file = get_scaffold_config();
+            nu_config.push(kind.path());
+            let config_file = kind.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!(
@@ -66,21 +67,22 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&nu_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
-                    return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.not_found_as(NotFound::File),
-                        span,
-                        PathBuf::from(nu_config),
-                        "config.nu could not be written to",
-                    )));
-                }
+            if let Ok(mut file) = std::fs::File::create(&nu_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}")
+            {
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    err.not_found_as(NotFound::File),
+                    span,
+                    PathBuf::from(nu_config),
+                    "config.nu could not be written to",
+                )));
             }
         }
         if !only_nu {
+            let kind = ConfigFileKind::Env;
             let mut env_config = config_path.clone();
-            env_config.push("env.nu");
-            let config_file = get_scaffold_env();
+            env_config.push(kind.path());
+            let config_file = kind.scaffold();
             if !no_backup {
                 let mut backup_path = config_path.clone();
                 backup_path.push(format!("oldenv-{}.nu", Local::now().format("%F-%H-%M-%S"),));
@@ -93,15 +95,15 @@ impl Command for ConfigReset {
                     )));
                 }
             }
-            if let Ok(mut file) = std::fs::File::create(&env_config) {
-                if let Err(err) = writeln!(&mut file, "{config_file}") {
-                    return Err(ShellError::Io(IoError::new_with_additional_context(
-                        err.not_found_as(NotFound::File),
-                        span,
-                        PathBuf::from(env_config),
-                        "env.nu could not be written to",
-                    )));
-                }
+            if let Ok(mut file) = std::fs::File::create(&env_config)
+                && let Err(err) = writeln!(&mut file, "{config_file}")
+            {
+                return Err(ShellError::Io(IoError::new_with_additional_context(
+                    err.not_found_as(NotFound::File),
+                    span,
+                    PathBuf::from(env_config),
+                    "env.nu could not be written to",
+                )));
             }
         }
         Ok(PipelineData::empty())

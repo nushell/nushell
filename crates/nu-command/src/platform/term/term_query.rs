@@ -61,7 +61,7 @@ The `prefix` is not included in the output."
             )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get cursor position.",

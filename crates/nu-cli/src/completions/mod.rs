@@ -25,7 +25,7 @@ pub use custom_completions::CustomCompletion;
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use exportable_completions::ExportableCompletion;
-pub use file_completions::{FileCompletion, file_path_completion};
+pub use file_completions::FileCompletion;
 pub use flag_completions::FlagCompletion;
 pub use operator_completions::OperatorCompletion;
 pub use static_completions::StaticCompletion;

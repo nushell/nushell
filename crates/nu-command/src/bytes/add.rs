@@ -81,7 +81,7 @@ impl Command for BytesAdd {
         operate(add, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",
@@ -152,14 +152,14 @@ fn add_impl(input: &[u8], args: &Arguments, span: Span) -> Value {
                 Value::binary(result, span)
             }
         }
-        Some(mut indx) => {
+        Some(mut index) => {
             let inserted_index = if args.end {
-                input.len().saturating_sub(indx)
+                input.len().saturating_sub(index)
             } else {
-                if indx > input.len() {
-                    indx = input.len()
+                if index > input.len() {
+                    index = input.len()
                 }
-                indx
+                index
             };
             let mut result = vec![];
             let mut prev_data = input[..inserted_index].to_vec();

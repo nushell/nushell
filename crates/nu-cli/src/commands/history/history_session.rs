@@ -18,7 +18,7 @@ impl Command for HistorySession {
             .input_output_types(vec![(Type::Nothing, Type::Int)])
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "history session",
             description: "Get current history session",

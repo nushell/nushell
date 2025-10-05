@@ -30,7 +30,7 @@ impl PluginCommand for ExprArgWhere {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Return a dataframe where the value match the expression",
             example: "let df = ([[a b]; [one 1] [two 2] [three 3]] | polars into-df);

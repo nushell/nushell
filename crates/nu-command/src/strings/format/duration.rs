@@ -117,7 +117,7 @@ impl Command for FormatDuration {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert µs duration to the requested second duration as a string",

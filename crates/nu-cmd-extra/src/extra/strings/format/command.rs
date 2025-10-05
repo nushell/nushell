@@ -63,7 +63,7 @@ impl Command for FormatPattern {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print filenames with their sizes",

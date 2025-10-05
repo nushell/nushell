@@ -34,7 +34,7 @@ impl PluginCommand for GetDF {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Returns the selected column",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars get a",

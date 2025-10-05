@@ -46,7 +46,7 @@ impl PluginCommand for LazyQuantile {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "quantile value from columns in a dataframe",

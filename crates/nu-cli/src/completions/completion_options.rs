@@ -59,7 +59,7 @@ impl<T> NuMatcher<'_, T> {
     /// # Arguments
     ///
     /// * `needle` - The text to search for
-    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<T> {
+    pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
         let needle = trim_quotes_str(needle.as_ref());
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
@@ -129,10 +129,8 @@ impl<T> NuMatcher<'_, T> {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = haystack_folded.starts_with(self.needle.as_str());
-                if matches {
-                    if let Some(item) = item {
-                        items.push((haystack.to_string(), item));
-                    }
+                if matches && let Some(item) = item {
+                    items.push((haystack.to_string(), item));
                 }
                 matches
             }
@@ -143,10 +141,8 @@ impl<T> NuMatcher<'_, T> {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let matches = haystack_folded.contains(self.needle.as_str());
-                if matches {
-                    if let Some(item) = item {
-                        items.push((haystack.to_string(), item));
-                    }
+                if matches && let Some(item) = item {
+                    items.push((haystack.to_string(), item));
                 }
                 matches
             }

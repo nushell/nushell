@@ -15,3 +15,12 @@ fn break_while_loop() {
 
     assert_eq!(actual.out, "hello");
 }
+
+#[test]
+fn break_outside_loop() {
+    let actual = nu!(r#"break"#);
+    assert!(actual.err.contains("not_in_a_loop"));
+
+    let actual = nu!(r#"do { break }"#);
+    assert!(actual.err.contains("not_in_a_loop"));
+}

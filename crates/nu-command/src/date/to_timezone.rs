@@ -60,7 +60,7 @@ impl Command for DateToTimezone {
         let timezone: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
+        if let PipelineData::Empty = input {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
@@ -69,7 +69,7 @@ impl Command for DateToTimezone {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let example_result_1 = || match FixedOffset::east_opt(5 * 3600)
             .expect("to timezone: help example is invalid")
             .with_ymd_and_hms(2020, 10, 10, 13, 00, 00)

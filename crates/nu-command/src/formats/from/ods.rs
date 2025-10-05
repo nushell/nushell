@@ -50,7 +50,7 @@ impl Command for FromOds {
         from_ods(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert binary .ods data to a table",

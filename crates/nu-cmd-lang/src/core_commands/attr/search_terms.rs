@@ -45,7 +45,7 @@ impl Command for AttrSearchTerms {
         true
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Add search terms to a custom command",
             example: r###"# Double numbers

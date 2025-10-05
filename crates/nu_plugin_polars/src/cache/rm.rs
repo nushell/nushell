@@ -28,7 +28,7 @@ impl PluginCommand for CacheRemove {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Removes a stored ",
             example: r#"let df = ([[a b];[1 2] [3 4]] | polars into-df);

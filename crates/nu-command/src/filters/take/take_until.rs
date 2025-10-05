@@ -27,7 +27,7 @@ impl Command for TakeUntil {
         "Take elements of the input until a predicate is true."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Take until the element is positive",

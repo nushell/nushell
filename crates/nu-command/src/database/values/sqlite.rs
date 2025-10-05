@@ -3,12 +3,11 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
+    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value, casing::Casing,
     engine::EngineState, shell_error::io::IoError,
 };
 use rusqlite::{
-    Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement, ToSql,
-    types::ValueRef,
+    Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,6 +18,7 @@ use std::{
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 pub const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
+const DATABASE_NAME: &str = "main";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
@@ -183,7 +183,7 @@ impl SQLiteDatabase {
         conn: &Connection,
         filename: String,
     ) -> Result<(), SqliteError> {
-        conn.backup(DatabaseName::Main, Path::new(&filename), None)?;
+        conn.backup(DATABASE_NAME, Path::new(&filename), None)?;
         Ok(())
     }
 
@@ -193,7 +193,7 @@ impl SQLiteDatabase {
         filename: String,
     ) -> Result<(), SqliteError> {
         conn.restore(
-            DatabaseName::Main,
+            DATABASE_NAME,
             Path::new(&filename),
             Some(|p: rusqlite::backup::Progress| {
                 let percent = if p.pagecount == 0 {
@@ -380,6 +380,7 @@ impl CustomValue for SQLiteDatabase {
         _self_span: Span,
         _index: usize,
         path_span: Span,
+        _optional: bool,
     ) -> Result<Value, ShellError> {
         // In theory we could support this, but tables don't have an especially well-defined order
         Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span: path_span })
@@ -390,6 +391,8 @@ impl CustomValue for SQLiteDatabase {
         _self_span: Span,
         column_name: String,
         path_span: Span,
+        _optional: bool,
+        _casing: Casing,
     ) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, path_span)?;
         read_single_table(db, column_name, path_span, &self.signals)

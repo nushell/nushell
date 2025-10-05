@@ -37,7 +37,7 @@ impl PluginCommand for ExprMax {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Max value from columns in a dataframe",

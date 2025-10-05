@@ -64,18 +64,44 @@ mod tests {
     use crate::tests::{initialize_language_server, open_unchecked, update};
     use assert_json_diff::assert_json_eq;
     use nu_test_support::fs::fixtures;
+    use rstest::rstest;
 
-    #[test]
-    fn publish_diagnostics_variable_does_not_exists() {
+    #[rstest]
+    #[case::file_with_no_issues("pwd.nu", None, serde_json::json!([]))]
+    #[case::file_fixed_by_update("var.nu", Some(("$env", lsp_types::Range {
+        start: lsp_types::Position { line: 0, character: 6 },
+        end: lsp_types::Position { line: 0, character: 30 },
+    })), serde_json::json!([]))]
+    #[case::variable_does_not_exist("var.nu", None, serde_json::json!([{
+        "range": {
+            "start": { "line": 0, "character": 6 },
+            "end": { "line": 0, "character": 30 }
+        },
+        "message": "Variable not found.",
+        "severity": 1
+    }]))]
+    fn publish_diagnostics(
+        #[case] filename: &str,
+        #[case] update_op: Option<(&str, lsp_types::Range)>,
+        #[case] expected_diagnostics: serde_json::Value,
+    ) {
         let (client_connection, _recv) = initialize_language_server(None, None);
 
         let mut script = fixtures();
-        script.push("lsp");
-        script.push("diagnostics");
-        script.push("var.nu");
+        script.push("lsp/diagnostics");
+        script.push(filename);
         let script = path_to_uri(&script);
 
-        let notification = open_unchecked(&client_connection, script.clone());
+        let mut notification = open_unchecked(&client_connection, script.clone());
+        // For files that need fixing, open first then update
+        if let Some((text, range)) = update_op {
+            notification = update(
+                &client_connection,
+                script.clone(),
+                String::from(text),
+                Some(range),
+            );
+        };
 
         assert_json_eq!(
             notification,
@@ -83,77 +109,7 @@ mod tests {
                 "method": "textDocument/publishDiagnostics",
                 "params": {
                     "uri": script,
-                    "diagnostics": [{
-                        "range": {
-                            "start": { "line": 0, "character": 6 },
-                            "end": { "line": 0, "character": 30 }
-                        },
-                        "message": "Variable not found.",
-                        "severity": 1
-                    }]
-                }
-            })
-        );
-    }
-
-    #[test]
-    fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("diagnostics");
-        script.push("var.nu");
-        let script = path_to_uri(&script);
-
-        open_unchecked(&client_connection, script.clone());
-        let notification = update(
-            &client_connection,
-            script.clone(),
-            String::from("$env"),
-            Some(lsp_types::Range {
-                start: lsp_types::Position {
-                    line: 0,
-                    character: 6,
-                },
-                end: lsp_types::Position {
-                    line: 0,
-                    character: 30,
-                },
-            }),
-        );
-
-        assert_json_eq!(
-            notification,
-            serde_json::json!({
-                "method": "textDocument/publishDiagnostics",
-                "params": {
-                    "uri": script,
-                    "diagnostics": []
-                }
-            })
-        );
-    }
-
-    #[test]
-    fn publish_diagnostics_none() {
-        let (client_connection, _recv) = initialize_language_server(None, None);
-
-        let mut script = fixtures();
-        script.push("lsp");
-        script.push("diagnostics");
-        script.push("pwd.nu");
-        let script = path_to_uri(&script);
-
-        let notification = open_unchecked(&client_connection, script.clone());
-
-        assert_json_eq!(
-            notification,
-            serde_json::json!({
-                "method": "textDocument/publishDiagnostics",
-                "params": {
-                    "uri": script,
-                    "diagnostics": []
+                    "diagnostics": expected_diagnostics
                 }
             })
         );

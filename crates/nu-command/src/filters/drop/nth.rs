@@ -34,7 +34,7 @@ impl Command for DropNth {
         vec!["delete", "remove", "index"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[sam,sarah,2,3,4,5] | drop nth 0 1 2",

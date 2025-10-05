@@ -10,7 +10,7 @@ impl Command for AttrCategory {
 
     fn signature(&self) -> Signature {
         Signature::build("attr category")
-            .input_output_type(Type::Nothing, Type::list(Type::String))
+            .input_output_type(Type::Nothing, Type::String)
             .allow_variants_without_examples(true)
             .required(
                 "category",
@@ -49,7 +49,7 @@ impl Command for AttrCategory {
         true
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Add a category to a custom command",
             example: r###"# Double numbers

@@ -809,10 +809,10 @@ impl Signature {
     /// Find the matching long flag
     pub fn get_short_flag(&self, short: char) -> Option<Flag> {
         for flag in &self.named {
-            if let Some(short_flag) = &flag.short {
-                if *short_flag == short {
-                    return Some(flag.clone());
-                }
+            if let Some(short_flag) = &flag.short
+                && *short_flag == short
+            {
+                return Some(flag.clone());
             }
         }
         None
@@ -969,7 +969,7 @@ impl Command for BlockCommand {
         self.attributes.clone()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         self.examples
             .iter()
             .map(CustomExample::to_example)

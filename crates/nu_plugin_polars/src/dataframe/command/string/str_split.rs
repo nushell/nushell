@@ -34,7 +34,7 @@ impl PluginCommand for StrSplit {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Split the string by comma, then create a new row for each string",
             example: r#"[[a]; ["one,two,three"]] | polars into-df 

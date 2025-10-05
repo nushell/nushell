@@ -21,7 +21,20 @@ iterate over each record, not necessarily each cell within it.
 Avoid passing single records to this command. Since a record is a
 one-row structure, 'each' will only run once, behaving similar to 'do'.
 To iterate over a record's values, use 'items' or try converting it to a table
-with 'transpose' first."#
+with 'transpose' first.
+
+
+By default, for each input there is a single output value.
+If the closure returns a stream rather than value, the stream is collected
+completely, and the resulting value becomes one of the items in `each`'s output.
+
+To receive items from those streams without waiting for the whole stream to be
+collected, `each --flatten` can be used.
+Instead of waiting for the stream to be collected before returning the result as
+a single item, `each --flatten` will return each item as soon as they are received.
+
+This "flattens" the output, turning an output that would otherwise be a
+list of lists like `list<list<string>>` into a flat list like `list<string>`."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,11 +57,17 @@ with 'transpose' first."#
                 "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
+            .switch(
+                "flatten",
+                "combine outputs into a single stream instead of\
+                    collecting them to separate values",
+                Some('f'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
@@ -95,6 +114,16 @@ with 'transpose' first."#
                 description: "Update value if not null, otherwise do nothing",
                 result: None,
             },
+            Example {
+                description: "Scan through multiple files without pause",
+                example: "\
+                    ls *.txt \
+                    | each --flatten {|f| open $f.name | lines } \
+                    | find -i 'note: ' \
+                    | str join \"\\n\"\
+                    ",
+                result: None,
+            },
         ]
     }
 
@@ -108,85 +137,89 @@ with 'transpose' first."#
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
+        let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
         let metadata = input.metadata();
-        match input {
-            PipelineData::Empty => Ok(PipelineData::empty()),
-            PipelineData::Value(Value::Nothing { .. }, ..) => Ok(input),
+        let result = match input {
+            empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
+                return Ok(empty);
+            }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(input
-                    .into_iter()
-                    .map_while(move |value| {
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        match closure.run_with_value(value) {
-                            Ok(PipelineData::ListStream(s, ..)) => {
-                                let mut vals = vec![];
-                                for v in s {
-                                    if let Value::Error { .. } = v {
-                                        return Some(v);
-                                    } else {
-                                        vals.push(v)
-                                    }
-                                }
-                                Some(Value::list(vals, span))
-                            }
-                            Ok(data) => Some(data.into_value(head).unwrap_or_else(|err| {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            })),
-                            Err(error) => {
-                                let error = chain_error_with_input(error, is_error, span);
-                                Some(Value::error(error, span))
-                            }
-                        }
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+
+                let out = if flatten {
+                    input
+                        .into_iter()
+                        .flat_map(move |value| {
+                            closure.run_with_value(value).unwrap_or_else(|error| {
+                                Value::error(error, head).into_pipeline_data()
+                            })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    input
+                        .into_iter()
+                        .map(move |value| {
+                            each_map(value, &mut closure, head)
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(chunks) = stream.chunks() {
-                    let mut closure = ClosureEval::new(engine_state, stack, closure);
-                    Ok(chunks
-                        .map_while(move |value| {
-                            let value = match value {
-                                Ok(value) => value,
-                                Err(err) => return Some(Value::error(err, head)),
-                            };
+                let Some(chunks) = stream.chunks() else {
+                    return Ok(PipelineData::empty().set_metadata(metadata));
+                };
 
-                            let span = value.span();
-                            let is_error = value.is_error();
-                            match closure
-                                .run_with_value(value)
-                                .and_then(|data| data.into_value(head))
-                            {
-                                Ok(value) => Some(value),
-                                Err(error) => {
-                                    let error = chain_error_with_input(error, is_error, span);
-                                    Some(Value::error(error, span))
-                                }
-                            }
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                let out = if flatten {
+                    chunks
+                        .flat_map(move |result| {
+                            result
+                                .and_then(|value| closure.run_with_value(value))
+                                .unwrap_or_else(|error| {
+                                    Value::error(error, head).into_pipeline_data()
+                                })
                         })
-                        .into_pipeline_data(head, engine_state.signals().clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone())
                 } else {
-                    Ok(PipelineData::empty())
-                }
+                    chunks
+                        .map(move |result| {
+                            result
+                                .and_then(|value| each_map(value, &mut closure, head))
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, ..) => {
                 ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
+        };
+
+        if keep_empty {
+            result
+        } else {
+            result.and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         }
-        .and_then(|x| {
-            x.filter(
-                move |x| if !keep_empty { !x.is_nothing() } else { true },
-                engine_state.signals(),
-            )
-        })
         .map(|data| data.set_metadata(metadata))
     }
+}
+
+#[inline]
+fn each_map(value: Value, closure: &mut ClosureEval, head: Span) -> Result<Value, ShellError> {
+    let span = value.span();
+    let is_error = value.is_error();
+    closure
+        .run_with_value(value)
+        .and_then(|pipeline_data| pipeline_data.into_value(head))
+        .map_err(|error| chain_error_with_input(error, is_error, span))
 }
 
 #[cfg(test)]

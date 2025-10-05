@@ -38,7 +38,7 @@ impl Command for Length {
         length_row(call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Count the number of items in a list",

@@ -231,6 +231,7 @@ fn errors_if_destination_doesnt_exist() {
         );
 
         assert!(actual.err.contains("failed to access"));
+        assert!(actual.err.contains("Not a directory"));
     })
 }
 
@@ -280,6 +281,7 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "mv mydir mydir/mydir_2/"
         );
+
         assert!(actual.err.contains("cannot move"));
         assert!(actual.err.contains("to a subdirectory"));
     });
@@ -402,6 +404,7 @@ fn mv_directory_with_same_name() {
                  mv testdir ..
             "#
         );
+
         assert!(actual.err.contains("Directory not empty"));
     })
 }

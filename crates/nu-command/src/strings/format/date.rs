@@ -42,7 +42,7 @@ impl Command for FormatDate {
         vec!["fmt", "strftime"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",
@@ -101,7 +101,7 @@ impl Command for FormatDate {
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL ovverides LC_TIME, LC_TIME overrides LANG
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
@@ -135,7 +135,7 @@ impl Command for FormatDate {
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
 
         // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL ovverides LC_TIME, LC_TIME overrides LANG
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
@@ -177,7 +177,7 @@ fn run(
     }
 
     // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
+    if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
     input.map(
@@ -199,7 +199,11 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = date_time.format_localized(formatter, locale);
+    // Handle custom format specifiers for compact formats
+    let processed_formatter = formatter
+        .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
+        .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
+    let format = date_time.format_localized(&processed_formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),

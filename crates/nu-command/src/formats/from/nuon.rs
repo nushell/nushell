@@ -18,7 +18,7 @@ impl Command for FromNuon {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "'{ a:1 }' | from nuon",

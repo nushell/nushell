@@ -39,7 +39,7 @@ impl Command for WithEnv {
         with_env(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Set by key-value record",
             example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,

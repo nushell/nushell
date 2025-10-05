@@ -65,7 +65,7 @@ impl Command for RandomBinary {
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate 16 random bytes",

@@ -16,10 +16,10 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
     let mut args = std::env::args();
 
     // Mimic the behaviour of bash/zsh
-    if let Some(argv0) = args.next() {
-        if argv0.starts_with('-') {
-            args_to_nushell.push("--login".into());
-        }
+    if let Some(argv0) = args.next()
+        && argv0.starts_with('-')
+    {
+        args_to_nushell.push("--login".into());
     }
 
     while let Some(arg) = args.next() {
@@ -49,6 +49,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--ide-complete"
             | "--ide-check"
             | "--experimental-options" => args.next(),
+            #[cfg(feature = "mcp")]
+            "--mcp" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -92,182 +94,185 @@ pub(crate) fn parse_commandline_args(
     let mut stack = Stack::new();
 
     // We should have a successful parse now
-    if let Some(pipeline) = block.pipelines.first() {
-        if let Some(Expr::Call(call)) = pipeline.elements.first().map(|e| &e.expr.expr) {
-            let redirect_stdin = call.get_named_arg("stdin");
-            let login_shell = call.get_named_arg("login");
-            let interactive_shell = call.get_named_arg("interactive");
-            let commands = call.get_flag_expr("commands");
-            let testbin = call.get_flag_expr("testbin");
-            #[cfg(feature = "plugin")]
-            let plugin_file = call.get_flag_expr("plugin-config");
-            #[cfg(feature = "plugin")]
-            let plugins = call.get_flag_expr("plugins");
-            let no_config_file = call.get_named_arg("no-config-file");
-            let no_history = call.get_named_arg("no-history");
-            let no_std_lib = call.get_named_arg("no-std-lib");
-            let config_file = call.get_flag_expr("config");
-            let env_file = call.get_flag_expr("env-config");
-            let log_level = call.get_flag_expr("log-level");
-            let log_target = call.get_flag_expr("log-target");
-            let log_include = call.get_flag_expr("log-include");
-            let log_exclude = call.get_flag_expr("log-exclude");
-            let execute = call.get_flag_expr("execute");
-            let table_mode: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "table-mode")?;
-            let error_style: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "error-style")?;
-            let no_newline = call.get_named_arg("no-newline");
-            let experimental_options = call.get_flag_expr("experimental-options");
+    if let Some(pipeline) = block.pipelines.first()
+        && let Some(Expr::Call(call)) = pipeline.elements.first().map(|e| &e.expr.expr)
+    {
+        let redirect_stdin = call.get_named_arg("stdin");
+        let login_shell = call.get_named_arg("login");
+        let interactive_shell = call.get_named_arg("interactive");
+        let commands = call.get_flag_expr("commands");
+        let testbin = call.get_flag_expr("testbin");
+        #[cfg(feature = "plugin")]
+        let plugin_file = call.get_flag_expr("plugin-config");
+        #[cfg(feature = "plugin")]
+        let plugins = call.get_flag_expr("plugins");
+        let no_config_file = call.get_named_arg("no-config-file");
+        let no_history = call.get_named_arg("no-history");
+        let no_std_lib = call.get_named_arg("no-std-lib");
+        let config_file = call.get_flag_expr("config");
+        let env_file = call.get_flag_expr("env-config");
+        let log_level = call.get_flag_expr("log-level");
+        let log_target = call.get_flag_expr("log-target");
+        let log_include = call.get_flag_expr("log-include");
+        let log_exclude = call.get_flag_expr("log-exclude");
+        let execute = call.get_flag_expr("execute");
+        let table_mode: Option<Value> = call.get_flag(engine_state, &mut stack, "table-mode")?;
+        let error_style: Option<Value> = call.get_flag(engine_state, &mut stack, "error-style")?;
+        let no_newline = call.get_named_arg("no-newline");
+        let experimental_options = call.get_flag_expr("experimental-options");
 
-            // ide flags
-            let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
-            let include_path = call.get_flag_expr("include-path");
-            let ide_goto_def: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
-            let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
-            let ide_complete: Option<Value> =
-                call.get_flag(engine_state, &mut stack, "ide-complete")?;
-            let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
-            let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
+        // ide flags
+        let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
+        let include_path = call.get_flag_expr("include-path");
+        let ide_goto_def: Option<Value> =
+            call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
+        let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
+        let ide_complete: Option<Value> =
+            call.get_flag(engine_state, &mut stack, "ide-complete")?;
+        let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
+        let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
-            fn extract_contents(
-                expression: Option<&Expression>,
-            ) -> Result<Option<Spanned<String>>, ShellError> {
-                if let Some(expr) = expression {
-                    let str = expr.as_string();
-                    if let Some(str) = str {
-                        Ok(Some(Spanned {
-                            item: str,
-                            span: expr.span,
-                        }))
-                    } else {
-                        Err(ShellError::TypeMismatch {
-                            err_message: "string".into(),
-                            span: expr.span,
-                        })
-                    }
+        #[cfg(feature = "mcp")]
+        let mcp = call.has_flag(engine_state, &mut stack, "mcp")?;
+
+        fn extract_contents(
+            expression: Option<&Expression>,
+        ) -> Result<Option<Spanned<String>>, ShellError> {
+            if let Some(expr) = expression {
+                let str = expr.as_string();
+                if let Some(str) = str {
+                    Ok(Some(Spanned {
+                        item: str,
+                        span: expr.span,
+                    }))
                 } else {
-                    Ok(None)
-                }
-            }
-
-            fn extract_path(
-                expression: Option<&Expression>,
-            ) -> Result<Option<Spanned<String>>, ShellError> {
-                if let Some(expr) = expression {
-                    let tuple = expr.as_filepath();
-                    if let Some((str, _)) = tuple {
-                        Ok(Some(Spanned {
-                            item: str,
-                            span: expr.span,
-                        }))
-                    } else {
-                        Err(ShellError::TypeMismatch {
-                            err_message: "path".into(),
-                            span: expr.span,
-                        })
-                    }
-                } else {
-                    Ok(None)
-                }
-            }
-
-            fn extract_list(
-                expression: Option<&Expression>,
-                type_name: &str,
-                mut extract_item: impl FnMut(&Expression) -> Option<String>,
-            ) -> Result<Option<Vec<Spanned<String>>>, ShellError> {
-                expression
-                    .map(|expr| match &expr.expr {
-                        Expr::List(list) => list
-                            .iter()
-                            .map(|item| {
-                                extract_item(item.expr())
-                                    .map(|s| s.into_spanned(item.expr().span))
-                                    .ok_or_else(|| ShellError::TypeMismatch {
-                                        err_message: type_name.into(),
-                                        span: item.expr().span,
-                                    })
-                            })
-                            .collect::<Result<Vec<Spanned<String>>, _>>(),
-                        _ => Err(ShellError::TypeMismatch {
-                            err_message: format!("list<{type_name}>"),
-                            span: expr.span,
-                        }),
+                    Err(ShellError::TypeMismatch {
+                        err_message: "string".into(),
+                        span: expr.span,
                     })
-                    .transpose()
+                }
+            } else {
+                Ok(None)
             }
-
-            let commands = extract_contents(commands)?;
-            let testbin = extract_contents(testbin)?;
-            #[cfg(feature = "plugin")]
-            let plugin_file = extract_path(plugin_file)?;
-            #[cfg(feature = "plugin")]
-            let plugins = extract_list(plugins, "path", |expr| expr.as_filepath().map(|t| t.0))?;
-            let config_file = extract_path(config_file)?;
-            let env_file = extract_path(env_file)?;
-            let log_level = extract_contents(log_level)?;
-            let log_target = extract_contents(log_target)?;
-            let log_include = extract_list(log_include, "string", |expr| expr.as_string())?;
-            let log_exclude = extract_list(log_exclude, "string", |expr| expr.as_string())?;
-            let execute = extract_contents(execute)?;
-            let include_path = extract_contents(include_path)?;
-            let experimental_options =
-                extract_list(experimental_options, "string", |expr| expr.as_string())?;
-
-            let help = call.has_flag(engine_state, &mut stack, "help")?;
-
-            if help {
-                let full_help = get_full_help(&Nu, engine_state, &mut stack);
-
-                let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
-
-                std::process::exit(0);
-            }
-
-            if call.has_flag(engine_state, &mut stack, "version")? {
-                let version = env!("CARGO_PKG_VERSION").to_string();
-                let _ = std::panic::catch_unwind(move || {
-                    stdout_write_all_and_flush(format!("{version}\n"))
-                });
-
-                std::process::exit(0);
-            }
-
-            return Ok(NushellCliArgs {
-                redirect_stdin,
-                login_shell,
-                interactive_shell,
-                commands,
-                testbin,
-                #[cfg(feature = "plugin")]
-                plugin_file,
-                #[cfg(feature = "plugin")]
-                plugins,
-                no_config_file,
-                no_history,
-                no_std_lib,
-                config_file,
-                env_file,
-                log_level,
-                log_target,
-                log_include,
-                log_exclude,
-                execute,
-                include_path,
-                ide_goto_def,
-                ide_hover,
-                ide_complete,
-                lsp,
-                ide_check,
-                ide_ast,
-                table_mode,
-                error_style,
-                no_newline,
-                experimental_options,
-            });
         }
+
+        fn extract_path(
+            expression: Option<&Expression>,
+        ) -> Result<Option<Spanned<String>>, ShellError> {
+            if let Some(expr) = expression {
+                let tuple = expr.as_filepath();
+                if let Some((str, _)) = tuple {
+                    Ok(Some(Spanned {
+                        item: str,
+                        span: expr.span,
+                    }))
+                } else {
+                    Err(ShellError::TypeMismatch {
+                        err_message: "path".into(),
+                        span: expr.span,
+                    })
+                }
+            } else {
+                Ok(None)
+            }
+        }
+
+        fn extract_list(
+            expression: Option<&Expression>,
+            type_name: &str,
+            mut extract_item: impl FnMut(&Expression) -> Option<String>,
+        ) -> Result<Option<Vec<Spanned<String>>>, ShellError> {
+            expression
+                .map(|expr| match &expr.expr {
+                    Expr::List(list) => list
+                        .iter()
+                        .map(|item| {
+                            extract_item(item.expr())
+                                .map(|s| s.into_spanned(item.expr().span))
+                                .ok_or_else(|| ShellError::TypeMismatch {
+                                    err_message: type_name.into(),
+                                    span: item.expr().span,
+                                })
+                        })
+                        .collect::<Result<Vec<Spanned<String>>, _>>(),
+                    _ => Err(ShellError::TypeMismatch {
+                        err_message: format!("list<{type_name}>"),
+                        span: expr.span,
+                    }),
+                })
+                .transpose()
+        }
+
+        let commands = extract_contents(commands)?;
+        let testbin = extract_contents(testbin)?;
+        #[cfg(feature = "plugin")]
+        let plugin_file = extract_path(plugin_file)?;
+        #[cfg(feature = "plugin")]
+        let plugins = extract_list(plugins, "path", |expr| expr.as_filepath().map(|t| t.0))?;
+        let config_file = extract_path(config_file)?;
+        let env_file = extract_path(env_file)?;
+        let log_level = extract_contents(log_level)?;
+        let log_target = extract_contents(log_target)?;
+        let log_include = extract_list(log_include, "string", |expr| expr.as_string())?;
+        let log_exclude = extract_list(log_exclude, "string", |expr| expr.as_string())?;
+        let execute = extract_contents(execute)?;
+        let include_path = extract_contents(include_path)?;
+        let experimental_options =
+            extract_list(experimental_options, "string", |expr| expr.as_string())?;
+
+        let help = call.has_flag(engine_state, &mut stack, "help")?;
+
+        if help {
+            let full_help = get_full_help(&Nu, engine_state, &mut stack);
+
+            let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
+
+            std::process::exit(0);
+        }
+
+        if call.has_flag(engine_state, &mut stack, "version")? {
+            let version = env!("CARGO_PKG_VERSION").to_string();
+            let _ = std::panic::catch_unwind(move || {
+                stdout_write_all_and_flush(format!("{version}\n"))
+            });
+
+            std::process::exit(0);
+        }
+
+        return Ok(NushellCliArgs {
+            redirect_stdin,
+            login_shell,
+            interactive_shell,
+            commands,
+            testbin,
+            #[cfg(feature = "plugin")]
+            plugin_file,
+            #[cfg(feature = "plugin")]
+            plugins,
+            no_config_file,
+            no_history,
+            no_std_lib,
+            config_file,
+            env_file,
+            log_level,
+            log_target,
+            log_include,
+            log_exclude,
+            execute,
+            include_path,
+            ide_goto_def,
+            ide_hover,
+            ide_complete,
+            lsp,
+            ide_check,
+            ide_ast,
+            table_mode,
+            error_style,
+            no_newline,
+            experimental_options,
+            #[cfg(feature = "mcp")]
+            mcp,
+        });
     }
 
     // Just give the help and exit if the above fails
@@ -308,6 +313,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_check: Option<Value>,
     pub(crate) ide_ast: Option<Spanned<String>>,
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp: bool,
 }
 
 #[derive(Clone)]
@@ -415,6 +422,10 @@ impl Command for Nu {
             )
             .switch("ide-ast", "generate the ast on the given source", None);
 
+        #[cfg(feature = "mcp")]
+        {
+            signature = signature.switch("mcp", "start nu's model context protocol server", None);
+        }
         #[cfg(feature = "plugin")]
         {
             signature = signature
@@ -503,7 +514,7 @@ impl Command for Nu {
         Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Run a script",

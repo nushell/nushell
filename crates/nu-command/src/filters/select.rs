@@ -146,7 +146,7 @@ produce a table, a list will produce a list, and a record will produce a record.
         }]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Select a column in a table",

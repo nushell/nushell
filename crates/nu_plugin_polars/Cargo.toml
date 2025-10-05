@@ -33,19 +33,20 @@ indexmap = { version = "2.11" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "=0.53.0" }
-polars-io = { version = "=0.49.1", features = ["avro", "cloud", "aws"] }
-polars-arrow = { version = "=0.49.1" }
-polars-ops = { version = "=0.49.1", features = ["pivot", "cutqcut"] }
-polars-plan = { version = "=0.49.1", features = ["regex"] }
-polars-utils = { version = "=0.49.1" }
+polars-io = { version = "=0.51.0", features = ["avro", "cloud", "aws"] }
+polars-arrow = { version = "=0.51.0" }
+polars-ops = { version = "=0.51.0", features = ["pivot", "cutqcut"] }
+polars-plan = { version = "=0.51.0", features = ["regex"] }
+polars-utils = { version = "=0.51.0" }
+polars-lazy = { version = "=0.51.0" }
 planus = { version = "=1.1.1" } # Temporarily here to convince cargo not to upgrade planus to 1.2.0
 typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
-uuid = { version = "1.16", features = ["v4", "serde"] }
+uuid = { version = "1.18", features = ["v4", "serde"] }
 
 # Do to a compile error with polars, this included to force the raw dependency
-hashbrown = { version = "0.15", features = ["rayon", "serde"] }
+hashbrown = { version = "0.16", features = ["rayon", "serde"] }
 
 # Cloud support
 aws-config = { version = "1.5", features = ["sso"] }
@@ -100,7 +101,7 @@ features = [
   "trigonometry",
 ]
 optional = false
-version = "0.49"
+version = "=0.51.0"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.107.1" }

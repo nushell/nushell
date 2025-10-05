@@ -28,7 +28,7 @@ impl Command for Slice {
         vec!["filter", "head", "tail", "range"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[0,1,2,3,4,5] | slice 4..5",

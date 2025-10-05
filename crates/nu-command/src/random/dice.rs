@@ -58,7 +58,7 @@ impl Command for RandomDice {
         dice(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Roll 1 dice with 6 sides each",

@@ -46,7 +46,7 @@ impl Command for Compact {
         compact(engine_state, stack, call, input, empty)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Filter out all records where 'Hello' is null",

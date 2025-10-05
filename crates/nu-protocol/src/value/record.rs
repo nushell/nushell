@@ -308,11 +308,11 @@ impl Record {
         }
     }
 
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         self.into_iter()
     }
 
-    pub fn iter_mut(&mut self) -> IterMut {
+    pub fn iter_mut(&mut self) -> IterMut<'_> {
         self.into_iter()
     }
 
@@ -440,7 +440,7 @@ impl Record {
         self.inner.truncate(len);
     }
 
-    pub fn columns(&self) -> Columns {
+    pub fn columns(&self) -> Columns<'_> {
         Columns {
             iter: self.inner.iter(),
         }
@@ -452,7 +452,7 @@ impl Record {
         }
     }
 
-    pub fn values(&self) -> Values {
+    pub fn values(&self) -> Values<'_> {
         Values {
             iter: self.inner.iter(),
         }
@@ -485,7 +485,7 @@ impl Record {
     /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
     /// assert_eq!(rec_iter.next(), None);
     /// ```
-    pub fn drain<R>(&mut self, range: R) -> Drain
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_>
     where
         R: RangeBounds<usize> + Clone,
     {

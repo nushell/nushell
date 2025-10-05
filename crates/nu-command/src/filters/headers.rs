@@ -19,7 +19,7 @@ impl Command for Headers {
         "Use the first row of the table as column names."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Sets the column names for a table created by `split column`",

@@ -10,6 +10,7 @@ Welcome to Nushell and thank you for considering contributing!
   - [Tests](#tests)
   - [Useful commands](#useful-commands)
   - [Debugging tips](#debugging-tips)
+  - [Experimental options](#experimental-options)
 - [Git etiquette](#git-etiquette)
 - [License](#license)
 
@@ -38,6 +39,8 @@ The release notes summary section doesn't need to be filled until your PR is fin
 Please make sure to consider both the *intended changes*, such as additions or deliberate breaking changes **and** possible *side effects* that might change how users interact with a command or feature. It's important to think carefully about the ways that your PR might affect any aspect of the user experience, and to document these changes even if they seem minor or aren't directly related to the main purpose of the PR.
 
 If you're not sure what to put here, or need some help, **a core team member would be glad to help you out**. We may also make some tweaks to your release notes section. Please don't take it personally, we just want to make sure our release notes are polished and easy to understand. Once the release notes section is finalized, we'll add the `notes:ready` label to indicate that your summary section is ready to be included in the actual release notes.
+
+If you want to write the best possible release notes summary (we appreciate it!), we have a couple guides we use to make sure the release notes are up to our standards before marking them as ready. The [how to prepare PRs for release notes](devdocs/HOWTOS.md#how-to-prepare-PRs-for-release-notes) explains the process we go through to make sure that PRs are properly labeled, and explains how formatting within the PR affects the generated release notes. The [release notes summary style guide](devdocs/HOWTOS.md#how-to-prepare-PRs-for-release-notes) explains the conventions we follow in our release notes, and might help if you're not sure how to word your release notes summary.
 
 #### Structuring your summary
 
@@ -213,6 +216,24 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
+
+### Experimental options
+
+We sometimes add new behavior behind [**experimental options**](https://www.nushell.sh/blog/2025-07-23-nushell_0_106_0.html#experimental-options-toc). 
+These are opt-in (or opt-out) flags that let us try out changes without affecting everyone by default.
+Before introducing a new option, make sure the core team agrees roughly with that experimental option.
+
+If you introduce a new experimental option, you must also:
+
+1. **Open a tracking issue** using the [Experimental Option Tracking template](https://github.com/nushell/nushell/issues/new/choose).  
+  - Link the issue in your implementation using `ExperimentalOptionMarker::ISSUE`.
+
+2. **Document the behavior** in the tracking issue with a short description and before/after examples.
+
+3. **Update the status** in the tracking issue when the option moves forward (becomes default) or is discarded.
+
+This ensures experimental options are discoverable, tracked properly, and easy to follow up on later.
+
 
 ## Git etiquette
 

@@ -41,7 +41,7 @@ impl Command for Port {
         get_free_port(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "get a free port between 3121 and 4000",

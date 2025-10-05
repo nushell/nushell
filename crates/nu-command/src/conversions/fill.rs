@@ -100,7 +100,7 @@ impl Command for Fill {
         vec!["display", "render", "format", "pad", "align", "repeat"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Fill a string on the left side to a width of 15 with the character '─'",

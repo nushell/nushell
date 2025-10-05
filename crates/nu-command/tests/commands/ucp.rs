@@ -511,7 +511,7 @@ fn copy_identical_file_impl(progress: bool) {
             "cp {} same.txt same.txt",
             progress_flag,
         );
-        // assert!(actual.err.contains("Copy aborted"));
+
         let msg = format!(
             "'{}' and '{}' are the same file",
             dirs.test().join("same.txt").display(),
@@ -887,6 +887,7 @@ fn test_cp_debug_default() {
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
+
         #[cfg(target_os = "macos")]
         if !actual
             .out
@@ -894,6 +895,7 @@ fn test_cp_debug_default() {
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
+
         #[cfg(target_os = "linux")]
         if !actual
             .out
@@ -901,6 +903,7 @@ fn test_cp_debug_default() {
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
+
         #[cfg(target_os = "freebsd")]
         if !actual.out.contains(
             "copy offload: unsupported, reflink: unsupported, sparse detection: unsupported",
@@ -914,6 +917,7 @@ fn test_cp_debug_default() {
         ) {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }
+        // assert!(actual.out.contains("cp-debug-copy-offload"));
     });
 }
 

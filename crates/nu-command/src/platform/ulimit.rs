@@ -561,7 +561,7 @@ impl Command for ULimit {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Print all current limits",

@@ -4,7 +4,7 @@ mod csv;
 mod ndjson;
 mod parquet;
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use crate::{
     PolarsPlugin,
@@ -19,7 +19,7 @@ use nu_protocol::{
     Signature, Span, Spanned, SyntaxShape, Type,
     shell_error::{self, io::IoError},
 };
-use polars::{error::PolarsError, prelude::SinkTarget};
+use polars::error::PolarsError;
 
 #[derive(Clone)]
 pub struct SaveDF;
@@ -65,7 +65,7 @@ impl PluginCommand for SaveDF {
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Performs a streaming collect and save the output to the specified file",
@@ -138,16 +138,22 @@ impl PluginCommand for SaveDF {
 
 fn command(
     plugin: &PolarsPlugin,
-    engine: &EngineInterface,
+    _engine: &EngineInterface,
     call: &EvaluatedCall,
     polars_object: PolarsPluginObject,
     spanned_file: Spanned<String>,
 ) -> Result<PipelineData, ShellError> {
-    let resource = Resource::new(plugin, engine, &spanned_file)?;
+    let resource = Resource::new(plugin, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
-        .or_else(|| resource.extension.clone().map(|e| (e, resource.span)));
+        .or_else(|| {
+            resource
+                .path
+                .as_ref()
+                .extension()
+                .map(|ext| (ext.to_owned(), resource.span))
+        });
     debug!("resource: {resource:?}");
 
     match type_option {
@@ -222,7 +228,7 @@ fn command(
         None => Err(ShellError::Io(IoError::new_with_additional_context(
             shell_error::io::ErrorKind::FileNotFound,
             resource.span,
-            Some(PathBuf::from(resource.path)),
+            Some(PathBuf::from(resource.as_string())),
             "File without extension",
         ))),
     }?;
@@ -270,13 +276,6 @@ pub fn unknown_file_save_error(span: Span) -> ShellError {
         help: None,
         inner: vec![],
     }
-}
-
-pub(crate) fn sink_target_from_string(path: String) -> SinkTarget {
-    let path = PathBuf::from(path);
-    let target = SinkTarget::Path(Arc::new(path));
-    debug!("Sink target: {target:?}");
-    target
 }
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ impl Command for SysDisks {
         Ok(disks(call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show info about the system disks",
             example: "sys disks",

@@ -98,7 +98,7 @@ impl Command for Lines {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,

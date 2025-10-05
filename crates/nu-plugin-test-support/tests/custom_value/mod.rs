@@ -77,7 +77,7 @@ impl SimplePluginCommand for IntoU32 {
         Signature::build(self.name()).input_output_type(Type::Int, Type::Custom("CustomU32".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "340 | into u32",
             description: "Make a u32",

@@ -115,6 +115,7 @@ ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
 	"json",
+	"platform-verifier",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -142,7 +143,7 @@ webpki-roots = { workspace = true, optional = true }
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
 
-[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
@@ -174,11 +175,11 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "rustls-tls"]
+default = ["os", "network", "rustls-tls"]
 os = [
 	# include other features
 	"js",
-	"network",
+	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",
 
@@ -196,7 +197,6 @@ os = [
 	"uu_uname",
 	"uu_whoami",
 	"which",
-	"ureq/platform-verifier"
 ]
 
 # The dependencies listed below need 'getrandom'.

@@ -45,7 +45,7 @@ impl Command for BytesReverse {
         operate(reverse, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Reverse bytes `0x[1F FF AA AA]`",

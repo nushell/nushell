@@ -49,7 +49,7 @@ To represent different types of entries different values must be written to this
 Additionally any field which is: empty record, empty list or null, can be omitted."#
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table",
@@ -159,7 +159,7 @@ impl Job {
         }
     }
 
-    fn partial_escape_attribute(raw: &str) -> Cow<[u8]> {
+    fn partial_escape_attribute(raw: &str) -> Cow<'_, [u8]> {
         let bytes = raw.as_bytes();
         let mut escaped: Vec<u8> = Vec::new();
         let mut iter = bytes.iter().enumerate();
@@ -321,7 +321,7 @@ impl Job {
             self.write_processing_instruction(entry_span, tag, attrs, content)
         } else {
             // Allow tag to have no attributes or content for short hand input
-            // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
+            // alternatives like {tag: a attributes: {} content: []}, {tag: a attributes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
                 Value::Record { val, .. } => val.into_owned(),

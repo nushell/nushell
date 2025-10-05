@@ -51,7 +51,7 @@ impl Command for ErrorMake {
         Err(make_other_error(&arg, throw_span))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a simple custom error",

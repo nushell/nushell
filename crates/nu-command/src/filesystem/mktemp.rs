@@ -1,6 +1,7 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use std::path::PathBuf;
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct Mktemp;
@@ -40,7 +41,7 @@ impl Command for Mktemp {
             .category(Category::FileSystem)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Make a temporary file with the given suffix in the current working directory.",
@@ -72,6 +73,9 @@ impl Command for Mktemp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("mktemp");
+
         let span = call.head;
         let template = call
             .rest(engine_state, stack, 0)?
@@ -100,7 +104,7 @@ impl Command for Mktemp {
             dry_run: false,
             quiet: false,
             suffix,
-            template,
+            template: template.into(),
             tmpdir,
             treat_as_template: true,
         };
@@ -110,10 +114,10 @@ impl Command for Mktemp {
                 .into_os_string()
                 .into_string()
                 .map_err(|_| ShellError::NonUtf8 { span })?,
-            Err(e) => {
+            Err(error) => {
                 return Err(ShellError::GenericError {
-                    error: format!("{e}"),
-                    msg: format!("{e}"),
+                    error: format!("{error}"),
+                    msg: translate!(&error.to_string()),
                     span: None,
                     help: None,
                     inner: vec![],

@@ -8,6 +8,9 @@ name = "nu_plugin_formats"
 version = "0.107.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.107.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.107.1", features = ["plugin"] }
@@ -16,7 +19,7 @@ indexmap = { workspace = true }
 eml-parser = "0.1"
 ical = "0.11"
 rust-ini = "0.21.0"
-plist = "1.7"
+plist = "1.8"
 chrono = "0.4"
 
 [dev-dependencies]

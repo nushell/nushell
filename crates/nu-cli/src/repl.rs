@@ -34,9 +34,11 @@ use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf,
 };
+#[cfg(feature = "sqlite")]
+use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, Reedline, SqliteBackedHistory, Vi,
+    HistorySessionId, Reedline, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -448,10 +450,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
-        if history.sync_on_enter {
-            if let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {e}");
-            }
+        if history.sync_on_enter
+            && let Err(e) = line_editor.sync_history()
+        {
+            warn!("Failed to sync history: {e}");
         }
 
         perf!("sync_history", start_time, use_color);
@@ -512,10 +514,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let line_editor_input_time = std::time::Instant::now();
     match input {
         Ok(Signal::Success(repl_cmd_line_text)) => {
-            let history_supports_meta = matches!(
-                engine_state.history_config().map(|h| h.file_format),
-                Some(HistoryFileFormat::Sqlite)
-            );
+            let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
+                #[cfg(feature = "sqlite")]
+                Some(HistoryFileFormat::Sqlite) => true,
+                _ => false,
+            };
 
             if history_supports_meta {
                 prepare_history_metadata(
@@ -640,16 +643,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
             );
 
-            if history_supports_meta {
-                if let Err(e) = fill_in_result_related_history_metadata(
+            if history_supports_meta
+                && let Err(e) = fill_in_result_related_history_metadata(
                     &repl_cmd_line_text,
                     engine_state,
                     cmd_duration,
                     &mut stack,
                     &mut line_editor,
-                ) {
-                    warn!("Could not fill in result related history metadata: {e}");
-                }
+                )
+            {
+                warn!("Could not fill in result related history metadata: {e}");
             }
 
             if shell_integration_osc2 {
@@ -1232,6 +1235,7 @@ fn update_line_editor_history(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
+        #[cfg(feature = "sqlite")]
         HistoryFileFormat::Sqlite => Box::new(
             SqliteBackedHistory::with_file(
                 history_path.to_path_buf(),

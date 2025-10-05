@@ -398,7 +398,7 @@ impl Value {
     ///     );
     /// }
     /// ```
-    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+    pub fn coerce_str(&self) -> Result<Cow<'_, str>, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
@@ -1769,6 +1769,14 @@ impl Value {
         matches!(self, Value::Error { .. })
     }
 
+    /// Extract [ShellError] from [Value::Error]
+    pub fn unwrap_error(self) -> Result<Self, ShellError> {
+        match self {
+            Self::Error { error, .. } => Err(*error),
+            val => Ok(val),
+        }
+    }
+
     pub fn is_true(&self) -> bool {
         matches!(self, Value::Bool { val: true, .. })
     }
@@ -2102,7 +2110,7 @@ fn get_value_member<'a>(
                     }
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_int(current.span(), *count, *origin_span)
+                    match val.follow_path_int(current.span(), *count, *origin_span, *optional)
                     {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
@@ -2199,8 +2207,13 @@ fn get_value_member<'a>(
                     Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
-                    {
+                    match val.follow_path_string(
+                        current.span(),
+                        column_name.clone(),
+                        *origin_span,
+                        *optional,
+                        *casing,
+                    ) {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
                             if *optional {
@@ -3670,14 +3683,12 @@ impl Value {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::In),
                         lhs: lhs.get_type(),
@@ -3742,14 +3753,12 @@ impl Value {
                 rhs,
             ),
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::NotIn),
                         lhs: lhs.get_type(),

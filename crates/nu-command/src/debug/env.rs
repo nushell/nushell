@@ -31,7 +31,7 @@ impl Command for DebugEnv {
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get PATH variable that externals see",

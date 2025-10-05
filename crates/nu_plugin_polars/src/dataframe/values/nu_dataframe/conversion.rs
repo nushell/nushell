@@ -10,12 +10,12 @@ use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::datatypes::{AnyValue, PlSmallStr};
 use polars::prelude::{
-    ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked, Float32Type,
-    Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries, ListBooleanChunkedBuilder,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, LogicalType,
-    NamedFrom, NewChunkedArray, ObjectType, PolarsError, Schema, SchemaExt, Series, StructChunked,
-    TemporalMethods, TimeUnit, TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type,
-    UInt64Type,
+    CatSize, ChunkAnyValue, Column as PolarsColumn, DataFrame, DataType, DatetimeChunked,
+    Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, IntoSeries,
+    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder,
+    ListStringChunkedBuilder, ListType, LogicalType, NamedFrom, NewChunkedArray, ObjectType,
+    PolarsError, Schema, SchemaExt, Series, StructChunked, TemporalMethods, TimeUnit,
+    TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -208,10 +208,10 @@ pub fn insert_value(
     maybe_schema: &Option<NuSchema>,
 ) -> Result<(), ShellError> {
     // If we have a schema but a key is not provided, do not create that column
-    if let Some(schema) = maybe_schema {
-        if !schema.schema.contains(&key) {
-            return Ok(());
-        }
+    if let Some(schema) = maybe_schema
+        && !schema.schema.contains(&key)
+    {
+        return Ok(());
     }
 
     let col_val = match column_values.entry(key.clone()) {
@@ -220,22 +220,22 @@ pub fn insert_value(
     };
 
     // If we have a schema, use that for determining how things should be added to each column
-    if let Some(schema) = maybe_schema {
-        if let Some(field) = schema.schema.get_field(&key) {
-            col_val.column_type = Some(field.dtype().clone());
-            col_val.values.push(value);
-            return Ok(());
-        }
+    if let Some(schema) = maybe_schema
+        && let Some(field) = schema.schema.get_field(&key)
+    {
+        col_val.column_type = Some(field.dtype().clone());
+        col_val.values.push(value);
+        return Ok(());
     }
 
     // If we do not have a schema, use defaults specified in `value_to_data_type`
     let current_data_type = value_to_data_type(&value);
     if col_val.column_type.is_none() {
         col_val.column_type = value_to_data_type(&value);
-    } else if let Some(current_data_type) = current_data_type {
-        if col_val.column_type.as_ref() != Some(&current_data_type) {
-            col_val.column_type = Some(DataType::Object("Value"));
-        }
+    } else if let Some(current_data_type) = current_data_type
+        && col_val.column_type.as_ref() != Some(&current_data_type)
+    {
+        col_val.column_type = Some(DataType::Object("Value"));
     }
     col_val.values.push(value);
 
@@ -1164,13 +1164,17 @@ fn series_to_values(
             }
         }
         DataType::Date => {
-            let casted = series.date().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to date".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .date()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to date".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
             let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1190,13 +1194,17 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Datetime(time_unit, tz) => {
-            let casted = series.datetime().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to datetime".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .datetime()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to datetime".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
             let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1217,13 +1225,17 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Duration(time_unit) => {
-            let casted = series.duration().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to duration".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            })?;
+            let casted = series
+                .duration()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error casting column to duration".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })?
+                .clone()
+                .into_physical();
 
             let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1311,13 +1323,11 @@ fn series_to_values(
                 })?;
             series_to_values(&casted, maybe_from_row, maybe_size, span)
         }
-        DataType::Categorical(maybe_rev_mapping, _categorical_ordering)
-        | DataType::Enum(maybe_rev_mapping, _categorical_ordering) => {
-            if let Some(rev_mapping) = maybe_rev_mapping {
-                Ok(utf8_view_array_to_value(rev_mapping.get_categories()))
-            } else {
-                Ok(vec![])
-            }
+        DataType::Categorical(categories, _categorical_ordering) => {
+            Ok(utf8_view_array_to_value(categories.freeze().categories()))
+        }
+        DataType::Enum(frozen_categories, _categorical_ordering) => {
+            Ok(utf8_view_array_to_value(frozen_categories.categories()))
         }
         e => Err(ShellError::GenericError {
             error: "Error creating Dataframe".into(),
@@ -1393,39 +1403,31 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
-        AnyValue::Categorical(_, rev_mapping, utf8_array_pointer)
-        | AnyValue::Enum(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
-                utf8_view_array_to_value(rev_mapping.get_categories())
-            } else {
-                // This is no good way around having an unsafe block here
-                // as polars is using a raw pointer to the utf8 array
-                unsafe {
-                    utf8_array_pointer
-                        .get()
-                        .as_ref()
-                        .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
-                }
-            };
-            Ok(Value::list(value, span))
+        AnyValue::Categorical(_cat_size, categorical_mapping)
+        | AnyValue::Enum(_cat_size, categorical_mapping) => {
+            let n = categorical_mapping.num_cats_upper_bound();
+            let mut values: Vec<Value> = Vec::with_capacity(n);
+            for i in 0..n {
+                let s = categorical_mapping
+                    .cat_to_str(i as CatSize)
+                    .unwrap_or_default();
+                values.push(Value::string(s, span));
+            }
+
+            Ok(Value::list(values, span))
         }
-        AnyValue::CategoricalOwned(_, rev_mapping, utf8_array_pointer)
-        | AnyValue::EnumOwned(_, rev_mapping, utf8_array_pointer) => {
-            let value: Vec<Value> = if utf8_array_pointer.is_null() {
-                utf8_view_array_to_value(rev_mapping.get_categories())
-            } else {
-                // This is no good way around having an unsafe block here
-                // as polars is using a raw pointer to the utf8 array
-                unsafe {
-                    utf8_array_pointer
-                        .get()
-                        .as_ref()
-                        .map(utf8_view_array_to_value)
-                        .unwrap_or_else(Vec::new)
-                }
-            };
-            Ok(Value::list(value, span))
+        AnyValue::CategoricalOwned(_cat_size, categorical_mapping)
+        | AnyValue::EnumOwned(_cat_size, categorical_mapping) => {
+            let n = categorical_mapping.num_cats_upper_bound();
+            let mut values: Vec<Value> = Vec::with_capacity(n);
+            for i in 0..n {
+                let s = categorical_mapping
+                    .cat_to_str(i as CatSize)
+                    .unwrap_or_default();
+                values.push(Value::string(s, span));
+            }
+
+            Ok(Value::list(values, span))
         }
         e => Err(ShellError::GenericError {
             error: "Error creating Value".into(),

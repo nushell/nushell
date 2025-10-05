@@ -559,16 +559,16 @@ fn lex_internal(
             curr_offset += 1;
 
             // If the next character is `|`, we're looking at a `||`.
-            if let Some(c) = state.input.get(curr_offset) {
-                if *c == b'|' {
-                    let idx = curr_offset;
-                    curr_offset += 1;
-                    state.output.push(Token::new(
-                        TokenContents::PipePipe,
-                        Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
-                    ));
-                    continue;
-                }
+            if let Some(c) = state.input.get(curr_offset)
+                && *c == b'|'
+            {
+                let idx = curr_offset;
+                curr_offset += 1;
+                state.output.push(Token::new(
+                    TokenContents::PipePipe,
+                    Span::new(state.span_offset + prev_idx, state.span_offset + idx + 1),
+                ));
+                continue;
             }
 
             // Otherwise, it's just a regular `|` token.

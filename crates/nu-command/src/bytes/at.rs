@@ -95,7 +95,7 @@ impl Command for BytesAt {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Extract bytes starting from a specific index",

@@ -66,6 +66,8 @@ plugin = [
   "os",
   "rmp-serde",
 ]
+# enables SQLite history
+sqlite = []
 
 [dev-dependencies]
 serde_json = { workspace = true }

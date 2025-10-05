@@ -84,7 +84,7 @@ impl Command for IntoString {
         string_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert int to string and append three decimal places",
@@ -154,13 +154,13 @@ fn string_helper(
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     let group_digits = call.has_flag(engine_state, stack, "group-digits")?;
-    if let Some(decimal_val) = decimals_value {
-        if decimal_val.is_negative() {
-            return Err(ShellError::TypeMismatch {
-                err_message: "Cannot accept negative integers for decimals arguments".to_string(),
-                span: head,
-            });
-        }
+    if let Some(decimal_val) = decimals_value
+        && decimal_val.is_negative()
+    {
+        return Err(ShellError::TypeMismatch {
+            err_message: "Cannot accept negative integers for decimals arguments".to_string(),
+            span: head,
+        });
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);

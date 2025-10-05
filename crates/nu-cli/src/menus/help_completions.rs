@@ -140,7 +140,7 @@ mod test {
     use rstest::rstest;
 
     #[rstest]
-    #[case("who", 5, 8, &["whoami"])]
+    #[case("who", 5, 8, &["whoami", "each"])]
     #[case("hash", 1, 5, &["hash", "hash md5", "hash sha256"])]
     #[case("into f", 0, 6, &["into float", "into filesize"])]
     #[case("into nonexistent", 0, 16, &[])]

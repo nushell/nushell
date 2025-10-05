@@ -73,7 +73,7 @@ impl Command for Default {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Give a default 'target' column to all file entries",
@@ -163,7 +163,7 @@ fn default(
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
+        if let PipelineData::Value(Value::Record { .. }, _) = input {
             let record = input.into_value(input_span)?.into_record()?;
             fill_record(
                 record,

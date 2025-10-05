@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct Whoami;
@@ -30,12 +31,15 @@ impl Command for Whoami {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // setup the uutils error translation
+        let _ = localized_help_template("touch");
+
         let output = match uu_whoami::whoami() {
             Ok(username) => username.to_string_lossy().to_string(),
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: "Failed to get username".into(),
-                    msg: e.to_string(),
+                    error: format!("{e}"),
+                    msg: translate!(&e.to_string()),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],
@@ -46,7 +50,7 @@ impl Command for Whoami {
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Get the current username",
             example: "whoami",
