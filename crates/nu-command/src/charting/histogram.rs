@@ -61,7 +61,7 @@ impl Command for Histogram {
                         "Style of the bar. Can be 'boxes', 'full-boxes', 'center-boxes', \
                         or 'ascii, defaults to 'Boxes'",
                     )
-                    .completion(Completion::new_list(&["boxes", "ascii"])),
+                    .completion(Completion::new_list(&["boxes", "full-boxes", "center-boxes", "ascii"])),
             )
             .category(Category::Chart)
     }
@@ -93,14 +93,14 @@ impl Command for Histogram {
                         "count" =>      Value::test_int(2),
                         "quantile" =>   Value::test_float(0.6666666666666666),
                         "percentage" => Value::test_string("66.67%"),
-                        "frequency" =>  Value::test_string("******************************************************************"),
+                        "frequency" =>  Value::test_string("██████████████████████████████████████████████████████████████████▋"),
                     }),
                     Value::test_record(record! {
                         "value" =>      Value::test_int(2),
                         "count" =>      Value::test_int(1),
                         "quantile" =>   Value::test_float(0.3333333333333333),
                         "percentage" => Value::test_string("33.33%"),
-                        "frequency" =>  Value::test_string("*********************************"),
+                        "frequency" =>  Value::test_string("█████████████████████████████████▍"),
                     }),
                 ])),
             },
