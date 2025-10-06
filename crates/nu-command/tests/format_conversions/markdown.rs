@@ -42,7 +42,7 @@ fn md_table() {
             echo [[name]; [jason]] | to md
         "#);
 
-    assert_eq!(actual.out, "|name||-||jason|");
+    assert_eq!(actual.out, "| name || --- || jason |");
 }
 
 #[test]
