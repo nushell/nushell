@@ -21,10 +21,7 @@ impl PluginCommand for ToDataType {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::String,
-                Type::Custom(PolarsPluginType::NuDataFrame.type_name().into()),
-            )
+            .input_output_type(Type::String, PolarsPluginType::NuDataFrame.into())
             .category(Category::Custom("dataframe".into()))
     }
 
