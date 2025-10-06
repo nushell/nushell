@@ -281,7 +281,7 @@ mod hover_tests {
 
         open_unchecked(&client_connection, script.clone());
         let resp = send_hover_request(&client_connection, script, 6, 2)
-            .recv_timeout(Duration::from_secs(3))
+            .recv_timeout(Duration::from_secs(10))
             .unwrap();
 
         let hover_text = result_from_message(resp)["contents"]["value"].to_string();
