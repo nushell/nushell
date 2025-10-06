@@ -1,5 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
+use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
@@ -104,8 +105,17 @@ impl Command for Open {
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-            for path in
-                nu_engine::glob_from(&path, &cwd, call_span, None, engine_state.signals().clone())
+            let matches: Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send> =
+                if is_windows_device_path(Path::new(&path.item.to_string())) {
+                    Box::new(vec![Ok(PathBuf::from(path.item.to_string()))].into_iter())
+                } else {
+                    nu_engine::glob_from(
+                        &path,
+                        &cwd,
+                        call_span,
+                        None,
+                        engine_state.signals().clone(),
+                    )
                     .map_err(|err| match err {
                         ShellError::Io(mut err) => {
                             err.kind = err.kind.not_found_as(NotFound::File);
@@ -115,7 +125,8 @@ impl Command for Open {
                         _ => err,
                     })?
                     .1
-            {
+                };
+            for path in matches {
                 let path = path?;
                 let path = Path::new(&path);
 
