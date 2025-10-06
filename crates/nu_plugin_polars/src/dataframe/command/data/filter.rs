@@ -6,8 +6,7 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -41,8 +40,8 @@ impl PluginCommand for LazyFilter {
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_expression".into()),
-                    Type::Custom("polars_expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value, record,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    record,
 };
 use polars::prelude::{DataType, Field, IntoSeries, Schema, StringMethods, StrptimeOptions, col};
 
@@ -50,8 +50,8 @@ impl PluginCommand for AsDate {
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_expression".into()),
-                    Type::Custom("polars_expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

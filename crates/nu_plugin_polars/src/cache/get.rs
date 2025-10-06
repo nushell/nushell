@@ -31,7 +31,7 @@ impl PluginCommand for CacheGet {
             .input_output_types(
                 PolarsPluginType::types()
                     .iter()
-                    .map(|t| (Type::Any, Type::Custom(t.type_name().into())))
+                    .map(|t| (Type::Any, Type::from(*t)))
                     .collect(),
             )
             .category(Category::Custom("dataframe".into()))

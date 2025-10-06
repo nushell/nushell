@@ -40,9 +40,9 @@ impl PluginCommand for ToNu {
                     .iter()
                     .map(|t| match t {
                         PolarsPluginType::NuDataFrame | PolarsPluginType::NuLazyFrame => {
-                            (Type::Custom(t.type_name().into()), Type::table())
+                            (Type::from(*t), Type::table())
                         }
-                        _ => (Type::Custom(t.type_name().into()), Type::Any),
+                        _ => (Type::from(*t), Type::Any),
                     })
                     .collect(),
             )

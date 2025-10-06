@@ -8,8 +8,7 @@ use crate::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use polars_plan::prelude::lit;
@@ -47,8 +46,8 @@ impl PluginCommand for Shift {
                     PolarsPluginType::NuLazyFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_expression".into()),
-                    Type::Custom("polars_expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .category(Category::Custom("dataframe or lazyframe".into()))

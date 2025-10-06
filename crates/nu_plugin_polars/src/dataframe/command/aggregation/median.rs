@@ -7,7 +7,7 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
 #[derive(Clone)]
 pub struct LazyMedian;
@@ -27,8 +27,8 @@ impl PluginCommand for LazyMedian {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_expression".into()),
-                    Type::Custom("polars_expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
                 (
                     PolarsPluginType::NuDataFrame.into(),

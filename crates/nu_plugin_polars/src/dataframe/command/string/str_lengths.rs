@@ -9,7 +9,7 @@ use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
 use polars::prelude::{IntoSeries, StringNameSpaceImpl};
 
@@ -36,8 +36,8 @@ impl PluginCommand for StrLengths {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_expression".into()),
-                    Type::Custom("polars_expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
                 (
                     PolarsPluginType::NuDataFrame.into(),
