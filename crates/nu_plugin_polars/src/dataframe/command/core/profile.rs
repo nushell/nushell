@@ -24,8 +24,8 @@ impl PluginCommand for ProfileDF {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

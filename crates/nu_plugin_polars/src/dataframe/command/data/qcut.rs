@@ -4,7 +4,7 @@ use polars::prelude::PlSmallStr;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame},
+    values::{CustomValueSupport, NuDataFrame, PolarsPluginType},
 };
 
 pub struct QCutSeries;
@@ -33,8 +33,8 @@ impl PluginCommand for QCutSeries {
             .switch("allow_duplicates", "If set, duplicates in the resulting quantiles are dropped, rather than raising an error. This can happen even with unique probabilities, depending on the data.", Some('d'))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

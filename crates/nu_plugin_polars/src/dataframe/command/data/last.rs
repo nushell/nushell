@@ -1,6 +1,9 @@
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject},
+    values::{
+        Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject,
+        PolarsPluginType,
+    },
 };
 
 use crate::values::{NuDataFrame, NuExpression};
@@ -36,8 +39,8 @@ impl PluginCommand for LastDF {
                     Type::Custom("polars_expression".into()),
                 ),
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

@@ -4,6 +4,7 @@ use crate::dataframe::values::Column;
 use crate::dataframe::values::NuLazyFrame;
 use crate::values::CustomValueSupport;
 use crate::values::NuDataFrame;
+use crate::values::PolarsPluginType;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -34,8 +35,8 @@ impl PluginCommand for QueryDf {
             .required("sql", SyntaxShape::String, "sql query")
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

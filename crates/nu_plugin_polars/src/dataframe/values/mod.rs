@@ -67,6 +67,12 @@ impl PolarsPluginType {
     }
 }
 
+impl From<PolarsPluginType> for Type {
+    fn from(pt: PolarsPluginType) -> Self {
+        Type::Custom(pt.type_name().into())
+    }
+}
+
 impl fmt::Display for PolarsPluginType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

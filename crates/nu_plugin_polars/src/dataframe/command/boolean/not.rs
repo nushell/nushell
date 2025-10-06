@@ -1,4 +1,7 @@
-use crate::{PolarsPlugin, values::CustomValueSupport};
+use crate::{
+    PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginType},
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -27,8 +30,8 @@ impl PluginCommand for NotSeries {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

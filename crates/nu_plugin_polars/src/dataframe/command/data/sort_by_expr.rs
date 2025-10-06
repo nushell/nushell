@@ -1,4 +1,4 @@
-use crate::values::NuLazyFrame;
+use crate::values::{NuLazyFrame, PolarsPluginType};
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression},
@@ -46,8 +46,8 @@ impl PluginCommand for LazySortBy {
             .switch("maintain-order", "Maintains order during sort", Some('m'))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

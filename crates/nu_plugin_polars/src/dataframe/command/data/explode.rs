@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::PolarsPlugin;
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{CustomValueSupport, PolarsPluginObject};
+use crate::values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -38,8 +38,8 @@ impl PluginCommand for LazyExplode {
                     Type::Custom("polars_expression".into()),
                 ),
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

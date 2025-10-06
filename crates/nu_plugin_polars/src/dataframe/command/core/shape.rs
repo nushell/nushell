@@ -5,7 +5,7 @@ use nu_protocol::{
 
 use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
-use crate::values::NuDataFrame;
+use crate::values::{NuDataFrame, PolarsPluginType};
 
 #[derive(Clone)]
 pub struct ShapeDF;
@@ -25,8 +25,8 @@ impl PluginCommand for ShapeDF {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

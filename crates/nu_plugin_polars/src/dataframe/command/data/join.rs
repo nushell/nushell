@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::CustomValueSupport,
+    values::{CustomValueSupport, PolarsPluginType},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -49,8 +49,8 @@ impl PluginCommand for LazyJoin {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

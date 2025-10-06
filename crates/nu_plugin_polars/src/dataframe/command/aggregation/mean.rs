@@ -30,8 +30,8 @@ impl PluginCommand for ExprMean {
                     Type::Custom("polars_expression".into()),
                 ),
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

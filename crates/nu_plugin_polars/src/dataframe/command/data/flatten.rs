@@ -6,7 +6,7 @@ use nu_protocol::{
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame},
-    values::CustomValueSupport,
+    values::{CustomValueSupport, PolarsPluginType},
 };
 
 use super::explode::explode;
@@ -38,8 +38,8 @@ impl PluginCommand for LazyFlatten {
                     Type::Custom("polars_expression".into()),
                 ),
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

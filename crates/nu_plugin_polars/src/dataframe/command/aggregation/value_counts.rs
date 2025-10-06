@@ -1,5 +1,5 @@
 use crate::PolarsPlugin;
-use crate::values::{CustomValueSupport, NuDataFrame};
+use crate::values::{CustomValueSupport, NuDataFrame, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -45,8 +45,8 @@ impl PluginCommand for ValueCount {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

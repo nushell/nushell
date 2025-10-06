@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::{NuExpression, NuLazyFrame, NuLazyGroupBy},
-    values::{Column, CustomValueSupport, NuDataFrame},
+    values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -34,8 +34,8 @@ impl PluginCommand for LazyAggregate {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

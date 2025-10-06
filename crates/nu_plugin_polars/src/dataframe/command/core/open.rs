@@ -2,7 +2,7 @@ use crate::{
     EngineWrapper, PolarsPlugin,
     command::core::resource::Resource,
     dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
+    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType, PolarsPluginType},
 };
 use log::debug;
 use nu_utils::perf;
@@ -117,7 +117,7 @@ impl PluginCommand for OpenDataFrame {
             .input_output_types(vec![
                 (
                     Type::Any,
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Any,

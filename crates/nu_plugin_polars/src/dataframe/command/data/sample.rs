@@ -8,7 +8,7 @@ use polars::series::Series;
 
 use crate::{PolarsPlugin, values::CustomValueSupport};
 
-use crate::values::{Column, NuDataFrame};
+use crate::values::{Column, NuDataFrame, PolarsPluginType};
 
 #[derive(Clone)]
 pub struct SampleDF;
@@ -48,8 +48,8 @@ impl PluginCommand for SampleDF {
             .switch("shuffle", "shuffle sample", Some('u'))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

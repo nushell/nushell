@@ -6,7 +6,7 @@ use nu_protocol::{
 
 use crate::{
     PolarsPlugin,
-    values::{Axis, Column, CustomValueSupport, NuDataFrame},
+    values::{Axis, Column, CustomValueSupport, NuDataFrame, PolarsPluginType},
 };
 
 #[derive(Clone)]
@@ -21,8 +21,8 @@ impl PluginCommand for AppendDF {
             .switch("col", "append as new columns instead of rows", Some('c'))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

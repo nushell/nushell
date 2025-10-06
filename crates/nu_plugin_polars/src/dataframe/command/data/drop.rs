@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::PolarsPlugin;
-use crate::values::CustomValueSupport;
+use crate::values::{CustomValueSupport, PolarsPluginType};
 
 use crate::values::utils::convert_columns;
 use crate::values::{Column, NuDataFrame};
@@ -29,8 +29,8 @@ impl PluginCommand for DropDF {
             .rest("rest", SyntaxShape::Any, "column names to be dropped")
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

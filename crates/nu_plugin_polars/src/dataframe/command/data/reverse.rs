@@ -3,7 +3,7 @@ use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span
 
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame},
+    values::{Column, CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsPluginType},
 };
 
 pub struct LazyReverse;
@@ -23,8 +23,8 @@ impl PluginCommand for LazyReverse {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

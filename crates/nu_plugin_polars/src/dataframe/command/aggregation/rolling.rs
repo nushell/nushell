@@ -1,4 +1,4 @@
-use crate::values::{Column, NuDataFrame};
+use crate::values::{Column, NuDataFrame, PolarsPluginType};
 use crate::{PolarsPlugin, values::CustomValueSupport};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -62,8 +62,8 @@ impl PluginCommand for Rolling {
             .required("window", SyntaxShape::Int, "Window size for rolling")
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

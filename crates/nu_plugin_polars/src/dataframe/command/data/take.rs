@@ -7,7 +7,7 @@ use polars::prelude::DataType;
 
 use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
-use crate::values::NuDataFrame;
+use crate::values::{NuDataFrame, PolarsPluginType};
 
 #[derive(Clone)]
 pub struct TakeDF;
@@ -32,8 +32,8 @@ impl PluginCommand for TakeDF {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

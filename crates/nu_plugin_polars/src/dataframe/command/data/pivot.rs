@@ -11,7 +11,7 @@ use polars_lazy::frame::pivot::{pivot, pivot_stable};
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{Column, CustomValueSupport, NuExpression, PolarsPluginObject},
+    values::{Column, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -79,8 +79,8 @@ impl PluginCommand for PivotDF {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

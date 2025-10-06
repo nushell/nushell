@@ -1,5 +1,5 @@
 use crate::PolarsPlugin;
-use crate::values::{Column, CustomValueSupport, NuDataFrame};
+use crate::values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -25,8 +25,8 @@ impl PluginCommand for AllFalse {
             .category(Category::Custom("dataframe".into()))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

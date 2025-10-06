@@ -4,7 +4,7 @@ use polars::prelude::PlSmallStr;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame},
+    values::{CustomValueSupport, NuDataFrame, PolarsPluginType},
 };
 
 pub struct CutSeries;
@@ -32,8 +32,8 @@ impl PluginCommand for CutSeries {
             .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

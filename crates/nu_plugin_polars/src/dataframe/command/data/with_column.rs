@@ -1,4 +1,4 @@
-use crate::values::{Column, NuDataFrame};
+use crate::values::{Column, NuDataFrame, PolarsPluginType};
 use crate::{
     PolarsPlugin,
     dataframe::values::{NuExpression, NuLazyFrame},
@@ -34,8 +34,8 @@ impl PluginCommand for WithColumn {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

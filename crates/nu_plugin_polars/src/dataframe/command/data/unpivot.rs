@@ -12,7 +12,7 @@ use polars_ops::pivot::UnpivotDF;
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -59,8 +59,8 @@ impl PluginCommand for Unpivot {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

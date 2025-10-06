@@ -1,6 +1,6 @@
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -51,8 +51,8 @@ impl PluginCommand for ConcatDF {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),

@@ -8,6 +8,7 @@ use polars::prelude::UniqueKeepStrategy;
 
 use crate::PolarsPlugin;
 use crate::values::CustomValueSupport;
+use crate::values::PolarsPluginType;
 
 use crate::values::NuDataFrame;
 use crate::values::utils::convert_columns_string;
@@ -41,8 +42,8 @@ impl PluginCommand for DropDuplicates {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("polars_dataframe".into()),
-                    Type::Custom("polars_dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
                     Type::Custom("polars_lazyframe".into()),
