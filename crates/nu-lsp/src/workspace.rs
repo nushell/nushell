@@ -552,6 +552,7 @@ mod tests {
     };
     use nu_test_support::fs::fixtures;
     use rstest::rstest;
+    use std::time::Duration;
 
     // Helper functions to reduce JSON duplication
     fn make_range(
@@ -663,7 +664,9 @@ mod tests {
 
         // use a hover request to interrupt
         if immediate_cancellation {
-            send_hover_request(client_connection, uri, line, character);
+            send_hover_request(client_connection, uri, line, character)
+                .recv_timeout(Duration::from_secs(3))
+                .unwrap();
         }
 
         (0..num)
