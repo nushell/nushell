@@ -34,7 +34,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
             "#,
         )]);
 
-        let actual = nu!(cwd: ".", "
+        let actual = nu!("
             source-env my_library.nu ;
         
             hello

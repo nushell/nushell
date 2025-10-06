@@ -195,10 +195,7 @@ fn match_doesnt_overwrite_variable() {
 
 #[test]
 fn match_with_guard() {
-    let actual = nu!(
-        cwd: ".",
-        "match [1 2 3] { [$x, ..] if $x mod 2 == 0 => { $x }, $x => { 2 } }"
-    );
+    let actual = nu!("match [1 2 3] { [$x, ..] if $x mod 2 == 0 => { $x }, $x => { 2 } }");
 
     assert_eq!(actual.out, "2");
 }
@@ -206,40 +203,29 @@ fn match_with_guard() {
 #[test]
 fn match_with_guard_block_as_guard() {
     // this should work?
-    let actual = nu!(
-        cwd: ".",
-        "match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }"
-    );
+    let actual =
+        nu!("match 4 { $x if { $x + 20 > 25 } => { 'good num' }, _ => { 'terrible num' } }");
 
     assert!(actual.err.contains("Match guard not bool"));
 }
 
 #[test]
 fn match_with_guard_parens_expr_as_guard() {
-    let actual = nu!(
-        cwd: ".",
-        "match 4 { $x if ($x + 20 > 25) => { 'good num' }, _ => { 'terrible num' } }"
-    );
+    let actual = nu!("match 4 { $x if ($x + 20 > 25) => { 'good num' }, _ => { 'terrible num' } }");
 
     assert_eq!(actual.out, "terrible num");
 }
 
 #[test]
 fn match_with_guard_not_bool() {
-    let actual = nu!(
-        cwd: ".",
-        "match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }"
-    );
+    let actual = nu!("match 4 { $x if $x + 1 => { 'err!()' }, _ => { 'unreachable!()' } }");
 
     assert!(actual.err.contains("Match guard not bool"));
 }
 
 #[test]
 fn match_with_guard_no_expr_after_if() {
-    let actual = nu!(
-        cwd: ".",
-        "match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }"
-    );
+    let actual = nu!("match 4 { $x if  => { 'err!()' }, _ => { 'unreachable!()' } }");
 
     assert!(actual.err.contains("Match guard without an expression"));
 }

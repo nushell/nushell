@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn errors_on_conflicting_metadata_flags() {
-    let actual = nu!(cwd: ".", r#"
+    let actual = nu!(r#"
     echo "foo" | metadata set --datasource-filepath foo.txt --datasource-ls
     "#);
 
@@ -12,7 +12,7 @@ fn errors_on_conflicting_metadata_flags() {
 
 #[test]
 fn works_with_datasource_filepath() {
-    let actual = nu!(cwd: ".", r#"
+    let actual = nu!(r#"
     echo "foo"
     | metadata set --datasource-filepath foo.txt
     | metadata
@@ -23,7 +23,7 @@ fn works_with_datasource_filepath() {
 
 #[test]
 fn works_with_datasource_ls() {
-    let actual = nu!(cwd: ".", r#"
+    let actual = nu!(r#"
     echo "foo"
     | metadata set --datasource-ls
     | metadata
