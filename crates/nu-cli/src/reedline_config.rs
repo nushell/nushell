@@ -13,8 +13,9 @@ use nu_protocol::{
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
-    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, TraversalDirection,
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, TextObject, TextObjectScope,
+    TextObjectType, TraversalDirection, default_emacs_keybindings, default_vi_insert_keybindings,
+    default_vi_normal_keybindings,
 };
 use std::sync::Arc;
 
@@ -1307,20 +1308,40 @@ fn edit_from_record(
         "copyselectionsystem" => EditCommand::CopySelectionSystem,
         #[cfg(feature = "system-clipboard")]
         "pastesystem" => EditCommand::PasteSystem,
-        "cutinside" => {
+        "cutinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::CutInside { left, right }
+            EditCommand::CutInsidePair { left, right }
         }
-        "yankinside" => {
+        "copyinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::YankInside { left, right }
+            EditCommand::CopyInsidePair { left, right }
         }
+        "cutaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CutAroundPair { left, right }
+        }
+        "copyaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CopyAroundPair { left, right }
+        }
+        "copytextobject" => EditCommand::CopyTextObject {
+            text_object: parse_text_object(record, config, span)?,
+        },
+        "cuttextobject" => EditCommand::CutTextObject {
+            text_object: parse_text_object(record, config, span)?,
+        },
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline EditCommand".into(),
@@ -1351,6 +1372,48 @@ fn extract_char(value: &Value) -> Result<char, ShellError> {
             span: value.span(),
         })
     }
+}
+
+fn parse_text_object(
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObject, ShellError> {
+    let scope_value = extract_value("scope", record, span)?;
+    let scope_str = scope_value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase();
+    let scope = match scope_str.as_str() {
+        "inner" => TextObjectScope::Inner,
+        "around" => TextObjectScope::Around,
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "'inner' or 'around'".into(),
+                actual: format!("'{str}'"),
+                span: scope_value.span(),
+            });
+        }
+    };
+
+    let type_value = extract_value("object_type", record, span)?;
+    let type_str = type_value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase();
+    let object_type = match type_str.as_str() {
+        "word" => TextObjectType::Word,
+        "bigword" => TextObjectType::BigWord,
+        "brackets" | "bracket" => TextObjectType::Brackets,
+        "quote" | "quotes" => TextObjectType::Quote,
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "'word', 'bigword', 'brackets', or 'quote'".into(),
+                actual: format!("'{str}'"),
+                span: type_value.span(),
+            });
+        }
+    };
+
+    Ok(TextObject { scope, object_type })
 }
 
 #[cfg(test)]
