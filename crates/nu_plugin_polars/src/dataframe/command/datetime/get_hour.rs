@@ -39,6 +39,10 @@ impl PluginCommand for GetHour {
                     Type::Custom("polars_dataframe".into()),
                 ),
                 (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+                (
                     Type::Custom("polars_expression".into()),
                     Type::Custom("polars_expression".into()),
                 ),

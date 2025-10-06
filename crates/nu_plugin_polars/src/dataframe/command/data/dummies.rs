@@ -25,10 +25,16 @@ impl PluginCommand for Dummies {
             .switch("drop-first", "Drop first row", Some('d'))
             .switch("drop-nulls", "Drop nulls", Some('n'))
             .switch("separator", "Optional separator", Some('s'))
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

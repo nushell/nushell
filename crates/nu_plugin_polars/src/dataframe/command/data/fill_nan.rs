@@ -30,10 +30,16 @@ impl PluginCommand for LazyFillNA {
                 SyntaxShape::Any,
                 "Expression to use to fill the NAN values",
             )
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 

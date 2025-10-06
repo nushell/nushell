@@ -31,10 +31,16 @@ impl PluginCommand for QCutSeries {
             .switch("left_closed", "Set the intervals to be left-closed instead of right-closed.", Some('c'))
             .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
             .switch("allow_duplicates", "If set, duplicates in the resulting quantiles are dropped, rather than raising an error. This can happen even with unique probabilities, depending on the data.", Some('d'))
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

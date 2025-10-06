@@ -26,10 +26,16 @@ impl PluginCommand for LazyJoinWhere {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
             .required("condition", SyntaxShape::Any, "Condition")
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 

@@ -60,10 +60,16 @@ impl PluginCommand for Rolling {
         Signature::build(self.name())
             .required("type", SyntaxShape::String, "rolling operation")
             .required("window", SyntaxShape::Int, "Window size for rolling")
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

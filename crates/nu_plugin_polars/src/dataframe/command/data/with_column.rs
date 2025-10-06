@@ -32,10 +32,16 @@ impl PluginCommand for WithColumn {
                 SyntaxShape::Any,
                 "series to be added or expressions used to define the new columns",
             )
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 

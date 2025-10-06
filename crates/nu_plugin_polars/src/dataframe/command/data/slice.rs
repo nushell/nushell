@@ -26,10 +26,16 @@ impl PluginCommand for SliceDF {
         Signature::build(self.name())
             .required("offset", SyntaxShape::Int, "start of slice")
             .required("size", SyntaxShape::Int, "size of slice")
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

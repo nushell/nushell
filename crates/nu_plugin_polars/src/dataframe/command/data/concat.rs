@@ -49,7 +49,16 @@ impl PluginCommand for ConcatDF {
                 SyntaxShape::Any,
                 "The dataframes to concatenate",
             )
-            .input_output_type(Type::Any, Type::Custom("polars_dataframe".into()))
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

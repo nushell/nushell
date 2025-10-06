@@ -35,10 +35,16 @@ impl PluginCommand for ToLazyGroupBy {
                 "maintain-order",
                 "Ensure that the order of the groups is consistent with the input data. This is slower than a default group by and cannot be run on the streaming engine.",
                 Some('m'))
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 

@@ -34,6 +34,10 @@ impl PluginCommand for ExprVar {
                     Type::Custom("polars_dataframe".into()),
                     Type::Custom("polars_dataframe".into()),
                 ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
             ])
             .category(Category::Custom("dataframe".into()))
     }

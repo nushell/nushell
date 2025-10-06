@@ -37,6 +37,10 @@ impl PluginCommand for CastDF {
                     Type::Custom("polars_dataframe".into()),
                     Type::Custom("polars_dataframe".into()),
                 ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
             ])
             .required(
                 "dtype",

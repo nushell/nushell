@@ -32,7 +32,7 @@ impl PluginCommand for ToLazyFrame {
                 r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
-            .input_output_type(Type::Any, Type::Custom("polars_dataframe".into()))
+            .input_output_type(Type::Any, Type::Custom("polars_lazyframe".into()))
             .category(Category::Custom("lazyframe".into()))
     }
 

@@ -42,6 +42,10 @@ impl PluginCommand for LazyQuantile {
                     Type::Custom("polars_dataframe".into()),
                     Type::Custom("polars_dataframe".into()),
                 ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
             ])
             .category(Category::Custom("lazyframe".into()))
     }

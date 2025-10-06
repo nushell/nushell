@@ -44,10 +44,16 @@ impl PluginCommand for LazySortBy {
                 Some('n'),
             )
             .switch("maintain-order", "Maintains order during sort", Some('m'))
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 

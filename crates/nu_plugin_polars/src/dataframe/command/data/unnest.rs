@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use polars::df;
 
@@ -28,6 +28,16 @@ impl PluginCommand for UnnestDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest("cols", SyntaxShape::String, "columns to unnest")
+            .input_output_types(vec![
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+                (
+                    Type::Custom("lazyframe".into()),
+                    Type::Custom("lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

@@ -114,7 +114,16 @@ impl PluginCommand for OpenDataFrame {
                 None,
             )
             .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
-            .input_output_type(Type::Any, Type::Custom("polars_dataframe".into()))
+            .input_output_types(vec![
+                (
+                    Type::Any,
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Any,
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

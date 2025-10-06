@@ -32,10 +32,16 @@ impl PluginCommand for Summary {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Custom("dataframe".into()))
-            .input_output_type(
-                Type::Custom("polars_dataframe".into()),
-                Type::Custom("polars_dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("polars_dataframe".into()),
+                    Type::Custom("polars_dataframe".into()),
+                ),
+                (
+                    Type::Custom("polars_lazyframe".into()),
+                    Type::Custom("polars_lazyframe".into()),
+                ),
+            ])
             .named(
                 "quantiles",
                 SyntaxShape::List(Box::new(SyntaxShape::Float)),

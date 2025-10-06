@@ -35,12 +35,17 @@ impl PluginCommand for ToNu {
             )
             .switch("tail", "shows tail rows", Some('t'))
             .switch("index", "add an index column", Some('i'))
-            .input_output_types(vec![
-                (Type::Custom("polars_expression".into()), Type::Any),
-                (Type::Custom("polars_dataframe".into()), Type::table()),
-                (Type::Custom("datatype".into()), Type::Any),
-                (Type::Custom("polars_schema".into()), Type::Any),
-            ])
+            .input_output_types(
+                PolarsPluginType::types()
+                    .iter()
+                    .map(|t| match t {
+                        PolarsPluginType::NuDataFrame | PolarsPluginType::NuLazyFrame => {
+                            (Type::Custom(t.type_name().into()), Type::table())
+                        }
+                        _ => (Type::Custom(t.type_name().into()), Type::Any),
+                    })
+                    .collect(),
+            )
             .category(Category::Custom("dataframe".into()))
     }
 
