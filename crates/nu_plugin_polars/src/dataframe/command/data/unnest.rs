@@ -1,12 +1,12 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
 use polars::df;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -30,12 +30,12 @@ impl PluginCommand for UnnestDF {
             .rest("cols", SyntaxShape::String, "columns to unnest")
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("lazyframe".into()),
-                    Type::Custom("lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

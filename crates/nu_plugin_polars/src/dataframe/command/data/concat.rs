@@ -50,14 +50,8 @@ impl PluginCommand for ConcatDF {
                 "The dataframes to concatenate",
             )
             .input_output_types(vec![
-                (
-                    PolarsPluginType::NuDataFrame.into(),
-                    PolarsPluginType::NuDataFrame.into(),
-                ),
-                (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
-                ),
+                (Type::Any, PolarsPluginType::NuDataFrame.into()),
+                (Type::Any, Type::Custom("polars_lazyframe".into())),
             ])
             .category(Category::Custom("dataframe".into()))
     }
