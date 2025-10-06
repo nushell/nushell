@@ -11,9 +11,11 @@ fn detect_columns_with_legacy() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns) == {}",
-                case.0,
-                case.1
+                format!(
+                    "({} | detect columns) == {}",
+                    case.0,
+                    case.1
+                )
             );
 
             assert_eq!(
@@ -49,10 +51,12 @@ fn detect_columns_with_legacy_and_flag_c() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns --combine-columns {}) == {}",
-                case.0,
-                case.2,
-                case.1,
+                format!(
+                    "({} | detect columns --combine-columns {}) == {}",
+                    case.0,
+                    case.2,
+                    case.1,
+                )
             );
 
             assert_eq!(

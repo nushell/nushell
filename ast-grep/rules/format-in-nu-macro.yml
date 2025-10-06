@@ -2,7 +2,7 @@
 
 id: format-in-nu-macro
 language: rust
-severity: error
+severity: off
 message: "`nu!` macro already supports format strings, use of `format!` is unnecessary"
 
 rule:

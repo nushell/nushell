@@ -27,7 +27,9 @@ fn random_bytes() -> Vec<String> {
 
 pub fn test_canonical(cmd: &str) {
     for value in random_bytes() {
-        let outcome = nu!("0x[{}] | encode {1} | decode {1} | to nuon", value, cmd);
+        let outcome = nu!(format!(
+            "0x[{value}] | encode {cmd} | decode {cmd} | to nuon"
+        ));
         let nuon_value = format!("0x[{value}]");
         assert_eq!(outcome.out, nuon_value);
     }
@@ -35,11 +37,9 @@ pub fn test_canonical(cmd: &str) {
 
 pub fn test_const(cmd: &str) {
     for value in random_bytes() {
-        let outcome = nu!(
-            r#"const out = (0x[{}] | encode {1} | decode {1} | encode hex); $out"#,
-            value,
-            cmd
-        );
+        let outcome = nu!(format!(
+            r#"const out = (0x[{value}] | encode {cmd} | decode {cmd} | encode hex); $out"#
+        ));
         assert_eq!(outcome.out, value);
     }
 }

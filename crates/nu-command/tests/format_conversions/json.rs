@@ -201,9 +201,9 @@ fn table_to_json_text_strict() {
 #[test]
 fn top_level_values_from_json() {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let actual = nu!(r#""{}" | from json | to json"#, value);
+        let actual = nu!(format!(r#""{value}" | from json | to json"#));
         assert_eq!(actual.out, value);
-        let actual = nu!(r#""{}" | from json | describe"#, value);
+        let actual = nu!(format!(r#""{value}" | from json | describe"#));
         assert_eq!(actual.out, type_name);
     }
 }
@@ -211,9 +211,9 @@ fn top_level_values_from_json() {
 #[test]
 fn top_level_values_from_json_strict() {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let actual = nu!(r#""{}" | from json -s | to json"#, value);
+        let actual = nu!(format!(r#""{value}" | from json -s | to json"#));
         assert_eq!(actual.out, value);
-        let actual = nu!(r#""{}" | from json -s | describe"#, value);
+        let actual = nu!(format!(r#""{value}" | from json -s | describe"#));
         assert_eq!(actual.out, type_name);
     }
 }

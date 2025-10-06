@@ -49,8 +49,10 @@ fn du_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "du -d 1 '{}'",
-            src.display(),
+            format!(
+                "du -d 1 '{}'",
+                src.display(),
+            )
         );
 
         assert!(actual.err.is_empty());
@@ -58,8 +60,10 @@ fn du_files_with_glob_metachars(#[case] src_name: &str) {
         // also test for variables.
         let actual = nu!(
             cwd: dirs.test(),
-            "let f = '{}'; du -d 1 $f",
-            src.display(),
+            format!(
+                "let f = '{}'; du -d 1 $f",
+                src.display(),
+            )
         );
 
         assert!(actual.err.is_empty());

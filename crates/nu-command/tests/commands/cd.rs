@@ -41,11 +41,13 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
     Playground::setup("cd_test_2", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
-                cd '{}'
-                $env.PWD
-            "#,
-            dirs.formats().display()
+            format!(
+                r#"
+                    cd '{}'
+                    $env.PWD
+                "#,
+                dirs.formats().display()
+            )
         );
 
         assert_eq!(Path::new(&actual.out), dirs.formats());
@@ -57,12 +59,14 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
     Playground::setup("cd_test_2", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
-                cd '{}{}'
-                $env.PWD
-            "#,
-            dirs.formats().display(),
-            std::path::MAIN_SEPARATOR_STR,
+            format!(
+                r#"
+                    cd '{}{}'
+                    $env.PWD
+                "#,
+                dirs.formats().display(),
+                std::path::MAIN_SEPARATOR_STR,
+            )
         );
 
         assert_eq!(Path::new(&actual.out), dirs.formats());
@@ -76,12 +80,14 @@ fn filesystem_switch_back_to_previous_working_directory() {
 
         let actual = nu!(
             cwd: dirs.test().join("odin"),
-            "
-                cd {}
-                cd -
-                $env.PWD
-            ",
-            dirs.test().display()
+            format!(
+                "
+                    cd {}
+                    cd -
+                    $env.PWD
+                ",
+                dirs.test().display()
+            )
         );
 
         assert_eq!(Path::new(&actual.out), dirs.test().join("odin"));

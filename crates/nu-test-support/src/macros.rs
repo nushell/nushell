@@ -89,7 +89,7 @@ macro_rules! nu {
         // Here we parse the options into a `NuOpts` struct
         let opts = nu!(@nu_opts $($options)*);
         // and format the `$path` using the `$part`s
-        let path = nu!(@format_path $path, $($part),*);
+        let path = $path;
         // Then finally we go to the `@main` phase, where the actual work is done.
         nu!(@main opts, path)
     }};
@@ -103,15 +103,6 @@ macro_rules! nu {
             ..Default::default()
         }
     };
-
-    // Helper to format `$path`.
-    (@format_path $path:expr $(,)?) => {
-        // When there are no `$part`s, do not format anything
-        $path
-    };
-    (@format_path $path:expr, $($part:expr),* $(,)?) => {{
-        format!($path, $( $part ),*)
-    }};
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
