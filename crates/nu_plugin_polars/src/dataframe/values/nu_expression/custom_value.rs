@@ -1,6 +1,6 @@
 use crate::{
     Cacheable, PolarsPlugin,
-    values::{CustomValueSupport, PolarsPluginCustomValue},
+    values::{CustomValueSupport, PolarsPluginCustomValue, PolarsPluginType},
 };
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
@@ -32,7 +32,7 @@ impl CustomValue for NuExpressionCustomValue {
     }
 
     fn type_name(&self) -> String {
-        TYPE_NAME.into()
+        PolarsPluginType::NuExpression.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
