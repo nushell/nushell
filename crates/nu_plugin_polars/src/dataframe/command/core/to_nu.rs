@@ -39,7 +39,7 @@ impl PluginCommand for ToNu {
                 (Type::Custom("polars_expression".into()), Type::Any),
                 (Type::Custom("polars_dataframe".into()), Type::table()),
                 (Type::Custom("datatype".into()), Type::Any),
-                (Type::Custom("schema".into()), Type::Any),
+                (Type::Custom("polars_schema".into()), Type::Any),
             ])
             .category(Category::Custom("dataframe".into()))
     }

@@ -21,7 +21,7 @@ impl PluginCommand for ToSchema {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("schema".into()))
+            .input_output_type(Type::Any, Type::Custom("polars_schema".into()))
             .category(Category::Custom("dataframe".into()))
     }
 
