@@ -7,7 +7,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -38,8 +38,8 @@ impl PluginCommand for WithColumn {
                     PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe or lazyframe".into()))

@@ -5,7 +5,7 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -32,8 +32,8 @@ impl PluginCommand for LazyJoinWhere {
                     PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))

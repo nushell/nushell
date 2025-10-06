@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
 
 use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
@@ -29,8 +29,8 @@ impl PluginCommand for ShapeDF {
                     PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

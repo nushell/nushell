@@ -51,7 +51,7 @@ impl PluginCommand for ConcatDF {
             )
             .input_output_types(vec![
                 (Type::Any, PolarsPluginType::NuDataFrame.into()),
-                (Type::Any, Type::Custom("polars_lazyframe".into())),
+                (Type::Any, PolarsPluginType::NuLazyFrame.into()),
             ])
             .category(Category::Custom("dataframe".into()))
     }

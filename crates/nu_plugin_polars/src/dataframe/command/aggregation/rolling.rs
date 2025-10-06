@@ -4,7 +4,7 @@ use crate::{PolarsPlugin, values::CustomValueSupport};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::prelude::{DataType, IntoSeries, RollingOptionsFixedWindow, SeriesOpsTime};
 
@@ -66,8 +66,8 @@ impl PluginCommand for Rolling {
                     PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

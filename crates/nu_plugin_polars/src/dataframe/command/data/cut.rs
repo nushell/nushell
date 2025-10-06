@@ -1,5 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 use polars::prelude::PlSmallStr;
 
 use crate::{
@@ -36,8 +36,8 @@ impl PluginCommand for CutSeries {
                     PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("polars_lazyframe".into()),
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

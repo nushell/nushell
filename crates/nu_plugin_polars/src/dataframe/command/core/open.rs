@@ -121,7 +121,7 @@ impl PluginCommand for OpenDataFrame {
                 ),
                 (
                     Type::Any,
-                    Type::Custom("polars_lazyframe".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))
