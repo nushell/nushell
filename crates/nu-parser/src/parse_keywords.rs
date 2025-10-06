@@ -10,8 +10,9 @@ use crate::{
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    Alias, BlockId, CommandWideCompleter, CustomExample, DeclId, FromValue, Module, ModuleId,
+    ParseError, PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
@@ -1018,7 +1019,7 @@ fn handle_special_attributes(
                     if let Some(decl) = working_set.find_decl(item.as_bytes()) {
                         // TODO: Enforce command signature? Not before settling on a unified
                         // custom completion api
-                        signature.complete = Some(Some(decl));
+                        signature.complete = Some(CommandWideCompleter::Command(decl));
                     } else {
                         working_set.error(ParseError::UnknownCommand(span));
                     }
@@ -1036,7 +1037,7 @@ fn handle_special_attributes(
             },
             "complete external" => match value {
                 Value::Nothing { .. } => {
-                    signature.complete = Some(None);
+                    signature.complete = Some(CommandWideCompleter::External);
                 }
                 _ => {
                     let e = ShellError::GenericError {

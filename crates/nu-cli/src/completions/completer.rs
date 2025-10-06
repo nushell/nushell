@@ -7,7 +7,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    Completion, Span, Type, Value,
+    CommandWideCompleter, Completion, Span, Type, Value,
     ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
     engine::{EngineState, Stack, StateWorkingSet},
 };
@@ -461,13 +461,15 @@ impl NuCompleter {
                         };
 
                         let completion = match command_wide_completer {
-                            Some(decl_id) => CommandWideCompletion::command(
-                                working_set,
-                                decl_id,
-                                element_expression,
-                                strip,
-                            ),
-                            None => self
+                            CommandWideCompleter::Command(decl_id) => {
+                                CommandWideCompletion::command(
+                                    working_set,
+                                    decl_id,
+                                    element_expression,
+                                    strip,
+                                )
+                            }
+                            CommandWideCompleter::External => self
                                 .engine_state
                                 .get_config()
                                 .completions
