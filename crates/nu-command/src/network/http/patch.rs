@@ -139,6 +139,11 @@ impl Command for HttpPatch {
                 example: "open --raw foo.json | http patch https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get response metadata (status code, headers, redirect history)",
+                example: r#"http patch https://www.example.com 'body' | metadata | get "http.response""#,
+                result: None,
+            },
         ]
     }
 }

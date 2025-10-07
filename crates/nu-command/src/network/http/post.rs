@@ -153,6 +153,11 @@ impl Command for HttpPost {
                 example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.txt | into binary) }",
                 result: None,
             },
+            Example {
+                description: "Get response metadata (status code, headers, redirect history)",
+                example: r#"http post https://www.example.com 'body' | metadata | get "http.response""#,
+                result: None,
+            },
         ]
     }
 }

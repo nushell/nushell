@@ -112,6 +112,11 @@ impl Command for HttpHead {
                 example: "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get response metadata (status code, headers, redirect history)",
+                example: r#"http head https://www.example.com | metadata | get "http.response""#,
+                result: None,
+            },
         ]
     }
 }

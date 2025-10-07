@@ -143,6 +143,11 @@ impl Command for HttpPut {
                 example: "open --raw foo.json | http put https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get response metadata (status code, headers, redirect history)",
+                example: r#"http put https://www.example.com 'body' | metadata | get "http.response""#,
+                result: None,
+            },
         ]
     }
 }

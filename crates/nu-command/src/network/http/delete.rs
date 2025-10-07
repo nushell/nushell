@@ -149,6 +149,11 @@ impl Command for HttpDelete {
                 example: "open foo.json | http delete https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get response metadata (status code, headers, redirect history)",
+                example: r#"http delete https://www.example.com | metadata | get "http.response""#,
+                result: None,
+            },
         ]
     }
 }
