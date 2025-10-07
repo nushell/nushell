@@ -44,6 +44,10 @@ use std::{
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
+// NOTE: All variants are marked as `non_exhaustive` to prevent them
+// from being constructed (outside of this crate) with the struct
+// expression syntax. This makes using the constructor methods the
+// only way to construct `Value`'s
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
     #[non_exhaustive]
