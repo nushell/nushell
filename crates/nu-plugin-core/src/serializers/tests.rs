@@ -6,8 +6,8 @@ macro_rules! generate_tests {
             StreamData,
         };
         use nu_protocol::{
-            DataSource, LabeledError, PipelineMetadata, PluginSignature, Signature, Span, Spanned,
-            SyntaxShape, Value,
+            LabeledError, PipelineMetadata, PluginSignature, Signature, Span, Spanned, SyntaxShape,
+            Value,
         };
 
         #[test]

@@ -15,9 +15,8 @@ use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
-    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
-    Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,

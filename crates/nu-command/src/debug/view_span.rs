@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DataSource, PipelineMetadata};
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct ViewSpan;

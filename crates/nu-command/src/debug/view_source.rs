@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, DataSource, PipelineMetadata};
+use nu_protocol::{Config, PipelineMetadata};
 
 use std::fmt::Write;
 
