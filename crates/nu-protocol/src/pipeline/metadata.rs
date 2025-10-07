@@ -5,6 +5,17 @@ use serde::{Deserialize, Serialize};
 use crate::Record;
 
 /// Metadata that is valid for the whole [`PipelineData`](crate::PipelineData)
+///
+/// ## Custom Metadata
+///
+/// The `custom` field allows commands and plugins to attach arbitrary metadata to pipeline data.
+/// To avoid key collisions, it is recommended to use namespaced keys with a dot separator:
+///
+/// - `"http.response"` - HTTP response metadata (status, headers, etc.)
+/// - `"polars.schema"` - DataFrame schema information
+/// - `"custom_plugin.field"` - Plugin-specific metadata
+///
+/// This convention helps ensure different commands and plugins don't overwrite each other's metadata.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
