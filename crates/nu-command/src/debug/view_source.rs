@@ -224,7 +224,6 @@ impl Command for ViewSource {
         };
         source.map(|x| {
             x.set_metadata(Some(PipelineMetadata {
-                data_source: DataSource::None,
                 content_type: Some("application/x-nuscript".into()),
                 ..Default::default()
             }))

@@ -127,7 +127,6 @@ impl Command for Ls {
                         engine_state.signals().clone(),
                         PipelineMetadata {
                             data_source: DataSource::Ls,
-                            content_type: None,
                             ..Default::default()
                         },
                     ),
@@ -153,7 +152,6 @@ impl Command for Ls {
                         engine_state.signals().clone(),
                         PipelineMetadata {
                             data_source: DataSource::Ls,
-                            content_type: None,
                             ..Default::default()
                         },
                     ))

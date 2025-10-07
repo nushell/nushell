@@ -191,7 +191,6 @@ impl Command for Open {
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type: None,
                             ..Default::default()
                         }),
                     );

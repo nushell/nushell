@@ -803,7 +803,6 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let interface = manager.get_interface();
 
     let metadata0 = PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("baz".into()),
         ..Default::default()
     };
