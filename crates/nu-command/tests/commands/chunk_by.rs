@@ -11,13 +11,13 @@ fn chunk_by_on_empty_input_returns_empty_list() {
 fn chunk_by_strings_works() {
     let sample = r#"[a a a b b b c c c a a a]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         r#"
             {sample}
             | chunk-by {{|it| $it}}
             | to nuon
         "#
-    )));
+    ));
 
     assert_eq!(actual.out, "[[a, a, a], [b, b, b], [c, c, c], [a, a, a]]");
 }
@@ -46,11 +46,13 @@ fn chunk_by_field_works() {
         cool: true
     } ]"#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"{sample}
-           | chunk-by {{|it| $it.cool}}
-           | length"#
-    )));
+    let actual = nu!(format!(
+        r#"
+            {sample}
+            | chunk-by {{|it| $it.cool}}
+            | length
+        "#
+    ));
 
     assert_eq!(actual.out, "2");
 }

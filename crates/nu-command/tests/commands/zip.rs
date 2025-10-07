@@ -22,22 +22,22 @@ fn zips_two_tables() {
             &format!("{ZIP_POWERED_TEST_ASSERTION_SCRIPT}\n"),
         )]);
 
-        let actual = nu!(pipeline(&format!(
-            "
+        let actual = nu!(format!(
+            r#"
                 use {} expect ;
 
                 let contributors = ([
-                  [name, commits];
-                  [andres,    10]
-                  [    jt,    20]
+                    [name, commits];
+                    [andres,    10]
+                    [    jt,    20]
                 ]);
 
                 let actual = ($contributors | upsert commits {{ |i| ($i.commits + 10) }});
 
                 expect $actual --to-eq [[name, commits]; [andres, 20] [jt, 30]]
-                ",
+            "#,
             dirs.test().join("zip_test.nu").display()
-        )));
+        ));
 
         assert_eq!(actual.out, "true");
     })

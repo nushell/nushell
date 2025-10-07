@@ -21,17 +21,17 @@ fn condition_is_met() {
         [Yehuda, 1, 1, 3]
     ]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         r#"
-                {sample}
-                | skip while {{|row| $row."Chicken Collection" != "Blue Chickens" }}
-                | take until {{|row| $row."Chicken Collection" == "Red Chickens" }}
-                | skip 1
-                | into int "31/04/2020"
-                | get "31/04/2020"
-                | math sum
-                "#
-    )));
+            {sample}
+            | skip while {{|row| $row."Chicken Collection" != "Blue Chickens" }}
+            | take until {{|row| $row."Chicken Collection" == "Red Chickens" }}
+            | skip 1
+            | into int "31/04/2020"
+            | get "31/04/2020"
+            | math sum
+        "#
+    ));
 
     assert_eq!(actual.out, "8");
 }

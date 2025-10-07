@@ -9,15 +9,7 @@ fn http_get_is_success() {
 
     let _mock = server.mock("GET", "/").with_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http get {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http get {url}"#, url = server.url()));
 
     assert_eq!(actual.out, "foo")
 }
@@ -28,15 +20,7 @@ fn http_get_failed_due_to_server_error() {
 
     let _mock = server.mock("GET", "/").with_status(400).create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http get {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http get {url}"#, url = server.url()));
 
     assert!(actual.err.contains("Bad request (400)"))
 }
@@ -51,15 +35,7 @@ fn http_get_with_accept_errors() {
         .with_body("error body")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http get -e {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http get -e {url}"#, url = server.url()));
 
     assert!(actual.out.contains("error body"))
 }
@@ -74,14 +50,12 @@ fn http_get_with_accept_errors_and_full_raw_response() {
         .with_body("error body")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http get -e -f {url} | $"($in.status) => ($in.body)"
+    let actual = nu!(format!(
+        r#"
+            http get -e -f {url}
+            | $"($in.status) => ($in.body)"
         "#,
-            url = server.url()
-        )
-        .as_str()
+        url = server.url()
     ));
 
     assert!(actual.out.contains("400 => error body"))
@@ -102,15 +76,13 @@ fn http_get_with_accept_errors_and_full_json_response() {
         )
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http get -e -f {url} | $"($in.status) => ($in.body.msg)"
+    let actual = nu!((format!(
+        r#"
+            http get -e -f {url}
+            | $"($in.status) => ($in.body.msg)"
         "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+        url = server.url()
+    )));
 
     assert!(actual.out.contains("400 => error body"))
 }
@@ -151,12 +123,9 @@ fn http_get_full_response() {
 
     let _mock = server.mock("GET", "/").with_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http get --full {url} --headers [foo bar] | to json",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http get --full {url} --headers [foo bar] | to json",
+        url = server.url()
     ));
 
     let output: serde_json::Value = serde_json::from_str(&actual.out).unwrap();
@@ -189,9 +158,7 @@ fn http_get_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http get {url}/foo", url = server.url()).as_str()
-    ));
+    let actual = nu!(format!("http get {url}/foo", url = server.url()));
 
     assert_eq!(&actual.out, "bar");
 }
@@ -207,12 +174,9 @@ fn http_get_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http get --redirect-mode manual {url}/foo",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http get --redirect-mode manual {url}/foo",
+        url = server.url()
     ));
 
     assert_eq!(&actual.out, "foo");
@@ -229,12 +193,9 @@ fn http_get_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http get --redirect-mode error {url}/foo",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http get --redirect-mode error {url}/foo",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::network_failure"));
@@ -289,12 +250,9 @@ fn http_get_with_invalid_mime_type() {
         .create();
 
     // but `from nuon` is a known command in nu, so we take `foo.{ext}` and pass it to `from {ext}`
-    let actual = nu!(pipeline(
-        format!(
-            r#"http get {url}/foo.nuon | to json --raw"#,
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        r#"http get {url}/foo.nuon | to json --raw"#,
+        url = server.url()
     ));
 
     assert_eq!(actual.out, "[1,2,3]");
@@ -312,8 +270,12 @@ fn http_get_with_unknown_mime_type() {
         .create();
 
     // but `from nuon` is a known command in nu, so we take `{garbage}/{whatever}` and pass it to `from {whatever}`
-    let actual = nu!(pipeline(
-        format!(r#"http get {url}/foo | to json --raw"#, url = server.url()).as_str()
+    let actual = nu!(format!(
+        r#"
+            http get {url}/foo
+            | to json --raw
+        "#,
+        url = server.url()
     ));
 
     assert_eq!(actual.out, "[1,2,3]");
@@ -330,8 +292,9 @@ fn http_get_timeout() {
         })
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http get --max-time 100ms {url}", url = server.url()).as_str()
+    let actual = nu!(format!(
+        "http get --max-time 100ms {url}",
+        url = server.url()
     ));
 
     assert!(

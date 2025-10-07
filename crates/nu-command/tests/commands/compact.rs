@@ -11,14 +11,14 @@ fn discards_rows_where_given_column_is_empty() {
         ]
     }"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample_json}
-                | get amigos
-                | compact rusty_luck
-                | length
-            "
-    )));
+            {sample_json}
+            | get amigos
+            | compact rusty_luck
+            | length
+        "
+    ));
 
     assert_eq!(actual.out, "3");
 }

@@ -68,7 +68,7 @@ fn use_eval_export_env() {
 
         let inp = &[r#"use spam.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -86,7 +86,7 @@ fn use_eval_export_env_hide() {
 
         let inp = &[r#"$env.FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
         assert!(actual.err.contains("not_found"));
     })
@@ -106,7 +106,7 @@ fn use_do_cd() {
 
         let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
         assert_eq!(actual.out, "test2");
     })
@@ -126,7 +126,7 @@ fn use_do_cd_file_relative() {
 
         let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
         assert_eq!(actual.out, "test1");
     })
@@ -150,7 +150,7 @@ fn use_dont_cd_overlay() {
 
         let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
         assert_eq!(actual.out, "use_dont_cd_overlay");
     })
@@ -170,7 +170,7 @@ fn use_export_env_combined() {
 
         let inp = &[r#"use spam.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), inp.join("; "));
         assert_eq!(actual.out, "foo");
     })
 }

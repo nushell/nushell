@@ -84,12 +84,7 @@ drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~
 ]"#;
 
     let range = "5..6";
-    let cmd = format!(
-        "({} | detect columns -c {} -s 1 --no-headers) == {}",
-        pipeline(body),
-        range,
-        pipeline(expected),
-    );
+    let cmd = format!("({body} | detect columns -c {range} -s 1 --no-headers) == {expected}",);
     println!("debug cmd: {cmd}");
     Playground::setup("detect_columns_test_1", |dirs, _| {
         let out = nu!(

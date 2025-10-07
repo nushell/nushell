@@ -14,15 +14,15 @@ fn adds_row_data_if_column_missing() {
         ]
     }"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | get amigos
-                | default 1 rusty_luck
-                | where rusty_luck == 1
-                | length
-            "
-    )));
+            {sample}
+            | get amigos
+            | default 1 rusty_luck
+            | where rusty_luck == 1
+            | length
+        "
+    ));
 
     assert_eq!(actual.out, "2");
 }
@@ -60,15 +60,15 @@ fn adds_row_data_if_column_missing_or_empty() {
         ]
     }"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | get amigos
-                | default -e 1 rusty_luck
-                | where rusty_luck == 1
-                | length
-            "
-    )));
+            {sample}
+            | get amigos
+            | default -e 1 rusty_luck
+            | where rusty_luck == 1
+            | length
+        "
+    ));
 
     assert_eq!(actual.out, "5");
 }

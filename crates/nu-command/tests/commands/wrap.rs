@@ -9,15 +9,15 @@ fn wrap_rows_into_a_row() {
         [Yehuda, Katz]
     ]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | wrap caballeros
-                | get caballeros
-                | get 0
-                | get last_name
-            "
-    )));
+            {sample}
+            | wrap caballeros
+            | get caballeros
+            | get 0
+            | get last_name
+        "
+    ));
 
     assert_eq!(actual.out, "Robalino");
 }
@@ -31,15 +31,15 @@ fn wrap_rows_into_a_table() {
         [Yehuda, Katz]
     ]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | get last_name
-                | wrap caballero
-                | get 2
-                | get caballero
-            "
-    )));
+            {sample}
+            | get last_name
+            | wrap caballero
+            | get 2
+            | get caballero
+        "
+    ));
 
     assert_eq!(actual.out, "Katz");
 }

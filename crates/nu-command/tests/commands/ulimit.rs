@@ -133,25 +133,21 @@ fn limit_set_invalid5() {
     let max = (rlim_t::MAX / 1024) + 1;
 
     Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-                format!(
-                "
-                    let hard = (ulimit -c | first | get hard);
-                    match $hard {{
-                        \"unlimited\" => {{
-                            ulimit -c -S 0;
-                            ulimit -c {max};
-                            ulimit -c
-                            | first
-                            | get soft
-                        }},
-                        _ => {{
-                            echo \"unlimited\"
-                        }}
-                    }}
-                ").as_str()
-        ));
+        let actual = nu!(cwd: dirs.test(), format!(r#"
+            let hard = (ulimit -c | first | get hard)
+            match $hard {{
+                "unlimited" => {{
+                    ulimit -c -S 0
+                    ulimit -c {max}
+                    ulimit -c
+                    | first
+                    | get soft
+                }},
+                _ => {{
+                    echo "unlimited"
+                }}
+            }}
+        "#));
 
         assert!(actual.out.eq("unlimited"));
     });

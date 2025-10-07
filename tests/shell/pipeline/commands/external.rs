@@ -376,11 +376,9 @@ mod external_words {
             )]);
 
             let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                &format!("
-                    nu --testbin meow {nu_path_argument} | from toml | get nu_party_venue
-                ")
-            ));
+                cwd: dirs.test(),
+                format!("nu --testbin meow {nu_path_argument} | from toml | get nu_party_venue")
+            );
 
             assert_eq!(actual.out, "zion");
         })

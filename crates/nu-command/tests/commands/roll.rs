@@ -3,30 +3,24 @@ use nu_test_support::{nu, pipeline};
 mod rows {
     use super::*;
 
-    fn table() -> String {
-        r#"[
-            [service, status];
+    const TABLE: &str = r#"[
+        [service, status];
 
-            [ruby,      DOWN]
-            [db,        DOWN]
-            [nud,       DOWN]
-            [expected,  HERE]
-        ]"#
-        .to_string()
-    }
+        [ruby,      DOWN]
+        [db,        DOWN]
+        [nud,       DOWN]
+        [expected,  HERE]
+    ]"#;
 
     #[test]
     fn can_roll_down() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                "
-                roll down
+            r#"
+                {TABLE}
+                | roll down
                 | first
                 | get status
-            "
-            )
+            "#,
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -35,15 +29,12 @@ mod rows {
     #[test]
     fn can_roll_up() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                "
-                roll up --by 3
+            r#"
+                {TABLE}
+                | roll up --by 3
                 | first
                 | get status
-            "
-            )
+            "#
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -53,31 +44,25 @@ mod rows {
 mod columns {
     use super::*;
 
-    fn table() -> String {
-        r#"[
-            [commit_author, origin,      stars];
+    const TABLE: &str = r#"[
+        [commit_author, origin,      stars];
 
-            [     "Andres",     EC, amarillito]
-            [     "Darren",     US,      black]
-            [   "JT",     US,      black]
-            [     "Yehuda",     US,      black]
-            [      "Jason",     CA,       gold]
-        ]"#
-        .to_string()
-    }
+        [     "Andres",     EC, amarillito]
+        [     "Darren",     US,      black]
+        [   "JT",     US,      black]
+        [     "Yehuda",     US,      black]
+        [      "Jason",     CA,       gold]
+    ]"#;
 
     #[test]
     fn can_roll_left() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                r#"
-            roll left
-            | columns
-            | str join "-"
-        "#
-            )
+            r#"
+                {TABLE}
+                | roll left
+                | columns
+                | str join "-"
+            "#
         ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -86,15 +71,12 @@ mod columns {
     #[test]
     fn can_roll_right() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                r#"
-            roll right --by 2
-            | columns
-            | str join "-"
-        "#
-            )
+            r#"
+                {TABLE}
+                | roll right --by 2
+                | columns
+                | str join "-"
+            "#
         ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -141,9 +123,7 @@ mod columns {
 
         // this pipeline takes the nu bitstring row literal, computes it's
         // decimal value.
-        let nu_row_literal_bitstring_to_decimal_value_pipeline = pipeline(
-            r#"
-            transpose bit --ignore-titles
+        let nu_row_literal_bitstring_to_decimal_value_pipeline = r#"transpose bit --ignore-titles
             | get bit
             | reverse
             | enumerate
@@ -151,8 +131,7 @@ mod columns {
                 $it.item * (2 ** $it.index)
             }
             | math sum
-        "#,
-        );
+        "#;
         println!(
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );

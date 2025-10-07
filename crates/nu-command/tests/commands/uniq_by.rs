@@ -10,13 +10,7 @@ fn removes_duplicate_rows() {
         [JT         , Turner, "11/12/2011", O]
     ]"#;
 
-    let actual = nu!(pipeline(&format!(
-        "
-                {sample}
-                | uniq-by last_name
-                | length
-            "
-    )));
+    let actual = nu!(format!("{sample} | uniq-by last_name | length"));
 
     assert_eq!(actual.out, "3");
 }
