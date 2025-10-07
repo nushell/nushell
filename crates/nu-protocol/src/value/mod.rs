@@ -44,8 +44,13 @@ use std::{
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
+// NOTE: All variants are marked as `non_exhaustive` to prevent them
+// from being constructed (outside of this crate) with the struct
+// expression syntax. This makes using the constructor methods the
+// only way to construct `Value`'s
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
+    #[non_exhaustive]
     Bool {
         val: bool,
         /// note: spans are being refactored out of Value
@@ -53,6 +58,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Int {
         val: i64,
         /// note: spans are being refactored out of Value
@@ -60,6 +66,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Float {
         val: f64,
         /// note: spans are being refactored out of Value
@@ -67,6 +74,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     String {
         val: String,
         /// note: spans are being refactored out of Value
@@ -74,6 +82,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Glob {
         val: String,
         no_expand: bool,
@@ -82,6 +91,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Filesize {
         val: Filesize,
         /// note: spans are being refactored out of Value
@@ -89,6 +99,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Duration {
         /// The duration in nanoseconds.
         val: i64,
@@ -97,6 +108,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Date {
         val: DateTime<FixedOffset>,
         /// note: spans are being refactored out of Value
@@ -104,6 +116,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Range {
         val: Box<Range>,
         /// note: spans are being refactored out of Value
@@ -111,6 +124,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Record {
         val: SharedCow<Record>,
         /// note: spans are being refactored out of Value
@@ -118,6 +132,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     List {
         vals: Vec<Value>,
         /// note: spans are being refactored out of Value
@@ -125,6 +140,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Closure {
         val: Box<Closure>,
         /// note: spans are being refactored out of Value
@@ -132,6 +148,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Error {
         error: Box<ShellError>,
         /// note: spans are being refactored out of Value
@@ -139,6 +156,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Binary {
         val: Vec<u8>,
         /// note: spans are being refactored out of Value
@@ -146,6 +164,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     CellPath {
         val: CellPath,
         /// note: spans are being refactored out of Value
@@ -153,6 +172,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Custom {
         val: Box<dyn CustomValue>,
         /// note: spans are being refactored out of Value
@@ -160,6 +180,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Nothing {
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value

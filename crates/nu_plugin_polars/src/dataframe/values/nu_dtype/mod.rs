@@ -38,10 +38,7 @@ impl NuDataType {
 
 impl From<NuDataType> for Value {
     fn from(nu_dtype: NuDataType) -> Self {
-        Value::String {
-            val: nu_dtype.dtype.to_string(),
-            internal_span: Span::unknown(),
-        }
+        Value::string(nu_dtype.dtype.to_string(), Span::unknown())
     }
 }
 

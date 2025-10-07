@@ -76,16 +76,10 @@ pub fn new_external_engine() -> EngineState {
     let mut engine = create_default_context();
     let dir = fs::fixtures().join("external_completions").join("path");
     let dir_str = dir.to_string_lossy().to_string();
-    let internal_span = nu_protocol::Span::new(0, dir_str.len());
+    let span = nu_protocol::Span::new(0, dir_str.len());
     engine.add_env_var(
         "PATH".to_string(),
-        Value::List {
-            vals: vec![Value::String {
-                val: dir_str,
-                internal_span,
-            }],
-            internal_span,
-        },
+        Value::list(vec![Value::string(dir_str, span)], span),
     );
     engine
 }
