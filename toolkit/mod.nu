@@ -6,6 +6,7 @@
 # (**2**) catch classical flaws in the new changes with *clippy* and (**3**)
 # make sure all the tests pass.
 
+export use artifact *
 export use benchmark.nu *
 export use checks.nu *
 export use coverage.nu *
