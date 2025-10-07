@@ -4,10 +4,10 @@ use crate::dataframe::values::Column;
 use crate::dataframe::values::NuLazyFrame;
 use crate::values::CustomValueSupport;
 use crate::values::NuDataFrame;
+use crate::values::PolarsPluginType;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 // attribution:
@@ -32,10 +32,16 @@ impl PluginCommand for QueryDf {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("sql", SyntaxShape::String, "sql query")
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

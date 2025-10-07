@@ -1,12 +1,11 @@
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame, NuExpression, str_to_dtype},
+    values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType, str_to_dtype},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use polars::{df, prelude::*};
@@ -55,8 +54,8 @@ impl PluginCommand for Replace {
                 Some('t'),
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )
             .category(Category::Custom("expression".into()))
     }

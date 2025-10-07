@@ -28,7 +28,7 @@ pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 pub use nu_schema::NuSchema;
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PolarsPluginType {
     NuDataFrame,
     NuLazyFrame,
@@ -38,6 +38,39 @@ pub enum PolarsPluginType {
     NuPolarsTestData,
     NuDataType,
     NuSchema,
+}
+
+impl PolarsPluginType {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Self::NuDataFrame => "polars_dataframe",
+            Self::NuLazyFrame => "polars_lazyframe",
+            Self::NuExpression => "polars_expression",
+            Self::NuLazyGroupBy => "polars_group_by",
+            Self::NuWhen => "polars_when",
+            Self::NuPolarsTestData => "polars_test_data",
+            Self::NuDataType => "polars_datatype",
+            Self::NuSchema => "polars_schema",
+        }
+    }
+
+    pub fn types() -> &'static [PolarsPluginType] {
+        &[
+            PolarsPluginType::NuDataFrame,
+            PolarsPluginType::NuLazyFrame,
+            PolarsPluginType::NuExpression,
+            PolarsPluginType::NuLazyGroupBy,
+            PolarsPluginType::NuWhen,
+            PolarsPluginType::NuDataType,
+            PolarsPluginType::NuSchema,
+        ]
+    }
+}
+
+impl From<PolarsPluginType> for Type {
+    fn from(pt: PolarsPluginType) -> Self {
+        Type::Custom(pt.type_name().into())
+    }
 }
 
 impl fmt::Display for PolarsPluginType {

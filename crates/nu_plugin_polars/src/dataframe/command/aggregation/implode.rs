@@ -4,9 +4,7 @@ use crate::values::{
     CustomValueSupport, NuDataFrame, PolarsPluginObject, PolarsPluginType, cant_convert_err,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::df;
 use polars::series::Series;
 
@@ -26,8 +24,8 @@ impl PluginCommand for ExprImplode {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )
             .category(Category::Custom("dataframe".into()))
     }

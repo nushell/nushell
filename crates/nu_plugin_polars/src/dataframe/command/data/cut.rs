@@ -1,10 +1,10 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 use polars::prelude::PlSmallStr;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame},
+    values::{CustomValueSupport, NuDataFrame, PolarsPluginType},
 };
 
 pub struct CutSeries;
@@ -30,10 +30,16 @@ impl PluginCommand for CutSeries {
             )
             .switch("left_closed", "Set the intervals to be left-closed instead of right-closed.", Some('c'))
             .switch("include_breaks", "Include a column with the right endpoint of the bin each observation falls in. This will change the data type of the output from a Categorical to a Struct.", Some('b'))
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

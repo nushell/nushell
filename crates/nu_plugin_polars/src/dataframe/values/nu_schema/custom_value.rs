@@ -2,7 +2,7 @@ use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue, PolarsPluginType};
 
 use super::NuSchema;
 
@@ -20,7 +20,7 @@ impl CustomValue for NuSchemaCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuSchema".into()
+        PolarsPluginType::NuSchema.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

@@ -1,9 +1,7 @@
-use crate::values::NuDataFrame;
+use crate::values::{NuDataFrame, PolarsPluginType};
 use crate::{PolarsPlugin, values::CustomValueSupport};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::{prelude::*, series::Series};
 
 #[derive(Clone)]
@@ -25,10 +23,16 @@ impl PluginCommand for Dummies {
             .switch("drop-first", "Drop first row", Some('d'))
             .switch("drop-nulls", "Drop nulls", Some('n'))
             .switch("separator", "Optional separator", Some('s'))
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

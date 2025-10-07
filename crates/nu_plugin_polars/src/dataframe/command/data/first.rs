@@ -1,13 +1,15 @@
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject},
+    values::{
+        Column, CustomValueSupport, NuLazyFrame, NuLazyGroupBy, PolarsPluginObject,
+        PolarsPluginType,
+    },
 };
 
 use crate::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::df;
 
@@ -34,12 +36,16 @@ impl PluginCommand for FirstDF {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

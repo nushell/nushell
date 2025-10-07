@@ -14,7 +14,7 @@ use std::sync::Arc;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::prelude::{
     DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
@@ -54,12 +54,16 @@ impl PluginCommand for AsDateTime {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .required("format", SyntaxShape::String, "formatting date time string")

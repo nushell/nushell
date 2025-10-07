@@ -1,12 +1,11 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
-use crate::values::NuDataFrame;
+use crate::values::{NuDataFrame, PolarsPluginType};
 
 #[derive(Clone)]
 pub struct SliceDF;
@@ -26,10 +25,16 @@ impl PluginCommand for SliceDF {
         Signature::build(self.name())
             .required("offset", SyntaxShape::Int, "start of slice")
             .required("size", SyntaxShape::Int, "size of slice")
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

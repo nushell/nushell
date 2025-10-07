@@ -9,8 +9,7 @@ use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use chrono::DateTime;
@@ -34,8 +33,8 @@ impl PluginCommand for Truncate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .required(
                 "every",

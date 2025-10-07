@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::NuExpression,
-    values::{Column, CustomValueSupport, NuDataFrame, str_to_dtype},
+    values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType, str_to_dtype},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -37,7 +37,7 @@ impl PluginCommand for ExprCol {
                 "Additional columns to be used. Cannot be '*'",
             )
             .switch("type", "Treat column names as type names", Some('t'))
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))
     }
 

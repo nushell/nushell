@@ -5,8 +5,7 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::df;
 
@@ -32,8 +31,8 @@ impl PluginCommand for Over {
                 "Expression(s) that define the partition window",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )
             .category(Category::Custom("lazyframe".into()))
     }

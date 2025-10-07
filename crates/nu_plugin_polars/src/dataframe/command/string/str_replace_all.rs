@@ -9,8 +9,7 @@ use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::{IntoSeries, StringNameSpaceImpl, lit};
 
@@ -44,12 +43,16 @@ impl PluginCommand for StrReplaceAll {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

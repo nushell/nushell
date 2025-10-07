@@ -1,7 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use chrono::DateTime;
@@ -11,7 +10,7 @@ use polars_lazy::frame::pivot::{pivot, pivot_stable};
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{Column, CustomValueSupport, NuExpression, PolarsPluginObject},
+    values::{Column, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -77,10 +76,16 @@ impl PluginCommand for PivotDF {
                 "Perform a stable pivot.",
                 None,
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen, NuWhenType},
-    values::CustomValueSupport,
+    values::{CustomValueSupport, PolarsPluginType},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -28,7 +28,7 @@ impl PluginCommand for ExprOtherwise {
                 SyntaxShape::Any,
                 "expression to apply when no when predicate matches",
             )
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))
     }
 

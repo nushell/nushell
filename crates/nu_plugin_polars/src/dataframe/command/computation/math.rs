@@ -7,7 +7,7 @@ use crate::values::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::prelude::{Expr, Literal, df};
 
@@ -104,8 +104,8 @@ impl PluginCommand for ExprMath {
                 "Extra arguments required by some functions",
             )
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .category(Category::Custom("dataframe".into()))
     }

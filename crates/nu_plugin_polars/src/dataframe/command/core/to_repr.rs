@@ -26,7 +26,10 @@ impl PluginCommand for ToRepr {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Custom("dataframe".into()), Type::String)])
+            .input_output_types(vec![
+                (PolarsPluginType::NuDataFrame.into(), Type::String),
+                (PolarsPluginType::NuLazyFrame.into(), Type::String),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

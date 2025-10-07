@@ -1,11 +1,13 @@
-use crate::{PolarsPlugin, values::CustomValueSupport};
+use crate::{
+    PolarsPlugin,
+    values::{CustomValueSupport, PolarsPluginType},
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::{IntoSeries, SortOptions};
 
@@ -42,10 +44,16 @@ impl PluginCommand for ArgSort {
                 "maintain order on sorted items",
                 Some('m'),
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

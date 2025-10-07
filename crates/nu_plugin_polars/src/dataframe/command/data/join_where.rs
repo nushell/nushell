@@ -1,11 +1,11 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::CustomValueSupport,
+    values::{CustomValueSupport, PolarsPluginType},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Value,
 };
 
 #[derive(Clone)]
@@ -26,10 +26,16 @@ impl PluginCommand for LazyJoinWhere {
         Signature::build(self.name())
             .required("other", SyntaxShape::Any, "LazyFrame to join with")
             .required("condition", SyntaxShape::Any, "Condition")
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 

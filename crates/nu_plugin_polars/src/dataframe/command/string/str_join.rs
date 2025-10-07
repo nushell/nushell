@@ -9,8 +9,7 @@ use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::{prelude::StringNameSpaceImpl, series::IntoSeries};
 
@@ -35,12 +34,16 @@ impl PluginCommand for StrJoin {
             .switch("ignore-nulls", "Ignore null values. Only available when used as an expression.", Some('n'))
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))

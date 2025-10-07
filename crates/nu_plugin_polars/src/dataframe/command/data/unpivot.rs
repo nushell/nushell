@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::{
     frame::explode::UnpivotArgsIR,
@@ -12,7 +12,7 @@ use polars_ops::pivot::UnpivotDF;
 use crate::{
     PolarsPlugin,
     dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -57,10 +57,16 @@ impl PluginCommand for Unpivot {
                 "optional name for value column",
                 Some('l'),
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
