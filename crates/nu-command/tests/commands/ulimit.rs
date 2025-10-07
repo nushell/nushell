@@ -1,5 +1,5 @@
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn limit_set_soft1() {

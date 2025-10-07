@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_options_is_success() {

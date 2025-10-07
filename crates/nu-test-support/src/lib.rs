@@ -32,13 +32,6 @@ impl Outcome {
     }
 }
 
-/// Reformat a multiline pipeline into a single line for use with `nu -c`
-///
-/// Warning: Will not correctly handle statements that are not `;` separated!
-pub fn pipeline(commands: &str) -> String {
-    commands.to_string()
-}
-
 pub fn nu_repl_code(source_lines: &[&str]) -> String {
     let mut out = String::from("nu --testbin=nu_repl ...[ ");
 

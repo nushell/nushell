@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline, playground::Playground};
+use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn detect_columns_with_legacy() {

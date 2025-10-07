@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 const SAMPLE_CSV_CONTENT: &str = r#"
             [[first_name, last_name, rusty_at, type];

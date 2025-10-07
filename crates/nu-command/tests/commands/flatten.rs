@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn flatten_nested_tables_with_columns() {

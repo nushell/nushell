@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_get_is_success() {
@@ -76,13 +76,13 @@ fn http_get_with_accept_errors_and_full_json_response() {
         )
         .create();
 
-    let actual = nu!((format!(
+    let actual = nu!(format!(
         r#"
             http get -e -f {url}
             | $"($in.status) => ($in.body.msg)"
         "#,
         url = server.url()
-    )));
+    ));
 
     assert!(actual.out.contains("400 => error body"))
 }

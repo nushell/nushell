@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::{Matcher, Server, ServerOpts};
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_post_is_success() {
