@@ -81,11 +81,10 @@ impl Command for IntoValue {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if let PipelineData::Value(Value::Custom { val, internal_span }, metadata) = input {
-            return Ok(PipelineData::value(
-                val.to_base_value(internal_span)?,
-                metadata,
-            ));
+        if let PipelineData::Value(v @ Value::Custom { .. }, metadata) = input {
+            let span = v.span();
+            let val = v.into_custom_value()?;
+            return Ok(PipelineData::value(val.to_base_value(span)?, metadata));
         }
 
         if let Some(block_id) = DEPRECATED_REDIRECT_BLOCK_ID.get() {

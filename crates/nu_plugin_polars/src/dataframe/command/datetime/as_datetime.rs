@@ -279,16 +279,20 @@ fn command(
     };
 
     let ambiguous = match call.get_flag::<Value>("ambiguous")? {
-        Some(Value::String { val, internal_span }) => match val.as_str() {
-            "raise" | "earliest" | "latest" => Ok(val),
-            _ => Err(ShellError::GenericError {
-                error: "Invalid argument value".into(),
-                msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                span: Some(internal_span),
-                help: None,
-                inner: vec![],
-            }),
-        },
+        Some(v @ Value::String { .. }) => {
+            let span = v.span();
+            let val = v.into_string()?;
+            match val.as_str() {
+                "raise" | "earliest" | "latest" => Ok(val),
+                _ => Err(ShellError::GenericError {
+                    error: "Invalid argument value".into(),
+                    msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }),
+            }
+        }
         Some(Value::Nothing { .. }) => Ok("null".into()),
         Some(_) => unreachable!("Argument only accepts string or null."),
         None => Ok("raise".into()),
