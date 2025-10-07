@@ -108,9 +108,14 @@ impl Command for MetadataSet {
                 result: None,
             },
             Example {
-                description: "Set the metadata of a file path",
+                description: "Set the content type metadata",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
+            },
+            Example {
+                description: "Set custom metadata with namespaced keys",
+                example: r#""response data" | metadata set --merge {"http.status": 200} | metadata | get "http.status""#,
+                result: Some(Value::test_int(200)),
             },
         ]
     }
