@@ -17,6 +17,7 @@ fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
         content_type: None,
+        ..Default::default()
     }
 }
 
@@ -140,6 +141,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
         content_type: None,
+        ..Default::default()
     });
     let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
     match manager.read_pipeline_data(header, &Signals::empty())? {
@@ -170,6 +172,7 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ListStream(ListStreamInfo {
@@ -220,6 +223,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
@@ -274,6 +278,7 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ListStream(ListStreamInfo {

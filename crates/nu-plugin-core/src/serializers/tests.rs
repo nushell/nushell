@@ -127,6 +127,7 @@ macro_rules! generate_tests {
             let metadata = Some(PipelineMetadata {
                 data_source: DataSource::None,
                 content_type: Some("foobar".into()),
+                ..Default::default()
             });
 
             let plugin_call = PluginCall::Run(CallInfo {

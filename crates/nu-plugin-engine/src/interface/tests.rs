@@ -805,6 +805,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let metadata0 = PipelineMetadata {
         data_source: DataSource::None,
         content_type: Some("baz".into()),
+        ..Default::default()
     };
 
     let result = interface.write_plugin_call(
