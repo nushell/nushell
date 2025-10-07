@@ -114,7 +114,7 @@ impl Command for MetadataSet {
             },
             Example {
                 description: "Set custom metadata with namespaced keys",
-                example: r#""response data" | metadata set --merge {"http.status": 200} | metadata | get "http.status""#,
+                example: r#""response data" | metadata set --merge {http_status: 200} | metadata | get http_status"#,
                 result: Some(Value::test_int(200)),
             },
         ]

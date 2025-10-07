@@ -359,7 +359,7 @@ fn http_get_response_metadata() {
 
     let actual = nu!(pipeline(
         format!(
-            r#"http get --raw {url} | metadata | get "http.response" | get status"#,
+            r#"http get --raw {url} | metadata | get http_response | get status"#,
             url = server.url()
         )
         .as_str()

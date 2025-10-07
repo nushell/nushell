@@ -151,7 +151,7 @@ impl Command for HttpDelete {
             },
             Example {
                 description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http delete https://www.example.com | metadata | get "http.response""#,
+                example: r#"http delete https://www.example.com | metadata | get http_response"#,
                 result: None,
             },
         ]

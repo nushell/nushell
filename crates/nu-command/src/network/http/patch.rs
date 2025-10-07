@@ -141,7 +141,7 @@ impl Command for HttpPatch {
             },
             Example {
                 description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http patch https://www.example.com 'body' | metadata | get "http.response""#,
+                example: r#"http patch https://www.example.com 'body' | metadata | get http_response"#,
                 result: None,
             },
         ]

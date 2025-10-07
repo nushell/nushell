@@ -214,7 +214,7 @@ fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadat
     let mut metadata = PipelineMetadata::default();
     metadata
         .custom
-        .insert("http.response".to_string(), http_response);
+        .insert("http_response".to_string(), http_response);
     metadata
 }
 

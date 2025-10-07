@@ -145,7 +145,7 @@ impl Command for HttpPut {
             },
             Example {
                 description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http put https://www.example.com 'body' | metadata | get "http.response""#,
+                example: r#"http put https://www.example.com 'body' | metadata | get http_response"#,
                 result: None,
             },
         ]

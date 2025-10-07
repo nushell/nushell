@@ -130,7 +130,7 @@ impl Command for HttpGet {
             },
             Example {
                 description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http get https://www.example.com | metadata | get "http.response""#,
+                example: r#"http get https://www.example.com | metadata | get http_response"#,
                 result: None,
             },
         ]

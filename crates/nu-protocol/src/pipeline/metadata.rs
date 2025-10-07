@@ -9,11 +9,11 @@ use crate::Record;
 /// ## Custom Metadata
 ///
 /// The `custom` field allows commands and plugins to attach arbitrary metadata to pipeline data.
-/// To avoid key collisions, it is recommended to use namespaced keys with a dot separator:
+/// To avoid key collisions, it is recommended to use namespaced keys with an underscore separator:
 ///
-/// - `"http.response"` - HTTP response metadata (status, headers, etc.)
-/// - `"polars.schema"` - DataFrame schema information
-/// - `"custom_plugin.field"` - Plugin-specific metadata
+/// - `"http_response"` - HTTP response metadata (status, headers, etc.)
+/// - `"polars_schema"` - DataFrame schema information
+/// - `"custom_plugin_field"` - Plugin-specific metadata
 ///
 /// This convention helps ensure different commands and plugins don't overwrite each other's metadata.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
