@@ -51,6 +51,7 @@ is particularly large, this can cause high memory usage."#
             Some(PipelineMetadata {
                 data_source: DataSource::FilePath(_),
                 content_type: None,
+                ..
             }) => None,
             other => other,
         };

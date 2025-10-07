@@ -331,6 +331,7 @@ pub fn eval_collect<D: DebugContext>(
         Some(PipelineMetadata {
             data_source: DataSource::FilePath(_),
             content_type: None,
+            ..
         }) => None,
         other => other,
     };

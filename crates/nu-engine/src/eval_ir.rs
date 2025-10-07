@@ -1517,6 +1517,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
         Some(PipelineMetadata {
             data_source: DataSource::FilePath(_),
             content_type: None,
+            ..
         }) => None,
         other => other,
     };

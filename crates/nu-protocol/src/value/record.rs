@@ -12,7 +12,7 @@ use crate::{
 
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Record {
     inner: Vec<(String, Value)>,
 }
