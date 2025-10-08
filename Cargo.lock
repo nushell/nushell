@@ -3324,7 +3324,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7284,9 +7284,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8aa5c0570cd9654158bd39f0f8caba24edbc058313946e89f4648b1de1ecf49"
+checksum = "72d18183cef626bce22836103349c7050d73db799be0171386b80947d157ae32"
 dependencies = [
  "const_format",
  "is_debug",
