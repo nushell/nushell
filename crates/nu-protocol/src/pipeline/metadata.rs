@@ -38,6 +38,36 @@ impl PipelineMetadata {
             ..self
         }
     }
+
+    /// Transform metadata for the `collect` operation.
+    ///
+    /// After collecting a stream into a value, `FilePath` data sources are no longer meaningful
+    /// and should be converted to `None`. If all metadata fields become empty after this
+    /// transformation, returns `None` to avoid carrying around empty metadata.
+    pub fn for_collect(self) -> Option<Self> {
+        let Self {
+            data_source,
+            content_type,
+            custom,
+        } = self;
+
+        // Transform FilePath to None after collect
+        let data_source = match data_source {
+            DataSource::FilePath(_) => DataSource::None,
+            other => other,
+        };
+
+        // Return None if completely empty
+        if matches!(data_source, DataSource::None) && content_type.is_none() && custom.is_empty() {
+            None
+        } else {
+            Some(Self {
+                data_source,
+                content_type,
+                custom,
+            })
+        }
+    }
 }
 
 /// Describes where the particular [`PipelineMetadata`] originates.

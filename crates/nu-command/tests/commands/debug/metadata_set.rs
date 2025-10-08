@@ -72,3 +72,19 @@ fn merge_preserves_existing_metadata() {
 
     assert_eq!(actual.out, "text/plain");
 }
+
+#[test]
+fn custom_metadata_preserved_through_collect() {
+    let actual = nu!(
+        cwd: ".", pipeline(
+        r#"
+        echo "foo"
+        | metadata set --merge {custom_key: "custom_value"}
+        | collect
+        | metadata
+        | get custom_key
+        "#
+    ));
+
+    assert_eq!(actual.out, "custom_value");
+}
