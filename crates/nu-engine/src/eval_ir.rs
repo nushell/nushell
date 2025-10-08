@@ -217,12 +217,14 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc += 1;
             }
             Ok(InstructionResult::Branch(next_pc)) => {
-                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                while let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base)
+                {
                     // if jumping outside the try block (break/continue) error_handler is not
                     // restored after it was popped above
                     if (error_handler.enter_index..=error_handler.handler_index).contains(&next_pc)
                     {
                         ctx.stack.error_handlers.push(error_handler);
+                        break;
                     }
                 }
                 pc = next_pc;
