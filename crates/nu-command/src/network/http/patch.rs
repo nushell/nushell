@@ -140,8 +140,13 @@ impl Command for HttpPatch {
                 result: None,
             },
             Example {
-                description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http patch https://www.example.com 'body' | metadata | get http_response"#,
+                description: "Get the response status code",
+                example: r#"http patch https://www.example.com 'body' | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response status while streaming",
+                example: r#"http patch https://example.com/resource 'data' | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
         ]

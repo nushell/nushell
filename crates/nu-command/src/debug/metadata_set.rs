@@ -113,9 +113,9 @@ impl Command for MetadataSet {
                 result: Some(Value::test_string("text/plain")),
             },
             Example {
-                description: "Set custom metadata with namespaced keys",
-                example: r#""response data" | metadata set --merge {http_status: 200} | metadata | get http_status"#,
-                result: Some(Value::test_int(200)),
+                description: "Set custom metadata",
+                example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
+                result: Some(Value::test_string("value")),
             },
         ]
     }

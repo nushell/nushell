@@ -110,8 +110,13 @@ impl Command for HttpOptions {
                 result: None,
             },
             Example {
-                description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http options https://www.example.com | metadata | get http_response"#,
+                description: "Get the response status code",
+                example: r#"http options https://www.example.com | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check allowed methods from response headers",
+                example: r#"http options https://example.com/api | metadata access {|m| $m.http_response.headers | where name == allow } | lines"#,
                 result: None,
             },
         ]

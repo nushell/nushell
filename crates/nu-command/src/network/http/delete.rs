@@ -150,8 +150,13 @@ impl Command for HttpDelete {
                 result: None,
             },
             Example {
-                description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http delete https://www.example.com | metadata | get http_response"#,
+                description: "Get the response status code",
+                example: r#"http delete https://www.example.com | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response status while streaming",
+                example: r#"http delete https://example.com/resource | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
         ]

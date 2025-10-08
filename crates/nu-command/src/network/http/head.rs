@@ -113,8 +113,13 @@ impl Command for HttpHead {
                 result: None,
             },
             Example {
-                description: "Get response metadata (status code, headers, redirect history)",
-                example: r#"http head https://www.example.com | metadata | get http_response"#,
+                description: "Get the response status code",
+                example: r#"http head https://www.example.com | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response headers",
+                example: r#"http head https://example.com | metadata access {|m| $m.http_response.headers | where name == content-length } | lines"#,
                 result: None,
             },
         ]
