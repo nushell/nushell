@@ -2,7 +2,7 @@ use crate::progress_bar;
 use nu_engine::get_eval_block;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_path::expand_path_with;
+use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
     ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
     byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
@@ -233,14 +233,16 @@ impl Command for Save {
                 };
 
                 // Save custom value however they implement saving
-                if let PipelineData::Value(Value::Custom { val, internal_span }, ..) = converted {
+                if let PipelineData::Value(v @ Value::Custom { .. }, ..) = converted {
+                    let val_span = v.span();
+                    let val = v.into_custom_value()?;
                     return val
                         .save(
                             Spanned {
                                 item: &path.item,
                                 span: path.span,
                             },
-                            internal_span,
+                            val_span,
                             span,
                         )
                         .map(|()| PipelineData::empty());
@@ -432,7 +434,8 @@ fn open_file(
     span: Span,
     append: bool,
 ) -> Result<File, ShellError> {
-    let file: std::io::Result<File> = match (append, path.exists()) {
+    let file: std::io::Result<File> = match (append, path.exists() || is_windows_device_path(path))
+    {
         (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => {
             // This is a temporary solution until `std::fs::File::create` is fixed on Windows (rust-lang/rust#134893)

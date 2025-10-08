@@ -14,7 +14,7 @@ use std::sync::Arc;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::prelude::{
     DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
@@ -54,12 +54,16 @@ impl PluginCommand for AsDateTime {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .required("format", SyntaxShape::String, "formatting date time string")
@@ -275,16 +279,20 @@ fn command(
     };
 
     let ambiguous = match call.get_flag::<Value>("ambiguous")? {
-        Some(Value::String { val, internal_span }) => match val.as_str() {
-            "raise" | "earliest" | "latest" => Ok(val),
-            _ => Err(ShellError::GenericError {
-                error: "Invalid argument value".into(),
-                msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                span: Some(internal_span),
-                help: None,
-                inner: vec![],
-            }),
-        },
+        Some(v @ Value::String { .. }) => {
+            let span = v.span();
+            let val = v.into_string()?;
+            match val.as_str() {
+                "raise" | "earliest" | "latest" => Ok(val),
+                _ => Err(ShellError::GenericError {
+                    error: "Invalid argument value".into(),
+                    msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }),
+            }
+        }
         Some(Value::Nothing { .. }) => Ok("null".into()),
         Some(_) => unreachable!("Argument only accepts string or null."),
         None => Ok("raise".into()),

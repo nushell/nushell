@@ -7,6 +7,14 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct ToMd;
 
+struct ToMdOptions {
+    pretty: bool,
+    per_element: bool,
+    center: Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
+}
+
 impl Command for ToMd {
     fn name(&self) -> &str {
         "to md"
@@ -22,7 +30,7 @@ impl Command for ToMd {
             )
             .switch(
                 "per-element",
-                "treat each row as markdown syntax element",
+                "Treat each row as markdown syntax element",
                 Some('e'),
             )
             .named(
@@ -30,6 +38,17 @@ impl Command for ToMd {
                 SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 "Formats the Markdown table to center given columns",
                 Some('c'),
+            )
+            .switch(
+                "escape-md",
+                "Escapes Markdown special characters",
+                Some('m'),
+            )
+            .switch("escape-html", "Escapes HTML special characters", Some('t'))
+            .switch(
+                "escape-all",
+                "Escapes both Markdown and HTML special characters",
+                Some('a'),
             )
             .category(Category::Formats)
     }
@@ -43,7 +62,9 @@ impl Command for ToMd {
             Example {
                 description: "Outputs an MD string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to md",
-                result: Some(Value::test_string("|foo|bar|\n|-|-|\n|1|2|")),
+                result: Some(Value::test_string(
+                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |",
+                )),
             },
             Example {
                 description: "Optionally, output a formatted markdown string",
@@ -68,7 +89,7 @@ impl Command for ToMd {
                 description: "Separate list into markdown tables",
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4} {foo: 5}] | to md --per-element",
                 result: Some(Value::test_string(
-                    "|foo|bar|\n|-|-|\n|1|2|\n|3|4|\n|foo|\n|-|\n|5|",
+                    "| foo | bar |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n\n| foo |\n| --- |\n| 5 |",
                 )),
             },
             Example {
@@ -76,6 +97,20 @@ impl Command for ToMd {
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4}] | to md --pretty --center [bar]",
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- |:---:|\n| 1   |  2  |\n| 3   |  4  |",
+                )),
+            },
+            Example {
+                description: "Escape markdown special characters",
+                example: r#"[ {foo: "_1_", bar: "\# 2"} {foo: "[3]", bar: "4|5"}] | to md --escape-md"#,
+                result: Some(Value::test_string(
+                    "| foo | bar |\n| --- | --- |\n| \\_1\\_ | \\# 2 |\n| \\[3\\] | 4\\|5 |",
+                )),
+            },
+            Example {
+                description: "Escape html special characters",
+                example: r#"[ {a: p, b: "<p>Welcome to nushell</p>"}] | to md --escape-html"#,
+                result: Some(Value::test_string(
+                    "| a | b |\n| --- | --- |\n| p | &lt;p&gt;Welcome to nushell&lt;&#x2f;p&gt; |",
                 )),
             },
         ]
@@ -89,19 +124,34 @@ impl Command for ToMd {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let per_element = call.has_flag(engine_state, stack, "per-element")?;
+        let escape_md = call.has_flag(engine_state, stack, "escape-md")?;
+        let escape_html = call.has_flag(engine_state, stack, "escape-html")?;
+        let escape_both = call.has_flag(engine_state, stack, "escape-all")?;
         let center: Option<Vec<CellPath>> = call.get_flag(engine_state, stack, "center")?;
+
         let config = stack.get_config(engine_state);
-        to_md(input, pretty, per_element, &center, &config, head)
+
+        to_md(
+            input,
+            ToMdOptions {
+                pretty,
+                per_element,
+                center,
+                escape_md: escape_md || escape_both,
+                escape_html: escape_html || escape_both,
+            },
+            &config,
+            head,
+        )
     }
 }
 
 fn to_md(
     input: PipelineData,
-    pretty: bool,
-    per_element: bool,
-    center: &Option<Vec<CellPath>>,
+    options: ToMdOptions,
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -112,18 +162,32 @@ fn to_md(
         .with_content_type(Some("text/markdown".into()));
 
     let (grouped_input, single_list) = group_by(input, head, config);
-    if per_element || single_list {
+    if options.per_element || single_list {
         return Ok(Value::string(
             grouped_input
                 .into_iter()
                 .map(move |val| match val {
                     Value::List { .. } => {
                         format!(
-                            "{}\n",
-                            table(val.into_pipeline_data(), pretty, center, config)
+                            "{}\n\n",
+                            table(
+                                val.into_pipeline_data(),
+                                options.pretty,
+                                &options.center,
+                                options.escape_md,
+                                options.escape_html,
+                                config
+                            )
                         )
                     }
-                    other => fragment(other, pretty, center, config),
+                    other => fragment(
+                        other,
+                        options.pretty,
+                        &options.center,
+                        options.escape_md,
+                        options.escape_html,
+                        config,
+                    ),
                 })
                 .collect::<Vec<String>>()
                 .join("")
@@ -132,13 +196,51 @@ fn to_md(
         )
         .into_pipeline_data_with_metadata(Some(metadata)));
     }
-    Ok(
-        Value::string(table(grouped_input, pretty, center, config), head)
-            .into_pipeline_data_with_metadata(Some(metadata)),
+    Ok(Value::string(
+        table(
+            grouped_input,
+            options.pretty,
+            &options.center,
+            options.escape_md,
+            options.escape_html,
+            config,
+        ),
+        head,
     )
+    .into_pipeline_data_with_metadata(Some(metadata)))
 }
 
-fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: &Config) -> String {
+fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
+    let mut output = String::with_capacity(input.len());
+    for ch in input.chars() {
+        let must_escape = match ch {
+            '\\' => true,
+            '|' if for_table => true,
+            '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '<' | '>' | '#' | '+' | '-'
+            | '.' | '!'
+                if escape_md =>
+            {
+                true
+            }
+            _ => false,
+        };
+
+        if must_escape {
+            output.push('\\');
+        }
+        output.push(ch);
+    }
+    output
+}
+
+fn fragment(
+    input: Value,
+    pretty: bool,
+    center: &Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
+    config: &Config,
+) -> String {
     let mut out = String::new();
 
     if let Value::Record { val, .. } = &input {
@@ -149,34 +251,74 @@ fn fragment(input: Value, pretty: bool, center: &Option<Vec<CellPath>>, config: 
                     "h2" => "## ".to_string(),
                     "h3" => "### ".to_string(),
                     "blockquote" => "> ".to_string(),
-                    _ => return table(input.into_pipeline_data(), pretty, center, config),
+                    _ => {
+                        return table(
+                            input.into_pipeline_data(),
+                            pretty,
+                            center,
+                            escape_md,
+                            escape_html,
+                            config,
+                        );
+                    }
                 };
 
+                let value_string = data.to_expanded_string("|", config);
                 out.push_str(&markup);
-                out.push_str(&data.to_expanded_string("|", config));
+                out.push_str(&escape_markdown_characters(
+                    if escape_html {
+                        v_htmlescape::escape(&value_string).to_string()
+                    } else {
+                        value_string
+                    },
+                    escape_md,
+                    false,
+                ));
             }
-            _ => out = table(input.into_pipeline_data(), pretty, center, config),
+            _ => {
+                out = table(
+                    input.into_pipeline_data(),
+                    pretty,
+                    center,
+                    escape_md,
+                    escape_html,
+                    config,
+                )
+            }
         }
     } else {
-        out = input.to_expanded_string("|", config)
+        let value_string = input.to_expanded_string("|", config);
+        out = escape_markdown_characters(
+            if escape_html {
+                v_htmlescape::escape(&value_string).to_string()
+            } else {
+                value_string
+            },
+            escape_md,
+            false,
+        );
     }
 
     out.push('\n');
     out
 }
 
-fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
+fn collect_headers(headers: &[String], escape_md: bool) -> (Vec<String>, Vec<usize>) {
     let mut escaped_headers: Vec<String> = Vec::new();
     let mut column_widths: Vec<usize> = Vec::new();
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string = v_htmlescape::escape(header).to_string();
+            let escaped_header_string = escape_markdown_characters(
+                v_htmlescape::escape(header).to_string(),
+                escape_md,
+                true,
+            );
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
     } else {
-        column_widths = vec![0; headers.len()]
+        column_widths = vec![0; headers.len()];
     }
 
     (escaped_headers, column_widths)
@@ -186,6 +328,8 @@ fn table(
     input: PipelineData,
     pretty: bool,
     center: &Option<Vec<CellPath>>,
+    escape_md: bool,
+    escape_html: bool,
     config: &Config,
 ) -> String {
     let vec_of_values = input
@@ -211,7 +355,7 @@ fn table(
         }
     }
 
-    let (escaped_headers, mut column_widths) = collect_headers(&headers);
+    let (escaped_headers, mut column_widths) = collect_headers(&headers, escape_md);
 
     let mut escaped_rows: Vec<Vec<String>> = Vec::new();
 
@@ -227,12 +371,24 @@ fn table(
                         .cloned()
                         .unwrap_or_else(|| Value::nothing(span))
                         .to_expanded_string(", ", config);
-                    let new_column_width = value_string.len();
+                    let escaped_string = escape_markdown_characters(
+                        if escape_html {
+                            v_htmlescape::escape(&value_string).to_string()
+                        } else {
+                            value_string
+                        },
+                        escape_md,
+                        true,
+                    );
 
-                    escaped_row.push(value_string);
+                    let new_column_width = escaped_string.len();
+                    escaped_row.push(escaped_string);
 
                     if column_widths[i] < new_column_width {
                         column_widths[i] = new_column_width;
+                    }
+                    if column_widths[i] < 3 {
+                        column_widths[i] = 3;
                     }
                 }
             }
@@ -322,8 +478,8 @@ fn get_output_string(
         output_string.push('|');
 
         for i in 0..headers.len() {
+            output_string.push(' ');
             if pretty {
-                output_string.push(' ');
                 if center.is_some() && to_center.contains(&headers[i]) {
                     output_string.push_str(&get_centered_string(
                         headers[i].clone(),
@@ -337,12 +493,11 @@ fn get_output_string(
                         ' ',
                     ));
                 }
-                output_string.push(' ');
             } else {
                 output_string.push_str(&headers[i]);
             }
 
-            output_string.push('|');
+            output_string.push_str(" |");
         }
 
         output_string.push_str("\n|");
@@ -359,11 +514,9 @@ fn get_output_string(
                 ));
                 output_string.push(border_char);
             } else if centered_column {
-                output_string.push(':');
-                output_string.push('-');
-                output_string.push(':');
+                output_string.push_str(":---:");
             } else {
-                output_string.push('-');
+                output_string.push_str(" --- ");
             }
 
             output_string.push('|');
@@ -378,8 +531,11 @@ fn get_output_string(
         }
 
         for i in 0..row.len() {
-            if pretty && column_widths.get(i).is_some() {
+            if !headers.is_empty() {
                 output_string.push(' ');
+            }
+
+            if pretty && column_widths.get(i).is_some() {
                 if center.is_some() && to_center.contains(&headers[i]) {
                     output_string.push_str(&get_centered_string(
                         row[i].clone(),
@@ -393,13 +549,12 @@ fn get_output_string(
                         ' ',
                     ));
                 }
-                output_string.push(' ');
             } else {
                 output_string.push_str(&row[i]);
             }
 
             if !headers.is_empty() {
-                output_string.push('|');
+                output_string.push_str(" |");
             }
         }
 
@@ -474,7 +629,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "# Ecuador\n"
         );
     }
@@ -486,7 +641,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "## Ecuador\n"
         );
     }
@@ -498,7 +653,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "### Ecuador\n"
         );
     }
@@ -510,7 +665,7 @@ mod tests {
         });
 
         assert_eq!(
-            fragment(value, false, &None, &Config::default()),
+            fragment(value, false, &None, false, false, &Config::default()),
             "> Ecuador\n"
         );
     }
@@ -534,26 +689,35 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
-            |country|
-            |-|
-            |Ecuador|
-            |New Zealand|
-            |USA|
-        "#)
+            | country |
+            | --- |
+            | Ecuador |
+            | New Zealand |
+            | USA |
+            "#)
         );
 
         assert_eq!(
-            table(value.into_pipeline_data(), true, &None, &Config::default()),
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
             one(r#"
             | country     |
             | ----------- |
             | Ecuador     |
             | New Zealand |
             | USA         |
-        "#)
+            "#)
         );
     }
 
@@ -575,14 +739,16 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
-            ||foo|
-            |-|-|
-            |1|2|
-            |3|4|
-        "#)
+            |  | foo |
+            | --- | --- |
+            | 1 | 2 |
+            | 3 | 4 |
+            "#)
         );
     }
 
@@ -608,15 +774,17 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &None,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
-            |foo|bar|
-            |-|-|
-            |1|2|
-            |3|4|
-            |5||
-        "#)
+            | foo | bar |
+            | --- | --- |
+            | 1 | 2 |
+            | 3 | 4 |
+            | 5 |  |
+            "#)
         );
     }
 
@@ -660,6 +828,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -668,7 +838,7 @@ mod tests {
             | 1   |  2  |
             | 3   |  4  |
             | 5   |  6  |
-        "#)
+            "#)
         );
 
         // Without pretty
@@ -677,15 +847,17 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 false,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
-            |foo|bar|
-            |-|:-:|
-            |1|2|
-            |3|4|
-            |5|6|
-        "#)
+            | foo | bar |
+            | --- |:---:|
+            | 1 | 2 |
+            | 3 | 4 |
+            | 5 | 6 |
+            "#)
         );
     }
 
@@ -713,6 +885,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -721,7 +895,7 @@ mod tests {
             | 1   | 2   |
             | 3   | 4   |
             | 5   | 6   |
-        "#)
+            "#)
         );
     }
 
@@ -776,6 +950,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -784,7 +960,7 @@ mod tests {
             |   ls    | .     | file.txt |
             |  echo   | 'hi'  |    hi    |
             |   cp    | a.txt |  b.txt   |
-        "#)
+            "#)
         );
     }
 
@@ -827,6 +1003,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -835,7 +1013,7 @@ mod tests {
             | Alice   | 30  |
             | Bob     | 5   |
             | Charlie | 20  |
-        "#)
+            "#)
         );
     }
 
@@ -873,6 +1051,8 @@ mod tests {
                 value.clone().into_pipeline_data(),
                 true,
                 &center,
+                false,
+                false,
                 &Config::default()
             ),
             one(r#"
@@ -880,7 +1060,7 @@ mod tests {
             | ---------- |:--------------------------:|
             | version    |          0.104.1           |
             | build_time | 2025-05-28 11:00:45 +01:00 |
-        "#)
+            "#)
         );
     }
 
@@ -913,6 +1093,136 @@ mod tests {
         assert_eq!(
             Value::test_string("text/markdown"),
             result.expect("There should be a result")
+        );
+    }
+
+    #[test]
+    fn test_escape_md_characters() {
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "name|label" => Value::test_string("orderColumns"),
+                "type*" => Value::test_string("'asc' | 'desc' | 'none'"),
+            }),
+            Value::test_record(record! {
+                "name|label" => Value::test_string("_ref_value"),
+                "type*" => Value::test_string("RefObject<SampleTableRef | null>"),
+            }),
+            Value::test_record(record! {
+                "name|label" => Value::test_string("onChange"),
+                "type*" => Value::test_string("(val: string) => void\\"),
+            }),
+        ]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label | type* |
+            | --- | --- |
+            | orderColumns | 'asc' \| 'desc' \| 'none' |
+            | _ref_value | RefObject<SampleTableRef \| null> |
+            | onChange | (val: string) => void\\ |
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                true,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label | type\* |
+            | --- | --- |
+            | orderColumns | 'asc' \| 'desc' \| 'none' |
+            | \_ref\_value | RefObject\<SampleTableRef \| null\> |
+            | onChange | \(val: string\) =\> void\\ |
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                true,
+                &None,
+                false,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label  | type*                             |
+            | ------------ | --------------------------------- |
+            | orderColumns | 'asc' \| 'desc' \| 'none'         |
+            | _ref_value   | RefObject<SampleTableRef \| null> |
+            | onChange     | (val: string) => void\\           |
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                true,
+                false,
+                &Config::default()
+            ),
+            one(r#"
+            | name\|label  | type\*                              |
+            | ------------ | ----------------------------------- |
+            | orderColumns | 'asc' \| 'desc' \| 'none'           |
+            | \_ref\_value | RefObject\<SampleTableRef \| null\> |
+            | onChange     | \(val: string\) =\> void\\          |
+            "#)
+        );
+    }
+
+    #[test]
+    fn test_escape_html_characters() {
+        let value = Value::test_list(vec![Value::test_record(record! {
+            "tag" => Value::test_string("table"),
+            "code" => Value::test_string(r#"<table><tr><td scope="row">Chris</td><td>HTML tables</td><td>22</td></tr><tr><td scope="row">Dennis</td><td>Web accessibility</td><td>45</td></tr></table>"#),
+        })]);
+
+        assert_eq!(
+            table(
+                value.clone().into_pipeline_data(),
+                false,
+                &None,
+                false,
+                true,
+                &Config::default()
+            ),
+            one(r#"
+            | tag | code |
+            | --- | --- |
+            | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
+            "#)
+        );
+
+        assert_eq!(
+            table(
+                value.into_pipeline_data(),
+                true,
+                &None,
+                false,
+                true,
+                &Config::default()
+            ),
+            one(r#"
+            | tag   | code                                                                                                                                                                                                                                                                                                                                    |
+            | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+            | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
+            "#)
         );
     }
 }

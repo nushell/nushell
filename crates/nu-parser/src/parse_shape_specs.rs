@@ -1,9 +1,13 @@
 #![allow(clippy::byte_char_slices)]
 
-use crate::{TokenContents, lex::lex_signature, parser::parse_value, trim_quotes};
+use std::borrow::Cow;
+
+use crate::{TokenContents, lex::lex_signature, parser::parse_value};
 use nu_protocol::{
-    DeclId, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, engine::StateWorkingSet,
+    Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape, Type, Value,
+    engine::StateWorkingSet, eval_const::eval_constant,
 };
+use nu_utils::NuCow;
 
 /// [`parse_shape_name`] then convert to Type
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
@@ -71,18 +75,89 @@ pub fn parse_shape_name(
 /// Handles the specification of custom completions with `type@completer`.
 pub fn parse_completer(
     working_set: &mut StateWorkingSet,
-    bytes: &[u8],
+    _bytes: &[u8],
     span: Span,
-) -> Option<DeclId> {
-    let cmd_name = trim_quotes(bytes);
-    if cmd_name.is_empty() {
-        working_set.error(ParseError::Expected(
-            "the command name of a completion function",
-            span,
-        ));
+) -> Option<Completion> {
+    let error_count = working_set.parse_errors.len();
+    let expr = parse_value(
+        working_set,
+        span,
+        &SyntaxShape::OneOf(vec![
+            SyntaxShape::List(Box::new(SyntaxShape::String)),
+            SyntaxShape::String,
+        ]),
+    );
+
+    if working_set.parse_errors.len() > error_count {
         return None;
     }
-    working_set.find_decl(cmd_name)
+
+    let val = match eval_constant(working_set, &expr) {
+        Ok(val) => val,
+        Err(e) => {
+            working_set.error(e.wrap(working_set, span));
+            return None;
+        }
+    };
+
+    let completion = match val {
+        // Static list completions
+        Value::List { vals, .. } => vals
+            .into_iter()
+            .map(|val| {
+                let span = val.span();
+                match val {
+                    // TODO: currently `Completion::List` only supports simple string suggestions,
+                    // but it will likely support description and style properties as well.
+                    //
+                    // For that reason records with a "value" field are accepted. So one can use
+                    // choose to use "full"/record suggestions even if they get no benefit from
+                    // that *not*, and when support for the other properties land their completions
+                    // will improve without any extra intervention.
+                    Value::Record { val, .. } => val
+                        .get("value")
+                        .ok_or(ShellError::CantFindColumn {
+                            col_name: "value".into(),
+                            span: None,
+                            src_span: span,
+                        })
+                        .and_then(Value::coerce_str)
+                        .map(Cow::into_owned),
+                    val => val.coerce_into_string(),
+                }
+            })
+            .collect::<Result<Vec<_>, ShellError>>()
+            .map_err(|err| err.wrap(working_set, span))
+            .map(|vals| Completion::List(NuCow::Owned(vals))),
+
+        // Command completions
+        Value::String { val, .. } => working_set
+            .find_decl(val.as_bytes())
+            .map(Completion::Command)
+            .ok_or(ParseError::UnknownCommand(span)),
+
+        val => Err(ParseError::OperatorUnsupportedType {
+            op: "parameter completer",
+            unsupported: val.get_type(),
+            op_span: Span::new(span.start - 1, span.start),
+            unsupported_span: span,
+            help: Some(
+                "\
+                    the completer can only be a\n\
+                    - string (name of a command)\n\
+                    - list of items with simple string representations\
+                ",
+            ),
+        }),
+    };
+
+    match completion {
+        Ok(completion) => Some(completion),
+        Err(err) => {
+            working_set.error(err);
+            None
+        }
+    }
 }
 
 fn parse_generic_shape(

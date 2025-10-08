@@ -1,6 +1,6 @@
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuDataFrame, NuExpression},
+    values::{Column, CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -59,7 +59,7 @@ impl PluginCommand for Horizontal {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .required(
                 "type",
                 SyntaxShape::String,

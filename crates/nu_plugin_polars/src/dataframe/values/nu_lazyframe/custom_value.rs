@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 use crate::{
     Cacheable, PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginCustomValue},
+    values::{
+        CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginCustomValue, PolarsPluginType,
+    },
 };
 
 use super::NuLazyFrame;
@@ -28,7 +30,7 @@ impl CustomValue for NuLazyFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuLazyFrame".into()
+        PolarsPluginType::NuLazyFrame.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

@@ -153,6 +153,16 @@ impl Command for HttpPost {
                 example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.txt | into binary) }",
                 result: None,
             },
+            Example {
+                description: "Get the response status code",
+                example: r#"http post https://www.example.com 'body' | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response status while streaming",
+                example: r#"http post https://example.com/upload 'data' | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
+                result: None,
+            },
         ]
     }
 }

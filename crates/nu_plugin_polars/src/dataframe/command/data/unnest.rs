@@ -6,7 +6,7 @@ use polars::df;
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -28,6 +28,16 @@ impl PluginCommand for UnnestDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest("cols", SyntaxShape::String, "columns to unnest")
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

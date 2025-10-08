@@ -1,13 +1,12 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use crate::{
     PolarsPlugin,
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::{CustomValueSupport, PolarsPluginObject},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -38,10 +37,16 @@ impl PluginCommand for RenameDF {
                 SyntaxShape::Any,
                 "New names for the selected column(s). A string or list of strings",
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe or lazyframe".into()))
     }
 

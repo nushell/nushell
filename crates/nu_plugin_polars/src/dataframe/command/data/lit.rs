@@ -1,4 +1,8 @@
-use crate::{PolarsPlugin, dataframe::values::NuExpression, values::CustomValueSupport};
+use crate::{
+    PolarsPlugin,
+    dataframe::values::NuExpression,
+    values::{CustomValueSupport, PolarsPluginType},
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value, record,
@@ -25,7 +29,7 @@ impl PluginCommand for ExprLit {
                 SyntaxShape::Any,
                 "literal to construct the expression",
             )
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))
     }
 

@@ -1,4 +1,4 @@
-use crate::values::NuExpression;
+use crate::values::{NuExpression, PolarsPluginType};
 use std::sync::Arc;
 
 use crate::{
@@ -10,7 +10,7 @@ use chrono::{DateTime, FixedOffset};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
 use polars::{
     datatypes::{DataType, TimeUnit},
@@ -40,8 +40,8 @@ impl PluginCommand for ExprDatePart {
                 "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )
             .category(Category::Custom("expression".into()))
     }

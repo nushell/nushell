@@ -1,6 +1,6 @@
 use crate::{
     PolarsPlugin,
-    values::{Column, CustomValueSupport, NuDataFrame, NuExpression},
+    values::{Column, CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -22,7 +22,7 @@ impl PluginCommand for ExprLen {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("dataframe".into()))
     }
 

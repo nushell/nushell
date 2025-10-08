@@ -39,6 +39,15 @@ fn from_boolean() {
 }
 
 #[test]
+fn from_cell_path() {
+    let actual = nu!(r#"
+        $.test | into string
+        "#);
+
+    assert_eq!(actual.out, "$.test");
+}
+
+#[test]
 fn from_string() {
     let actual = nu!(r#"
         echo "one" | into string

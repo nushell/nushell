@@ -1,13 +1,13 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::df;
 use polars::prelude::UniqueKeepStrategy;
 
 use crate::PolarsPlugin;
 use crate::values::CustomValueSupport;
+use crate::values::PolarsPluginType;
 
 use crate::values::NuDataFrame;
 use crate::values::utils::convert_columns_string;
@@ -39,10 +39,16 @@ impl PluginCommand for DropDuplicates {
                 "keeps last duplicate value (by default keeps first)",
                 Some('l'),
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

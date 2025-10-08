@@ -1,0 +1,28 @@
+id: if-matches
+snapshots:
+  ? |
+    if matches!(shape, SyntaxShape::Closure(_)) {
+      parse_closure();
+    } else {
+      dont();
+    }
+  : fixed: |
+      if let SyntaxShape::Closure(_) = shape {
+        parse_closure();
+      } else {
+        dont();
+      }
+    labels:
+    - source: matches!(shape, SyntaxShape::Closure(_))
+      style: primary
+      start: 3
+      end: 43
+    - source: |-
+        if matches!(shape, SyntaxShape::Closure(_)) {
+          parse_closure();
+        } else {
+          dont();
+        }
+      style: secondary
+      start: 0
+      end: 85

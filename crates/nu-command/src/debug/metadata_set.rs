@@ -33,6 +33,12 @@ impl Command for MetadataSet {
                 "Assign content type metadata to the input",
                 Some('c'),
             )
+            .named(
+                "merge",
+                SyntaxShape::Record(vec![]),
+                "Merge arbitrary metadata fields",
+                Some('m'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -48,6 +54,7 @@ impl Command for MetadataSet {
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
+        let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -58,6 +65,13 @@ impl Command for MetadataSet {
 
         if let Some(content_type) = content_type {
             metadata.content_type = Some(content_type);
+        }
+
+        if let Some(merge) = merge {
+            let custom_record = merge.as_record()?;
+            for (key, value) in custom_record {
+                metadata.custom.insert(key.clone(), value.clone());
+            }
         }
 
         match (ds_fp, ds_ls) {
@@ -94,9 +108,14 @@ impl Command for MetadataSet {
                 result: None,
             },
             Example {
-                description: "Set the metadata of a file path",
+                description: "Set the content type metadata",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
+            },
+            Example {
+                description: "Set custom metadata",
+                example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
+                result: Some(Value::test_string("value")),
             },
         ]
     }

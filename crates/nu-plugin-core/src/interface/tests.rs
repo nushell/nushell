@@ -16,7 +16,7 @@ use std::{path::Path, sync::Arc};
 fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
-        content_type: None,
+        ..Default::default()
     }
 }
 
@@ -139,7 +139,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(4);
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
-        content_type: None,
+        ..Default::default()
     });
     let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
     match manager.read_pipeline_data(header, &Signals::empty())? {
@@ -168,8 +168,8 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
     test.add(StreamMessage::End(7));
 
     let metadata = Some(PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ListStream(ListStreamInfo {
@@ -218,8 +218,8 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let test_span = Span::new(10, 13);
 
     let metadata = Some(PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
@@ -272,8 +272,8 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
 fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
     let metadata = Some(PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("foobar".into()),
+        ..Default::default()
     });
 
     let header = PipelineDataHeader::ListStream(ListStreamInfo {

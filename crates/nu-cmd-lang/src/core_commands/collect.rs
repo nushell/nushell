@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
-use nu_protocol::{DataSource, PipelineMetadata, engine::Closure};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Collect;
@@ -45,15 +45,7 @@ is particularly large, this can cause high memory usage."#
     ) -> Result<PipelineData, ShellError> {
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
 
-        let metadata = match input.metadata() {
-            // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
-            // check where some input came from.
-            Some(PipelineMetadata {
-                data_source: DataSource::FilePath(_),
-                content_type: None,
-            }) => None,
-            other => other,
-        };
+        let metadata = input.metadata().and_then(|m| m.for_collect());
 
         let input = input.into_value(call.head)?;
         let result;

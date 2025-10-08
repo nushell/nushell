@@ -2,7 +2,7 @@ use crate::{
     EngineWrapper, PolarsPlugin,
     command::core::resource::Resource,
     dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType},
+    values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType, PolarsPluginType},
 };
 use log::debug;
 use nu_utils::perf;
@@ -114,7 +114,16 @@ impl PluginCommand for OpenDataFrame {
                 None,
             )
             .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_types(vec![
+                (
+                    Type::Any,
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    Type::Any,
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

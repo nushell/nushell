@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_path::canonicalize_with;
+use nu_path::{canonicalize_with, is_windows_device_path};
 use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
 /// Source a file for environment variables.
@@ -55,8 +55,13 @@ impl Command for Source {
         let cwd = engine_state.cwd_as_string(Some(stack))?;
         let pb = std::path::PathBuf::from(block_id_name);
         let parent = pb.parent().unwrap_or(std::path::Path::new(""));
-        let file_path = canonicalize_with(pb.as_path(), cwd)
-            .map_err(|err| IoError::new(err.not_found_as(NotFound::File), call.head, pb.clone()))?;
+        let file_path = if is_windows_device_path(pb.as_path()) {
+            pb.clone()
+        } else {
+            canonicalize_with(pb.as_path(), cwd).map_err(|err| {
+                IoError::new(err.not_found_as(NotFound::File), call.head, pb.clone())
+            })?
+        };
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to
         // to work like argv[0] in C, which is the name of the program being executed.

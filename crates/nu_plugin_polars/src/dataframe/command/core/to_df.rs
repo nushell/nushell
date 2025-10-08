@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::NuSchema,
-    values::{Column, CustomValueSupport},
+    values::{Column, CustomValueSupport, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -43,7 +43,7 @@ impl PluginCommand for ToDataFrame {
                 r#"When input shape is record of lists, treat each list as column values."#,
                 Some('c'),
             )
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuDataFrame.into())
             .category(Category::Custom("dataframe".into()))
     }
 

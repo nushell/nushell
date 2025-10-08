@@ -1,10 +1,10 @@
 use crate::{PolarsPlugin, values::CustomValueSupport};
 
-use crate::values::NuExpression;
+use crate::values::{NuExpression, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type, Value, record,
+    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Value, record,
 };
 
 #[derive(Clone)]
@@ -29,8 +29,8 @@ impl PluginCommand for ExprAlias {
                 "Alias name for the expression",
             )
             .input_output_type(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )
             .category(Category::Custom("expression".into()))
     }

@@ -1,5 +1,5 @@
 use nu_protocol::{
-    DeclId, ModuleId, Signature, Span, Type, Value, VarId,
+    CommandWideCompleter, DeclId, ModuleId, Signature, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
     record,
@@ -134,6 +134,11 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "creates_scope" => Value::bool(signature.creates_scope, span),
                     "extra_description" => Value::string(decl.extra_description(), span),
                     "search_terms" => Value::string(decl.search_terms().join(", "), span),
+                    "complete" => match signature.complete {
+                        Some(CommandWideCompleter::Command(decl_id)) => Value::int(decl_id.get() as i64, span),
+                        Some(CommandWideCompleter::External) => Value::string("external", span),
+                        None => Value::nothing(span),
+                    },
                     "decl_id" => Value::int(decl_id.get() as i64, span),
                 };
 

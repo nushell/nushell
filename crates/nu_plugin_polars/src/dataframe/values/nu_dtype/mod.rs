@@ -38,10 +38,7 @@ impl NuDataType {
 
 impl From<NuDataType> for Value {
     fn from(nu_dtype: NuDataType) -> Self {
-        Value::String {
-            val: nu_dtype.dtype.to_string(),
-            internal_span: Span::unknown(),
-        }
+        Value::string(nu_dtype.dtype.to_string(), Span::unknown())
     }
 }
 
@@ -87,6 +84,7 @@ impl CustomValueSupport for NuDataType {
     }
 
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
             Value::Custom { val, .. } => {
                 if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
@@ -100,7 +98,7 @@ impl CustomValueSupport for NuDataType {
                     })
                 }
             }
-            Value::String { val, internal_span } => NuDataType::new_with_str(val, *internal_span),
+            Value::String { val, .. } => NuDataType::new_with_str(val, span),
             _ => Err(ShellError::CantConvert {
                 to_type: Self::get_type_static().to_string(),
                 from_type: value.get_type().to_string(),

@@ -360,6 +360,7 @@ fn to_html(
     let metadata = PipelineMetadata {
         data_source: nu_protocol::DataSource::None,
         content_type: Some(mime::TEXT_HTML_UTF_8.to_string()),
+        ..Default::default()
     };
 
     Ok(Value::string(output_string, head).into_pipeline_data_with_metadata(metadata))
@@ -400,7 +401,7 @@ fn theme_demo(span: Span) -> PipelineData {
         .collect();
     Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
         data_source: DataSource::HtmlThemes,
-        content_type: None,
+        ..Default::default()
     })
 }
 

@@ -228,6 +228,7 @@ mod hover_tests {
     use assert_json_diff::assert_json_eq;
     use nu_test_support::fs::fixtures;
     use rstest::rstest;
+    use std::time::Duration;
 
     #[rstest]
     #[case::variable("var.nu", (2, 0), "```\ntable\n``` \n---\nimmutable")]
@@ -260,7 +261,9 @@ mod hover_tests {
 
         open_unchecked(&client_connection, script.clone());
         let (line, character) = cursor;
-        let resp = send_hover_request(&client_connection, script, line, character);
+        let resp = send_hover_request(&client_connection, script, line, character)
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
 
         assert_json_eq!(
             result_from_message(resp)["contents"]["value"],
@@ -277,7 +280,9 @@ mod hover_tests {
         let script = path_to_uri(&script);
 
         open_unchecked(&client_connection, script.clone());
-        let resp = send_hover_request(&client_connection, script, 6, 2);
+        let resp = send_hover_request(&client_connection, script, 6, 2)
+            .recv_timeout(Duration::from_secs(10))
+            .unwrap();
 
         let hover_text = result_from_message(resp)["contents"]["value"].to_string();
 
@@ -311,7 +316,9 @@ mod hover_tests {
 
         open_unchecked(&client_connection, script_uri.clone());
         let (line, character) = cursor;
-        let resp = send_hover_request(&client_connection, script_uri, line, character);
+        let resp = send_hover_request(&client_connection, script_uri, line, character)
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
         let result = result_from_message(resp);
 
         let actual = result["contents"]["value"].to_string().replace("\\r", "");

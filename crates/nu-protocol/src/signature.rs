@@ -155,6 +155,12 @@ impl PositionalArg {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum CommandWideCompleter {
+    External,
+    Command(DeclId),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Completion {
     Command(DeclId),
@@ -319,6 +325,7 @@ pub struct Signature {
     pub is_filter: bool,
     pub creates_scope: bool,
     pub allows_unknown_args: bool,
+    pub complete: Option<CommandWideCompleter>,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
 }
@@ -354,6 +361,7 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+            complete: None,
         }
     }
 

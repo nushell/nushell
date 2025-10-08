@@ -10,9 +10,11 @@ use crate::{
 
 use log::trace;
 use nu_path::canonicalize_with;
+use nu_path::is_windows_device_path;
 use nu_protocol::{
-    Alias, BlockId, CustomExample, DeclId, FromValue, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    Alias, BlockId, CommandWideCompleter, CustomExample, DeclId, FromValue, Module, ModuleId,
+    ParseError, PositionalArg, ResolvedImportPattern, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value, VarId,
     ast::{
         Argument, AttributeBlock, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
@@ -1016,6 +1018,42 @@ fn handle_special_attributes(
                         msg: "Value couldn't be converted to category".into(),
                         span: Some(val_span),
                         help: Some("Is `attr category` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
+            "complete" => match <Spanned<String>>::from_value(value) {
+                Ok(Spanned { item, span }) => {
+                    if let Some(decl) = working_set.find_decl(item.as_bytes()) {
+                        // TODO: Enforce command signature? Not before settling on a unified
+                        // custom completion api
+                        signature.complete = Some(CommandWideCompleter::Command(decl));
+                    } else {
+                        working_set.error(ParseError::UnknownCommand(span));
+                    }
+                }
+                Err(_) => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_completer".into(),
+                        msg: "Value couldn't be converted to a completer".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr complete` shadowed?".into()),
+                        inner: vec![],
+                    };
+                    working_set.error(e.wrap(working_set, val_span));
+                }
+            },
+            "complete external" => match value {
+                Value::Nothing { .. } => {
+                    signature.complete = Some(CommandWideCompleter::External);
+                }
+                _ => {
+                    let e = ShellError::GenericError {
+                        error: "nu::shell::invalid_completer".into(),
+                        msg: "This attribute shouldn't return anything".into(),
+                        span: Some(val_span),
+                        help: Some("Is `attr complete` shadowed?".into()),
                         inner: vec![],
                     };
                     working_set.error(e.wrap(working_set, val_span));
@@ -3914,6 +3952,10 @@ pub fn find_in_dirs(
     cwd: &str,
     dirs_var_name: Option<&str>,
 ) -> Option<ParserPath> {
+    if is_windows_device_path(Path::new(&filename)) {
+        return Some(ParserPath::RealPath(filename.into()));
+    }
+
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,

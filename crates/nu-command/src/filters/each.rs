@@ -21,7 +21,20 @@ iterate over each record, not necessarily each cell within it.
 Avoid passing single records to this command. Since a record is a
 one-row structure, 'each' will only run once, behaving similar to 'do'.
 To iterate over a record's values, use 'items' or try converting it to a table
-with 'transpose' first."#
+with 'transpose' first.
+
+
+By default, for each input there is a single output value.
+If the closure returns a stream rather than value, the stream is collected
+completely, and the resulting value becomes one of the items in `each`'s output.
+
+To receive items from those streams without waiting for the whole stream to be
+collected, `each --flatten` can be used.
+Instead of waiting for the stream to be collected before returning the result as
+a single item, `each --flatten` will return each item as soon as they are received.
+
+This "flattens" the output, turning an output that would otherwise be a
+list of lists like `list<list<string>>` into a flat list like `list<string>`."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,6 +57,12 @@ with 'transpose' first."#
                 "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
+            .switch(
+                "flatten",
+                "combine outputs into a single stream instead of\
+                    collecting them to separate values",
+                Some('f'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -95,6 +114,16 @@ with 'transpose' first."#
                 description: "Update value if not null, otherwise do nothing",
                 result: None,
             },
+            Example {
+                description: "Scan through multiple files without pause",
+                example: "\
+                    ls *.txt \
+                    | each --flatten {|f| open $f.name | lines } \
+                    | find -i 'note: ' \
+                    | str join \"\\n\"\
+                    ",
+                result: None,
+            },
         ]
     }
 
@@ -108,6 +137,7 @@ with 'transpose' first."#
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
+        let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
         let metadata = input.metadata();
         let result = match input {
@@ -119,13 +149,25 @@ with 'transpose' first."#
             | PipelineData::ListStream(..) => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-                Ok(input
-                    .into_iter()
-                    .map(move |val| {
-                        each_map(val, &mut closure, head)
-                            .unwrap_or_else(|error| Value::error(error, head))
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+                let out = if flatten {
+                    input
+                        .into_iter()
+                        .flat_map(move |value| {
+                            closure.run_with_value(value).unwrap_or_else(|error| {
+                                Value::error(error, head).into_pipeline_data()
+                            })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    input
+                        .into_iter()
+                        .map(move |value| {
+                            each_map(value, &mut closure, head)
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             PipelineData::ByteStream(stream, ..) => {
                 let Some(chunks) = stream.chunks() else {
@@ -133,13 +175,26 @@ with 'transpose' first."#
                 };
 
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(chunks
-                    .map(move |result| {
-                        result
-                            .and_then(|value| each_map(value, &mut closure, head))
-                            .unwrap_or_else(|error| Value::error(error, head))
-                    })
-                    .into_pipeline_data(head, engine_state.signals().clone()))
+                let out = if flatten {
+                    chunks
+                        .flat_map(move |result| {
+                            result
+                                .and_then(|value| closure.run_with_value(value))
+                                .unwrap_or_else(|error| {
+                                    Value::error(error, head).into_pipeline_data()
+                                })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    chunks
+                        .map(move |result| {
+                            result
+                                .and_then(|value| each_map(value, &mut closure, head))
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).

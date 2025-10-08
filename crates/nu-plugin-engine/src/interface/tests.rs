@@ -15,9 +15,8 @@ use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
-    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
-    Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,
@@ -803,8 +802,8 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let interface = manager.get_interface();
 
     let metadata0 = PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("baz".into()),
+        ..Default::default()
     };
 
     let result = interface.write_plugin_call(

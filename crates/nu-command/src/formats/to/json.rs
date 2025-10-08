@@ -75,6 +75,7 @@ impl Command for ToJson {
                 let metadata = PipelineMetadata {
                     data_source: nu_protocol::DataSource::None,
                     content_type: Some(mime::APPLICATION_JSON.to_string()),
+                    ..Default::default()
                 };
                 Ok(PipelineData::value(res, Some(metadata)))
             }

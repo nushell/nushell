@@ -321,7 +321,7 @@ impl Job {
             self.write_processing_instruction(entry_span, tag, attrs, content)
         } else {
             // Allow tag to have no attributes or content for short hand input
-            // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
+            // alternatives like {tag: a attributes: {} content: []}, {tag: a attributes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
                 Value::Record { val, .. } => val.into_owned(),
