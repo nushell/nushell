@@ -128,6 +128,16 @@ impl Command for HttpGet {
                 example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get the response status code",
+                example: r#"http get https://www.example.com | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response status while streaming",
+                example: r#"http get https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
+                result: None,
+            },
         ]
     }
 }

@@ -4,9 +4,9 @@ use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DataSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PipelineMetadata, PositionalArg, Range, Record, RegId,
-    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId,
+    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -1511,15 +1511,7 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
 fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
     let span = data.span().unwrap_or(fallback_span);
-    let metadata = match data.metadata() {
-        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
-        // check where some input came from.
-        Some(PipelineMetadata {
-            data_source: DataSource::FilePath(_),
-            content_type: None,
-        }) => None,
-        other => other,
-    };
+    let metadata = data.metadata().and_then(|m| m.for_collect());
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
 }

@@ -10,7 +10,7 @@ use http::StatusCode;
 use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, LabeledError, Signals, shell_error::io::IoError};
+use nu_protocol::{ByteStream, LabeledError, PipelineMetadata, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
@@ -171,6 +171,9 @@ pub fn response_to_buffer(
         _ => ByteStreamType::Unknown,
     };
 
+    // Extract response metadata before consuming the body
+    let metadata = extract_response_metadata(&response, span);
+
     let reader = UreqTimeoutExtractorReader {
         r: response.into_body().into_reader(),
     };
@@ -178,8 +181,41 @@ pub fn response_to_buffer(
     PipelineData::byte_stream(
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
-        None,
+        Some(metadata),
     )
+}
+
+fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadata {
+    let status = Value::int(response.status().as_u16().into(), span);
+
+    let headers_value = headers_to_nu(&extract_response_headers(response), span)
+        .and_then(|data| data.into_value(span))
+        .unwrap_or(Value::nothing(span));
+
+    let urls = Value::list(
+        response
+            .get_redirect_history()
+            .into_iter()
+            .flatten()
+            .map(|v| Value::string(v.to_string(), span))
+            .collect(),
+        span,
+    );
+
+    let http_response = Value::record(
+        record! {
+            "status" => status,
+            "headers" => headers_value,
+            "urls" => urls,
+        },
+        span,
+    );
+
+    let mut metadata = PipelineMetadata::default();
+    metadata
+        .custom
+        .insert("http_response".to_string(), http_response);
+    metadata
 }
 
 pub fn request_add_authorization_header<B>(

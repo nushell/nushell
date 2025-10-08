@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DataSource, PipelineMetadata};
+use nu_protocol::PipelineMetadata;
 
 #[derive(Clone)]
 pub struct ViewSpan;
@@ -54,8 +54,8 @@ impl Command for ViewSpan {
 
         source.map(|x| {
             x.set_metadata(Some(PipelineMetadata {
-                data_source: DataSource::None,
                 content_type: Some("application/x-nuscript".into()),
+                ..Default::default()
             }))
         })
     }

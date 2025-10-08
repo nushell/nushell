@@ -8,6 +8,7 @@ pub fn extend_record_with_metadata(
     if let Some(PipelineMetadata {
         data_source,
         content_type,
+        custom,
     }) = metadata
     {
         match data_source {
@@ -23,6 +24,9 @@ pub fn extend_record_with_metadata(
         }
         if let Some(content_type) = content_type {
             record.push("content_type", Value::string(content_type, head));
+        }
+        for (key, value) in custom {
+            record.push(key, value.clone());
         }
     };
 

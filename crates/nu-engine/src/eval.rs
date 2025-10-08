@@ -2,8 +2,8 @@ use crate::eval_ir::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
 use nu_protocol::{
-    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
-    PipelineExecutionData, PipelineMetadata, ShellError, Span, Value, VarId,
+    BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
+    ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
@@ -325,15 +325,7 @@ pub fn eval_collect<D: DebugContext>(
     // Evaluate the expression with the variable set to the collected input
     let span = input.span().unwrap_or(Span::unknown());
 
-    let metadata = match input.metadata() {
-        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
-        // check where some input came from.
-        Some(PipelineMetadata {
-            data_source: DataSource::FilePath(_),
-            content_type: None,
-        }) => None,
-        other => other,
-    };
+    let metadata = input.metadata().and_then(|m| m.for_collect());
 
     let input = input.into_value(span)?;
 

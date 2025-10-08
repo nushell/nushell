@@ -115,7 +115,7 @@ impl PipelineDataHeader {
 }
 
 /// Additional information about list (value) streams
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ListStreamInfo {
     pub id: StreamId,
     pub span: Span,
@@ -134,7 +134,7 @@ impl ListStreamInfo {
 }
 
 /// Additional information about byte streams
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,

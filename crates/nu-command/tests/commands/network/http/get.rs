@@ -345,3 +345,25 @@ fn http_get_timeout() {
         actual.err
     );
 }
+
+#[test]
+fn http_get_response_metadata() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/")
+        .with_status(200)
+        .with_header("x-custom-header", "test-value")
+        .with_body("success")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"http get --raw {url} | metadata | get http_response | get status"#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(actual.out, "200");
+}

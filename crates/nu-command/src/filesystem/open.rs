@@ -191,7 +191,7 @@ impl Command for Open {
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type: None,
+                            ..Default::default()
                         }),
                     );
 
@@ -248,6 +248,7 @@ impl Command for Open {
                                 stream.set_metadata(Some(PipelineMetadata {
                                     data_source: DataSource::FilePath(path.to_path_buf()),
                                     content_type,
+                                    ..Default::default()
                                 }));
                             output.push(stream_with_content_type);
                         }
