@@ -112,16 +112,6 @@ impl Command for HttpHead {
                 example: "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
-            Example {
-                description: "Get the response status code",
-                example: r#"http head https://www.example.com | metadata | get http_response.status"#,
-                result: None,
-            },
-            Example {
-                description: "Check response headers",
-                example: r#"http head https://example.com | metadata access {|m| $m.http_response.headers | where name == content-length } | lines"#,
-                result: None,
-            },
         ]
     }
 }

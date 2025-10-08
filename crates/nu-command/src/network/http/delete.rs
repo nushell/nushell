@@ -149,16 +149,6 @@ impl Command for HttpDelete {
                 example: "open foo.json | http delete https://www.example.com",
                 result: None,
             },
-            Example {
-                description: "Get the response status code",
-                example: r#"http delete https://www.example.com | metadata | get http_response.status"#,
-                result: None,
-            },
-            Example {
-                description: "Check response status while streaming",
-                example: r#"http delete https://example.com/resource | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
-                result: None,
-            },
         ]
     }
 }

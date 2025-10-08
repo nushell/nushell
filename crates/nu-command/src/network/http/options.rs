@@ -109,16 +109,6 @@ impl Command for HttpOptions {
                 example: "http options https://media.example.com/api/ --headers [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
                 result: None,
             },
-            Example {
-                description: "Get the response status code",
-                example: r#"http options https://www.example.com | metadata | get http_response.status"#,
-                result: None,
-            },
-            Example {
-                description: "Check allowed methods from response headers",
-                example: r#"http options https://example.com/api | metadata access {|m| $m.http_response.headers | where name == allow } | lines"#,
-                result: None,
-            },
         ]
     }
 }
