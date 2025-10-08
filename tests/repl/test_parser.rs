@@ -826,6 +826,7 @@ fn let_variable_type_mismatch() -> TestResult {
 
 #[test]
 fn let_variable_table_runtime_cast() -> TestResult {
+    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     // Type::Any should be accepted by compatible types (record can convert to table)
     run_test(
         r#"let x: table = ([[a]; [1]] | to nuon | from nuon); $x | describe"#,
@@ -835,6 +836,7 @@ fn let_variable_table_runtime_cast() -> TestResult {
 
 #[test]
 fn let_variable_table_runtime_mismatch() -> TestResult {
+    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     // This conversion should fail due to a key mismatch
     fail_test(
         r#"let x: table<b: int> = ([[a]; [1]]  | to nuon | from nuon); $x | describe"#,
@@ -844,6 +846,7 @@ fn let_variable_table_runtime_mismatch() -> TestResult {
 
 #[test]
 fn mut_variable_table_runtime_mismatch() -> TestResult {
+    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     fail_test(
         r#"mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]"#,
         "does not operate between 'table<b: int>' and 'table<a: int>'",
@@ -852,6 +855,7 @@ fn mut_variable_table_runtime_mismatch() -> TestResult {
 
 #[test]
 fn let_variable_record_runtime_cast() -> TestResult {
+    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     // Records from Type::Any sources should be convertible to tables when field types match
     run_test(
         r#"let x: record<a: int> = ({a: 1} | to nuon | from nuon); $x | describe"#,
@@ -861,6 +865,7 @@ fn let_variable_record_runtime_cast() -> TestResult {
 
 #[test]
 fn let_variable_record_runtime_mismatch() -> TestResult {
+    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     // This conversion should fail due to a key mismatch
     fail_test(
         r#"let x: record<b: int> = ({a: 1} | to nuon | from nuon); $x | describe"#,

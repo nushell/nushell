@@ -8,6 +8,7 @@ use crate::*;
 mod example;
 mod pipefail;
 mod reorder_cell_paths;
+mod enforce_runtime_annotations;
 
 pub(crate) type Version = (u16, u16, u16);
 
@@ -59,6 +60,7 @@ pub(crate) trait ExperimentalOptionMarker {
 // The marker structs are not relevant and needlessly clutter the generated docs.
 pub use example::EXAMPLE;
 pub use pipefail::PIPE_FAIL;
+pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
 pub use reorder_cell_paths::REORDER_CELL_PATHS;
 
 // Include all experimental option statics in here.
