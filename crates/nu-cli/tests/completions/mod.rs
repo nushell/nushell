@@ -2498,6 +2498,21 @@ fn filecompletions_triggers_after_cursor() {
     match_suggestions(&expected_paths, &suggestions);
 }
 
+#[test]
+fn filecompletions_for_redirection_target() {
+    let (_, _, engine, stack) = new_engine_helper(fs::fixtures().join("external_completions"));
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
+    let command = "echo 'foo' o+e> `dir with space/`";
+    let suggestions = completer.complete(command, command.len());
+    match_suggestions(&expected, &suggestions);
+
+    let command = "echo 'foo' o> foo e> `dir with space/`";
+    let suggestions = completer.complete(command, command.len());
+    match_suggestions(&expected, &suggestions);
+}
+
 #[rstest]
 fn extern_custom_completion_positional(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam ", 5);

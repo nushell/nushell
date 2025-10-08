@@ -8,7 +8,10 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
     CommandWideCompleter, Completion, Span, Type, Value,
-    ast::{Argument, Block, Expr, Expression, FindMapResult, ListItem, Traverse},
+    ast::{
+        Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
+        RedirectionTarget, Traverse,
+    },
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
@@ -76,6 +79,21 @@ fn find_pipeline_element_by_position<'a>(
             .unwrap_or_default(),
         _ => FindMapResult::Continue,
     }
+}
+
+/// For redirection target completion
+/// https://github.com/nushell/nushell/issues/16827
+fn redirection_target_expression(target: &RedirectionTarget, pos: usize) -> Option<&Expression> {
+    let expr = target.expr();
+    expr.and_then(|expression| {
+        if let Expr::String(_) = expression.expr
+            && expression.span.contains(pos)
+        {
+            expr
+        } else {
+            None
+        }
+    })
 }
 
 /// Before completion, an additional character `a` is added to the source as a placeholder for correct parsing results.
@@ -218,9 +236,26 @@ impl NuCompleter {
         if !extra_placeholder {
             pos_to_search = pos_to_search.saturating_sub(1);
         }
-        let Some(element_expression) = block.find_map(working_set, &|expr: &Expression| {
-            find_pipeline_element_by_position(expr, working_set, pos_to_search)
-        }) else {
+        let Some(element_expression) = block
+            .find_map(working_set, &|expr: &Expression| {
+                find_pipeline_element_by_position(expr, working_set, pos_to_search)
+            })
+            .or_else(|| {
+                block.pipelines.iter().find_map(|pipeline| {
+                    pipeline.elements.iter().find_map(|element| {
+                        element.redirection.as_ref().and_then(|redir| match redir {
+                            PipelineRedirection::Single { target, .. } => {
+                                redirection_target_expression(target, pos_to_search)
+                            }
+                            PipelineRedirection::Separate { out, err } => {
+                                redirection_target_expression(out, pos_to_search)
+                                    .or_else(|| redirection_target_expression(err, pos_to_search))
+                            }
+                        })
+                    })
+                })
+            })
+        else {
             return vec![];
         };
 
@@ -259,6 +294,16 @@ impl NuCompleter {
         let mut suggestions: Vec<SemanticSuggestion> = vec![];
 
         match &element_expression.expr {
+            // WARN: Expr::String should only match redirection targets.
+            // We choose to handle it explicitly here because of a legacy issue: fallback file
+            // completion doesn't work well with filepath with spaces
+            // https://github.com/nushell/nushell/issues/16712
+            Expr::String(_) => {
+                let span = element_expression.span;
+                let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
+                let ctx = Context::new(working_set, new_span, prefix, offset);
+                return self.process_completion(&mut FileCompletion, &ctx);
+            }
             Expr::Var(_) => {
                 return self.variable_names_completion_helper(
                     working_set,
