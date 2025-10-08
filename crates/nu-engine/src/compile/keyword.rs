@@ -434,11 +434,14 @@ pub(crate) fn compile_try(
         })
         .transpose()?;
 
+    let here = builder.here();
+
     // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
     if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
+                enter: here,
                 index: err_label.0,
                 dst: io_reg,
             }
@@ -446,7 +449,13 @@ pub(crate) fn compile_try(
         )?
     } else {
         // Otherwise, we don't need the error value.
-        builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?
+        builder.push(
+            Instruction::OnError {
+                enter: here,
+                index: err_label.0,
+            }
+            .into_spanned(call.head),
+        )?
     };
 
     builder.add_comment("try");

@@ -246,10 +246,14 @@ pub enum Instruction {
         end_index: usize,
     },
     /// Push an error handler, without capturing the error value
-    OnError { index: usize },
+    OnError { enter: usize, index: usize },
     /// Push an error handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
-    OnErrorInto { index: usize, dst: RegId },
+    OnErrorInto {
+        enter: usize,
+        index: usize,
+        dst: RegId,
+    },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
@@ -351,8 +355,8 @@ impl Instruction {
                 stream: _,
                 end_index,
             } => Some(*end_index),
-            Instruction::OnError { index } => Some(*index),
-            Instruction::OnErrorInto { index, dst: _ } => Some(*index),
+            Instruction::OnError { index, .. } => Some(*index),
+            Instruction::OnErrorInto { index, .. } => Some(*index),
             _ => None,
         }
     }
@@ -376,8 +380,8 @@ impl Instruction {
                 stream: _,
                 end_index,
             } => *end_index = target_index,
-            Instruction::OnError { index } => *index = target_index,
-            Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
+            Instruction::OnError { index, .. } => *index = target_index,
+            Instruction::OnErrorInto { index, .. } => *index = target_index,
             _ => return Err(target_index),
         }
         Ok(())

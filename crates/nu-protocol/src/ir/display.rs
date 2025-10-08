@@ -247,10 +247,10 @@ impl fmt::Display for FmtInstruction<'_> {
             } => {
                 write!(f, "{:WIDTH$} {dst}, {stream}, end {end_index}", "iterate")
             }
-            Instruction::OnError { index } => {
+            Instruction::OnError { index, .. } => {
                 write!(f, "{:WIDTH$} {index}", "on-error")
             }
-            Instruction::OnErrorInto { index, dst } => {
+            Instruction::OnErrorInto { index, dst, .. } => {
                 write!(f, "{:WIDTH$} {index}, {dst}", "on-error-into")
             }
             Instruction::PopErrorHandler => {

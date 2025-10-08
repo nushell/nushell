@@ -217,6 +217,14 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc += 1;
             }
             Ok(InstructionResult::Branch(next_pc)) => {
+                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    // if jumping outside the try block (break/continue) error_handler is not
+                    // restored after it was popped above
+                    if (error_handler.enter_index..=error_handler.handler_index).contains(&next_pc)
+                    {
+                        ctx.stack.error_handlers.push(error_handler);
+                    }
+                }
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
@@ -865,15 +873,17 @@ fn eval_instruction<D: DebugContext>(
             stream,
             end_index,
         } => eval_iterate(ctx, *dst, *stream, *end_index),
-        Instruction::OnError { index } => {
+        Instruction::OnError { enter, index } => {
             ctx.stack.error_handlers.push(ErrorHandler {
+                enter_index: *enter,
                 handler_index: *index,
                 error_register: None,
             });
             Ok(Continue)
         }
-        Instruction::OnErrorInto { index, dst } => {
+        Instruction::OnErrorInto { enter, index, dst } => {
             ctx.stack.error_handlers.push(ErrorHandler {
+                enter_index: *enter,
                 handler_index: *index,
                 error_register: Some(*dst),
             });

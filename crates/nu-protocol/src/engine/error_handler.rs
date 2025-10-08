@@ -4,6 +4,8 @@ use crate::RegId;
 #[derive(Debug, Clone, Copy)]
 pub struct ErrorHandler {
     /// Instruction index within the block that will handle the error
+    pub enter_index: usize,
+    /// Instruction index within the block that will handle the error
     pub handler_index: usize,
     /// Register to put the error information into, when an error occurs
     pub error_register: Option<RegId>,
