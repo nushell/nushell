@@ -34,6 +34,16 @@ fn find_pipeline_element_by_position<'a>(
     }
     let closure = |expr: &'a Expression| find_pipeline_element_by_position(expr, working_set, pos);
     match &expr.expr {
+        Expr::RowCondition(block_id)
+        | Expr::Subexpression(block_id)
+        | Expr::Block(block_id)
+        | Expr::Closure(block_id) => {
+            let block = working_set.get_block(*block_id);
+            // check redirection target for sub blocks before diving recursively into them
+            check_redirection_in_block(block.as_ref(), pos)
+                .map(FindMapResult::Found)
+                .unwrap_or_default()
+        }
         Expr::Call(call) => call
             .arguments
             .iter()
@@ -81,9 +91,8 @@ fn find_pipeline_element_by_position<'a>(
     }
 }
 
-/// For redirection target completion
-/// https://github.com/nushell/nushell/issues/16827
-fn redirection_target_expression(target: &RedirectionTarget, pos: usize) -> Option<&Expression> {
+/// Helper function to extract file-path expression from redirection target
+fn check_redirection_target(target: &RedirectionTarget, pos: usize) -> Option<&Expression> {
     let expr = target.expr();
     expr.and_then(|expression| {
         if let Expr::String(_) = expression.expr
@@ -93,6 +102,20 @@ fn redirection_target_expression(target: &RedirectionTarget, pos: usize) -> Opti
         } else {
             None
         }
+    })
+}
+
+/// For redirection target completion
+/// https://github.com/nushell/nushell/issues/16827
+fn check_redirection_in_block(block: &Block, pos: usize) -> Option<&Expression> {
+    block.pipelines.iter().find_map(|pipeline| {
+        pipeline.elements.iter().find_map(|element| {
+            element.redirection.as_ref().and_then(|redir| match redir {
+                PipelineRedirection::Single { target, .. } => check_redirection_target(target, pos),
+                PipelineRedirection::Separate { out, err } => check_redirection_target(out, pos)
+                    .or_else(|| check_redirection_target(err, pos)),
+            })
+        })
     })
 }
 
@@ -240,21 +263,7 @@ impl NuCompleter {
             .find_map(working_set, &|expr: &Expression| {
                 find_pipeline_element_by_position(expr, working_set, pos_to_search)
             })
-            .or_else(|| {
-                block.pipelines.iter().find_map(|pipeline| {
-                    pipeline.elements.iter().find_map(|element| {
-                        element.redirection.as_ref().and_then(|redir| match redir {
-                            PipelineRedirection::Single { target, .. } => {
-                                redirection_target_expression(target, pos_to_search)
-                            }
-                            PipelineRedirection::Separate { out, err } => {
-                                redirection_target_expression(out, pos_to_search)
-                                    .or_else(|| redirection_target_expression(err, pos_to_search))
-                            }
-                        })
-                    })
-                })
-            })
+            .or_else(|| check_redirection_in_block(block.as_ref(), pos_to_search))
         else {
             return vec![];
         };

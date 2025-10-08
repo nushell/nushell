@@ -2504,7 +2504,7 @@ fn filecompletions_for_redirection_target() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let expected = vec!["`dir with space/bar baz`", "`dir with space/foo`"];
-    let command = "echo 'foo' o+e> `dir with space/`";
+    let command = "(echo 'foo' o+e> `dir with space/`";
     let suggestions = completer.complete(command, command.len());
     match_suggestions(&expected, &suggestions);
 
