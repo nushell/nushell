@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn to_column() {
@@ -20,42 +20,33 @@ fn to_column() {
             ),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.txt
-                | lines
-                | str trim
-                | split column ","
-                | get column2
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open sample.txt
+            | lines
+            | str trim
+            | split column ","
+            | get column2
+        "#);
 
         assert!(actual.out.contains("shipper"));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.txt
-                | lines
-                | str trim
-                | split column -n 3 ","
-                | get column3
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open sample.txt
+            | lines
+            | str trim
+            | split column -n 3 ","
+            | get column3
+        "#);
 
         assert!(actual.out.contains("tariff_item,name,origin"));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r"
-                open sample2.txt
-                | lines
-                | str trim
-                | split column --regex '\s*,\s*'
-                | get column2
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), r"
+            open sample2.txt
+            | lines
+            | str trim
+            | split column --regex '\s*,\s*'
+            | get column2
+        ");
 
         assert!(actual.out.contains("shipper"));
     })

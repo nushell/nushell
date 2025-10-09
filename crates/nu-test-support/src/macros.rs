@@ -89,7 +89,7 @@ macro_rules! nu {
         // Here we parse the options into a `NuOpts` struct
         let opts = nu!(@nu_opts $($options)*);
         // and format the `$path` using the `$part`s
-        let path = nu!(@format_path $path, $($part),*);
+        let path = $path;
         // Then finally we go to the `@main` phase, where the actual work is done.
         nu!(@main opts, path)
     }};
@@ -103,15 +103,6 @@ macro_rules! nu {
             ..Default::default()
         }
     };
-
-    // Helper to format `$path`.
-    (@format_path $path:expr $(,)?) => {
-        // When there are no `$part`s, do not format anything
-        $path
-    };
-    (@format_path $path:expr, $($part:expr),* $(,)?) => {{
-        format!($path, $( $part ),*)
-    }};
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
@@ -263,7 +254,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     let mut paths = crate::shell_os_paths();
     paths.insert(0, test_bins.into());
 
-    let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
+    let commands = commands.as_ref();
 
     let paths_joined = match std::env::join_paths(paths) {
         Ok(all) => all,
@@ -300,14 +291,11 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         command.arg("--no-std-lib");
     }
     // Use plain errors to help make error text matching more consistent
-    command.args(["--error-style", "plain"]);
-    command
-        .arg(format!("-c {}", escape_quote_string(&commands)))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    command.args(["--error-style", "plain", "--commands", commands]);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     // Uncomment to debug the command being run:
-    // println!("=== command\n{command:?}\n");
+    // println!("=== command\n{command:#?}\n");
 
     let process = match command.spawn() {
         Ok(child) => child,

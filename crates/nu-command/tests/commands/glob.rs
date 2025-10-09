@@ -153,8 +153,7 @@ fn glob_files_in_parent(
 
         let actual = nu!(
             cwd: working_directory,
-            r#"glob {} | sort | str join " ""#,
-            glob
+            format!(r#"glob {glob} | sort | str join " ""#)
         );
 
         let mut expected: Vec<String> = vec![];

@@ -1,34 +1,26 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 mod rows {
     use super::*;
 
-    fn table() -> String {
-        pipeline(
-            r#"
-            echo [
-                [service, status];
+    const TABLE: &str = r#"[
+        [service, status];
 
-                [ruby,      DOWN]
-                [db,        DOWN]
-                [nud,       DOWN]
-                [expected,  HERE]
-            ]"#,
-        )
-    }
+        [ruby,      DOWN]
+        [db,        DOWN]
+        [nud,       DOWN]
+        [expected,  HERE]
+    ]"#;
 
     #[test]
     fn can_roll_down() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                "
-                roll down
+            r#"
+                {TABLE}
+                | roll down
                 | first
                 | get status
-            "
-            )
+            "#,
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -37,15 +29,12 @@ mod rows {
     #[test]
     fn can_roll_up() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                "
-                roll up --by 3
+            r#"
+                {TABLE}
+                | roll up --by 3
                 | first
                 | get status
-            "
-            )
+            "#
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -55,33 +44,25 @@ mod rows {
 mod columns {
     use super::*;
 
-    fn table() -> String {
-        pipeline(
-            r#"
-            echo [
-                [commit_author, origin,      stars];
+    const TABLE: &str = r#"[
+        [commit_author, origin,      stars];
 
-                [     "Andres",     EC, amarillito]
-                [     "Darren",     US,      black]
-                [   "JT",     US,      black]
-                [     "Yehuda",     US,      black]
-                [      "Jason",     CA,       gold]
-            ]"#,
-        )
-    }
+        [     "Andres",     EC, amarillito]
+        [     "Darren",     US,      black]
+        [   "JT",     US,      black]
+        [     "Yehuda",     US,      black]
+        [      "Jason",     CA,       gold]
+    ]"#;
 
     #[test]
     fn can_roll_left() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                r#"
-            roll left
-            | columns
-            | str join "-"
-        "#
-            )
+            r#"
+                {TABLE}
+                | roll left
+                | columns
+                | str join "-"
+            "#
         ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -90,15 +71,12 @@ mod columns {
     #[test]
     fn can_roll_right() {
         let actual = nu!(format!(
-            "{} | {}",
-            table(),
-            pipeline(
-                r#"
-            roll right --by 2
-            | columns
-            | str join "-"
-        "#
-            )
+            r#"
+                {TABLE}
+                | roll right --by 2
+                | columns
+                | str join "-"
+            "#
         ));
 
         assert_eq!(actual.out, "origin-stars-commit_author");
@@ -145,9 +123,7 @@ mod columns {
 
         // this pipeline takes the nu bitstring row literal, computes it's
         // decimal value.
-        let nu_row_literal_bitstring_to_decimal_value_pipeline = pipeline(
-            r#"
-            transpose bit --ignore-titles
+        let nu_row_literal_bitstring_to_decimal_value_pipeline = r#"transpose bit --ignore-titles
             | get bit
             | reverse
             | enumerate
@@ -155,8 +131,7 @@ mod columns {
                 $it.item * (2 ** $it.index)
             }
             | math sum
-        "#,
-        );
+        "#;
         println!(
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
@@ -169,14 +144,12 @@ mod columns {
         format!(
             "echo '{}' | {}",
             bits,
-            pipeline(
-                r#"
-            split chars
-            | each { |it| $it | into int }
-            | rotate --ccw
-            | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
-        "#
-            )
+            r#"
+                    split chars
+                    | each { |it| $it | into int }
+                    | rotate --ccw
+                    | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
+                "#
         )
     }
 }

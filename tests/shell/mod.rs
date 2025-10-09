@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
 mod environment;
@@ -11,32 +11,30 @@ mod repl;
 #[ignore]
 #[test]
 fn plugins_are_declared_with_wix() {
-    let actual = nu!(pipeline(
-        r#"
-            open Cargo.toml
-            | get bin.name
-            | str replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
-            | drop
+    let actual = nu!(r#"
+        open Cargo.toml
+        | get bin.name
+        | str replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
+        | drop
+        | sort-by
+        | wrap cargo | merge {
+            open wix/main.wxs --raw | from xml
+            | get Wix.children.Product.children.0.Directory.children.0
+            | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
+            | get Directory.children.Directory.children.0 | last
+            | get Directory.children.Component.children
+            | each { |it| echo $it | first }
+            | skip
+            | where File.attributes.Name =~ "nu_plugin"
+            | str substring [_, -4] File.attributes.Name
+            | get File.attributes.Name
             | sort-by
-            | wrap cargo | merge {
-                open wix/main.wxs --raw | from xml
-                | get Wix.children.Product.children.0.Directory.children.0
-                | where Directory.attributes.Id == "$(var.PlatformProgramFilesFolder)"
-                | get Directory.children.Directory.children.0 | last
-                | get Directory.children.Component.children
-                | each { |it| echo $it | first }
-                | skip
-                | where File.attributes.Name =~ "nu_plugin"
-                | str substring [_, -4] File.attributes.Name
-                | get File.attributes.Name
-                | sort-by
-                | wrap wix
-            }
-            | default wix _
-            | each { |it| if $it.wix != $it.cargo { 1 } { 0 } }
-            | math sum
-            "#
-    ));
+            | wrap wix
+        }
+        | default wix _
+        | each { |it| if $it.wix != $it.cargo { 1 } { 0 } }
+        | math sum
+        "#);
 
     assert_eq!(actual.out, "0");
 }
@@ -297,7 +295,7 @@ fn main_script_can_have_subcommands1() {
                   }"#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo 123"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu foo 123");
 
         assert_eq!(actual.out, "223");
     })
@@ -318,7 +316,7 @@ fn main_script_can_have_subcommands2() {
                   }"#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu");
 
         assert!(actual.out.contains("usage: script.nu"));
     })
@@ -330,7 +328,7 @@ fn source_empty_file() {
         sandbox.mkdir("source_empty_file");
         sandbox.with_files(&[FileWithContent("empty.nu", "")]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("nu empty.nu"));
+        let actual = nu!(cwd: dirs.test(), "nu empty.nu");
         assert!(actual.out.is_empty());
     })
 }
@@ -390,7 +388,7 @@ fn main_script_help_uses_script_name1() {
             r#"def main [] {}
             "#,
         )]);
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu --help"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu --help");
         assert!(actual.out.contains("> script.nu"));
         assert!(!actual.out.contains("> main"));
     })
@@ -406,7 +404,7 @@ fn main_script_help_uses_script_name2() {
             r#"def main [foo: string] {}
             "#,
         )]);
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu");
         assert!(actual.err.contains("Usage: script.nu"));
         assert!(!actual.err.contains("Usage: main"));
     })
@@ -423,7 +421,7 @@ fn main_script_subcommand_help_uses_script_name1() {
             def 'main foo' [] {}
             "#,
         )]);
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo --help"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu foo --help");
         assert!(actual.out.contains("> script.nu foo"));
         assert!(!actual.out.contains("> main foo"));
     })
@@ -440,7 +438,7 @@ fn main_script_subcommand_help_uses_script_name2() {
             def 'main foo' [bar: string] {}
             "#,
         )]);
-        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo"));
+        let actual = nu!(cwd: dirs.test(), "nu script.nu foo");
         assert!(actual.err.contains("Usage: script.nu foo"));
         assert!(!actual.err.contains("Usage: main foo"));
     })

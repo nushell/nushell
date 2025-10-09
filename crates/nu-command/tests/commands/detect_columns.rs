@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline, playground::Playground};
+use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn detect_columns_with_legacy() {
@@ -11,9 +11,11 @@ fn detect_columns_with_legacy() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns) == {}",
-                case.0,
-                case.1
+                format!(
+                    "({} | detect columns) == {}",
+                    case.0,
+                    case.1
+                )
             );
 
             assert_eq!(
@@ -49,10 +51,12 @@ fn detect_columns_with_legacy_and_flag_c() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns --combine-columns {}) == {}",
-                case.0,
-                case.2,
-                case.1,
+                format!(
+                    "({} | detect columns --combine-columns {}) == {}",
+                    case.0,
+                    case.2,
+                    case.1,
+                )
             );
 
             assert_eq!(
@@ -66,24 +70,21 @@ fn detect_columns_with_legacy_and_flag_c() {
 
 #[test]
 fn detect_columns_with_flag_c() {
-    let body = "$\"
-total 284K(char nl)
-drwxr-xr-x  2 root root 4.0K Mar 20 08:28 =(char nl)
-drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~(char nl)
--rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf(char nl)\"";
-    let expected = "[
-['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8'];
-['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20', '08:28', '='],
-['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20', '08:18', '~'],
-['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20', '07:23', '~asdf']
-]";
+    let body = r#""total 284K
+drwxr-xr-x  2 root root 4.0K Mar 20 08:28 =
+drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~
+-rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf
+""#;
+
+    let expected = r#"[
+    ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8'];
+    ['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20', '08:28', '='],
+    ['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20', '08:18', '~'],
+    ['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20', '07:23', '~asdf']
+]"#;
+
     let range = "5..6";
-    let cmd = format!(
-        "({} | detect columns -c {} -s 1 --no-headers) == {}",
-        pipeline(body),
-        range,
-        pipeline(expected),
-    );
+    let cmd = format!("({body} | detect columns -c {range} -s 1 --no-headers) == {expected}",);
     println!("debug cmd: {cmd}");
     Playground::setup("detect_columns_test_1", |dirs, _| {
         let out = nu!(

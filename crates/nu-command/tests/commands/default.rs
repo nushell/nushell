@@ -1,30 +1,28 @@
-use nu_test_support::{fs::Stub::EmptyFile, nu, pipeline, playground::Playground};
+use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
 
 #[test]
 fn adds_row_data_if_column_missing() {
-    let sample = r#"
-                {
-                    "amigos": [
-                        {"name": "Yehuda"},
-                        {"name": "JT", "rusty_luck": 0},
-                        {"name": "Andres", "rusty_luck": 0},
-                        {"name": "Michael", "rusty_luck": []},
-                        {"name": "Darren", "rusty_luck": {}},
-                        {"name": "Stefan", "rusty_luck": ""},
-                        {"name": "GorbyPuff"}
-                    ]
-                }
-            "#;
+    let sample = r#"{
+        "amigos": [
+            {"name": "Yehuda"},
+            {"name": "JT", "rusty_luck": 0},
+            {"name": "Andres", "rusty_luck": 0},
+            {"name": "Michael", "rusty_luck": []},
+            {"name": "Darren", "rusty_luck": {}},
+            {"name": "Stefan", "rusty_luck": ""},
+            {"name": "GorbyPuff"}
+        ]
+    }"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | get amigos
-                | default 1 rusty_luck
-                | where rusty_luck == 1
-                | length
-            "
-    )));
+            {sample}
+            | get amigos
+            | default 1 rusty_luck
+            | where rusty_luck == 1
+            | length
+        "
+    ));
 
     assert_eq!(actual.out, "2");
 }
@@ -50,29 +48,27 @@ fn replaces_null() {
 
 #[test]
 fn adds_row_data_if_column_missing_or_empty() {
-    let sample = r#"
-                {
-                    "amigos": [
-                        {"name": "Yehuda"},
-                        {"name": "JT", "rusty_luck": 0},
-                        {"name": "Andres", "rusty_luck": 0},
-                        {"name": "Michael", "rusty_luck": []},
-                        {"name": "Darren", "rusty_luck": {}},
-                        {"name": "Stefan", "rusty_luck": ""},
-                        {"name": "GorbyPuff"}
-                    ]
-                }
-            "#;
+    let sample = r#"{
+        "amigos": [
+            {"name": "Yehuda"},
+            {"name": "JT", "rusty_luck": 0},
+            {"name": "Andres", "rusty_luck": 0},
+            {"name": "Michael", "rusty_luck": []},
+            {"name": "Darren", "rusty_luck": {}},
+            {"name": "Stefan", "rusty_luck": ""},
+            {"name": "GorbyPuff"}
+        ]
+    }"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         "
-                {sample}
-                | get amigos
-                | default -e 1 rusty_luck
-                | where rusty_luck == 1
-                | length
-            "
-    )));
+            {sample}
+            | get amigos
+            | default -e 1 rusty_luck
+            | where rusty_luck == 1
+            | length
+        "
+    ));
 
     assert_eq!(actual.out, "5");
 }

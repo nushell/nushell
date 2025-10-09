@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use rstest::rstest;
 
 #[test]
@@ -25,13 +25,10 @@ fn parses_file_with_uppercase_extension() {
             }"#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open nu.zion.JSON
-                | get glossary.GlossDiv.GlossList.GlossEntry.ID
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open nu.zion.JSON
+            | get glossary.GlossDiv.GlossList.GlossEntry.ID
+        "#);
 
         assert_eq!(actual.out, "SGML");
     })
@@ -45,32 +42,26 @@ fn parses_file_with_multiple_extensions() {
             FileWithContent("file.tar.xz", "this is a tar.xz file"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                hide "from tar.gz" ;
-                hide "from gz" ;
-
-                def "from tar.gz" [] { 'opened tar.gz' } ;
-                def "from gz" [] { 'opened gz' } ;
-                open file.tar.gz
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            hide "from tar.gz" ;
+            hide "from gz" ;
+        
+            def "from tar.gz" [] { 'opened tar.gz' } ;
+            def "from gz" [] { 'opened gz' } ;
+            open file.tar.gz
+        "#);
 
         assert_eq!(actual.out, "opened tar.gz");
 
-        let actual2 = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                hide "from tar.xz" ;
-                hide "from xz" ;
-                hide "from tar" ;
-
-                def "from tar" [] { 'opened tar' } ;
-                def "from xz" [] { 'opened xz' } ;
-                open file.tar.xz
-            "#
-        ));
+        let actual2 = nu!(cwd: dirs.test(), r#"
+            hide "from tar.xz" ;
+            hide "from xz" ;
+            hide "from tar" ;
+        
+            def "from tar" [] { 'opened tar' } ;
+            def "from xz" [] { 'opened xz' } ;
+            open file.tar.xz
+        "#);
 
         assert_eq!(actual2.out, "opened xz");
     })
@@ -86,15 +77,12 @@ fn parses_dotfile() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                hide "from gitignore" ;
-
-                def "from gitignore" [] { 'opened gitignore' } ;
-                open .gitignore
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            hide "from gitignore" ;
+        
+            def "from gitignore" [] { 'opened gitignore' } ;
+            open .gitignore
+        "#);
 
         assert_eq!(actual.out, "opened gitignore");
     })
@@ -113,14 +101,11 @@ fn parses_csv() {
                 "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open nu.zion.csv
-                | where author == "Andres N. Robalino"
-                | get source.0
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open nu.zion.csv
+            | where author == "Andres N. Robalino"
+            | get source.0
+        "#);
 
         assert_eq!(actual.out, "Ecuador");
     })
@@ -155,14 +140,11 @@ fn parses_csv() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn parses_sqlite() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | columns
-            | length
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | columns
+        | length
+    ");
 
     assert_eq!(actual.out, "3");
 }
@@ -170,14 +152,11 @@ fn parses_sqlite() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn parses_sqlite_get_column_name() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sample.db
-            | get strings
-            | get x.0
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | get x.0
+    ");
 
     assert_eq!(actual.out, "hello");
 }
@@ -194,48 +173,39 @@ fn parses_toml() {
 
 #[test]
 fn parses_tsv() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open caco3_plastics.tsv
-            | first
-            | get origin
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open caco3_plastics.tsv
+        | first
+        | get origin
+    ");
 
     assert_eq!(actual.out, "SPAIN")
 }
 
 #[test]
 fn parses_json() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open sgml_description.json
-            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sgml_description.json
+        | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
+    ");
 
     assert_eq!(actual.out, "markup")
 }
 
 #[test]
 fn parses_xml() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        pipeline("
-            open jt.xml
-            | get content
-            | where tag == channel
-            | get content
-            | flatten
-            | where tag == item
-            | get content
-            | flatten
-            | where tag == guid
-            | get content.0.content.0
-        ")
-    );
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open jt.xml
+        | get content
+        | where tag == channel
+        | get content
+        | flatten
+        | where tag == item
+        | get content
+        | flatten
+        | where tag == guid
+        | get content.0.content.0
+    ");
 
     assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
@@ -263,24 +233,18 @@ fn errors_if_file_not_found() {
 
 #[test]
 fn open_wildcard() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            open *.nu | where $it =~ echo | length
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open *.nu | where $it =~ echo | length
+    ");
 
     assert_eq!(actual.out, "3")
 }
 
 #[test]
 fn open_multiple_files() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-        open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
-        "
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+    open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
+    ");
 
     assert_eq!(actual.out, "58309279992")
 }
@@ -321,12 +285,9 @@ fn open_ignore_ansi() {
     Playground::setup("open_test_ansi", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("nu.zion.txt")]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls | find nu.zion | get 0 | get name | open $in
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls | find nu.zion | get 0 | get name | open $in
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -352,8 +313,10 @@ fn open_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open '{}'",
-            src.display(),
+            format!(
+                "open '{}'",
+                src.display(),
+            )
         );
 
         assert!(actual.err.is_empty());
@@ -362,8 +325,10 @@ fn open_files_with_glob_metachars(#[case] src_name: &str) {
         // also test for variables.
         let actual = nu!(
             cwd: dirs.test(),
-            "let f = '{}'; open $f",
-            src.display(),
+            format!(
+                "let f = '{}'; open $f",
+                src.display(),
+            )
         );
         assert!(actual.err.is_empty());
         assert!(actual.out.contains("hello"));

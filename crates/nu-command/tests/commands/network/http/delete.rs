@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_delete_is_success() {
@@ -9,15 +9,7 @@ fn http_delete_is_success() {
 
     let _mock = server.mock("DELETE", "/").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http delete {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http delete {url}"#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -28,15 +20,7 @@ fn http_delete_is_success_pipeline() {
 
     let _mock = server.mock("DELETE", "/").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        "foo" | http delete {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#""foo" | http delete {url}"#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -47,15 +31,7 @@ fn http_delete_failed_due_to_server_error() {
 
     let _mock = server.mock("DELETE", "/").with_status(400).create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http delete {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http delete {url}"#, url = server.url()));
 
     assert!(
         actual.err.contains("Bad request (400)"),
@@ -75,9 +51,7 @@ fn http_delete_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http delete {url}/foo", url = server.url()).as_str()
-    ));
+    let actual = nu!(format!("http delete {url}/foo", url = server.url()));
 
     assert_eq!(&actual.out, "bar");
 }
@@ -93,12 +67,9 @@ fn http_delete_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http delete --redirect-mode manual {url}/foo",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http delete --redirect-mode manual {url}/foo",
+        url = server.url()
     ));
 
     assert_eq!(&actual.out, "foo");
@@ -115,12 +86,9 @@ fn http_delete_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http delete --redirect-mode error {url}/foo",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http delete --redirect-mode error {url}/foo",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::network_failure"));
@@ -140,8 +108,9 @@ fn http_delete_timeout() {
         })
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http delete --max-time 100ms {url}", url = server.url()).as_str()
+    let actual = nu!(format!(
+        "http delete --max-time 100ms {url}",
+        url = server.url()
     ));
 
     assert!(

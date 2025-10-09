@@ -1,29 +1,24 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_to_json_text_and_from_json_text_back_into_table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            open sgml_description.json
-            | to json
-            | from json
-            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-        "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        open sgml_description.json
+        | to json
+        | from json
+        | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
+    "#);
 
     assert_eq!(actual.out, "markup");
 }
 
 #[test]
 fn table_to_json_float_doesnt_become_int() {
-    let actual = nu!(pipeline(
-        r#"
-            [[a]; [1.0]] | to json | from json | get 0.a | describe
-        "#
-    ));
+    let actual = nu!(r#"
+        [[a]; [1.0]] | to json | from json | get 0.a | describe
+    "#);
 
     assert_eq!(actual.out, "float")
 }
@@ -93,15 +88,12 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open katz.txt
-                | from json -o
-                | where name == "GorbyPuff"
-                | get rusty_luck.0
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open katz.txt
+            | from json -o
+            | where name == "GorbyPuff"
+            | get rusty_luck.0
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -120,14 +112,11 @@ fn from_json_text_objects_is_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open katz.txt
-                | from json -o
-                | describe -n
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open katz.txt
+            | from json -o
+            | describe -n
+        "#);
 
         assert_eq!(actual.out, "stream");
     })
@@ -146,15 +135,12 @@ fn from_json_text_recognizing_objects_independently_to_table_strict() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open katz.txt
-                | from json -o -s
-                | where name == "GorbyPuff"
-                | get rusty_luck.0
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open katz.txt
+            | from json -o -s
+            | where name == "GorbyPuff"
+            | get rusty_luck.0
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -171,19 +157,16 @@ fn table_to_json_text() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.txt
-                | lines
-                | split column "," name luck
-                | select name
-                | to json
-                | from json
-                | get 0
-                | get name
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open sample.txt
+            | lines
+            | split column "," name luck
+            | select name
+            | to json
+            | from json
+            | get 0
+            | get name
+        "#);
 
         assert_eq!(actual.out, "JonAndrehudaTZ");
     })
@@ -200,19 +183,16 @@ fn table_to_json_text_strict() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.txt
-                | lines
-                | split column "," name luck
-                | select name
-                | to json
-                | from json -s
-                | get 0
-                | get name
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open sample.txt
+            | lines
+            | split column "," name luck
+            | select name
+            | to json
+            | from json -s
+            | get 0
+            | get name
+        "#);
 
         assert_eq!(actual.out, "JonAndrehudaTZ");
     })
@@ -221,9 +201,9 @@ fn table_to_json_text_strict() {
 #[test]
 fn top_level_values_from_json() {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let actual = nu!(r#""{}" | from json | to json"#, value);
+        let actual = nu!(format!(r#""{value}" | from json | to json"#));
         assert_eq!(actual.out, value);
-        let actual = nu!(r#""{}" | from json | describe"#, value);
+        let actual = nu!(format!(r#""{value}" | from json | describe"#));
         assert_eq!(actual.out, type_name);
     }
 }
@@ -231,9 +211,9 @@ fn top_level_values_from_json() {
 #[test]
 fn top_level_values_from_json_strict() {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let actual = nu!(r#""{}" | from json -s | to json"#, value);
+        let actual = nu!(format!(r#""{value}" | from json -s | to json"#));
         assert_eq!(actual.out, value);
-        let actual = nu!(r#""{}" | from json -s | describe"#, value);
+        let actual = nu!(format!(r#""{value}" | from json -s | describe"#));
         assert_eq!(actual.out, type_name);
     }
 }
@@ -279,14 +259,11 @@ fn inf_in_range_fails() {
 
 #[test]
 fn test_indent_flag() {
-    let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
-    r#"
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
         echo '{ "a": 1, "b": 2, "c": 3 }'
         | from json
         | to json --indent 3
-    "#
-    ));
+    "#);
 
     let expected_output = "{   \"a\": 1,   \"b\": 2,   \"c\": 3}";
 
@@ -295,14 +272,11 @@ fn test_indent_flag() {
 
 #[test]
 fn test_tabs_indent_flag() {
-    let actual = nu!(
-    cwd: "tests/fixtures/formats", pipeline(
-    r#"
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
         echo '{ "a": 1, "b": 2, "c": 3 }'
         | from json
         | to json --tabs 2
-    "#
-    ));
+    "#);
 
     let expected_output = "{\t\t\"a\": 1,\t\t\"b\": 2,\t\t\"c\": 3}";
 

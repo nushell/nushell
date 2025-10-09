@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn rows() {
@@ -9,14 +9,14 @@ fn rows() {
          [Jason , 2],
          [Yehuda, 1]]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         r#"
-                {sample}
-                | take 3
-                | get lucky_code
-                | math sum
-                "#
-    )));
+            {sample}
+            | take 3
+            | get lucky_code
+            | math sum
+        "#
+    ));
 
     assert_eq!(actual.out, "4");
 }

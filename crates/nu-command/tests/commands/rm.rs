@@ -496,8 +496,10 @@ fn rm_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "rm '{}'",
-            src.display(),
+            format!(
+                "rm '{}'",
+                src.display(),
+            )
         );
 
         assert!(actual.err.is_empty());
@@ -507,8 +509,10 @@ fn rm_files_with_glob_metachars(#[case] src_name: &str) {
         sandbox.with_files(&[EmptyFile(src_name)]);
         let actual = nu!(
             cwd: dirs.test(),
-            "let f = '{}'; rm $f",
-            src.display(),
+            format!(
+                "let f = '{}'; rm $f",
+                src.display(),
+            )
         );
 
         assert!(actual.err.is_empty());
