@@ -135,7 +135,7 @@ impl Command for HttpGet {
             },
             Example {
                 description: "Check response status while streaming",
-                example: r#"http get https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
+                example: r#"http get --allow-errors https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
         ]
