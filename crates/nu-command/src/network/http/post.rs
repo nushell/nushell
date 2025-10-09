@@ -160,7 +160,7 @@ impl Command for HttpPost {
             },
             Example {
                 description: "Check response status while streaming",
-                example: r#"http post https://example.com/upload 'data' | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
+                example: r#"http post --allow-errors https://example.com/upload 'data' | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
         ]
