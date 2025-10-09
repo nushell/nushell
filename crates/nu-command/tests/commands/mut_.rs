@@ -145,7 +145,7 @@ fn mut_path_operator_assign_enforce_runtime() {
 }
 
 #[test]
-fn mut_path_operator_assign_should_error_enfore_runtime() {
+fn mut_path_operator_assign_should_error_enforce_runtime() {
     nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
     let actual = nu!("mut a = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
 
