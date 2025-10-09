@@ -832,7 +832,7 @@ fn let_variable_table_runtime_cast() -> TestResult {
     );
 
     // Type::Any should be accepted by compatible types (record can convert to table)
-    assert!(outcome.out.contains("table<a: int>",));
+    assert!(outcome.out.contains("table<a: int>"));
     Ok(())
 }
 
@@ -847,7 +847,7 @@ fn let_variable_table_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert table<a: int> to table<b: int>",)
+            .contains("does not operate between 'table<b: int>' and 'table<a: int>'")
     );
     Ok(())
 }
@@ -889,7 +889,7 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     assert!(
         outcome
             .err
-            .contains("can't convert record<a: int> to record<b: int>",)
+            .contains("can't convert record<a: int> to record<b: int>")
     );
     Ok(())
 }
