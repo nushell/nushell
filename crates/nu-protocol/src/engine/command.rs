@@ -142,6 +142,11 @@ pub trait Command: Send + Sync + CommandClone {
         (None, None)
     }
 
+    #[allow(unused_variables)]
+    fn get_completion(&self, flag_name: &str) -> Option<Vec<String>> {
+        None
+    }
+
     /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
     /// currently inefficient so is not generally done.
     fn requires_ast_for_arguments(&self) -> bool {

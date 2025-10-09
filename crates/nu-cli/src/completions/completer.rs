@@ -1,9 +1,11 @@
 use crate::completions::{
     AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
     CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
-    ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    ExportableCompletion, FileCompletion, FlagCompletion, FlagValueCompletion, OperatorCompletion,
+    VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
+use log::{info, warn};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
@@ -829,6 +831,7 @@ impl NuCompleter {
             _ => (),
         }
 
+        warn!("arguments: {arguments:?}, indices: {positional_arg_indices:?}, pos: {pos}");
         // general positional arguments
         let file_completion_helper = || self.process_completion(&mut FileCompletion, ctx);
         match &expr.expr {
@@ -837,9 +840,18 @@ impl NuCompleter {
                 self.process_completion(&mut DirectoryCompletion, ctx)
             }
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
-            // fallback to file completion if necessary
-            _ if *need_fallback => file_completion_helper(),
-            _ => vec![],
+            _ => {
+                // NOTE: for flag value completion, the rule is:
+                // if the argument before the last `positional_arg_indices` is a Named argument
+                // we can call FlagValueCompletion.
+                let flag_value_completion = self.process_completion(&mut FlagValueCompletion, ctx);
+                // fallback to file completion if necessary
+                if flag_value_completion.is_empty() && *need_fallback {
+                    file_completion_helper()
+                } else {
+                    vec![]
+                }
+            }
         }
     }
 
