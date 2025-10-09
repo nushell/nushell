@@ -449,6 +449,8 @@ pub(crate) fn compile_try(
         builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?
     };
 
+    builder.begin_try();
+
     builder.add_comment("try");
 
     // Compile the block
@@ -473,6 +475,8 @@ pub(crate) fn compile_try(
     }
     builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
+    builder.end_try()?;
 
     // Jump over the failure case
     builder.jump(end_label, catch_span)?;
@@ -815,6 +819,9 @@ pub(crate) fn compile_break(
         });
     }
     builder.load_empty(io_reg)?;
+    for _ in 0..builder.context_stack.try_block_depth_from_loop() {
+        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+    }
     builder.push_break(call.head)?;
     builder.add_comment("break");
     Ok(())
@@ -835,6 +842,9 @@ pub(crate) fn compile_continue(
         });
     }
     builder.load_empty(io_reg)?;
+    for _ in 0..builder.context_stack.try_block_depth_from_loop() {
+        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+    }
     builder.push_continue(call.head)?;
     builder.add_comment("continue");
     Ok(())
