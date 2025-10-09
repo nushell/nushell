@@ -320,12 +320,9 @@ fn http_get_response_metadata() {
         .with_body("success")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"http get --raw {url} | metadata | get http_response | get status"#,
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        r#"http get --raw {url} | metadata | get http_response | get status"#,
+        url = server.url()
     ));
 
     assert_eq!(actual.out, "200");

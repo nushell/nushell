@@ -35,14 +35,14 @@ fn works_with_datasource_ls() {
 #[test]
 fn works_with_merge_arbitrary_metadata() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --merge {custom_key: "custom_value", foo: 42}
         | metadata
         | get custom_key
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "custom_value");
 }
@@ -50,7 +50,7 @@ fn works_with_merge_arbitrary_metadata() {
 #[test]
 fn merge_preserves_existing_metadata() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --content-type "text/plain"
@@ -58,7 +58,7 @@ fn merge_preserves_existing_metadata() {
         | metadata
         | get content_type
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "text/plain");
 }
@@ -66,7 +66,7 @@ fn merge_preserves_existing_metadata() {
 #[test]
 fn custom_metadata_preserved_through_collect() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --merge {custom_key: "custom_value"}
@@ -74,7 +74,7 @@ fn custom_metadata_preserved_through_collect() {
         | metadata
         | get custom_key
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "custom_value");
 }
