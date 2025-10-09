@@ -523,12 +523,7 @@ fn test_mv_no_clobber() {
         sandbox.with_files(&[EmptyFile(file_a)]);
         sandbox.with_files(&[EmptyFile(file_b)]);
 
-        let _ = nu!(
-            cwd: dirs.test(),
-            "mv -n {} {}",
-            file_a,
-            file_b,
-        );
+        let _ = nu!(cwd: dirs.test(), format!("mv -n {file_a} {file_b}"));
 
         let file_count = nu!(
             cwd: dirs.test(),
@@ -584,9 +579,11 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "mv '{}' {}",
-            src.display(),
-            "hello_world_dest"
+            format!(
+                "mv '{}' {}",
+                src.display(),
+                "hello_world_dest"
+            )
         );
 
         assert!(actual.err.is_empty());
@@ -610,9 +607,11 @@ fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str)
 
         let actual = nu!(
             cwd: dirs.test(),
-            "let f = '{}'; mv $f {}",
-            src.display(),
-            "hello_world_dest"
+            format!(
+                "let f = '{}'; mv $f {}",
+                src.display(),
+                "hello_world_dest"
+            )
         );
 
         assert!(actual.err.is_empty());

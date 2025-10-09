@@ -1,26 +1,22 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
-    let sample = r#"
-                [[name, rusty_luck, origin];
-                 [Jason, 1, Canada],
-                 [JT, 1, "New Zealand"],
-                 [Andrés, 1, Ecuador],
-                 [AndKitKatz, 1, "Estados Unidos"]]
-            "#;
-
-    let actual = nu!(pipeline(&format!(
-        "
-            {sample}
-            | get origin
-            | each {{ |it| nu --testbin cococo $it | nu --testbin chop }}
-            | get 2
-            "
-    )));
+    let actual = nu!(r###"
+        [
+            [name rusty_luck origin];
+            [Jason 1 Canada]
+            [JT 1 "New Zealand"]
+            [Andrés 1 Ecuador]
+            [AndKitKatz 1 "Estados Unidos"]
+        ]
+        | get origin
+        | each {|it| nu --testbin cococo $it | nu --testbin chop}
+        | get 2
+    "###);
 
     // chop will remove the last escaped double quote from \"Estados Unidos\"
     assert_eq!(actual.out, "Ecuado");
@@ -37,16 +33,13 @@ fn treats_dot_dot_as_path_not_range() {
             ",
         )]);
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
-        "
+        let actual = nu!(cwd: dirs.test(), "
             mkdir temp;
             cd temp;
             print (open ../nu_times.csv).name.0 | table;
             cd ..;
             rmdir temp
-            "
-        ));
+            ");
 
         // chop will remove the last escaped double quote from \"Estados Unidos\"
         assert_eq!(actual.out, "Jason");
@@ -94,15 +87,12 @@ fn subexpression_handles_dot() {
             ",
         )]);
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
-        "
+        let actual = nu!(cwd: dirs.test(), "
             echo (open nu_times.csv)
             | get name
             | each { |it| nu --testbin chop $it }
             | get 3
-            "
-        ));
+            ");
 
         assert_eq!(actual.out, "AndKitKat");
     });
@@ -816,22 +806,18 @@ fn table_with_commas() {
 
 #[test]
 fn duration_overflow() {
-    let actual = nu!(pipeline(
-        "
-        ls | get modified | each { |it| $it + 10000000000000000day }
-        "
-    ));
+    let actual = nu!("
+    ls | get modified | each { |it| $it + 10000000000000000day }
+    ");
 
     assert!(actual.err.contains("duration too large"));
 }
 
 #[test]
 fn date_and_duration_overflow() {
-    let actual = nu!(pipeline(
-        "
-        ls | get modified | each { |it| $it + 1000000000day }
-        "
-    ));
+    let actual = nu!("
+    ls | get modified | each { |it| $it + 1000000000day }
+    ");
 
     // assert_eq!(actual.err, "overflow");
     assert!(actual.err.contains("duration too large"));
@@ -839,101 +825,85 @@ fn date_and_duration_overflow() {
 
 #[test]
 fn pipeline_params_simple() {
-    let actual = nu!(pipeline(
-        "
-        echo 1 2 3 | $in.1 * $in.2
-        "
-    ));
+    let actual = nu!("
+    echo 1 2 3 | $in.1 * $in.2
+    ");
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn pipeline_params_inner() {
-    let actual = nu!(pipeline(
-        "
-        echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
-        "
-    ));
+    let actual = nu!("
+    echo 1 2 3 | (echo $in.2 6 7 | $in.0 * $in.1 * $in.2)
+    ");
 
     assert_eq!(actual.out, "126");
 }
 
 #[test]
 fn better_table_lex() {
-    let actual = nu!(pipeline(
-        "
-        let table = [
-            [name, size];
-            [small, 7]
-            [medium, 10]
-            [large, 12]
-        ];
-        $table.1.size
-        "
-    ));
+    let actual = nu!("
+    let table = [
+        [name, size];
+        [small, 7]
+        [medium, 10]
+        [large, 12]
+    ];
+    $table.1.size
+    ");
 
     assert_eq!(actual.out, "10");
 }
 
 #[test]
 fn better_subexpr_lex() {
-    let actual = nu!(pipeline(
-        "
-        (echo boo
-        sam | str length | math sum)
-        "
-    ));
+    let actual = nu!("
+    (echo boo
+    sam | str length | math sum)
+    ");
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn subsubcommand() {
-    let actual = nu!(pipeline(
-        r#"
-        def "aws s3 rb" [url] { $url + " loaded" }; aws s3 rb localhost
-        "#
-    ));
+    let actual = nu!(r#"
+    def "aws s3 rb" [url] { $url + " loaded" }; aws s3 rb localhost
+    "#);
 
     assert_eq!(actual.out, "localhost loaded");
 }
 
 #[test]
 fn manysubcommand() {
-    let actual = nu!(pipeline(
-        r#"
-        def "aws s3 rb ax vf qqqq rrrr" [url] { $url + " loaded" }; aws s3 rb ax vf qqqq rrrr localhost
-        "#
-    ));
+    let actual = nu!(r#"
+    def "aws s3 rb ax vf qqqq rrrr" [url] { $url + " loaded" }; aws s3 rb ax vf qqqq rrrr localhost
+    "#);
 
     assert_eq!(actual.out, "localhost loaded");
 }
 
 #[test]
 fn nothing_string_1() {
-    let actual = nu!(pipeline(
-        r#"
-        null == "foo"
-        "#
-    ));
+    let actual = nu!(r#"
+    null == "foo"
+    "#);
 
     assert_eq!(actual.out, "false");
 }
 
 #[test]
 fn hide_alias_shadowing() {
-    let actual = nu!(pipeline(
-        "
-        def test-shadowing [] {
-            alias greet = echo hello;
-            let xyz = {|| greet };
-            hide greet;
-            do $xyz
-        };
-        test-shadowing
-        "
-    ));
+    let actual = nu!("
+    def test-shadowing [] {
+        alias greet = echo hello;
+        let xyz = {|| greet };
+        hide greet;
+        do $xyz
+    };
+    test-shadowing
+    ");
     assert_eq!(actual.out, "hello");
 }
 
@@ -941,31 +911,27 @@ fn hide_alias_shadowing() {
 #[ignore]
 #[test]
 fn hide_alias_does_not_escape_scope() {
-    let actual = nu!(pipeline(
-        "
-        def test-alias [] {
-            alias greet = echo hello;
-            (hide greet);
-            greet
-        };
-        test-alias
-        "
-    ));
+    let actual = nu!("
+    def test-alias [] {
+        alias greet = echo hello;
+        (hide greet);
+        greet
+    };
+    test-alias
+    ");
     assert_eq!(actual.out, "hello");
 }
 
 #[test]
 fn hide_alias_hides_alias() {
-    let actual = nu!(pipeline(
-        "
-        def test-alias [] {
-            alias ll = ls -l;
-            hide ll;
-            ll
-        };
-        test-alias
-        "
-    ));
+    let actual = nu!("
+    def test-alias [] {
+        alias ll = ls -l;
+        hide ll;
+        ll
+    };
+    test-alias
+    ");
 
     assert!(
         actual.err.contains("Command `ll` not found") && actual.err.contains("Did you mean `all`?")

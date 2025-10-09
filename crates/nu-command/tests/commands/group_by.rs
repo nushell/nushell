@@ -1,22 +1,22 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn groups() {
-    let sample = r#"
-                [[first_name, last_name, rusty_at, type];
-                 [Andrés, Robalino, "10/11/2013", A],
-                 [JT, Turner, "10/12/2013", B],
-                 [Yehuda, Katz, "10/11/2013", A]]
-            "#;
+    let sample = r#"[
+        [first_name, last_name, rusty_at, type];
+        [Andrés, Robalino, "10/11/2013", A],
+        [JT, Turner, "10/12/2013", B],
+        [Yehuda, Katz, "10/11/2013", A]
+    ]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         r#"
-                {sample}
-                | group-by rusty_at
-                | get "10/11/2013"
-                | length
-            "#
-    )));
+            {sample}
+            | group-by rusty_at
+            | get "10/11/2013"
+            | length
+        "#
+    ));
 
     assert_eq!(actual.out, "2");
 }
@@ -44,11 +44,13 @@ fn errors_if_given_unknown_column_name() {
 }]
 "#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"'{sample}'
-    | from json
-    | group-by {{|| get nu.releases.missing_column }}"#
-    )));
+    let actual = nu!(format!(
+        r#"
+            '{sample}'
+            | from json
+            | group-by {{|| get nu.releases.missing_column }}
+        "#
+    ));
     assert!(actual.err.contains("cannot find column"));
 }
 
@@ -61,7 +63,7 @@ fn errors_if_column_not_found() {
                  [Yehuda, Katz, "10/11/2013", A]]
             "#;
 
-    let actual = nu!(pipeline(&format!("{sample} | group-by ttype")));
+    let actual = nu!(format!("{sample} | group-by ttype"));
 
     assert!(actual.err.contains("did you mean 'type'"),);
 }

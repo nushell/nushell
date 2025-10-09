@@ -3,7 +3,7 @@ use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
     fs::{Stub, line_ending},
-    nu, pipeline,
+    nu,
     playground::{Dirs, Playground},
 };
 use rand::{
@@ -473,7 +473,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> AbsolutePathBuf {
 
     let nucmd = nu!(
         cwd: testdir,
-        pipeline(&format!("{nu_table} | into sqlite {testdb}"))
+        format!("{nu_table} | into sqlite {testdb}")
     );
 
     assert!(nucmd.status.success());
@@ -500,7 +500,7 @@ fn insert_test_rows(dirs: &Dirs, nu_table: &str, sql_query: Option<&str>, expect
 fn test_auto_conversion() {
     Playground::setup("sqlite json auto conversion", |_, playground| {
         let raw = "{a_record:{foo:bar,baz:quux},a_list:[1,2,3],a_table:[[a,b];[0,1],[2,3]]}";
-        nu!(cwd: playground.cwd(), "{} | into sqlite filename.db -t my_table", raw);
+        nu!(cwd: playground.cwd(), format!("{raw} | into sqlite filename.db -t my_table"));
         let outcome = nu!(
             cwd: playground.cwd(),
             "open filename.db | get my_table.0 | to nuon --raw"

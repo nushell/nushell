@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn int() {
@@ -22,25 +22,21 @@ fn str() {
 
 #[test]
 fn str_newline() {
-    let actual = nu!(pipeline(
-        r#"
-        "2000
-" | into filesize
-        "#
-    ));
+    let actual = nu!(r#"
+    "2000
+    " | into filesize
+    "#);
 
     assert!(actual.out.contains("2.0 kB"));
 }
 
 #[test]
 fn str_many_newlines() {
-    let actual = nu!(pipeline(
-        r#"
-        "2000
-
-" | into filesize
-        "#
-    ));
+    let actual = nu!(r#"
+    "2000
+    
+    " | into filesize
+    "#);
 
     assert!(actual.out.contains("2.0 kB"));
 }

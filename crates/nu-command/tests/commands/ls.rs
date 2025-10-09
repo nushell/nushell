@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn lists_regular_files() {
@@ -11,13 +11,10 @@ fn lists_regular_files() {
             EmptyFile("andres.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls
+            | length
+        ");
 
         assert_eq!(actual.out, "3");
     })
@@ -33,13 +30,10 @@ fn lists_regular_files_using_asterisk_wildcard() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls *.txt
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls *.txt
+            | length
+        ");
 
         assert_eq!(actual.out, "3");
     })
@@ -148,13 +142,10 @@ fn lists_regular_files_using_question_mark_wildcard() {
             EmptyFile("chicken_not_to_be_picked_up.100.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls *.??.txt
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls *.??.txt
+            | length
+        ");
 
         assert_eq!(actual.out, "3");
     })
@@ -173,14 +164,11 @@ fn lists_all_files_in_directories_from_stream() {
                 EmptyFile("chicken_not_to_be_picked_up.100.txt"),
             ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                echo dir_a dir_b
-                | each { |it| ls $it }
-                | flatten | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            echo dir_a dir_b
+            | each { |it| ls $it }
+            | flatten | length
+        ");
 
         assert_eq!(actual.out, "4");
     })
@@ -191,13 +179,10 @@ fn does_not_fail_if_glob_matches_empty_directory() {
     Playground::setup("ls_test_5", |dirs, sandbox| {
         sandbox.within("dir_a");
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls dir_a
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls dir_a
+            | length
+        ");
 
         assert_eq!(actual.out, "0");
     })
@@ -257,13 +242,10 @@ fn lists_hidden_file_when_explicitly_specified() {
             EmptyFile(".testdotfile"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls .testdotfile
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls .testdotfile
+            | length
+        ");
 
         assert_eq!(actual.out, "1");
     })
@@ -291,13 +273,10 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
                 EmptyFile(".dotfile3"),
             ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls **/.*
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls **/.*
+            | length
+        ");
 
         assert_eq!(actual.out, "3");
     })
@@ -328,13 +307,10 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
                 EmptyFile(".dotfile3"),
             ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls **/*
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls **/*
+            | length
+        ");
 
         assert_eq!(actual.out, "5");
     })
@@ -352,25 +328,19 @@ fn glob_with_hidden_directory() {
             EmptyFile(".dotfile3"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls **/*
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls **/*
+            | length
+        ");
 
         assert_eq!(actual.out, "");
         assert!(actual.err.contains("No matches found"));
 
         // will list files if provide `-a` flag.
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls -a **/*
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls -a **/*
+            | length
+        ");
 
         assert_eq!(actual.out, "4");
     })
@@ -384,26 +354,17 @@ fn fails_with_permission_denied() {
             .within("dir_a")
             .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
-        let actual_with_path_arg = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                chmod 000 dir_a; ls dir_a
-            "
-        ));
+        let actual_with_path_arg = nu!(cwd: dirs.test(), "
+            chmod 000 dir_a; ls dir_a
+        ");
 
-        let actual_in_cwd = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                chmod 100 dir_a; cd dir_a; ls
-            "
-        ));
+        let actual_in_cwd = nu!(cwd: dirs.test(), "
+            chmod 100 dir_a; cd dir_a; ls
+        ");
 
-        let get_uid = nu!(
-            cwd: dirs.test(), pipeline(
-                "
-                    id -u
-                "
-        ));
+        let get_uid = nu!(cwd: dirs.test(), "
+            id -u
+        ");
         let is_root = get_uid.out == "0";
 
         assert!(actual_with_path_arg.err.contains("Permission denied") || is_root);
@@ -423,13 +384,10 @@ fn lists_files_including_starting_with_dot() {
             EmptyFile(".hidden2.txt"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls -a
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls -a
+            | length
+        ");
 
         assert_eq!(actual.out, "5");
     })
@@ -499,17 +457,14 @@ fn lists_with_directory_flag() {
             .within("dir_files")
             .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                cd dir_empty;
-                ['.' '././.' '..' '../dir_files' '../dir_files/*']
-                | each { |it| ls --directory ($it | into glob) }
-                | flatten
-                | get name
-                | to text
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            cd dir_empty;
+            ['.' '././.' '..' '../dir_files' '../dir_files/*']
+            | each { |it| ls --directory ($it | into glob) }
+            | flatten
+            | get name
+            | to text
+        "#);
         let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
         #[cfg(windows)]
         let expected = expected.replace('/', "\\");
@@ -528,30 +483,24 @@ fn lists_with_directory_flag_without_argument() {
             .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
         // Test if there are some files in the current directory
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                cd dir_files;
-                ls --directory
-                | get name
-                | to text
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            cd dir_files;
+            ls --directory
+            | get name
+            | to text
+        ");
         let expected = ".";
         assert_eq!(
             actual.out, expected,
             "column names are incorrect for ls --directory (-D)"
         );
         // Test if there is no file in the current directory
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                cd dir_empty;
-                ls -D
-                | get name
-                | to text
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            cd dir_empty;
+            ls -D
+            | get name
+            | to text
+        ");
         let expected = ".";
         assert_eq!(
             actual.out, expected,
@@ -569,40 +518,22 @@ fn can_list_system_folder() {
     // the awkward `ls Configuration* | where name == "Configuration"` thing is for speed;
     // listing the entire System32 folder is slow and `ls Configuration*` alone
     // might return more than 1 file someday
-    let file_type = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get type.0"#
-    ));
+    let file_type = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get type.0"#);
     assert_eq!(file_type.out, "dir");
 
-    let file_size = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get size.0"#
-    ));
+    let file_size = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get size.0"#);
     assert_ne!(file_size.out.trim(), "");
 
-    let file_modified = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls Configuration* | where name == "Configuration" | get modified.0"#
-    ));
+    let file_modified = nu!(cwd: "C:\\Windows\\System32", r#"ls Configuration* | where name == "Configuration" | get modified.0"#);
     assert_ne!(file_modified.out.trim(), "");
 
-    let file_accessed = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#
-    ));
+    let file_accessed = nu!(cwd: "C:\\Windows\\System32", r#"ls -l Configuration* | where name == "Configuration" | get accessed.0"#);
     assert_ne!(file_accessed.out.trim(), "");
 
-    let file_created = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        r#"ls -l Configuration* | where name == "Configuration" | get created.0"#
-    ));
+    let file_created = nu!(cwd: "C:\\Windows\\System32", r#"ls -l Configuration* | where name == "Configuration" | get created.0"#);
     assert_ne!(file_created.out.trim(), "");
 
-    let ls_with_filter = nu!(
-        cwd: "C:\\Windows\\System32", pipeline(
-        "ls | where size > 10mb"
-    ));
+    let ls_with_filter = nu!(cwd: "C:\\Windows\\System32", "ls | where size > 10mb");
     assert_eq!(ls_with_filter.err, "");
 }
 
@@ -649,12 +580,9 @@ fn list_ignores_ansi() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls | find .txt | each {|| ls $in.name }
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls | find .txt | each {|| ls $in.name }
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -688,31 +616,22 @@ fn list_flag_false() {
         // of creating hidden files using the playground.
         #[cfg(unix)]
         {
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
-                ls --all=false | length
-            "
-            ));
+            let actual = nu!(cwd: dirs.test(), "
+            ls --all=false | length
+                        ");
 
             assert_eq!(actual.out, "2");
         }
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls --long=false | columns | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls --long=false | columns | length
+        ");
 
         assert_eq!(actual.out, "4");
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ls --full-paths=false | get name | any { $in =~ / }
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            ls --full-paths=false | get name | any { $in =~ / }
+        ");
 
         assert_eq!(actual.out, "false");
     })
@@ -854,15 +773,9 @@ fn consistent_list_order() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let no_arg = nu!(
-            cwd: dirs.test(), pipeline(
-            "ls"
-        ));
+        let no_arg = nu!(cwd: dirs.test(), "ls");
 
-        let with_arg = nu!(
-            cwd: dirs.test(), pipeline(
-            "ls ."
-        ));
+        let with_arg = nu!(cwd: dirs.test(), "ls .");
 
         assert_eq!(no_arg.out, with_arg.out);
     })

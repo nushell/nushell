@@ -1,14 +1,10 @@
 use nu_test_support::nu;
-use nu_test_support::pipeline;
 
 #[test]
 fn errors_on_conflicting_metadata_flags() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo "foo" | metadata set --datasource-filepath foo.txt --datasource-ls
-        "#
-    ));
+    let actual = nu!(r#"
+    echo "foo" | metadata set --datasource-filepath foo.txt --datasource-ls
+    "#);
 
     assert!(actual.err.contains("cannot use `--datasource-filepath`"));
     assert!(actual.err.contains("with `--datasource-ls`"));
@@ -16,28 +12,22 @@ fn errors_on_conflicting_metadata_flags() {
 
 #[test]
 fn works_with_datasource_filepath() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo "foo"
-        | metadata set --datasource-filepath foo.txt
-        | metadata
-        "#
-    ));
+    let actual = nu!(r#"
+    echo "foo"
+    | metadata set --datasource-filepath foo.txt
+    | metadata
+    "#);
 
     assert!(actual.out.contains("foo.txt"));
 }
 
 #[test]
 fn works_with_datasource_ls() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        echo "foo"
-        | metadata set --datasource-ls
-        | metadata
-        "#
-    ));
+    let actual = nu!(r#"
+    echo "foo"
+    | metadata set --datasource-ls
+    | metadata
+    "#);
 
     assert!(actual.out.contains("ls"));
 }
@@ -45,14 +35,14 @@ fn works_with_datasource_ls() {
 #[test]
 fn works_with_merge_arbitrary_metadata() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --merge {custom_key: "custom_value", foo: 42}
         | metadata
         | get custom_key
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "custom_value");
 }
@@ -60,7 +50,7 @@ fn works_with_merge_arbitrary_metadata() {
 #[test]
 fn merge_preserves_existing_metadata() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --content-type "text/plain"
@@ -68,7 +58,7 @@ fn merge_preserves_existing_metadata() {
         | metadata
         | get content_type
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "text/plain");
 }
@@ -76,7 +66,7 @@ fn merge_preserves_existing_metadata() {
 #[test]
 fn custom_metadata_preserved_through_collect() {
     let actual = nu!(
-        cwd: ".", pipeline(
+        cwd: ".",
         r#"
         echo "foo"
         | metadata set --merge {custom_key: "custom_value"}
@@ -84,7 +74,7 @@ fn custom_metadata_preserved_through_collect() {
         | metadata
         | get custom_key
         "#
-    ));
+    );
 
     assert_eq!(actual.out, "custom_value");
 }

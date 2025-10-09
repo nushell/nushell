@@ -108,13 +108,10 @@ fn do_not_show_hidden_commands() {
 
 #[test]
 fn which_accepts_spread_list() {
-    let actual = nu!(
-        cwd: ".",  // or any valid path
-        r#"
+    let actual = nu!(r#"
         let apps = [ls]; 
         $apps | which ...$in | get command.0
-        "#
-    );
+        "#);
 
     assert_eq!(actual.out, "ls");
 }

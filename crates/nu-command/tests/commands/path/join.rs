@@ -1,16 +1,13 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 use super::join_path_sep;
 
 #[test]
 fn returns_path_joined_from_list() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo [ home viking spam.txt ]
-            | path join
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"
+        echo [ home viking spam.txt ]
+        | path join
+    "#);
 
     let expected = join_path_sep(&["home", "viking", "spam.txt"]);
     assert_eq!(actual.out, expected);
@@ -18,11 +15,8 @@ fn returns_path_joined_from_list() {
 
 #[test]
 fn drop_one_path_join() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-            r#"[a, b, c] | drop 1 | path join
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"[a, b, c] | drop 1 | path join
+            "#);
 
     let expected = join_path_sep(&["a", "b"]);
     assert_eq!(actual.out, expected);
@@ -30,13 +24,10 @@ fn drop_one_path_join() {
 
 #[test]
 fn appends_slash_when_joined_with_empty_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo "/some/dir"
-            | path join ''
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"
+        echo "/some/dir"
+        | path join ''
+    "#);
 
     let expected = join_path_sep(&["/some/dir", ""]);
     assert_eq!(actual.out, expected);
@@ -44,13 +35,10 @@ fn appends_slash_when_joined_with_empty_path() {
 
 #[test]
 fn returns_joined_path_when_joining_empty_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo ""
-            | path join foo.txt
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"
+        echo ""
+        | path join foo.txt
+    "#);
 
     assert_eq!(actual.out, "foo.txt");
 }

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn to_row() {
@@ -20,29 +20,23 @@ fn to_row() {
             ),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open sample.txt
-                | lines
-                | str trim
-                | split row ","
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open sample.txt
+            | lines
+            | str trim
+            | split row ","
+            | length
+        "#);
 
         assert!(actual.out.contains('5'));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r"
-                open sample2.txt
-                | lines
-                | str trim
-                | split row -r '\s*,\s*'
-                | length
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), r"
+            open sample2.txt
+            | lines
+            | str trim
+            | split row -r '\s*,\s*'
+            | length
+        ");
 
         assert!(actual.out.contains('5'));
 

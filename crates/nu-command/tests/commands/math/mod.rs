@@ -14,256 +14,210 @@ mod stddev;
 mod sum;
 mod variance;
 
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn one_arg() {
-    let actual = nu!(pipeline(
-        r#"
-            1
-        "#
-    ));
+    let actual = nu!(r#"
+        1
+    "#);
 
     assert_eq!(actual.out, "1");
 }
 
 #[test]
 fn add() {
-    let actual = nu!(pipeline(
-        r#"
-            1 + 1
-        "#
-    ));
+    let actual = nu!(r#"
+        1 + 1
+    "#);
 
     assert_eq!(actual.out, "2");
 }
 
 #[test]
 fn add_compound() {
-    let actual = nu!(pipeline(
-        r#"
-            1 + 2 + 2
-        "#
-    ));
+    let actual = nu!(r#"
+        1 + 2 + 2
+    "#);
 
     assert_eq!(actual.out, "5");
 }
 
 #[test]
 fn precedence_of_operators() {
-    let actual = nu!(pipeline(
-        r#"
-            1 + 2 * 2
-        "#
-    ));
+    let actual = nu!(r#"
+        1 + 2 * 2
+    "#);
 
     assert_eq!(actual.out, "5");
 }
 
 #[test]
 fn precedence_of_operators2() {
-    let actual = nu!(pipeline(
-        r#"
-            1 + 2 * 2 + 1
-        "#
-    ));
+    let actual = nu!(r#"
+        1 + 2 * 2 + 1
+    "#);
 
     assert_eq!(actual.out, "6");
 }
 
 #[test]
 fn precedence_of_operators3() {
-    let actual = nu!(pipeline(
-        r#"
-            5 - 5 * 10 + 5
-        "#
-    ));
+    let actual = nu!(r#"
+        5 - 5 * 10 + 5
+    "#);
 
     assert_eq!(actual.out, "-40");
 }
 
 #[test]
 fn precedence_of_operators4() {
-    let actual = nu!(pipeline(
-        r#"
-            5 - (5 * 10) + 5
-        "#
-    ));
+    let actual = nu!(r#"
+        5 - (5 * 10) + 5
+    "#);
 
     assert_eq!(actual.out, "-40");
 }
 
 #[test]
 fn division_of_ints() {
-    let actual = nu!(pipeline(
-        r#"
-            4 / 2
-        "#
-    ));
+    let actual = nu!(r#"
+        4 / 2
+    "#);
 
     assert_eq!(actual.out, "2.0");
 }
 
 #[test]
 fn division_of_ints2() {
-    let actual = nu!(pipeline(
-        r#"
-            1 / 4
-        "#
-    ));
+    let actual = nu!(r#"
+        1 / 4
+    "#);
 
     assert_eq!(actual.out, "0.25");
 }
 
 #[test]
 fn error_zero_division_int_int() {
-    let actual = nu!(pipeline(
-        r#"
-            1 / 0
-        "#
-    ));
+    let actual = nu!(r#"
+        1 / 0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_division_float_int() {
-    let actual = nu!(pipeline(
-        r#"
-            1.0 / 0
-        "#
-    ));
+    let actual = nu!(r#"
+        1.0 / 0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_division_int_float() {
-    let actual = nu!(pipeline(
-        r#"
-            1 / 0.0
-        "#
-    ));
+    let actual = nu!(r#"
+        1 / 0.0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_division_float_float() {
-    let actual = nu!(pipeline(
-        r#"
-            1.0 / 0.0
-        "#
-    ));
+    let actual = nu!(r#"
+        1.0 / 0.0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn floor_division_of_ints() {
-    let actual = nu!(pipeline(
-        r#"
-            5 // 2
-        "#
-    ));
+    let actual = nu!(r#"
+        5 // 2
+    "#);
 
     assert_eq!(actual.out, "2");
 }
 
 #[test]
 fn floor_division_of_ints2() {
-    let actual = nu!(pipeline(
-        r#"
-            -3 // 2
-        "#
-    ));
+    let actual = nu!(r#"
+        -3 // 2
+    "#);
 
     assert_eq!(actual.out, "-2");
 }
 
 #[test]
 fn floor_division_of_floats() {
-    let actual = nu!(pipeline(
-        r#"
-            -3.0 // 2.0
-        "#
-    ));
+    let actual = nu!(r#"
+        -3.0 // 2.0
+    "#);
 
     assert_eq!(actual.out, "-2.0");
 }
 
 #[test]
 fn error_zero_floor_division_int_int() {
-    let actual = nu!(pipeline(
-        r#"
-            1 // 0
-        "#
-    ));
+    let actual = nu!(r#"
+        1 // 0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_floor_division_float_int() {
-    let actual = nu!(pipeline(
-        r#"
-            1.0 // 0
-        "#
-    ));
+    let actual = nu!(r#"
+        1.0 // 0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_floor_division_int_float() {
-    let actual = nu!(pipeline(
-        r#"
-            1 // 0.0
-        "#
-    ));
+    let actual = nu!(r#"
+        1 // 0.0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn error_zero_floor_division_float_float() {
-    let actual = nu!(pipeline(
-        r#"
-            1.0 // 0.0
-        "#
-    ));
+    let actual = nu!(r#"
+        1.0 // 0.0
+    "#);
 
     assert!(actual.err.contains("division by zero"));
 }
 #[test]
 fn proper_precedence_history() {
-    let actual = nu!(pipeline(
-        r#"
-            2 / 2 / 2 + 1
-        "#
-    ));
+    let actual = nu!(r#"
+        2 / 2 / 2 + 1
+    "#);
 
     assert_eq!(actual.out, "1.5");
 }
 
 #[test]
 fn parens_precedence() {
-    let actual = nu!(pipeline(
-        r#"
-            4 * (6 - 3)
-        "#
-    ));
+    let actual = nu!(r#"
+        4 * (6 - 3)
+    "#);
 
     assert_eq!(actual.out, "12");
 }
 
 #[test]
 fn modulo() {
-    let actual = nu!(pipeline(
-        r#"
-            9 mod 2
-        "#
-    ));
+    let actual = nu!(r#"
+        9 mod 2
+    "#);
 
     assert_eq!(actual.out, "1");
 }
@@ -336,121 +290,99 @@ fn unit_float_division_math() {
 
 #[test]
 fn duration_math() {
-    let actual = nu!(pipeline(
-        r#"
-            1wk + 1day
-        "#
-    ));
+    let actual = nu!(r#"
+        1wk + 1day
+    "#);
 
     assert_eq!(actual.out, "1wk 1day");
 }
 
 #[test]
 fn duration_decimal_math() {
-    let actual = nu!(pipeline(
-        r#"
-            5.5day + 0.5day
-        "#
-    ));
+    let actual = nu!(r#"
+        5.5day + 0.5day
+    "#);
 
     assert_eq!(actual.out, "6day");
 }
 
 #[test]
 fn duration_math_with_nanoseconds() {
-    let actual = nu!(pipeline(
-        r#"
-            1wk + 10ns
-        "#
-    ));
+    let actual = nu!(r#"
+        1wk + 10ns
+    "#);
 
     assert_eq!(actual.out, "1wk 10ns");
 }
 
 #[test]
 fn duration_decimal_math_with_nanoseconds() {
-    let actual = nu!(pipeline(
-        r#"
-            1.5wk + 10ns
-        "#
-    ));
+    let actual = nu!(r#"
+        1.5wk + 10ns
+    "#);
 
     assert_eq!(actual.out, "1wk 3day 12hr 10ns");
 }
 
 #[test]
 fn duration_decimal_math_with_all_units() {
-    let actual = nu!(pipeline(
-        r#"
-            1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
-        "#
-    ));
+    let actual = nu!(r#"
+        1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
+    "#);
 
     assert_eq!(actual.out, "1wk 3day 8hr 10min 16sec 121ms 11µs 12ns");
 }
 
 #[test]
 fn duration_decimal_dans_test() {
-    let actual = nu!(pipeline(
-        r#"
-            3.14sec
-        "#
-    ));
+    let actual = nu!(r#"
+        3.14sec
+    "#);
 
     assert_eq!(actual.out, "3sec 140ms");
 }
 
 #[test]
 fn duration_math_with_negative() {
-    let actual = nu!(pipeline(
-        r#"
-            1day - 1wk
-        "#
-    ));
+    let actual = nu!(r#"
+        1day - 1wk
+    "#);
 
     assert_eq!(actual.out, "-6day");
 }
 
 #[test]
 fn compound_comparison() {
-    let actual = nu!(pipeline(
-        r#"
-            4 > 3 and 2 > 1
-        "#
-    ));
+    let actual = nu!(r#"
+        4 > 3 and 2 > 1
+    "#);
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn compound_comparison2() {
-    let actual = nu!(pipeline(
-        r#"
-            4 < 3 or 2 > 1
-        "#
-    ));
+    let actual = nu!(r#"
+        4 < 3 or 2 > 1
+    "#);
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn compound_where() {
-    let actual = nu!(pipeline(
-        r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 and b == 1 | to json -r
-        "#
-    ));
+    let actual = nu!(r#"
+        echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where a == 2 and b == 1 | to json -r
+    "#);
 
     assert_eq!(actual.out, r#"[{"a":2,"b":1}]"#);
 }
 
 #[test]
 fn compound_where_paren() {
-    let actual = nu!(pipeline(
-        r#"
-            echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 and $it.b == 1) or $it.b == 2 | to json -r
-        "#
-    ));
+    let actual = nu!(r#"
+        echo '[{"a": 1, "b": 1}, {"a": 2, "b": 1}, {"a": 2, "b": 2}]' | from json | where ($it.a == 2 and $it.b == 1) or $it.b == 2 | to json -r
+    "#);
 
     assert_eq!(actual.out, r#"[{"a":2,"b":1},{"a":2,"b":2}]"#);
 }
@@ -459,41 +391,33 @@ fn compound_where_paren() {
 
 #[test]
 fn concat_lists() {
-    let actual = nu!(pipeline(
-        r#"
-            [1 3] ++ [5 6] | to nuon
-        "#
-    ));
+    let actual = nu!(r#"
+        [1 3] ++ [5 6] | to nuon
+    "#);
 
     assert_eq!(actual.out, "[1, 3, 5, 6]");
 }
 
 #[test]
 fn concat_tables() {
-    let actual = nu!(pipeline(
-        r#"
-            [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
-        "#
-    ));
+    let actual = nu!(r#"
+        [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
+    "#);
     assert_eq!(actual.out, "[{a: 1, b: 2}, {c: 10, d: 11}]");
 }
 
 #[test]
 fn concat_strings() {
-    let actual = nu!(pipeline(
-        r#"
-            "foo" ++ "bar"
-        "#
-    ));
+    let actual = nu!(r#"
+        "foo" ++ "bar"
+    "#);
     assert_eq!(actual.out, "foobar");
 }
 
 #[test]
 fn concat_binary_values() {
-    let actual = nu!(pipeline(
-        r#"
-            0x[01 02] ++ 0x[03 04] | to nuon
-        "#
-    ));
+    let actual = nu!(r#"
+        0x[01 02] ++ 0x[03 04] | to nuon
+    "#);
     assert_eq!(actual.out, "0x[01020304]");
 }

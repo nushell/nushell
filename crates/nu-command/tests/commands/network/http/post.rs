@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::{Matcher, Server, ServerOpts};
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_post_is_success() {
@@ -9,15 +9,7 @@ fn http_post_is_success() {
 
     let _mock = server.mock("POST", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http post {url} "foo"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http post {url} "foo""#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -27,15 +19,7 @@ fn http_post_is_success_pipeline() {
 
     let _mock = server.mock("POST", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        "foo" | http post {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#""foo" | http post {url}"#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -46,15 +30,7 @@ fn http_post_failed_due_to_server_error() {
 
     let _mock = server.mock("POST", "/").with_status(400).create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http post {url} "body"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http post {url} "body""#, url = server.url()));
 
     assert!(actual.err.contains("Bad request (400)"))
 }
@@ -65,15 +41,7 @@ fn http_post_failed_due_to_missing_body() {
 
     let _mock = server.mock("POST", "/").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http post {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http post {url}"#, url = server.url()));
 
     assert!(
         actual
@@ -88,15 +56,7 @@ fn http_post_failed_due_to_unexpected_body() {
 
     let _mock = server.mock("POST", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http post {url} "bar"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http post {url} "bar""#, url = server.url()));
 
     assert!(actual.err.contains("Cannot make request"))
 }
@@ -197,9 +157,7 @@ fn http_post_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http post {url}/foo postbody", url = server.url()).as_str()
-    ));
+    let actual = nu!(format!("http post {url}/foo postbody", url = server.url()));
 
     assert_eq!(&actual.out, "bar");
 }
@@ -215,12 +173,9 @@ fn http_post_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http post --redirect-mode manual {url}/foo postbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http post --redirect-mode manual {url}/foo postbody",
+        url = server.url()
     ));
 
     assert_eq!(&actual.out, "foo");
@@ -237,12 +192,9 @@ fn http_post_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http post --redirect-mode error {url}/foo postbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http post --redirect-mode error {url}/foo postbody",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::network_failure"));
@@ -271,12 +223,9 @@ fn http_post_multipart_is_success() {
         .with_status(200)
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http post --content-type multipart/form-data {url} {{foo: ('bar' | into binary) }}",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http post --content-type multipart/form-data {url} {{foo: ('bar' | into binary) }}",
+        url = server.url()
     ));
 
     assert!(actual.out.is_empty())
@@ -293,12 +242,9 @@ fn http_post_timeout() {
         })
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http post --max-time 100ms {url} postbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http post --max-time 100ms {url} postbody",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::io::timed_out"));
