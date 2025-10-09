@@ -1,14 +1,11 @@
 use crate::*;
 
-/// Enable pipefail feature to ensure that the exit status of a pipeline
-/// accurately reflects the success or failure of all commands within that pipeline, not just
-/// the last one.
-///
-/// So it helps user writing more rubost nushell script.
-pub static ENFORCE_RUNTIME_ANNOTATIONS: ExperimentalOption = ExperimentalOption::new(&EnforceRuntimeAnnotations);
+/// Enable runtime type annotation feature to ensure that type annotations
+/// are checked against the type that binds to them, returning conversion errors
+/// if the types are incompatible.
+pub static ENFORCE_RUNTIME_ANNOTATIONS: ExperimentalOption =
+    ExperimentalOption::new(&EnforceRuntimeAnnotations);
 
-// No documentation needed here since this type isn't public.
-// The static above provides all necessary details.
 struct EnforceRuntimeAnnotations;
 
 impl ExperimentalOptionMarker for EnforceRuntimeAnnotations {
