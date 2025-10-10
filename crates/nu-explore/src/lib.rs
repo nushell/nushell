@@ -58,8 +58,7 @@ fn run_pager(
     p.show_message("For help type :help");
 
     if let Some(value) = has_simple_value(&data) {
-        let text = value.to_abbreviated_string(config.nu_config);
-        let view = Some(Page::new(Preview::new(&text), false));
+        let view = Some(Page::new(Preview::new(value.clone()), false));
         return p.run(engine_state, stack, view, commands);
     }
 
