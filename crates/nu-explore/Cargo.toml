@@ -24,6 +24,7 @@ nu-json = { path = "../nu-json", version = "0.107.1" }
 nu-utils = { path = "../nu-utils", version = "0.107.1" }
 nu-ansi-term = { workspace = true }
 nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.107.1" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.107.1" }
 
 anyhow = { workspace = true }
 log = { workspace = true }
@@ -35,3 +36,7 @@ unicode-width = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
   "nu-ansi-term",
 ] }
+which = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }

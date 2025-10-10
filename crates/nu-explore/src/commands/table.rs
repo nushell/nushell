@@ -54,9 +54,9 @@ impl ViewCommand for TableCmd {
         let value = value.unwrap_or_default();
         let is_record = matches!(value, Value::Record { .. });
 
-        let (columns, data) = collect_input(value)?;
+        let (columns, data) = collect_input(value.clone())?;
 
-        let mut view = RecordView::new(columns, data, config.explore_config.clone());
+        let mut view = RecordView::new_with_persistence(columns, data, config.explore_config.clone(), value);
 
         if is_record {
             view.set_top_layer_orientation(Orientation::Left);

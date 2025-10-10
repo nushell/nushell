@@ -21,6 +21,7 @@ pub struct Preview {
     value: Option<Value>,
     cursor: WindowCursor2D,
     wrap_enabled: bool,
+    is_editing: bool, // Track if we're expecting an edit result
 }
 
 impl Preview {
@@ -30,6 +31,7 @@ impl Preview {
             value: Some(value),
             cursor,
             wrap_enabled: true, // Enable wrapping by default
+            is_editing: false,
         }
     }
 
@@ -39,12 +41,30 @@ impl Preview {
             value: None,
             cursor,
             wrap_enabled: false,
+            is_editing: false,
         }
     }
 
     pub fn toggle_wrap(&mut self) {
         self.wrap_enabled = !self.wrap_enabled;
     }
+
+    fn edit_value_direct(
+        &mut self,
+        current_value: &Value,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+    ) -> Result<Value, String> {
+        use crate::nu_common::edit_value_with_editor;
+        use nu_protocol::Span;
+
+        // Call the editor
+        match edit_value_with_editor(current_value, engine_state, stack, Span::unknown()) {
+            Ok(new_value) => Ok(new_value),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
 }
 
 impl View for Preview {
@@ -103,13 +123,38 @@ impl View for Preview {
 
     fn handle_input(
         &mut self,
-        _: &EngineState,
-        _: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _: &Layout,
         info: &mut ViewInfo, // add this arg to draw too?
         key: KeyEvent,
     ) -> Transition {
-        // Handle wrap toggle first
+        // Handle Ctrl+O for editing the value
+        if let crossterm::event::KeyEvent {
+            modifiers: crossterm::event::KeyModifiers::CONTROL,
+            code: crossterm::event::KeyCode::Char('o'),
+            ..
+        } = key
+        {
+            if let Some(current_value) = self.value.clone() {
+                match self.edit_value_direct(&current_value, _engine_state, _stack) {
+                    Ok(new_value) => {
+                        self.value = Some(new_value);
+                        info.status = Some(Report::info("Value edited successfully"));
+                        // Signal that we need a force redraw by returning a special transition
+                        return Transition::Cmd("force_redraw".to_string());
+                    }
+                    Err(e) => {
+                        info.status = Some(Report::message(format!("Edit failed: {}", e), crate::pager::report::Severity::Err));
+                    }
+                }
+            } else {
+                info.status = Some(Report::message("No value to edit", crate::pager::report::Severity::Err));
+            }
+            return Transition::None;
+        }
+
+        // Handle wrap toggle
         if let crossterm::event::KeyCode::Char('w') = key.code {
             self.toggle_wrap();
             let wrap_status = if self.wrap_enabled { "ON" } else { "OFF" };
@@ -153,6 +198,17 @@ impl View for Preview {
 
     fn exit(&mut self) -> Option<Value> {
         self.value.clone()
+    }
+
+    fn handle_child_result(&mut self, child_exit_value: Option<Value>) -> Result<(), String> {
+        // If we were editing and got a result back, update our value
+        if self.is_editing {
+            if let Some(new_value) = child_exit_value {
+                self.value = Some(new_value);
+            }
+            self.is_editing = false; // Clear the edit flag
+        }
+        Ok(())
     }
 }
 
