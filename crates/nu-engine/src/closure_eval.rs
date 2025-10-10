@@ -57,6 +57,11 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 ///
 /// Environment isolation and other cleanup is handled by [`ClosureEval`],
 /// so nothing needs to be done following [`ClosureEval::run_with_input`] or [`ClosureEval::run_with_value`].
+///
+/// In contrast to [`ClosureEvalOnce`], [`ClosureEval`] holds an owned copy of the
+/// [`EngineState`] supplied. This makes it possible to return it from a function that
+/// only has a borrowed [`EngineState`] reference, such as the `run` function of a
+/// [`nu_engine::command_prelude::Command`] implementation.
 pub struct ClosureEval {
     engine_state: EngineState,
     stack: Stack,
@@ -190,6 +195,9 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value);
 /// ```
+///
+/// In contrast to [`ClosureEval`], the lifetime of [`ClosureEvalOnce`] is bound
+/// to that of the supplied [`EngineState`] reference, which makes it more light-weight.
 pub struct ClosureEvalOnce<'a> {
     engine_state: &'a EngineState,
     stack: Stack,

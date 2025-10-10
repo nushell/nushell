@@ -771,7 +771,8 @@ impl Signature {
     /// Returns an argument with the index `position`
     ///
     /// It will index, in order, required arguments, then optional, then the
-    /// trailing `...rest` argument.
+    /// trailing `...rest` argument. Note that the `...rest` argument must be
+    /// a [`Value::List`].
     pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
             self.required_positional.get(position)
