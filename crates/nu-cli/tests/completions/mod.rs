@@ -1057,6 +1057,13 @@ fn file_completions() {
 
     // Match the results
     match_suggestions_by_string(&expected_paths, &suggestions);
+
+    // Don't suggest files as fallback when no directories match for commands expecting directories
+    let suggestions = completer.complete("cd n", 4);
+    let expected_paths: Vec<_> = vec![];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions)
 }
 
 #[test]

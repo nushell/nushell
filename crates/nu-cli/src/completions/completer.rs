@@ -792,7 +792,10 @@ impl NuCompleter {
         // general positional arguments
         let file_completion_helper = || self.process_completion(&mut FileCompletion, ctx);
         match &expr.expr {
-            Expr::Directory(_, _) => self.process_completion(&mut DirectoryCompletion, ctx),
+            Expr::Directory(_, _) => {
+                *need_fallback = false;
+                self.process_completion(&mut DirectoryCompletion, ctx)
+            }
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
             // fallback to file completion if necessary
             _ if *need_fallback => file_completion_helper(),
