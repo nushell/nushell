@@ -25,7 +25,7 @@ pub(crate) struct BlockBuilder {
     pub(crate) comments: Vec<String>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
-    pub(crate) loop_stack: Vec<Loop>,
+    pub(crate) context_stack: ContextStack,
 }
 
 impl BlockBuilder {
@@ -41,7 +41,7 @@ impl BlockBuilder {
             comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
-            loop_stack: vec![],
+            context_stack: ContextStack::new(),
         }
     }
 
@@ -470,20 +470,20 @@ impl BlockBuilder {
             break_label: self.label(None),
             continue_label: self.label(None),
         };
-        self.loop_stack.push(loop_);
+        self.context_stack.push_loop(loop_);
         loop_
     }
 
     /// True if we are currently in a loop.
     pub(crate) fn is_in_loop(&self) -> bool {
-        !self.loop_stack.is_empty()
+        self.context_stack.is_in_loop()
     }
 
     /// Add a loop breaking jump instruction.
     pub(crate) fn push_break(&mut self, span: Span) -> Result<(), CompileError> {
         let loop_ = self
-            .loop_stack
-            .last()
+            .context_stack
+            .current_loop()
             .ok_or_else(|| CompileError::NotInALoop {
                 msg: "`break` called from outside of a loop".into(),
                 span: Some(span),
@@ -494,8 +494,8 @@ impl BlockBuilder {
     /// Add a loop continuing jump instruction.
     pub(crate) fn push_continue(&mut self, span: Span) -> Result<(), CompileError> {
         let loop_ = self
-            .loop_stack
-            .last()
+            .context_stack
+            .current_loop()
             .ok_or_else(|| CompileError::NotInALoop {
                 msg: "`continue` called from outside of a loop".into(),
                 span: Some(span),
@@ -505,20 +505,19 @@ impl BlockBuilder {
 
     /// Pop the loop state. Checks that the loop being ended is the same one that was expected.
     pub(crate) fn end_loop(&mut self, loop_: Loop) -> Result<(), CompileError> {
-        let ended_loop = self
-            .loop_stack
+        let context_block = self
+            .context_stack
             .pop()
             .ok_or_else(|| CompileError::NotInALoop {
                 msg: "end_loop() called outside of a loop".into(),
                 span: None,
             })?;
 
-        if ended_loop == loop_ {
-            Ok(())
-        } else {
-            Err(CompileError::IncoherentLoopState {
+        match context_block {
+            ContextBlock::Loop(ended_loop) if ended_loop == loop_ => Ok(()),
+            _ => Err(CompileError::IncoherentLoopState {
                 block_span: self.block_span,
-            })
+            }),
         }
     }
 
@@ -579,6 +578,20 @@ impl BlockBuilder {
             file_count: self.file_count,
         })
     }
+
+    pub(crate) fn begin_try(&mut self) {
+        self.context_stack.push_try();
+    }
+
+    pub(crate) fn end_try(&mut self) -> Result<(), CompileError> {
+        match self.context_stack.pop() {
+            Some(ContextBlock::Try) => Ok(()),
+            _ => Err(CompileError::NotInATry {
+                msg: "end_try() called outside of a try block".into(),
+                span: None,
+            }),
+        }
+    }
 }
 
 /// Keeps track of the `break` and `continue` target labels for a loop.
@@ -586,6 +599,53 @@ impl BlockBuilder {
 pub(crate) struct Loop {
     pub(crate) break_label: LabelId,
     pub(crate) continue_label: LabelId,
+}
+
+/// Blocks that modify/define behavior for the instructions they contain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ContextBlock {
+    Loop(Loop),
+    Try,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ContextStack(Vec<ContextBlock>);
+
+impl ContextStack {
+    pub const fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn push_loop(&mut self, r#loop: Loop) {
+        self.0.push(ContextBlock::Loop(r#loop));
+    }
+
+    pub fn push_try(&mut self) {
+        self.0.push(ContextBlock::Try);
+    }
+
+    pub fn pop(&mut self) -> Option<ContextBlock> {
+        self.0.pop()
+    }
+
+    pub fn current_loop(&self) -> Option<&Loop> {
+        self.0.iter().rev().find_map(|cb| match cb {
+            ContextBlock::Loop(r#loop) => Some(r#loop),
+            _ => None,
+        })
+    }
+
+    pub fn try_block_depth_from_loop(&self) -> usize {
+        self.0
+            .iter()
+            .rev()
+            .take_while(|&cb| matches!(cb, ContextBlock::Try))
+            .count()
+    }
+
+    pub fn is_in_loop(&self) -> bool {
+        self.current_loop().is_some()
+    }
 }
 
 /// Add a new comment to an existing one
