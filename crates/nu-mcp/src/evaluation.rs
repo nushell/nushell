@@ -271,6 +271,13 @@ mod tests {
             "Error message should contain rich formatting with 'Error:' and 'Parse error', but got: {}",
             err_msg
         );
+
+        // Should NOT contain ANSI escape codes (starts with ESC character '\x1b[')
+        assert!(
+            !err_msg.contains('\x1b'),
+            "Error message should not contain ANSI escape codes, but got: {:?}",
+            err_msg
+        );
     }
 
     #[test]
