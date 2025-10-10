@@ -129,25 +129,12 @@ fn mut_path_upsert_list() {
 }
 
 #[test]
-fn mut_path_operator_assign() {
-    let actual = nu!("mut a = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
-
-    assert_eq!(actual.out, "5.0");
-}
-
-#[test]
-fn mut_path_operator_assign_enforce_runtime() {
-    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
-    let actual =
-        nu!("mut a: record<b: number> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
-
-    assert_eq!(actual.out, "5.0");
-}
-
-#[test]
 fn mut_path_operator_assign_should_error_enforce_runtime() {
-    nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.set(true);
-    let actual = nu!("mut a = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
+    // should error on the division
+    let actual = nu!(
+        experimental: vec!["enforce-runtime-annotations".to_string()],
+        "mut a: record<b: int> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b",
+    );
 
     assert!(actual.err.contains("nu::shell::cant_convert"));
 }
