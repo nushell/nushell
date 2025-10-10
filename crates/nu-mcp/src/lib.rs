@@ -1,4 +1,4 @@
-use nu_protocol::{ShellError, engine::EngineState};
+use nu_protocol::{ShellError, engine::EngineState, engine::StateWorkingSet, format_cli_error};
 use rmcp::{ServiceExt, transport::stdio};
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
@@ -45,7 +45,12 @@ async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
-pub(crate) fn shell_error_to_mcp_error(error: nu_protocol::ShellError) -> McpError {
-    //todo - make this more sophisticated
-    McpError::internal_error(format!("ShellError: {error}"), None)
+pub(crate) fn shell_error_to_mcp_error(
+    error: nu_protocol::ShellError,
+    engine_state: &EngineState,
+) -> McpError {
+    // Use Nushell's rich error formatting to provide detailed, helpful error messages for LLMs
+    let working_set = StateWorkingSet::new(engine_state);
+    let formatted_error = format_cli_error(&working_set, &error, Some("nu::shell::error"));
+    McpError::internal_error(formatted_error, None)
 }

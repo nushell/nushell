@@ -46,10 +46,18 @@ impl Evaluator {
             let block = parse(&mut working_set, None, nu_source.as_bytes(), false);
 
             // Check for parse errors
-            if !working_set.parse_errors.is_empty() {
-                // ShellError doesn't have ParseError, use LabeledError to contain it.
-                return Err(McpError::invalid_request(
-                    "Failed to parse nushell pipeline",
+            if let Some(err) = working_set.parse_errors.first() {
+                return Err(McpError::internal_error(
+                    nu_protocol::format_cli_error(&working_set, err, Some("nu::parser::error")),
+                    None,
+                ));
+            }
+
+            // Check for compile errors (IR compilation errors)
+            // These are caught during the parse/compile phase, before evaluation
+            if let Some(err) = working_set.compile_errors.first() {
+                return Err(McpError::internal_error(
+                    nu_protocol::format_cli_error(&working_set, err, Some("nu::compile::error")),
                     None,
                 ));
             }
@@ -62,7 +70,7 @@ impl Evaluator {
                 &block,
                 PipelineData::empty(),
             )
-            .map_err(shell_error_to_mcp_error)?;
+            .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
 
             let r = Arc::new(self.process_pipeline(output)?);
             self.cache.insert(nu_source.to_string(), Arc::clone(&r));
@@ -114,7 +122,7 @@ impl Evaluator {
             let mut last_page_index = 0;
             for item in pipeline_execution_data.body {
                 let out = if let Value::Error { error, .. } = item {
-                    return Err(shell_error_to_mcp_error(*error));
+                    return Err(shell_error_to_mcp_error(*error, &engine_state));
                 } else {
                     item.to_expanded_string("\n", config) + "\n"
                 };
@@ -133,7 +141,7 @@ impl Evaluator {
                 last_index = buffer.len();
 
                 write_all_and_flush(out, &mut buffer, "mcp_output", span, engine_state.signals())
-                    .map_err(shell_error_to_mcp_error)?;
+                    .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
             }
             if pages.is_empty() {
                 pages.push(Page::new(0..buffer.len(), page_total));
@@ -229,5 +237,93 @@ mod tests {
         assert_eq!(result.summary.total, 3);
         assert!(result.summary.next_cursor.is_some());
         Ok(())
+    }
+
+    #[test]
+    fn test_evaluator_parse_error_message() {
+        let engine_state = create_default_context();
+        let evaluator = Evaluator::new(Arc::new(engine_state));
+
+        // Invalid syntax - missing closing bracket
+        let result = evaluator.eval("let x = [1, 2, 3", None);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.message.to_string();
+
+        // Should contain rich error formatting with error code and labeled spans
+        assert!(
+            err_msg.contains("Error: nu::parser::") && err_msg.contains("unexpected_eof"),
+            "Error message should contain error code 'nu::parser::unexpected_eof', but got: {err_msg}"
+        );
+
+        // Should contain source code context
+        assert!(
+            err_msg.contains("let x = [1, 2, 3"),
+            "Error message should contain source code context, but got: {err_msg}"
+        );
+
+        // Should NOT contain ANSI escape codes (starts with ESC character '\x1b[')
+        assert!(
+            !err_msg.contains('\x1b'),
+            "Error message should not contain ANSI escape codes, but got: {err_msg:?}"
+        );
+
+        // Should NOT contain Debug formatting like Span { start: ... }
+        assert!(
+            !err_msg.contains("Span {"),
+            "Error message should not contain raw Debug formatting, but got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_evaluator_compile_error_message() {
+        let engine_state = create_default_context();
+        let evaluator = Evaluator::new(Arc::new(engine_state));
+
+        // This will trigger a compile error (IR compilation)
+        // because create_default_context doesn't fully compile blocks for pipelines
+        let result = evaluator.eval("[{a: 1}] | get a", None);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.message.to_string();
+
+        // Should contain rich error formatting with error code
+        assert!(
+            err_msg.contains("Error: nu::compile::"),
+            "Error message should contain error code 'nu::compile::', but got: {err_msg}"
+        );
+
+        // Should NOT contain Debug formatting like Span { start: ... }
+        assert!(
+            !err_msg.contains("Span {"),
+            "Error message should not contain raw Debug formatting, but got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_evaluator_runtime_error_message() {
+        let engine_state = create_default_context();
+        let evaluator = Evaluator::new(Arc::new(engine_state));
+
+        // Use error make to create a runtime error with custom message and labels
+        let result = evaluator.eval(
+            r#"error make {msg: "custom runtime error" label: {text: "problem here" span: {start: 0 end: 5}}}"#,
+            None,
+        );
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.message.to_string();
+
+        // Should contain:
+        // 1. Rich error formatting with "Error:" prefix
+        // 2. The custom error message
+        // 3. NOT just a generic "ShellError: ..." message
+        assert!(
+            err_msg.contains("Error:") && err_msg.contains("custom runtime error"),
+            "Error message should contain rich formatting and custom error message, but got: {err_msg}"
+        );
     }
 }
