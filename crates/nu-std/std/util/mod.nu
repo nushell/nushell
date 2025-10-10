@@ -58,6 +58,57 @@ export def --env "path add" [
     if $ret { $env | get $path_name }
 }
 
+export def --env "path hide" [
+    --ret (-r)     # return $env.PATH, useful in pipelines to avoid scoping.
+    ...paths: any  # the paths to remove from $env.PATH.
+]: [nothing -> nothing, nothing -> list<path>] {
+    ignore # discard input for safety
+    let span = (metadata $paths).span
+    let paths = $paths | flatten
+
+    if ($paths | is-empty) or ($paths | length) == 0 {
+        error make {msg: "Empty input", label: {
+            text: "Provide at least one string or record",
+            span: $span
+        }}
+    }
+
+    for path in $paths {
+        if ($path | describe -d).type not-in ['string', 'record'] {
+            error make {msg: 'Invalid input', label: {
+                text: 'Path must be a string or record',
+                span: (metadata $path).span
+            }}
+        }
+    }
+
+    let path_name = if "PATH" in $env { "PATH" } else { "Path" }
+
+    let to_remove = $paths | each {|p|
+        match ($p | describe -d).type {
+            'string' => { $p | path expand --no-symlink },
+            'record' => {
+                if $nu.os-info.name in ($p | columns) {
+                    $p | get $nu.os-info.name | path expand --no-symlink
+                }
+            }
+        }
+    } | compact
+
+    let new_paths = (
+        $env | get $path_name
+        | split row (char esep)
+        | where {|p|
+            $p not-in $to_remove
+        }
+    )
+
+    load-env {$path_name: $new_paths}
+
+    if $ret { $env | get $path_name }
+}
+
+
 # The cute and friendly mascot of Nushell :)
 export def ellie [] {
     let ellie = [
