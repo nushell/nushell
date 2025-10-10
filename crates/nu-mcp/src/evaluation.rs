@@ -254,29 +254,25 @@ mod tests {
         // Should contain rich error formatting with error code and labeled spans
         assert!(
             err_msg.contains("Error: nu::parser::") && err_msg.contains("unexpected_eof"),
-            "Error message should contain error code 'nu::parser::unexpected_eof', but got: {}",
-            err_msg
+            "Error message should contain error code 'nu::parser::unexpected_eof', but got: {err_msg}"
         );
 
         // Should contain source code context
         assert!(
             err_msg.contains("let x = [1, 2, 3"),
-            "Error message should contain source code context, but got: {}",
-            err_msg
+            "Error message should contain source code context, but got: {err_msg}"
         );
 
         // Should NOT contain ANSI escape codes (starts with ESC character '\x1b[')
         assert!(
             !err_msg.contains('\x1b'),
-            "Error message should not contain ANSI escape codes, but got: {:?}",
-            err_msg
+            "Error message should not contain ANSI escape codes, but got: {err_msg:?}"
         );
 
         // Should NOT contain Debug formatting like Span { start: ... }
         assert!(
             !err_msg.contains("Span {"),
-            "Error message should not contain raw Debug formatting, but got: {}",
-            err_msg
+            "Error message should not contain raw Debug formatting, but got: {err_msg}"
         );
     }
 
@@ -296,15 +292,13 @@ mod tests {
         // Should contain rich error formatting with error code
         assert!(
             err_msg.contains("Error: nu::compile::"),
-            "Error message should contain error code 'nu::compile::', but got: {}",
-            err_msg
+            "Error message should contain error code 'nu::compile::', but got: {err_msg}"
         );
 
         // Should NOT contain Debug formatting like Span { start: ... }
         assert!(
             !err_msg.contains("Span {"),
-            "Error message should not contain raw Debug formatting, but got: {}",
-            err_msg
+            "Error message should not contain raw Debug formatting, but got: {err_msg}"
         );
     }
 
@@ -329,8 +323,7 @@ mod tests {
         // 3. NOT just a generic "ShellError: ..." message
         assert!(
             err_msg.contains("Error:") && err_msg.contains("custom runtime error"),
-            "Error message should contain rich formatting and custom error message, but got: {}",
-            err_msg
+            "Error message should contain rich formatting and custom error message, but got: {err_msg}"
         );
     }
 }
