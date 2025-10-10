@@ -47,15 +47,8 @@ impl Evaluator {
 
             // Check for parse errors
             if let Some(err) = working_set.parse_errors.first() {
-                let shell_error = nu_protocol::ShellError::GenericError {
-                    error: "Parse error in Nushell pipeline".into(),
-                    msg: format!("{err:?}"),
-                    span: Some(err.span()),
-                    help: None,
-                    inner: vec![],
-                };
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, &shell_error, None),
+                    nu_protocol::format_cli_error(&working_set, err, Some("nu::parser::error")),
                     None,
                 ));
             }
@@ -63,15 +56,8 @@ impl Evaluator {
             // Check for compile errors (IR compilation errors)
             // These are caught during the parse/compile phase, before evaluation
             if let Some(err) = working_set.compile_errors.first() {
-                let shell_error = nu_protocol::ShellError::GenericError {
-                    error: "Parse error in Nushell pipeline".into(),
-                    msg: format!("{err:?}"),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                };
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, &shell_error, None),
+                    nu_protocol::format_cli_error(&working_set, err, Some("nu::compile::error")),
                     None,
                 ));
             }
@@ -265,10 +251,17 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
-        // Should contain rich error formatting
+        // Should contain rich error formatting with error code and labeled spans
         assert!(
-            err_msg.contains("Error:") && err_msg.contains("Parse error"),
-            "Error message should contain rich formatting with 'Error:' and 'Parse error', but got: {}",
+            err_msg.contains("Error: nu::parser::") && err_msg.contains("unexpected_eof"),
+            "Error message should contain error code 'nu::parser::unexpected_eof', but got: {}",
+            err_msg
+        );
+
+        // Should contain source code context
+        assert!(
+            err_msg.contains("let x = [1, 2, 3"),
+            "Error message should contain source code context, but got: {}",
             err_msg
         );
 
@@ -276,6 +269,13 @@ mod tests {
         assert!(
             !err_msg.contains('\x1b'),
             "Error message should not contain ANSI escape codes, but got: {:?}",
+            err_msg
+        );
+
+        // Should NOT contain Debug formatting like Span { start: ... }
+        assert!(
+            !err_msg.contains("Span {"),
+            "Error message should not contain raw Debug formatting, but got: {}",
             err_msg
         );
     }
@@ -293,11 +293,17 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
-        // Should contain rich error formatting
-        // Compile errors are reported as "Parse error" since they happen during parse/compile phase
+        // Should contain rich error formatting with error code
         assert!(
-            err_msg.contains("Error:") && err_msg.contains("Parse error"),
-            "Error message should contain rich formatting with 'Error:' and 'Parse error', but got: {}",
+            err_msg.contains("Error: nu::compile::"),
+            "Error message should contain error code 'nu::compile::', but got: {}",
+            err_msg
+        );
+
+        // Should NOT contain Debug formatting like Span { start: ... }
+        assert!(
+            !err_msg.contains("Span {"),
+            "Error message should not contain raw Debug formatting, but got: {}",
             err_msg
         );
     }
