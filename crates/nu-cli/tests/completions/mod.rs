@@ -177,18 +177,6 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
-#[test]
-fn variables_dollar_sign_with_variablecompletion() {
-    let (_, _, engine, stack) = new_engine();
-
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-
-    let target_dir = "$ ";
-    let suggestions = completer.complete(target_dir, target_dir.len());
-
-    assert_eq!(9, suggestions.len());
-}
-
 #[rstest]
 fn variables_double_dash_argument_with_flagcompletion(mut completer: NuCompleter) {
     let suggestions = completer.complete("tst --", 6);

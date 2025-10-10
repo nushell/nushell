@@ -303,16 +303,6 @@ impl NuCompleter {
         let mut suggestions: Vec<SemanticSuggestion> = vec![];
 
         match &element_expression.expr {
-            // WARN: Expr::String should only match redirection targets.
-            // We choose to handle it explicitly here because of a legacy issue: fallback file
-            // completion doesn't work well with filepath with spaces
-            // https://github.com/nushell/nushell/issues/16712
-            Expr::String(_) => {
-                let span = element_expression.span;
-                let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
-                let ctx = Context::new(working_set, new_span, prefix, offset);
-                return self.process_completion(&mut FileCompletion, &ctx);
-            }
             Expr::Var(_) => {
                 return self.variable_names_completion_helper(
                     working_set,
@@ -663,29 +653,14 @@ impl NuCompleter {
                         break;
                     }
                 }
-
-                // for external executable path completion with spaces, #16712
-                if suggestions.is_empty()
-                    && head.span.contains(pos)
-                    && let Expr::GlobPattern(_, _) = &head.expr
-                {
-                    let (new_span, prefix) =
-                        strip_placeholder_if_any(working_set, &head.span, strip);
-                    let ctx = Context::new(working_set, new_span, prefix, offset);
-                    return self.process_completion(&mut FileCompletion, &ctx);
-                }
             }
             _ => (),
         }
 
         // if no suggestions yet, fallback to file completion
         if suggestions.is_empty() {
-            let (new_span, prefix) = strip_placeholder_with_rsplit(
-                working_set,
-                &element_expression.span,
-                |c| *c == b' ',
-                strip,
-            );
+            let (new_span, prefix) =
+                strip_placeholder_if_any(working_set, &element_expression.span, strip);
             let ctx = Context::new(working_set, new_span, prefix, offset);
             suggestions.extend(self.process_completion(&mut FileCompletion, &ctx));
         }
