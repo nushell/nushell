@@ -87,8 +87,8 @@ devicons = "0.6.12"
 dialoguer = { default-features = false, version = "0.11" }
 fuzzy-matcher = { version = "^0.3.7" }
 digest = { default-features = false, version = "0.10" }
-dirs = "5.0"
-dirs-sys = "0.4"
+dirs = "6.0"
+dirs-sys = "0.5"
 dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.16"
@@ -121,7 +121,7 @@ multipart-rs = "0.1.13"
 native-tls = "0.2"
 nix = { version = "0.30", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
-nu-ansi-term = "0.50.1"
+nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
 num-format = "0.4"
 num-traits = "0.2"
@@ -195,8 +195,8 @@ v_htmlescape = "0.15.0"
 wax = "0.6"
 web-time = "1.1.0"
 which = "8.0.0"
-windows = "0.56"
-windows-sys = "0.48"
+windows = "0.62"
+windows-sys = "0.61"
 winreg = "0.52"
 memchr = "2.7.4"
 webpki-roots = "1.0"
@@ -367,7 +367,7 @@ bench = false
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
 reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
-nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
+# nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`

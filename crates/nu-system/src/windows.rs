@@ -30,12 +30,12 @@ use windows::Wdk::System::Threading::{
 };
 
 use windows::Win32::Foundation::{
-    CloseHandle, FALSE, FILETIME, HANDLE, HLOCAL, HMODULE, LocalFree, MAX_PATH, PSID,
+    CloseHandle, FALSE, FILETIME, HANDLE, HLOCAL, HMODULE, LocalFree, MAX_PATH,
     STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH, UNICODE_STRING,
 };
 
 use windows::Win32::Security::{
-    AdjustTokenPrivileges, GetTokenInformation, LookupAccountSidW, LookupPrivilegeValueW,
+    AdjustTokenPrivileges, GetTokenInformation, LookupAccountSidW, LookupPrivilegeValueW, PSID,
     SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED, SID, SID_NAME_USE, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS,
     TOKEN_PRIVILEGES, TOKEN_QUERY, TOKEN_USER, TokenGroups, TokenUser,
 };
@@ -275,7 +275,7 @@ fn set_privilege() -> bool {
         }
 
         tps.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-        if AdjustTokenPrivileges(token, FALSE, Some(&tps), 0, None, None).is_err() {
+        if AdjustTokenPrivileges(token, FALSE.into(), Some(&tps), 0, None, None).is_err() {
             return false;
         }
 
@@ -337,7 +337,7 @@ fn get_handle(pid: i32) -> Option<HANDLE> {
     let handle = unsafe {
         OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-            FALSE,
+            FALSE.into(),
             pid as u32,
         )
     }
@@ -412,7 +412,7 @@ fn get_command(handle: HANDLE) -> Option<String> {
         let mut exe_buf = [0u16; MAX_PATH as usize + 1];
         let h_mod = HMODULE::default();
 
-        let ret = GetModuleBaseNameW(handle, h_mod, exe_buf.as_mut_slice());
+        let ret = GetModuleBaseNameW(handle, h_mod.into(), exe_buf.as_mut_slice());
 
         let mut pos = 0;
         for x in exe_buf.iter() {
@@ -583,7 +583,7 @@ unsafe fn get_cmdline_from_buffer(buffer: PCWSTR) -> Vec<String> {
             res.push(String::from_utf16_lossy(arg.as_wide()));
         }
 
-        let _err = LocalFree(HLOCAL(argv_p as _));
+        let _err = LocalFree(HLOCAL(argv_p as _).into());
 
         res
     }
@@ -959,11 +959,11 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
         let mut cc_domainname = 0;
         let mut pe_use = SID_NAME_USE::default();
         let _ = LookupAccountSidW(
-            PCWSTR::null(),
+            None,
             psid,
-            PWSTR::null(),
+            None,
             &mut cc_name,
-            PWSTR::null(),
+            None,
             &mut cc_domainname,
             &mut pe_use,
         );
@@ -977,11 +977,11 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
         name.set_len(cc_name as usize);
         domainname.set_len(cc_domainname as usize);
         if LookupAccountSidW(
-            PCWSTR::null(),
+            None,
             psid,
-            PWSTR::from_raw(name.as_mut_ptr()),
+            PWSTR::from_raw(name.as_mut_ptr()).into(),
             &mut cc_name,
-            PWSTR::from_raw(domainname.as_mut_ptr()),
+            PWSTR::from_raw(domainname.as_mut_ptr()).into(),
             &mut cc_domainname,
             &mut pe_use,
         )
