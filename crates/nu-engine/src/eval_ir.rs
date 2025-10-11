@@ -368,7 +368,14 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::StoreVariable { var_id, src } => {
             let value = ctx.collect_reg(*src, *span)?;
-            ctx.stack.add_var(*var_id, value);
+            // Perform runtime type checking and conversion for variable assignment
+            if nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS.get() {
+                let variable = ctx.engine_state.get_var(*var_id);
+                let converted_value = check_assignment_type(value, &variable.ty)?;
+                ctx.stack.add_var(*var_id, converted_value);
+            } else {
+                ctx.stack.add_var(*var_id, value);
+            }
             Ok(Continue)
         }
         Instruction::DropVariable { var_id } => {
@@ -1345,6 +1352,20 @@ fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
         _ if val.is_subtype_of(ty) => Ok(()),
         _ => Err(ShellError::CantConvert {
             to_type: ty.to_string(),
+            from_type: val.get_type().to_string(),
+            span: val.span(),
+            help: None,
+        }),
+    }
+}
+
+/// Type check and convert value for assignment.
+fn check_assignment_type(val: Value, target_ty: &Type) -> Result<Value, ShellError> {
+    match val {
+        Value::Error { error, .. } => Err(*error),
+        _ if val.is_subtype_of(target_ty) => Ok(val), // No conversion needed, but compatible
+        _ => Err(ShellError::CantConvert {
+            to_type: target_ty.to_string(),
             from_type: val.get_type().to_string(),
             span: val.span(),
             help: None,

@@ -295,11 +295,11 @@ fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
 fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
     let _ = fail_test(
         r#"def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f"#,
-        "expected string",
+        "expected string, found glob",
     );
-    fail_test(
+    run_test(
         r#"def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f"#,
-        "can't convert",
+        "aa",
     )
 }
 
