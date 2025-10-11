@@ -52,3 +52,6 @@ export def pwd [
         $env.PWD
     }
 }
+
+export alias "str upper-case" = str upcase
+export alias "str lower-case" = str downcase
