@@ -346,6 +346,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     let var_type = match iteration_expr_ty {
         Type::List(x) => *x,
         Type::Table(x) => Type::Record(x),
+        Type::Range => Type::Number, // Range elements can be int or float
         x => x,
     };
 

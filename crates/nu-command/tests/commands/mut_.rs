@@ -129,10 +129,14 @@ fn mut_path_upsert_list() {
 }
 
 #[test]
-fn mut_path_operator_assign() {
-    let actual = nu!("mut a = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b");
+fn mut_path_operator_assign_should_error_enforce_runtime() {
+    // should error on the division
+    let actual = nu!(
+        experimental: vec!["enforce-runtime-annotations".to_string()],
+        "mut a: record<b: int> = {b:1}; $a.b += 3; $a.b -= 2; $a.b *= 10; $a.b /= 4; $a.b",
+    );
 
-    assert_eq!(actual.out, "5.0");
+    assert!(actual.err.contains("nu::shell::cant_convert"));
 }
 
 #[test]
@@ -149,7 +153,7 @@ fn mut_value_with_if() {
 
 #[test]
 fn mut_value_with_match() {
-    let actual = nu!("mut a = 3; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a");
+    let actual = nu!("mut a = 'maybe?'; $a = match 3 { 1 => { 'yes!' }, _ => { 'no!' } }; echo $a");
     assert_eq!(actual.out, "no!");
 }
 

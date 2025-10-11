@@ -5,6 +5,7 @@
 
 use crate::*;
 
+mod enforce_runtime_annotations;
 mod example;
 mod pipefail;
 mod reorder_cell_paths;
@@ -57,6 +58,7 @@ pub(crate) trait ExperimentalOptionMarker {
 
 // Export only the static values.
 // The marker structs are not relevant and needlessly clutter the generated docs.
+pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
 pub use example::EXAMPLE;
 pub use pipefail::PIPE_FAIL;
 pub use reorder_cell_paths::REORDER_CELL_PATHS;
@@ -68,7 +70,12 @@ pub use reorder_cell_paths::REORDER_CELL_PATHS;
 ///
 /// Use this to show users every experimental option, including their descriptions,
 /// identifiers, and current state.
-pub static ALL: &[&ExperimentalOption] = &[&EXAMPLE, &REORDER_CELL_PATHS, &PIPE_FAIL];
+pub static ALL: &[&ExperimentalOption] = &[
+    &EXAMPLE,
+    &REORDER_CELL_PATHS,
+    &PIPE_FAIL,
+    &ENFORCE_RUNTIME_ANNOTATIONS,
+];
 
 #[cfg(test)]
 mod tests {
