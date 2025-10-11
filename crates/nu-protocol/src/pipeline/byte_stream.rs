@@ -694,23 +694,35 @@ impl ByteStream {
 
     /// Print all bytes of the [`ByteStream`] to stdout or stderr.
     pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
+        self.print_with_buffer(to_stderr, DEFAULT_BUF_SIZE)
+    }
+
+    pub fn print_with_buffer(self, to_stderr: bool, buffer_size: usize) -> Result<(), ShellError> {
         if to_stderr {
-            self.write_to(&mut io::stderr())
+            self.write_to_with_buffer(&mut io::stderr(), buffer_size)
         } else {
-            self.write_to(&mut io::stdout())
+            self.write_to_with_buffer(&mut io::stdout(), buffer_size)
         }
     }
 
     /// Write all bytes of the [`ByteStream`] to `dest`.
     pub fn write_to(self, dest: impl Write) -> Result<(), ShellError> {
+        self.write_to_with_buffer(dest, DEFAULT_BUF_SIZE)
+    }
+
+    pub fn write_to_with_buffer(
+        self,
+        dest: impl Write,
+        buffer_size: usize,
+    ) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;
         match self.stream {
             ByteStreamSource::Read(read) => {
-                copy_with_signals(read, dest, span, signals)?;
+                copy_with_signals_with_buffer(read, dest, span, signals, buffer_size)?;
             }
             ByteStreamSource::File(file) => {
-                copy_with_signals(file, dest, span, signals)?;
+                copy_with_signals_with_buffer(file, dest, span, signals, buffer_size)?;
             }
             #[cfg(feature = "os")]
             ByteStreamSource::Child(mut child) => {
@@ -722,10 +734,10 @@ impl ByteStream {
                 if let Some(stdout) = child.stdout.take() {
                     match stdout {
                         ChildPipe::Pipe(pipe) => {
-                            copy_with_signals(pipe, dest, span, signals)?;
+                            copy_with_signals_with_buffer(pipe, dest, span, signals, buffer_size)?;
                         }
                         ChildPipe::Tee(tee) => {
-                            copy_with_signals(tee, dest, span, signals)?;
+                            copy_with_signals_with_buffer(tee, dest, span, signals, buffer_size)?;
                         }
                     }
                 }
@@ -1089,13 +1101,24 @@ pub(crate) fn convert_file<T: From<OwnedHandle>>(file: impl Into<OwnedHandle>) -
 const DEFAULT_BUF_SIZE: usize = 8192;
 
 pub fn copy_with_signals(
+    reader: impl Read,
+    writer: impl Write,
+    span: Span,
+    signals: &Signals,
+) -> Result<u64, ShellError> {
+    copy_with_signals_with_buffer(reader, writer, span, signals, DEFAULT_BUF_SIZE)
+}
+
+pub fn copy_with_signals_with_buffer(
     mut reader: impl Read,
     mut writer: impl Write,
     span: Span,
     signals: &Signals,
+    buffer_size: usize,
 ) -> Result<u64, ShellError> {
     let from_io_error = IoError::factory(span, None);
-    if signals.is_empty() {
+    let buffer_size = buffer_size.max(1);
+    if signals.is_empty() && buffer_size == DEFAULT_BUF_SIZE {
         match io::copy(&mut reader, &mut writer) {
             Ok(n) => {
                 writer.flush().map_err(&from_io_error)?;
@@ -1114,7 +1137,7 @@ pub fn copy_with_signals(
         // {
         //     return crate::sys::kernel_copy::copy_spec(reader, writer);
         // }
-        match generic_copy(&mut reader, &mut writer, span, signals) {
+        match generic_copy(&mut reader, &mut writer, span, signals, buffer_size) {
             Ok(len) => {
                 writer.flush().map_err(&from_io_error)?;
                 Ok(len)
@@ -1133,13 +1156,14 @@ fn generic_copy(
     mut writer: impl Write,
     span: Span,
     signals: &Signals,
+    buffer_size: usize,
 ) -> Result<u64, ShellError> {
     let from_io_error = IoError::factory(span, None);
-    let buf = &mut [0; DEFAULT_BUF_SIZE];
+    let mut buf = vec![0; buffer_size];
     let mut len = 0;
     loop {
         signals.check(&span)?;
-        let n = match reader.read(buf) {
+        let n = match reader.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => n,
             Err(e) if e.kind() == ErrorKind::Interrupted => continue,
