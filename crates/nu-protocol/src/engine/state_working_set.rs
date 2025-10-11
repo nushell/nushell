@@ -626,7 +626,7 @@ impl<'a> StateWorkingSet<'a> {
             name.insert(0, b'$');
         }
 
-        self.last_overlay_mut().vars.insert(name, next_id);
+        self.last_overlay_mut().insert_variable(name, next_id);
 
         self.delta.vars.push(Variable::new(span, ty, mutable));
 
