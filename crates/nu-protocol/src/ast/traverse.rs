@@ -205,9 +205,7 @@ impl Traverse for Expression {
                     | Expr::Subexpression(block_id)
                     | Expr::Block(block_id)
                     | Expr::Closure(block_id) => {
-                        // Clone the block_id to create an owned value
-                        let block_id = block_id.to_owned();
-                        let block = working_set.get_block(block_id);
+                        let block = working_set.get_block(*block_id);
                         block.find_map(working_set, f)
                     }
                     Expr::Range(range) => [&range.from, &range.next, &range.to]
