@@ -4250,6 +4250,7 @@ dependencies = [
  "log",
  "lscolors",
  "nu-ansi-term",
+ "nu-cmd-base",
  "nu-color-config",
  "nu-engine",
  "nu-json",
@@ -4260,8 +4261,12 @@ dependencies = [
  "nu-table",
  "nu-utils",
  "ratatui",
+ "serde",
+ "serde_json",
  "strip-ansi-escapes",
+ "tempfile",
  "unicode-width 0.2.0",
+ "which",
 ]
 
 [[package]]

@@ -1,4 +1,5 @@
 mod command;
+mod editor;
 mod lscolor;
 mod string;
 mod table;
@@ -13,9 +14,9 @@ pub use nu_protocol::{Config as NuConfig, Span as NuSpan};
 pub type NuText = (String, TextStyle);
 
 pub use command::run_command_with_value;
+pub use editor::edit_value_with_editor;
 pub use lscolor::{create_lscolors, lscolorize};
 pub use string::{string_width, truncate_str};
-pub use table::try_build_table;
 pub use value::{collect_input, collect_pipeline, create_map};
 
 pub fn has_simple_value(data: &[Vec<Value>]) -> Option<&Value> {
