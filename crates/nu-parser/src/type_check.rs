@@ -620,7 +620,12 @@ pub fn math_result_type(
                 }
             }
         }
-        Operator::Comparison(Comparison::StartsWith | Comparison::EndsWith) => {
+        Operator::Comparison(
+            Comparison::StartsWith
+            | Comparison::NotStartsWith
+            | Comparison::EndsWith
+            | Comparison::NotEndsWith,
+        ) => {
             match (&lhs.ty, &rhs.ty) {
                 (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
                 // TODO: should this include glob?

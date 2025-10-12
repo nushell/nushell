@@ -567,10 +567,26 @@ fn starts_with_operator_succeeds() -> TestResult {
 }
 
 #[test]
+fn not_starts_with_operator_succeeds() -> TestResult {
+    run_test(
+        r#"[Moe Larry Curly] | where $it not-starts-with L | str join"#,
+        "MoeCurly",
+    )
+}
+
+#[test]
 fn ends_with_operator_succeeds() -> TestResult {
     run_test(
         r#"[Moe Larry Curly] | where $it ends-with ly | str join"#,
         "Curly",
+    )
+}
+
+#[test]
+fn not_ends_with_operator_succeeds() -> TestResult {
+    run_test(
+        r#"[Moe Larry Curly] | where $it not-ends-with y | str join"#,
+        "Moe",
     )
 }
 

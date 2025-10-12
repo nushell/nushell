@@ -174,7 +174,13 @@ fn description(operator: &Operator) -> &'static str {
             "Checks if a list does not contain a value, a string does not contain another, or if a record does not have a key."
         }
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
+        Operator::Comparison(Comparison::NotStartsWith) => {
+            "Checks if a string does not start with another."
+        }
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
+        Operator::Comparison(Comparison::NotEndsWith) => {
+            "Checks if a string does not end with another."
+        }
         Operator::Math(Math::Add) => "Adds two values.",
         Operator::Math(Math::Subtract) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",
