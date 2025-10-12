@@ -143,8 +143,13 @@ pub trait Command: Send + Sync + CommandClone {
     }
 
     #[allow(unused_variables)]
-    fn get_completion(&self, flag_name: &str) -> Option<Vec<String>> {
-        None
+    fn get_completion(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<Option<Vec<String>>, ShellError> {
+        Ok(None)
     }
 
     /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
