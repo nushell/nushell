@@ -5,7 +5,6 @@ use crate::completions::{
     VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
-use log::{info, warn};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
@@ -568,7 +567,6 @@ impl NuCompleter {
                         };
                         self.process_completion(&mut flag_completions, &ctx)
                     };
-                    log::warn!("arg: {arg:?}");
                     // Prioritize argument completions over (sub)commands
                     suggestions.splice(
                         0..0,
@@ -850,7 +848,6 @@ impl NuCompleter {
             _ => (),
         }
 
-        warn!("arguments: {arguments:?}, indices: {positional_arg_indices:?}, pos: {pos}");
         // general positional arguments
         let file_completion_helper = || self.process_completion(&mut FileCompletion, ctx);
         match &expr.expr {

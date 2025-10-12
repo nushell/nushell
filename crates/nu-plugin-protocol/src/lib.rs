@@ -57,6 +57,15 @@ pub struct CallInfo<D> {
     pub input: D,
 }
 
+/// Information about `get_completion` of a plugin call invocation.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetCompletionInfo {
+    /// The name of the command to be run.
+    pub name: String,
+    /// The flag name to get completion items.
+    pub flag_name: String,
+}
+
 impl<D> CallInfo<D> {
     /// Convert the type of `input` from `D` to `T`.
     pub fn map_data<T>(
@@ -161,7 +170,7 @@ pub enum PluginCall<D> {
     Metadata,
     Signature,
     Run(CallInfo<D>),
-    GetCompletion(String),
+    GetCompletion(GetCompletionInfo),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
 }
 
