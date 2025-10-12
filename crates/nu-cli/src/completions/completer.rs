@@ -568,14 +568,27 @@ impl NuCompleter {
                         };
                         self.process_completion(&mut flag_completions, &ctx)
                     };
+                    log::warn!("arg: {arg:?}");
                     // Prioritize argument completions over (sub)commands
                     suggestions.splice(
                         0..0,
                         match arg {
                             // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
+                            Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
+                                let mut result = flag_completion_helper();
+                                if val.is_some() {
+                                    let mut flag_value_completion = FlagValueCompletion {
+                                        decl_id: call.decl_id,
+                                        flag_name: name.as_ref().item.as_str(),
+                                    };
+                                    result.append(
+                                        &mut self
+                                            .process_completion(&mut flag_value_completion, &ctx),
+                                    );
+                                }
+                                result
+                            }
+                            Argument::Unknown(_) if prefix.starts_with(b"-") => {
                                 flag_completion_helper()
                             }
                             // only when `strip` == false
@@ -840,18 +853,8 @@ impl NuCompleter {
                 self.process_completion(&mut DirectoryCompletion, ctx)
             }
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
-            _ => {
-                // NOTE: for flag value completion, the rule is:
-                // if the argument before the last `positional_arg_indices` is a Named argument
-                // we can call FlagValueCompletion.
-                let flag_value_completion = self.process_completion(&mut FlagValueCompletion, ctx);
-                // fallback to file completion if necessary
-                if flag_value_completion.is_empty() && *need_fallback {
-                    file_completion_helper()
-                } else {
-                    vec![]
-                }
-            }
+            _ if *need_fallback => file_completion_helper(),
+            _ => vec![],
         }
     }
 
