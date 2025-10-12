@@ -123,4 +123,33 @@ impl Command for PluginDeclaration {
     fn plugin_identity(&self) -> Option<&PluginIdentity> {
         Some(&self.source.identity)
     }
+
+    fn get_completion(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<Option<Vec<String>>, ShellError> {
+        // Get the engine config
+        let engine_config = stack.get_config(engine_state);
+
+        // Get, or start, the plugin.
+        let plugin = self
+            .source
+            .persistent(None)
+            .and_then(|p| {
+                // Set the garbage collector config from the local config before running
+                p.set_gc_config(engine_config.plugin_gc.get(p.identity().name()));
+                p.get_plugin(Some((engine_state, stack)))
+            })
+            .map_err(|err| ShellError::GenericError {
+                error: "failed to get custom completion".to_string(),
+                msg: err.to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })?;
+
+        plugin.get_completion(flag_name)
+    }
 }

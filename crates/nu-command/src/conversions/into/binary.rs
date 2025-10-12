@@ -139,15 +139,20 @@ impl Command for IntoBinary {
         ]
     }
 
-    fn get_completion(&self, flag_name: &str) -> Option<Vec<String>> {
-        match flag_name {
+    fn get_completion(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<Option<Vec<String>>, ShellError> {
+        Ok(match flag_name {
             "endian" => Some(vec![
                 "native".to_string(),
                 "little".to_string(),
                 "big".to_string(),
             ]),
             _ => None,
-        }
+        })
     }
 }
 

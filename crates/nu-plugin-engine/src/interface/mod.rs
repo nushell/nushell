@@ -736,6 +736,9 @@ impl PluginInterface {
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
             }
+            PluginCall::GetCompletion(flag_name) => {
+                (PluginCall::GetCompletion(flag_name), Default::default())
+            }
             PluginCall::Run(CallInfo { name, call, input }) => {
                 let (header, writer) = self.init_write_pipeline_data(input, &state)?;
                 (
@@ -961,6 +964,17 @@ impl PluginInterface {
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Run call".into(),
+            }),
+        }
+    }
+
+    /// Get completion items from the plugin.
+    pub fn get_completion(&self, flag_name: &str) -> Result<Option<Vec<String>>, ShellError> {
+        match self.plugin_call(PluginCall::GetCompletion(flag_name.to_string()), None)? {
+            PluginCallResponse::CompletionItems(items) => Ok(items),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response to plugin GetCompletion call".into(),
             }),
         }
     }
@@ -1271,6 +1285,7 @@ impl CurrentCallState {
         match call {
             PluginCall::Metadata => Ok(()),
             PluginCall::Signature => Ok(()),
+            PluginCall::GetCompletion(flag_name) => Ok(()),
             PluginCall::Run(CallInfo { call, .. }) => self.prepare_call_args(call, source),
             PluginCall::CustomValueOp(_, op) => {
                 // Handle anything within the op.
