@@ -575,18 +575,24 @@ impl NuCompleter {
                         match arg {
                             // flags
                             Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
-                                let mut result = flag_completion_helper();
-                                if val.is_some() {
-                                    let mut flag_value_completion = FlagValueCompletion {
-                                        decl_id: call.decl_id,
-                                        flag_name: name.as_ref().item.as_str(),
-                                    };
-                                    result.append(
-                                        &mut self
-                                            .process_completion(&mut flag_value_completion, &ctx),
-                                    );
+                                match val {
+                                    None => flag_completion_helper(),
+                                    Some(_) => {
+                                        let (new_span, prefix) = strip_placeholder_with_rsplit(
+                                            working_set,
+                                            &span,
+                                            |b| *b == b'=' || *b == b' ',
+                                            strip,
+                                        );
+                                        let ctx =
+                                            Context::new(working_set, new_span, prefix, offset);
+                                        let mut flag_value_completion = FlagValueCompletion {
+                                            decl_id: call.decl_id,
+                                            flag_name: name.as_ref().item.as_str(),
+                                        };
+                                        self.process_completion(&mut flag_value_completion, &ctx)
+                                    }
                                 }
-                                result
                             }
                             Argument::Unknown(_) if prefix.starts_with(b"-") => {
                                 flag_completion_helper()

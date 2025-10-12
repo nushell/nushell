@@ -40,18 +40,9 @@ impl<'a> Completer for FlagValueCompletion<'a> {
         };
 
         let decl = working_set.get_decl(self.decl_id);
-        let sig = decl.signature();
-        for named in &sig.named {
-            if &named.long == self.flag_name {
-                if let Some(items) = decl.get_completion(self.flag_name) {
-                    for i in items {
-                        add_suggestion(format!("--{} {i}", self.flag_name));
-                        if let Some(short) = named.short {
-                            add_suggestion(format!("-{short} {i}"))
-                        }
-                    }
-                }
-                break;
+        if let Some(items) = decl.get_completion(self.flag_name) {
+            for i in items {
+                add_suggestion(i);
             }
         }
         let res = matcher.results();
