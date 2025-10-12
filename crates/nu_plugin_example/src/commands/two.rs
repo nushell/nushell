@@ -59,4 +59,13 @@ impl SimplePluginCommand for Two {
 
         Ok(Value::list(vals, call.head))
     }
+
+    fn get_completion(
+        &self,
+        _plugin: &Self::Plugin,
+        _engine: &EngineInterface,
+        _flag_name: &str,
+    ) -> Option<Vec<String>> {
+        Some(vec!["1".to_string(), "2".to_string()])
+    }
 }

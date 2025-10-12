@@ -41,3 +41,7 @@ pub use for_each::ForEach;
 pub use generate::Generate;
 pub use seq::Seq;
 pub use sum::Sum;
+
+// Flag auto completion demos
+mod flag_completion;
+pub use flag_completion::FlagCompletion;
