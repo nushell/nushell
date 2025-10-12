@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_plugin_protocol::{CallInfo, EvaluatedCall};
+use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionInfo};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 
@@ -150,6 +150,9 @@ impl Command for PluginDeclaration {
                 inner: vec![],
             })?;
 
-        plugin.get_completion(flag_name)
+        plugin.get_completion(GetCompletionInfo {
+            name: self.name.clone(),
+            flag_name: flag_name.to_string(),
+        })
     }
 }

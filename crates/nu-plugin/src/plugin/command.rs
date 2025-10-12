@@ -151,6 +151,19 @@ pub trait PluginCommand: Sync {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError>;
+
+    #[allow(unused_variables)]
+    /// Get completion items for `flag_name`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag.
+    fn get_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        flag_value: &str,
+    ) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// The API for a simple Nushell plugin command
@@ -287,6 +300,19 @@ pub trait SimplePluginCommand: Sync {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
+
+    #[allow(unused_variables)]
+    /// Get completion items for `flag_name`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag.
+    fn get_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        flag_name: &str,
+    ) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// All [`SimplePluginCommand`]s can be used as [`PluginCommand`]s, but input streams will be fully
@@ -335,6 +361,16 @@ where
 
     fn description(&self) -> &str {
         <Self as SimplePluginCommand>::description(self)
+    }
+
+    #[allow(unused_variables)]
+    fn get_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        flag_name: &str,
+    ) -> Option<Vec<String>> {
+        <Self as SimplePluginCommand>::get_completion(self, plugin, engine, flag_name)
     }
 }
 
