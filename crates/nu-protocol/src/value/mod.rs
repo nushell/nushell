@@ -3903,6 +3903,27 @@ impl Value {
         }
     }
 
+    pub fn not_starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!lhs.starts_with(rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotStartsWith),
+                op,
+                rhs,
+            ),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::NotStartsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
     pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
@@ -3916,6 +3937,27 @@ impl Value {
             ),
             _ => Err(operator_type_error(
                 Operator::Comparison(Comparison::EndsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
+    pub fn not_ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!lhs.ends_with(rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotEndsWith),
+                op,
+                rhs,
+            ),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::NotEndsWith),
                 op,
                 self,
                 rhs,

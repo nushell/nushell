@@ -1035,7 +1035,9 @@ fn binary_op(
             Comparison::Has => lhs_val.has(op_span, &rhs_val, span)?,
             Comparison::NotHas => lhs_val.not_has(op_span, &rhs_val, span)?,
             Comparison::StartsWith => lhs_val.starts_with(op_span, &rhs_val, span)?,
+            Comparison::NotStartsWith => lhs_val.not_starts_with(op_span, &rhs_val, span)?,
             Comparison::EndsWith => lhs_val.ends_with(op_span, &rhs_val, span)?,
+            Comparison::NotEndsWith => lhs_val.not_ends_with(op_span, &rhs_val, span)?,
         },
         Operator::Math(mat) => match mat {
             Math::Add => lhs_val.add(op_span, &rhs_val, span)?,

@@ -282,7 +282,9 @@ pub trait Eval {
                             Comparison::Has => lhs.has(op_span, &rhs, expr_span),
                             Comparison::NotHas => lhs.not_has(op_span, &rhs, expr_span),
                             Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr_span),
+                            Comparison::NotStartsWith => lhs.not_starts_with(op_span, &rhs, expr_span),
                             Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr_span),
+                            Comparison::NotEndsWith => lhs.not_ends_with(op_span, &rhs, expr_span),
                             Comparison::RegexMatch => {
                                 Self::regex_match(state, op_span, &lhs, &rhs, false, expr_span)
                             }
