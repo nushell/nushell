@@ -16,7 +16,7 @@ impl<'a> Completer for FlagValueCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
+        stack: &Stack,
         prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
@@ -40,7 +40,11 @@ impl<'a> Completer for FlagValueCompletion<'a> {
         };
 
         let decl = working_set.get_decl(self.decl_id);
-        if let Some(items) = decl.get_completion(self.flag_name) {
+        let mut stack = stack.to_owned();
+        if let Some(items) = decl
+            .get_completion(working_set.permanent_state, &mut stack, self.flag_name)
+            .unwrap_or_default()
+        {
             for i in items {
                 add_suggestion(i);
             }
