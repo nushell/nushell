@@ -1,11 +1,7 @@
-use crate::{
-    EvalBlockWithEarlyReturnFn, eval_block_with_early_return, get_eval_block_with_early_return,
-    redirect_env,
-};
+use crate::{eval::CallEval, get_eval_block_with_early_return};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, ShellError, Signature, Span, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, Value,
     ast::Block,
-    debugger::{WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvVars, Stack},
 };
 use std::{
@@ -61,7 +57,7 @@ pub struct ClosureEval {
     block: Arc<Block>,
     env_vars: Vec<Arc<EnvVars>>,
     env_hidden: Arc<HashMap<String, HashSet<String>>>,
-    call_eval: ClosureEvalCommon,
+    call_eval: CallEval,
 }
 
 impl ClosureEval {
@@ -72,8 +68,9 @@ impl ClosureEval {
         let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
-        let call_eval = ClosureEvalCommon::new(
+        let call_eval = CallEval::new(
             callee_stack,
+            Span::unknown(),
             block.span.unwrap_or(Span::unknown()),
             get_eval_block_with_early_return(&engine_state),
         );
@@ -97,8 +94,9 @@ impl ClosureEval {
         let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
-        let call_eval = ClosureEvalCommon::new(
+        let call_eval = CallEval::new(
             callee_stack,
+            Span::unknown(),
             block.span.unwrap_or(Span::unknown()),
             get_eval_block_with_early_return(&engine_state),
         );
@@ -189,7 +187,7 @@ impl ClosureEval {
 pub struct ClosureEvalOnce<'a> {
     engine_state: &'a EngineState,
     block: &'a Block,
-    call_eval: ClosureEvalCommon,
+    call_eval: CallEval,
     caller_stack: Option<&'a mut Stack>,
 }
 
@@ -198,8 +196,9 @@ impl<'a> ClosureEvalOnce<'a> {
     pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
         let block = engine_state.get_block(closure.block_id);
         let callee_stack = stack.captures_to_stack(closure.captures);
-        let call_eval = ClosureEvalCommon::new(
+        let call_eval = CallEval::new(
             callee_stack,
+            Span::unknown(),
             block.span.unwrap_or(Span::unknown()),
             get_eval_block_with_early_return(engine_state),
         );
@@ -218,8 +217,9 @@ impl<'a> ClosureEvalOnce<'a> {
     ) -> Self {
         let block = engine_state.get_block(closure.block_id);
         let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let call_eval = ClosureEvalCommon::new(
+        let call_eval = CallEval::new(
             callee_stack,
+            Span::unknown(),
             block.span.unwrap_or(Span::unknown()),
             get_eval_block_with_early_return(engine_state),
         );
@@ -238,8 +238,9 @@ impl<'a> ClosureEvalOnce<'a> {
     ) -> Self {
         let block = engine_state.get_block(closure.block_id);
         let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let call_eval = ClosureEvalCommon::new(
+        let call_eval = CallEval::new(
             callee_stack,
+            Span::unknown(),
             block.span.unwrap_or(Span::unknown()),
             get_eval_block_with_early_return(engine_state),
         );
@@ -299,169 +300,3 @@ impl<'a> ClosureEvalOnce<'a> {
         self.run_with_input(value.into_pipeline_data())
     }
 }
-
-/// Code shared between [`ClosureEval`] and [`ClosureEvalOnce`]
-#[derive(Clone)]
-struct ClosureEvalCommon {
-    callee_stack: Stack,
-    callee_span: Span,
-    arg_index: usize,
-    rest_args: Vec<Value>,
-    eval: EvalBlockWithEarlyReturnFn,
-}
-
-impl ClosureEvalCommon {
-    /// Create a new [`CallEval`] context
-    pub fn new(callee_stack: Stack, callee_span: Span, eval: EvalBlockWithEarlyReturnFn) -> Self {
-        Self {
-            callee_stack,
-            callee_span,
-            arg_index: 0,
-            rest_args: Vec::new(),
-            eval,
-        }
-    }
-
-    /// Add a positional argument to the call stack.
-    ///
-    /// Returns an error if the given `value` does not match the type of
-    /// the argument according to the signature (see [`CallEval::new`]).
-    pub fn add_positional(
-        &mut self,
-        signature: &Signature,
-        value: Cow<Value>,
-    ) -> Result<&mut Self, ShellError> {
-        let maybe_param = if self.arg_index < signature.required_positional.len() {
-            signature.required_positional.get(self.arg_index)
-        } else if self.arg_index
-            < (signature.required_positional.len() + signature.optional_positional.len())
-        {
-            signature
-                .optional_positional
-                .get(self.arg_index - signature.required_positional.len())
-        } else {
-            None
-        };
-        if let Some(param) = maybe_param {
-            let param_type = param.shape.to_type();
-            if value.is_subtype_of(&param_type) {
-                let var_id = param
-                    .var_id
-                    .expect("internal error: all custom parameters must have var_ids");
-                self.callee_stack.add_var(var_id, value.into_owned());
-                self.arg_index += 1;
-                Ok(self)
-            } else {
-                Err(ShellError::CantConvert {
-                    to_type: param_type.to_string(),
-                    from_type: value.get_type().to_string(),
-                    span: value.span(),
-                    help: None,
-                })
-            }
-        } else {
-            // assign arg to rest params
-            if let Some(rest_positional) = &signature.rest_positional {
-                let param_type = rest_positional.shape.to_type();
-                if value.is_subtype_of(&param_type) {
-                    self.rest_args.push(value.into_owned());
-                    Ok(self)
-                } else {
-                    Err(ShellError::CantConvert {
-                        to_type: param_type.to_string(),
-                        from_type: value.get_type().to_string(),
-                        span: value.span(),
-                        help: None,
-                    })
-                }
-            } else {
-                // We do not consider it an error if more arguments
-                // are added than the closure takes. This makes it possible
-                // to omit any unused arguments in the closure definition.
-                Ok(self)
-            }
-        }
-    }
-
-    /// Sets the environment variables for the call.
-    pub fn with_env(
-        &mut self,
-        env_vars: &[Arc<EnvVars>],
-        env_hidden: &Arc<HashMap<String, HashSet<String>>>,
-    ) -> &mut Self {
-        self.callee_stack.with_env(env_vars, env_hidden);
-        self
-    }
-
-    /// Sets whether to enable debugging when evaluating the closure.
-    pub fn debug(&mut self, debug: bool) -> &mut Self {
-        if debug {
-            self.eval = eval_block_with_early_return::<WithDebug>
-        } else {
-            self.eval = eval_block_with_early_return::<WithoutDebug>
-        };
-        self
-    }
-
-    /// Run the given block.
-    pub fn run(
-        &mut self,
-        engine_state: &EngineState,
-        block: &Block,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        self.finalize_arguments(&block.signature)?;
-        self.arg_index = 0;
-        self.rest_args.clear();
-        (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
-    }
-
-    /// Export the modified environment from callee to the caller.
-    pub fn redirect_env(&self, engine_state: &EngineState, stack: &mut Stack) {
-        redirect_env(engine_state, stack, &self.callee_stack);
-    }
-
-    /// Add default and rest values to the stack, raise error on
-    /// missing parameters.
-    fn finalize_arguments(&mut self, signature: &Signature) -> Result<(), ShellError> {
-        for (num, (param, required)) in signature
-            .required_positional
-            .iter()
-            .map(|p| (p, true))
-            .chain(signature.optional_positional.iter().map(|p| (p, false)))
-            .enumerate()
-        {
-            let var_id = param
-                .var_id
-                .expect("internal error: all custom parameters must have var_ids");
-            if num < self.arg_index {
-                // parameter has been added by add_positional
-            } else if let Some(value) = &param.default_value {
-                self.callee_stack.add_var(var_id, value.to_owned());
-            } else if !required {
-                self.callee_stack
-                    .add_var(var_id, Value::nothing(self.callee_span.to_owned()));
-            } else {
-                return Err(ShellError::MissingParameter {
-                    param_name: param.name.to_string(),
-                    span: self.callee_span.to_owned(),
-                });
-            }
-        }
-        if let Some(rest_positional) = &signature.rest_positional {
-            let span = if let Some(rest_item) = self.rest_args.first() {
-                rest_item.span()
-            } else {
-                self.callee_span.to_owned()
-            };
-            self.callee_stack.add_var(
-                rest_positional
-                    .var_id
-                    .expect("Internal error: rest positional parameter lackes var_id"),
-                Value::list(self.rest_args.to_owned(), span),
-            );
-        }
-        Ok(())
-    }
-}
-
