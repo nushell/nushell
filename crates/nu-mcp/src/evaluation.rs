@@ -5,7 +5,7 @@ use moka::sync::Cache;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, PipelineExecutionData, Value,
+    Config, PipelineData, PipelineExecutionData, UseAnsiColoring, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     write_all_and_flush,
@@ -24,12 +24,18 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(engine_state: Arc<EngineState>) -> Self {
+        // Disable ANSI coloring for MCP - it's a computer-to-computer protocol
+        let mut engine_state = Arc::unwrap_or_clone(engine_state);
+        let mut config = Config::clone(engine_state.get_config());
+        config.use_ansi_coloring = UseAnsiColoring::False;
+        engine_state.set_config(config);
+
         let cache = Cache::builder()
             .max_capacity(100)
             .time_to_live(std::time::Duration::from_secs(300))
             .build();
         Self {
-            engine_state,
+            engine_state: Arc::new(engine_state),
             cache,
         }
     }
@@ -48,7 +54,7 @@ impl Evaluator {
             // Check for parse errors
             if let Some(err) = working_set.parse_errors.first() {
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, err, Some("nu::parser::error")),
+                    nu_protocol::format_cli_error(&working_set, err, None),
                     None,
                 ));
             }
@@ -57,7 +63,7 @@ impl Evaluator {
             // These are caught during the parse/compile phase, before evaluation
             if let Some(err) = working_set.compile_errors.first() {
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, err, Some("nu::compile::error")),
+                    nu_protocol::format_cli_error(&working_set, err, None),
                     None,
                 ));
             }
