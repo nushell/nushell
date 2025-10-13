@@ -57,6 +57,7 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 ///
 /// Environment isolation and other cleanup is handled by [`ClosureEval`],
 /// so nothing needs to be done following [`ClosureEval::run_with_input`] or [`ClosureEval::run_with_value`].
+#[derive(Clone)]
 pub struct ClosureEval {
     engine_state: EngineState,
     stack: Stack,
