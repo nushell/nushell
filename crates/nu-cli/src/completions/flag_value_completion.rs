@@ -22,6 +22,9 @@ impl<'a> Completer for FlagValueCompletion<'a> {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
+        // the `prefix` is the value of a flag
+        // if user input `--foo abc`, then the `prefix` here is abc.
+        // the name of flag is saved in `self.flag_name`.
         let mut matcher = NuMatcher::new(prefix, options);
         let mut add_suggestion = |value: String| {
             matcher.add_semantic_suggestion(SemanticSuggestion {
