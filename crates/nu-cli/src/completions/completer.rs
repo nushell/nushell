@@ -576,6 +576,8 @@ impl NuCompleter {
                                 match val {
                                     None => flag_completion_helper(),
                                     Some(_) => {
+                                        // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
+                                        // to make a user friendly completion items.
                                         let (new_span, prefix) = strip_placeholder_with_rsplit(
                                             working_set,
                                             &span,
