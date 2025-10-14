@@ -2,6 +2,11 @@
 name = "nu-mcp"
 version = "0.107.1"
 edition = "2024"
+authors = ["The Nushell Project Developers"]
+description = "Modules to run a model context protocol (MCP) server that provides Nushell as a tool."
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-mcp"
+homepage = "https://www.nushell.sh"
+license = "MIT"
 
 [dependencies]
 futures = "0.3.31"
