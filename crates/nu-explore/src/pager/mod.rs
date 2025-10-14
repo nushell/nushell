@@ -235,17 +235,23 @@ fn render_ui(
         }
 
         if !cmd_name.is_empty() {
-            if let Some(r) = info.report.as_mut() {
-                r.message = cmd_name;
-                r.level = Severity::Success;
+            // Check if we need to force a redraw after editor
+            if cmd_name == "force_redraw" {
+                force_redraw_after_editor(term);
+                // Don't show a success message for force_redraw
             } else {
-                info.report = Some(Report::success(cmd_name));
-            }
+                if let Some(r) = info.report.as_mut() {
+                    r.message = cmd_name;
+                    r.level = Severity::Success;
+                } else {
+                    info.report = Some(Report::success(cmd_name));
+                }
 
-            let info = info.clone();
-            term.draw(|f| {
-                draw_info(f, pager, info);
-            })?;
+                let info = info.clone();
+                term.draw(|f| {
+                    draw_info(f, pager, info);
+                })?;
+            }
         }
 
         if pager.cmd_buf.run_cmd {
@@ -304,24 +310,37 @@ fn react_to_event_result(
                 );
             }
 
-            // try to pop the view stack
-            if let Some(v) = view_stack.stack.pop() {
-                view_stack.curr_view = Some(v);
+            // Get the exit value from the current view before popping
+            let child_exit_value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
+
+            // Pop the view stack
+            if let Some(mut parent_view) = view_stack.stack.pop() {
+                // Let the parent view handle the result from the child view
+                if let Some(ref exit_value) = child_exit_value {
+                    let _ = parent_view.view.handle_child_result(Some(exit_value.clone()));
+                }
+                view_stack.curr_view = Some(parent_view);
             }
 
             (None, String::default())
         }
         Transition::Cmd(cmd) => {
-            let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
-            match out {
-                Ok(result) if result.exit => (
-                    Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
-                    String::default(),
-                ),
-                Ok(result) => (None, result.cmd_name),
-                Err(err) => {
-                    info.report = Some(Report::error(err));
-                    (None, String::default())
+            // Handle special force_redraw command
+            if cmd == "force_redraw" {
+                // We'll handle this in the render loop by forcing a redraw
+                (None, "force_redraw".to_string())
+            } else {
+                let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
+                match out {
+                    Ok(result) if result.exit => (
+                        Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
+                        String::default(),
+                    ),
+                    Ok(result) => (None, result.cmd_name),
+                    Err(err) => {
+                        info.report = Some(Report::error(err));
+                        (None, String::default())
+                    }
                 }
             }
         }
@@ -336,6 +355,30 @@ fn peek_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Optio
     } else {
         None
     }
+}
+
+/// Force a complete redraw after external editor
+/// This implements joshka's buffer swapping approach from GitHub issue #1606
+fn force_redraw_after_editor(term: &mut Terminal) {
+    // Use the buffer swapping technique to force complete redraw
+    term.swap_buffers();
+    
+    // Get terminal size before getting mutable buffer
+    let terminal_size = term.size().unwrap_or(ratatui::layout::Size { width: 80, height: 24 });
+    let buffer = term.current_buffer_mut();
+    
+    // Write junk to all positions to force complete redraw
+    // This only affects the alternate screen buffer, not the main terminal
+    for y in 0..terminal_size.height {
+        for x in 0..terminal_size.width {
+            let pos = ratatui::layout::Position { x, y };
+            if let Some(cell) = buffer.cell_mut(pos) {
+                cell.set_symbol("REDRAW"); // Junk that will never match UI
+            }
+        }
+    }
+    
+    term.swap_buffers();
 }
 
 fn draw_frame(

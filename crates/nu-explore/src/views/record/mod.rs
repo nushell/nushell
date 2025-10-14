@@ -16,7 +16,7 @@ use crate::{
     views::ElementInfo,
 };
 use anyhow::Result;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     Config, Record, Value,
@@ -33,6 +33,10 @@ pub struct RecordView {
     mode: UIMode,
     orientation: Orientation,
     cfg: ExploreConfig,
+    // Store edit context when transitioning to EditView
+    pending_edit_position: Option<(usize, usize)>,
+    // Track the root data to enable persistence across navigation
+    root_data: Option<Value>,
 }
 
 impl RecordView {
@@ -42,8 +46,24 @@ impl RecordView {
             mode: UIMode::View,
             orientation: Orientation::Top,
             cfg,
+            pending_edit_position: None,
+            root_data: None, // Will be set when we need persistence
         }
     }
+
+    /// Create a new RecordView with root data tracking for persistence
+    pub fn new_with_persistence(columns: Vec<String>, records: Vec<Vec<Value>>, cfg: ExploreConfig, original_value: Value) -> Self {
+        Self {
+            layer_stack: vec![RecordLayer::new(columns, records)],
+            mode: UIMode::View,
+            orientation: Orientation::Top,
+            cfg,
+            pending_edit_position: None,
+            root_data: Some(original_value), // Enable persistence from the start
+        }
+    }
+
+    /// Initialize root data for persistence when exploring nested structures
 
     pub fn tail(&mut self, width: u16, height: u16) {
         let page_size =
@@ -116,6 +136,234 @@ impl RecordView {
         assert!(column < layer.column_names.len(), "column out of bounds");
 
         &layer.record_values[row][column]
+    }
+
+    /// Get current value from root_data if available, using navigation path
+    fn get_current_value_from_root(&self) -> Option<Value> {
+        if let Some(ref root_data) = self.root_data {
+            let current_layer = self.get_top_layer();
+            let path = &current_layer.navigation_path;
+            let current_pos = self.get_cursor_position();
+            
+            // Build complete path including current position
+            let mut full_path = path.clone();
+            let (row, col) = match current_layer.orientation {
+                Orientation::Top => (current_pos.row, current_pos.column),
+                Orientation::Left => (current_pos.column, current_pos.row),
+            };
+            full_path.push((row, col));
+            
+            // Navigate to the correct position in root data
+            Self::get_value_at_path(root_data, &full_path).cloned()
+        } else {
+            None
+        }
+    }
+
+    /// Navigate through nested structure to get value at path
+    fn get_value_at_path<'a>(root: &'a Value, path: &[(usize, usize)]) -> Option<&'a Value> {
+        let mut current = root;
+        
+        for &(row, col) in path {
+            current = match current {
+                Value::Record { val, .. } => {
+                    let keys: Vec<_> = val.columns().map(|s| s.to_string()).collect();
+                    if col >= keys.len() {
+                        return None;
+                    }
+                    let key = &keys[col];
+                    val.get(key)?
+                }
+                Value::List { vals, .. } => {
+                    if row >= vals.len() {
+                        return None;
+                    }
+                    &vals[row]
+                }
+                _ => return None,
+            };
+        }
+        
+        Some(current)
+    }
+
+    fn update_cell_at_position(&mut self, position: (usize, usize), new_value: Value) -> Result<(), String> {
+        let layer = self.get_top_layer_mut();
+        
+        let (row, column) = match layer.orientation {
+            Orientation::Top => (position.0, position.1),
+            Orientation::Left => (position.1, position.0),
+        };
+
+        if row >= layer.record_values.len() {
+            return Err("Row index out of bounds".to_string());
+        }
+        
+        if column >= layer.record_values[row].len() {
+            return Err("Column index out of bounds".to_string());
+        }
+
+        // Update the value
+        layer.record_values[row][column] = new_value;
+        
+        // Invalidate the text cache to force re-render
+        layer.record_text = None;
+        
+        Ok(())
+    }
+
+    fn edit_current_cell_direct(
+        &mut self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+    ) -> Result<(), String> {
+        use crate::nu_common::edit_value_with_editor;
+        use nu_protocol::Span;
+
+        let current_value = self.get_current_value().clone();
+        
+
+        // Edit the value using the common editor function
+        match edit_value_with_editor(&current_value, engine_state, stack, Span::unknown()) {
+            Ok(new_value) => {
+                
+                self.update_cell_at_current_position(new_value.clone())?;
+                
+                // If we have root data, propagate the change back
+                if self.root_data.is_some() {
+                    self.propagate_edit_to_root(new_value.clone())?;
+                }
+                
+                Ok(())
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// Propagate edit changes back to the root data structure
+    fn propagate_edit_to_root(&mut self, new_value: Value) -> Result<(), String> {
+        if self.root_data.is_some() {
+            let current_layer = self.get_top_layer();
+            let path = &current_layer.navigation_path;
+            let current_pos = self.get_cursor_position();
+            
+            // Build complete path including current position
+            let mut full_path = path.clone();
+            let (row, col) = match current_layer.orientation {
+                Orientation::Top => (current_pos.row, current_pos.column),
+                Orientation::Left => (current_pos.column, current_pos.row),
+            };
+            full_path.push((row, col));
+            
+            
+            // Navigate to the correct position in root data and update
+            self.update_nested_value(&full_path, new_value)?;
+            
+        }
+        Ok(())
+    }
+
+    /// Navigate through nested structure and update value at path
+    fn update_nested_value(&mut self, path: &[(usize, usize)], new_value: Value) -> Result<(), String> {
+        if let Some(ref mut root_data) = self.root_data {
+            Self::update_nested_value_static(root_data, path, new_value)?;
+        }
+        Ok(())
+    }
+    
+    /// Static helper to update nested value without borrowing self
+    fn update_nested_value_static(root: &mut Value, path: &[(usize, usize)], new_value: Value) -> Result<(), String> {
+        let mut current = root;
+        
+        // Navigate to the parent of the target
+        for &(row, col) in &path[..path.len().saturating_sub(1)] {
+            current = Self::navigate_to_child_static(current, row, col)?;
+        }
+        
+        // Update the final target
+        if let Some(&(final_row, final_col)) = path.last() {
+            Self::set_value_at_position_static(current, final_row, final_col, new_value)?;
+        }
+        
+        Ok(())
+    }
+
+    /// Navigate to a child value in a nested structure (static version)
+    fn navigate_to_child_static(value: &mut Value, row: usize, col: usize) -> Result<&mut Value, String> {
+        match value {
+            Value::Record { val, .. } => {
+                let keys: Vec<_> = val.columns().map(|s| s.to_string()).collect();
+                if col >= keys.len() {
+                    return Err("Column index out of bounds in record".to_string());
+                }
+                let key = &keys[col];
+                let val_mut = val.to_mut();
+                val_mut.get_mut(key).ok_or("Key not found in record".to_string())
+            }
+            Value::List { vals, .. } => {
+                if row >= vals.len() {
+                    return Err("Row index out of bounds in list".to_string());
+                }
+                Ok(&mut vals[row])
+            }
+            _ => Err("Cannot navigate into non-container value".to_string()),
+        }
+    }
+
+    /// Set value at specific position in a container (static version)
+    fn set_value_at_position_static(container: &mut Value, row: usize, col: usize, new_value: Value) -> Result<(), String> {
+        match container {
+            Value::Record { val, .. } => {
+                let keys: Vec<_> = val.columns().map(|s| s.to_string()).collect();
+                if col >= keys.len() {
+                    return Err("Column index out of bounds in record".to_string());
+                }
+                let key = &keys[col];
+                let val_mut = val.to_mut();
+                if let Some(existing_value) = val_mut.get_mut(key) {
+                    *existing_value = new_value;
+                    Ok(())
+                } else {
+                    Err("Key not found in record".to_string())
+                }
+            }
+            Value::List { vals, .. } => {
+                // For a top-level list, use col as the index (row is 0 for table layout)
+                let index = if row == 0 { col } else { row };
+                if index >= vals.len() {
+                    return Err("Index out of bounds in list".to_string());
+                }
+                vals[index] = new_value;
+                Ok(())
+            }
+            _ => Err("Cannot set value in non-container".to_string()),
+        }
+    }
+
+    fn update_cell_at_current_position(&mut self, new_value: Value) -> Result<(), String> {
+        let position = self.get_cursor_position();
+        let layer = self.get_top_layer_mut();
+
+        let (row, column) = match layer.orientation {
+            Orientation::Top => (position.row, position.column),
+            Orientation::Left => (position.column, position.row),
+        };
+
+        if row >= layer.record_values.len() {
+            return Err("Row index out of bounds".to_string());
+        }
+        
+        if column >= layer.record_values[row].len() {
+            return Err("Column index out of bounds".to_string());
+        }
+
+        // Update the value
+        layer.record_values[row][column] = new_value;
+        
+        // Invalidate the text cache to force re-render
+        layer.record_text = None;
+        
+        Ok(())
     }
 
     fn create_table_widget<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
@@ -208,12 +456,40 @@ impl View for RecordView {
 
     fn handle_input(
         &mut self,
-        _: &EngineState,
-        _: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         _: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Transition {
+        // Handle Ctrl+O for editing current cell
+        if let KeyEvent {
+            modifiers: KeyModifiers::CONTROL,
+            code: KeyCode::Char('o'),
+            ..
+        } = key
+        {
+            // Only allow editing in Cursor mode (when a specific cell is selected)
+            if self.mode == UIMode::Cursor {
+                match self.edit_current_cell_direct(_engine_state, _stack) {
+                    Ok(()) => {
+                        info.status = Some(Report::info("Cell edited successfully"));
+                        // Signal that we need a force redraw by returning a special transition
+                        return Transition::Cmd("force_redraw".to_string());
+                    }
+                    Err(e) => {
+                        info.status = Some(Report::message(format!("Edit failed: {}", e), Severity::Err));
+                        return Transition::None;
+                    }
+                }
+            } else {
+                let report = Report::message("Enter cursor mode first (press 'i' or Enter) to edit cells", Severity::Info);
+                info.status = Some(report);
+                return Transition::None;
+            }
+        }
+
+        // Handle other keys using the cursor handler
         match self.handle_input_key(&key) {
             Ok((transition, ..)) => {
                 if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
@@ -275,6 +551,34 @@ impl View for RecordView {
     fn exit(&mut self) -> Option<Value> {
         Some(build_last_value(self))
     }
+
+    fn handle_child_result(&mut self, child_exit_value: Option<Value>) -> Result<(), String> {
+        // If we have a pending edit and received a value back from EditView
+        if let (Some(position), Some(new_value)) = (&self.pending_edit_position, &child_exit_value) {
+            self.update_cell_at_position(position.clone(), new_value.clone())?;
+            self.pending_edit_position = None; // Clear the pending edit
+        } else {
+            // Even if there's no pending edit, we should consider updating our data
+            // This happens when a child view (like a nested record) was modified
+            if let Some(new_value) = child_exit_value {
+                // Update the current cell with the modified child data
+                if self.mode == UIMode::Cursor {
+                    match self.update_cell_at_current_position(new_value.clone()) {
+                        Ok(()) => {
+                            // Also propagate to root_data if it exists
+                            if self.root_data.is_some() {
+                                let _ = self.propagate_edit_to_root(new_value);
+                            }
+                        },
+                        Err(_) => {
+                            // Failed to update current cell, ignore for now
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 fn get_element_info(
@@ -316,6 +620,8 @@ pub struct RecordLayer {
     name: Option<String>,
     was_transposed: bool,
     cursor: WindowCursor2D,
+    // Path from root to this layer: [(row, column), (row, column), ...]
+    navigation_path: Vec<(usize, usize)>,
 }
 
 impl RecordLayer {
@@ -334,6 +640,7 @@ impl RecordLayer {
             orientation: Orientation::Top,
             name: None,
             was_transposed: false,
+            navigation_path: Vec::new(),
         }
     }
 
@@ -375,7 +682,16 @@ impl CursorMoveHandler for RecordView {
         match self.mode {
             UIMode::View => self.set_cursor_mode(),
             UIMode::Cursor => {
-                let value = self.get_current_value();
+                // Get the current value, preferring root_data if available
+                let value_from_root = self.get_current_value_from_root();
+                let value_from_layer = self.get_current_value().clone();
+                let value = value_from_root.clone().unwrap_or_else(|| value_from_layer.clone());
+                
+                // Debug: log navigation
+                std::fs::write("/tmp/nu_explore_nav_debug.txt", format!(
+                    "=== NAVIGATION ===\nValue from root: {:?}\nValue from layer: {:?}\nUsing value: {:?}\nHas root_data: {}\n", 
+                    value_from_root, value_from_layer, value, self.root_data.is_some()
+                )).ok();
 
                 // ...but it only makes sense to drill down into a few types of values
                 if !matches!(
@@ -386,7 +702,7 @@ impl CursorMoveHandler for RecordView {
                 }
 
                 let is_record = matches!(value, Value::Record { .. });
-                let next_layer = create_layer(value.clone())?;
+                let next_layer = create_layer(value)?;
                 push_layer(self, next_layer);
 
                 if is_record {
@@ -466,6 +782,15 @@ fn create_layer(value: Value) -> Result<RecordLayer> {
 fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
     let layer = view.get_top_layer();
     let header = layer.get_column_header();
+    
+    // Build navigation path: copy parent path + add current position
+    next_layer.navigation_path = layer.navigation_path.clone();
+    let current_pos = layer.cursor.position();
+    let (row, col) = match layer.orientation {
+        Orientation::Top => (current_pos.row, current_pos.column),
+        Orientation::Left => (current_pos.column, current_pos.row),
+    };
+    next_layer.navigation_path.push((row, col));
 
     if let Some(header) = header {
         next_layer.set_name(header);
@@ -525,6 +850,12 @@ fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig
 }
 
 fn build_last_value(v: &RecordView) -> Value {
+    // If we have root_data that has been potentially modified by edits,
+    // prefer returning it over building from current layer
+    if let Some(ref root_data) = v.root_data {
+        return root_data.clone();
+    }
+    
     if v.mode == UIMode::Cursor {
         v.get_current_value().clone()
     } else if v.get_top_layer().count_rows() < 2 {

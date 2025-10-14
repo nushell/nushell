@@ -102,6 +102,11 @@ pub trait View {
     fn exit(&mut self) -> Option<Value> {
         None
     }
+
+    /// Handle results from child views (e.g., edit results)
+    fn handle_child_result(&mut self, _child_exit_value: Option<Value>) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 impl View for Box<dyn View> {
@@ -131,5 +136,9 @@ impl View for Box<dyn View> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.as_mut().show_data(i)
+    }
+
+    fn handle_child_result(&mut self, child_exit_value: Option<Value>) -> Result<(), String> {
+        self.as_mut().handle_child_result(child_exit_value)
     }
 }

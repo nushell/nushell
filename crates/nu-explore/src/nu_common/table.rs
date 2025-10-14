@@ -6,6 +6,7 @@ use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
 };
 
+#[allow(dead_code)]
 pub fn try_build_table(
     value: Value,
     signals: &Signals,
@@ -33,6 +34,7 @@ pub fn try_build_table(
     }
 }
 
+#[allow(dead_code)]
 fn try_build_map(record: &Record, opts: TableOpts<'_>) -> String {
     let result = ExpandedTable::new(None, false, String::new()).build_map(record, opts.clone());
     match result {
@@ -44,6 +46,7 @@ fn try_build_map(record: &Record, opts: TableOpts<'_>) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn try_build_list(vals: Vec<Value>, opts: TableOpts<'_>) -> String {
     let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts.clone());
     match result {

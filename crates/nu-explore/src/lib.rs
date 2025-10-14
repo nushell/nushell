@@ -49,6 +49,7 @@ fn run_pager(
     }
 
     let (columns, data) = collect_pipeline(input)?;
+    
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
@@ -58,12 +59,26 @@ fn run_pager(
     p.show_message("For help type :help");
 
     if let Some(value) = has_simple_value(&data) {
-        let text = value.to_abbreviated_string(config.nu_config);
-        let view = Some(Page::new(Preview::new(&text), false));
+        let view = Some(Page::new(Preview::new(value.clone()), false));
         return p.run(engine_state, stack, view, commands);
     }
 
-    let view = create_record_view(columns, data, is_record, config);
+    // Create proper original value for persistence based on the data structure
+    let original_value = if !data.is_empty() {
+        if is_record && data.len() == 1 {
+            // Single record: extract the record from the first row, first column
+            data[0][0].clone()
+        } else {
+            // List of records: the data contains records, so extract them
+            let vals: Vec<Value> = data[0].clone(); // data is [[record1, record2, ...]]
+            Value::list(vals, nu_protocol::Span::unknown())
+        }
+    } else {
+        Value::list(vec![], nu_protocol::Span::unknown())
+    };
+
+
+    let view = create_record_view(columns, data, is_record, config, Some(original_value));
     p.run(engine_state, stack, view, commands)
 }
 
@@ -73,8 +88,15 @@ fn create_record_view(
     // wait, why would we use RecordView for something that isn't a record?
     is_record: bool,
     config: PagerConfig,
+    original_value: Option<Value>,
 ) -> Option<Page> {
-    let mut view = RecordView::new(columns, data, config.explore_config.clone());
+    // Use the original value if available, otherwise create a simple view without persistence
+    let mut view = if let Some(original) = original_value {
+        RecordView::new_with_persistence(columns, data, config.explore_config.clone(), original)
+    } else {
+        RecordView::new(columns, data, config.explore_config.clone())
+    };
+
     if is_record {
         view.set_top_layer_orientation(Orientation::Left);
     }
