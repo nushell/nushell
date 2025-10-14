@@ -142,6 +142,7 @@ pub trait Command: Send + Sync + CommandClone {
         (None, None)
     }
 
+    // engine_state and stack are required to get completion from plugin.
     #[allow(unused_variables)]
     fn get_completion(
         &self,

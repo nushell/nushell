@@ -1120,7 +1120,7 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 }
 
 #[test]
-fn interface_get_completion_2() -> Result<(), ShellError> {
+fn interface_get_completion() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.plugin("test");
     let interface = manager.get_interface();

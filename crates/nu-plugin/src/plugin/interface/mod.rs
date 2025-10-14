@@ -482,6 +482,7 @@ impl EngineInterface {
         self.flush()
     }
 
+    /// Write a call response of completion items.
     pub(crate) fn write_completion_items(
         &self,
         items: Option<Vec<String>>,
