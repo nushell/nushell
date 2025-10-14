@@ -138,22 +138,6 @@ impl Command for IntoBinary {
             },
         ]
     }
-
-    fn get_completion(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        flag_name: &str,
-    ) -> Result<Option<Vec<String>>, ShellError> {
-        Ok(match flag_name {
-            "endian" => Some(vec![
-                "native".to_string(),
-                "little".to_string(),
-                "big".to_string(),
-            ]),
-            _ => None,
-        })
-    }
 }
 
 fn into_binary(

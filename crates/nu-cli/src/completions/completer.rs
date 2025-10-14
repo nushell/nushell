@@ -847,6 +847,7 @@ impl NuCompleter {
                 self.process_completion(&mut DirectoryCompletion, ctx)
             }
             Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
+            // fallback to file completion if necessary
             _ if *need_fallback => file_completion_helper(),
             _ => vec![],
         }

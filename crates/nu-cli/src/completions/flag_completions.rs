@@ -12,7 +12,6 @@ pub struct FlagCompletion {
     pub decl_id: DeclId,
 }
 
-/// NOTE: the implementation happened here.
 impl Completer for FlagCompletion {
     fn fetch(
         &mut self,
