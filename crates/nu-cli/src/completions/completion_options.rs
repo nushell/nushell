@@ -60,7 +60,10 @@ impl<T> NuMatcher<'_, T> {
     ///
     /// * `needle` - The text to search for
     pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
-        let needle = trim_quotes_str(needle.as_ref());
+        // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
+        // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
+        let quotes = ['"', '\'', '`'];
+        let needle = needle.as_ref().trim_matches(quotes);
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
                 let lowercase_needle = if options.case_sensitive {
@@ -152,7 +155,7 @@ impl<T> NuMatcher<'_, T> {
                 items,
             } => {
                 let mut haystack_buf = Vec::new();
-                let haystack_utf32 = Utf32Str::new(trim_quotes_str(haystack), &mut haystack_buf);
+                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
                 let mut indices = Vec::new();
                 let Some(score) = atom.indices(haystack_utf32, matcher, &mut indices) else {
                     return false;

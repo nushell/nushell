@@ -23,9 +23,6 @@ fn prefix_from_path_member(member: &PathMember, pos: usize) -> (String, Span) {
         PathMember::Int { val, span, .. } => (&val.to_string(), span.start),
     };
     let prefix_str = prefix_str.get(..pos + 1 - start).unwrap_or(prefix_str);
-    // strip wrapping quotes
-    let quotations = ['"', '\'', '`'];
-    let prefix_str = prefix_str.strip_prefix(quotations).unwrap_or(prefix_str);
     (prefix_str.to_string(), Span::new(start, pos + 1))
 }
 

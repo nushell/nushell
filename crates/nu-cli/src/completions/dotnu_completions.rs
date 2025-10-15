@@ -55,11 +55,6 @@ impl Completer for DotNuCompletion {
 
         // Add std virtual paths first
         if self.std_virtual_path {
-            let surround_prefix = prefix
-                .as_ref()
-                .chars()
-                .take_while(|c| "`'\"".contains(*c))
-                .collect::<String>();
             let mut matcher = NuMatcher::new(&prefix, options);
             // Where we have '/' in the prefix, e.g. use std/l
             if let Some((base_dir, _)) = prefix.as_ref().rsplit_once("/") {
@@ -68,11 +63,10 @@ impl Completer for DotNuCompletion {
                 {
                     for sub_vp_id in sub_paths {
                         let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
-                        let path = format!("{surround_prefix}{path}");
                         matcher.add(
                             path.clone(),
                             FileSuggestion {
-                                path,
+                                path: path.into(),
                                 span,
                                 style: None,
                                 is_dir: matches!(sub_vp, VirtualPath::Dir(_)),
@@ -82,12 +76,11 @@ impl Completer for DotNuCompletion {
                 }
             } else {
                 for path in ["std", "std-rfc"] {
-                    let path = format!("{surround_prefix}{path}");
                     matcher.add(
-                        path.clone(),
+                        path,
                         FileSuggestion {
+                            path: path.into(),
                             span,
-                            path,
                             style: None,
                             is_dir: true,
                         },
