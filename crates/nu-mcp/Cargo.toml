@@ -18,7 +18,7 @@ rmcp = { version = "0.8", features = ["server", "transport-io", "schemars"] }
 schemars = "1.0.4"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-tokio = { version = "1.46.1", features = ["full"] }
+tokio = { version = "1.48.0", features = ["full"] }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
