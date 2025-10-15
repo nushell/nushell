@@ -98,7 +98,7 @@ fn extern_completer() -> NuCompleter {
     let record = r#"
         def animals [] { [ "cat", "dog", "eel" ] }
         def fruits [] { [ "apple", "banana" ] }
-        def options [] { [ '"first item"', '"second item"' ] }
+        def options [] { [ '"first item"', '"second item"', '"third item' ] }
         extern spam [
             animal: string@animals
             fruit?: string@fruits
@@ -2528,6 +2528,7 @@ fn filecompletions_for_redirection_target() {
 #[case::options_with_quotes1("spam --options ", "options")]
 #[case::options_with_quotes2("spam --options \"", "options")]
 #[case::options_with_quotes3("spam --options `", "options")]
+#[case::options_with_quotes4("spam --options 'third", "\"third item")]
 fn extern_custom_completion(
     mut extern_completer: NuCompleter,
     #[case] input: &str,
@@ -2537,7 +2538,7 @@ fn extern_custom_completion(
     let expected = match answer {
         "animal" => vec!["cat", "dog", "eel"],
         "fruit" => vec!["apple", "banana"],
-        "options" => vec!["\"first item\"", "\"second item\""],
+        "options" => vec!["\"first item\"", "\"second item\"", "\"third item"],
         "flags" => vec!["--foo", "--options", "-b", "-f"],
         _ => vec![answer],
     };
