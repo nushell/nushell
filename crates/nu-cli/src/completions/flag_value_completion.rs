@@ -52,7 +52,6 @@ impl<'a> Completer for FlagValueCompletion<'a> {
                 add_suggestion(i);
             }
         }
-        let res = matcher.results();
-        res
+        matcher.results()
     }
 }
