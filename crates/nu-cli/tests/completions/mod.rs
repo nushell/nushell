@@ -2511,7 +2511,7 @@ fn filecompletions_for_redirection_target() {
 }
 
 #[rstest]
-#[case::postional("spam ", "animal")]
+#[case::positional("spam ", "animal")]
 #[case::optional("spam foo -f bar ", "fruit")]
 #[case::rest1("spam foo -f bar baz ", "animal")]
 #[case::rest2("spam foo -f bar baz qux ", "animal")]
