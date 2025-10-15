@@ -62,8 +62,7 @@ impl<T> NuMatcher<'_, T> {
     pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
         // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
         // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
-        let quotes = ['"', '\'', '`'];
-        let needle = needle.as_ref().trim_matches(quotes);
+        let needle = needle.as_ref().trim_matches(['"', '\'', '`']);
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
                 let lowercase_needle = if options.case_sensitive {
