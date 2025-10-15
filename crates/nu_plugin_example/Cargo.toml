@@ -6,6 +6,7 @@ edition = "2024"
 license = "MIT"
 name = "nu_plugin_example"
 version = "0.108.0"
+publish = false
 
 [[bin]]
 name = "nu_plugin_example"
