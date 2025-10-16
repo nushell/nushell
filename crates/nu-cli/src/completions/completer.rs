@@ -7,7 +7,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    CommandWideCompleter, Completion, Span, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Span, Type, Value,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
         RedirectionTarget, Traverse,
@@ -55,14 +55,25 @@ fn find_pipeline_element_by_position<'a>(
         Expr::ExternalCall(head, arguments) => arguments
             .iter()
             .find_map(|arg| arg.expr().find_map(working_set, &closure))
-            .or(head.as_ref().find_map(working_set, &closure))
+            .or_else(|| {
+                // For aliased external_call, the span of original external command head should fail the
+                // contains(pos) check, thus avoiding recursion into its head expression.
+                // See issue #7648 for details.
+                let span = working_set.get_span(head.span_id);
+                if span.contains(pos) {
+                    // This is for complicated external head expressions, e.g. `^(echo<tab> foo)`
+                    head.as_ref().find_map(working_set, &closure)
+                } else {
+                    None
+                }
+            })
             .or(Some(expr))
             .map(FindMapResult::Found)
             .unwrap_or_default(),
         // complete the operator
         Expr::BinaryOp(lhs, _, rhs) => lhs
             .find_map(working_set, &closure)
-            .or(rhs.find_map(working_set, &closure))
+            .or_else(|| rhs.find_map(working_set, &closure))
             .or(Some(expr))
             .map(FindMapResult::Found)
             .unwrap_or_default(),
