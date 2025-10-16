@@ -5310,6 +5310,11 @@ pub fn parse_value(
         SyntaxShape::Filepath
         | SyntaxShape::Directory
         | SyntaxShape::GlobPattern
+        // TODO: this serves for backward compatibility.
+        // As a consequence, for commands like `def foo [foo: string] {}`,
+        // it forbids usage like `foo true`, have to call it explicitly with `foo "true"`.
+        // On the other hand, given current `SyntaxShape` based `parse_value`, `foo 10.0` doesn't raise any error.
+        // We want to fix this discrepancy in the future.
         | SyntaxShape::String
             if matches!(bytes, b"true" | b"false" | b"null") =>
         {
