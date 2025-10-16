@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, Operator};
+use strum::IntoEnumIterator;
 
 #[derive(Clone)]
 pub struct HelpOperators;
@@ -28,82 +29,49 @@ impl Command for HelpOperators {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let mut operators = [
-            Operator::Assignment(Assignment::Assign),
-            Operator::Assignment(Assignment::AddAssign),
-            Operator::Assignment(Assignment::SubtractAssign),
-            Operator::Assignment(Assignment::MultiplyAssign),
-            Operator::Assignment(Assignment::DivideAssign),
-            Operator::Assignment(Assignment::ConcatenateAssign),
-            Operator::Comparison(Comparison::Equal),
-            Operator::Comparison(Comparison::NotEqual),
-            Operator::Comparison(Comparison::LessThan),
-            Operator::Comparison(Comparison::GreaterThan),
-            Operator::Comparison(Comparison::LessThanOrEqual),
-            Operator::Comparison(Comparison::GreaterThanOrEqual),
-            Operator::Comparison(Comparison::RegexMatch),
-            Operator::Comparison(Comparison::NotRegexMatch),
-            Operator::Comparison(Comparison::In),
-            Operator::Comparison(Comparison::NotIn),
-            Operator::Comparison(Comparison::Has),
-            Operator::Comparison(Comparison::NotHas),
-            Operator::Comparison(Comparison::StartsWith),
-            Operator::Comparison(Comparison::EndsWith),
-            Operator::Math(Math::Add),
-            Operator::Math(Math::Subtract),
-            Operator::Math(Math::Multiply),
-            Operator::Math(Math::Divide),
-            Operator::Math(Math::FloorDivide),
-            Operator::Math(Math::Modulo),
-            Operator::Math(Math::Pow),
-            Operator::Math(Math::Concatenate),
-            Operator::Bits(Bits::BitOr),
-            Operator::Bits(Bits::BitXor),
-            Operator::Bits(Bits::BitAnd),
-            Operator::Bits(Bits::ShiftLeft),
-            Operator::Bits(Bits::ShiftRight),
-            Operator::Boolean(Boolean::Or),
-            Operator::Boolean(Boolean::Xor),
-            Operator::Boolean(Boolean::And),
-        ]
-        .into_iter()
-        .map(|op| {
-            if op == Operator::Comparison(Comparison::RegexMatch) {
-                Value::record(
-                    record! {
-                        "type" => Value::string(op_type(&op), head),
-                        "operator" => Value::string("=~, like", head),
-                        "name" => Value::string(name(&op), head),
-                        "description" => Value::string(description(&op), head),
-                        "precedence" => Value::int(op.precedence().into(), head),
-                    },
-                    head,
-                )
-            } else if op == Operator::Comparison(Comparison::NotRegexMatch) {
-                Value::record(
-                    record! {
-                        "type" => Value::string(op_type(&op), head),
-                        "operator" => Value::string("!~, not-like", head),
-                        "name" => Value::string(name(&op), head),
-                        "description" => Value::string(description(&op), head),
-                        "precedence" => Value::int(op.precedence().into(), head),
-                    },
-                    head,
-                )
-            } else {
-                Value::record(
-                    record! {
-                        "type" => Value::string(op_type(&op), head),
-                        "operator" => Value::string(op.to_string(), head),
-                        "name" => Value::string(name(&op), head),
-                        "description" => Value::string(description(&op), head),
-                        "precedence" => Value::int(op.precedence().into(), head),
-                    },
-                    head,
-                )
-            }
-        })
-        .collect::<Vec<_>>();
+        let mut operators = Assignment::iter()
+            .map(Operator::Assignment)
+            .chain(Comparison::iter().map(Operator::Comparison))
+            .chain(Math::iter().map(Operator::Math))
+            .chain(Bits::iter().map(Operator::Bits))
+            .chain(Boolean::iter().map(Operator::Boolean))
+            .map(|op| {
+                if op == Operator::Comparison(Comparison::RegexMatch) {
+                    Value::record(
+                        record! {
+                            "type" => Value::string(op_type(&op), head),
+                            "operator" => Value::string("=~, like", head),
+                            "name" => Value::string(name(&op), head),
+                            "description" => Value::string(description(&op), head),
+                            "precedence" => Value::int(op.precedence().into(), head),
+                        },
+                        head,
+                    )
+                } else if op == Operator::Comparison(Comparison::NotRegexMatch) {
+                    Value::record(
+                        record! {
+                            "type" => Value::string(op_type(&op), head),
+                            "operator" => Value::string("!~, not-like", head),
+                            "name" => Value::string(name(&op), head),
+                            "description" => Value::string(description(&op), head),
+                            "precedence" => Value::int(op.precedence().into(), head),
+                        },
+                        head,
+                    )
+                } else {
+                    Value::record(
+                        record! {
+                            "type" => Value::string(op_type(&op), head),
+                            "operator" => Value::string(op.to_string(), head),
+                            "name" => Value::string(name(&op), head),
+                            "description" => Value::string(description(&op), head),
+                            "precedence" => Value::int(op.precedence().into(), head),
+                        },
+                        head,
+                    )
+                }
+            })
+            .collect::<Vec<_>>();
 
         operators.push(Value::record(
             record! {
@@ -141,7 +109,6 @@ fn name(operator: &Operator) -> String {
 }
 
 fn description(operator: &Operator) -> &'static str {
-    // NOTE: if you have to add an operator here, also add it to the operator list above.
     match operator {
         Operator::Comparison(Comparison::Equal) => "Checks if two values are equal.",
         Operator::Comparison(Comparison::NotEqual) => "Checks if two values are not equal.",
