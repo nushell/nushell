@@ -168,6 +168,7 @@ impl<'a> EvalContext<'a> {
         // NOTE: in collect, it maybe good to pick the inner PipelineData
         // directly, and drop the ExitStatus queue.
         let data = self.take_reg(reg_id);
+        #[cfg(feature = "os")]
         if nu_experimental::PIPE_FAIL.get() {
             check_exit_status_future(data.exit)?
         }
