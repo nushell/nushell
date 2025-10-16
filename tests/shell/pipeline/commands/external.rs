@@ -718,6 +718,7 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
 #[case("print aa | print cc | nu --testbin fail 40", 40)]
 #[case("nu --testbin fail 20 | print aa | nu --testbin fail", 1)]
 #[case("nu --testbin fail | print aa | nu --testbin fail 20", 20)]
+#[case("let x = nu --testbin fail 20 | into int", 20)]
 fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i32) {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
