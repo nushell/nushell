@@ -1,4 +1,3 @@
-use nu_parser::trim_quotes_str;
 use nu_protocol::{CompletionAlgorithm, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
@@ -54,13 +53,17 @@ enum State<T> {
     },
 }
 
+const QUOTES: [char; 3] = ['"', '\'', '`'];
+
 /// Filters and sorts suggestions
 impl<T> NuMatcher<'_, T> {
     /// # Arguments
     ///
     /// * `needle` - The text to search for
     pub fn new(needle: impl AsRef<str>, options: &CompletionOptions) -> NuMatcher<'_, T> {
-        let needle = trim_quotes_str(needle.as_ref());
+        // NOTE: Should match `'bar baz'` when completing `foo "b<tab>`
+        // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
+        let needle = needle.as_ref().trim_matches(QUOTES);
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
                 let lowercase_needle = if options.case_sensitive {
@@ -120,7 +123,7 @@ impl<T> NuMatcher<'_, T> {
     ///
     /// Helper to avoid code duplication between [NuMatcher::add] and [NuMatcher::matches].
     fn matches_aux(&mut self, haystack: &str, item: Option<T>) -> bool {
-        let haystack = trim_quotes_str(haystack);
+        let haystack = haystack.trim_matches(QUOTES);
         match &mut self.state {
             State::Prefix { items } => {
                 let haystack_folded = if self.options.case_sensitive {
@@ -152,7 +155,7 @@ impl<T> NuMatcher<'_, T> {
                 items,
             } => {
                 let mut haystack_buf = Vec::new();
-                let haystack_utf32 = Utf32Str::new(trim_quotes_str(haystack), &mut haystack_buf);
+                let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
                 let mut indices = Vec::new();
                 let Some(score) = atom.indices(haystack_utf32, matcher, &mut indices) else {
                     return false;
