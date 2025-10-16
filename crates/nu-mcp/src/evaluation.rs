@@ -17,6 +17,26 @@ use serde::{Deserialize, Serialize};
 
 const MAX_PAGE_SIZE: usize = 16 * 1024;
 
+/// Evaluates Nushell code in isolated contexts for MCP.
+///
+/// # Architecture
+///
+/// The evaluator maintains a pristine `EngineState` template. Each evaluation:
+/// 1. Clones the engine state (cheap due to internal `Arc`s)
+/// 2. Parses code into a `Block` and gets a `StateDelta` via `working_set.render()`
+/// 3. **Merges the delta** via `engine_state.merge_delta()` to register blocks
+/// 4. Evaluates the block with the merged state
+///
+/// Step 3 is critical: parsed blocks (including closures) are only stored in the
+/// `StateWorkingSet` initially. Without merging, `eval_block()` will panic with
+/// "missing block" when it tries to execute closures or other block references.
+///
+/// # Isolation
+///
+/// Each evaluation gets its own cloned state, so variables/definitions from one
+/// evaluation don't persist to the next (unless cached by source string).
+///
+/// This architecture also enables future parallel evaluation of multiple pipelines.
 pub struct Evaluator {
     engine_state: EngineState,
     cache: Cache<String, Arc<PipelineBuffer>>,
@@ -74,7 +94,8 @@ impl Evaluator {
             };
 
             // Merge the parsed blocks into the engine state so they're available during eval
-            engine_state.merge_delta(delta)
+            engine_state
+                .merge_delta(delta)
                 .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
 
             // Eval the block with the input
@@ -137,7 +158,7 @@ impl Evaluator {
             let mut last_page_index = 0;
             for item in pipeline_execution_data.body {
                 let out = if let Value::Error { error, .. } = item {
-                    return Err(shell_error_to_mcp_error(*error, &engine_state));
+                    return Err(shell_error_to_mcp_error(*error, engine_state));
                 } else {
                     item.to_expanded_string("\n", config) + "\n"
                 };
@@ -156,7 +177,7 @@ impl Evaluator {
                 last_index = buffer.len();
 
                 write_all_and_flush(out, &mut buffer, "mcp_output", span, engine_state.signals())
-                    .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
+                    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
             }
             if pages.is_empty() {
                 pages.push(Page::new(0..buffer.len(), page_total));
@@ -354,12 +375,13 @@ mod tests {
         // Test with a simple closure using 'do' which is a lang command
         // The closure { ... } creates a block that must be available when eval_block runs
         // This tests that merge_delta properly registers blocks in the engine_state
-        let result = evaluator.eval(
-            r#"do { |x| $x + 1 } 41"#,
-            None,
-        );
+        let result = evaluator.eval(r#"do { |x| $x + 1 } 41"#, None);
 
-        assert!(result.is_ok(), "Pipeline with closure should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Pipeline with closure should succeed: {:?}",
+            result.err()
+        );
         let output = result.unwrap();
         assert_eq!(output.summary.total, 1, "Should have 1 result");
     }
