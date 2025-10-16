@@ -24,11 +24,11 @@ pub struct NushellMcpServer {
 #[tool_router]
 impl NushellMcpServer {
     pub fn new(mut engine_state: EngineState) -> Self {
+        // Configure the engine state for MCP
         if let Some(config) = Arc::get_mut(&mut engine_state.config) {
             config.use_ansi_coloring = UseAnsiColoring::False;
             config.color_config.clear();
         }
-        let engine_state = Arc::new(engine_state);
         NushellMcpServer {
             tool_router: Self::tool_router(),
             evaluator: Evaluator::new(engine_state),
