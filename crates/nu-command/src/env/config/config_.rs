@@ -100,8 +100,8 @@ pub(super) fn start_editor(
     command.envs(envs);
 
     // Configure args.
-    command.arg(config_path);
     command.args(editor_args);
+    command.arg(config_path);
 
     // Spawn the child process. On Unix, also put the child process to
     // foreground if we're in an interactive session.
