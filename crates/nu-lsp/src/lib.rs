@@ -671,7 +671,7 @@ mod tests {
         uri: Uri,
         line: u32,
         character: u32,
-    ) -> &crossbeam_channel::Receiver<Message> {
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -688,6 +688,9 @@ mod tests {
             }))
             .unwrap();
 
-        &client_connection.receiver
+        client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap()
     }
 }
