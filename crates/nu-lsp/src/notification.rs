@@ -155,7 +155,6 @@ mod tests {
     use lsp_types::Range;
     use nu_test_support::fs::fixtures;
     use rstest::rstest;
-    use std::time::Duration;
 
     #[rstest]
     #[case::full(
@@ -187,9 +186,7 @@ hello"#,
 
         open_unchecked(&client_connection, script.clone());
         update(&client_connection, script.clone(), text, range);
-        let resp = send_hover_request(&client_connection, script, 3, 0)
-            .recv_timeout(Duration::from_secs(3))
-            .unwrap();
+        let resp = send_hover_request(&client_connection, script, 3, 0);
 
         assert_json_eq!(
             result_from_message(resp),
