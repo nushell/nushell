@@ -213,7 +213,7 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
   ls | where name == "foo.txt" | only modified
 }
 export def only [
-  --optional # Return `null` if there are no elements (does not affect behavior of the optional cell path argument)
+  --optional # Return `null` if there are no elements (does not affect behavior of the `cell_path` argument)
   cell_path?: cell-path # The cell path to access within the only element.
 ]: [table -> any, list -> any] {
   let pipe = {in: $in, meta: (metadata $in)}
