@@ -3,7 +3,7 @@ use crate::completions::{
     completer::map_value_completions,
 };
 use nu_engine::eval_call;
-use nu_parser::{FlatShape, flatten_expression};
+use nu_parser::flatten_expression;
 use nu_protocol::{
     BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
@@ -175,13 +175,8 @@ pub fn get_command_arguments(
     let span = element_expression.span(&working_set);
     flatten_expression(working_set, element_expression)
         .iter()
-        .map(|(span, shape)| {
-            let bytes = working_set.get_span_contents(match shape {
-                // Use expanded alias span
-                FlatShape::External(span) => **span,
-                _ => *span,
-            });
-            String::from_utf8_lossy(bytes)
+        .map(|(span, _)| {
+            String::from_utf8_lossy(working_set.get_span_contents(*span))
                 .into_owned()
                 .into_spanned(*span)
         })
