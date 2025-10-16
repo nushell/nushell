@@ -4178,6 +4178,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
+ "strum",
  "sysinfo",
  "tabled",
  "tempfile",
