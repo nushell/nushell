@@ -35,7 +35,6 @@ impl Command for HelpOperators {
             .chain(Math::iter().map(Operator::Math))
             .chain(Bits::iter().map(Operator::Bits))
             .chain(Boolean::iter().map(Operator::Boolean))
-            .into_iter()
             .map(|op| {
                 if op == Operator::Comparison(Comparison::RegexMatch) {
                     Value::record(
