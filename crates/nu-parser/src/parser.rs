@@ -5254,33 +5254,6 @@ pub fn parse_value(
         return garbage(working_set, span);
     }
 
-    // Check for reserved keyword values
-    match bytes {
-        b"true" => {
-            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                return Expression::new(working_set, Expr::Bool(true), span, Type::Bool);
-            } else {
-                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                return Expression::garbage(working_set, span);
-            }
-        }
-        b"false" => {
-            if matches!(shape, SyntaxShape::Boolean) || matches!(shape, SyntaxShape::Any) {
-                return Expression::new(working_set, Expr::Bool(false), span, Type::Bool);
-            } else {
-                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                return Expression::garbage(working_set, span);
-            }
-        }
-        b"null" => {
-            return Expression::new(working_set, Expr::Nothing, span, Type::Nothing);
-        }
-        b"-inf" | b"inf" | b"NaN" => {
-            return parse_float(working_set, span);
-        }
-        _ => {}
-    }
-
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
@@ -5299,12 +5272,12 @@ pub fn parse_value(
                     .iter()
                     .any(|s| matches!(s, SyntaxShape::List(_)))
                 {
-                    working_set.error(ParseError::Expected("non-[] value", span));
+                    working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                     return Expression::garbage(working_set, span);
                 }
             }
             _ => {
-                working_set.error(ParseError::Expected("non-[] value", span));
+                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                 return Expression::garbage(working_set, span);
             }
         },
@@ -5324,49 +5297,43 @@ pub fn parse_value(
         SyntaxShape::Range => {
             parse_range(working_set, span).unwrap_or_else(|| garbage(working_set, span))
         }
+        // Check for reserved keyword values
+        SyntaxShape::Nothing | SyntaxShape::Any if bytes == b"null" => {
+            Expression::new(working_set, Expr::Nothing, span, Type::Nothing)
+        }
+        SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"true" => {
+            Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
+        }
+        SyntaxShape::Boolean | SyntaxShape::Any if bytes == b"false" => {
+            Expression::new(working_set, Expr::Bool(false), span, Type::Bool)
+        }
+        SyntaxShape::Filepath
+        | SyntaxShape::Directory
+        | SyntaxShape::GlobPattern
+        // TODO: this serves for backward compatibility.
+        // As a consequence, for commands like `def foo [foo: string] {}`,
+        // it forbids usage like `foo true`, have to call it explicitly with `foo "true"`.
+        // On the other hand, given current `SyntaxShape` based `parse_value`, `foo 10.0` doesn't raise any error.
+        // We want to fix this discrepancy in the future.
+        | SyntaxShape::String
+            if matches!(bytes, b"true" | b"false" | b"null") =>
+        {
+            working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
+            garbage(working_set, span)
+        }
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::Signature => {
-            if bytes.starts_with(b"[") {
-                parse_signature(working_set, span)
-            } else {
-                working_set.error(ParseError::Expected("signature", span));
-
-                Expression::garbage(working_set, span)
-            }
+        SyntaxShape::Signature if bytes.starts_with(b"[") => parse_signature(working_set, span),
+        SyntaxShape::List(elem) if bytes.starts_with(b"[") => {
+            parse_table_expression(working_set, span, elem)
         }
-        SyntaxShape::List(elem) => {
-            if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span, elem)
-            } else {
-                working_set.error(ParseError::Expected("list", span));
-
-                Expression::garbage(working_set, span)
-            }
-        }
-        SyntaxShape::Table(_) => {
-            if bytes.starts_with(b"[") {
-                parse_table_expression(working_set, span, &SyntaxShape::Any)
-            } else {
-                working_set.error(ParseError::Expected("table", span));
-
-                Expression::garbage(working_set, span)
-            }
+        SyntaxShape::Table(_) if bytes.starts_with(b"[") => {
+            parse_table_expression(working_set, span, &SyntaxShape::Any)
         }
         SyntaxShape::CellPath => parse_simple_cell_path(working_set, span),
-        SyntaxShape::Boolean => {
-            // Redundant, though we catch bad boolean parses here
-            if bytes == b"true" || bytes == b"false" {
-                Expression::new(working_set, Expr::Bool(true), span, Type::Bool)
-            } else {
-                working_set.error(ParseError::Expected("bool", span));
-
-                Expression::garbage(working_set, span)
-            }
-        }
 
         // Be sure to return ParseError::Expected(..) if invoked for one of these shapes, but lex
         // stream doesn't start with '{'} -- parsing in SyntaxShape::Any arm depends on this error variant.
@@ -5422,11 +5389,8 @@ pub fn parse_value(
                 garbage(working_set, span)
             }
         }
-        x => {
-            working_set.error(ParseError::ExpectedWithStringMsg(
-                x.to_type().to_string(),
-                span,
-            ));
+        _ => {
+            working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
             garbage(working_set, span)
         }
     }
