@@ -34,7 +34,7 @@ const MAX_PAGE_SIZE: usize = 16 * 1024;
 /// # Isolation
 ///
 /// Each evaluation gets its own cloned state, so variables/definitions from one
-/// evaluation don't persist to the next (unless cached by source string).
+/// evaluation don't persist to the next.
 ///
 /// This architecture also enables future parallel evaluation of multiple pipelines.
 pub struct Evaluator {
