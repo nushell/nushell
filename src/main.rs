@@ -473,7 +473,7 @@ fn main() -> Result<()> {
                 parsed_nu_cli_args.plugin_file,
                 parsed_nu_cli_args.config_file,
                 parsed_nu_cli_args.env_file,
-                false,
+                parsed_nu_cli_args.login_shell.is_some(),
             );
         }
         nu_mcp::initialize_mcp_server(engine_state)?;
