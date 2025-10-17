@@ -124,10 +124,8 @@ impl Command for Http {
 
         // prefer stricter calls over aliasing with variables
         if let Some(Spanned { item: method, span }) = &url
-            && matches!(
-                method.as_str(),
-                "delete" | "get" | "head" | "patch" | "post" | "put"
-            )
+            && let method @ ("delete" | "get" | "head" | "options" | "patch" | "post" | "put") =
+                method.to_lowercase().as_str()
         {
             return Err(ShellError::GenericError {
                 error: "Invalid command construction".into(),

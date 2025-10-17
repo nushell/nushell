@@ -387,7 +387,7 @@ impl From<&std::io::Error> for ErrorKind {
     fn from(err: &std::io::Error) -> Self {
         #[cfg(windows)]
         if let Some(raw_os_error) = err.raw_os_error() {
-            use windows::Win32::Foundation;
+            use windows::Win32::{Foundation, Networking::WinSock};
 
             #[allow(clippy::single_match, reason = "in the future we can expand here")]
             match Foundation::WIN32_ERROR(raw_os_error as u32) {
