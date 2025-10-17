@@ -1235,6 +1235,14 @@ fn update_line_editor_history(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
+        // this path should not happen as the config setting is captured by `nu-protocol` already
+        #[cfg(not(feature = "sqlite"))]
+        HistoryFileFormat::Sqlite => {
+            return Err(miette::miette!(
+                help = "compile Nushell with the `sqlite` feature to use this",
+                "Unsupported history file format",
+            ));
+        }
         #[cfg(feature = "sqlite")]
         HistoryFileFormat::Sqlite => Box::new(
             SqliteBackedHistory::with_file(
