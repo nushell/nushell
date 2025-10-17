@@ -39,10 +39,12 @@
 # ------------------------
 # $env.config.history.*
 
-# file_format (string):  Either "sqlite" or "plaintext". While text-backed history
-# is currently the default for historical reasons, "sqlite" is stable and
-# provides more advanced history features.
-$env.config.history.file_format = "sqlite"
+# file_format (string):  Either "sqlite" or "plaintext". 
+# While text-backed history is currently the default for historical reasons, 
+# "sqlite" is stable and provides more advanced history features.
+# The "sqlite" option requires compiling Nushell with the `sqlite` feature 
+# (enabled by default).
+$env.config.history.file_format = "plaintext"
 
 # max_size (int): The maximum number of entries allowed in the history.
 # After exceeding this value, the oldest history items will be removed
