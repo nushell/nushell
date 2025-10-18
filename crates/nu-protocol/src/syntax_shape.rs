@@ -143,7 +143,7 @@ impl SyntaxShape {
             SyntaxShape::Block => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
-            SyntaxShape::CellPath => Type::Any,
+            SyntaxShape::CellPath => Type::CellPath,
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,

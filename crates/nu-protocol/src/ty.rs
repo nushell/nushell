@@ -82,6 +82,12 @@ impl Type {
         match (self, other) {
             (t, u) if t == u => true,
             (_, Type::Any) => true,
+            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
+            // use them with variables, without having to explicitly convert them into cell-paths
+            (Type::String | Type::Int, Type::CellPath) => true,
+            (Type::OneOf(oneof), Type::CellPath) => {
+                oneof.iter().all(|t| t.is_subtype_of(&Type::CellPath))
+            }
             (Type::Float | Type::Int, Type::Number) => true,
             (Type::Glob, Type::String) | (Type::String, Type::Glob) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
