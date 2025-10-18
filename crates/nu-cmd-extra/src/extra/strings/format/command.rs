@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing, engine::StateWorkingSet};
 
@@ -62,10 +63,10 @@ impl Command for FormatPattern {
             Example {
                 description: "Print elements from some columns of a table",
                 example: "[[col1, col2]; [v1, v2] [v3, v4]] | format pattern '{col2}'",
-                result: Some(Value::list(
-                    vec![Value::test_string("v2"), Value::test_string("v4")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("v2"),
+                    Value::test_string("v4"),
+                ])),
             },
         ]
     }
@@ -85,6 +86,15 @@ enum FormatOperation {
     ValueFromColumn { content: String, span: Option<Span> },
 }
 
+impl FormatOperation {
+    fn update_span(mut self, f: impl FnOnce(Option<Span>) -> Option<Span>) -> Self {
+        if let FormatOperation::ValueFromColumn { span, .. } = &mut self {
+            *span = f(*span);
+        }
+        self
+    }
+}
+
 /// Given a pattern that is fed into the Format command, we can process it and subdivide it
 /// in two kind of operations.
 /// FormatOperation::FixedText contains a portion of the pattern that has to be placed
@@ -96,9 +106,12 @@ fn extract_formatting_operations(
     input: Spanned<String>,
     call_head: Span,
 ) -> Result<Vec<FormatOperation>, ShellError> {
-    let mut output = vec![];
+    let Spanned {
+        item: pattern,
+        span: pattern_span,
+    } = input;
 
-    let span = {
+    let pattern_span = {
         //
         //     .---------span len: 21
         //    |     .--string len: 12
@@ -107,7 +120,7 @@ fn extract_formatting_operations(
         //  |    .--|-------.   |
         //  r###'hello {user}'###
         //
-        let delta = input.span.len() - input.item.len();
+        let delta = pattern_span.len() - pattern.len();
         // might be `r'foo'` or `$'foo'`
         // either 1 or 0
         let str_prefix_len = delta % 2;
@@ -115,76 +128,75 @@ fn extract_formatting_operations(
         //    r###'hello {user}'###
         //    ^^^^
         let span_str_start_delta = delta / 2 + str_prefix_len;
-        input.span.subspan(
-            span_str_start_delta,
-            span_str_start_delta + input.item.len(),
-        )
+        pattern_span.subspan(span_str_start_delta, span_str_start_delta + pattern.len())
     };
-    let input = input.item;
 
-    let mut characters = input.char_indices();
-
-    let mut column_span_start = 0;
-    let mut column_span_end = 0;
-    loop {
-        let mut before_bracket = String::new();
-
-        for (index, ch) in &mut characters {
-            if ch == '{' {
-                column_span_start = index + 1; // not include '{' character.
-                break;
+    let mut is_fixed = true;
+    let ops = pattern.char_indices().peekable().batching(move |it| {
+        let start_index = it.peek()?.0;
+        let mut buf = String::new();
+        while let Some((index, ch)) = it.next() {
+            match ch {
+                '{' if is_fixed => {
+                    is_fixed = false;
+                    return Some(Ok(FormatOperation::FixedText(buf)));
+                }
+                '}' => {
+                    if is_fixed {
+                        return Some(Err(()));
+                    } else {
+                        is_fixed = true;
+                        return Some(Ok(FormatOperation::ValueFromColumn {
+                            content: buf,
+                            // span is relative to `pattern`
+                            span: Some(Span::new(start_index, index)),
+                        }));
+                    }
+                }
+                _ => {
+                    buf.push(ch);
+                }
             }
-            before_bracket.push(ch);
         }
-
-        if !before_bracket.is_empty() {
-            output.push(FormatOperation::FixedText(before_bracket.to_string()));
+        if is_fixed {
+            Some(std::mem::take(&mut buf))
+                .filter(|buf| !buf.is_empty())
+                .map(FormatOperation::FixedText)
+                .map(Ok)
+        } else {
+            Some(Err(()))
         }
+    });
 
-        let mut column_name = String::new();
-        let mut column_need_eval = false;
-        for (index, ch) in &mut characters {
-            if ch == '$' {
-                column_need_eval = true;
-            }
+    let adjust_span = move |col_span: Span| -> Option<Span> {
+        pattern_span?.subspan(col_span.start, col_span.end)
+    };
 
-            if ch == '}' {
-                column_span_end = index; // not include '}' character.
-                break;
-            }
-            column_name.push(ch);
-        }
+    let make_delimiter_error = move |_| ShellError::DelimiterError {
+        msg: "there are unmatched curly braces".to_string(),
+        span: call_head,
+    };
 
-        if column_span_end < column_span_start {
-            return Err(ShellError::DelimiterError {
-                msg: "there are unmatched curly braces".to_string(),
-                span: call_head,
-            });
-        }
+    let make_removed_functionality_error = |span: Span| ShellError::GenericError {
+        error: "Removed functionality".into(),
+        msg: "The ability to use variables ($it) in `format pattern` has been removed.".into(),
+        span: Some(span),
+        help: Some("You can use other formatting options, such as string interpolation.".into()),
+        inner: vec![],
+    };
 
-        if column_name.is_empty() {
-            if before_bracket.is_empty() {
-                break;
-            }
-        } else if column_need_eval {
-            return Err(ShellError::GenericError {
-                error: "Removed functionality".into(),
-                msg: "The ability to use variables ($it) in `format pattern` has been removed."
-                    .into(),
-                span: Some(call_head),
-                help: Some(
-                    "You can use other formatting options, such as string interpolation.".into(),
-                ),
-                inner: vec![],
-            });
-        }
-
-        output.push(FormatOperation::ValueFromColumn {
-            content: column_name.clone(),
-            span: span.and_then(|span| span.subspan(column_span_start, column_span_end)),
-        });
-    }
-    Ok(output)
+    ops.map(|res_op| {
+        res_op
+            .map(|op| op.update_span(|col_span| col_span.and_then(adjust_span)))
+            .map_err(make_delimiter_error)
+            .and_then(|op| match op {
+                FormatOperation::ValueFromColumn { content, span } if content.starts_with('$') => {
+                    Err(make_removed_functionality_error(span.unwrap_or(call_head)))
+                }
+                op => Ok(op),
+            })
+    })
+    .collect()
 }
 
 /// Format the incoming PipelineData according to the pattern
