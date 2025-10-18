@@ -896,7 +896,7 @@ $env.PROMPT_INDICATOR_VI_NORMAL = "> "
 $env.PROMPT_INDICATOR_VI_INSERT = ": "
 
 # When a commandline extends across multiple lines:
-$env.PROMPT_MULTILINE_INDICATOR = "::: "
+$env.PROMPT_INDICATOR_MULTILINE = "::: "
 
 # TRANSIENT_PROMPT_*
 # ------------------
@@ -911,7 +911,7 @@ $env.TRANSIENT_PROMPT_INDICATOR_VI_INSERT = ""
 $env.TRANSIENT_PROMPT_INDICATOR_VI_NORMAL = ""
 # Tip: Removing the transient multiline indicator and right-prompt can simplify
 #      copying from the terminal
-$env.TRANSIENT_PROMPT_MULTILINE_INDICATOR = ""
+$env.TRANSIENT_PROMPT_INDICATOR_MULTILINE = ""
 $env.TRANSIENT_PROMPT_COMMAND_RIGHT = ""
 
 # ENV_CONVERSIONS
