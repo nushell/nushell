@@ -6,9 +6,9 @@ use nu_plugin_core::{
     util::{Waitable, WaitableMut, with_custom_values_in},
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
-    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
-    PluginOutput, ProtocolInfo, StreamId, StreamMessage,
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall,
+    GetCompletionInfo, Ordering, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
+    PluginInput, PluginOption, PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
@@ -736,6 +736,9 @@ impl PluginInterface {
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
             }
+            PluginCall::GetCompletion(flag_name) => {
+                (PluginCall::GetCompletion(flag_name), Default::default())
+            }
             PluginCall::Run(CallInfo { name, call, input }) => {
                 let (header, writer) = self.init_write_pipeline_data(input, &state)?;
                 (
@@ -961,6 +964,20 @@ impl PluginInterface {
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Run call".into(),
+            }),
+        }
+    }
+
+    /// Get completion items from the plugin.
+    pub fn get_completion(
+        &self,
+        info: GetCompletionInfo,
+    ) -> Result<Option<Vec<String>>, ShellError> {
+        match self.plugin_call(PluginCall::GetCompletion(info), None)? {
+            PluginCallResponse::CompletionItems(items) => Ok(items),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response to plugin GetCompletion call".into(),
             }),
         }
     }
@@ -1271,6 +1288,7 @@ impl CurrentCallState {
         match call {
             PluginCall::Metadata => Ok(()),
             PluginCall::Signature => Ok(()),
+            PluginCall::GetCompletion(_) => Ok(()),
             PluginCall::Run(CallInfo { call, .. }) => self.prepare_call_args(call, source),
             PluginCall::CustomValueOp(_, op) => {
                 // Handle anything within the op.

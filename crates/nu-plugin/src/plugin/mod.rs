@@ -15,7 +15,9 @@ use nu_plugin_core::{
     ClientCommunicationIo, CommunicationMode, InterfaceManager, PluginEncoder, PluginRead,
     PluginWrite,
 };
-use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
+use nu_plugin_protocol::{
+    CallInfo, CustomValueOp, GetCompletionInfo, PluginCustomValue, PluginInput, PluginOutput,
+};
 use nu_protocol::{
     CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Span,
     Spanned, Value, ast::Operator, casing::Casing,
@@ -537,6 +539,27 @@ where
             }
         };
 
+        let get_completion = |engine, get_completion_info| {
+            // SAFETY: It should be okay to use `AssertUnwindSafe` here, because we don't use any
+            // of the references after we catch the unwind, and immediately exit.
+            let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                let GetCompletionInfo { name, flag_name } = get_completion_info;
+                let items = if let Some(command) = commands.get(&name) {
+                    command.get_completion(plugin, &engine, &flag_name)
+                } else {
+                    None
+                };
+                let write_result = engine.write_completion_items(items).try_to_report(&engine);
+                if let Err(err) = write_result {
+                    let _ = error_tx.send(err);
+                }
+            }));
+            if unwind_result.is_err() {
+                // Exit after unwind if a panic occurred
+                std::process::exit(1);
+            }
+        };
+
         // As an optimization: create one thread that can be reused for Run calls in sequence
         let (run_tx, run_rx) = mpsc::sync_channel(0);
         thread::Builder::new()
@@ -597,6 +620,7 @@ where
                 } => {
                     custom_value_op(plugin, &engine, custom_value, op).try_to_report(&engine)?;
                 }
+                ReceivedPluginCall::GetCompletion { engine, info } => get_completion(engine, info),
             }
         }
 
