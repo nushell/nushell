@@ -37,7 +37,7 @@ impl Command for FormatPattern {
     ) -> Result<PipelineData, ShellError> {
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let specified_pattern: Result<Value, ShellError> = call.req(engine_state, stack, 0);
+        let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let input_val = input.into_value(call.head)?;
         // add '$it' variable to support format like this: $it.column1.column2.
         let it_id = working_set.add_variable(b"$it".to_vec(), call.head, Type::Any, false);
@@ -45,22 +45,11 @@ impl Command for FormatPattern {
 
         let config = stack.get_config(engine_state);
 
-        match specified_pattern {
-            Err(e) => Err(e),
-            Ok(pattern) => {
-                let string_span = pattern.span();
-                let string_pattern = pattern.coerce_into_string()?;
-                // the string span is start as `"`, we don't need the character
-                // to generate proper span for sub expression.
-                let ops = extract_formatting_operations(
-                    string_pattern,
-                    call.head,
-                    string_span.start + 1,
-                )?;
+        // the string span is start as `"`, we don't need the character
+        // to generate proper span for sub expression.
+        let ops = extract_formatting_operations(pattern, call.head)?;
 
-                format(input_val, &ops, engine_state, &config, call.head)
-            }
-        }
+        format(input_val, &ops, engine_state, &config, call.head)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -93,7 +82,7 @@ impl Command for FormatPattern {
 enum FormatOperation {
     FixedText(String),
     // raw input is something like {column1.column2}
-    ValueFromColumn(String, Span),
+    ValueFromColumn { content: String, span: Option<Span> },
 }
 
 /// Given a pattern that is fed into the Format command, we can process it and subdivide it
@@ -104,11 +93,34 @@ enum FormatOperation {
 /// formatted according to the input pattern.
 /// "$it.column1.column2" or "$variable"
 fn extract_formatting_operations(
-    input: String,
-    error_span: Span,
-    span_start: usize,
+    input: Spanned<String>,
+    call_head: Span,
 ) -> Result<Vec<FormatOperation>, ShellError> {
     let mut output = vec![];
+
+    let span = {
+        //
+        //     .---------span len: 21
+        //    |     .--string len: 12
+        //    |     |       delta:  9
+        //  +-+-----|-----------+
+        //  |    .--|-------.   |
+        //  r###'hello {user}'###
+        //
+        let delta = input.span.len() - input.item.len();
+        // might be `r'foo'` or `$'foo'`
+        // either 1 or 0
+        let str_prefix_len = delta % 2;
+        //
+        //    r###'hello {user}'###
+        //    ^^^^
+        let span_str_start_delta = delta / 2 + str_prefix_len;
+        input.span.subspan(
+            span_str_start_delta,
+            span_str_start_delta + input.item.len(),
+        )
+    };
+    let input = input.item;
 
     let mut characters = input.char_indices();
 
@@ -146,34 +158,31 @@ fn extract_formatting_operations(
         if column_span_end < column_span_start {
             return Err(ShellError::DelimiterError {
                 msg: "there are unmatched curly braces".to_string(),
-                span: error_span,
+                span: call_head,
             });
         }
 
-        if !column_name.is_empty() {
-            if column_need_eval {
-                return Err(ShellError::GenericError {
-                    error: "Removed functionality".into(),
-                    msg: "The ability to use variables ($it) in `format pattern` has been removed."
-                        .into(),
-                    span: Some(error_span),
-                    help: Some(
-                        "You can use other formatting options, such as string interpolation."
-                            .into(),
-                    ),
-                    inner: vec![],
-                });
-            } else {
-                output.push(FormatOperation::ValueFromColumn(
-                    column_name.clone(),
-                    Span::new(span_start + column_span_start, span_start + column_span_end),
-                ));
+        if column_name.is_empty() {
+            if before_bracket.is_empty() {
+                break;
             }
+        } else if column_need_eval {
+            return Err(ShellError::GenericError {
+                error: "Removed functionality".into(),
+                msg: "The ability to use variables ($it) in `format pattern` has been removed."
+                    .into(),
+                span: Some(call_head),
+                help: Some(
+                    "You can use other formatting options, such as string interpolation.".into(),
+                ),
+                inner: vec![],
+            });
         }
 
-        if before_bracket.is_empty() && column_name.is_empty() {
-            break;
-        }
+        output.push(FormatOperation::ValueFromColumn {
+            content: column_name.clone(),
+            span: span.and_then(|span| span.subspan(column_span_start, column_span_end)),
+        });
     }
     Ok(output)
 }
@@ -190,23 +199,27 @@ fn format(
 
     //  We can only handle a Record or a List of Records
     match data_as_value {
-        Value::Record { .. } => match format_record(format_operations, &data_as_value, config) {
-            Ok(value) => Ok(PipelineData::value(Value::string(value, head_span), None)),
-            Err(value) => Err(value),
-        },
+        Value::Record { .. } => {
+            match format_record(format_operations, &data_as_value, config, head_span) {
+                Ok(value) => Ok(PipelineData::value(Value::string(value, head_span), None)),
+                Err(value) => Err(value),
+            }
+        }
 
         Value::List { vals, .. } => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {
-                    Value::Record { .. } => match format_record(format_operations, val, config) {
-                        Ok(value) => {
-                            list.push(Value::string(value, head_span));
+                    Value::Record { .. } => {
+                        match format_record(format_operations, val, config, head_span) {
+                            Ok(value) => {
+                                list.push(Value::string(value, head_span));
+                            }
+                            Err(value) => {
+                                return Err(value);
+                            }
                         }
-                        Err(value) => {
-                            return Err(value);
-                        }
-                    },
+                    }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
@@ -237,19 +250,23 @@ fn format_record(
     format_operations: &[FormatOperation],
     data_as_value: &Value,
     config: &Config,
+    head_span: Span,
 ) -> Result<String, ShellError> {
     let mut output = String::new();
 
     for op in format_operations {
         match op {
             FormatOperation::FixedText(s) => output.push_str(s.as_str()),
-            FormatOperation::ValueFromColumn(col_name, span) => {
+            FormatOperation::ValueFromColumn {
+                content: col_name,
+                span,
+            } => {
                 // path member should split by '.' to handle for nested structure.
                 let path_members: Vec<PathMember> = col_name
                     .split('.')
                     .map(|path| PathMember::String {
                         val: path.to_string(),
-                        span: *span,
+                        span: span.unwrap_or(head_span),
                         optional: false,
                         casing: Casing::Sensitive,
                     })
