@@ -203,6 +203,9 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
 @example "Get the only item in a list, ensuring it exists and there's no additional items" --result 5 {
   [5] | only
 }
+@example "Get the item (if present) from a list that has no more than one item" --result null {
+  [] | only
+}
 @example "Get the `name` column of the only row in a table" --result "foo" {
   [{name: foo, id: 5}] | only name
 }
@@ -210,11 +213,13 @@ def only-error [msg: string, meta: record, label: string]: nothing -> error {
   ls | where name == "foo.txt" | only modified
 }
 export def only [
+  --optional # Return `null` if there are no elements (does not affect behavior of the `cell_path` argument)
   cell_path?: cell-path # The cell path to access within the only element.
 ]: [table -> any, list -> any] {
   let pipe = {in: $in, meta: (metadata $in)}
   let path = [0 $cell_path] | cell-path-join
   match ($pipe.in | length) {
+    0 if $optional => null
     0 => (only-error "expected non-empty table/list" $pipe.meta "empty")
     1 => ($pipe.in | get $path)
     _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
