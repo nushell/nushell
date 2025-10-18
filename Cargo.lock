@@ -4205,6 +4205,7 @@ dependencies = [
  "web-time",
  "webpki-roots 1.0.0",
  "which",
+ "winapi",
  "windows 0.62.1",
  "winreg",
 ]
