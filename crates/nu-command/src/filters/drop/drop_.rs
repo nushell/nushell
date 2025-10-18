@@ -79,7 +79,9 @@ impl Command for Drop {
         let head = call.head;
         let metadata = input.metadata();
         let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
-        let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
+        let mut values = input
+            .into_iter_strict(head)?
+            .collect::<Result<Vec<_>, ShellError>>()?;
 
         let rows_to_drop = if let Some(rows) = rows {
             if rows.item < 0 {
