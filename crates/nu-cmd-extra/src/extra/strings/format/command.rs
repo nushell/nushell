@@ -68,6 +68,13 @@ impl Command for FormatPattern {
                     Value::test_string("v4"),
                 ])),
             },
+            Example {
+                description: "Escape braces by repeating them",
+                example: r#"{start: 3, end: 5} | format pattern 'if {start} < {end} {{ "correct" }} else {{ "incorrect" }}'"#,
+                result: Some(Value::test_string(
+                    r#"if 3 < 5 { "correct" } else { "incorrect" }"#,
+                )),
+            },
         ]
     }
 }
@@ -138,12 +145,20 @@ fn extract_formatting_operations(
         while let Some((index, ch)) = it.next() {
             match ch {
                 '{' if is_fixed => {
-                    is_fixed = false;
-                    return Some(Ok(FormatOperation::FixedText(buf)));
+                    if it.next_if(|(_, next_ch)| *next_ch == '{').is_some() {
+                        buf.push(ch);
+                    } else {
+                        is_fixed = false;
+                        return Some(Ok(FormatOperation::FixedText(buf)));
+                    };
                 }
                 '}' => {
                     if is_fixed {
-                        return Some(Err(()));
+                        if it.next_if(|(_, next_ch)| *next_ch == '}').is_some() {
+                            buf.push(ch);
+                        } else {
+                            return Some(Err(()));
+                        }
                     } else {
                         is_fixed = true;
                         return Some(Ok(FormatOperation::ValueFromColumn {
