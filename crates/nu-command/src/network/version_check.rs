@@ -21,11 +21,17 @@ impl Command for VersionCheck {
     fn extra_description(&self) -> &str {
         "If you're running nushell nightly, `version check` will check to see if you are running the latest nightly version. If you are running the nushell release, `version check` will check to see if you're running the latest release version."
     }
-
     fn signature(&self) -> Signature {
         Signature::build("version check")
             .category(Category::Platform)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Record(Box::new([
+                    ("channel".into(), Type::String),
+                    ("current".into(), Type::Bool),
+                    ("latest".into(), Type::String),
+                ])),
+            )])
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
