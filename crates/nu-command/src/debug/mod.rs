@@ -18,6 +18,7 @@ mod view_files;
 mod view_ir;
 mod view_source;
 mod view_span;
+mod view_state;
 
 pub use ast::Ast;
 pub use debug_::Debug;
@@ -38,3 +39,4 @@ pub use view_files::ViewFiles;
 pub use view_ir::ViewIr;
 pub use view_source::ViewSource;
 pub use view_span::ViewSpan;
+pub use view_state::ViewState;

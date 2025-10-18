@@ -168,6 +168,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ViewIr,
             ViewSource,
             ViewSpan,
+            ViewState,
         };
 
         #[cfg(all(feature = "os", windows))]
