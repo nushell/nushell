@@ -216,6 +216,88 @@ fn regex_error_in_pattern() {
 }
 
 #[test]
+fn find_and_replaces_with_closure() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace 'str' { str upcase }
+     "#);
+
+    assert_eq!(actual.out, "source STRing");
+}
+
+#[test]
+fn find_and_replaces_regex_with_closure() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace -r 's(..)ing' {|capture|
+           $"($capture) from ($in)"
+         }
+     "#);
+
+    assert_eq!(actual.out, "source tr from string");
+}
+
+#[test]
+fn find_and_replaces_closure_error() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace 'str' { 1 / 0 }
+     "#);
+
+    let err = actual.err;
+    let expecting_str = "division by zero";
+    assert!(
+        err.contains(expecting_str),
+        "Error should contain '{expecting_str}', but was: {err}"
+    );
+}
+
+#[test]
+fn find_and_replaces_regex_closure_error() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace -r 'str' { 1 / 0 }
+     "#);
+
+    let err = actual.err;
+    let expecting_str = "division by zero";
+    assert!(
+        err.contains(expecting_str),
+        "Error should contain '{expecting_str}', but was: {err}"
+    );
+}
+
+#[test]
+fn find_and_replaces_closure_type_mismatch() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace 'str' { 42 }
+     "#);
+
+    let err = actual.err;
+    let expecting_str = "nu::shell::type_mismatch";
+    assert!(
+        err.contains(expecting_str),
+        "Error should contain '{expecting_str}', but was: {err}"
+    );
+}
+
+#[test]
+fn find_and_replaces_regex_closure_type_mismatch() {
+    let actual = nu!(r#"
+         'source string'
+         | str replace -r 'str' { 42 }
+     "#);
+
+    let err = actual.err;
+    let expecting_str = "nu::shell::type_mismatch";
+    assert!(
+        err.contains(expecting_str),
+        "Error should contain '{expecting_str}', but was: {err}"
+    );
+}
+
+#[test]
 fn substrings_the_input() {
     Playground::setup("str_test_8", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
