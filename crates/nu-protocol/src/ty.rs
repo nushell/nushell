@@ -7,6 +7,7 @@ use strum_macros::EnumIter;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
+    /// Top type, supertype of all types
     Any,
     Binary,
     Block,
@@ -23,7 +24,10 @@ pub enum Type {
     List(Box<Type>),
     #[default]
     Nothing,
+    /// Supertype of Int and Float. Equivalent to `oneof<int, float>`
     Number,
+    /// Supertype of all types it contains.
+    OneOf(Box<[Type]>),
     Range,
     Record(Box<[(String, Type)]>),
     String,
@@ -34,6 +38,10 @@ pub enum Type {
 impl Type {
     pub fn list(inner: Type) -> Self {
         Self::List(Box::new(inner))
+    }
+
+    pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
+        Self::OneOf(types.into_iter().collect())
     }
 
     pub fn record() -> Self {
@@ -73,11 +81,9 @@ impl Type {
 
         match (self, other) {
             (t, u) if t == u => true,
-            (Type::Float, Type::Number) => true,
-            (Type::Int, Type::Number) => true,
-            (Type::Glob, Type::String) => true,
-            (Type::String, Type::Glob) => true,
             (_, Type::Any) => true,
+            (Type::Float | Type::Int, Type::Number) => true,
+            (Type::Glob, Type::String) | (Type::String, Type::Glob) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
@@ -89,6 +95,10 @@ impl Type {
             (Type::List(this), Type::Table(that)) => {
                 matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
             }
+            (Type::OneOf(this), that @ Type::OneOf(_)) => {
+                this.iter().all(|t| t.is_subtype_of(that))
+            }
+            (this, Type::OneOf(that)) => that.iter().any(|t| this.is_subtype_of(t)),
             _ => false,
         }
     }
@@ -138,6 +148,7 @@ impl Type {
             Type::Filesize => SyntaxShape::Filesize,
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
+            Type::OneOf(types) => SyntaxShape::OneOf(types.iter().map(Type::to_shape).collect()),
             Type::Nothing => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
@@ -168,6 +179,7 @@ impl Type {
             Type::List(_) => String::from("list"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
+            Type::OneOf(_) => String::from("oneof"),
             Type::String => String::from("string"),
             Type::Any => String::from("any"),
             Type::Error => String::from("error"),
@@ -224,6 +236,17 @@ impl Display for Type {
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
+            Type::OneOf(types) => {
+                write!(f, "oneof")?;
+                let [first, rest @ ..] = &**types else {
+                    return Ok(());
+                };
+                write!(f, "<{first}")?;
+                for t in rest {
+                    write!(f, ", {t}")?;
+                }
+                f.write_str(">")
+            }
             Type::String => write!(f, "string"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),

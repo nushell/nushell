@@ -864,6 +864,7 @@ impl Value {
         // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
         match (self, other) {
             (_, Type::Any) => true,
+            (val, Type::OneOf(types)) => types.iter().any(|t| val.is_subtype_of(t)),
 
             // `Type` allocation for scalar types is trivial
             (
