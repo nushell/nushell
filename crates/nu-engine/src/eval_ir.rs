@@ -1,8 +1,10 @@
+#[cfg(feature = "os")]
+use std::sync::Mutex;
 use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
-use nu_protocol::process::check_exit_status_future;
+use nu_protocol::process::{ExitStatusFuture, check_exit_status_future};
 use nu_protocol::{
     DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
     PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
@@ -68,6 +70,8 @@ pub fn eval_ir_block<D: DebugContext>(
                 redirect_err: None,
                 matches: vec![],
                 registers: &mut registers[..],
+                #[cfg(feature = "os")]
+                tmp_exit_future: vec![],
                 files: &mut files[..],
             },
             ir_block,
@@ -111,6 +115,10 @@ struct EvalContext<'a> {
     matches: Vec<(VarId, Value)>,
     /// Intermediate pipeline data storage used by instructions, indexed by RegId
     registers: &'a mut [PipelineExecutionData],
+    #[cfg(feature = "os")]
+    /// Temporarily exit future, used to implement pipefail feature by
+    /// Instruction::RecordExitFuture and Instruction::TrackExitFuture
+    tmp_exit_future: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
     /// Holds open files used by redirections
     files: &'a mut [Option<Arc<File>>],
 }
@@ -127,6 +135,16 @@ impl<'a> EvalContext<'a> {
     #[inline]
     fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
         &self.registers[reg_id.get() as usize]
+    }
+
+    #[cfg(feature = "os")]
+    /// clone exit status future from a register.
+    #[inline]
+    fn clone_exit_status(
+        &self,
+        reg_id: RegId,
+    ) -> Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>> {
+        self.registers[reg_id.get() as usize].exit.clone()
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
@@ -593,20 +611,16 @@ fn eval_instruction<D: DebugContext>(
                     _ => (),
                 };
             }
-            // After eval_call, attach result's exit_status_future
-            // to `original_exit`, so all exit_status_future are tracked
-            // in the new PipelineData, and wrap it into `PipelineExecutionData`
             #[cfg(feature = "os")]
             {
-                let mut original_exit = input.exit;
+                // save the span to report error with correct span.
                 let result_exit_status_future =
                     result.clone_exit_status_future().map(|f| (f, *span));
-                original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,
                     PipelineExecutionData {
                         body: result,
-                        exit: original_exit,
+                        exit: vec![result_exit_status_future],
                     },
                 );
             }
@@ -903,6 +917,31 @@ fn eval_instruction<D: DebugContext>(
             })
         }
         Instruction::Return { src } => Ok(Return(*src)),
+        #[cfg(feature = "os")]
+        Instruction::RecordInputExitFuture { src } => {
+            let input = ctx.clone_exit_status(*src);
+            ctx.tmp_exit_future = input;
+            Ok(Continue)
+        }
+        #[cfg(feature = "os")]
+        Instruction::TrackExitFuture { dst } => {
+            // attach result's exit_status_future to `ctx.tmp_exit_future`
+            // so all exit_status_future are tracked in the new PipelineData
+            // and wrap it into `PipelineExecutionData`
+            let mut original_exit = vec![];
+            original_exit.append(&mut ctx.tmp_exit_future);
+            let output = ctx.take_reg(*dst);
+            let mut result_exit_status_future = output.exit;
+            original_exit.append(&mut result_exit_status_future);
+            ctx.put_reg(
+                *dst,
+                PipelineExecutionData {
+                    body: output.body,
+                    exit: original_exit,
+                },
+            );
+            Ok(Continue)
+        }
     }
 }
 
