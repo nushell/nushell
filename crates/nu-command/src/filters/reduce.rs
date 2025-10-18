@@ -121,8 +121,8 @@ impl Command for Reduce {
         for value in iter {
             engine_state.signals().check(&head)?;
             acc = closure
-                .add_arg(value)
-                .add_arg(acc.clone())
+                .add_arg(value)?
+                .add_arg(acc.clone())?
                 .run_with_input(PipelineData::value(acc, None))?
                 .into_value(head)?;
         }

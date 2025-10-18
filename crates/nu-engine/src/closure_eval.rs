@@ -1,10 +1,7 @@
-use crate::{
-    EvalBlockWithEarlyReturnFn, eval_block_with_early_return, get_eval_block_with_early_return,
-};
+use crate::{eval::CallEval, get_eval_block_with_early_return};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, ShellError, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, Value,
     ast::Block,
-    debugger::{WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvVars, Stack},
 };
 use std::{
@@ -12,14 +9,6 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-
-fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
-    if debug {
-        eval_block_with_early_return::<WithDebug>
-    } else {
-        eval_block_with_early_return::<WithoutDebug>
-    }
-}
 
 /// [`ClosureEval`] is used to repeatedly evaluate a closure with different values/inputs.
 ///
@@ -37,7 +26,7 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 /// let mut closure = ClosureEval::new(engine_state, stack, closure);
 /// let iter = Vec::<Value>::new()
 ///     .into_iter()
-///     .map(move |value| closure.add_arg(value).run_with_input(PipelineData::empty()));
+///     .map(move |value| closure.add_arg(value).unwrap().run_with_input(PipelineData::empty()));
 /// ```
 ///
 /// Many closures follow a simple, common scheme where the pipeline input and the first argument are the same value.
@@ -57,34 +46,40 @@ fn eval_fn(debug: bool) -> EvalBlockWithEarlyReturnFn {
 ///
 /// Environment isolation and other cleanup is handled by [`ClosureEval`],
 /// so nothing needs to be done following [`ClosureEval::run_with_input`] or [`ClosureEval::run_with_value`].
+///
+/// In contrast to [`ClosureEvalOnce`], [`ClosureEval`] holds an owned copy of the
+/// [`EngineState`] supplied. This makes it possible to return it from a function that
+/// only has a borrowed [`EngineState`] reference, such as the `run` function of a
+/// [`nu_engine::command_prelude::Command`] implementation.
 pub struct ClosureEval {
     engine_state: EngineState,
-    stack: Stack,
     block: Arc<Block>,
-    arg_index: usize,
     env_vars: Vec<Arc<EnvVars>>,
     env_hidden: Arc<HashMap<String, HashSet<String>>>,
-    eval: EvalBlockWithEarlyReturnFn,
+    call_eval: CallEval,
 }
 
 impl ClosureEval {
     /// Create a new [`ClosureEval`].
     pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
         let engine_state = engine_state.clone();
-        let stack = stack.captures_to_stack(closure.captures);
+        let callee_stack = stack.captures_to_stack(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
-        let eval = get_eval_block_with_early_return(&engine_state);
+        let call_eval = CallEval::new(
+            callee_stack,
+            Span::unknown(),
+            block.span.unwrap_or(Span::unknown()),
+            get_eval_block_with_early_return(&engine_state),
+        );
 
         Self {
             engine_state,
-            stack,
             block,
-            arg_index: 0,
             env_vars,
             env_hidden,
-            eval,
+            call_eval,
         }
     }
 
@@ -94,20 +89,23 @@ impl ClosureEval {
         closure: Closure,
     ) -> Self {
         let engine_state = engine_state.clone();
-        let stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
+        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
-        let eval = get_eval_block_with_early_return(&engine_state);
+        let call_eval = CallEval::new(
+            callee_stack,
+            Span::unknown(),
+            block.span.unwrap_or(Span::unknown()),
+            get_eval_block_with_early_return(&engine_state),
+        );
 
         Self {
             engine_state,
-            stack,
             block,
-            arg_index: 0,
             env_vars,
             env_hidden,
-            eval,
+            call_eval,
         }
     }
 
@@ -115,38 +113,27 @@ impl ClosureEval {
     ///
     /// By default, this is controlled by the [`EngineState`] used to create this [`ClosureEval`].
     pub fn debug(&mut self, debug: bool) -> &mut Self {
-        self.eval = eval_fn(debug);
+        self.call_eval.debug(debug);
         self
-    }
-
-    fn try_add_arg(&mut self, value: Cow<Value>) {
-        if let Some(var_id) = self
-            .block
-            .signature
-            .get_positional(self.arg_index)
-            .and_then(|var| var.var_id)
-        {
-            self.stack.add_var(var_id, value.into_owned());
-            self.arg_index += 1;
-        }
     }
 
     /// Add an argument [`Value`] to the closure.
     ///
     /// Multiple [`add_arg`](Self::add_arg) calls can be chained together,
     /// but make sure that arguments are added based on their positional order.
-    pub fn add_arg(&mut self, value: Value) -> &mut Self {
-        self.try_add_arg(Cow::Owned(value));
-        self
+    pub fn add_arg(&mut self, value: Value) -> Result<&mut Self, ShellError> {
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Owned(value))?;
+        Ok(self)
     }
 
     /// Run the closure, passing the given [`PipelineData`] as input.
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(&mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        self.arg_index = 0;
-        self.stack.with_env(&self.env_vars, &self.env_hidden);
-        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
+        self.call_eval
+            .with_env(&self.env_vars, &self.env_hidden)
+            .run(&self.engine_state, &self.block, input)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
@@ -154,8 +141,10 @@ impl ClosureEval {
     /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
     /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data())`.
     pub fn run_with_value(&mut self, value: Value) -> Result<PipelineData, ShellError> {
-        self.try_add_arg(Cow::Borrowed(&value));
-        self.run_with_input(value.into_pipeline_data())
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Borrowed(&value))?
+            .with_env(&self.env_vars, &self.env_hidden)
+            .run(&self.engine_state, &self.block, value.into_pipeline_data())
     }
 }
 
@@ -175,6 +164,7 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure)
 ///     .add_arg(value)
+///     .unwrap()
 ///     .run_with_input(PipelineData::empty());
 /// ```
 ///
@@ -190,25 +180,32 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value);
 /// ```
+///
+/// In contrast to [`ClosureEval`], the lifetime of [`ClosureEvalOnce`] is bound
+/// to that of the supplied [`EngineState`] reference, which makes it more light-weight.
 pub struct ClosureEvalOnce<'a> {
     engine_state: &'a EngineState,
-    stack: Stack,
     block: &'a Block,
-    arg_index: usize,
-    eval: EvalBlockWithEarlyReturnFn,
+    call_eval: CallEval,
+    caller_stack: Option<&'a mut Stack>,
 }
 
 impl<'a> ClosureEvalOnce<'a> {
     /// Create a new [`ClosureEvalOnce`].
     pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
         let block = engine_state.get_block(closure.block_id);
-        let eval = get_eval_block_with_early_return(engine_state);
+        let callee_stack = stack.captures_to_stack(closure.captures);
+        let call_eval = CallEval::new(
+            callee_stack,
+            Span::unknown(),
+            block.span.unwrap_or(Span::unknown()),
+            get_eval_block_with_early_return(engine_state),
+        );
         Self {
             engine_state,
-            stack: stack.captures_to_stack(closure.captures),
             block,
-            arg_index: 0,
-            eval,
+            call_eval,
+            caller_stack: None,
         }
     }
 
@@ -218,13 +215,39 @@ impl<'a> ClosureEvalOnce<'a> {
         closure: Closure,
     ) -> Self {
         let block = engine_state.get_block(closure.block_id);
-        let eval = get_eval_block_with_early_return(engine_state);
+        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
+        let call_eval = CallEval::new(
+            callee_stack,
+            Span::unknown(),
+            block.span.unwrap_or(Span::unknown()),
+            get_eval_block_with_early_return(engine_state),
+        );
         Self {
             engine_state,
-            stack: stack.captures_to_stack_preserve_out_dest(closure.captures),
             block,
-            arg_index: 0,
-            eval,
+            call_eval,
+            caller_stack: None,
+        }
+    }
+
+    pub fn new_env_preserve_out_dest(
+        engine_state: &'a EngineState,
+        stack: &'a mut Stack,
+        closure: Closure,
+    ) -> Self {
+        let block = engine_state.get_block(closure.block_id);
+        let callee_stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
+        let call_eval = CallEval::new(
+            callee_stack,
+            Span::unknown(),
+            block.span.unwrap_or(Span::unknown()),
+            get_eval_block_with_early_return(engine_state),
+        );
+        Self {
+            engine_state,
+            block,
+            call_eval,
+            caller_stack: Some(stack),
         }
     }
 
@@ -232,36 +255,38 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// By default, this is controlled by the [`EngineState`] used to create this [`ClosureEvalOnce`].
     pub fn debug(mut self, debug: bool) -> Self {
-        self.eval = eval_fn(debug);
+        self.call_eval.debug(debug);
         self
-    }
-
-    fn try_add_arg(&mut self, value: Cow<Value>) {
-        if let Some(var_id) = self
-            .block
-            .signature
-            .get_positional(self.arg_index)
-            .and_then(|var| var.var_id)
-        {
-            self.stack.add_var(var_id, value.into_owned());
-            self.arg_index += 1;
-        }
     }
 
     /// Add an argument [`Value`] to the closure.
     ///
     /// Multiple [`add_arg`](Self::add_arg) calls can be chained together,
     /// but make sure that arguments are added based on their positional order.
-    pub fn add_arg(mut self, value: Value) -> Self {
-        self.try_add_arg(Cow::Owned(value));
-        self
+    pub fn add_arg(mut self, value: Value) -> Result<Self, ShellError> {
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Owned(value))?;
+        Ok(self)
+    }
+
+    /// Add a list of argument [`Value`]s to the closure.
+    pub fn add_args(mut self, values: Vec<Value>) -> Result<Self, ShellError> {
+        for value in values {
+            self.call_eval
+                .add_positional(&self.block.signature, Cow::Owned(value))?;
+        }
+        Ok(self)
     }
 
     /// Run the closure, passing the given [`PipelineData`] as input.
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        (self.eval)(self.engine_state, &mut self.stack, self.block, input).map(|p| p.body)
+        let result = self.call_eval.run(self.engine_state, self.block, input);
+        if let Some(caller) = self.caller_stack {
+            self.call_eval.redirect_env(self.engine_state, caller);
+        }
+        result
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
@@ -269,7 +294,8 @@ impl<'a> ClosureEvalOnce<'a> {
     /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
     /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data())`.
     pub fn run_with_value(mut self, value: Value) -> Result<PipelineData, ShellError> {
-        self.try_add_arg(Cow::Borrowed(&value));
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
         self.run_with_input(value.into_pipeline_data())
     }
 }

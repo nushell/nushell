@@ -1,17 +1,248 @@
-use crate::eval_ir::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
+use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
     BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Span, Value, VarId,
+    ShellError, Signature, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
-    debugger::DebugContext,
-    engine::{Closure, EngineState, Stack},
+    debugger::{DebugContext, WithDebug, WithoutDebug},
+    engine::{Closure, EngineState, EnvVars, Stack},
     eval_base::Eval,
 };
 use nu_utils::IgnoreCaseExt;
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+/// [`CallEval`] is used to evaluate a command or closure call.
+///
+/// It is intended as an internal interface in the engine, to make sure
+/// command and closure calls behave the same.
+/// If you want to evaluate a closure in a command, use [`ClosureEval`] or
+/// [`ClosureEvalOnce`]. If you want to call a command, use [`eval_call`].
+///
+/// [`CallEval`] has a builder API.
+/// It is first created vial [`CallEval::new`],
+/// then has arguments added via [`CallEval::add_positional`] and [`CallEval::add_named`],
+/// and then can be run using [`CallEval::run`].
+pub struct CallEval {
+    callee_stack: Stack,
+    head_span: Span,
+    callee_span: Span,
+    arg_index: usize,
+    named_args: Vec<String>,
+    rest_args: Vec<Value>,
+    eval: EvalBlockWithEarlyReturnFn,
+}
+
+impl CallEval {
+    /// Create a new [`CallEval`] context
+    pub fn new(
+        callee_stack: Stack,
+        call_head: Span,
+        callee_span: Span,
+        eval: EvalBlockWithEarlyReturnFn,
+    ) -> Self {
+        Self {
+            callee_stack,
+            head_span: call_head,
+            callee_span,
+            arg_index: 0,
+            named_args: Vec::new(),
+            rest_args: Vec::new(),
+            eval,
+        }
+    }
+
+    /// Add a positional argument to the call stack.
+    ///
+    /// Returns an error if the given `value` does not match the type of
+    /// the argument according to the signature (see [`CallEval::new`]).
+    pub fn add_positional(
+        &mut self,
+        signature: &Signature,
+        value: Cow<Value>,
+    ) -> Result<&mut Self, ShellError> {
+        let maybe_param = if self.arg_index < signature.required_positional.len() {
+            signature.required_positional.get(self.arg_index)
+        } else if self.arg_index
+            < (signature.required_positional.len() + signature.optional_positional.len())
+        {
+            signature
+                .optional_positional
+                .get(self.arg_index - signature.required_positional.len())
+        } else {
+            None
+        };
+        if let Some(param) = maybe_param {
+            let param_type = param.shape.to_type();
+            if value.is_subtype_of(&param_type) {
+                let var_id = param
+                    .var_id
+                    .expect("internal error: all custom parameters must have var_ids");
+                self.callee_stack.add_var(var_id, value.into_owned());
+                self.arg_index += 1;
+                Ok(self)
+            } else {
+                Err(ShellError::CantConvert {
+                    to_type: param_type.to_string(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                })
+            }
+        } else {
+            // assign arg to rest params
+            if let Some(rest_positional) = &signature.rest_positional {
+                let param_type = rest_positional.shape.to_type();
+                if value.is_subtype_of(&param_type) {
+                    self.rest_args.push(value.into_owned());
+                    Ok(self)
+                } else {
+                    Err(ShellError::CantConvert {
+                        to_type: param_type.to_string(),
+                        from_type: value.get_type().to_string(),
+                        span: value.span(),
+                        help: None,
+                    })
+                }
+            } else {
+                // We do not consider it an error if more arguments
+                // are added than the closure takes. This makes it possible
+                // to omit any unused arguments in the closure definition.
+                Ok(self)
+            }
+        }
+    }
+
+    /// Add a named parameter to the call stack.
+    pub fn add_named(
+        &mut self,
+        signature: &Signature,
+        long: &str,
+        short: Option<String>,
+        value: Option<Cow<Value>>,
+    ) -> Result<&mut Self, ShellError> {
+        let named = signature.named.iter().find(|named| {
+            (short.is_some() && short == named.short.map(|x| x.to_string())) || long == named.long
+        });
+        if let Some(named) = named {
+            let var_id = named
+                .var_id
+                .expect("internal error: all custom parameters must have var_ids");
+            if let Some(val) = value {
+                self.callee_stack.add_var(var_id, val.into_owned());
+            } else if let Some(val) = &named.default_value {
+                self.callee_stack.add_var(var_id, val.to_owned());
+            } else {
+                self.callee_stack
+                    .add_var(var_id, Value::bool(true, self.head_span));
+            }
+            self.named_args.push(long.to_string());
+        }
+        Ok(self)
+    }
+
+    /// Sets the environment variables for the call.
+    pub fn with_env(
+        &mut self,
+        env_vars: &[Arc<EnvVars>],
+        env_hidden: &Arc<HashMap<String, HashSet<String>>>,
+    ) -> &mut Self {
+        self.callee_stack.with_env(env_vars, env_hidden);
+        self
+    }
+
+    /// Sets whether to enable debugging when evaluating the closure.
+    pub fn debug(&mut self, debug: bool) -> &mut Self {
+        if debug {
+            self.eval = eval_block_with_early_return::<WithDebug>
+        } else {
+            self.eval = eval_block_with_early_return::<WithoutDebug>
+        };
+        self
+    }
+
+    /// Run the given block.
+    pub fn run(
+        &mut self,
+        engine_state: &EngineState,
+        block: &Block,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        self.finalize_arguments(&block.signature)?;
+        self.arg_index = 0;
+        self.rest_args.clear();
+        (self.eval)(engine_state, &mut self.callee_stack, block, input).map(|p| p.body)
+    }
+
+    /// Export the modified environment from callee to the caller.
+    pub fn redirect_env(&self, engine_state: &EngineState, stack: &mut Stack) {
+        redirect_env(engine_state, stack, &self.callee_stack);
+    }
+
+    /// Add default and rest values to the stack, raise error on
+    /// missing parameters.
+    fn finalize_arguments(&mut self, signature: &Signature) -> Result<(), ShellError> {
+        for (num, (param, required)) in signature
+            .required_positional
+            .iter()
+            .map(|p| (p, true))
+            .chain(signature.optional_positional.iter().map(|p| (p, false)))
+            .enumerate()
+        {
+            let var_id = param
+                .var_id
+                .expect("internal error: all custom parameters must have var_ids");
+            if num < self.arg_index {
+                // parameter has been added by add_positional
+            } else if let Some(value) = &param.default_value {
+                self.callee_stack.add_var(var_id, value.to_owned());
+            } else if !required {
+                self.callee_stack
+                    .add_var(var_id, Value::nothing(self.callee_span.to_owned()));
+            } else {
+                return Err(ShellError::MissingParameter {
+                    param_name: param.name.to_string(),
+                    span: self.callee_span.to_owned(),
+                });
+            }
+        }
+        if let Some(rest_positional) = &signature.rest_positional {
+            let span = if let Some(rest_item) = self.rest_args.first() {
+                rest_item.span()
+            } else {
+                self.callee_span.to_owned()
+            };
+            self.callee_stack.add_var(
+                rest_positional
+                    .var_id
+                    .expect("Internal error: rest positional parameter lackes var_id"),
+                Value::list(self.rest_args.to_owned(), span),
+            );
+        }
+        for named in signature.named.iter() {
+            // Ignore named arguments without var_id.
+            // There is some code in nu_cli::completions that relies on this behavior of `eval_call`.
+            if let Some(var_id) = named.var_id {
+                if !self.named_args.contains(&named.long) {
+                    if named.arg.is_none() {
+                        self.callee_stack
+                            .add_var(var_id, Value::bool(false, self.head_span));
+                    } else if let Some(value) = named.default_value.clone() {
+                        self.callee_stack.add_var(var_id, value);
+                    } else {
+                        self.callee_stack
+                            .add_var(var_id, Value::nothing(self.head_span))
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Evaluate a call to a command (builtin, custom or external)
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
     caller_stack: &mut Stack,
@@ -25,8 +256,8 @@ pub fn eval_call<D: DebugContext>(
         let help = get_full_help(decl, engine_state, caller_stack);
         Ok(Value::string(help, call.head).into_pipeline_data())
     } else if let Some(block_id) = decl.block_id() {
+        // call is a custom command
         let block = engine_state.get_block(block_id);
-
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
         // Rust does not check recursion limits outside of const evaluation.
@@ -44,120 +275,43 @@ pub fn eval_call<D: DebugContext>(
             });
         }
 
-        for (param_idx, (param, required)) in decl
-            .signature()
-            .required_positional
-            .iter()
-            .map(|p| (p, true))
-            .chain(
-                decl.signature()
-                    .optional_positional
-                    .iter()
-                    .map(|p| (p, false)),
-            )
-            .enumerate()
-        {
-            let var_id = param
-                .var_id
-                .expect("internal error: all custom parameters must have var_ids");
-
-            if let Some(arg) = call.positional_nth(param_idx) {
-                let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
-                let param_type = param.shape.to_type();
-                if required && !result.is_subtype_of(&param_type) {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
-                }
-                callee_stack.add_var(var_id, result);
-            } else if let Some(value) = &param.default_value {
-                callee_stack.add_var(var_id, value.to_owned());
-            } else {
-                callee_stack.add_var(var_id, Value::nothing(call.head));
-            }
+        let mut call_eval = CallEval::new(
+            callee_stack,
+            call.head,
+            block.span.unwrap_or(Span::unknown()),
+            eval_block_with_early_return::<D>,
+        );
+        for arg in call.positional_iter() {
+            let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
+            call_eval.add_positional(&decl.signature(), Cow::Owned(result))?;
         }
-
-        if let Some(rest_positional) = decl.signature().rest_positional {
-            let mut rest_items = vec![];
-
-            for result in call.rest_iter_flattened(
-                decl.signature().required_positional.len()
-                    + decl.signature().optional_positional.len(),
-                |expr| eval_expression::<D>(engine_state, caller_stack, expr),
-            )? {
-                rest_items.push(result);
-            }
-
-            let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()
+        for call_named in call.named_iter() {
+            let result: Option<Cow<Value>> = if let Some(arg) = &call_named.2 {
+                Some(Cow::Owned(eval_expression::<D>(
+                    engine_state,
+                    caller_stack,
+                    arg,
+                )?))
             } else {
-                call.head
+                None
             };
-
-            callee_stack.add_var(
-                rest_positional
-                    .var_id
-                    .expect("Internal error: rest positional parameter lacks var_id"),
-                Value::list(rest_items, span),
-            )
+            call_eval.add_named(
+                &decl.signature(),
+                &call_named.0.item,
+                call_named.1.clone().map(|x| x.item),
+                result,
+            )?;
         }
 
-        for named in decl.signature().named {
-            if let Some(var_id) = named.var_id {
-                let mut found = false;
-                for call_named in call.named_iter() {
-                    if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
-                        if spanned.item == short.to_string() {
-                            if let Some(arg) = &call_named.2 {
-                                let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
-
-                                callee_stack.add_var(var_id, result);
-                            } else if let Some(value) = &named.default_value {
-                                callee_stack.add_var(var_id, value.to_owned());
-                            } else {
-                                callee_stack.add_var(var_id, Value::bool(true, call.head))
-                            }
-                            found = true;
-                        }
-                    } else if call_named.0.item == named.long {
-                        if let Some(arg) = &call_named.2 {
-                            let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
-
-                            callee_stack.add_var(var_id, result);
-                        } else if let Some(value) = &named.default_value {
-                            callee_stack.add_var(var_id, value.to_owned());
-                        } else {
-                            callee_stack.add_var(var_id, Value::bool(true, call.head))
-                        }
-                        found = true;
-                    }
-                }
-
-                if !found {
-                    if named.arg.is_none() {
-                        callee_stack.add_var(var_id, Value::bool(false, call.head))
-                    } else if let Some(value) = named.default_value {
-                        callee_stack.add_var(var_id, value);
-                    } else {
-                        callee_stack.add_var(var_id, Value::nothing(call.head))
-                    }
-                }
-            }
-        }
-
-        let result =
-            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
-                .map(|p| p.body);
+        let result = call_eval.run(engine_state, block, input);
 
         if block.redirect_env {
-            redirect_env(engine_state, caller_stack, &callee_stack);
+            call_eval.redirect_env(engine_state, caller_stack);
         }
 
         result
     } else {
+        // call is a builtin or external command
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
