@@ -154,7 +154,7 @@ fn command(
     let spanned_file: Spanned<String> = call.req(0)?;
     debug!("file: {}", spanned_file.item);
 
-    let resource = Resource::new(plugin, &spanned_file)?;
+    let resource = Resource::new(plugin, engine, &spanned_file)?;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
         .map(|t: Spanned<String>| (t.item, t.span))
