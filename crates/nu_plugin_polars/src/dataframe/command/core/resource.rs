@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 
 use crate::{PolarsPlugin, cloud::build_cloud_options};
+use nu_path::expand_path_with;
+use nu_plugin::EngineInterface;
 use nu_protocol::{ShellError, Span, Spanned};
 use polars::{
     io::cloud::CloudOptions,
-    prelude::{PlPath, SinkTarget},
+    prelude::{PlPath, PlPathRef, SinkTarget},
 };
 
 #[derive(Clone)]
@@ -29,11 +31,12 @@ impl std::fmt::Debug for Resource {
 impl Resource {
     pub(crate) fn new(
         plugin: &PolarsPlugin,
+        engine: &EngineInterface,
         spanned_path: &Spanned<String>,
     ) -> Result<Self, ShellError> {
         let path = PlPath::from_str(&spanned_path.item);
 
-        let cloud_options: Option<CloudOptions> = if path.is_cloud_url() {
+        let (path, cloud_options): (PlPath, Option<CloudOptions>) = if path.is_cloud_url() {
             let options = build_cloud_options(plugin, &path)?;
             if options.is_none() {
                 return Err(ShellError::GenericError {
@@ -47,9 +50,10 @@ impl Resource {
                     inner: vec![],
                 });
             }
-            options
+            (path, options)
         } else {
-            None
+            let new_path = expand_path_with(&spanned_path.item, engine.get_current_dir()?, true);
+            (PlPathRef::from_local_path(&new_path).into_owned(), None)
         };
 
         Ok(Self {
