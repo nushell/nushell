@@ -262,9 +262,6 @@ mod test {
 // Copied from https://docs.rs/is_executable/ v1.0.5
 // Removed path.exists() check in `mod windows`.
 
-#[cfg(target_os = "windows")]
-extern crate winapi;
-
 /// An extension trait for `std::fs::Path` providing an `is_executable` method.
 ///
 /// See the module documentation for examples.
@@ -300,8 +297,8 @@ mod windows {
     use std::os::windows::ffi::OsStrExt;
     use std::path::Path;
 
-    use winapi::ctypes::{c_ulong, wchar_t};
-    use winapi::um::winbase::GetBinaryTypeW;
+    use windows::Win32::Storage::FileSystem::GetBinaryTypeW;
+    use windows::core::PCWSTR;
 
     use super::IsExecutable;
 
@@ -329,32 +326,14 @@ mod windows {
 
             // Check using file properties
             // This code is only reached if there is no file extension or retrieving PATHEXT fails
-            let windows_string = self
-                .as_os_str()
-                .encode_wide()
-                .chain(Some(0))
-                .collect::<Vec<wchar_t>>();
-            let windows_string_ptr = windows_string.as_ptr();
+            let windows_string: Vec<u16> = self.as_os_str().encode_wide().chain(Some(0)).collect();
+            let mut binary_type: u32 = 0;
 
-            let mut binary_type: c_ulong = 42;
-            let binary_type_ptr = &mut binary_type as *mut c_ulong;
-
-            let ret = unsafe { GetBinaryTypeW(windows_string_ptr, binary_type_ptr) };
-            if binary_type_ptr.is_null() {
-                return false;
-            }
-            if ret != 0 {
-                let binary_type = unsafe { *binary_type_ptr };
-                match binary_type {
-                    0   // A 32-bit Windows-based application
-                    | 1 // An MS-DOS-based application
-                    | 2 // A 16-bit Windows-based application
-                    | 3 // A PIF file that executes an MS-DOS-based application
-                    | 4 // A POSIX – based application
-                    | 5 // A 16-bit OS/2-based application
-                    | 6 // A 64-bit Windows-based application
-                    => return true,
-                    _ => (),
+            let result =
+                unsafe { GetBinaryTypeW(PCWSTR(windows_string.as_ptr()), &mut binary_type) };
+            if result.is_ok() {
+                if let 0..=6 = binary_type {
+                    return true;
                 }
             }
 
