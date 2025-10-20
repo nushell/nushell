@@ -107,12 +107,12 @@ pub fn http_client(
 
     #[cfg(unix)]
     if let Some(socket_path) = unix_socket_path {
-        // Use custom Unix socket connector with no-op resolver
-        use crate::network::http::unix_socket::NoOpResolver;
+        // Use custom Unix socket connector
+        use ureq::unversioned::resolver::DefaultResolver;
 
         let connector = UnixSocketConnector::new(socket_path);
         let config = config_builder.build();
-        let resolver = NoOpResolver;
+        let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
