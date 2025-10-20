@@ -115,7 +115,7 @@ mod tests {
         let path = PathBuf::from("/tmp/test.sock");
         let connector = UnixSocketConnector::new(path.clone());
         // Verify via Debug implementation since socket_path is private
-        let debug_str = format!("{:?}", connector);
+        let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("UnixSocketConnector"));
         assert!(debug_str.contains("/tmp/test.sock"));
     }
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn test_connector_stores_path() {
         let connector = UnixSocketConnector::new("/var/run/docker.sock".into());
-        let debug_str = format!("{:?}", connector);
+        let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("/var/run/docker.sock"));
     }
 }
