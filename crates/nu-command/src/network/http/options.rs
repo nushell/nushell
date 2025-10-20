@@ -3,6 +3,8 @@ use crate::network::http::client::{
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
     request_set_timeout, send_request_no_body,
 };
+#[cfg(unix)]
+use crate::network::http::client::add_unix_socket_flag;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -14,7 +16,7 @@ impl Command for HttpOptions {
     }
 
     fn signature(&self) -> Signature {
-        let mut sig = Signature::build("http options")
+        let sig = Signature::build("http options")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -60,14 +62,7 @@ impl Command for HttpOptions {
             .category(Category::Network);
 
         #[cfg(unix)]
-        {
-            sig = sig.named(
-                "unix-socket",
-                SyntaxShape::Filepath,
-                "Connect to the specified Unix socket instead of using TCP",
-                None,
-            );
-        }
+        let sig = add_unix_socket_flag(sig);
 
         sig
     }

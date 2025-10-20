@@ -4,6 +4,8 @@ use crate::network::http::client::{
     request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
     send_request_no_body,
 };
+#[cfg(unix)]
+use crate::network::http::client::add_unix_socket_flag;
 use nu_engine::command_prelude::*;
 
 use super::client::RedirectMode;
@@ -17,7 +19,7 @@ impl Command for HttpDelete {
     }
 
     fn signature(&self) -> Signature {
-        let mut sig = Signature::build("http delete")
+        let sig = Signature::build("http delete")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -90,14 +92,7 @@ impl Command for HttpDelete {
             .category(Category::Network);
 
         #[cfg(unix)]
-        {
-            sig = sig.named(
-                "unix-socket",
-                SyntaxShape::Filepath,
-                "Connect to the specified Unix socket instead of using TCP",
-                None,
-            );
-        }
+        let sig = add_unix_socket_flag(sig);
 
         sig
     }

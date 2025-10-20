@@ -80,6 +80,17 @@ impl RedirectMode {
     pub(crate) const MODES: &[&str] = &["follow", "error", "manual"];
 }
 
+/// Helper function to add the --unix-socket flag to command signatures.
+#[cfg(unix)]
+pub fn add_unix_socket_flag(sig: Signature) -> Signature {
+    sig.named(
+        "unix-socket",
+        SyntaxShape::Filepath,
+        "Connect to the specified Unix socket instead of using TCP",
+        None,
+    )
+}
+
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,

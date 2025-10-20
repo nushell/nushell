@@ -3,6 +3,8 @@ use crate::network::http::client::{
     http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
     request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
 };
+#[cfg(unix)]
+use crate::network::http::client::add_unix_socket_flag;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -14,7 +16,7 @@ impl Command for HttpPatch {
     }
 
     fn signature(&self) -> Signature {
-        let mut sig = Signature::build("http patch")
+        let sig = Signature::build("http patch")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "The URL to post to.")
@@ -85,14 +87,7 @@ impl Command for HttpPatch {
             .category(Category::Network);
 
         #[cfg(unix)]
-        {
-            sig = sig.named(
-                "unix-socket",
-                SyntaxShape::Filepath,
-                "Connect to the specified Unix socket instead of using TCP",
-                None,
-            );
-        }
+        let sig = add_unix_socket_flag(sig);
 
         sig
     }
