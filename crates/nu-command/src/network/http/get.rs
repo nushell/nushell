@@ -119,7 +119,7 @@ impl Command for HttpGet {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![
+        let mut examples = vec![
             Example {
                 description: "Get content from example.com",
                 example: "http get https://www.example.com",
@@ -150,7 +150,16 @@ impl Command for HttpGet {
                 example: r#"http get --allow-errors https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
-        ]
+        ];
+
+        #[cfg(unix)]
+        examples.push(Example {
+            description: "Get from Docker daemon via Unix socket",
+            example: "http get --unix-socket /var/run/docker.sock http://localhost/v1.43/containers/json",
+            result: None,
+        });
+
+        examples
     }
 }
 
