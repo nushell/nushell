@@ -150,7 +150,7 @@ impl Command for HttpGet {
         #[cfg(unix)]
         examples.push(Example {
             description: "Get from Docker daemon via Unix socket",
-            example: "http get --unix-socket /var/run/docker.sock http://localhost/v1.43/containers/json",
+            example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
             result: None,
         });
 
