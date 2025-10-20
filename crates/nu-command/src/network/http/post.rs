@@ -1,4 +1,3 @@
-#[cfg(unix)]
 use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
@@ -90,10 +89,7 @@ impl Command for HttpPost {
             .filter()
             .category(Category::Network);
 
-        #[cfg(unix)]
-        let sig = add_unix_socket_flag(sig);
-
-        sig
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -187,7 +183,6 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
-    #[cfg(unix)]
     unix_socket: Option<Spanned<String>>,
 }
 
@@ -234,7 +229,6 @@ pub fn run_post(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
-        #[cfg(unix)]
         unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
 
@@ -253,13 +247,11 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    #[cfg(unix)]
     let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
 
     let client = http_client(
         args.insecure,
         redirect_mode,
-        #[cfg(unix)]
         unix_socket_path,
         engine_state,
         stack,

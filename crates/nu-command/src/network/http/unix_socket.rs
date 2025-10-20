@@ -5,8 +5,12 @@
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
+
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
+#[cfg(windows)]
+use uds_windows::UnixStream;
 
 use ureq::Error;
 use ureq::unversioned::transport::{
