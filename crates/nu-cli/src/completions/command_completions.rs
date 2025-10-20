@@ -146,11 +146,12 @@ impl Completer for CommandCompletion {
         };
 
         let mut res = Vec::new();
-        for cmd_name in matcher.results() {
-            if let Some(sugg) = internal_suggs
+        for (cmd_name, indices) in matcher.results() {
+            if let Some(mut sugg) = internal_suggs
                 .remove(&cmd_name)
                 .or_else(|| external_suggs.remove(&cmd_name))
             {
+                sugg.suggestion.match_indices = indices;
                 res.push(sugg);
             }
         }

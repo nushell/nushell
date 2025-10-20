@@ -123,7 +123,7 @@ fn complete_rec(
 
     if has_more {
         let mut completions = vec![];
-        for built in matcher.results() {
+        for (built, _) in matcher.results() {
             completions.extend(complete_rec(
                 &partial[1..],
                 &[built],
@@ -135,7 +135,11 @@ fn complete_rec(
         }
         completions
     } else {
-        matcher.results()
+        matcher
+            .results()
+            .into_iter()
+            .map(|(built, _)| built)
+            .collect()
     }
 }
 

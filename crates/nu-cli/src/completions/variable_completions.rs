@@ -70,6 +70,6 @@ impl Completer for VariableCompletion {
             });
         }
 
-        matcher.results()
+        matcher.suggestion_results()
     }
 }

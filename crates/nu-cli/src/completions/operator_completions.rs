@@ -274,6 +274,6 @@ impl Completer for OperatorCompletion<'_> {
                 kind: Some(SuggestionKind::Operator),
             });
         }
-        matcher.results()
+        matcher.suggestion_results()
     }
 }

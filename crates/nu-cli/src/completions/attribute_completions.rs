@@ -44,7 +44,7 @@ impl Completer for AttributeCompletion {
             });
         }
 
-        matcher.results()
+        matcher.suggestion_results()
     }
 }
 
@@ -80,6 +80,6 @@ impl Completer for AttributableCompletion {
             });
         }
 
-        matcher.results()
+        matcher.suggestion_results()
     }
 }

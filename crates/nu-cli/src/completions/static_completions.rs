@@ -59,6 +59,6 @@ impl Completer for StaticCompletion {
             }
         }
 
-        matcher.results()
+        matcher.suggestion_results()
     }
 }
