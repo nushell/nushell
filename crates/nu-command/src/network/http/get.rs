@@ -114,7 +114,7 @@ impl Command for HttpGet {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        let mut examples = vec![
+        let examples = vec![
             Example {
                 description: "Get content from example.com",
                 example: "http get https://www.example.com",
@@ -148,11 +148,15 @@ impl Command for HttpGet {
         ];
 
         #[cfg(unix)]
-        examples.push(Example {
-            description: "Get from Docker daemon via Unix socket",
-            example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
-            result: None,
-        });
+        let examples = {
+            let mut examples = examples;
+            examples.push(Example {
+                description: "Get from Docker daemon via Unix socket",
+                example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
+                result: None,
+            });
+            examples
+        };
 
         examples
     }
