@@ -3,17 +3,15 @@
 //! This module provides a custom transport implementation for connecting to HTTP servers
 //! over Unix domain sockets, commonly used for Docker API, systemd, and other local services.
 
-#![cfg(unix)]
-
 use std::fmt;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 
+use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
-use ureq::Error;
 
 /// Connector for Unix domain sockets.
 ///
@@ -40,11 +38,15 @@ impl<In: Transport> Connector<In> for UnixSocketConnector {
         _chained: Option<In>,
     ) -> Result<Option<Self::Out>, Error> {
         // Connect to the Unix socket, ignoring the URI's host/port
-        let stream = UnixStream::connect(&self.socket_path)
-            .map_err(|e| Error::Io(std::io::Error::new(
+        let stream = UnixStream::connect(&self.socket_path).map_err(|e| {
+            Error::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to connect to Unix socket {:?}: {}", self.socket_path, e),
-            )))?;
+                format!(
+                    "Failed to connect to Unix socket {:?}: {}",
+                    self.socket_path, e
+                ),
+            ))
+        })?;
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
@@ -77,15 +79,13 @@ impl Transport for UnixSocketTransport {
 
     fn transmit_output(&mut self, amount: usize, _timeout: NextTimeout) -> Result<(), Error> {
         let output = &self.buffers.output()[..amount];
-        self.stream
-            .write_all(output)
-            .map_err(|e| Error::Io(e))?;
+        self.stream.write_all(output).map_err(Error::Io)?;
         Ok(())
     }
 
     fn await_input(&mut self, _timeout: NextTimeout) -> Result<bool, Error> {
         let input = self.buffers.input_append_buf();
-        let amount = self.stream.read(input).map_err(|e| Error::Io(e))?;
+        let amount = self.stream.read(input).map_err(Error::Io)?;
         self.buffers.input_appended(amount);
         Ok(amount > 0)
     }
