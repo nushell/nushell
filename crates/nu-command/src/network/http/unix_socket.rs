@@ -105,3 +105,25 @@ impl fmt::Debug for UnixSocketTransport {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_connector_creation() {
+        let path = PathBuf::from("/tmp/test.sock");
+        let connector = UnixSocketConnector::new(path.clone());
+        // Verify via Debug implementation since socket_path is private
+        let debug_str = format!("{:?}", connector);
+        assert!(debug_str.contains("UnixSocketConnector"));
+        assert!(debug_str.contains("/tmp/test.sock"));
+    }
+
+    #[test]
+    fn test_connector_stores_path() {
+        let connector = UnixSocketConnector::new("/var/run/docker.sock".into());
+        let debug_str = format!("{:?}", connector);
+        assert!(debug_str.contains("/var/run/docker.sock"));
+    }
+}
