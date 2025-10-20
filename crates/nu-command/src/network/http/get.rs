@@ -16,7 +16,7 @@ impl Command for HttpGet {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http get")
+        let mut sig = Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -79,7 +79,19 @@ impl Command for HttpGet {
                     .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        #[cfg(unix)]
+        {
+            sig = sig.named(
+                "unix-socket",
+                SyntaxShape::Filepath,
+                "Connect to the specified Unix socket instead of using TCP",
+                None,
+            );
+        }
+
+        sig
     }
 
     fn description(&self) -> &str {
@@ -153,6 +165,8 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    #[cfg(unix)]
+    unix_socket: Option<Spanned<String>>,
 }
 
 pub fn run_get(
@@ -172,6 +186,8 @@ pub fn run_get(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        #[cfg(unix)]
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -188,7 +204,19 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    #[cfg(unix)]
+    let unix_socket_path = args
+        .unix_socket
+        .map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        #[cfg(unix)]
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.get(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

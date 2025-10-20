@@ -8,6 +8,8 @@ mod patch;
 mod post;
 mod put;
 mod timeout_extractor_reader;
+#[cfg(unix)]
+mod unix_socket;
 
 pub use delete::HttpDelete;
 pub use get::HttpGet;

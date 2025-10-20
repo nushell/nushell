@@ -26,6 +26,9 @@ use ureq::{
 };
 use url::Url;
 
+#[cfg(unix)]
+use crate::network::http::unix_socket::UnixSocketConnector;
+
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
 type Response = http::Response<Body>;
@@ -80,6 +83,7 @@ impl RedirectMode {
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
+    #[cfg(unix)] unix_socket_path: Option<PathBuf>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
@@ -100,6 +104,19 @@ pub fn http_client(
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
+
+    #[cfg(unix)]
+    if let Some(socket_path) = unix_socket_path {
+        // Use custom Unix socket connector with no-op resolver
+        use crate::network::http::unix_socket::NoOpResolver;
+
+        let connector = UnixSocketConnector::new(socket_path);
+        let config = config_builder.build();
+        let resolver = NoOpResolver;
+
+        return Ok(ureq::Agent::with_parts(config, connector, resolver));
+    }
+
     Ok(ureq::Agent::new_with_config(config_builder.build()))
 }
 
