@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
+    CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature, ShellError,
     SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
 };
 use nu_utils::SharedCow;
@@ -1372,12 +1372,14 @@ pub(crate) fn handle_engine_call(
             redirect_stderr,
         } => {
             // Clone the context to enable concurrent evaluation
-            // TODO: Implement true async evaluation with streaming results
-            // For now, this validates the cloning mechanism works
             let owned_context = context.boxed();
+            let span = closure.span;
+            let signals = context.signals().clone();
 
-            // Spawn a thread to evaluate the closure
+            // Create channel for streaming results from worker thread
             let (tx, rx) = std::sync::mpsc::channel();
+
+            // Spawn worker thread to evaluate closure
             std::thread::spawn(move || {
                 let result = owned_context.eval_closure(
                     closure,
@@ -1386,21 +1388,39 @@ pub(crate) fn handle_engine_call(
                     redirect_stdout,
                     redirect_stderr,
                 );
-                let _ = tx.send(result);
+
+                // Stream PipelineData values through channel
+                match result {
+                    Ok(pipeline_data) => {
+                        // Send each value from the pipeline
+                        for value in pipeline_data.into_iter() {
+                            if tx.send(Ok(value)).is_err() {
+                                break; // Receiver dropped
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        // Send error as a value
+                        let _ = tx.send(Err(err));
+                    }
+                }
             });
 
-            // Wait for the result
-            // NOTE: This still blocks, but proves cloning works.
-            // Future optimization: return streaming PipelineData immediately
-            rx.recv()
-                .map_err(|_| ShellError::GenericError {
-                    error: "EvalClosureCloned thread panicked".into(),
-                    msg: String::new(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                })?
-                .map(EngineCallResponse::PipelineData)
+            // Create iterator that pulls from channel (non-blocking return!)
+            let iter = std::iter::from_fn(move || {
+                match rx.recv() {
+                    Ok(Ok(value)) => Some(value),
+                    Ok(Err(err)) => Some(Value::error(err, span)),
+                    Err(_) => None, // Channel closed, end of stream
+                }
+            });
+
+            // Return ListStream immediately without blocking
+            let stream = ListStream::new(iter, span, signals);
+            Ok(EngineCallResponse::PipelineData(PipelineData::ListStream(
+                stream,
+                None,
+            )))
         }
         EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {
             if let Some(decl_id) = decl_id {
