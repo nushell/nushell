@@ -11,8 +11,9 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
+    CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
+    engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -1418,8 +1419,7 @@ pub(crate) fn handle_engine_call(
             // Return ListStream immediately without blocking
             let stream = ListStream::new(iter, span, signals);
             Ok(EngineCallResponse::PipelineData(PipelineData::ListStream(
-                stream,
-                None,
+                stream, None,
             )))
         }
         EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {

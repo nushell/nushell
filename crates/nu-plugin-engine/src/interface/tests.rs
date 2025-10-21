@@ -1530,8 +1530,8 @@ fn prepare_plugin_call_custom_value_op() {
 }
 
 #[test]
-fn manager_consume_engine_call_eval_closure_cloned_returns_stream_immediately(
-) -> Result<(), ShellError> {
+fn manager_consume_engine_call_eval_closure_cloned_returns_stream_immediately()
+-> Result<(), ShellError> {
     let mut manager = TestCase::new().plugin("test");
     set_default_protocol_info(&mut manager)?;
 
