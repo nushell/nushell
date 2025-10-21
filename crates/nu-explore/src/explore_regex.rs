@@ -229,14 +229,14 @@ impl<'a> App<'a> {
             return;
         }
 
-        match Regex::new(&regex_input) {
+        match Regex::new(regex_input) {
             Ok(regex) => {
                 self.compiled_regex = Some(regex);
                 self.regex_error = None;
             }
             Err(e) => {
                 self.compiled_regex = None;
-                self.regex_error = Some(format!("Regex error: {}", e));
+                self.regex_error = Some(format!("Regex error: {e}"));
             }
         }
     }
@@ -260,16 +260,14 @@ impl<'a> App<'a> {
         ];
 
         let mut highlights: Vec<(usize, usize, Style)> = vec![];
-        for capture in regex.captures_iter(&sample_text) {
-            if let Ok(capture) = capture {
-                for (group, submatch) in capture.iter().enumerate() {
-                    if let Some(submatch) = submatch {
-                        highlights.push((
-                            submatch.start(),
-                            submatch.end(),
-                            highlight_styles[group % highlight_styles.len()],
-                        ));
-                    }
+        for capture in regex.captures_iter(&sample_text).flatten() {
+            for (group, submatch) in capture.iter().enumerate() {
+                if let Some(submatch) = submatch {
+                    highlights.push((
+                        submatch.start(),
+                        submatch.end(),
+                        highlight_styles[group % highlight_styles.len()],
+                    ));
                 }
             }
         }
@@ -281,12 +279,12 @@ impl<'a> App<'a> {
 
         // Sort the highlights by their size and start position. This lets us
         // to exit as soon as one overlapping match is found below.
-        highlights.sort_by(|a, b| ((a.1 - a.0), a.0).cmp(&((b.1 - b.0, b.0))));
+        highlights.sort_by(|a, b| ((a.1 - a.0), a.0).cmp(&(b.1 - b.0, b.0)));
 
         // All the boundary points in the vector.
         let mut boundaries = highlights
             .iter()
-            .flat_map(|(s, e, _)| vec![s.clone(), e.clone()])
+            .flat_map(|(s, e, _)| vec![*s, *e])
             .collect::<Vec<usize>>();
 
         boundaries.sort();
@@ -304,7 +302,7 @@ impl<'a> App<'a> {
                 && let Some((_, _, style)) =
                     highlights.iter().find(|(c_s, c_e, _)| c_s <= s && c_e >= e)
             {
-                let fragment = &sample_text[s.clone()..e.clone()];
+                let fragment = &sample_text[*s..*e];
                 for (no, fragment) in fragment.split('\n').enumerate() {
                     // This works because usually, lines are terminated with a newline, therefore,
                     // we need to prefer updating the existing line for the first split item. But,
@@ -316,7 +314,7 @@ impl<'a> App<'a> {
                     }
 
                     if !fragment.is_empty() {
-                        current_line.push_span(Span::styled(fragment.to_string(), style.clone()));
+                        current_line.push_span(Span::styled(fragment.to_string(), *style));
                     }
                 }
             }
