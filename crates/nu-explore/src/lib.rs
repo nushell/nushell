@@ -2,6 +2,7 @@
 mod commands;
 mod default_context;
 mod explore;
+mod explore_regex;
 mod nu_common;
 mod pager;
 mod registry;
@@ -13,6 +14,7 @@ use crossterm::terminal::size;
 pub use default_context::add_explore_context;
 pub use explore::Explore;
 use explore::ExploreConfig;
+use explore_regex::ExploreRegex;
 use nu_common::{collect_pipeline, has_simple_value};
 use nu_protocol::{
     PipelineData, Value,

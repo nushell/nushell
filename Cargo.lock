@@ -719,7 +719,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "regex",
@@ -4248,6 +4248,7 @@ dependencies = [
  "ansi-str",
  "anyhow",
  "crossterm",
+ "fancy-regex",
  "log",
  "lscolors",
  "nu-ansi-term",
@@ -4262,6 +4263,8 @@ dependencies = [
  "nu-utils",
  "ratatui",
  "strip-ansi-escapes",
+ "tui-textarea",
+ "unicode-segmentation",
  "unicode-width 0.2.0",
 ]
 
@@ -8169,6 +8172,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tui-textarea"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a5318dd619ed73c52a9417ad19046724effc1287fb75cdcc4eca1d6ac1acbae"
+dependencies = [
+ "crossterm",
+ "ratatui",
+ "unicode-width 0.2.0",
+]
+
+[[package]]
 name = "type-map"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9031,7 +9045,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

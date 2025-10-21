@@ -25,13 +25,16 @@ nu-utils = { path = "../nu-utils", version = "0.108.1" }
 nu-ansi-term = { workspace = true }
 nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.108.1" }
 
-anyhow = { workspace = true }
-log = { workspace = true }
-strip-ansi-escapes = { workspace = true }
-crossterm = { workspace = true }
-ratatui = { workspace = true }
 ansi-str = { workspace = true }
-unicode-width = { workspace = true }
+anyhow = { workspace = true }
+crossterm = { workspace = true }
+fancy-regex = { workspace = true }
+log = { workspace = true }
 lscolors = { workspace = true, default-features = false, features = [
   "nu-ansi-term",
 ] }
+ratatui = { workspace = true }
+strip-ansi-escapes = { workspace = true }
+tui-textarea = "0.7.0"
+unicode-segmentation = { workspace = true }
+unicode-width = { workspace = true }
