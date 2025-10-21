@@ -1364,6 +1364,44 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+        EngineCall::EvalClosureCloned {
+            closure,
+            positional,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        } => {
+            // Clone the context to enable concurrent evaluation
+            // TODO: Implement true async evaluation with streaming results
+            // For now, this validates the cloning mechanism works
+            let owned_context = context.boxed();
+
+            // Spawn a thread to evaluate the closure
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let result = owned_context.eval_closure(
+                    closure,
+                    positional,
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                );
+                let _ = tx.send(result);
+            });
+
+            // Wait for the result
+            // NOTE: This still blocks, but proves cloning works.
+            // Future optimization: return streaming PipelineData immediately
+            rx.recv()
+                .map_err(|_| ShellError::GenericError {
+                    error: "EvalClosureCloned thread panicked".into(),
+                    msg: String::new(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })?
+                .map(EngineCallResponse::PipelineData)
+        }
         EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {
             if let Some(decl_id) = decl_id {
                 EngineCallResponse::Identifier(decl_id)
