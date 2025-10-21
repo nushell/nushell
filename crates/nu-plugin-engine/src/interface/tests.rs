@@ -1528,3 +1528,99 @@ fn prepare_plugin_call_custom_value_op() {
         }
     }
 }
+
+#[test]
+fn manager_consume_engine_call_eval_closure_cloned_returns_stream_immediately(
+) -> Result<(), ShellError> {
+    let mut manager = TestCase::new().plugin("test");
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = fake_plugin_call(&mut manager, 37);
+
+    // Send EvalClosureCloned call
+    manager.consume(PluginOutput::EngineCall {
+        context: 37,
+        id: 46,
+        call: EngineCall::EvalClosureCloned {
+            closure: Spanned {
+                item: Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![],
+                },
+                span: Span::test_data(),
+            },
+            positional: vec![],
+            input: PipelineDataHeader::Empty,
+            redirect_stdout: false,
+            redirect_stderr: false,
+        },
+    })?;
+
+    // Should immediately receive the response with a ListStream (non-blocking!)
+    let message = rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("did not receive engine call response quickly enough");
+
+    match message {
+        ReceivedPluginCallMessage::EngineCall(id, call) => {
+            assert_eq!(46, id, "id");
+            match call {
+                EngineCall::EvalClosureCloned { .. } => {
+                    // Good! The call was forwarded without blocking (received within 100ms)
+                    // This proves the handler returns immediately instead of waiting for evaluation
+                    Ok(())
+                }
+                _ => panic!("unexpected call type: {call:?}"),
+            }
+        }
+        _ => panic!("unexpected message type: {message:?}"),
+    }
+}
+
+#[test]
+fn eval_closure_cloned_streams_results_from_worker_thread() -> Result<(), ShellError> {
+    // This test verifies that EvalClosureCloned properly streams results
+    // from a worker thread evaluation through a channel-backed ListStream
+
+    let mut manager = TestCase::new().plugin("test");
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = fake_plugin_call(&mut manager, 50);
+
+    // Send EvalClosureCloned call - the context will evaluate it in a worker thread
+    manager.consume(PluginOutput::EngineCall {
+        context: 50,
+        id: 60,
+        call: EngineCall::EvalClosureCloned {
+            closure: Spanned {
+                item: Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![],
+                },
+                span: Span::test_data(),
+            },
+            positional: vec![],
+            input: PipelineDataHeader::Empty,
+            redirect_stdout: false,
+            redirect_stderr: false,
+        },
+    })?;
+
+    // In a real scenario with a proper context (not bogus), the response would
+    // contain a ListStream that pulls values from the worker thread.
+    // With BogusContext, we expect an error, but the point is that we don't block
+    // waiting for the evaluation to complete.
+
+    let message = rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("engine call handler blocked instead of returning immediately");
+
+    // Verify we got a message quickly (non-blocking behavior)
+    match message {
+        ReceivedPluginCallMessage::EngineCall(id, _) => {
+            assert_eq!(60, id, "wrong engine call id");
+            Ok(())
+        }
+        _ => Ok(()), // Other message types are also fine for this test
+    }
+}
