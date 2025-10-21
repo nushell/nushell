@@ -9,6 +9,9 @@ use std::{
 #[cfg(not(target_family = "wasm"))]
 use std::time::{Duration, Instant};
 
+#[cfg(target_family = "wasm")]
+use web_time::{Duration, Instant};
+
 use nu_system::{UnfreezeHandle, kill_by_pid};
 
 use crate::{PipelineData, Signals, shell_error};
@@ -49,11 +52,25 @@ impl Jobs {
     }
 
     pub fn remove_job(&mut self, id: JobId) -> Option<Job> {
+        let job = self.jobs.remove(&id);
+
         if self.last_frozen_job_id.is_some_and(|last| id == last) {
-            self.last_frozen_job_id = None;
+            let mut last_job_ts = None;
+            let mut last_job_candidate = None;
+
+            for (id, job) in self.jobs.iter() {
+                if let Job::Frozen(frozen) = job
+                    && last_job_ts.is_none_or(|x| x < frozen.timestamp)
+                {
+                    last_job_ts = Some(frozen.timestamp);
+                    last_job_candidate = Some(*id);
+                }
+            }
+
+            self.last_frozen_job_id = last_job_candidate;
         }
 
-        self.jobs.remove(&id)
+        job
     }
 
     fn assign_last_frozen_id_if_frozen(&mut self, id: JobId, job: &Job) {
@@ -230,6 +247,7 @@ impl Job {
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
     pub tag: Option<String>,
+    pub timestamp: Instant,
 }
 
 impl FrozenJob {

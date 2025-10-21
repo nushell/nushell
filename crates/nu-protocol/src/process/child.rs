@@ -10,10 +10,14 @@ use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
     io::{self, Read},
-    sync::mpsc::{self, Receiver, RecvError, TryRecvError},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        mpsc::{self, Receiver, RecvError, TryRecvError},
+    },
     thread,
 };
+
+use web_time::Instant;
 
 /// Check the exit status of each pipeline element.
 ///
@@ -231,7 +235,11 @@ impl PostWaitCallback {
             if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                 let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, tag }));
+                let job_id = jobs.add_job(Job::Frozen(FrozenJob {
+                    unfreeze,
+                    tag,
+                    timestamp: Instant::now(),
+                }));
 
                 if is_interactive {
                     println!("\nJob {} is frozen", job_id.get());
