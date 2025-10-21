@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing, engine::StateWorkingSet};
+use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -36,19 +36,11 @@ impl Command for FormatPattern {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut working_set = StateWorkingSet::new(engine_state);
-
         let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let input_val = input.into_value(call.head)?;
-        // add '$it' variable to support format like this: $it.column1.column2.
-        let it_id = working_set.add_variable(b"$it".to_vec(), call.head, Type::Any, false);
-        stack.add_var(it_id, input_val.clone());
 
-        let config = stack.get_config(engine_state);
-
-        // the string span is start as `"`, we don't need the character
-        // to generate proper span for sub expression.
         let ops = extract_formatting_operations(pattern, call.head)?;
+        let config = stack.get_config(engine_state);
 
         format(input_val, &ops, engine_state, &config, call.head)
     }
@@ -118,13 +110,21 @@ fn extract_formatting_operations(
         span: pattern_span,
     } = input;
 
+    // To have proper spans for the extracted operations, we need the span of the pattern string.
+    // Specifically we need the *string content*, without any surrounding quotes.
+    //
+    // NOTE: This implementation can't accurately derive spans for strings containing escape
+    // sequences ("\n", "\t", "\u{3bd}", ...). I don't think we can without parser support.
+    // NOTE: Pattern strings provided with variables are also problematic. The spans we get for
+    // arguments are from the call site, we can't get the original span of a value passed as a
+    // variable.
     let pattern_span = {
         //
-        //     .---------span len: 21
+        //    .----------span len: 21
         //    |     .--string len: 12
         //    |     |       delta:  9
-        //  +-+-----|-----------+
-        //  |    .--|-------.   |
+        //  .-+-----|-----------.
+        //  |    .--+-------.   |
         //  r###'hello {user}'###
         //
         let delta = pattern_span.len() - pattern.len();
