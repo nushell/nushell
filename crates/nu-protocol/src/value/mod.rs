@@ -806,28 +806,15 @@ impl Value {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
             Value::List { vals, .. } => {
-                let mut ty = None;
-                for val in vals {
-                    let val_ty = val.get_type();
-                    match &ty {
-                        Some(x) => {
-                            if &val_ty != x {
-                                if x.is_numeric() && val_ty.is_numeric() {
-                                    ty = Some(Type::Number)
-                                } else {
-                                    ty = Some(Type::Any);
-                                    break;
-                                }
-                            }
-                        }
-                        None => ty = Some(val_ty),
-                    }
-                }
+                let ty = vals
+                    .iter()
+                    .map(Value::get_type)
+                    .reduce(|e, acc| e.widen(acc));
 
                 match ty {
                     Some(Type::Record(columns)) => Type::Table(columns),
-                    Some(ty) => Type::List(Box::new(ty)),
-                    None => Type::List(Box::new(Type::Any)),
+                    Some(ty) => Type::list(ty),
+                    None => Type::list(Type::Any),
                 }
             }
             Value::Nothing { .. } => Type::Nothing,
