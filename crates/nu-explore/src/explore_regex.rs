@@ -34,7 +34,7 @@ impl Command for ExploreRegex {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("explore")
+        Signature::build("explore regex")
             .input_output_types(vec![
                 (Type::Nothing, Type::String),
                 (Type::String, Type::String),
