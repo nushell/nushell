@@ -1,6 +1,6 @@
-use itertools::Itertools;
 use nu_engine::{command_prelude::*, env};
 use nu_protocol::engine::CommandType;
+use std::collections::HashSet;
 use std::fs;
 use std::{ffi::OsStr, path::Path};
 use which::sys;
@@ -121,44 +121,50 @@ fn list_all_executables(
     all: bool,
 ) -> Vec<Value> {
     let decls = engine_state.get_decls_sorted(false);
-    let commands = decls
-        .into_iter()
-        .map(|x| {
-            let decl = engine_state.get_decl(x.1);
-            (
-                String::from_utf8_lossy(&x.0).to_string(),
-                String::new(),
-                decl.command_type(),
-            )
-        })
-        .chain(
-            sys::RealSys
-                .env_split_paths(paths.as_ref())
-                .into_iter()
-                .filter_map(|dir| fs::read_dir(dir).ok())
-                .flat_map(|entries| entries.flatten())
-                .map(|entry| entry.path())
-                .filter(|path| path.is_file())
-                .filter_map(|path| {
-                    let filename = path.file_name()?.to_string_lossy().to_string();
-                    Some((
-                        filename,
-                        path.to_string_lossy().to_string(),
-                        CommandType::External,
-                    ))
-                }),
-        );
 
-    if all {
-        commands
-            .map(|(filename, path, cmd_type)| entry(filename, path, cmd_type, Span::new(0, 0)))
-            .collect()
-    } else {
-        commands
-            .unique_by(|x| x.0.clone())
-            .map(|(filename, path, cmd_type)| entry(filename, path, cmd_type, Span::new(0, 0)))
-            .collect()
+    let mut results = Vec::with_capacity(decls.len());
+    let mut seen_commands = HashSet::with_capacity(decls.len());
+
+    for (name_bytes, decl_id) in decls {
+        let name = String::from_utf8_lossy(&name_bytes).to_string();
+        seen_commands.insert(name.clone());
+        let decl = engine_state.get_decl(decl_id);
+        results.push(entry(
+            name,
+            String::new(),
+            decl.command_type(),
+            Span::unknown(),
+        ));
     }
+
+    // Add PATH executables
+    let path_iter = sys::RealSys
+        .env_split_paths(paths.as_ref())
+        .into_iter()
+        .filter_map(|dir| fs::read_dir(dir).ok())
+        .flat_map(|entries| entries.flatten())
+        .map(|entry| entry.path())
+        .filter_map(|path| {
+            if !path.is_executable() {
+                return None;
+            }
+            let filename = path.file_name()?.to_string_lossy().to_string();
+
+            if !all && !seen_commands.insert(filename.clone()) {
+                return None;
+            }
+
+            let full_path = path.to_string_lossy().to_string();
+            Some(entry(
+                filename,
+                full_path,
+                CommandType::External,
+                Span::unknown(),
+            ))
+        });
+
+    results.extend(path_iter);
+    results
 }
 
 #[derive(Debug)]
@@ -233,13 +239,7 @@ fn which(
     }
 
     for app in which_args.applications {
-        let values = which_single(
-            app,
-            which_args.all,
-            engine_state,
-            cwd.clone(),
-            paths.clone(),
-        );
+        let values = which_single(app, which_args.all, engine_state, &cwd, &paths);
         output.extend(values);
     }
 
@@ -255,5 +255,106 @@ mod test {
     #[test]
     fn test_examples() {
         crate::test_examples(Which)
+    }
+}
+
+// --------------------
+// Copied from https://docs.rs/is_executable/ v1.0.5
+// Removed path.exists() check in `mod windows`.
+
+/// An extension trait for `std::fs::Path` providing an `is_executable` method.
+///
+/// See the module documentation for examples.
+pub trait IsExecutable {
+    /// Returns `true` if there is a file at the given path and it is
+    /// executable. Returns `false` otherwise.
+    ///
+    /// See the module documentation for details.
+    fn is_executable(&self) -> bool;
+}
+
+#[cfg(unix)]
+mod unix {
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
+
+    use super::IsExecutable;
+
+    impl IsExecutable for Path {
+        fn is_executable(&self) -> bool {
+            let metadata = match self.metadata() {
+                Ok(metadata) => metadata,
+                Err(_) => return false,
+            };
+            let permissions = metadata.permissions();
+            metadata.is_file() && permissions.mode() & 0o111 != 0
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod windows {
+    use std::os::windows::ffi::OsStrExt;
+    use std::path::Path;
+
+    use windows::Win32::Storage::FileSystem::GetBinaryTypeW;
+    use windows::core::PCWSTR;
+
+    use super::IsExecutable;
+
+    impl IsExecutable for Path {
+        fn is_executable(&self) -> bool {
+            // Check using file extension
+            if let Some(pathext) = std::env::var_os("PATHEXT") {
+                if let Some(extension) = self.extension() {
+                    let extension = extension.to_string_lossy();
+
+                    // Originally taken from:
+                    // https://github.com/nushell/nushell/blob/93e8f6c05e1e1187d5b674d6b633deb839c84899/crates/nu-cli/src/completion/command.rs#L64-L74
+                    return pathext
+                        .to_string_lossy()
+                        .split(';')
+                        // Filter out empty tokens and ';' at the end
+                        .filter(|f| f.len() > 1)
+                        .any(|ext| {
+                            // Cut off the leading '.' character
+                            let ext = &ext[1..];
+                            extension.eq_ignore_ascii_case(ext)
+                        });
+                }
+            }
+
+            // Check using file properties
+            // This code is only reached if there is no file extension or retrieving PATHEXT fails
+            let windows_string: Vec<u16> = self.as_os_str().encode_wide().chain(Some(0)).collect();
+            let mut binary_type: u32 = 0;
+
+            let result =
+                unsafe { GetBinaryTypeW(PCWSTR(windows_string.as_ptr()), &mut binary_type) };
+            if result.is_ok() {
+                if let 0..=6 = binary_type {
+                    return true;
+                }
+            }
+
+            false
+        }
+    }
+}
+
+// For WASI, we can't check if a file is executable
+// Since wasm and wasi
+//  is not supposed to add executables ideologically,
+// specify them collectively
+#[cfg(any(target_os = "wasi", target_family = "wasm"))]
+mod wasm {
+    use std::path::Path;
+
+    use super::IsExecutable;
+
+    impl IsExecutable for Path {
+        fn is_executable(&self) -> bool {
+            false
+        }
     }
 }

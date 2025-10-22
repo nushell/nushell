@@ -25,7 +25,7 @@ impl Command for VersionCheck {
     fn signature(&self) -> Signature {
         Signature::build("version check")
             .category(Category::Platform)
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

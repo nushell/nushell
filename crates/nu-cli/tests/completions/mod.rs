@@ -760,17 +760,13 @@ fn dotnu_completions_const_nu_lib_dirs() {
 }
 
 #[test]
-#[ignore]
 fn external_completer_trailing_space() {
     // https://github.com/nushell/nushell/issues/6378
     let block = "{|spans| $spans}";
     let input = "gh alias ";
 
     let suggestions = run_external_completion(block, input);
-    assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.first().unwrap().value);
-    assert_eq!("alias", suggestions.get(1).unwrap().value);
-    assert_eq!("", suggestions.get(2).unwrap().value);
+    match_suggestions(&vec!["gh", "alias", ""], &suggestions);
 }
 
 #[test]
@@ -2640,7 +2636,6 @@ fn exact_match_case_insensitive() {
     });
 }
 
-#[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7648() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -2650,16 +2645,15 @@ fn alias_offset_bug_7648() {
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete("e", 1);
+    assert!(!suggestions.is_empty());
 
-    // Issue #7648
-    // Nushell crashes when an alias name is shorter than the alias command
-    // and the alias command is a external command
-    // This happens because of offset is not correct.
-    // This crashes before PR #7779
-    let _suggestions = completer.complete("e", 1);
+    // Make sure completion in complicated external head expression still works
+    let input = "^(ls | e";
+    let suggestions = completer.complete(input, input.len());
+    assert!(!suggestions.is_empty());
 }
 
-#[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7754() {
     let (_, _, mut engine, mut stack) = new_engine();
@@ -2669,12 +2663,8 @@ fn alias_offset_bug_7754() {
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-
-    // Issue #7754
-    // Nushell crashes when an alias name is shorter than the alias command
-    // and the alias command contains pipes.
-    // This crashes before PR #7756
-    let _suggestions = completer.complete("ll -a | c", 9);
+    let suggestions = completer.complete("ll -a | c", 9);
+    assert!(!suggestions.is_empty());
 }
 
 #[rstest]

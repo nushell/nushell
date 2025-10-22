@@ -4,7 +4,6 @@ use crate::{self as nu_protocol, ConfigWarning};
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
     /// Store history as an SQLite database with additional context
-    #[cfg(feature = "sqlite")]
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
     Plaintext,
@@ -14,7 +13,6 @@ impl HistoryFileFormat {
     pub fn default_file_name(self) -> std::path::PathBuf {
         match self {
             HistoryFileFormat::Plaintext => "history.txt",
-            #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => "history.sqlite3",
         }
         .into()
@@ -26,7 +24,6 @@ impl FromStr for HistoryFileFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            #[cfg(feature = "sqlite")]
             "sqlite" => Ok(Self::Sqlite),
             "plaintext" => Ok(Self::Plaintext),
             #[cfg(feature = "sqlite")]
@@ -39,7 +36,17 @@ impl FromStr for HistoryFileFormat {
 
 impl UpdateFromValue for HistoryFileFormat {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
-        config_update_string_enum(self, value, path, errors)
+        config_update_string_enum(self, value, path, errors);
+
+        #[cfg(not(feature = "sqlite"))]
+        if *self == HistoryFileFormat::Sqlite {
+            *self = HistoryFileFormat::Plaintext;
+            errors.warn(ConfigWarning::IncompatibleOptions {
+                label: "SQLite-based history file only supported with the `sqlite` feature, falling back to plain text history", 
+                span: value.span(),
+                help: "Compile Nushell with `sqlite` feature enabled",
+            });
+        }
     }
 }
 
@@ -110,7 +117,6 @@ impl UpdateFromValue for HistoryConfig {
                     help: r#"disable history isolation, or set $env.config.history.file_format = "sqlite""#,
                 });
             }
-            #[cfg(feature = "sqlite")]
             (true, HistoryFileFormat::Sqlite) => (),
             (false, _) => (),
         }

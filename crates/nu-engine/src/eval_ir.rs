@@ -167,7 +167,12 @@ impl<'a> EvalContext<'a> {
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
         // NOTE: in collect, it maybe good to pick the inner PipelineData
         // directly, and drop the ExitStatus queue.
-        let data = self.take_reg(reg_id).body;
+        let data = self.take_reg(reg_id);
+        #[cfg(feature = "os")]
+        if nu_experimental::PIPE_FAIL.get() {
+            check_exit_status_future(data.exit)?
+        }
+        let data = data.body;
         let span = data.span().unwrap_or(fallback_span);
         data.into_value(span)
     }
