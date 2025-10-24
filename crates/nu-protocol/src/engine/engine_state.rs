@@ -275,7 +275,7 @@ impl EngineState {
                     existing_overlay.decls.insert(item.0, item.1);
                 }
                 for item in delta_overlay.vars.into_iter() {
-                    existing_overlay.vars.insert(item.0, item.1);
+                    existing_overlay.insert_variable(item.0, item.1);
                 }
                 for item in delta_overlay.modules.into_iter() {
                     existing_overlay.modules.insert(item.0, item.1);
@@ -374,6 +374,23 @@ impl EngineState {
         }
 
         Ok(())
+    }
+
+    /// Clean up unused variables from a Stack to prevent memory leaks.
+    /// This removes variables that are no longer referenced by any overlay.
+    pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
+        use std::collections::HashSet;
+
+        let mut shadowed_vars = HashSet::new();
+        for (_, frame) in self.scope.overlays.iter_mut() {
+            shadowed_vars.extend(frame.shadowed_vars.to_owned());
+            frame.shadowed_vars.clear();
+        }
+
+        // Remove variables from stack that are no longer referenced
+        stack
+            .vars
+            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
     }
 
     pub fn active_overlay_ids<'a, 'b>(
