@@ -51,3 +51,62 @@ fn to_column() {
         assert!(actual.out.contains("shipper"));
     })
 }
+
+#[test]
+fn to_column_right_split() {
+    Playground::setup("split_column_test_right", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContentToBeTrimmed(
+                "sample.txt",
+                r#"
+                importer,shipper,tariff_item,name,origin
+            "#,
+            ),
+            FileWithContentToBeTrimmed(
+                "sample2.txt",
+                r#"
+                importer , shipper  , tariff_item  ,   name  ,  origin
+            "#,
+            ),
+        ]);
+        // right split with no number
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open sample.txt
+                | lines
+                | str trim
+                | split column --right ","
+                | get column2
+            "#
+        ));
+        assert!(actual.out.contains("name"));
+
+        // right split with number
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+        open sample.txt
+        | lines
+        | str trim
+        | split column --right -n 2 ","
+        | get column1
+    "#
+        ));
+        assert!(actual.out.contains("importer,shipper,tariff_item,name"));
+
+        // right split with regex
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r"
+                open sample2.txt
+                | lines
+                | str trim
+                | split column --right --regex '\s*,\s*'
+                | get column2
+            "
+        ));
+
+        assert!(actual.out.contains("name"));
+    });
+}
