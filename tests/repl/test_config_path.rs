@@ -67,6 +67,9 @@ fn setup_fake_config(playground: &mut Playground) -> AbsolutePathBuf {
 }
 
 fn run(playground: &mut Playground, command: &str) -> String {
+    if let Ok(home) = std::env::var("HOME") {
+        playground.with_env("HOME", home.as_str());
+    }
     let result = playground.pipeline(command).execute().map_err(|e| {
         let outcome = e.output.map(|outcome| {
             format!(
