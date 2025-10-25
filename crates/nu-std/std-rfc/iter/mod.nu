@@ -213,10 +213,9 @@ export def only [
   cell_path?: cell-path # The cell path to access within the only element.
 ]: [table -> any, list -> any] {
   let pipe = {in: $in, meta: (metadata $in)}
-  let path = [0 $cell_path] | cell-path-join
-  match ($pipe.in | length) {
-    0 => (only-error "expected non-empty table/list" $pipe.meta "empty")
-    1 => ($pipe.in | get $path)
+  match $pipe.in {
+    [] => (only-error "expected non-empty table/list" $pipe.meta "empty")
+    [$one] => ($one | if $cell_path != null { get $cell_path } else { })
     _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
   }
 }

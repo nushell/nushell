@@ -143,7 +143,7 @@ impl SyntaxShape {
             SyntaxShape::Block => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
-            SyntaxShape::CellPath => Type::Any,
+            SyntaxShape::CellPath => Type::CellPath,
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
@@ -166,7 +166,7 @@ impl SyntaxShape {
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Nothing => Type::Nothing,
             SyntaxShape::Number => Type::Number,
-            SyntaxShape::OneOf(_) => Type::Any,
+            SyntaxShape::OneOf(types) => Type::one_of(types.iter().map(SyntaxShape::to_type)),
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Range,
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
@@ -249,14 +249,15 @@ impl Display for SyntaxShape {
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
             SyntaxShape::OneOf(list) => {
-                write!(f, "oneof<")?;
-                if let Some((last, rest)) = list.split_last() {
-                    for ty in rest {
-                        write!(f, "{ty}, ")?;
-                    }
-                    write!(f, "{last}")?;
+                write!(f, "oneof")?;
+                let [first, rest @ ..] = &**list else {
+                    return Ok(());
+                };
+                write!(f, "<{first}")?;
+                for t in rest {
+                    write!(f, ", {t}")?;
                 }
-                write!(f, ">")
+                f.write_str(">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }

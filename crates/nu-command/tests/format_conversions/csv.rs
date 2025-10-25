@@ -360,9 +360,19 @@ fn table_with_record_error() {
 }
 
 #[test]
-fn list_not_table_error() {
+fn list_not_table_parse_time_error() {
     let actual = nu!(r#"
         [{a: 1 b: 2} {a: 3 b: 4} 1]
+        | to csv
+    "#);
+
+    assert!(actual.err.contains("parser::input_type_mismatch"))
+}
+
+#[test]
+fn list_not_table_runtime_error() {
+    let actual = nu!(r#"
+        echo [{a: 1 b: 2} {a: 3 b: 4} 1]
         | to csv
     "#);
 

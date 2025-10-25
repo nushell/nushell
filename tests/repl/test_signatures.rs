@@ -355,6 +355,22 @@ fn oneof_annotations(
     run_test(&input, expected)
 }
 
+#[rstest]
+#[case::correct_type_(run_test, "{a: 1}", "")]
+#[case::correct_type_(run_test, "{a: null}", "")]
+#[case::parse_time_incorrect_type(fail_test, "{a: 1.0}", "parser::type_mismatch")]
+#[case::run_time_incorrect_type(fail_test, "(echo {a: 1.0})", "shell::cant_convert")]
+fn oneof_type_checking(
+    #[case] testfn: fn(&str, &str) -> TestResult,
+    #[case] argument: &str,
+    #[case] expect: &str,
+) {
+    let _ = testfn(
+        &format!(r#"def run [p: record<a: oneof<int, nothing>>] {{ }}; run {argument}"#),
+        expect,
+    );
+}
+
 #[test]
 fn oneof_annotations_not_terminated() -> TestResult {
     let input = "def run [t: oneof<binary, string] { $t }";
