@@ -142,6 +142,17 @@ pub trait Command: Send + Sync + CommandClone {
         (None, None)
     }
 
+    // engine_state and stack are required to get completion from plugin.
+    #[allow(unused_variables)]
+    fn get_completion(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<Option<Vec<String>>, ShellError> {
+        Ok(None)
+    }
+
     /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
     /// currently inefficient so is not generally done.
     fn requires_ast_for_arguments(&self) -> bool {

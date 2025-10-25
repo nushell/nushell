@@ -1,7 +1,8 @@
 use crate::completions::{
     AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
     CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
-    ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    ExportableCompletion, FileCompletion, FlagCompletion, FlagValueCompletion, OperatorCompletion,
+    VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -571,9 +572,29 @@ impl NuCompleter {
                         0..0,
                         match arg {
                             // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
+                            Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
+                                match val {
+                                    None => flag_completion_helper(),
+                                    Some(_) => {
+                                        // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
+                                        // to make a user friendly completion items.
+                                        let (new_span, prefix) = strip_placeholder_with_rsplit(
+                                            working_set,
+                                            &span,
+                                            |b| *b == b'=' || *b == b' ',
+                                            strip,
+                                        );
+                                        let ctx =
+                                            Context::new(working_set, new_span, prefix, offset);
+                                        let mut flag_value_completion = FlagValueCompletion {
+                                            decl_id: call.decl_id,
+                                            flag_name: name.as_ref().item.as_str(),
+                                        };
+                                        self.process_completion(&mut flag_value_completion, &ctx)
+                                    }
+                                }
+                            }
+                            Argument::Unknown(_) if prefix.starts_with(b"-") => {
                                 flag_completion_helper()
                             }
                             // only when `strip` == false
