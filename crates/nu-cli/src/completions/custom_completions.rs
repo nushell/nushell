@@ -158,7 +158,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             for sugg in suggestions {
                 matcher.add_semantic_suggestion(sugg);
             }
-            matcher.results()
+            matcher.suggestion_results()
         } else {
             suggestions
                 .into_iter()
