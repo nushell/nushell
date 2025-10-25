@@ -852,6 +852,45 @@ impl EngineInterface {
         }
     }
 
+    /// Ask the engine to evaluate a closure with a cloned engine state, enabling concurrent evaluation.
+    ///
+    /// This is similar to [`eval_closure_with_stream()`](Self::eval_closure_with_stream), but clones
+    /// the engine state and stack before evaluation, allowing multiple closures to be evaluated
+    /// concurrently. This is useful for plugins that need to handle multiple requests simultaneously
+    /// (e.g., HTTP servers).
+    ///
+    /// Note: The current implementation still blocks waiting for results, but validates that the
+    /// cloning mechanism works. Future optimization will make this truly concurrent with streaming results.
+    pub fn eval_closure_cloned_with_stream(
+        &self,
+        closure: &Spanned<Closure>,
+        mut positional: Vec<Value>,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        // Ensure closure args have custom values serialized
+        positional
+            .iter_mut()
+            .try_for_each(PluginCustomValue::serialize_custom_values_in)?;
+
+        let call = EngineCall::EvalClosureCloned {
+            closure: closure.clone(),
+            positional,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        };
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(error) => Err(error),
+            EngineCallResponse::PipelineData(data) => Ok(data),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::EvalClosureCloned".into(),
+            }),
+        }
+    }
+
     /// Ask the engine to evaluate a closure. Input is optionally passed as a [`Value`], and output
     /// of the closure is collected to a [`Value`] even if it is a stream.
     ///

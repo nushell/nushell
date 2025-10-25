@@ -11,8 +11,9 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
+    CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
+    engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -1364,6 +1365,63 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+        EngineCall::EvalClosureCloned {
+            closure,
+            positional,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        } => {
+            // Clone the context to enable concurrent evaluation
+            let owned_context = context.boxed();
+            let span = closure.span;
+            let signals = context.signals().clone();
+
+            // Create channel for streaming results from worker thread
+            let (tx, rx) = std::sync::mpsc::channel();
+
+            // Spawn worker thread to evaluate closure
+            std::thread::spawn(move || {
+                let result = owned_context.eval_closure(
+                    closure,
+                    positional,
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                );
+
+                // Stream PipelineData values through channel
+                match result {
+                    Ok(pipeline_data) => {
+                        // Send each value from the pipeline
+                        for value in pipeline_data.into_iter() {
+                            if tx.send(Ok(value)).is_err() {
+                                break; // Receiver dropped
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        // Send error as a value
+                        let _ = tx.send(Err(err));
+                    }
+                }
+            });
+
+            // Create iterator that pulls from channel (non-blocking return!)
+            let iter = std::iter::from_fn(move || {
+                match rx.recv() {
+                    Ok(Ok(value)) => Some(value),
+                    Ok(Err(err)) => Some(Value::error(err, span)),
+                    Err(_) => None, // Channel closed, end of stream
+                }
+            });
+
+            // Return ListStream immediately without blocking
+            let stream = ListStream::new(iter, span, signals);
+            Ok(EngineCallResponse::PipelineData(PipelineData::ListStream(
+                stream, None,
+            )))
+        }
         EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {
             if let Some(decl_id) = decl_id {
                 EngineCallResponse::Identifier(decl_id)

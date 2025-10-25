@@ -549,6 +549,23 @@ pub enum EngineCall<D> {
         /// Whether to redirect stderr from external commands
         redirect_stderr: bool,
     },
+    /// Evaluate a closure with stream input/output, cloning engine state for concurrent execution
+    ///
+    /// Unlike `EvalClosure`, this variant clones the engine state and stack, allowing the closure
+    /// to be evaluated concurrently without blocking other engine calls. This is useful for
+    /// plugins that need to handle multiple requests simultaneously (e.g., HTTP servers).
+    EvalClosureCloned {
+        /// The closure to call.
+        closure: Spanned<Closure>,
+        /// Positional arguments to add to the closure call
+        positional: Vec<Value>,
+        /// Input to the closure
+        input: D,
+        /// Whether to redirect stdout from external commands
+        redirect_stdout: bool,
+        /// Whether to redirect stderr from external commands
+        redirect_stderr: bool,
+    },
     /// Find a declaration by name
     FindDecl(String),
     /// Call a declaration with args
@@ -581,6 +598,7 @@ impl<D> EngineCall<D> {
             EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
+            EngineCall::EvalClosureCloned { .. } => "EvalClosureCloned",
             EngineCall::FindDecl(_) => "FindDecl",
             EngineCall::CallDecl { .. } => "CallDecl",
         }
@@ -610,6 +628,19 @@ impl<D> EngineCall<D> {
                 redirect_stdout,
                 redirect_stderr,
             } => EngineCall::EvalClosure {
+                closure,
+                positional,
+                input: f(input)?,
+                redirect_stdout,
+                redirect_stderr,
+            },
+            EngineCall::EvalClosureCloned {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => EngineCall::EvalClosureCloned {
                 closure,
                 positional,
                 input: f(input)?,
