@@ -8,9 +8,9 @@ export def "into list" []: any -> list {
   let input = $in
   let type = ($input | describe --detailed | get type)
   match $type {
-    range => {$input | each {||}}
-    list => $input
-    table => $input
+    "range" => {$input | each {||}}
+    "list" => $input
+    "table" => $input
     _ => [ $input ]
   }
 }
