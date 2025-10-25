@@ -122,8 +122,10 @@ impl<T> NuMatcher<'_, T> {
     /// to the list of matches (if given).
     ///
     /// Helper to avoid code duplication between [NuMatcher::add] and [NuMatcher::matches].
-    fn matches_aux(&mut self, haystack: &str, item: Option<T>) -> bool {
-        let haystack = haystack.trim_matches(QUOTES);
+    fn matches_aux(&mut self, orig_haystack: &str, item: Option<T>) -> bool {
+        let haystack = orig_haystack.trim_start_matches(QUOTES);
+        let offset = orig_haystack.len() - haystack.len();
+        let haystack = haystack.trim_end_matches(QUOTES);
         match &mut self.state {
             State::Prefix { items } => {
                 let haystack_folded = if self.options.case_sensitive {
@@ -164,7 +166,9 @@ impl<T> NuMatcher<'_, T> {
                     let indices = indices
                         .iter()
                         .map(|i| {
-                            usize::try_from(*i).expect("should be on at least a 32-bit system")
+                            offset
+                                + usize::try_from(*i)
+                                    .expect("should be on at least a 32-bit system")
                         })
                         .collect();
                     items.push((haystack.to_string(), item, score, indices));
@@ -381,7 +385,7 @@ mod test {
         assert_eq!(
             vec![(
                 "'i love spaces' so much",
-                Some(vec![0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+                Some(vec![3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
             )],
             matcher.results()
         );
