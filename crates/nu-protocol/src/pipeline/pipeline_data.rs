@@ -644,10 +644,11 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<(), ShellError> {
+        let buffer_size = engine_state.pipeline_buffer_size();
         match self {
             // Print byte streams directly as long as they aren't binary.
             PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
-                stream.print(to_stderr)
+                stream.print_with_buffer(to_stderr, buffer_size)
             }
             _ => {
                 // If the table function is in the declarations, then we can use it
@@ -655,14 +656,14 @@ impl PipelineData {
                 if let Some(decl_id) = engine_state.table_decl_id {
                     let command = engine_state.get_decl(decl_id);
                     if command.block_id().is_some() {
-                        self.write_all_and_flush(engine_state, no_newline, to_stderr)
+                        self.write_all_and_flush(engine_state, no_newline, to_stderr, buffer_size)
                     } else {
                         let call = Call::new(Span::new(0, 0));
                         let table = command.run(engine_state, stack, &(&call).into(), self)?;
-                        table.write_all_and_flush(engine_state, no_newline, to_stderr)
+                        table.write_all_and_flush(engine_state, no_newline, to_stderr, buffer_size)
                     }
                 } else {
-                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    self.write_all_and_flush(engine_state, no_newline, to_stderr, buffer_size)
                 }
             }
         }
@@ -682,6 +683,7 @@ impl PipelineData {
         to_stderr: bool,
     ) -> Result<(), ShellError> {
         let span = self.span();
+        let buffer_size = engine_state.pipeline_buffer_size();
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
                 write_all_and_flush(
@@ -690,6 +692,7 @@ impl PipelineData {
                     "stderr",
                     span,
                     engine_state.signals(),
+                    buffer_size,
                 )?;
             } else {
                 write_all_and_flush(
@@ -698,11 +701,12 @@ impl PipelineData {
                     "stdout",
                     span,
                     engine_state.signals(),
+                    buffer_size,
                 )?;
             }
             Ok(())
         } else {
-            self.write_all_and_flush(engine_state, no_newline, to_stderr)
+            self.write_all_and_flush(engine_state, no_newline, to_stderr, buffer_size)
         }
     }
 
@@ -711,11 +715,12 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
+        buffer_size: usize,
     ) -> Result<(), ShellError> {
         let span = self.span();
         if let PipelineData::ByteStream(stream, ..) = self {
             // Copy ByteStreams directly
-            stream.print(to_stderr)
+            stream.print_with_buffer(to_stderr, buffer_size)
         } else {
             let config = engine_state.get_config();
             for item in self {
@@ -736,6 +741,7 @@ impl PipelineData {
                         "stderr",
                         span,
                         engine_state.signals(),
+                        buffer_size,
                     )?;
                 } else {
                     write_all_and_flush(
@@ -744,6 +750,7 @@ impl PipelineData {
                         "stdout",
                         span,
                         engine_state.signals(),
+                        buffer_size,
                     )?;
                 }
             }
@@ -800,6 +807,7 @@ pub fn write_all_and_flush<T>(
     destination_name: &str,
     span: Option<Span>,
     signals: &Signals,
+    chunk_size: usize,
 ) -> Result<(), ShellError>
 where
     T: AsRef<[u8]>,
@@ -814,8 +822,8 @@ where
     };
 
     let span = span.unwrap_or(Span::unknown());
-    const OUTPUT_CHUNK_SIZE: usize = 8192;
-    for chunk in data.as_ref().chunks(OUTPUT_CHUNK_SIZE) {
+    let chunk_size = chunk_size.max(1);
+    for chunk in data.as_ref().chunks(chunk_size) {
         signals.check(&span)?;
         destination
             .write_all(chunk)

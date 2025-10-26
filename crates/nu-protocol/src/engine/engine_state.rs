@@ -1,3 +1,4 @@
+use crate::config::DEFAULT_PIPELINE_BUFFER_SIZE;
 use crate::{
     BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
@@ -805,6 +806,30 @@ impl EngineState {
         &self.config
     }
 
+    pub fn pipeline_buffer_size(&self) -> usize {
+        if let Some(value) = self.get_env_var("NU_PIPE_BUFFER_SIZE") {
+            if let Some(size) = Self::env_buffer_size(value) {
+                return size;
+            }
+        }
+
+        let size = self.config.pipeline.buffer_size();
+        if size == 0 {
+            DEFAULT_PIPELINE_BUFFER_SIZE
+        } else {
+            size
+        }
+    }
+
+    fn env_buffer_size(value: &Value) -> Option<usize> {
+        match value {
+            Value::Int { val, .. } if *val > 0 => usize::try_from(*val).ok(),
+            Value::String { val, .. } => val.trim().parse::<usize>().ok().filter(|v| *v > 0),
+            Value::Nothing { .. } => None,
+            _ => None,
+        }
+    }
+
     pub fn set_config(&mut self, conf: impl Into<Arc<Config>>) {
         let conf = conf.into();
 
@@ -1227,6 +1252,47 @@ mod engine_state_tests {
             engine_state.get_plugin_config("example").is_some(),
             "Plugin configuration not found"
         );
+    }
+
+    #[test]
+    fn pipeline_buffer_size_defaults_to_config_value() {
+        let engine_state = EngineState::new();
+        assert_eq!(
+            engine_state.pipeline_buffer_size(),
+            super::DEFAULT_PIPELINE_BUFFER_SIZE
+        );
+    }
+
+    #[test]
+    fn pipeline_buffer_size_uses_config_override() {
+        let mut engine_state = EngineState::new();
+        let mut config = (**engine_state.get_config()).clone();
+        config.pipeline.buffer_size = 16_384;
+        engine_state.set_config(Arc::new(config));
+
+        assert_eq!(engine_state.pipeline_buffer_size(), 16_384);
+    }
+
+    #[test]
+    fn pipeline_buffer_size_prefers_env_var_over_config() {
+        let mut engine_state = EngineState::new();
+        let mut config = (**engine_state.get_config()).clone();
+        config.pipeline.buffer_size = 16_384;
+        engine_state.set_config(Arc::new(config));
+        engine_state.add_env_var("NU_PIPE_BUFFER_SIZE".into(), Value::test_string("32768"));
+
+        assert_eq!(engine_state.pipeline_buffer_size(), 32_768);
+    }
+
+    #[test]
+    fn pipeline_buffer_size_ignores_invalid_env_var() {
+        let mut engine_state = EngineState::new();
+        let mut config = (**engine_state.get_config()).clone();
+        config.pipeline.buffer_size = 16_384;
+        engine_state.set_config(Arc::new(config));
+        engine_state.add_env_var("NU_PIPE_BUFFER_SIZE".into(), Value::test_string("invalid"));
+
+        assert_eq!(engine_state.pipeline_buffer_size(), 16_384);
     }
 }
 
