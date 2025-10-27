@@ -48,9 +48,15 @@ enum State<T> {
     Fuzzy {
         matcher: Matcher,
         atom: Atom,
-        /// Holds (haystack, item, score, match_indices)
-        items: Vec<(String, T, u16, Vec<usize>)>,
+        matches: Vec<FuzzyMatch<T>>,
     },
+}
+
+struct FuzzyMatch<T> {
+    item: T,
+    haystack: String,
+    score: u16,
+    match_indices: Vec<usize>,
 }
 
 const QUOTES: [char; 3] = ['"', '\'', '`'];
@@ -111,7 +117,7 @@ impl<T> NuMatcher<'_, T> {
                             cfg
                         }),
                         atom,
-                        items: Vec::new(),
+                        matches: Vec::new(),
                     },
                 }
             }
@@ -154,7 +160,7 @@ impl<T> NuMatcher<'_, T> {
             State::Fuzzy {
                 matcher,
                 atom,
-                items,
+                matches: items,
             } => {
                 let mut haystack_buf = Vec::new();
                 let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
@@ -171,7 +177,12 @@ impl<T> NuMatcher<'_, T> {
                                     .expect("should be on at least a 32-bit system")
                         })
                         .collect();
-                    items.push((haystack.to_string(), item, score, indices));
+                    items.push(FuzzyMatch {
+                        item,
+                        haystack: haystack.to_string(),
+                        score,
+                        match_indices: indices,
+                    });
                 }
                 true
             }
@@ -205,16 +216,12 @@ impl<T> NuMatcher<'_, T> {
                     }
                 });
             }
-            State::Fuzzy { items, .. } => match self.options.sort {
+            State::Fuzzy { matches: items, .. } => match self.options.sort {
                 CompletionSort::Alphabetical => {
-                    items.sort_by(|(haystack1, _, _, _), (haystack2, _, _, _)| {
-                        haystack1.cmp(haystack2)
-                    });
+                    items.sort_by(|a, b| a.haystack.cmp(&b.haystack));
                 }
                 CompletionSort::Smart => {
-                    items.sort_by(|(haystack1, _, score1, _), (haystack2, _, score2, _)| {
-                        score2.cmp(score1).then(haystack1.cmp(haystack2))
-                    });
+                    items.sort_by(|a, b| b.score.cmp(&a.score).then(a.haystack.cmp(&b.haystack)));
                 }
             },
         }
@@ -227,9 +234,9 @@ impl<T> NuMatcher<'_, T> {
                 .into_iter()
                 .map(|(_, item)| (item, None))
                 .collect::<Vec<_>>(),
-            State::Fuzzy { items, .. } => items
+            State::Fuzzy { matches: items, .. } => items
                 .into_iter()
-                .map(|(_, item, _, indices)| (item, Some(indices)))
+                .map(|mat| (mat.item, Some(mat.match_indices)))
                 .collect::<Vec<_>>(),
         }
     }
