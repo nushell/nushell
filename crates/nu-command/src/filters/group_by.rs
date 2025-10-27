@@ -20,7 +20,7 @@ impl Command for GroupBy {
             )
             .switch(
                 "delete-columns",
-                "If the input was a table, delete the original columns",
+                "If the input is a table, delete the original columns",
                 Some('d'),
             )
             .rest(
