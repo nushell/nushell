@@ -28,7 +28,7 @@ impl PluginCommand for ToUpperCase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["capitalize, caps, capital"]
+        vec!["capitalize", "caps", "capital"]
     }
 
     fn signature(&self) -> Signature {
