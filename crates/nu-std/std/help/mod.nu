@@ -127,9 +127,25 @@ def build-help-header [
     }
 }
 
+# Highlight (and italicize) code in backticks, fallback to dimmed for invalid syntax
+def highlight-description [] {
+    if (config use-colors) {
+        str replace -ar '(?<!`)`([^`]+)`(?!`)' {
+            str trim -c '`'
+            | try {
+                nu-highlight --reject-garbage
+                | str replace -a (ansi rst) $"(ansi rst)(ansi i)"
+            } catch {
+                $"(ansi d)($in)(ansi rst_d)"
+            }
+            | $"(ansi i)($in)(ansi rst_i)"
+        }
+    } else {}
+}
+
 def build-module-page [module: record] {
     let description = (if ($module.description? | is-not-empty) {[
-        $module.description
+        ($module.description | highlight-description)
         ""
     ]} else { [] })
 
@@ -274,7 +290,7 @@ export def modules [
 
 def build-alias-page [alias: record] {
     let description = (if ($alias.description? | is-not-empty) {[
-        $alias.description
+        ($alias.description | highlight-description)
         ""
     ]} else { [] })
 
@@ -544,11 +560,11 @@ def get-command-extensions [command: string] {
 
 def build-command-page [command: record] {
     let description = (if ($command.description? | is-not-empty) {[
-        $command.description
+        ($command.description | highlight-description)
     ]} else { [] })
     let extra_description = (if ($command.extra_description? | is-not-empty) {[
         ""
-        $command.extra_description
+        ($command.extra_description | highlight-description)
     ]} else { [] })
 
     let search_terms = (if ($command.search_terms? | is-not-empty) {[
@@ -701,7 +717,7 @@ def build-command-page [command: record] {
         (build-help-header -n "Examples")
         ($command.examples | each {|example| [
             $"  ($example.description)"
-            $"  > ($example.example | nu-highlight)"
+            $"  > ($example.example | if (config use-colors) { nu-highlight } else {})"
             (if ($example.result | is-not-empty) {
                 $example.result
                 | table -e
