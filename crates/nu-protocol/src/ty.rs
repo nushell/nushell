@@ -209,6 +209,17 @@ impl Type {
         }
     }
 
+    /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
+    pub fn supertype_of(it: impl IntoIterator<Item = Type>) -> Option<Self> {
+        let mut it = it.into_iter();
+        it.next().and_then(|head| {
+            it.try_fold(head, |acc, e| match acc.widen(e) {
+                Type::Any => None,
+                r => Some(r),
+            })
+        })
+    }
+
     pub fn is_numeric(&self) -> bool {
         matches!(self, Type::Int | Type::Float | Type::Number)
     }

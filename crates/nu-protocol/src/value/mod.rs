@@ -806,15 +806,11 @@ impl Value {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
             Value::List { vals, .. } => {
-                let ty = vals
-                    .iter()
-                    .map(Value::get_type)
-                    .reduce(|e, acc| e.widen(acc));
+                let ty = Type::supertype_of(vals.iter().map(Value::get_type)).unwrap_or(Type::Any);
 
                 match ty {
-                    Some(Type::Record(columns)) => Type::Table(columns),
-                    Some(ty) => Type::list(ty),
-                    None => Type::list(Type::Any),
+                    Type::Record(columns) => Type::Table(columns),
+                    ty => Type::list(ty),
                 }
             }
             Value::Nothing { .. } => Type::Nothing,
