@@ -302,9 +302,10 @@ pub trait SimplePluginCommand: Sync {
     ) -> Result<Value, LabeledError>;
 
     #[allow(unused_variables)]
-    /// Get completion items for `flag_name`.
+    /// Get completion items for `arg_type`.
     ///
-    /// It's useful when you want to get auto completion items of a flag.
+    /// It's useful when you want to get auto completion items of a flag or positional argument
+    /// dynamically.
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,

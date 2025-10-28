@@ -606,7 +606,7 @@ impl NuCompleter {
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
-                                let mut argument_value_completion =
+                                let mut positional_value_completion =
                                     PositionalValueDynamicCompletion {
                                         decl_id: call.decl_id,
                                         arg_idx,
@@ -618,7 +618,7 @@ impl NuCompleter {
                                         positional_arg_indices,
                                         arguments: &call.arguments,
                                         expr,
-                                        value_completion: &mut argument_value_completion,
+                                        value_completion: &mut positional_value_completion,
                                     },
                                     pos,
                                     &ctx,
@@ -860,11 +860,7 @@ impl NuCompleter {
             _ => (),
         }
 
-        let prefix = String::from_utf8(ctx.prefix.to_vec()).unwrap();
-        log::warn!(
-            "arg_indices: {positional_arg_indices:?}, arguments: {arguments:?}, expr: {expr:?}, prefix: {prefix}"
-        );
-        // try argument completion defined by Command first.
+        // try argument dynamic completion defined by Command first.
         let value_comletion_result = self.process_completion(value_completion, ctx);
         if !value_comletion_result.is_empty() {
             return value_comletion_result;
