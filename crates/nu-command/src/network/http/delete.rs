@@ -1,3 +1,4 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
     http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
@@ -17,7 +18,7 @@ impl Command for HttpDelete {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http delete")
+        let sig = Signature::build("http delete")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -87,7 +88,9 @@ impl Command for HttpDelete {
                     .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -166,6 +169,7 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    unix_socket: Option<Spanned<String>>,
 }
 
 fn run_delete(
@@ -201,6 +205,7 @@ fn run_delete(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
 
     helper(engine_state, stack, call, args)
@@ -218,7 +223,15 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.delete(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

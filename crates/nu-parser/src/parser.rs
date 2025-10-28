@@ -4806,10 +4806,10 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut errors = vec![];
     let mut rows = rows.to_vec();
     let mut mk_ty = || -> Type {
-        rows.iter_mut()
-            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
-            .reduce(|acc, ty| -> Type { acc.widen(ty) })
-            .unwrap_or_default()
+        let types = rows
+            .iter_mut()
+            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default());
+        Type::supertype_of(types).unwrap_or_default()
     };
 
     let mk_error = |span| ParseError::LabeledErrorWithHelp {

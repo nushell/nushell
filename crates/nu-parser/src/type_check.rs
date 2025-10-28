@@ -96,6 +96,12 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
             is_compatible(lhs, rhs)
         }
         (Type::Glob, Type::String) => true,
+        (Type::CellPath, other) => {
+            other.is_subtype_of(&Type::CellPath) || Type::CellPath.is_subtype_of(other)
+        }
+        (Type::OneOf(types), u) | (u, Type::OneOf(types)) => {
+            types.iter().any(|t| type_compatible(t, u))
+        }
         (lhs, rhs) => lhs == rhs,
     }
 }

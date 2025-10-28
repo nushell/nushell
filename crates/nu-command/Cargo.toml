@@ -142,6 +142,7 @@ web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
+uds_windows = "1.1"
 winreg = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
