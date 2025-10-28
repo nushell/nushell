@@ -13,7 +13,7 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature,
     ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
-    engine::Sequence,
+    engine::{Job, Sequence, ThreadJob},
 };
 use nu_utils::SharedCow;
 use std::{
@@ -1372,10 +1372,22 @@ pub(crate) fn handle_engine_call(
             redirect_stdout,
             redirect_stderr,
         } => {
-            // Clone the context to enable concurrent evaluation
-            let owned_context = context.boxed();
             let span = closure.span;
             let signals = context.signals().clone();
+
+            // Create a thread job for this evaluation
+            let (sender, _receiver) = mpsc::channel();
+            let job = ThreadJob::new(signals.clone(), Some("Plugin Closure Eval".to_string()), sender);
+
+            // Add the job to the engine's job table
+            let jobs = context.jobs();
+            let job_id = {
+                let mut jobs_guard = jobs.lock().expect("jobs mutex poisoned");
+                jobs_guard.add_job(Job::Thread(job.clone()))
+            };
+
+            // Clone the context with the job set to enable concurrent evaluation
+            let owned_context = context.boxed_with_job(job);
 
             // Create channel for streaming results from worker thread
             let (tx, rx) = std::sync::mpsc::channel();
@@ -1405,6 +1417,10 @@ pub(crate) fn handle_engine_call(
                         let _ = tx.send(Err(err));
                     }
                 }
+
+                // Clean up job when done
+                let mut jobs_guard = jobs.lock().expect("jobs mutex poisoned");
+                jobs_guard.remove_job(job_id);
             });
 
             // Create iterator that pulls from channel (non-blocking return!)

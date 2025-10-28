@@ -4,13 +4,13 @@ use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
     Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span,
     Spanned, Value,
-    engine::{Call, Closure, EngineState, Redirection, Stack},
+    engine::{Call, Closure, EngineState, Jobs, Redirection, Stack, ThreadJob},
     ir,
 };
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{Arc, atomic::AtomicU32},
+    sync::{Arc, Mutex, atomic::AtomicU32},
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -59,6 +59,10 @@ pub trait PluginExecutionContext: Send + Sync {
     ) -> Result<PipelineData, ShellError>;
     /// Create an owned version of the context with `'static` lifetime
     fn boxed(&self) -> Box<dyn PluginExecutionContext>;
+    /// Create an owned version of the context with `'static` lifetime and set the background thread job
+    fn boxed_with_job(&self, job: ThreadJob) -> Box<dyn PluginExecutionContext>;
+    /// Get the shared jobs table for registering and managing background jobs
+    fn jobs(&self) -> Arc<Mutex<Jobs>>;
 }
 
 /// The execution context of a plugin command. Can be borrowed.
@@ -274,6 +278,22 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             call: self.call.to_owned(),
         })
     }
+
+    fn boxed_with_job(&self, job: ThreadJob) -> Box<dyn PluginExecutionContext + 'static> {
+        let mut engine_state = self.engine_state.clone().into_owned();
+        engine_state.current_job.background_thread_job = Some(job);
+
+        Box::new(PluginExecutionCommandContext {
+            identity: self.identity.clone(),
+            engine_state: Cow::Owned(engine_state),
+            stack: self.stack.owned(),
+            call: self.call.to_owned(),
+        })
+    }
+
+    fn jobs(&self) -> Arc<Mutex<Jobs>> {
+        self.engine_state.jobs.clone()
+    }
 }
 
 /// A bogus execution context for testing that doesn't really implement anything properly
@@ -374,5 +394,13 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
         Box::new(PluginExecutionBogusContext)
+    }
+
+    fn boxed_with_job(&self, _job: ThreadJob) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionBogusContext)
+    }
+
+    fn jobs(&self) -> Arc<Mutex<Jobs>> {
+        Arc::new(Mutex::new(Jobs::default()))
     }
 }
