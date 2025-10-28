@@ -74,20 +74,20 @@ impl PluginCommand for ArgCompletion {
                     _ => None,
                 }
             }
-            ArgType::Positional(indx) => {
+            ArgType::Positional(index) => {
                 // let's generate it dynamically too
                 let start = SystemTime::now();
                 let since_the_epoch = start
                     .duration_since(UNIX_EPOCH)
                     .expect("time should go forward")
                     .as_secs();
-                if indx == 0 {
+                if index == 0 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
                             .map(|s| format!("arg0:{}", s.to_string()))
                             .collect(),
                     )
-                } else if indx == 1 {
+                } else if index == 1 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
                             .map(|s| format!("arg1:{}", s.to_string()))

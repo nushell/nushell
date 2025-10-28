@@ -152,7 +152,7 @@ impl Command for PluginDeclaration {
 
         let arg_info = match arg_type {
             ArgType::Flag(flag_name) => GetCompletionArgType::Flag(flag_name.to_string()),
-            ArgType::Positional(indx) => GetCompletionArgType::Positional(indx),
+            ArgType::Positional(index) => GetCompletionArgType::Positional(index),
         };
         plugin.get_dynamic_completion(GetCompletionInfo {
             name: self.name.clone(),

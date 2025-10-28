@@ -861,9 +861,9 @@ impl NuCompleter {
         }
 
         // try argument dynamic completion defined by Command first.
-        let value_comletion_result = self.process_completion(value_completion, ctx);
-        if !value_comletion_result.is_empty() {
-            return value_comletion_result;
+        let value_completion_result = self.process_completion(value_completion, ctx);
+        if !value_completion_result.is_empty() {
+            return value_completion_result;
         }
 
         // general positional arguments

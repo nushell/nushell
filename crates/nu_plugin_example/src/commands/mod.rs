@@ -43,5 +43,5 @@ pub use seq::Seq;
 pub use sum::Sum;
 
 // Flag auto completion demos
-mod flag_completion;
-pub use flag_completion::ArgCompletion;
+mod arg_completion;
+pub use arg_completion::ArgCompletion;
