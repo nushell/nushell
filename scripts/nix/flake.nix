@@ -43,7 +43,9 @@
           cargo = final.rustToolchain-devshell;
           rustc = final.rustToolchain-devshell;
         };
-        nushell = previous.callPackage ./. { rustPlatform = final.rustPlatform'; };
+        nushell = previous.callPackage ./. {
+          rustPlatform = final.rustPlatform';
+        };
         nushellPlugins =
           previous.nushellPlugins
           // (builtins.mapAttrs
@@ -60,7 +62,6 @@
                   ]
                   ++ lib.optionals previous.stdenv.cc.isClang [ final.rustPlatform'.bindgenHook ]
                   ++ (d.extraNativeBuildInputs or [ ]);
-                  testsToSkip = [ ];
                 }
                 // d
               )
@@ -73,8 +74,8 @@
               inc = { };
               polars = {
                 buildInputs = [ previous.openssl ];
-                testsToSkip = [
-                  "dataframe::command::core::to_repr::test::test_examples"
+                checkFlags = [
+                  "--skip=dataframe::command::core::to_repr::test::test_examples"
                 ];
               };
               query = {
@@ -100,7 +101,6 @@
             };
           }
         );
-
     in
     {
       overlays = {
@@ -111,6 +111,9 @@
         {
           inherit (pkgs) nushell;
           default = pkgs.nushell;
+          dev = pkgs.nushell.override {
+            buildType = "dev";
+          };
         }
       );
       legacyPackages = forEachSupportedSystem (
