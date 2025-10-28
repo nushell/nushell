@@ -1125,14 +1125,19 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     let manager = test.plugin("test");
     let interface = manager.get_interface();
 
-    start_fake_plugin_call_responder(manager, 1, move |_| {
+    start_fake_plugin_call_responder(manager, 2, move |_| {
         vec![ReceivedPluginCallMessage::Response(
             PluginCallResponse::CompletionItems(Some(vec!["aa".to_string()])),
         )]
     });
     let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
-        arg_type: "test_flag".to_string(),
+        arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
+    })?;
+    assert_eq!(Some(vec!["aa".to_string()]), result);
+    let result = interface.get_dynamic_completion(GetCompletionInfo {
+        name: "test".to_string(),
+        arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
     })?;
     assert_eq!(Some(vec!["aa".to_string()]), result);
     Ok(())

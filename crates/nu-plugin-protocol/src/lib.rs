@@ -65,9 +65,9 @@ pub enum GetCompletionArgType {
     Positional(usize),
 }
 
-impl<'a> Into<ArgType<'a>> for GetCompletionArgType {
-    fn into(self) -> ArgType<'a> {
-        match self {
+impl<'a> From<GetCompletionArgType> for ArgType<'a> {
+    fn from(value: GetCompletionArgType) -> Self {
+        match value {
             GetCompletionArgType::Flag(flag_name) => {
                 ArgType::Flag(std::borrow::Cow::from(flag_name))
             }
