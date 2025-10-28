@@ -124,7 +124,7 @@ impl Command for PluginDeclaration {
         Some(&self.source.identity)
     }
 
-    fn get_completion(
+    fn get_dynamic_completion(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -154,7 +154,7 @@ impl Command for PluginDeclaration {
             ArgType::Flag(flag_name) => GetCompletionArgType::Flag(flag_name.to_string()),
             ArgType::Positional(indx) => GetCompletionArgType::Positional(indx),
         };
-        plugin.get_completion(GetCompletionInfo {
+        plugin.get_dynamic_completion(GetCompletionInfo {
             name: self.name.clone(),
             arg_type: arg_info,
         })

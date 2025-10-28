@@ -76,7 +76,7 @@ impl<'a> Into<ArgType<'a>> for GetCompletionArgType {
     }
 }
 
-/// Information about `get_completion` of a plugin call invocation.
+/// Information about `get_dynamic_completion` of a plugin call invocation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetCompletionInfo {
     /// The name of the command to be run.

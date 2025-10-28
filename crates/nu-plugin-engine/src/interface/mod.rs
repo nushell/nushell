@@ -969,7 +969,7 @@ impl PluginInterface {
     }
 
     /// Get completion items from the plugin.
-    pub fn get_completion(
+    pub fn get_dynamic_completion(
         &self,
         info: GetCompletionInfo,
     ) -> Result<Option<Vec<String>>, ShellError> {

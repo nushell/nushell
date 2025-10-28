@@ -1,8 +1,8 @@
 use crate::completions::{
-    ArgumentValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, ExportableCompletion, FileCompletion, FlagCompletion, FlagValueCompletion,
-    OperatorCompletion, VariableCompletion,
+    AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
+    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
+    ExportableCompletion, FileCompletion, FlagCompletion, FlagValueDynamicCompletion,
+    OperatorCompletion, PositionalValueDynamicCompletion, VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -195,7 +195,7 @@ struct PositionalArguments<'a> {
     /// expression of current argument
     expr: &'a Expression,
     /// completer for argument value
-    value_completion: &'a mut ArgumentValueCompletion,
+    value_completion: &'a mut PositionalValueDynamicCompletion,
 }
 
 impl Context<'_> {
@@ -588,10 +588,11 @@ impl NuCompleter {
                                         );
                                         let ctx =
                                             Context::new(working_set, new_span, prefix, offset);
-                                        let mut flag_value_completion = FlagValueCompletion {
-                                            decl_id: call.decl_id,
-                                            flag_name: name.as_ref().item.as_str(),
-                                        };
+                                        let mut flag_value_completion =
+                                            FlagValueDynamicCompletion {
+                                                decl_id: call.decl_id,
+                                                flag_name: name.as_ref().item.as_str(),
+                                            };
                                         self.process_completion(&mut flag_value_completion, &ctx)
                                     }
                                 }
@@ -605,10 +606,11 @@ impl NuCompleter {
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
-                                let mut argument_value_completion = ArgumentValueCompletion {
-                                    decl_id: call.decl_id,
-                                    arg_idx,
-                                };
+                                let mut argument_value_completion =
+                                    PositionalValueDynamicCompletion {
+                                        decl_id: call.decl_id,
+                                        arg_idx,
+                                    };
                                 let mut need_fallback = suggestions.is_empty();
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {

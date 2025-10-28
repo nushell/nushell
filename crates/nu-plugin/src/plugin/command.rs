@@ -156,7 +156,7 @@ pub trait PluginCommand: Sync {
     /// Get completion items for `flag_name`.
     ///
     /// It's useful when you want to get auto completion items of a flag.
-    fn get_completion(
+    fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
@@ -305,7 +305,7 @@ pub trait SimplePluginCommand: Sync {
     /// Get completion items for `flag_name`.
     ///
     /// It's useful when you want to get auto completion items of a flag.
-    fn get_completion(
+    fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
@@ -364,13 +364,13 @@ where
     }
 
     #[allow(unused_variables)]
-    fn get_completion(
+    fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
     ) -> Option<Vec<String>> {
-        <Self as SimplePluginCommand>::get_completion(self, plugin, engine, arg_type)
+        <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, arg_type)
     }
 }
 

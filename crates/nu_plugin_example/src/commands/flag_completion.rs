@@ -51,7 +51,7 @@ impl PluginCommand for ArgCompletion {
         Ok(PipelineData::empty())
     }
 
-    fn get_completion(
+    fn get_dynamic_completion(
         &self,
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,

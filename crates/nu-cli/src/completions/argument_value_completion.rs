@@ -7,12 +7,12 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-pub struct ArgumentValueCompletion {
+pub struct PositionalValueDynamicCompletion {
     pub decl_id: DeclId,
     pub arg_idx: usize,
 }
 
-impl Completer for ArgumentValueCompletion {
+impl Completer for PositionalValueDynamicCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -45,7 +45,7 @@ impl Completer for ArgumentValueCompletion {
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
         if let Some(items) = decl
-            .get_completion(
+            .get_dynamic_completion(
                 working_set.permanent_state,
                 &mut stack,
                 ArgType::Positional(self.arg_idx),

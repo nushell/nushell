@@ -539,14 +539,14 @@ where
             }
         };
 
-        let get_completion = |engine, get_completion_info| {
+        let get_dynamic_completion = |engine, get_dynamic_completion_info| {
             // SAFETY: It should be okay to use `AssertUnwindSafe` here, because we don't use any
             // of the references after we catch the unwind, and immediately exit.
             let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                let GetCompletionInfo { name, arg_type } = get_completion_info;
+                let GetCompletionInfo { name, arg_type } = get_dynamic_completion_info;
                 let items = if let Some(command) = commands.get(&name) {
                     let arg_type = arg_type.into();
-                    command.get_completion(plugin, &engine, arg_type)
+                    command.get_dynamic_completion(plugin, &engine, arg_type)
                 } else {
                     None
                 };
@@ -621,7 +621,9 @@ where
                 } => {
                     custom_value_op(plugin, &engine, custom_value, op).try_to_report(&engine)?;
                 }
-                ReceivedPluginCall::GetCompletion { engine, info } => get_completion(engine, info),
+                ReceivedPluginCall::GetCompletion { engine, info } => {
+                    get_dynamic_completion(engine, info)
+                }
             }
         }
 

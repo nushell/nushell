@@ -1120,7 +1120,7 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 }
 
 #[test]
-fn interface_get_completion() -> Result<(), ShellError> {
+fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     let test = TestCase::new();
     let manager = test.plugin("test");
     let interface = manager.get_interface();
@@ -1130,7 +1130,7 @@ fn interface_get_completion() -> Result<(), ShellError> {
             PluginCallResponse::CompletionItems(Some(vec!["aa".to_string()])),
         )]
     });
-    let result = interface.get_completion(GetCompletionInfo {
+    let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
         arg_type: "test_flag".to_string(),
     })?;

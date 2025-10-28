@@ -8,12 +8,12 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::borrow::Cow;
 
-pub struct FlagValueCompletion<'a> {
+pub struct FlagValueDynamicCompletion<'a> {
     pub decl_id: DeclId,
     pub flag_name: &'a str,
 }
 
-impl<'a> Completer for FlagValueCompletion<'a> {
+impl<'a> Completer for FlagValueDynamicCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -46,7 +46,7 @@ impl<'a> Completer for FlagValueCompletion<'a> {
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
         if let Some(items) = decl
-            .get_completion(
+            .get_dynamic_completion(
                 working_set.permanent_state,
                 &mut stack,
                 ArgType::Flag(Cow::from(self.flag_name)),
