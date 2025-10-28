@@ -129,7 +129,9 @@ impl Command for Http {
         {
             return Err(ShellError::GenericError {
                 error: "Invalid command construction".into(),
-                msg: format!("Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"),
+                msg: format!(
+                    "Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
+                ),
                 span: Some(*span),
                 help: format!("Prefer to use `http {method}` directly").into(),
                 inner: vec![],
