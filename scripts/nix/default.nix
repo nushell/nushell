@@ -1,3 +1,4 @@
+# Generic builder for nushell and its included plugins.
 {
   stdenv,
   lib,
@@ -18,6 +19,7 @@
   libgit2,
   zstd,
   zlib,
+  # Mostly args and things that might be different for plugins
   nativeBuildInputs ? [
     pkg-config
   ]
@@ -36,16 +38,13 @@
     lib.optionals stdenv.hostPlatform.isDarwin [ curlMinimal ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [ openssl ],
 
-  # The skipped tests all fail in the sandbox because in the nushell test playground,
-  # the tmp $HOME is not set, so nu falls back to looking up the passwd dir of the build
-  # user (/var/empty). The assertions however do respect the set $HOME.
-  testsToSkip ? [
-    "repl::test_config_path::test_default_config_path"
-    "repl::test_config_path::test_xdg_config_bad"
-    "repl::test_config_path::test_xdg_config_empty"
-  ],
+  # Fixed in #16914
   buildAndTestSubdir ? ".",
-}:
+  checkFlags ? [ ],
+  buildType ? "release",
+  checkType ? buildType,
+  ...
+}@args:
 let
   inherit (builtins)
     fromTOML
@@ -70,6 +69,9 @@ rustPlatform.buildRustPackage {
     buildInputs
     checkInputs
     buildAndTestSubdir
+    checkFlags
+    buildType
+    checkType
     ;
   inherit (cargoToml.package) version;
 
@@ -104,20 +106,13 @@ rustPlatform.buildRustPackage {
   buildNoDefaultFeatures = !withDefaultFeatures;
   buildFeatures = additionalFeatures [ ];
 
+  # Builds the plugins for the test using the right profile, otherwise the
+  # plugins cannot be found.
+  NUSHELL_CARGO_PROFILE = checkType;
+  NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8";
   preCheck = ''
-    export NU_TEST_LOCALE_OVERRIDE="en_US.UTF-8"
+    export HOME=$(mktemp -d)
   '';
-  checkPhase = ''
-    runHook preCheck
-    (
-      set -x
-      pushd ${buildAndTestSubdir}
-      HOME=$(mktemp -d) cargo test -j $NIX_BUILD_CORES --offline -- \
-        --test-threads=$NIX_BUILD_CORES ${toString (map (p: "--skip=${p}") testsToSkip)}
-    )
-    runHook postCheck
-  '';
-
   meta = {
     description = extraToml.package.description or cargoToml.package.description;
     homepage =

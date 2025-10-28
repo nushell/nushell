@@ -356,6 +356,7 @@ where
         .iter()
         .map(|plugin_name| {
             let plugin = with_exe(plugin_name);
+            eprintln!("PLUGIN: {:?}", plugin);
             let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
                 .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
             let plugin_path = plugin_path.to_string_lossy();
