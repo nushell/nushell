@@ -33,6 +33,21 @@ $ nix flake update --flake ./scripts/nix
 }
 ```
 
+### Adding the hash to `version`
+
+The `inputs.nushell.rev` variable can be used to get the commit hash in the
+output of `version`:
+
+```nix
+{
+# ...
+      nushell = inputs.nushell.packages.x86_64-linux.nushell.override {
+        NU_COMMIT_HASH = inputs.nushell.rev;
+      };
+# ...
+}
+```
+
 ## Using the Overlay
 
 This flake also includes an overlay to allow using the new nushell and plugins
