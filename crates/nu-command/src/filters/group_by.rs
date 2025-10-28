@@ -18,11 +18,6 @@ impl Command for GroupBy {
                 "Return a table with \"groups\" and \"items\" columns",
                 None,
             )
-            .switch(
-                "delete-columns",
-                "If the input is a table, delete the original columns",
-                Some('d'),
-            )
             .rest(
                 "grouper",
                 SyntaxShape::OneOf(vec![
@@ -227,7 +222,7 @@ impl Command for GroupBy {
         [jt, rs, "2019"],
         [storm, rs, "2021"]
     ]
-    | group-by lang --delete-columns"#,
+    | group-by lang | update cells { reject lang }"#,
                 result: Some(Value::test_record(record! {
                         "rb" => Value::test_list(vec![Value::test_record(record! {
                                         "name" => Value::test_string("andres"),
@@ -260,7 +255,6 @@ pub fn group_by(
     let head = call.head;
     let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
-    let delete_columns = call.has_flag(engine_state, stack, "delete-columns")?;
     let config = engine_state.get_config();
 
     let values: Vec<Value> = input.into_iter().collect();
@@ -272,18 +266,6 @@ pub fn group_by(
         };
         return Ok(val.into_pipeline_data());
     }
-
-    let to_delete: Vec<CellPath> = if delete_columns {
-        groupers
-            .iter()
-            .filter_map(|g| match &g.item {
-                Grouper::CellPath { val } => Some(val.clone()),
-                _ => None,
-            })
-            .collect()
-    } else {
-        vec![]
-    };
 
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
@@ -298,9 +280,9 @@ pub fn group_by(
 
     let value = if to_table {
         let column_names = groupers_to_column_names(&groupers)?;
-        grouped.into_table(&column_names, head, &to_delete)
+        grouped.into_table(&column_names, head)
     } else {
-        grouped.into_record(head, &to_delete)
+        grouped.into_record(head)
     };
 
     Ok(value.into_pipeline_data())
@@ -499,8 +481,8 @@ impl Grouped {
         Ok(())
     }
 
-    fn into_table(self, column_names: &[String], head: Span, to_delete: &[CellPath]) -> Value {
-        self._into_table(head, to_delete)
+    fn into_table(self, column_names: &[String], head: Span) -> Value {
+        self._into_table(head)
             .into_iter()
             .map(|row| {
                 row.into_iter()
@@ -514,23 +496,16 @@ impl Grouped {
             .into_value(head)
     }
 
-    fn _into_table(self, head: Span, to_delete: &[CellPath]) -> Vec<Vec<Value>> {
+    fn _into_table(self, head: Span) -> Vec<Vec<Value>> {
         match self.groups {
             Tree::Leaf(leaf) => leaf
                 .into_iter()
-                .map(|(group, mut values)| {
-                    for value in &mut values {
-                        for path in to_delete {
-                            let _ = value.remove_data_at_cell_path(&path.members);
-                        }
-                    }
-                    vec![values.into_value(head), group.into_value(head)]
-                })
+                .map(|(group, values)| vec![(values.into_value(head)), (group.into_value(head))])
                 .collect::<Vec<Vec<Value>>>(),
             Tree::Branch(branch) => branch
                 .into_iter()
                 .flat_map(|(group, items)| {
-                    let mut inner = items._into_table(head, to_delete);
+                    let mut inner = items._into_table(head);
                     for row in &mut inner {
                         row.push(group.clone().into_value(head));
                     }
@@ -540,24 +515,18 @@ impl Grouped {
         }
     }
 
-    fn into_record(self, head: Span, to_delete: &[CellPath]) -> Value {
+    fn into_record(self, head: Span) -> Value {
         match self.groups {
-            Tree::Leaf(leaf) => {
-                let mut rec = Record::new();
-                for (k, mut v) in leaf {
-                    for val in v.iter_mut() {
-                        for path in to_delete {
-                            let _ = val.remove_data_at_cell_path(&path.members);
-                        }
-                    }
-                    rec.insert(k, v.into_value(head));
-                }
-                Value::record(rec, head)
-            }
+            Tree::Leaf(leaf) => Value::record(
+                leaf.into_iter()
+                    .map(|(k, v)| (k, v.into_value(head)))
+                    .collect(),
+                head,
+            ),
             Tree::Branch(branch) => {
                 let values = branch
                     .into_iter()
-                    .map(|(k, v)| (k, v.into_record(head, to_delete)))
+                    .map(|(k, v)| (k, v.into_record(head)))
                     .collect();
                 Value::record(values, head)
             }

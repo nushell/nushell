@@ -90,29 +90,3 @@ fn optional_cell_path_works() {
     let expected = r#"{"123": [[foo]; [123]], "234": [[foo]; [234]]}"#;
     assert_eq!(actual.out, expected)
 }
-
-#[test]
-fn delete_columns_works() {
-    let actual = nu!(
-        "[{name: alice, age: 12}, {name: bob, age: 51}, {name: bob, age: 20}] | group-by name --delete-columns | to nuon"
-    );
-    let expected = r#"{alice: [[age]; [12]], bob: [[age]; [51], [20]]}"#;
-    assert_eq!(actual.out, expected)
-}
-
-#[test]
-fn delete_multiple_columns_works() {
-    let actual = nu!(
-        "[{name: alice, age: 12, cool: true}, {name: bob, age: 51, cool: true}, {name: bob, age: 20, cool: false}] | group-by name age -d | to nuon"
-    );
-    let expected = r#"{alice: {"12": [[cool]; [true]]}, bob: {"51": [[cool]; [true]], "20": [[cool]; [false]]}}"#;
-    assert_eq!(actual.out, expected)
-}
-
-#[test]
-fn delete_only_column_returns_empty_records() {
-    let actual =
-        nu!("[{name: alice}, {name: bob}, {name: bob}] | group-by name --delete-columns | to nuon");
-    let expected = r#"{alice: [{}], bob: [{}, {}]}"#;
-    assert_eq!(actual.out, expected)
-}
