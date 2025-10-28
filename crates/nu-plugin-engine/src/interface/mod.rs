@@ -12,7 +12,9 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
+    ShellError, SignalAction, Signals, Span, Spanned, Value,
+    ast::Operator,
+    casing::Casing,
     engine::{Job, Sequence, ThreadJob},
 };
 use nu_utils::SharedCow;
@@ -1377,7 +1379,11 @@ pub(crate) fn handle_engine_call(
 
             // Create a thread job for this evaluation
             let (sender, _receiver) = mpsc::channel();
-            let job = ThreadJob::new(signals.clone(), Some("Plugin Closure Eval".to_string()), sender);
+            let job = ThreadJob::new(
+                signals.clone(),
+                Some("Plugin Closure Eval".to_string()),
+                sender,
+            );
 
             // Add the job to the engine's job table
             let jobs = context.jobs();
