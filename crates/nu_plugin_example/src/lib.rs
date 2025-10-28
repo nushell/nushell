@@ -37,7 +37,7 @@ impl Plugin for ExamplePlugin {
             Box::new(Seq),
             Box::new(Sum),
             // Auto completion demos
-            Box::new(FlagCompletion),
+            Box::new(ArgCompletion),
         ]
     }
 }

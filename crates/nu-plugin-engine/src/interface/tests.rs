@@ -1132,7 +1132,7 @@ fn interface_get_completion() -> Result<(), ShellError> {
     });
     let result = interface.get_completion(GetCompletionInfo {
         name: "test".to_string(),
-        flag_name: "test_flag".to_string(),
+        arg_type: "test_flag".to_string(),
     })?;
     assert_eq!(Some(vec!["aa".to_string()]), result);
     Ok(())

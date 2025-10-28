@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionInfo};
+use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 
@@ -128,7 +128,7 @@ impl Command for PluginDeclaration {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        flag_name: &str,
+        arg_type: ArgType,
     ) -> Result<Option<Vec<String>>, ShellError> {
         // Get the engine config
         let engine_config = stack.get_config(engine_state);
@@ -150,9 +150,13 @@ impl Command for PluginDeclaration {
                 inner: vec![],
             })?;
 
+        let arg_info = match arg_type {
+            ArgType::Flag(flag_name) => GetCompletionArgType::Flag(flag_name.to_string()),
+            ArgType::Positional(indx) => GetCompletionArgType::Positional(indx),
+        };
         plugin.get_completion(GetCompletionInfo {
             name: self.name.clone(),
-            flag_name: flag_name.to_string(),
+            arg_type: arg_info,
         })
     }
 }

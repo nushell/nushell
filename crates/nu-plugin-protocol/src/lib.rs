@@ -23,8 +23,10 @@ pub mod test_util;
 
 use nu_protocol::{
     ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Span, Spanned, Value, ast::Operator, casing::Casing,
-    engine::Closure,
+    PluginSignature, ShellError, SignalAction, Span, Spanned, Value,
+    ast::Operator,
+    casing::Casing,
+    engine::{ArgType, Closure},
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -57,13 +59,30 @@ pub struct CallInfo<D> {
     pub input: D,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum GetCompletionArgType {
+    Flag(String),
+    Positional(usize),
+}
+
+impl<'a> Into<ArgType<'a>> for GetCompletionArgType {
+    fn into(self) -> ArgType<'a> {
+        match self {
+            GetCompletionArgType::Flag(flag_name) => {
+                ArgType::Flag(std::borrow::Cow::from(flag_name))
+            }
+            GetCompletionArgType::Positional(idx) => ArgType::Positional(idx),
+        }
+    }
+}
+
 /// Information about `get_completion` of a plugin call invocation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GetCompletionInfo {
     /// The name of the command to be run.
     pub name: String,
     /// The flag name to get completion items.
-    pub flag_name: String,
+    pub arg_type: GetCompletionArgType,
 }
 
 impl<D> CallInfo<D> {

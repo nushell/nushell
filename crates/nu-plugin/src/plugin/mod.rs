@@ -543,9 +543,10 @@ where
             // SAFETY: It should be okay to use `AssertUnwindSafe` here, because we don't use any
             // of the references after we catch the unwind, and immediately exit.
             let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                let GetCompletionInfo { name, flag_name } = get_completion_info;
+                let GetCompletionInfo { name, arg_type } = get_completion_info;
                 let items = if let Some(command) = commands.get(&name) {
-                    command.get_completion(plugin, &engine, &flag_name)
+                    let arg_type = arg_type.into();
+                    command.get_completion(plugin, &engine, arg_type)
                 } else {
                     None
                 };

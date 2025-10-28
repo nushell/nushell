@@ -6,14 +6,13 @@ use nu_protocol::{
     engine::{ArgType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
-use std::borrow::Cow;
 
-pub struct FlagValueCompletion<'a> {
+pub struct ArgumentValueCompletion {
     pub decl_id: DeclId,
-    pub flag_name: &'a str,
+    pub arg_idx: usize,
 }
 
-impl<'a> Completer for FlagValueCompletion<'a> {
+impl Completer for ArgumentValueCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -49,7 +48,7 @@ impl<'a> Completer for FlagValueCompletion<'a> {
             .get_completion(
                 working_set.permanent_state,
                 &mut stack,
-                ArgType::Flag(Cow::from(self.flag_name)),
+                ArgType::Positional(self.arg_idx),
             )
             .unwrap_or_default()
         {

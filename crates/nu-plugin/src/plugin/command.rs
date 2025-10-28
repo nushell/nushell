@@ -1,6 +1,6 @@
 use nu_protocol::{
     Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
-    Signature, Value,
+    Signature, Value, engine::ArgType,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -160,7 +160,7 @@ pub trait PluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        flag_value: &str,
+        flag_value: ArgType,
     ) -> Option<Vec<String>> {
         None
     }
@@ -309,7 +309,7 @@ pub trait SimplePluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        flag_name: &str,
+        arg_type: ArgType,
     ) -> Option<Vec<String>> {
         None
     }
@@ -368,9 +368,9 @@ where
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        flag_name: &str,
+        arg_type: ArgType,
     ) -> Option<Vec<String>> {
-        <Self as SimplePluginCommand>::get_completion(self, plugin, engine, flag_name)
+        <Self as SimplePluginCommand>::get_completion(self, plugin, engine, arg_type)
     }
 }
 

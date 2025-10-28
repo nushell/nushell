@@ -44,4 +44,4 @@ pub use sum::Sum;
 
 // Flag auto completion demos
 mod flag_completion;
-pub use flag_completion::FlagCompletion;
+pub use flag_completion::ArgCompletion;

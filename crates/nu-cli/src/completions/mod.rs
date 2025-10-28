@@ -1,3 +1,4 @@
+mod argument_value_completion;
 mod attribute_completions;
 mod base;
 mod cell_path_completions;
@@ -16,6 +17,7 @@ mod operator_completions;
 mod static_completions;
 mod variable_completions;
 
+pub use argument_value_completion::ArgumentValueCompletion;
 pub use attribute_completions::{AttributableCompletion, AttributeCompletion};
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
 pub use cell_path_completions::CellPathCompletion;

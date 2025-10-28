@@ -3,7 +3,25 @@ use crate::{
     Alias, BlockId, DeprecationEntry, Example, OutDest, PipelineData, ShellError, Signature, Value,
     engine::Call,
 };
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArgType<'a> {
+    Flag(Cow<'a, str>),
+    Positional(usize),
+}
+
+impl<'a> Display for ArgType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArgType::Flag(flag_name) => match flag_name {
+                Cow::Borrowed(v) => write!(f, "{v}"),
+                Cow::Owned(v) => write!(f, "{v}"),
+            },
+            ArgType::Positional(idx) => write!(f, "{idx}"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandType {
@@ -148,7 +166,7 @@ pub trait Command: Send + Sync + CommandClone {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        flag_name: &str,
+        arg_type: ArgType,
     ) -> Result<Option<Vec<String>>, ShellError> {
         Ok(None)
     }

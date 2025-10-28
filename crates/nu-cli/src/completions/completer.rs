@@ -1,8 +1,8 @@
 use crate::completions::{
-    AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
-    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
-    ExportableCompletion, FileCompletion, FlagCompletion, FlagValueCompletion, OperatorCompletion,
-    VariableCompletion,
+    ArgumentValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
+    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
+    DotNuCompletion, ExportableCompletion, FileCompletion, FlagCompletion, FlagValueCompletion,
+    OperatorCompletion, VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -194,6 +194,8 @@ struct PositionalArguments<'a> {
     arguments: &'a [Argument],
     /// expression of current argument
     expr: &'a Expression,
+    /// completer for argument value
+    value_completion: &'a mut ArgumentValueCompletion,
 }
 
 impl Context<'_> {
@@ -603,6 +605,10 @@ impl NuCompleter {
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
+                                let mut argument_value_completion = ArgumentValueCompletion {
+                                    decl_id: call.decl_id,
+                                    arg_idx,
+                                };
                                 let mut need_fallback = suggestions.is_empty();
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {
@@ -610,6 +616,7 @@ impl NuCompleter {
                                         positional_arg_indices,
                                         arguments: &call.arguments,
                                         expr,
+                                        value_completion: &mut argument_value_completion,
                                     },
                                     pos,
                                     &ctx,
@@ -745,6 +752,7 @@ impl NuCompleter {
             positional_arg_indices,
             arguments,
             expr,
+            value_completion,
         } = argument_info;
         // special commands
         match command_head {
@@ -848,6 +856,16 @@ impl NuCompleter {
                 return self.process_completion(&mut completer, ctx);
             }
             _ => (),
+        }
+
+        let prefix = String::from_utf8(ctx.prefix.to_vec()).unwrap();
+        log::warn!(
+            "arg_indices: {positional_arg_indices:?}, arguments: {arguments:?}, expr: {expr:?}, prefix: {prefix}"
+        );
+        // try argument completion defined by Command first.
+        let value_comletion_result = self.process_completion(value_completion, ctx);
+        if !value_comletion_result.is_empty() {
+            return value_comletion_result;
         }
 
         // general positional arguments
