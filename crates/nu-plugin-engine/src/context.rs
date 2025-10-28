@@ -63,6 +63,8 @@ pub trait PluginExecutionContext: Send + Sync {
     fn boxed_with_job(&self, job: ThreadJob) -> Box<dyn PluginExecutionContext>;
     /// Get the shared jobs table for registering and managing background jobs
     fn jobs(&self) -> Arc<Mutex<Jobs>>;
+    /// Get the plugin identity for this execution context
+    fn plugin_identity(&self) -> Arc<PluginIdentity>;
 }
 
 /// The execution context of a plugin command. Can be borrowed.
@@ -294,6 +296,10 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     fn jobs(&self) -> Arc<Mutex<Jobs>> {
         self.engine_state.jobs.clone()
     }
+
+    fn plugin_identity(&self) -> Arc<PluginIdentity> {
+        self.identity.clone()
+    }
 }
 
 /// A bogus execution context for testing that doesn't really implement anything properly
@@ -402,5 +408,9 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn jobs(&self) -> Arc<Mutex<Jobs>> {
         Arc::new(Mutex::new(Jobs::default()))
+    }
+
+    fn plugin_identity(&self) -> Arc<PluginIdentity> {
+        Arc::new(PluginIdentity::new_fake("test"))
     }
 }

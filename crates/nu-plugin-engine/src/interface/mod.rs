@@ -1379,9 +1379,10 @@ pub(crate) fn handle_engine_call(
 
             // Create a thread job for this evaluation
             let (sender, _receiver) = mpsc::channel();
+            let plugin_identity = context.plugin_identity();
             let job = ThreadJob::new(
                 signals.clone(),
-                Some("Plugin Closure Eval".to_string()),
+                Some(format!("plugin:{}", plugin_identity.name())),
                 sender,
             );
 
