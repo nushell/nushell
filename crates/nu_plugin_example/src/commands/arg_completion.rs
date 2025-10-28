@@ -85,13 +85,13 @@ impl PluginCommand for ArgCompletion {
                 if index == 0 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg0:{}", s))
+                            .map(|s| format!("arg0:{s}"))
                             .collect(),
                     )
                 } else if index == 1 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg1:{}", s))
+                            .map(|s| format!("arg1:{s}"))
                             .collect(),
                     )
                 } else {
