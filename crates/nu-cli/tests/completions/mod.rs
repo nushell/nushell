@@ -1956,7 +1956,6 @@ fn flag_completions() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
-    assert_eq!(18, suggestions.len());
     let expected: Vec<_> = vec![
         "--all",
         "--directory",
@@ -1965,6 +1964,7 @@ fn flag_completions() {
         "--help",
         "--long",
         "--mime-type",
+        "--numeric",
         "--short-names",
         "--threads",
         "-a",
@@ -1974,9 +1974,12 @@ fn flag_completions() {
         "-h",
         "-l",
         "-m",
+        "-n",
         "-s",
         "-t",
     ];
+
+    assert_eq!(expected.len(), suggestions.len());
     // Match results
     match_suggestions(&expected, &suggestions);
 
@@ -2283,9 +2286,8 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(20, suggestions.len());
-
-    let expected: Vec<_> = vec![
+    #[allow(unused_mut)]
+    let mut expected: Vec<_> = vec![
         "cache-dir",
         "config-path",
         "current-exe",
@@ -2301,13 +2303,17 @@ fn variables_completions() {
         "loginshell-path",
         "os-info",
         "pid",
-        "plugin-path",
         "startup-time",
         "temp-dir",
         "user-autoload-dirs",
         "vendor-autoload-dirs",
     ];
 
+    // Fixes an issue when running tests on specific crates
+    #[cfg(feature = "plugin")]
+    expected.insert(15, "plugin-path");
+
+    assert_eq!(expected.len(), suggestions.len());
     // Match results
     match_suggestions(&expected, &suggestions);
 
