@@ -6,14 +6,13 @@ use nu_protocol::{
     engine::{ArgType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
-use std::borrow::Cow;
 
-pub struct FlagValueDynamicCompletion<'a> {
+pub struct ArgValueDynamicCompletion<'a> {
     pub decl_id: DeclId,
-    pub flag_name: &'a str,
+    pub arg_type: ArgType<'a>,
 }
 
-impl<'a> Completer for FlagValueDynamicCompletion<'a> {
+impl<'a> Completer for ArgValueDynamicCompletion<'a> {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -46,11 +45,7 @@ impl<'a> Completer for FlagValueDynamicCompletion<'a> {
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
         if let Some(items) = decl
-            .get_dynamic_completion(
-                working_set.permanent_state,
-                &mut stack,
-                ArgType::Flag(Cow::from(self.flag_name)),
-            )
+            .get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type)
             .unwrap_or_default()
         {
             for i in items {

@@ -128,7 +128,7 @@ impl Command for PluginDeclaration {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        arg_type: ArgType,
+        arg_type: &ArgType,
     ) -> Result<Option<Vec<String>>, ShellError> {
         // Get the engine config
         let engine_config = stack.get_config(engine_state);
@@ -152,7 +152,7 @@ impl Command for PluginDeclaration {
 
         let arg_info = match arg_type {
             ArgType::Flag(flag_name) => GetCompletionArgType::Flag(flag_name.to_string()),
-            ArgType::Positional(index) => GetCompletionArgType::Positional(index),
+            ArgType::Positional(index) => GetCompletionArgType::Positional(*index),
         };
         plugin.get_dynamic_completion(GetCompletionInfo {
             name: self.name.clone(),
