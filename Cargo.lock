@@ -1044,7 +1044,7 @@ checksum = "cd6dd8046d00723a59a2f8c5f295c515b9bb9a331ee4f8f3d4dd49e428acd3b6"
 dependencies = [
  "chrono",
  "chrono-tz-build",
- "phf",
+ "phf 0.11.2",
 ]
 
 [[package]]
@@ -1466,7 +1466,7 @@ dependencies = [
  "cssparser-macros",
  "dtoa-short",
  "itoa",
- "phf",
+ "phf 0.11.2",
  "smallvec",
 ]
 
@@ -3581,7 +3581,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16ce3abbeba692c8b8441d036ef91aea6df8da2c6b6e21c7e14d3c18e526be45"
 dependencies = [
  "log",
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
  "string_cache",
  "string_cache_codegen",
@@ -4168,7 +4168,7 @@ dependencies = [
  "percent-encoding",
  "pretty_assertions",
  "print-positions",
- "procfs",
+ "procfs 0.17.0",
  "quick-xml 0.38.3",
  "rand 0.9.0",
  "rand_chacha 0.9.0",
@@ -4530,7 +4530,7 @@ dependencies = [
  "mach2",
  "nix 0.30.1",
  "ntapi",
- "procfs",
+ "procfs 0.17.0",
  "sysinfo",
  "web-time",
  "windows 0.62.1",
@@ -5004,7 +5004,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da228ac17ec7684952ec38d602222d7ec74c1255b2505b716c9ed621ab0340a"
 dependencies = [
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
  "serde",
  "serde_json",
@@ -5314,7 +5314,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade2d8b8f33c7333b51bcf0428d37e217e9f32192ae4772156f65063b8ce03dc"
 dependencies = [
  "phf_macros",
- "phf_shared",
+ "phf_shared 0.11.2",
+]
+
+[[package]]
+name = "phf"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1562dc717473dbaa4c1f85a36410e03c047b2e7df7f45ee938fbef64ae7fadf"
+dependencies = [
+ "phf_shared 0.13.1",
+ "serde",
 ]
 
 [[package]]
@@ -5324,7 +5334,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8d39688d359e6b34654d328e262234662d16cc0f60ec8dcbe5e718709342a5a"
 dependencies = [
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.11.2",
 ]
 
 [[package]]
@@ -5333,7 +5343,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48e4cc64c2ad9ebe670cb8fd69dd50ae301650392e81c05f9bfcb2d5bdbc24b0"
 dependencies = [
- "phf_shared",
+ "phf_shared 0.11.2",
  "rand 0.8.5",
 ]
 
@@ -5344,7 +5354,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3444646e286606587e49f3bcf1679b8cef1dc2c5ecc29ddacaffc305180d464b"
 dependencies = [
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.11.2",
  "proc-macro2",
  "quote",
  "syn 2.0.90",
@@ -5356,7 +5366,16 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
 dependencies = [
- "siphasher",
+ "siphasher 0.3.11",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
+dependencies = [
+ "siphasher 1.0.1",
 ]
 
 [[package]]
@@ -6095,8 +6114,21 @@ dependencies = [
  "chrono",
  "flate2",
  "hex",
- "procfs-core",
+ "procfs-core 0.17.0",
  "rustix 0.38.42",
+]
+
+[[package]]
+name = "procfs"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25485360a54d6861439d60facef26de713b1e126bf015ec8f98239467a2b82f7"
+dependencies = [
+ "bitflags 2.6.0",
+ "chrono",
+ "flate2",
+ "procfs-core 0.18.0",
+ "rustix 1.0.7",
 ]
 
 [[package]]
@@ -6104,6 +6136,17 @@ name = "procfs-core"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "239df02d8349b06fc07398a3a1697b06418223b1c7725085e801e7c0fc6a12ec"
+dependencies = [
+ "bitflags 2.6.0",
+ "chrono",
+ "hex",
+]
+
+[[package]]
+name = "procfs-core"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6401bf7b6af22f78b563665d15a22e9aef27775b79b149a66ca022468a4e405"
 dependencies = [
  "bitflags 2.6.0",
  "chrono",
@@ -7117,7 +7160,7 @@ dependencies = [
  "fxhash",
  "log",
  "new_debug_unreachable",
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
  "precomputed-hash",
  "servo_arc",
@@ -7413,6 +7456,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
+name = "siphasher"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
+
+[[package]]
 name = "skiplist"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7536,7 +7585,7 @@ checksum = "bf776ba3fa74f83bf4b63c3dcbbf82173db2632ed8452cb2d891d33f459de70f"
 dependencies = [
  "new_debug_unreachable",
  "parking_lot",
- "phf_shared",
+ "phf_shared 0.11.2",
  "precomputed-hash",
  "serde",
 ]
@@ -7548,7 +7597,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c711928715f1fe0fe509c53b43e993a9a557babc2d0a3567d0a3006f1ac931a0"
 dependencies = [
  "phf_generator",
- "phf_shared",
+ "phf_shared 0.11.2",
  "proc-macro2",
  "quote",
 ]
@@ -8504,9 +8553,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uu_cp"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7900736932032ced4815471b4dff36aade3964d79c2682ab4b5d6a7b2b9ce42c"
+checksum = "f4f67511b9fa8a4783fb7b2dda5c5f668903cf5cfb154032c95908d5932cd058"
 dependencies = [
  "clap",
  "filetime",
@@ -8522,9 +8571,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cb588e5837e670c16091231eb5e0ed75c5b31d253f1a14e5fd92557d1c5dcfd"
+checksum = "669c425ddbfdf4d3e4a7d2d0b9b9414a553fdef249adfc19b12102b786a207ef"
 dependencies = [
  "clap",
  "fluent",
@@ -8533,9 +8582,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eabf01e1dbbf07c7fc007a30a16c16b4193c88e0d31d26456e0ceff98c20050d"
+checksum = "f3d546c6ffb61cb259e57b8597e44d13dd6e9a5685131baefbbb12ca9781f049"
 dependencies = [
  "clap",
  "fluent",
@@ -8547,9 +8596,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f77b868104df289dfb8d9a8a3ef347520474ca2473f37f3926b737852763282e"
+checksum = "d391c2389e241389b924a3f000e979094573ed5d43f2ac7b4887d55c020e552b"
 dependencies = [
  "clap",
  "fluent",
@@ -8563,9 +8612,9 @@ dependencies = [
 
 [[package]]
 name = "uu_touch"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "456b108ce6ea1707f98235f87c17bc1fb3eeeabf6b4edecb81fe78dcc9c7949a"
+checksum = "ac77158654a50e6cec1838052ee1cbd49b57d078e81e3dde2d9336a069c0f9ec"
 dependencies = [
  "chrono",
  "clap",
@@ -8579,9 +8628,9 @@ dependencies = [
 
 [[package]]
 name = "uu_uname"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b09d85fd804af050c63c48f3a44724cae80f953abb34241e99bfc55d9a122521"
+checksum = "33965a8ba0e190af59d1c8573eb8891674be5e42ad42ac0b721f1ff49e70bc3b"
 dependencies = [
  "clap",
  "fluent",
@@ -8591,9 +8640,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8722dd96f90f82b33e10aac936ff1192a0da5836f3b4d52cf25f05ceda3f5c28"
+checksum = "26beaa478f24fb04364ab9e27294a10d2796cc157828b92375157d023fed4e0a"
 dependencies = [
  "clap",
  "fluent",
@@ -8603,9 +8652,9 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7203e48e80ac344450cba5323d8b4a71967ec1e81ae4022775ada90d2b0e08ac"
+checksum = "f9ca78fd510306bcb8c1c2a37142bc661679d19a53140804493e27107421bff1"
 dependencies = [
  "bigdecimal",
  "bstr",
@@ -8620,6 +8669,8 @@ dependencies = [
  "num-traits",
  "number_prefix",
  "os_display",
+ "phf 0.13.1",
+ "procfs 0.18.0",
  "thiserror 2.0.12",
  "unic-langid",
  "uucore_procs",
@@ -8632,20 +8683,13 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "449e64ce116ed0cc8c5897bd8706d36aed1ec027b647494df4eae6996d8d59de"
+checksum = "096f1c8be312cf470c8cd2bfea80d881a9358a4307f62c204e0d08b90a9da5d7"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser",
 ]
-
-[[package]]
-name = "uuhelp_parser"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9e4945611996e885dc4eeae23f3d6f20cfb6e8f4bad4985c2222bbcf9a9745"
 
 [[package]]
 name = "uuid"
@@ -8962,7 +9006,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57ffde1dc01240bdf9992e3205668b235e59421fd085e8a317ed98da0178d414"
 dependencies = [
- "phf",
+ "phf 0.11.2",
  "phf_codegen",
  "string_cache",
  "string_cache_codegen",
