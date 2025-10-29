@@ -166,7 +166,7 @@ pub trait Command: Send + Sync + CommandClone {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        arg_type: ArgType,
+        arg_type: &ArgType,
     ) -> Result<Option<Vec<String>>, ShellError> {
         Ok(None)
     }

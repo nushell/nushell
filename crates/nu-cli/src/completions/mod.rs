@@ -1,3 +1,4 @@
+mod arg_value_dynamic_completion;
 mod attribute_completions;
 mod base;
 mod cell_path_completions;
@@ -11,12 +12,11 @@ mod dotnu_completions;
 mod exportable_completions;
 mod file_completions;
 mod flag_completions;
-mod flag_value_dynamic_completion;
 mod operator_completions;
-mod positional_value_dynamic_completion;
 mod static_completions;
 mod variable_completions;
 
+pub use arg_value_dynamic_completion::ArgValueDynamicCompletion;
 pub use attribute_completions::{AttributableCompletion, AttributeCompletion};
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
 pub use cell_path_completions::CellPathCompletion;
@@ -29,8 +29,6 @@ pub use dotnu_completions::DotNuCompletion;
 pub use exportable_completions::ExportableCompletion;
 pub use file_completions::FileCompletion;
 pub use flag_completions::FlagCompletion;
-pub use flag_value_dynamic_completion::FlagValueDynamicCompletion;
 pub use operator_completions::OperatorCompletion;
-pub use positional_value_dynamic_completion::PositionalValueDynamicCompletion;
 pub use static_completions::StaticCompletion;
 pub use variable_completions::VariableCompletion;
