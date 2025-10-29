@@ -139,7 +139,7 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
                 return Value::error(
                     ShellError::UnsupportedInput {
                         msg: "cannot round non-finite number".into(),
-                        input: " ".into(),
+                        input: "value originates from here".into(),
                         msg_span: span,
                         input_span: span,
                     },
