@@ -44,6 +44,7 @@ pub(crate) fn highlight_syntax(
     let highlight_resolved_externals = config.highlight_resolved_externals;
     let mut working_set = StateWorkingSet::new(engine_state);
     let block = parse(&mut working_set, None, line.as_bytes(), false);
+    // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);
     let global_span_offset = engine_state.next_span_start();
     let mut result = HighlightResult::default();
@@ -100,34 +101,6 @@ pub(crate) fn highlight_syntax(
                 });
                 add_colored_token(flat_shape, next_token)
             }
-            FlatShape::Nothing
-            | FlatShape::Binary
-            | FlatShape::Bool
-            | FlatShape::Int
-            | FlatShape::Float
-            | FlatShape::Range
-            | FlatShape::InternalCall(_)
-            | FlatShape::ExternalArg
-            | FlatShape::ExternalResolved
-            | FlatShape::Keyword
-            | FlatShape::Literal
-            | FlatShape::Operator
-            | FlatShape::Signature
-            | FlatShape::String
-            | FlatShape::RawString
-            | FlatShape::StringInterpolation
-            | FlatShape::DateTime
-            | FlatShape::Filepath
-            | FlatShape::Directory
-            | FlatShape::GlobInterpolation
-            | FlatShape::GlobPattern
-            | FlatShape::Variable(_)
-            | FlatShape::VarDecl(_)
-            | FlatShape::Flag
-            | FlatShape::Pipe
-            | FlatShape::Redirection
-            | FlatShape::Custom(..)
-            | FlatShape::MatchPattern => add_colored_token(flat_shape, next_token),
             FlatShape::External(_) => {
                 let mut true_shape = flat_shape.clone();
                 // Highlighting externals has a config point because of concerns that using which to resolve
@@ -172,6 +145,7 @@ pub(crate) fn highlight_syntax(
                     result.text.push((style, text));
                 }
             }
+            _ => add_colored_token(flat_shape, next_token),
         }
         last_seen_span_end = span.end;
     }
