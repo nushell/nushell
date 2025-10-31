@@ -130,7 +130,7 @@ impl Jobs {
     /// This function tries to forcefully kill all jobs with a matching tag and
     /// removes them from the job table.
     ///
-    /// The tag can be an exact match or a prefix (e.g., "plugin:foo" matches "plugin:foo:123").
+    /// The tag must match exactly.
     ///
     /// It returns an error if any of the job killing attempts fails, but always
     /// succeeds in removing the jobs from the table.
@@ -138,11 +138,7 @@ impl Jobs {
         let ids_to_remove: Vec<JobId> = self
             .jobs
             .iter()
-            .filter(|(_, job)| {
-                job.tag()
-                    .map(|t| t.as_str() == tag || t.starts_with(&format!("{tag}:")))
-                    .unwrap_or(false)
-            })
+            .filter(|(_, job)| job.tag().map(|t| t.as_str() == tag).unwrap_or(false))
             .map(|(id, _)| *id)
             .collect();
 
