@@ -18,7 +18,7 @@ use nu_protocol::{
     BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
     PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
-    engine::{Closure, Jobs},
+    engine::{Closure, Job, Jobs, ThreadJob},
     shell_error,
 };
 use serde::{Deserialize, Serialize};
@@ -1635,4 +1635,68 @@ fn eval_closure_cloned_streams_results_from_worker_thread() -> Result<(), ShellE
         }
         _ => Ok(()), // Other message types are also fine for this test
     }
+}
+
+#[test]
+fn plugin_call_state_drop_cleans_up_jobs() -> Result<(), ShellError> {
+    // This test verifies that when a PluginCallState is dropped, it properly
+    // cleans up any background jobs that were spawned during the plugin call.
+
+    let call_id = 42;
+    let plugin_name = "test";
+
+    // Create a shared Jobs table
+    let jobs = Arc::new(Mutex::new(Jobs::default()));
+
+    // Create a background job with the plugin-specific tag
+    let (sender, _receiver) = mpsc::channel();
+    let job = Job::Thread(ThreadJob::new(
+        Signals::empty(),
+        Some(format!("plugin:{plugin_name}:{call_id}")),
+        sender,
+    ));
+
+    // Add the job to the table and get its ID
+    let job_id = {
+        let mut jobs_guard = jobs.lock().expect("failed to lock jobs");
+        jobs_guard.add_job(job)
+    };
+
+    // Verify the job exists before cleanup
+    {
+        let jobs_guard = jobs.lock().expect("failed to lock jobs");
+        assert!(
+            jobs_guard.lookup(job_id).is_some(),
+            "job should exist before PluginCallState drop"
+        );
+    }
+
+    // Create a PluginCallState that shares the same Jobs reference
+    let (tx, _rx) = mpsc::channel();
+    let state = PluginCallState {
+        sender: Some(tx),
+        dont_send_response: false,
+        signals: Signals::empty(),
+        context_rx: None,
+        span: None,
+        keep_plugin_custom_values: mpsc::channel(),
+        remaining_streams_to_read: 0,
+        call_id,
+        plugin_name: plugin_name.into(),
+        jobs: jobs.clone(),
+    };
+
+    // Explicitly drop the PluginCallState, which should trigger job cleanup
+    drop(state);
+
+    // Verify the job was cleaned up
+    {
+        let jobs_guard = jobs.lock().expect("failed to lock jobs");
+        assert!(
+            jobs_guard.lookup(job_id).is_none(),
+            "job should be cleaned up after PluginCallState drop"
+        );
+    }
+
+    Ok(())
 }
