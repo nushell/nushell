@@ -15,6 +15,7 @@ use crate::{PipelineData, Signals, shell_error};
 
 use crate::JobId;
 
+#[derive(Debug)]
 pub struct Jobs {
     next_job_id: usize,
 
@@ -160,6 +161,7 @@ impl Jobs {
     }
 }
 
+#[derive(Debug)]
 pub enum Job {
     Thread(ThreadJob),
     Frozen(FrozenJob),
@@ -173,7 +175,7 @@ pub enum Job {
 // is a direct undocumentented requirement of its soundness, and is thus assumed by this
 // implementaation.
 // see issue https://github.com/rust-lang/rust/issues/126239.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
@@ -260,6 +262,7 @@ impl Job {
     }
 }
 
+#[derive(Debug)]
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
     pub tag: Option<String>,

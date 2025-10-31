@@ -101,6 +101,7 @@ impl std::fmt::Debug for PluginInterfaceState {
 }
 
 /// State that the manager keeps for each plugin call during its lifetime.
+#[derive(Debug)]
 struct PluginCallState {
     /// The sender back to the thread that is waiting for the plugin call response
     sender: Option<mpsc::Sender<ReceivedPluginCallMessage>>,
@@ -129,23 +130,6 @@ struct PluginCallState {
     plugin_name: Arc<str>,
     /// The jobs table for cleaning up background jobs
     jobs: Arc<Mutex<Jobs>>,
-}
-
-impl std::fmt::Debug for PluginCallState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PluginCallState")
-            .field("sender", &self.sender)
-            .field("dont_send_response", &self.dont_send_response)
-            .field("signals", &self.signals)
-            .field("context_rx", &self.context_rx)
-            .field("span", &self.span)
-            .field("keep_plugin_custom_values", &"<channels>")
-            .field("remaining_streams_to_read", &self.remaining_streams_to_read)
-            .field("call_id", &self.call_id)
-            .field("plugin_name", &self.plugin_name)
-            .field("jobs", &"<Arc<Mutex<Jobs>>>")
-            .finish()
-    }
 }
 
 impl Drop for PluginCallState {
