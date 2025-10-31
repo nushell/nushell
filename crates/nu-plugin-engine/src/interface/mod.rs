@@ -15,13 +15,13 @@ use nu_protocol::{
     ShellError, SignalAction, Signals, Span, Spanned, Value,
     ast::Operator,
     casing::Casing,
-    engine::{Job, Sequence, ThreadJob},
+    engine::{Job, Jobs, Sequence, ThreadJob},
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, btree_map},
     path::Path,
-    sync::{Arc, OnceLock, mpsc},
+    sync::{Arc, Mutex, OnceLock, mpsc},
 };
 
 use crate::{
@@ -101,7 +101,6 @@ impl std::fmt::Debug for PluginInterfaceState {
 }
 
 /// State that the manager keeps for each plugin call during its lifetime.
-#[derive(Debug)]
 struct PluginCallState {
     /// The sender back to the thread that is waiting for the plugin call response
     sender: Option<mpsc::Sender<ReceivedPluginCallMessage>>,
@@ -124,6 +123,29 @@ struct PluginCallState {
     ),
     /// Number of streams that still need to be read from the plugin call response
     remaining_streams_to_read: i32,
+    /// The unique ID for this plugin call
+    call_id: usize,
+    /// The name of the plugin that owns this call
+    plugin_name: Arc<str>,
+    /// The jobs table for cleaning up background jobs
+    jobs: Arc<Mutex<Jobs>>,
+}
+
+impl std::fmt::Debug for PluginCallState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginCallState")
+            .field("sender", &self.sender)
+            .field("dont_send_response", &self.dont_send_response)
+            .field("signals", &self.signals)
+            .field("context_rx", &self.context_rx)
+            .field("span", &self.span)
+            .field("keep_plugin_custom_values", &"<channels>")
+            .field("remaining_streams_to_read", &self.remaining_streams_to_read)
+            .field("call_id", &self.call_id)
+            .field("plugin_name", &self.plugin_name)
+            .field("jobs", &"<Arc<Mutex<Jobs>>>")
+            .finish()
+    }
 }
 
 impl Drop for PluginCallState {
@@ -132,6 +154,16 @@ impl Drop for PluginCallState {
         for value in self.keep_plugin_custom_values.1.try_iter() {
             log::trace!("Dropping custom value that was kept: {value:?}");
             drop(value);
+        }
+
+        // Clean up any background jobs spawned during this plugin call
+        let tag = format!("plugin:{}:{}", self.plugin_name, self.call_id);
+        if let Ok(mut jobs_guard) = self.jobs.lock() {
+            if let Err(err) = jobs_guard.kill_by_tag(&tag) {
+                log::warn!("Failed to kill jobs for {tag}: {err}");
+            }
+        } else {
+            log::warn!("Failed to acquire jobs lock to clean up jobs for {tag}");
         }
     }
 }
@@ -758,6 +790,11 @@ impl PluginInterface {
         let dont_send_response =
             matches!(call, PluginCall::CustomValueOp(_, CustomValueOp::Dropped));
 
+        // Get the jobs table from context, if available
+        let jobs = context
+            .map(|c| c.jobs())
+            .unwrap_or_else(|| Arc::new(Mutex::new(Jobs::default())));
+
         // Register the subscription to the response, and the context
         self.state
             .plugin_call_subscription_sender
@@ -771,6 +808,9 @@ impl PluginInterface {
                     span: call.span(),
                     keep_plugin_custom_values,
                     remaining_streams_to_read: 0,
+                    call_id: id,
+                    plugin_name: self.state.source.identity.name().into(),
+                    jobs,
                 },
             ))
             .map_err(|_| {

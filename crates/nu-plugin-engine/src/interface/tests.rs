@@ -18,12 +18,12 @@ use nu_protocol::{
     BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
     PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
-    engine::Closure,
+    engine::{Closure, Jobs},
     shell_error,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, mpsc},
+    sync::{Arc, Mutex, mpsc},
     time::Duration,
 };
 
@@ -193,6 +193,9 @@ fn fake_plugin_call(
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 0,
+            call_id: id,
+            plugin_name: "test".into(),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
         },
     );
 
@@ -493,6 +496,9 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 1,
+            call_id: 0,
+            plugin_name: "test".into(),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
         },
     );
 
@@ -559,6 +565,9 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
+                call_id: n,
+                plugin_name: "test".into(),
+                jobs: Arc::new(Mutex::new(Jobs::default())),
             },
         );
     }
@@ -595,6 +604,9 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
+                call_id: n,
+                plugin_name: "test".into(),
+                jobs: Arc::new(Mutex::new(Jobs::default())),
             },
         );
     }
