@@ -309,6 +309,7 @@ impl PluginInterfaceManager {
                     keep_plugin_custom_values_tx: Some(state.keep_plugin_custom_values.0.clone()),
                     entered_foreground: false,
                     span: state.span,
+                    call_id: None, // No call_id for background engine call handler
                 };
 
                 let handler = move || {
@@ -727,6 +728,7 @@ impl PluginInterface {
             keep_plugin_custom_values_tx: Some(keep_plugin_custom_values.0.clone()),
             entered_foreground: false,
             span: call.span(),
+            call_id: Some(id),
         };
 
         // Prepare the call with the state.
@@ -1204,6 +1206,8 @@ pub struct CurrentCallState {
     entered_foreground: bool,
     /// The span that caused the plugin call.
     span: Option<Span>,
+    /// The unique ID for this plugin call, used for tagging jobs.
+    pub(crate) call_id: Option<usize>,
 }
 
 impl CurrentCallState {
@@ -1380,11 +1384,12 @@ pub(crate) fn handle_engine_call(
             // Create a thread job for this evaluation
             let (sender, _receiver) = mpsc::channel();
             let plugin_identity = context.plugin_identity();
-            let job = ThreadJob::new(
-                signals.clone(),
-                Some(format!("plugin:{}", plugin_identity.name())),
-                sender,
-            );
+            let tag = if let Some(call_id) = state.call_id {
+                format!("plugin:{}:{}", plugin_identity.name(), call_id)
+            } else {
+                format!("plugin:{}", plugin_identity.name())
+            };
+            let job = ThreadJob::new(signals.clone(), Some(tag), sender);
 
             // Add the job to the engine's job table
             let jobs = context.jobs();

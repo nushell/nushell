@@ -65,6 +65,8 @@ pub trait PluginExecutionContext: Send + Sync {
     fn jobs(&self) -> Arc<Mutex<Jobs>>;
     /// Get the plugin identity for this execution context
     fn plugin_identity(&self) -> Arc<PluginIdentity>;
+    /// Get the unique call ID for this plugin execution, if available
+    fn call_id(&self) -> Option<usize>;
 }
 
 /// The execution context of a plugin command. Can be borrowed.
@@ -73,6 +75,7 @@ pub struct PluginExecutionCommandContext<'a> {
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
     call: Call<'a>,
+    call_id: Option<usize>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {
@@ -81,12 +84,14 @@ impl<'a> PluginExecutionCommandContext<'a> {
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
         call: &'a Call<'a>,
+        call_id: Option<usize>,
     ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
             engine_state: Cow::Borrowed(engine_state),
             stack: MutableCow::Borrowed(stack),
             call: call.clone(),
+            call_id,
         }
     }
 }
@@ -278,6 +283,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
             stack: self.stack.owned(),
             call: self.call.to_owned(),
+            call_id: self.call_id,
         })
     }
 
@@ -290,6 +296,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             engine_state: Cow::Owned(engine_state),
             stack: self.stack.owned(),
             call: self.call.to_owned(),
+            call_id: self.call_id,
         })
     }
 
@@ -299,6 +306,10 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
 
     fn plugin_identity(&self) -> Arc<PluginIdentity> {
         self.identity.clone()
+    }
+
+    fn call_id(&self) -> Option<usize> {
+        self.call_id
     }
 }
 
@@ -412,5 +423,9 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn plugin_identity(&self) -> Arc<PluginIdentity> {
         Arc::new(PluginIdentity::new_fake("test"))
+    }
+
+    fn call_id(&self) -> Option<usize> {
+        None
     }
 }
