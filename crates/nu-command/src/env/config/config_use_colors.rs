@@ -22,6 +22,10 @@ impl Command for ConfigUseColors {
         r#"Use this command instead of checking `$env.config.use_ansi_coloring` to properly handle the "auto" setting, including environment variables that influence its behavior."#
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["ansi"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
