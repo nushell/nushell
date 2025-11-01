@@ -6132,6 +6132,7 @@ pub fn parse_builtin_commands(
             Pipeline::from_vec(vec![expr])
         }
         b"alias" => parse_alias(working_set, lite_command, None),
+        b"abbr" => parse_abbr(working_set, lite_command, None),
         b"module" => parse_module(working_set, lite_command, None).0,
         b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
