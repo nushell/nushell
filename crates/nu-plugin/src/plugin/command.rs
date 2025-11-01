@@ -1,6 +1,6 @@
 use nu_protocol::{
     Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
-    Signature, Value,
+    Signature, Value, engine::ArgType,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -151,6 +151,19 @@ pub trait PluginCommand: Sync {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError>;
+
+    #[allow(unused_variables)]
+    /// Get completion items for `flag_name`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag.
+    fn get_dynamic_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        flag_value: ArgType,
+    ) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// The API for a simple Nushell plugin command
@@ -287,6 +300,20 @@ pub trait SimplePluginCommand: Sync {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
+
+    #[allow(unused_variables)]
+    /// Get completion items for `arg_type`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag or positional argument
+    /// dynamically.
+    fn get_dynamic_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        arg_type: ArgType,
+    ) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// All [`SimplePluginCommand`]s can be used as [`PluginCommand`]s, but input streams will be fully
@@ -335,6 +362,16 @@ where
 
     fn description(&self) -> &str {
         <Self as SimplePluginCommand>::description(self)
+    }
+
+    #[allow(unused_variables)]
+    fn get_dynamic_completion(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        arg_type: ArgType,
+    ) -> Option<Vec<String>> {
+        <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, arg_type)
     }
 }
 

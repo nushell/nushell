@@ -1,7 +1,8 @@
 use crate::completions::{
-    AttributableCompletion, AttributeCompletion, CellPathCompletion, CommandCompletion, Completer,
-    CompletionOptions, CustomCompletion, DirectoryCompletion, DotNuCompletion,
-    ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
+    ArgValueDynamicCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
+    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
+    DotNuCompletion, ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion,
+    VariableCompletion,
     base::{SemanticSuggestion, SuggestionKind},
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -12,9 +13,10 @@ use nu_protocol::{
         Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
         RedirectionTarget, Traverse,
     },
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
@@ -193,6 +195,8 @@ struct PositionalArguments<'a> {
     arguments: &'a [Argument],
     /// expression of current argument
     expr: &'a Expression,
+    /// completer for argument value
+    value_completion: &'a mut ArgValueDynamicCompletion<'a>,
 }
 
 impl Context<'_> {
@@ -571,9 +575,31 @@ impl NuCompleter {
                         0..0,
                         match arg {
                             // flags
-                            Argument::Named(_) | Argument::Unknown(_)
-                                if prefix.starts_with(b"-") =>
-                            {
+                            Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
+                                match val {
+                                    None => flag_completion_helper(),
+                                    Some(_) => {
+                                        // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
+                                        // to make a user friendly completion items.
+                                        let (new_span, prefix) = strip_placeholder_with_rsplit(
+                                            working_set,
+                                            &span,
+                                            |b| *b == b'=' || *b == b' ',
+                                            strip,
+                                        );
+                                        let ctx =
+                                            Context::new(working_set, new_span, prefix, offset);
+                                        let mut flag_value_completion = ArgValueDynamicCompletion {
+                                            decl_id: call.decl_id,
+                                            arg_type: ArgType::Flag(Cow::from(
+                                                name.as_ref().item.as_str(),
+                                            )),
+                                        };
+                                        self.process_completion(&mut flag_value_completion, &ctx)
+                                    }
+                                }
+                            }
+                            Argument::Unknown(_) if prefix.starts_with(b"-") => {
                                 flag_completion_helper()
                             }
                             // only when `strip` == false
@@ -582,6 +608,10 @@ impl NuCompleter {
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
+                                let mut positional_value_completion = ArgValueDynamicCompletion {
+                                    decl_id: call.decl_id,
+                                    arg_type: ArgType::Positional(arg_idx),
+                                };
                                 let mut need_fallback = suggestions.is_empty();
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {
@@ -589,6 +619,7 @@ impl NuCompleter {
                                         positional_arg_indices,
                                         arguments: &call.arguments,
                                         expr,
+                                        value_completion: &mut positional_value_completion,
                                     },
                                     pos,
                                     &ctx,
@@ -724,6 +755,7 @@ impl NuCompleter {
             positional_arg_indices,
             arguments,
             expr,
+            value_completion,
         } = argument_info;
         // special commands
         match command_head {
@@ -827,6 +859,12 @@ impl NuCompleter {
                 return self.process_completion(&mut completer, ctx);
             }
             _ => (),
+        }
+
+        // try argument dynamic completion defined by Command first.
+        let value_completion_result = self.process_completion(value_completion, ctx);
+        if !value_completion_result.is_empty() {
+            return value_completion_result;
         }
 
         // general positional arguments

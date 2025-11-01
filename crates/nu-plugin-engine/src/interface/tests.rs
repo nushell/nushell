@@ -9,9 +9,9 @@ use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
     ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallResponse, EvaluatedCall,
-    ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId, PluginCallResponse,
-    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
-    StreamMessage,
+    GetCompletionInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId,
+    PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo,
+    StreamData, StreamMessage,
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
@@ -1116,6 +1116,30 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 
     assert_eq!(Value::test_string(string), result);
     assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_dynamic_completion() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.plugin("test");
+    let interface = manager.get_interface();
+
+    start_fake_plugin_call_responder(manager, 2, move |_| {
+        vec![ReceivedPluginCallMessage::Response(
+            PluginCallResponse::CompletionItems(Some(vec!["aa".to_string()])),
+        )]
+    });
+    let result = interface.get_dynamic_completion(GetCompletionInfo {
+        name: "test".to_string(),
+        arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
+    })?;
+    assert_eq!(Some(vec!["aa".to_string()]), result);
+    let result = interface.get_dynamic_completion(GetCompletionInfo {
+        name: "test".to_string(),
+        arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
+    })?;
+    assert_eq!(Some(vec!["aa".to_string()]), result);
     Ok(())
 }
 
