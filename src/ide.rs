@@ -403,13 +403,13 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
                 })
             ),
-            FlatShape::External(_) => println!(
+            FlatShape::External(alias_span) => println!(
                 "{}",
                 json!({
                     "hover": "external",
                     "span": {
-                        "start": span.start - offset,
-                        "end": span.end - offset
+                        "start": alias_span.start - offset,
+                        "end": alias_span.end - offset
                     }
                 })
             ),
