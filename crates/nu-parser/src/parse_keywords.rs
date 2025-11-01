@@ -1113,6 +1113,48 @@ fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) ->
     }
 }
 
+fn check_abbr_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
+    let command_len = if !spans.is_empty() {
+        if working_set.get_span_contents(spans[0]) == b"export" {
+            2
+        } else {
+            1
+        }
+    } else {
+        return None;
+    };
+
+    if spans.len() == command_len {
+        None
+    } else if spans.len() < command_len + 3 {
+        if working_set.get_span_contents(spans[command_len]) == b"=" {
+            let name = String::from_utf8_lossy(
+                working_set.get_span_contents(Span::concat(&spans[..command_len])),
+            );
+            working_set.error(ParseError::AssignmentMismatch(
+                format!("{name} missing name"),
+                "missing name".into(),
+                spans[command_len],
+            ));
+            Some(&spans[command_len])
+        } else {
+            None
+        }
+    } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
+        let name = String::from_utf8_lossy(
+            working_set.get_span_contents(Span::concat(&spans[..command_len])),
+        );
+        working_set.error(ParseError::AssignmentMismatch(
+            format!("{name} missing sign"),
+            "missing equal sign".into(),
+            spans[command_len + 1],
+        ));
+        Some(&spans[command_len + 1])
+    } else {
+        None
+    }
+}
+
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
