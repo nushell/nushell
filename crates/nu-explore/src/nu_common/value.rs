@@ -1,22 +1,24 @@
 use super::NuSpan;
 use anyhow::Result;
 use nu_engine::get_columns;
-use nu_protocol::{ByteStream, ListStream, PipelineData, PipelineMetadata, Value, record};
+use nu_protocol::{
+    ByteStream, ListStream, PipelineData, PipelineMetadata, ShellError, Value, record,
+};
 use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     match input {
         PipelineData::Empty => Ok((vec![], vec![])),
         PipelineData::Value(value, ..) => collect_input(value),
-        PipelineData::ListStream(stream, ..) => Ok(collect_list_stream(stream)),
+        PipelineData::ListStream(stream, ..) => collect_list_stream(stream),
         PipelineData::ByteStream(stream, metadata) => Ok(collect_byte_stream(stream, metadata)),
     }
 }
 
-fn collect_list_stream(stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
+fn collect_list_stream(stream: ListStream) -> Result<(Vec<String>, Vec<Vec<Value>>), ShellError> {
     let mut records = vec![];
     for item in stream {
-        records.push(item);
+        records.push(item?);
     }
 
     let mut cols = get_columns(&records);
