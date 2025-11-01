@@ -1647,6 +1647,7 @@ pub fn parse_abbr(
 
     garbage_pipeline(working_set, spans)
 }
+
 // Return false if command `export xxx` not found
 // TODO: Rather than this, handle `export xxx` correctly in `parse_xxx`
 fn warp_export_call(
@@ -1698,6 +1699,7 @@ pub fn parse_export_in_block(
         let sub = working_set.get_span_contents(parts[1]);
         match sub {
             b"alias" => "export alias",
+            b"abbr" => "export abbr",
             b"def" => "export def",
             b"extern" => "export extern",
             b"use" => "export use",
@@ -1721,6 +1723,7 @@ pub fn parse_export_in_block(
         // Other definitions can't have attributes, so we handle attributes here with parse_attribute_block
         _ if lite_command.has_attributes() => parse_attribute_block(working_set, lite_command),
         "export alias" => parse_alias(working_set, lite_command, None),
+        "export abbr" => parse_abbr(working_set, lite_command, None),
         "export const" => parse_const(working_set, &lite_command.parts[1..]).0,
         "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
@@ -1878,6 +1881,42 @@ pub fn parse_export_in_module(
                 } else {
                     working_set.error(ParseError::InternalError(
                         "failed to find added alias".into(),
+                        Span::concat(&spans[1..]),
+                    ));
+                }
+
+                (pipeline, result)
+            }
+            b"abbr" => {
+                let lite_command = LiteCommand {
+                    comments: lite_command.comments.clone(),
+                    parts: spans[1..].to_vec(),
+                    pipe: lite_command.pipe,
+                    redirection: lite_command.redirection.clone(),
+                    attribute_idx: vec![],
+                };
+                let mut pipeline = parse_abbr(working_set, &lite_command, Some(module_name));
+
+                if !warp_export_call(working_set, &mut pipeline, "export abbr", spans) {
+                    return (garbage_pipeline(working_set, spans), vec![]);
+                }
+
+                let mut result = vec![];
+
+                let abbr_name = match spans.get(2) {
+                    Some(span) => working_set.get_span_contents(*span),
+                    None => &[],
+                };
+                let abbr_name = trim_quotes(abbr_name);
+
+                if let Some(abbr_id) = working_set.find_decl(abbr_name) {
+                    result.push(Exportable::Decl {
+                        name: abbr_name.to_vec(),
+                        id: abbr_id,
+                    });
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "failed to find added abbreviation".into(),
                         Span::concat(&spans[1..]),
                     ));
                 }
