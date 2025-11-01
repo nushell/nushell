@@ -104,6 +104,7 @@ impl Command for PluginDeclaration {
             engine_state,
             stack,
             call,
+            None, // call_id will be set when the plugin call is written
         );
 
         plugin.run(

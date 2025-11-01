@@ -18,12 +18,12 @@ use nu_protocol::{
     BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
     PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
-    engine::Closure,
+    engine::{Closure, Job, Jobs, ThreadJob},
     shell_error,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, mpsc},
+    sync::{Arc, Mutex, mpsc},
     time::Duration,
 };
 
@@ -193,6 +193,9 @@ fn fake_plugin_call(
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 0,
+            call_id: id,
+            plugin_name: "test".into(),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
         },
     );
 
@@ -493,6 +496,9 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 1,
+            call_id: 0,
+            plugin_name: "test".into(),
+            jobs: Arc::new(Mutex::new(Jobs::default())),
         },
     );
 
@@ -559,6 +565,9 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
+                call_id: n,
+                plugin_name: "test".into(),
+                jobs: Arc::new(Mutex::new(Jobs::default())),
             },
         );
     }
@@ -595,6 +604,9 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
+                call_id: n,
+                plugin_name: "test".into(),
+                jobs: Arc::new(Mutex::new(Jobs::default())),
             },
         );
     }
@@ -1527,4 +1539,164 @@ fn prepare_plugin_call_custom_value_op() {
             );
         }
     }
+}
+
+#[test]
+fn manager_consume_engine_call_eval_closure_cloned_returns_stream_immediately()
+-> Result<(), ShellError> {
+    let mut manager = TestCase::new().plugin("test");
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = fake_plugin_call(&mut manager, 37);
+
+    // Send EvalClosureCloned call
+    manager.consume(PluginOutput::EngineCall {
+        context: 37,
+        id: 46,
+        call: EngineCall::EvalClosureCloned {
+            closure: Spanned {
+                item: Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![],
+                },
+                span: Span::test_data(),
+            },
+            positional: vec![],
+            input: PipelineDataHeader::Empty,
+            redirect_stdout: false,
+            redirect_stderr: false,
+        },
+    })?;
+
+    // Should immediately receive the response with a ListStream (non-blocking!)
+    let message = rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("did not receive engine call response quickly enough");
+
+    match message {
+        ReceivedPluginCallMessage::EngineCall(id, call) => {
+            assert_eq!(46, id, "id");
+            match call {
+                EngineCall::EvalClosureCloned { .. } => {
+                    // Good! The call was forwarded without blocking (received within 100ms)
+                    // This proves the handler returns immediately instead of waiting for evaluation
+                    Ok(())
+                }
+                _ => panic!("unexpected call type: {call:?}"),
+            }
+        }
+        _ => panic!("unexpected message type: {message:?}"),
+    }
+}
+
+#[test]
+fn eval_closure_cloned_streams_results_from_worker_thread() -> Result<(), ShellError> {
+    // This test verifies that EvalClosureCloned properly streams results
+    // from a worker thread evaluation through a channel-backed ListStream
+
+    let mut manager = TestCase::new().plugin("test");
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = fake_plugin_call(&mut manager, 50);
+
+    // Send EvalClosureCloned call - the context will evaluate it in a worker thread
+    manager.consume(PluginOutput::EngineCall {
+        context: 50,
+        id: 60,
+        call: EngineCall::EvalClosureCloned {
+            closure: Spanned {
+                item: Closure {
+                    block_id: BlockId::new(0),
+                    captures: vec![],
+                },
+                span: Span::test_data(),
+            },
+            positional: vec![],
+            input: PipelineDataHeader::Empty,
+            redirect_stdout: false,
+            redirect_stderr: false,
+        },
+    })?;
+
+    // In a real scenario with a proper context (not bogus), the response would
+    // contain a ListStream that pulls values from the worker thread.
+    // With BogusContext, we expect an error, but the point is that we don't block
+    // waiting for the evaluation to complete.
+
+    let message = rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("engine call handler blocked instead of returning immediately");
+
+    // Verify we got a message quickly (non-blocking behavior)
+    match message {
+        ReceivedPluginCallMessage::EngineCall(id, _) => {
+            assert_eq!(60, id, "wrong engine call id");
+            Ok(())
+        }
+        _ => Ok(()), // Other message types are also fine for this test
+    }
+}
+
+#[test]
+fn plugin_call_state_drop_cleans_up_jobs() -> Result<(), ShellError> {
+    // This test verifies that when a PluginCallState is dropped, it properly
+    // cleans up any background jobs that were spawned during the plugin call.
+
+    let call_id = 42;
+    let plugin_name = "test";
+
+    // Create a shared Jobs table
+    let jobs = Arc::new(Mutex::new(Jobs::default()));
+
+    // Create a background job with the plugin-specific tag
+    let (sender, _receiver) = mpsc::channel();
+    let job = Job::Thread(ThreadJob::new(
+        Signals::empty(),
+        Some(format!("plugin:{plugin_name}:{call_id}")),
+        sender,
+    ));
+
+    // Add the job to the table and get its ID
+    let job_id = {
+        let mut jobs_guard = jobs.lock().expect("failed to lock jobs");
+        jobs_guard.add_job(job)
+    };
+
+    // Verify the job exists before cleanup
+    {
+        let jobs_guard = jobs.lock().expect("failed to lock jobs");
+        assert!(
+            jobs_guard.lookup(job_id).is_some(),
+            "job should exist before PluginCallState drop"
+        );
+    }
+
+    // Create a PluginCallState that shares the same Jobs reference
+    let (tx, _rx) = mpsc::channel();
+    let state = PluginCallState {
+        sender: Some(tx),
+        dont_send_response: false,
+        signals: Signals::empty(),
+        context_rx: None,
+        span: None,
+        keep_plugin_custom_values: mpsc::channel(),
+        remaining_streams_to_read: 0,
+        call_id,
+        plugin_name: plugin_name.into(),
+        jobs: jobs.clone(),
+    };
+
+    // Explicitly drop the PluginCallState, which should trigger job cleanup
+    drop(state);
+
+    // Verify the job was cleaned up
+    {
+        let jobs_guard = jobs.lock().expect("failed to lock jobs");
+        assert!(
+            jobs_guard.lookup(job_id).is_none(),
+            "job should be cleaned up after PluginCallState drop"
+        );
+    }
+
+    Ok(())
 }

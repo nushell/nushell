@@ -4,13 +4,13 @@ use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
     Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span,
     Spanned, Value,
-    engine::{Call, Closure, EngineState, Redirection, Stack},
+    engine::{Call, Closure, EngineState, Jobs, Redirection, Stack, ThreadJob},
     ir,
 };
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{Arc, atomic::AtomicU32},
+    sync::{Arc, Mutex, atomic::AtomicU32},
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -59,6 +59,14 @@ pub trait PluginExecutionContext: Send + Sync {
     ) -> Result<PipelineData, ShellError>;
     /// Create an owned version of the context with `'static` lifetime
     fn boxed(&self) -> Box<dyn PluginExecutionContext>;
+    /// Create an owned version of the context with `'static` lifetime and set the background thread job
+    fn boxed_with_job(&self, job: ThreadJob) -> Box<dyn PluginExecutionContext>;
+    /// Get the shared jobs table for registering and managing background jobs
+    fn jobs(&self) -> Arc<Mutex<Jobs>>;
+    /// Get the plugin identity for this execution context
+    fn plugin_identity(&self) -> Arc<PluginIdentity>;
+    /// Get the unique call ID for this plugin execution, if available
+    fn call_id(&self) -> Option<usize>;
 }
 
 /// The execution context of a plugin command. Can be borrowed.
@@ -67,6 +75,7 @@ pub struct PluginExecutionCommandContext<'a> {
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
     call: Call<'a>,
+    call_id: Option<usize>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {
@@ -75,12 +84,14 @@ impl<'a> PluginExecutionCommandContext<'a> {
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
         call: &'a Call<'a>,
+        call_id: Option<usize>,
     ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
             engine_state: Cow::Borrowed(engine_state),
             stack: MutableCow::Borrowed(stack),
             call: call.clone(),
+            call_id,
         }
     }
 }
@@ -272,7 +283,33 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
             engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
             stack: self.stack.owned(),
             call: self.call.to_owned(),
+            call_id: self.call_id,
         })
+    }
+
+    fn boxed_with_job(&self, job: ThreadJob) -> Box<dyn PluginExecutionContext + 'static> {
+        let mut engine_state = self.engine_state.clone().into_owned();
+        engine_state.current_job.background_thread_job = Some(job);
+
+        Box::new(PluginExecutionCommandContext {
+            identity: self.identity.clone(),
+            engine_state: Cow::Owned(engine_state),
+            stack: self.stack.owned(),
+            call: self.call.to_owned(),
+            call_id: self.call_id,
+        })
+    }
+
+    fn jobs(&self) -> Arc<Mutex<Jobs>> {
+        self.engine_state.jobs.clone()
+    }
+
+    fn plugin_identity(&self) -> Arc<PluginIdentity> {
+        self.identity.clone()
+    }
+
+    fn call_id(&self) -> Option<usize> {
+        self.call_id
     }
 }
 
@@ -374,5 +411,21 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
         Box::new(PluginExecutionBogusContext)
+    }
+
+    fn boxed_with_job(&self, _job: ThreadJob) -> Box<dyn PluginExecutionContext + 'static> {
+        Box::new(PluginExecutionBogusContext)
+    }
+
+    fn jobs(&self) -> Arc<Mutex<Jobs>> {
+        Arc::new(Mutex::new(Jobs::default()))
+    }
+
+    fn plugin_identity(&self) -> Arc<PluginIdentity> {
+        Arc::new(PluginIdentity::new_fake("test"))
+    }
+
+    fn call_id(&self) -> Option<usize> {
+        None
     }
 }
