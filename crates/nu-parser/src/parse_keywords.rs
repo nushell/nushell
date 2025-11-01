@@ -1371,6 +1371,240 @@ pub fn parse_alias(
     garbage_pipeline(working_set, spans)
 }
 
+pub fn parse_abbr(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+) -> Pipeline {
+    let spans = &lite_command.parts;
+
+    let (name_span, split_id) =
+        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+            (spans[1], 2)
+        } else {
+            (spans[0], 1)
+        };
+
+    let name = working_set.get_span_contents(name_span);
+
+    if name != b"abbr" {
+        working_set.error(ParseError::InternalError(
+            "Abbreviation statement unparsable".into(),
+            Span::concat(spans),
+        ));
+        return garbage_pipeline(working_set, spans);
+    }
+    if let Some(redirection) = lite_command.redirection.as_ref() {
+        working_set.error(redirecting_builtin_error("abbr", redirection));
+        return garbage_pipeline(working_set, spans);
+    }
+
+    if let Some(span) = check_abbr_name(working_set, spans) {
+        return Pipeline::from_vec(vec![garbage(working_set, *span)]);
+    }
+
+    if let Some(decl_id) = working_set.find_decl(b"abbr") {
+        let (command_spans, rest_spans) = spans.split_at(split_id);
+
+        let original_starting_error_count = working_set.parse_errors.len();
+
+        let ParsedInternalCall {
+            call: abbr_call,
+            output,
+            call_kind,
+        } = parse_internal_call(
+            working_set,
+            Span::concat(command_spans),
+            rest_spans,
+            decl_id,
+        );
+
+        working_set
+            .parse_errors
+            .truncate(original_starting_error_count);
+
+        let abbr_pipeline = Pipeline::from_vec(vec![Expression::new(
+            working_set,
+            Expr::Call(abbr_call.clone()),
+            Span::concat(spans),
+            output,
+        )]);
+
+        if call_kind == CallKind::Help {
+            return abbr_pipeline;
+        }
+
+        let Some(abbr_name_expr) = abbr_call.positional_nth(0) else {
+            working_set.error(ParseError::UnknownState(
+                "Missing positional after call check".to_string(),
+                Span::concat(spans),
+            ));
+            return garbage_pipeline(working_set, spans);
+        };
+
+        let abbr_name = if let Some(name) = abbr_name_expr.as_string() {
+            if name.contains('#')
+                || name.contains('^')
+                || name.parse::<bytesize::ByteSize>().is_ok()
+                || name.parse::<f64>().is_ok()
+            {
+                working_set.error(ParseError::AliasNotValid(abbr_name_expr.span));
+                return garbage_pipeline(working_set, spans);
+            } else {
+                name
+            }
+        } else {
+            working_set.error(ParseError::AliasNotValid(abbr_name_expr.span));
+            return garbage_pipeline(working_set, spans);
+        };
+
+        if spans.len() >= split_id + 3 {
+            if let Some(mod_name) = module_name {
+                if abbr_name.as_bytes() == mod_name {
+                    working_set.error(ParseError::NamedAsModule(
+                        "abbreviation".to_string(),
+                        abbr_name,
+                        "main".to_string(),
+                        spans[split_id],
+                    ));
+
+                    return abbr_pipeline;
+                }
+
+                if abbr_name == "main" {
+                    working_set.error(ParseError::ExportMainAliasNotAllowed(spans[split_id]));
+                    return abbr_pipeline;
+                }
+            }
+
+            let _equals = working_set.get_span_contents(spans[split_id + 1]);
+
+            let replacement_spans = &spans[(split_id + 2)..];
+
+            let starting_error_count = working_set.parse_errors.len();
+            working_set.search_predecls = false;
+
+            let expr = parse_call(working_set, replacement_spans, replacement_spans[0]);
+
+            working_set.search_predecls = true;
+
+            if starting_error_count != working_set.parse_errors.len()
+                && let Some(e) = working_set.parse_errors.get(starting_error_count)
+            {
+                if let ParseError::MissingPositional(..) = e {
+                    working_set
+                        .parse_errors
+                        .truncate(original_starting_error_count);
+                    // ignore missing required positional
+                } else {
+                    return garbage_pipeline(working_set, replacement_spans);
+                }
+            }
+
+            let (command, wrapped_call) = match expr {
+                Expression {
+                    expr: Expr::Call(ref rhs_call),
+                    ..
+                } => {
+                    let cmd = working_set.get_decl(rhs_call.decl_id);
+
+                    if cmd.is_keyword()
+                        && !SUBSTITUTABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
+                    {
+                        working_set.error(ParseError::CantAliasKeyword(
+                            SUBSTITUTABLE_PARSER_KEYWORDS
+                                .iter()
+                                .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                            rhs_call.head,
+                        ));
+                        return abbr_pipeline;
+                    }
+
+                    (Some(cmd.clone_box()), expr)
+                }
+                Expression {
+                    expr: Expr::ExternalCall(..),
+                    ..
+                } => (None, expr),
+                _ => {
+                    working_set.error(ParseError::InternalError(
+                        "Parsed call not a call".into(),
+                        expr.span,
+                    ));
+                    return abbr_pipeline;
+                }
+            };
+
+            // Build description
+            let (description, extra_description) = match lite_command.comments.is_empty() {
+                false => working_set.build_desc(&lite_command.comments),
+                true => match abbr_call.arguments.get(1) {
+                    Some(Argument::Positional(Expression {
+                        expr: Expr::Keyword(kw),
+                        ..
+                    })) => {
+                        let abbr_expansion = working_set.get_span_contents(kw.expr.span);
+                        (
+                            format!(
+                                "Abbreviation for `{}`",
+                                String::from_utf8_lossy(abbr_expansion)
+                            ),
+                            String::new(),
+                        )
+                    }
+                    _ => ("User declared abbreviation".into(), String::new()),
+                },
+            };
+
+            let decl = Alias {
+                name: abbr_name,
+                command,
+                wrapped_call,
+                description,
+                extra_description,
+            };
+
+            working_set.add_decl(Box::new(decl));
+        }
+
+        // special case for `abbr foo=bar`
+        if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
+
+            let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
+
+            let name = if name.is_empty() { "{name}" } else { name };
+            let initial_value = if initial_value.is_empty() {
+                "{initial_value}"
+            } else {
+                initial_value
+            };
+
+            working_set.error(ParseError::IncorrectValue(
+                "abbreviation argument".into(),
+                spans[1],
+                format!("Make sure to put spaces around '=': abbr {name} = {initial_value}"),
+            ))
+        } else if spans.len() < 4 {
+            working_set.error(ParseError::IncorrectValue(
+                "Incomplete abbreviation".into(),
+                Span::concat(&spans[..split_id]),
+                "incomplete abbreviation".into(),
+            ));
+        }
+
+        return abbr_pipeline;
+    }
+
+    working_set.error(ParseError::InternalError(
+        "Abbreviation statement unparsable".into(),
+        Span::concat(spans),
+    ));
+
+    garbage_pipeline(working_set, spans)
+}
 // Return false if command `export xxx` not found
 // TODO: Rather than this, handle `export xxx` correctly in `parse_xxx`
 fn warp_export_call(
