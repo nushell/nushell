@@ -261,7 +261,7 @@ fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
     for i in 1..100 {
         use std::fmt::Write;
         bak_path.truncate(base_len);
-        write!(&mut bak_path, ".{i}").unwrap();
+        write!(&mut bak_path, ".{i}").ok();
         if !Path::new(&bak_path).exists() {
             return Ok(PathBuf::from(bak_path));
         }

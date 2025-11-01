@@ -14,4 +14,4 @@ profile = "default"
 # so that we give repo maintainers and package managers a chance to update to a more
 # recent version of rust. However, if there is a "cool new feature" that we want to
 # use in nushell, we may opt to use the bleeding edge stable version of rust.
-channel = "1.88.0"
+channel = "1.89.0"
