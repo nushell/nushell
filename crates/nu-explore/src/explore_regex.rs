@@ -355,69 +355,69 @@ fn run_app_loop(
     loop {
         terminal.draw(|f| draw_ui(f, app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
-                // Handle Ctrl+Q to quit
-                if key.code == KeyCode::Char('q')
-                    && key
-                        .modifiers
-                        .contains(crossterm::event::KeyModifiers::CONTROL)
-                {
-                    return Ok(());
-                }
+        if let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+        {
+            // Handle Ctrl+Q to quit
+            if key.code == KeyCode::Char('q')
+                && key
+                    .modifiers
+                    .contains(crossterm::event::KeyModifiers::CONTROL)
+            {
+                return Ok(());
+            }
 
-                // Handle Tab to switch focus.
-                if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
-                    app.input_focus = match app.input_focus {
-                        InputFocus::Regex => InputFocus::Sample,
-                        InputFocus::Sample => InputFocus::Regex,
-                    };
-                    continue;
-                }
+            // Handle Tab to switch focus.
+            if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
+                app.input_focus = match app.input_focus {
+                    InputFocus::Regex => InputFocus::Sample,
+                    InputFocus::Sample => InputFocus::Regex,
+                };
+                continue;
+            }
 
-                // Escape will focus the Regex field back again.
-                if matches!(key.code, KeyCode::Esc) {
-                    app.input_focus = InputFocus::Regex;
-                    continue;
-                }
+            // Escape will focus the Regex field back again.
+            if matches!(key.code, KeyCode::Esc) {
+                app.input_focus = InputFocus::Regex;
+                continue;
+            }
 
-                // Intercept PageUp/PageDown in Sample pane to move by one page height
-                if matches!(app.input_focus, InputFocus::Sample) {
-                    match key.code {
-                        KeyCode::PageUp | KeyCode::PageDown => {
-                            let page = std::cmp::max(app.sample_view_height, 1);
-                            let (row, col) = app.sample_textarea.cursor();
-                            let rows_len = app.sample_textarea.lines().len();
-                            let target_row_u16 = match key.code {
-                                KeyCode::PageUp => (row as u16).saturating_sub(page),
-                                KeyCode::PageDown => {
-                                    let max_row = rows_len.saturating_sub(1) as u16;
-                                    let r = (row as u16).saturating_add(page);
-                                    if r > max_row { max_row } else { r }
-                                }
-                                _ => row as u16,
-                            };
-                            let target_col_u16 = col as u16;
-                            app.sample_textarea
-                                .move_cursor(CursorMove::Jump(target_row_u16, target_col_u16));
-                            continue;
-                        }
-                        _ => {}
+            // Intercept PageUp/PageDown in Sample pane to move by one page height
+            if matches!(app.input_focus, InputFocus::Sample) {
+                match key.code {
+                    KeyCode::PageUp | KeyCode::PageDown => {
+                        let page = std::cmp::max(app.sample_view_height, 1);
+                        let (row, col) = app.sample_textarea.cursor();
+                        let rows_len = app.sample_textarea.lines().len();
+                        let target_row_u16 = match key.code {
+                            KeyCode::PageUp => (row as u16).saturating_sub(page),
+                            KeyCode::PageDown => {
+                                let max_row = rows_len.saturating_sub(1) as u16;
+                                let r = (row as u16).saturating_add(page);
+                                if r > max_row { max_row } else { r }
+                            }
+                            _ => row as u16,
+                        };
+                        let target_col_u16 = col as u16;
+                        app.sample_textarea
+                            .move_cursor(CursorMove::Jump(target_row_u16, target_col_u16));
+                        continue;
                     }
+                    _ => {}
                 }
+            }
 
-                // Convert crossterm event to tui-textarea input
-                let input = Input::from(Event::Key(key));
+            // Convert crossterm event to tui-textarea input
+            let input = Input::from(Event::Key(key));
 
-                // Handle input based on current mode
-                match app.input_focus {
-                    InputFocus::Regex => {
-                        app.regex_textarea.input(input);
-                        app.compile_regex(); // TODO: Do this in a worker thread.
-                    }
-                    InputFocus::Sample => {
-                        app.sample_textarea.input(input);
-                    }
+            // Handle input based on current mode
+            match app.input_focus {
+                InputFocus::Regex => {
+                    app.regex_textarea.input(input);
+                    app.compile_regex(); // TODO: Do this in a worker thread.
+                }
+                InputFocus::Sample => {
+                    app.sample_textarea.input(input);
                 }
             }
         }
