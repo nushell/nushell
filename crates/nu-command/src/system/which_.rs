@@ -305,23 +305,23 @@ mod windows {
     impl IsExecutable for Path {
         fn is_executable(&self) -> bool {
             // Check using file extension
-            if let Some(pathext) = std::env::var_os("PATHEXT") {
-                if let Some(extension) = self.extension() {
-                    let extension = extension.to_string_lossy();
+            if let Some(pathext) = std::env::var_os("PATHEXT")
+                && let Some(extension) = self.extension()
+            {
+                let extension = extension.to_string_lossy();
 
-                    // Originally taken from:
-                    // https://github.com/nushell/nushell/blob/93e8f6c05e1e1187d5b674d6b633deb839c84899/crates/nu-cli/src/completion/command.rs#L64-L74
-                    return pathext
-                        .to_string_lossy()
-                        .split(';')
-                        // Filter out empty tokens and ';' at the end
-                        .filter(|f| f.len() > 1)
-                        .any(|ext| {
-                            // Cut off the leading '.' character
-                            let ext = &ext[1..];
-                            extension.eq_ignore_ascii_case(ext)
-                        });
-                }
+                // Originally taken from:
+                // https://github.com/nushell/nushell/blob/93e8f6c05e1e1187d5b674d6b633deb839c84899/crates/nu-cli/src/completion/command.rs#L64-L74
+                return pathext
+                    .to_string_lossy()
+                    .split(';')
+                    // Filter out empty tokens and ';' at the end
+                    .filter(|f| f.len() > 1)
+                    .any(|ext| {
+                        // Cut off the leading '.' character
+                        let ext = &ext[1..];
+                        extension.eq_ignore_ascii_case(ext)
+                    });
             }
 
             // Check using file properties
@@ -331,10 +331,10 @@ mod windows {
 
             let result =
                 unsafe { GetBinaryTypeW(PCWSTR(windows_string.as_ptr()), &mut binary_type) };
-            if result.is_ok() {
-                if let 0..=6 = binary_type {
-                    return true;
-                }
+            if result.is_ok()
+                && let 0..=6 = binary_type
+            {
+                return true;
             }
 
             false
