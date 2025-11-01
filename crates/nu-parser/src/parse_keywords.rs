@@ -48,7 +48,7 @@ use crate::{
 };
 
 /// These parser keywords can be aliased
-pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+pub const SUBSTITUTABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"if",
     b"match",
     b"try",
@@ -61,7 +61,7 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
-pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+pub const UNSUBSTITUTABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"alias",
     b"const",
     b"def",
@@ -96,13 +96,13 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
     // try two words
     if let (Some(&span1), Some(&span2)) = (spans.first(), spans.get(1)) {
         let cmd_name = working_set.get_span_contents(Span::append(span1, span2));
-        return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
+        return UNSUBSTITUTABLE_PARSER_KEYWORDS.contains(&cmd_name);
     }
 
     // try one word
     if let Some(&span1) = spans.first() {
         let cmd_name = working_set.get_span_contents(span1);
-        UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
+        UNSUBSTITUTABLE_PARSER_KEYWORDS.contains(&cmd_name)
     } else {
         false
     }
@@ -1271,10 +1271,10 @@ pub fn parse_alias(
                     let cmd = working_set.get_decl(rhs_call.decl_id);
 
                     if cmd.is_keyword()
-                        && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
+                        && !SUBSTITUTABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
                     {
                         working_set.error(ParseError::CantAliasKeyword(
-                            ALIASABLE_PARSER_KEYWORDS
+                            SUBSTITUTABLE_PARSER_KEYWORDS
                                 .iter()
                                 .map(|bytes| String::from_utf8_lossy(bytes).to_string())
                                 .collect::<Vec<String>>()
