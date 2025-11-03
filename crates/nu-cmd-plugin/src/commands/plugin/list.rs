@@ -150,7 +150,13 @@ struct PluginInfo {
     pid: Option<u32>,
     filename: String,
     shell: Option<String>,
-    commands: Vec<String>,
+    commands: Vec<CommandInfo>,
+}
+
+#[derive(Debug, Clone, IntoValue, PartialOrd, Ord, PartialEq, Eq)]
+struct CommandInfo {
+    name: String,
+    description: String,
 }
 
 #[derive(Debug, Clone, Copy, IntoValue, PartialOrd, Ord, PartialEq, Eq)]
@@ -177,10 +183,14 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
         .iter()
         .map(|plugin| {
             // Find commands that belong to the plugin
-            let commands = decls
+            let commands: Vec<(String, String)> = decls
                 .get(plugin.identity())
                 .into_iter()
-                .flat_map(|decls| decls.iter().map(|decl| decl.name().to_owned()))
+                .flat_map(|decls| {
+                    decls
+                        .iter()
+                        .map(|decl| (decl.name().to_owned(), decl.description().to_owned()))
+                })
                 .sorted()
                 .collect();
 
@@ -198,7 +208,13 @@ fn get_plugins_in_engine(engine_state: &EngineState) -> Vec<PluginInfo> {
                     .identity()
                     .shell()
                     .map(|path| path.to_string_lossy().into_owned()),
-                commands,
+                commands: commands
+                    .iter()
+                    .map(|(name, desc)| CommandInfo {
+                        name: name.clone(),
+                        description: desc.clone(),
+                    })
+                    .collect(),
             }
         })
         .sorted()
@@ -231,7 +247,10 @@ fn get_plugins_in_registry(
                 info.version = metadata.version;
                 info.commands = commands
                     .into_iter()
-                    .map(|command| command.sig.name)
+                    .map(|command| CommandInfo {
+                        name: command.sig.name.clone(),
+                        description: command.sig.description.clone(),
+                    })
                     .sorted()
                     .collect();
             } else {
