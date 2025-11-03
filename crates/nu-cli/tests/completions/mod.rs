@@ -12,7 +12,7 @@ use nu_parser::parse;
 use nu_path::expand_tilde;
 use nu_protocol::{Config, PipelineData, debugger::WithoutDebug, engine::StateWorkingSet};
 use nu_std::load_standard_library;
-use reedline::{Completer, Suggestion};
+use reedline::{Completer, Span, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -291,6 +291,25 @@ fn customcompletions_fallback() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
     match_suggestions_by_string(&expected, &suggestions);
+}
+
+#[test]
+fn customcompletions_override_span() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
 }
 
 /// Custom function arguments mixed with subcommands
@@ -716,6 +735,20 @@ fn external_completer_fallback() {
     let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
     let suggestions = run_external_completion(block, input);
     match_suggestions_by_string(&expected, &suggestions);
+}
+
+#[test]
+fn external_completer_override_span() {
+    let block = "{|spans| [{ value: blech, span: { start: 1, end: 10 } }]}";
+    let input = "foo test";
+
+    let suggestions = run_external_completion(block, input);
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`
