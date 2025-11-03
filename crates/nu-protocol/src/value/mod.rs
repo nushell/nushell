@@ -8,7 +8,6 @@ mod range;
 #[cfg(test)]
 mod test_derive;
 
-pub mod format;
 pub mod record;
 pub use custom_value::CustomValue;
 pub use duration::*;
@@ -16,6 +15,7 @@ pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
 pub use into_value::{IntoValue, TryIntoValue};
+pub use nu_utils::MultiLife;
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
@@ -29,7 +29,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{
-    SharedCow, contains_emoji,
+    ObviousFloat, SharedCow, contains_emoji,
     locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
 };
 use serde::{Deserialize, Serialize};
@@ -37,15 +37,20 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
-    ops::{Bound, ControlFlow, Deref},
+    ops::{Bound, ControlFlow},
     path::PathBuf,
 };
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
+// NOTE: All variants are marked as `non_exhaustive` to prevent them
+// from being constructed (outside of this crate) with the struct
+// expression syntax. This makes using the constructor methods the
+// only way to construct `Value`'s
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
+    #[non_exhaustive]
     Bool {
         val: bool,
         /// note: spans are being refactored out of Value
@@ -53,6 +58,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Int {
         val: i64,
         /// note: spans are being refactored out of Value
@@ -60,6 +66,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Float {
         val: f64,
         /// note: spans are being refactored out of Value
@@ -67,6 +74,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     String {
         val: String,
         /// note: spans are being refactored out of Value
@@ -74,6 +82,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Glob {
         val: String,
         no_expand: bool,
@@ -82,6 +91,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Filesize {
         val: Filesize,
         /// note: spans are being refactored out of Value
@@ -89,13 +99,16 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Duration {
+        /// The duration in nanoseconds.
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Date {
         val: DateTime<FixedOffset>,
         /// note: spans are being refactored out of Value
@@ -103,6 +116,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Range {
         val: Box<Range>,
         /// note: spans are being refactored out of Value
@@ -110,6 +124,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Record {
         val: SharedCow<Record>,
         /// note: spans are being refactored out of Value
@@ -117,6 +132,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     List {
         vals: Vec<Value>,
         /// note: spans are being refactored out of Value
@@ -124,6 +140,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Closure {
         val: Box<Closure>,
         /// note: spans are being refactored out of Value
@@ -131,6 +148,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Error {
         error: Box<ShellError>,
         /// note: spans are being refactored out of Value
@@ -138,6 +156,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Binary {
         val: Vec<u8>,
         /// note: spans are being refactored out of Value
@@ -145,6 +164,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     CellPath {
         val: CellPath,
         /// note: spans are being refactored out of Value
@@ -152,6 +172,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Custom {
         val: Box<dyn CustomValue>,
         /// note: spans are being refactored out of Value
@@ -159,6 +180,7 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+    #[non_exhaustive]
     Nothing {
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
@@ -397,7 +419,7 @@ impl Value {
     ///     );
     /// }
     /// ```
-    pub fn coerce_str(&self) -> Result<Cow<str>, ShellError> {
+    pub fn coerce_str(&self) -> Result<Cow<'_, str>, ShellError> {
         match self {
             Value::Bool { val, .. } => Ok(Cow::Owned(val.to_string())),
             Value::Int { val, .. } => Ok(Cow::Owned(val.to_string())),
@@ -784,28 +806,11 @@ impl Value {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
             Value::List { vals, .. } => {
-                let mut ty = None;
-                for val in vals {
-                    let val_ty = val.get_type();
-                    match &ty {
-                        Some(x) => {
-                            if &val_ty != x {
-                                if x.is_numeric() && val_ty.is_numeric() {
-                                    ty = Some(Type::Number)
-                                } else {
-                                    ty = Some(Type::Any);
-                                    break;
-                                }
-                            }
-                        }
-                        None => ty = Some(val_ty),
-                    }
-                }
+                let ty = Type::supertype_of(vals.iter().map(Value::get_type)).unwrap_or(Type::Any);
 
                 match ty {
-                    Some(Type::Record(columns)) => Type::Table(columns),
-                    Some(ty) => Type::List(Box::new(ty)),
-                    None => Type::List(Box::new(Type::Any)),
+                    Type::Record(columns) => Type::Table(columns),
+                    ty => Type::list(ty),
                 }
             }
             Value::Nothing { .. } => Type::Nothing,
@@ -842,6 +847,7 @@ impl Value {
         // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
         match (self, other) {
             (_, Type::Any) => true,
+            (val, Type::OneOf(types)) => types.iter().any(|t| val.is_subtype_of(t)),
 
             // `Type` allocation for scalar types is trivial
             (
@@ -925,7 +931,7 @@ impl Value {
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
-            Err(_) => formatter_buf = format!("Invalid format string {}", formatter),
+            Err(_) => formatter_buf = format!("Invalid format string {formatter}"),
         }
         formatter_buf
     }
@@ -939,7 +945,7 @@ impl Value {
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
-            Value::Float { val, .. } => val.to_string(),
+            Value::Float { val, .. } => ObviousFloat(*val).to_string(),
             Value::Filesize { val, .. } => config.filesize.format(*val).to_string(),
             Value::Duration { val, .. } => format_duration(*val),
             Value::Date { val, .. } => match &config.datetime_format.normal {
@@ -1036,7 +1042,7 @@ impl Value {
     pub fn to_parsable_string(&self, separator: &str, config: &Config) -> String {
         match self {
             // give special treatment to the simple types to make them parsable
-            Value::String { val, .. } => format!("'{}'", val),
+            Value::String { val, .. } => format!("'{val}'"),
             // recurse back into this function for recursive formatting
             Value::List { vals: val, .. } => format!(
                 "[{}]",
@@ -1083,36 +1089,60 @@ impl Value {
         &'out self,
         cell_path: &[PathMember],
     ) -> Result<Cow<'out, Value>, ShellError> {
-        enum MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            Out(&'out T),
-            Local(&'local T),
-        }
-
-        impl<'out, 'local, T> Deref for MultiLife<'out, 'local, T>
-        where
-            'out: 'local,
-            T: ?Sized,
-        {
-            type Target = T;
-
-            fn deref(&self) -> &Self::Target {
-                match *self {
-                    MultiLife::Out(x) => x,
-                    MultiLife::Local(x) => x,
-                }
-            }
-        }
-
         // A dummy value is required, otherwise rust doesn't allow references, which we need for
         // the `std::ptr::eq` comparison
         let mut store: Value = Value::test_nothing();
         let mut current: MultiLife<'out, '_, Value> = MultiLife::Out(self);
 
-        for member in cell_path {
+        let reorder_cell_paths = nu_experimental::REORDER_CELL_PATHS.get();
+
+        let mut members: Vec<_> = if reorder_cell_paths {
+            cell_path.iter().map(Some).collect()
+        } else {
+            Vec::new()
+        };
+        let mut members = members.as_mut_slice();
+        let mut cell_path = cell_path;
+
+        loop {
+            let member = if reorder_cell_paths {
+                // Skip any None values at the start.
+                while let Some(None) = members.first() {
+                    members = &mut members[1..];
+                }
+
+                if members.is_empty() {
+                    break;
+                }
+
+                // Reorder cell-path member access by prioritizing Int members to avoid cloning unless
+                // necessary
+                let member = if let Value::List { .. } = &*current {
+                    // If the value is a list, try to find an Int member
+                    members
+                        .iter_mut()
+                        .find(|x| matches!(x, Some(PathMember::Int { .. })))
+                        // And take it from the list of members
+                        .and_then(Option::take)
+                } else {
+                    None
+                };
+
+                let Some(member) = member.or_else(|| members.first_mut().and_then(Option::take))
+                else {
+                    break;
+                };
+                member
+            } else {
+                match cell_path {
+                    [first, rest @ ..] => {
+                        cell_path = rest;
+                        first
+                    }
+                    _ => break,
+                }
+            };
+
             current = match current {
                 MultiLife::Out(current) => match get_value_member(current, member)? {
                     ControlFlow::Break(span) => return Ok(Cow::Owned(Value::nothing(span))),
@@ -1744,6 +1774,14 @@ impl Value {
         matches!(self, Value::Error { .. })
     }
 
+    /// Extract [ShellError] from [Value::Error]
+    pub fn unwrap_error(self) -> Result<Self, ShellError> {
+        match self {
+            Self::Error { error, .. } => Err(*error),
+            val => Ok(val),
+        }
+    }
+
     pub fn is_true(&self) -> bool {
         matches!(self, Value::Bool { val: true, .. })
     }
@@ -1981,7 +2019,7 @@ impl Value {
     /// as it will point into unknown source when used in errors.
     ///
     /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
-    /// except for `Value::CustomValue`.
+    /// except for `Value::Custom`.
     pub fn test_values() -> Vec<Value> {
         vec![
             Value::test_bool(false),
@@ -2077,7 +2115,7 @@ fn get_value_member<'a>(
                     }
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_int(current.span(), *count, *origin_span)
+                    match val.follow_path_int(current.span(), *count, *origin_span, *optional)
                     {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
@@ -2174,8 +2212,13 @@ fn get_value_member<'a>(
                     Ok(ControlFlow::Continue(Cow::Owned(Value::list(list, span))))
                 }
                 Value::Custom { val, .. } => {
-                    match val.follow_path_string(current.span(), column_name.clone(), *origin_span)
-                    {
+                    match val.follow_path_string(
+                        current.span(),
+                        column_name.clone(),
+                        *origin_span,
+                        *optional,
+                        *casing,
+                    ) {
                         Ok(val) => Ok(ControlFlow::Continue(Cow::Owned(val))),
                         Err(err) => {
                             if *optional {
@@ -2209,11 +2252,14 @@ impl Default for Value {
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // Compare two floating point numbers. The decision interval for equality is dynamically
-        // scaled as the value being compared increases in magnitude.
+        // scaled as the value being compared increases in magnitude (using relative epsilon-based
+        // tolerance). Implementation is similar to python's `math.isclose()` function:
+        // https://docs.python.org/3/library/math.html#math.isclose. Fallback to the default strict
+        // float comparison if the difference exceeds the error epsilon.
         fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
-            let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
+            let prec = f64::EPSILON.max(val.abs().max(other.abs()) * f64::EPSILON);
 
-            if (other - val).abs() < prec {
+            if (other - val).abs() <= prec {
                 return Some(Ordering::Equal);
             }
 
@@ -3293,8 +3339,16 @@ impl Value {
 
     pub fn pow(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_pow(*rhs as u32) {
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhsv, .. }) => {
+                if *rhsv < 0 {
+                    return Err(ShellError::IncorrectValue {
+                        msg: "Negative exponent for integer power is unsupported; use floats instead.".into(),
+                        val_span: rhs.span(),
+                        call_span: op,
+                    });
+                }
+
+                if let Some(val) = lhs.checked_pow(*rhsv as u32) {
                     Ok(Value::int(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
@@ -3634,14 +3688,12 @@ impl Value {
                 lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::In),
                         lhs: lhs.get_type(),
@@ -3706,14 +3758,12 @@ impl Value {
                 rhs,
             ),
             (lhs, rhs) => Err(
-                if matches!(
-                    rhs,
-                    Value::List { .. }
-                        | Value::Range { .. }
-                        | Value::String { .. }
-                        | Value::Record { .. }
-                        | Value::Custom { .. }
-                ) {
+                if let Value::List { .. }
+                | Value::Range { .. }
+                | Value::String { .. }
+                | Value::Record { .. }
+                | Value::Custom { .. } = rhs
+                {
                     ShellError::OperatorIncompatibleTypes {
                         op: Operator::Comparison(Comparison::NotIn),
                         lhs: lhs.get_type(),
@@ -3837,6 +3887,27 @@ impl Value {
         }
     }
 
+    pub fn not_starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!lhs.starts_with(rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotStartsWith),
+                op,
+                rhs,
+            ),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::NotStartsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
     pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
@@ -3850,6 +3921,27 @@ impl Value {
             ),
             _ => Err(operator_type_error(
                 Operator::Comparison(Comparison::EndsWith),
+                op,
+                self,
+                rhs,
+                |val| matches!(val, Value::String { .. }),
+            )),
+        }
+    }
+
+    pub fn not_ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
+        match (self, rhs) {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!lhs.ends_with(rhs), span))
+            }
+            (Value::Custom { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotEndsWith),
+                op,
+                rhs,
+            ),
+            _ => Err(operator_type_error(
+                Operator::Comparison(Comparison::NotEndsWith),
                 op,
                 self,
                 rhs,
@@ -4070,7 +4162,7 @@ fn operator_type_error(
     }
 }
 
-fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
+pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
     let now = Local::now().with_timezone(val.offset());
     let delta = *val - now;
     match delta.num_nanoseconds() {
@@ -4313,7 +4405,9 @@ mod tests {
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
                 list_of_ints_and_floats_and_bools.get_type(),
-                Type::List(Box::new(Type::Any))
+                Type::List(Box::new(Type::OneOf(
+                    vec![Type::Number, Type::Bool].into_boxed_slice()
+                )))
             );
             assert_eq!(
                 list_of_ints_and_floats.get_type(),

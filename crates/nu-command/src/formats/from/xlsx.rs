@@ -51,7 +51,7 @@ impl Command for FromXlsx {
         from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert binary .xlsx data to a table",
@@ -181,7 +181,7 @@ fn from_xlsx(
         }
     }
 
-    Ok(PipelineData::Value(
+    Ok(PipelineData::value(
         Value::record(dict.into_iter().collect(), head),
         None,
     ))

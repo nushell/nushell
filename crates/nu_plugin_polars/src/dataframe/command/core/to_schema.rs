@@ -3,7 +3,7 @@ use nu_protocol::{Category, Example, ShellError, Signature, Span, Type, Value, r
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuSchema},
+    values::{CustomValueSupport, NuSchema, PolarsPluginType},
 };
 
 pub struct ToSchema;
@@ -21,11 +21,11 @@ impl PluginCommand for ToSchema {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Any, Type::Custom("schema".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuSchema.into())
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Convert a record into a schema and back to a nu object",
             example: r#"{a: str, b: u8} | polars into-schema | polars into-nu"#,

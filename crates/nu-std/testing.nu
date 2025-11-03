@@ -37,11 +37,16 @@ def get-annotated [
         source `($file)`
         scope commands
         | select name attributes
-        | where attributes != []
         | to nuon
     '
     | from nuon
-    | update attributes { get name | each {|x| $valid_annotations | get -i $x } | first }
+    | each {|e|
+        # filter commands with test attributes, and map attributes to annotation name
+        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -o $x }
+        if ($test_attributes | is-not-empty) {
+          $e | update attributes $test_attributes.0
+        }
+      }
     | rename function_name annotation
 }
 
@@ -235,13 +240,15 @@ def run-tests-for-module [
             log info $"Running ($test.test) in module ($module.name)"
             log debug $"Global context is ($global_context)"
 
-            $test|insert result {|x|
-                run-test $test $plugins
-                | if $in.exit_code == 0 {
-                    'pass'
-                } else {
-                    'fail'
-                }
+            $test | insert result { run-test $test $plugins }
+        }
+        | collect # Avoid interleaving errors
+        | update result {|test|
+            if $in.exit_code == 0 {
+                'pass'
+            } else {
+                log error $"Error while running ($test.test) in module ($module.name)(char nl)($in.stderr)"
+                'fail'
             }
         }
         | append $skipped_tests

@@ -7,8 +7,7 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
 };
 
 use chrono::DateTime;
@@ -33,8 +32,8 @@ impl PluginCommand for ConvertTimeZone {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .required(
                 "time_zone",
@@ -44,7 +43,7 @@ impl PluginCommand for ConvertTimeZone {
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert timezone for timezone-aware datetime",

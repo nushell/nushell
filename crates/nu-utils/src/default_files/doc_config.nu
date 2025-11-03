@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.104.2"
+# version = "0.108.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -39,10 +39,12 @@
 # ------------------------
 # $env.config.history.*
 
-# file_format (string):  Either "sqlite" or "plaintext". While text-backed history
-# is currently the default for historical reasons, "sqlite" is stable and
-# provides more advanced history features.
-$env.config.history.file_format = "sqlite"
+# file_format (string):  Either "sqlite" or "plaintext". 
+# While text-backed history is currently the default for historical reasons, 
+# "sqlite" is stable and provides more advanced history features.
+# The "sqlite" option requires compiling Nushell with the `sqlite` feature 
+# (enabled by default).
+$env.config.history.file_format = "plaintext"
 
 # max_size (int): The maximum number of entries allowed in the history.
 # After exceeding this value, the oldest history items will be removed
@@ -70,7 +72,10 @@ $env.config.history.isolation = true
 # Miscellaneous Settings
 # ----------------------
 
-# show_banner (bool): Enable or disable the welcome banner at startup
+# show_banner (bool|string): Enable or disable the welcome banner at startup
+# true | "full": show the full banner
+# "short": just show the start-up time
+# false | "none": don't show a banner
 $env.config.show_banner = true
 
 # rm.always_trash (bool):
@@ -202,12 +207,12 @@ $env.config.shell_integration.osc2 = true
 # osc7 (bool):
 # Nushell will report the current directory to the terminal using OSC 7. This is useful when
 # spawning new tabs in the same directory.
-$env.config.shell_integration.osc7 = true
+$env.config.shell_integration.osc7 = ($nu.os-info.name != windows)
 
 # osc9_9 (bool):
 # Enables/Disables OSC 9;9 support, originally a ConEmu terminal feature. This is an
 # alternative to OSC 7 which also communicates the current path to the terminal.
-$env.config.shell_integration.osc9_9 = false
+$env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # osc8 (bool):
 # When true, the `ls` command will generate clickable links that can be launched in another
@@ -236,7 +241,7 @@ $env.config.shell_integration.osc633 = true
 # reset_application_mode (bool):
 # true/false to enable/disable sending ESC[?1l to the terminal
 # This sequence is commonly used to keep cursor key modes in sync between the local
-# terminal and a remove SSH host.
+# terminal and a remote SSH host.
 $env.config.shell_integration.reset_application_mode = true
 
 # bracketed_paste (bool):
@@ -300,7 +305,7 @@ $env.config.footer_mode = 25
 # Specifies the visual display style of a table
 # One of: "default", "basic", "compact", "compact_double", "heavy", "light", "none", "reinforced",
 # "rounded", "thin", "with_love", "psql", "markdown", "dots", "restructured", "ascii_rounded",
-# "basic_compact" or "single"
+# "basic_compact", "single", or "double"
 # Can be overridden by passing a table to `| table --theme/-t`
 $env.config.table.mode = "default"
 
@@ -358,6 +363,15 @@ $env.config.table.footer_inheritance = false
 # missing_value_symbol (string): The symbol shown for missing values
 $env.config.table.missing_value_symbol = "❎"
 
+# batch_duration (duration), stream_page_size (int):
+# Streaming pipelines are displayed in batches.
+# A batch is shown when either the batch duration has passed or the page size is reached.
+# Increasing batch_duration waits longer before showing a batch, allowing more data to be collected.
+# Increasing stream_page_size lets more items be included before a batch is shown.
+# Use `collect` if you want to gather the whole stream into one table.
+$env.config.table.batch_duration = 1sec
+$env.config.table.stream_page_size = 1000
+
 # ----------------
 # Datetime Display
 # ----------------
@@ -368,6 +382,7 @@ $env.config.table.missing_value_symbol = "❎"
 # datetime_format.table (string or nothing):
 # The format string (or `null`) that will be used to display a datetime value when it appears in a
 # structured value such as a table, list, or record.
+# Execute `into datetime --list` to get a list of supported datetime specifiers.
 $env.config.datetime_format.table = null
 
 # datetime_format.normal (string or nothing):
@@ -511,6 +526,25 @@ $env.config.menus ++= [
         }
     }
 ]
+
+# Example - Completion menu configuration
+$env.config.menus ++= [{
+    name: completion_menu
+    only_buffer_difference: false     # Search is done on the text written after activating the menu
+    marker: "| "                      # Indicator that appears with the menu is active
+    type: {
+        layout: columnar              # Type of menu
+        columns: 4                    # Number of columns where the options are displayed
+        col_width: 20                 # Optional value. If missing all the screen width is used to calculate column width
+        col_padding: 2                # Padding between columns
+        tab_traversal: "horizontal"   # Direction in which pressing <Tab> will cycle through options, "horizontal" or "vertical"
+    }
+    style: {
+        text: green                   # Text style
+        selected_text: green_reverse  # Text style for selected option
+        description_text: yellow      # Text style for description
+    }
+}]
 
 # ---------------
 # Plugin behavior

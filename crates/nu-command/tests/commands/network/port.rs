@@ -1,4 +1,4 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 use std::net::TcpListener;
 use std::sync::mpsc;
 
@@ -24,16 +24,13 @@ fn port_with_already_usage() {
             let _listener = TcpListener::bind(format!("127.0.0.1:{free_port}"));
             let _ = rx.recv();
         });
-        let actual = nu!(pipeline(&format!("port {free_port} {free_port}")));
+        let actual = nu!(format!("port {free_port} {free_port}"));
         let _ = tx.send(true);
         // make sure that the thread is closed and we release the port.
         handler.join().unwrap();
 
         // check for error kind str.
-        if actual
-            .err
-            .contains("Every port has been tried, but no valid one was found")
-        {
+        if actual.err.contains("nu::shell::io::addr_in_use") {
             return;
         }
     }

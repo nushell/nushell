@@ -7,9 +7,14 @@ use crate::{
 use chrono::{DateTime, FixedOffset};
 use std::{
     any,
+    borrow::Cow,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt,
+    num::{
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
+        NonZeroU64, NonZeroUsize,
+    },
     path::PathBuf,
     str::FromStr,
 };
@@ -270,6 +275,65 @@ impl FromValue for i64 {
     }
 }
 
+/// This implementation supports **positive** durations only.
+impl FromValue for std::time::Duration {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Duration { val, .. } => {
+                let nanos = u64::try_from(val)
+                    .map_err(|_| ShellError::NeedsPositiveValue { span: v.span() })?;
+                Ok(Self::from_nanos(nanos))
+            }
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Duration
+    }
+}
+
+//
+// We can not use impl<T: FromValue> FromValue for NonZero<T> as NonZero requires an unstable trait
+// As a result, we use this macro to implement FromValue for each NonZero type.
+//
+
+macro_rules! impl_from_value_for_nonzero {
+    ($nonzero:ty, $base:ty) => {
+        impl FromValue for $nonzero {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
+                let span = v.span();
+                let val = <$base>::from_value(v)?;
+                <$nonzero>::new(val).ok_or_else(|| ShellError::IncorrectValue {
+                    msg: "use a value other than 0".into(),
+                    val_span: span,
+                    call_span: span,
+                })
+            }
+
+            fn expected_type() -> Type {
+                Type::Int
+            }
+        }
+    };
+}
+
+impl_from_value_for_nonzero!(NonZeroU16, u16);
+impl_from_value_for_nonzero!(NonZeroU32, u32);
+impl_from_value_for_nonzero!(NonZeroU64, u64);
+impl_from_value_for_nonzero!(NonZeroUsize, usize);
+
+impl_from_value_for_nonzero!(NonZeroI8, i8);
+impl_from_value_for_nonzero!(NonZeroI16, i16);
+impl_from_value_for_nonzero!(NonZeroI32, i32);
+impl_from_value_for_nonzero!(NonZeroI64, i64);
+impl_from_value_for_nonzero!(NonZeroIsize, isize);
+
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
         impl FromValue for $type {
@@ -521,6 +585,25 @@ where
 
     fn expected_type() -> Type {
         T::expected_type()
+    }
+}
+
+/// This blanket implementation permits the use of [`Cow<'_, B>`] ([`Cow<'_, str>`] etc) based on
+/// the [FromValue] implementation of `B`'s owned form ([str] => [String]).
+///
+/// It's meant to make using the [FromValue] derive macro on types that contain [Cow] fields
+/// possible.
+impl<B> FromValue for Cow<'_, B>
+where
+    B: ?Sized + ToOwned,
+    B::Owned: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        <B::Owned as FromValue>::from_value(v).map(Cow::Owned)
+    }
+
+    fn expected_type() -> Type {
+        <B::Owned as FromValue>::expected_type()
     }
 }
 

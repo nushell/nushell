@@ -1,10 +1,10 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, http_client, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    RedirectMode, RequestFlags, RequestMetadata, http_client, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
-
-use super::client::HttpBody;
 
 #[derive(Clone)]
 pub struct HttpOptions;
@@ -15,7 +15,7 @@ impl Command for HttpOptions {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http options")
+        let sig = Signature::build("http options")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -58,7 +58,9 @@ impl Command for HttpOptions {
                 Some('e'),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -83,7 +85,7 @@ impl Command for HttpOptions {
         run_get(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get options from example.com",
@@ -122,6 +124,7 @@ struct Arguments {
     password: Option<String>,
     timeout: Option<Value>,
     allow_errors: bool,
+    unix_socket: Option<Spanned<String>>,
 }
 
 fn run_get(
@@ -138,6 +141,7 @@ fn run_get(
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -152,22 +156,27 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let redirect_mode = RedirectMode::Follow;
 
-    let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
-    let mut request = client.request("OPTIONS", &requested_url);
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
+    let mut request = client.options(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
-        engine_state,
-        request.clone(),
-        HttpBody::None,
-        None,
-        call.head,
-        engine_state.signals(),
-    );
+    let (response, request_headers) =
+        send_request_no_body(request, call.head, engine_state.signals());
+
+    let response = response?;
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true
@@ -181,11 +190,14 @@ fn helper(
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

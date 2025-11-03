@@ -5,9 +5,9 @@ use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
-    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    report_error::report_compile_error,
     report_parse_error, report_parse_warning,
     shell_error::io::*,
 };
@@ -26,14 +26,23 @@ pub fn evaluate_file(
 ) -> Result<(), ShellError> {
     let cwd = engine_state.cwd_as_string(Some(stack))?;
 
-    let file_path = canonicalize_with(&path, cwd).map_err(|err| {
-        IoError::new_internal_with_path(
-            err.not_found_as(NotFound::File),
-            "Could not access file",
-            nu_protocol::location!(),
-            PathBuf::from(&path),
-        )
-    })?;
+    let file_path = {
+        match canonicalize_with(&path, cwd) {
+            Ok(t) => Ok(t),
+            Err(err) => {
+                let cmdline = format!("nu {path} {}", args.join(" "));
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let file_id = working_set.add_file("<commandline>".into(), cmdline.as_bytes());
+                let span = working_set
+                    .get_span_for_file(file_id)
+                    .subspan(3, path.len() + 3)
+                    .expect("<commandline> to contain script path");
+                engine_state.merge_delta(working_set.render())?;
+                let e = IoError::new(err.not_found_as(NotFound::File), span, PathBuf::from(&path));
+                Err(e)
+            }
+        }
+    }?;
 
     let file_path_str = file_path
         .to_str()
@@ -82,7 +91,7 @@ pub fn evaluate_file(
         .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
-    trace!("parsing file: {}", file_path_str);
+    trace!("parsing file: {file_path_str}");
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
     if let Some(warning) = working_set.parse_warnings.first() {
@@ -117,7 +126,9 @@ pub fn evaluate_file(
     let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
+                .map(|p| p.body)
+            {
                 Ok(data) => data,
                 Err(ShellError::Return { .. }) => {
                     // Allow early return before main is run.

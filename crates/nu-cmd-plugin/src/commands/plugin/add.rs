@@ -58,7 +58,7 @@ apparent the next time `nu` is next launched with that plugin registry file.
         vec!["load", "register", "signature"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "plugin add nu_plugin_inc",

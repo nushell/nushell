@@ -1,5 +1,5 @@
 use super::{config_update_string_enum, prelude::*};
-use crate as nu_protocol;
+use crate::{self as nu_protocol, ConfigWarning};
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
@@ -26,14 +26,27 @@ impl FromStr for HistoryFileFormat {
         match s.to_ascii_lowercase().as_str() {
             "sqlite" => Ok(Self::Sqlite),
             "plaintext" => Ok(Self::Plaintext),
+            #[cfg(feature = "sqlite")]
             _ => Err("'sqlite' or 'plaintext'"),
+            #[cfg(not(feature = "sqlite"))]
+            _ => Err("'plaintext'"),
         }
     }
 }
 
 impl UpdateFromValue for HistoryFileFormat {
     fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut ConfigErrors) {
-        config_update_string_enum(self, value, path, errors)
+        config_update_string_enum(self, value, path, errors);
+
+        #[cfg(not(feature = "sqlite"))]
+        if *self == HistoryFileFormat::Sqlite {
+            *self = HistoryFileFormat::Plaintext;
+            errors.warn(ConfigWarning::IncompatibleOptions {
+                label: "SQLite-based history file only supported with the `sqlite` feature, falling back to plain text history", 
+                span: value.span(),
+                help: "Compile Nushell with `sqlite` feature enabled",
+            });
+        }
     }
 }
 
@@ -77,15 +90,35 @@ impl UpdateFromValue for HistoryConfig {
             return;
         };
 
+        // might not be correct if file format was changed away from sqlite rather than isolation,
+        // but this is an edge case and the span of the relevant value here should be close enough
+        let mut isolation_span = value.span();
+
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
             match col.as_str() {
-                "isolation" => self.isolation.update(val, path, errors),
+                "isolation" => {
+                    isolation_span = val.span();
+                    self.isolation.update(val, path, errors)
+                }
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
+        }
+
+        // Listing all formats separately in case additional ones are added
+        match (self.isolation, self.file_format) {
+            (true, HistoryFileFormat::Plaintext) => {
+                errors.warn(ConfigWarning::IncompatibleOptions {
+                    label: "history isolation only compatible with SQLite format",
+                    span: isolation_span,
+                    help: r#"disable history isolation, or set $env.config.history.file_format = "sqlite""#,
+                });
+            }
+            (true, HistoryFileFormat::Sqlite) => (),
+            (false, _) => (),
         }
     }
 }

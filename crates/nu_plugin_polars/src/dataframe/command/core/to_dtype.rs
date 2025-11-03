@@ -3,7 +3,7 @@ use nu_protocol::{Category, Example, ShellError, Signature, Span, Type, Value};
 
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataType},
+    values::{CustomValueSupport, NuDataType, PolarsPluginType},
 };
 
 pub struct ToDataType;
@@ -21,11 +21,11 @@ impl PluginCommand for ToDataType {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::String, Type::Custom("datatype".into()))
+            .input_output_type(Type::String, PolarsPluginType::NuDataFrame.into())
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Convert a string to a specific datatype and back to a nu object",
             example: r#"'i64' | polars into-dtype | polars into-nu"#,

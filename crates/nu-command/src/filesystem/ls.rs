@@ -127,7 +127,7 @@ impl Command for Ls {
                         engine_state.signals().clone(),
                         PipelineMetadata {
                             data_source: DataSource::Ls,
-                            content_type: None,
+                            ..Default::default()
                         },
                     ),
             ),
@@ -152,14 +152,14 @@ impl Command for Ls {
                         engine_state.signals().clone(),
                         PipelineMetadata {
                             data_source: DataSource::Ls,
-                            content_type: None,
+                            ..Default::default()
                         },
                     ))
             }
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "List visible files in the current directory",
@@ -341,7 +341,7 @@ fn ls_for_one_pattern(
 
     let mut paths_peek = paths.peekable();
     let no_matches = paths_peek.peek().is_none();
-    signals.check(call_span)?;
+    signals.check(&call_span)?;
     if no_matches {
         return Err(ShellError::GenericError {
             error: format!("No matches found for {:?}", path.item),
@@ -598,78 +598,74 @@ pub(crate) fn dir_entry_dict(
         record.push("type", Value::nothing(span));
     }
 
-    if long {
-        if let Some(md) = metadata {
-            record.push(
-                "target",
-                if md.file_type().is_symlink() {
-                    if let Ok(path_to_link) = filename.read_link() {
-                        // Actually `filename` should always have a parent because it's a symlink.
-                        // But for safety, we check `filename.parent().is_some()` first.
-                        if full_symlink_target && filename.parent().is_some() {
-                            Value::string(
-                                expand_path_with(
-                                    path_to_link,
-                                    filename
-                                        .parent()
-                                        .expect("already check the filename have a parent"),
-                                    true,
-                                )
-                                .to_string_lossy(),
-                                span,
+    if long && let Some(md) = metadata {
+        record.push(
+            "target",
+            if md.file_type().is_symlink() {
+                if let Ok(path_to_link) = filename.read_link() {
+                    // Actually `filename` should always have a parent because it's a symlink.
+                    // But for safety, we check `filename.parent().is_some()` first.
+                    if full_symlink_target && filename.parent().is_some() {
+                        Value::string(
+                            expand_path_with(
+                                path_to_link,
+                                filename
+                                    .parent()
+                                    .expect("already check the filename have a parent"),
+                                true,
                             )
-                        } else {
-                            Value::string(path_to_link.to_string_lossy(), span)
-                        }
+                            .to_string_lossy(),
+                            span,
+                        )
                     } else {
-                        Value::string("Could not obtain target file's path", span)
+                        Value::string(path_to_link.to_string_lossy(), span)
                     }
                 } else {
-                    Value::nothing(span)
-                },
-            )
-        }
+                    Value::string("Could not obtain target file's path", span)
+                }
+            } else {
+                Value::nothing(span)
+            },
+        )
     }
 
-    if long {
-        if let Some(md) = metadata {
-            record.push("readonly", Value::bool(md.permissions().readonly(), span));
+    if long && let Some(md) = metadata {
+        record.push("readonly", Value::bool(md.permissions().readonly(), span));
 
-            #[cfg(unix)]
-            {
-                use nu_utils::filesystem::users;
-                use std::os::unix::fs::MetadataExt;
+        #[cfg(unix)]
+        {
+            use nu_utils::filesystem::users;
+            use std::os::unix::fs::MetadataExt;
 
-                let mode = md.permissions().mode();
-                record.push(
-                    "mode",
-                    Value::string(umask::Mode::from(mode).to_string(), span),
-                );
+            let mode = md.permissions().mode();
+            record.push(
+                "mode",
+                Value::string(umask::Mode::from(mode).to_string(), span),
+            );
 
-                let nlinks = md.nlink();
-                record.push("num_links", Value::int(nlinks as i64, span));
+            let nlinks = md.nlink();
+            record.push("num_links", Value::int(nlinks as i64, span));
 
-                let inode = md.ino();
-                record.push("inode", Value::int(inode as i64, span));
+            let inode = md.ino();
+            record.push("inode", Value::int(inode as i64, span));
 
-                record.push(
-                    "user",
-                    if let Some(user) = users::get_user_by_uid(md.uid().into()) {
-                        Value::string(user.name, span)
-                    } else {
-                        Value::int(md.uid().into(), span)
-                    },
-                );
+            record.push(
+                "user",
+                if let Some(user) = users::get_user_by_uid(md.uid().into()) {
+                    Value::string(user.name, span)
+                } else {
+                    Value::int(md.uid().into(), span)
+                },
+            );
 
-                record.push(
-                    "group",
-                    if let Some(group) = users::get_group_by_gid(md.gid().into()) {
-                        Value::string(group.name, span)
-                    } else {
-                        Value::int(md.gid().into(), span)
-                    },
-                );
-            }
+            record.push(
+                "group",
+                if let Some(group) = users::get_group_by_gid(md.gid().into()) {
+                    Value::string(group.name, span)
+                } else {
+                    Value::int(md.gid().into(), span)
+                },
+            );
         }
     }
 
@@ -714,20 +710,20 @@ pub(crate) fn dir_entry_dict(
         if long {
             record.push("created", {
                 let mut val = Value::nothing(span);
-                if let Ok(c) = md.created() {
-                    if let Some(local) = try_convert_to_local_date_time(c) {
-                        val = Value::date(local.with_timezone(local.offset()), span);
-                    }
+                if let Ok(c) = md.created()
+                    && let Some(local) = try_convert_to_local_date_time(c)
+                {
+                    val = Value::date(local.with_timezone(local.offset()), span);
                 }
                 val
             });
 
             record.push("accessed", {
                 let mut val = Value::nothing(span);
-                if let Ok(a) = md.accessed() {
-                    if let Some(local) = try_convert_to_local_date_time(a) {
-                        val = Value::date(local.with_timezone(local.offset()), span)
-                    }
+                if let Ok(a) = md.accessed()
+                    && let Some(local) = try_convert_to_local_date_time(a)
+                {
+                    val = Value::date(local.with_timezone(local.offset()), span)
                 }
                 val
             });
@@ -735,10 +731,10 @@ pub(crate) fn dir_entry_dict(
 
         record.push("modified", {
             let mut val = Value::nothing(span);
-            if let Ok(m) = md.modified() {
-                if let Some(local) = try_convert_to_local_date_time(m) {
-                    val = Value::date(local.with_timezone(local.offset()), span);
-                }
+            if let Ok(m) = md.modified()
+                && let Some(local) = try_convert_to_local_date_time(m)
+            {
+                val = Value::date(local.with_timezone(local.offset()), span);
             }
             val
         })
@@ -979,14 +975,14 @@ fn read_dir(
         .read_dir()
         .map_err(|err| IoError::new(err, span, f.clone()))?
         .map(move |d| {
-            signals_clone.check(span)?;
+            signals_clone.check(&span)?;
             d.map(|r| r.path())
                 .map_err(|err| IoError::new(err, span, f.clone()))
                 .map_err(ShellError::from)
         });
     if !use_threads {
         let mut collected = items.collect::<Vec<_>>();
-        signals.check(span)?;
+        signals.check(&span)?;
         collected.sort_by(|a, b| match (a, b) {
             (Ok(a), Ok(b)) => a.cmp(b),
             (Ok(_), Err(_)) => Ordering::Greater,

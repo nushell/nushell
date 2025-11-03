@@ -15,9 +15,8 @@ use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, DataSource, IntoInterruptiblePipelineData, IntoSpanned,
-    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span,
-    Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,
@@ -646,7 +645,7 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
 fn manager_prepare_pipeline_data_adds_source_to_values() -> Result<(), ShellError> {
     let manager = TestCase::new().plugin("test");
 
-    let data = manager.prepare_pipeline_data(PipelineData::Value(
+    let data = manager.prepare_pipeline_data(PipelineData::value(
         Value::test_custom_value(Box::new(test_plugin_custom_value())),
         None,
     ))?;
@@ -803,8 +802,8 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
     let interface = manager.get_interface();
 
     let metadata0 = PipelineMetadata {
-        data_source: DataSource::None,
         content_type: Some("baz".into()),
+        ..Default::default()
     };
 
     let result = interface.write_plugin_call(
@@ -815,7 +814,7 @@ fn interface_write_plugin_call_writes_run_with_value_input() -> Result<(), Shell
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineData::Value(Value::test_int(-1), Some(metadata0.clone())),
+            input: PipelineData::value(Value::test_int(-1), Some(metadata0.clone())),
         }),
         None,
     )?;
@@ -1072,7 +1071,7 @@ fn interface_run() -> Result<(), ShellError> {
 
     start_fake_plugin_call_responder(manager, 1, move |_| {
         vec![ReceivedPluginCallMessage::Response(
-            PluginCallResponse::PipelineData(PipelineData::Value(Value::test_int(number), None)),
+            PluginCallResponse::PipelineData(PipelineData::value(Value::test_int(number), None)),
         )]
     });
 
@@ -1084,7 +1083,7 @@ fn interface_run() -> Result<(), ShellError> {
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineData::Empty,
+            input: PipelineData::empty(),
         },
         &mut PluginExecutionBogusContext,
     )?;
@@ -1106,7 +1105,7 @@ fn interface_custom_value_to_base_value() -> Result<(), ShellError> {
 
     start_fake_plugin_call_responder(manager, 1, move |_| {
         vec![ReceivedPluginCallMessage::Response(
-            PluginCallResponse::PipelineData(PipelineData::Value(Value::test_string(string), None)),
+            PluginCallResponse::PipelineData(PipelineData::value(Value::test_string(string), None)),
         )]
     });
 
@@ -1137,7 +1136,7 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
     let interface = TestCase::new().plugin("test").get_interface();
     let state = CurrentCallState::default();
     for value in normal_values(&interface) {
-        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
+        match interface.prepare_pipeline_data(PipelineData::value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
                 data.into_value(Span::test_data())?.get_type(),
@@ -1201,7 +1200,7 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value() -> Result<(), Shel
     let interface = TestCase::new().plugin("test").get_interface();
     let state = CurrentCallState::default();
     for value in bad_custom_values() {
-        match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
+        match interface.prepare_pipeline_data(PipelineData::value(value.clone(), None), &state) {
             Err(err) => match err {
                 ShellError::CustomValueIncorrectForPlugin { .. } => (),
                 _ => panic!("expected error type CustomValueIncorrectForPlugin, but got {err:?}"),
@@ -1361,7 +1360,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![Value::test_int(4)],
                     named: vec![("x".to_owned().into_spanned(span), Some(Value::test_int(6)))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1373,7 +1372,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![cv_ok.clone()],
                     named: vec![("ok".to_owned().into_spanned(span), Some(cv_ok.clone()))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1385,7 +1384,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![cv_bad.clone()],
                     named: vec![],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1397,7 +1396,7 @@ fn prepare_plugin_call_run() {
                     positional: vec![],
                     named: vec![("bad".to_owned().into_spanned(span), Some(cv_bad.clone()))],
                 },
-                input: PipelineData::Empty,
+                input: PipelineData::empty(),
             }),
         ),
         (
@@ -1410,7 +1409,7 @@ fn prepare_plugin_call_run() {
                     named: vec![],
                 },
                 // Shouldn't check input - that happens somewhere else
-                input: PipelineData::Value(cv_bad.clone(), None),
+                input: PipelineData::value(cv_bad.clone(), None),
             }),
         ),
     ];

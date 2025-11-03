@@ -7,10 +7,9 @@ use crate::values::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
-use polars::prelude::{DataType, IntoSeries};
-use polars_ops::prelude::{cum_max, cum_min, cum_sum};
+use polars::prelude::{DataType, IntoSeries, cum_max, cum_min, cum_sum};
 
 enum CumulativeType {
     Min,
@@ -67,18 +66,22 @@ impl PluginCommand for Cumulative {
             .switch("reverse", "Reverse cumulative calculation", Some('r'))
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Cumulative sum for a column",

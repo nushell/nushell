@@ -7,10 +7,9 @@ use crate::values::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Value,
 };
-use num::ToPrimitive;
-use polars::prelude::df;
+use polars::prelude::{Expr, Literal, df};
 
 enum FunctionType {
     Abs,
@@ -86,7 +85,7 @@ impl PluginCommand for ExprMath {
         - exp
         - log <base; default e>
         - log1p
-        - sign  
+        - sign
         - sin
         - sqrt
         "#
@@ -105,13 +104,13 @@ impl PluginCommand for ExprMath {
                 "Extra arguments required by some functions",
             )
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Apply function to column expression",
             example: "[[a]; [0] [-1] [2] [-3] [4]]
@@ -206,30 +205,28 @@ fn command_expr(
         FunctionType::Abs => res.abs(),
         FunctionType::Cos => res.cos(),
         FunctionType::Dot => {
-            let expr = match call.rest::<Value>(1)?.first() {
-                None => Err(ShellError::GenericError { error: "Second expression to compute dot product with must be provided".into(), msg: "".into(), span: Some(call.head), help: None, inner: vec![] }),
-                Some(value) => {
-                    match PolarsPluginObject::try_from_value(plugin, value)? {
-                        PolarsPluginObject::NuExpression(expr) => {
-                            Ok(expr.into_polars())
-                        }
-                        _ => Err(cant_convert_err(value, &[PolarsPluginType::NuExpression]))
-                    }
+            let expr: Expr = match call.rest::<Value>(1)?.first() {
+                None => {
+                    return Err(ShellError::GenericError {
+                        error: "Second expression to compute dot product with must be provided"
+                            .into(),
+                        msg: "".into(),
+                        span: Some(call.head),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
-            }?;
+                Some(value) => NuExpression::try_from_value(plugin, value)?.into_polars(),
+            };
             res.dot(expr)
         }
         FunctionType::Exp => res.exp(),
         FunctionType::Log => {
-            let base = match call.rest::<Value>(1)?.first() {
+            let base: Expr = match call.rest::<Value>(1)?.first() {
                 // default natural log
-                None => Ok(std::f64::consts::E),
-                Some(value) => match value {
-                    Value::Float { val, .. } => Ok(*val),
-                    Value::Int { val, .. } => Ok(val.to_f64().expect("i64 to f64 conversion should not panic")),
-                    _ => Err(ShellError::GenericError { error: "log base must be a float or integer. Leave base unspecified for natural log".into(), msg: "".into(), span: Some(value.span()), help: None, inner: vec![] }),
-                },
-            }?;
+                None => std::f64::consts::E.lit(),
+                Some(value) => NuExpression::try_from_value(plugin, value)?.into_polars(),
+            };
 
             res.log(base)
         }

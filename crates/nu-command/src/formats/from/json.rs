@@ -23,7 +23,7 @@ impl Command for FromJson {
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: r#"'{ "a": 1 }' | from json"#,
@@ -76,25 +76,27 @@ impl Command for FromJson {
         if call.has_flag(engine_state, stack, "objects")? {
             // Return a stream of JSON values, one for each non-empty line
             match input {
-                PipelineData::Value(Value::String { val, .. }, ..) => Ok(PipelineData::ListStream(
-                    read_json_lines(
-                        Cursor::new(val),
-                        span,
-                        strict,
-                        engine_state.signals().clone(),
-                    ),
-                    metadata,
-                )),
+                PipelineData::Value(Value::String { val, .. }, ..) => {
+                    Ok(PipelineData::list_stream(
+                        read_json_lines(
+                            Cursor::new(val),
+                            span,
+                            strict,
+                            engine_state.signals().clone(),
+                        ),
+                        metadata,
+                    ))
+                }
                 PipelineData::ByteStream(stream, ..)
                     if stream.type_() != ByteStreamType::Binary =>
                 {
                     if let Some(reader) = stream.reader() {
-                        Ok(PipelineData::ListStream(
+                        Ok(PipelineData::list_stream(
                             read_json_lines(reader, span, strict, Signals::empty()),
                             metadata,
                         ))
                     } else {
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
                 _ => Err(ShellError::OnlySupportsThisInputType {
@@ -184,7 +186,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 
@@ -248,6 +250,7 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
 mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     use super::*;
@@ -268,6 +271,7 @@ mod test {
             working_set.add_decl(Box::new(FromJson {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -276,7 +280,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | $in"#;
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

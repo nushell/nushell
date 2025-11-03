@@ -88,8 +88,8 @@ impl Command for Explore {
         let result = run_pager(engine_state, &mut stack.clone(), input, config);
 
         match result {
-            Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
-            Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
+            Ok(Some(value)) => Ok(PipelineData::value(value, None)),
+            Ok(None) => Ok(PipelineData::value(Value::default(), None)),
             Err(err) => {
                 let shell_error = match err.downcast::<ShellError>() {
                     Ok(e) => e,
@@ -102,7 +102,7 @@ impl Command for Explore {
                     },
                 };
 
-                Ok(PipelineData::Value(
+                Ok(PipelineData::value(
                     Value::error(shell_error, call.head),
                     None,
                 ))
@@ -110,7 +110,7 @@ impl Command for Explore {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Explore the system host information record",
@@ -229,12 +229,11 @@ impl ExploreConfig {
             }
         }
 
-        if let Some(hm) = explore_cfg_hash_map.get("try").and_then(create_map) {
-            if let Some(reactive) = hm.get("reactive") {
-                if let Ok(b) = reactive.as_bool() {
-                    ret.try_reactive = b;
-                }
-            }
+        if let Some(hm) = explore_cfg_hash_map.get("try").and_then(create_map)
+            && let Some(reactive) = hm.get("reactive")
+            && let Ok(b) = reactive.as_bool()
+        {
+            ret.try_reactive = b;
         }
 
         ret

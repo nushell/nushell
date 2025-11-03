@@ -1,12 +1,11 @@
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuDataFrame, NuExpression},
+    values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginType},
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
 };
 use polars::df;
 
@@ -28,13 +27,13 @@ impl PluginCommand for StrSplit {
         Signature::build(self.name())
             .required("expr", SyntaxShape::Any, "Separator expression")
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Split the string by comma, then create a new row for each string",
             example: r#"[[a]; ["one,two,three"]] | polars into-df 

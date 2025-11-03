@@ -1,9 +1,9 @@
-use crate::PolarsPlugin;
 use crate::values::NuDataFrame;
+use crate::{PolarsPlugin, values::PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -22,11 +22,20 @@ impl PluginCommand for ColumnsDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(Type::Custom("dataframe".into()), Type::Any)
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Dataframe columns",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars columns",
@@ -67,7 +76,7 @@ fn command(
 
     let names = Value::list(names, call.head);
 
-    Ok(PipelineData::Value(names, None))
+    Ok(PipelineData::value(names, None))
 }
 
 #[cfg(test)]

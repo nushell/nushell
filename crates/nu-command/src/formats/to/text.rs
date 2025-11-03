@@ -2,6 +2,7 @@ use chrono::Datelike;
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, PipelineMetadata, format_duration, shell_error::io::IoError};
+use nu_utils::ObviousFloat;
 use std::io::Write;
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
@@ -120,15 +121,15 @@ impl Command for ToText {
                     )
                 };
 
-                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
+                Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
             PipelineData::ByteStream(stream, meta) => {
-                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
+                Ok(PipelineData::byte_stream(stream, update_metadata(meta)))
             }
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs data as simple text with a trailing newline",
@@ -164,7 +165,7 @@ fn local_into_string(
     match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
+        Value::Float { val, .. } => ObviousFloat(val).to_string(),
         Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => format_duration(val),
         Value::Date { val, .. } => {
@@ -272,14 +273,14 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{a: 1 b: 2} | to text  | metadata | get content_type";
+        let cmd = "{a: 1 b: 2} | to text  | metadata | get content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("content_type" => Value::test_string("text/plain"))),
+            Value::test_string("text/plain"),
             result.expect("There should be a result")
         );
     }

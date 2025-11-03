@@ -128,7 +128,8 @@ impl Call {
 
     pub fn named_iter(
         &self,
-    ) -> impl Iterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)> {
+    ) -> impl DoubleEndedIterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)>
+    {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
@@ -222,7 +223,7 @@ impl Call {
     }
 
     pub fn get_flag_expr(&self, flag_name: &str) -> Option<&Expression> {
-        for name in self.named_iter() {
+        for name in self.named_iter().rev() {
             if flag_name == name.0.item {
                 return name.2.as_ref();
             }
@@ -232,7 +233,7 @@ impl Call {
     }
 
     pub fn get_named_arg(&self, flag_name: &str) -> Option<Spanned<String>> {
-        for name in self.named_iter() {
+        for name in self.named_iter().rev() {
             if flag_name == name.0.item {
                 return Some(name.0.clone());
             }
@@ -315,6 +316,7 @@ impl Call {
             if spread {
                 match result {
                     Value::List { mut vals, .. } => output.append(&mut vals),
+                    Value::Nothing { .. } => (),
                     _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                 }
             } else {

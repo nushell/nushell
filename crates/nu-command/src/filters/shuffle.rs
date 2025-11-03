@@ -40,7 +40,7 @@ impl Command for Shuffle {
         ))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Shuffle rows randomly (execute it several times and see the difference)",
             example: r#"[[version patch]; ['1.0.0' false] ['3.0.1' true] ['2.0.0' false]] | shuffle"#,

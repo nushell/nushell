@@ -34,7 +34,7 @@ impl Command for StrExpand {
             .category(Category::Strings)
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Define a range inside braces to produce a list of string.",
@@ -214,7 +214,7 @@ fn run(
     engine_state: &EngineState,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    if matches!(input, PipelineData::Empty) {
+    if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
     input.map(
@@ -310,6 +310,20 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_double_dots_outside_curly() {
+        assert_eq!(
+            str_expand("..{a,b}..", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("..a.."), Span::test_data(),),
+                    Value::string(String::from("..b.."), Span::test_data(),)
+                ],
+                Span::test_data(),
+            )
+        );
+    }
 
     #[test]
     fn test_outer_single_item() {

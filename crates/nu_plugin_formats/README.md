@@ -6,6 +6,8 @@ A nushell plugin to convert data to nushell tables.
 2. from ics - original ported from nushell core.
 3. from ini - original ported from nushell core.
 4. from vcf - original ported from nushell core.
+5. from plist - original ported from nushell core.
+6. to plist - original ported from nushell core.
 
 # Prerequisite
 `nushell`, It's a nushell plugin, so you need it.

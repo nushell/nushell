@@ -49,7 +49,7 @@ use it in your pipeline."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "http get http://example.org/ | tee { save example.html }",
@@ -105,7 +105,8 @@ use it in your pipeline."#
                     &mut closure_stack,
                     closure_engine_state.get_block(closure.block_id),
                     input,
-                );
+                )
+                .map(|p| p.body);
                 // Make sure to drain any iterator produced to avoid unexpected behavior
                 result.and_then(|data| data.drain().map(|_| ()))
             }
@@ -138,7 +139,7 @@ use it in your pipeline."#
                     let tee_thread = spawn_tee(info, eval_block)?;
                     let tee = IoTee::new(read, tee_thread);
 
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
@@ -151,7 +152,7 @@ use it in your pipeline."#
                     let tee_thread = spawn_tee(info, eval_block)?;
                     let tee = IoTee::new(file, tee_thread);
 
-                    Ok(PipelineData::ByteStream(
+                    Ok(PipelineData::byte_stream(
                         ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
@@ -234,7 +235,7 @@ use it in your pipeline."#
                     };
 
                     if child.stdout.is_some() || child.stderr.is_some() {
-                        Ok(PipelineData::ByteStream(
+                        Ok(PipelineData::byte_stream(
                             ByteStream::child(*child, span),
                             metadata,
                         ))
@@ -243,7 +244,7 @@ use it in your pipeline."#
                             thread.join().unwrap_or_else(|_| Err(panic_error()))?;
                         }
                         child.wait()?;
-                        Ok(PipelineData::Empty)
+                        Ok(PipelineData::empty())
                     }
                 }
             }
@@ -255,7 +256,7 @@ use it in your pipeline."#
             let metadata = input.metadata();
             let metadata_clone = metadata.clone();
 
-            if matches!(input, PipelineData::ListStream(..)) {
+            if let PipelineData::ListStream(..) = input {
                 // Only use the iterator implementation on lists / list streams. We want to be able
                 // to preserve errors as much as possible, and only the stream implementations can
                 // really do that
@@ -404,15 +405,15 @@ impl<R: Read> Read for IoTee<R> {
         let len = self.reader.read(buf)?;
         if len == 0 {
             self.sender = None;
-            if let Some(thread) = self.thread.take() {
-                if let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error())) {
-                    return Err(io::Error::other(err));
-                }
+            if let Some(thread) = self.thread.take()
+                && let Err(err) = thread.join().unwrap_or_else(|_| Err(panic_error()))
+            {
+                return Err(io::Error::other(err));
             }
-        } else if let Some(sender) = self.sender.as_mut() {
-            if sender.send(buf[..len].to_vec()).is_err() {
-                self.sender = None;
-            }
+        } else if let Some(sender) = self.sender.as_mut()
+            && sender.send(buf[..len].to_vec()).is_err()
+        {
+            self.sender = None;
         }
         Ok(len)
     }
@@ -439,7 +440,7 @@ fn spawn_tee(
                 Signals::empty(),
                 info.type_,
             );
-            eval_block(PipelineData::ByteStream(stream, info.metadata))
+            eval_block(PipelineData::byte_stream(stream, info.metadata))
         })
         .map_err(|err| {
             IoError::new_with_additional_context(err, info.span, None, "Could not spawn tee")

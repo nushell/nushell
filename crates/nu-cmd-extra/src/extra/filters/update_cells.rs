@@ -12,7 +12,10 @@ impl Command for UpdateCells {
 
     fn signature(&self) -> Signature {
         Signature::build("update cells")
-            .input_output_types(vec![(Type::table(), Type::table())])
+            .input_output_types(vec![
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
+            ])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -31,7 +34,7 @@ impl Command for UpdateCells {
         "Update the table cells."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Update the zero value cells to empty strings.",
@@ -77,6 +80,15 @@ impl Command for UpdateCells {
                     "2021-11-18" => Value::test_string(""),
                 })])),
             },
+            Example {
+                example: r#"{a: 1, b: 2, c: 3} | update cells { $in + 10 }"#,
+                description: "Update each value in a record.",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(11),
+                    "b" => Value::test_int(12),
+                    "c" => Value::test_int(13),
+                })),
+            },
         ]
     }
 
@@ -85,7 +97,7 @@ impl Command for UpdateCells {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
@@ -102,14 +114,48 @@ impl Command for UpdateCells {
 
         let metadata = input.metadata();
 
-        Ok(UpdateCellIterator {
-            iter: input.into_iter(),
-            closure: ClosureEval::new(engine_state, stack, closure),
-            columns,
-            span: head,
+        let span = input.span();
+        match input {
+            PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
+                // SAFETY: we have a value in the input, so we must have a span
+                let span = span.expect("value had no span");
+                let val = val.to_mut();
+                update_record(
+                    val,
+                    &mut ClosureEval::new(engine_state, stack, closure),
+                    span,
+                    columns.as_ref(),
+                );
+                Ok(input)
+            }
+            _ => Ok(UpdateCellIterator {
+                iter: input.into_iter(),
+                closure: ClosureEval::new(engine_state, stack, closure),
+                columns,
+                span: head,
+            }
+            .into_pipeline_data(head, engine_state.signals().clone())
+            .set_metadata(metadata)),
         }
-        .into_pipeline_data(head, engine_state.signals().clone())
-        .set_metadata(metadata))
+    }
+}
+
+fn update_record(
+    record: &mut Record,
+    closure: &mut ClosureEval,
+    span: Span,
+    cols: Option<&HashSet<String>>,
+) {
+    if let Some(columns) = cols {
+        for (col, val) in record.iter_mut() {
+            if columns.contains(col) {
+                *val = eval_value(closure, span, std::mem::take(val));
+            }
+        }
+    } else {
+        for (_, val) in record.iter_mut() {
+            *val = eval_value(closure, span, std::mem::take(val))
+        }
     }
 }
 
@@ -128,18 +174,7 @@ impl Iterator for UpdateCellIterator {
 
         let value = if let Value::Record { val, .. } = &mut value {
             let val = val.to_mut();
-            if let Some(columns) = &self.columns {
-                for (col, val) in val.iter_mut() {
-                    if columns.contains(col) {
-                        *val = eval_value(&mut self.closure, self.span, std::mem::take(val));
-                    }
-                }
-            } else {
-                for (_, val) in val.iter_mut() {
-                    *val = eval_value(&mut self.closure, self.span, std::mem::take(val))
-                }
-            }
-
+            update_record(val, &mut self.closure, self.span, self.columns.as_ref());
             value
         } else {
             eval_value(&mut self.closure, self.span, value)

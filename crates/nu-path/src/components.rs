@@ -50,7 +50,7 @@ use crate::trailing_slash::has_trailing_slash;
 /// assert_eq!(components.next(), Some(Component::Normal(OsStr::new(""))));
 /// assert_eq!(components.next(), None);
 /// ```
-pub fn components(path: &Path) -> impl Iterator<Item = Component> {
+pub fn components(path: &Path) -> impl Iterator<Item = Component<'_>> {
     let mut final_component = Some(Component::Normal(OsStr::new("")));
     path.components().chain(std::iter::from_fn(move || {
         if has_trailing_slash(path) {

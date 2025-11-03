@@ -43,6 +43,17 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
+        if !matches!(input, PipelineData::Empty)
+            && let Some(arg_expr) = arg
+        {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "pipeline input was provided".into(),
+                left_span: head,
+                right_message: "but a positional metadata expression was also given".into(),
+                right_span: arg_expr.span,
+            });
+        }
+
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
@@ -56,7 +67,6 @@ impl Command for Metadata {
                             ..
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
-
                             Ok(build_metadata_record_value(
                                 &origin,
                                 input.metadata().as_ref(),
@@ -87,14 +97,13 @@ impl Command for Metadata {
                         .into_pipeline_data(),
                 )
             }
-            None => Ok(
-                Value::record(build_metadata_record(input.metadata().as_ref(), head), head)
-                    .into_pipeline_data(),
-            ),
+            None => {
+                Ok(Value::record(build_metadata_record(&input, head), head).into_pipeline_data())
+            }
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get the metadata of a variable",
@@ -116,19 +125,7 @@ fn build_metadata_record_value(
     head: Span,
 ) -> Value {
     let mut record = Record::new();
-
-    let span = arg.span();
-    record.push(
-        "span",
-        Value::record(
-            record! {
-                "start" => Value::int(span.start as i64,span),
-                "end" => Value::int(span.end as i64, span),
-            },
-            head,
-        ),
-    );
-
+    record.push("span", arg.span().into_value(head));
     Value::record(extend_record_with_metadata(record, metadata, head), head)
 }
 

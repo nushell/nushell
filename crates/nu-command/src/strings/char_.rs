@@ -217,7 +217,7 @@ impl Command for Char {
         vec!["line break", "newline", "Unicode"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Output newline",

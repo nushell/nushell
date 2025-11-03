@@ -1,7 +1,7 @@
 use crate::{
     PolarsPlugin,
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::CustomValueSupport,
+    values::{CustomValueSupport, PolarsPluginType},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -35,11 +35,11 @@ impl PluginCommand for ExprConcatStr {
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "Expression(s) that define the string concatenation",
             )
-            .input_output_type(Type::Any, Type::Custom("expression".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Creates a concat string expression",
             example: r#"let df = ([[a b c]; [one two 1] [three four 2]] | polars into-df);

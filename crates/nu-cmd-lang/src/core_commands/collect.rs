@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
-use nu_protocol::{DataSource, PipelineMetadata, engine::Closure};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Collect;
@@ -45,15 +45,7 @@ is particularly large, this can cause high memory usage."#
     ) -> Result<PipelineData, ShellError> {
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
 
-        let metadata = match input.metadata() {
-            // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
-            // check where some input came from.
-            Some(PipelineMetadata {
-                data_source: DataSource::FilePath(_),
-                content_type: None,
-            }) => None,
-            other => other,
-        };
+        let metadata = input.metadata().and_then(|m| m.for_collect());
 
         let input = input.into_value(call.head)?;
         let result;
@@ -64,11 +56,11 @@ is particularly large, this can cause high memory usage."#
                 stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
             let mut saved_positional = None;
-            if let Some(var) = block.signature.get_positional(0) {
-                if let Some(var_id) = &var.var_id {
-                    stack_captures.add_var(*var_id, input.clone());
-                    saved_positional = Some(*var_id);
-                }
+            if let Some(var) = block.signature.get_positional(0)
+                && let Some(var_id) = &var.var_id
+            {
+                stack_captures.add_var(*var_id, input.clone());
+                saved_positional = Some(*var_id);
             }
 
             let eval_block = get_eval_block(engine_state);
@@ -78,7 +70,8 @@ is particularly large, this can cause high memory usage."#
                 &mut stack_captures,
                 block,
                 input.into_pipeline_data_with_metadata(metadata),
-            );
+            )
+            .map(|p| p.body);
 
             if call.has_flag(engine_state, stack, "keep-env")? {
                 redirect_env(engine_state, stack, &stack_captures);
@@ -100,7 +93,7 @@ is particularly large, this can cause high memory usage."#
         result
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Use the second value in the stream",

@@ -1,9 +1,8 @@
-use crate::eval_ir_block;
+use crate::eval_ir::eval_ir_block;
 #[allow(deprecated)]
 use crate::get_full_help;
-use nu_path::{AbsolutePathBuf, expand_path_with};
 use nu_protocol::{
-    BlockId, Config, DataSource, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineMetadata,
+    BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
     ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
@@ -19,7 +18,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    engine_state.signals().check(call.head)?;
+    engine_state.signals().check(&call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -150,7 +149,8 @@ pub fn eval_call<D: DebugContext>(
         }
 
         let result =
-            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+            eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input)
+                .map(|p| p.body);
 
         if block.redirect_env {
             redirect_env(engine_state, caller_stack, &callee_stack);
@@ -288,29 +288,31 @@ pub fn eval_expression_with_input<D: DebugContext>(
     Ok(input)
 }
 
-pub fn eval_block_with_early_return<D: DebugContext>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    match eval_block::<D>(engine_state, stack, block, input) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
-        x => x,
-    }
-}
-
 pub fn eval_block<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
-) -> Result<PipelineData, ShellError> {
+) -> Result<PipelineExecutionData, ShellError> {
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
     result
+}
+
+pub fn eval_block_with_early_return<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineExecutionData, ShellError> {
+    match eval_block::<D>(engine_state, stack, block, input) {
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
+            PipelineData::value(*value, None),
+        )),
+        x => x,
+    }
 }
 
 pub fn eval_collect<D: DebugContext>(
@@ -323,15 +325,7 @@ pub fn eval_collect<D: DebugContext>(
     // Evaluate the expression with the variable set to the collected input
     let span = input.span().unwrap_or(Span::unknown());
 
-    let metadata = match input.metadata() {
-        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
-        // check where some input came from.
-        Some(PipelineMetadata {
-            data_source: DataSource::FilePath(_),
-            content_type: None,
-        }) => None,
-        other => other,
-    };
+    let metadata = input.metadata().and_then(|m| m.for_collect());
 
     let input = input.into_value(span)?;
 
@@ -356,7 +350,7 @@ pub fn eval_subexpression<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    eval_block::<D>(engine_state, stack, block, input)
+    eval_block::<D>(engine_state, stack, block, input).map(|p| p.body)
 }
 
 pub fn eval_variable(
@@ -402,45 +396,6 @@ impl Eval for EvalRuntime {
 
     fn get_config(engine_state: Self::State<'_>, stack: &mut Stack) -> Arc<Config> {
         stack.get_config(engine_state)
-    }
-
-    fn eval_filepath(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if quoted {
-            Ok(Value::string(path, span))
-        } else {
-            let cwd = engine_state.cwd(Some(stack))?;
-            let path = expand_path_with(path, cwd, true);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
-    }
-
-    fn eval_directory(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        path: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if path == "-" {
-            Ok(Value::string("-", span))
-        } else if quoted {
-            Ok(Value::string(path, span))
-        } else {
-            let cwd = engine_state
-                .cwd(Some(stack))
-                .map(AbsolutePathBuf::into_std_path_buf)
-                .unwrap_or_default();
-            let path = expand_path_with(path, cwd, true);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
     }
 
     fn eval_var(

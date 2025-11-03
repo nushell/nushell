@@ -75,8 +75,9 @@ impl Command for ToJson {
                 let metadata = PipelineMetadata {
                     data_source: nu_protocol::DataSource::None,
                     content_type: Some(mime::APPLICATION_JSON.to_string()),
+                    ..Default::default()
                 };
-                Ok(PipelineData::Value(res, Some(metadata)))
+                Ok(PipelineData::value(res, Some(metadata)))
             }
             _ => Err(ShellError::CantConvert {
                 to_type: "JSON".into(),
@@ -87,7 +88,7 @@ impl Command for ToJson {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Outputs a JSON string, with default indentation, representing the contents of this table",
@@ -229,14 +230,14 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{a: 1 b: 2} | to json  | metadata | get content_type";
+        let cmd = "{a: 1 b: 2} | to json  | metadata | get content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("content_type" => Value::test_string("application/json"))),
+            Value::test_string("application/json"),
             result.expect("There should be a result")
         );
     }

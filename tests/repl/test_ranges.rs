@@ -1,4 +1,5 @@
 use crate::repl::tests::{TestResult, fail_test, run_test};
+use rstest::rstest;
 
 #[test]
 fn int_in_inc_range() -> TestResult {
@@ -47,7 +48,8 @@ fn zip_ranges() -> TestResult {
 
 #[test]
 fn int_in_stepped_range() -> TestResult {
-    run_test(r#"7 in 1..3..15"#, "true")
+    run_test(r#"7 in 1..3..15"#, "true")?;
+    run_test(r#"7 in 1..3..=15"#, "true")
 }
 
 #[test]
@@ -73,4 +75,15 @@ fn float_in_unbounded_stepped_range() -> TestResult {
 #[test]
 fn float_not_in_unbounded_stepped_range() -> TestResult {
     run_test(r#"2.1 in 1.2..3.."#, "false")
+}
+
+#[rstest]
+#[case("1..=3..", "expected number")]
+#[case("..=3..=15", "expected number")]
+#[case("..=(..", "expected closing )")]
+#[case("..=()..", "expected at least one range bound")]
+#[case("..=..", "expected at least one range bound")]
+#[test]
+fn bad_range_syntax(#[case] input: &str, #[case] expect: &str) -> TestResult {
+    fail_test(&format!("def foo [r: range] {{}}; foo {input}"), expect)
 }

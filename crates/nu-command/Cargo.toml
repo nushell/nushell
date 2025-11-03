@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.104.2"
+version = "0.108.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,21 +16,22 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.104.2" }
-nu-color-config = { path = "../nu-color-config", version = "0.104.2" }
-nu-engine = { path = "../nu-engine", version = "0.104.2", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.104.2" }
-nu-json = { path = "../nu-json", version = "0.104.2" }
-nu-parser = { path = "../nu-parser", version = "0.104.2" }
-nu-path = { path = "../nu-path", version = "0.104.2" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.104.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.104.2", default-features = false }
-nu-system = { path = "../nu-system", version = "0.104.2" }
-nu-table = { path = "../nu-table", version = "0.104.2" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.104.2" }
-nu-utils = { path = "../nu-utils", version = "0.104.2", default-features = false }
 nu-ansi-term = { workspace = true }
-nuon = { path = "../nuon", version = "0.104.2" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.108.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.108.1" }
+nu-engine = { path = "../nu-engine", version = "0.108.1", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.108.1" }
+nu-glob = { path = "../nu-glob", version = "0.108.1" }
+nu-json = { path = "../nu-json", version = "0.108.1" }
+nu-parser = { path = "../nu-parser", version = "0.108.1" }
+nu-path = { path = "../nu-path", version = "0.108.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.108.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.108.1", default-features = false }
+nu-system = { path = "../nu-system", version = "0.108.1" }
+nu-table = { path = "../nu-table", version = "0.108.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.108.1" }
+nu-utils = { path = "../nu-utils", version = "0.108.1", default-features = false }
+nuon = { path = "../nuon", version = "0.108.1" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -53,12 +54,14 @@ devicons = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = [
 	"fuzzy-select",
 ] }
+fuzzy-matcher = { workspace = true }
 digest = { workspace = true, default-features = false }
 dtparse = { workspace = true }
 encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
+http = {workspace = true}
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
@@ -91,6 +94,7 @@ rusqlite = { workspace = true, features = [
 	"bundled",
 	"backup",
 	"chrono",
+	"column_decltype",
 ], optional = true }
 rustls = { workspace = true, optional = true, features = ["ring"] }
 rustls-native-certs = { workspace = true, optional = true }
@@ -101,6 +105,7 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 serde_urlencoded = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
+strum = { workspace = true }
 sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
 titlecase = { workspace = true }
@@ -111,6 +116,7 @@ ureq = { workspace = true, default-features = false, features = [
 	"charset",
 	"gzip",
 	"json",
+	"platform-verifier",
 ], optional = true }
 url = { workspace = true }
 uu_cp = { workspace = true, optional = true }
@@ -136,9 +142,10 @@ web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
+uds_windows = "1.1"
 winreg = { workspace = true }
 
-[target.'cfg(all(not(windows), not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
 
 [target.'cfg(unix)'.dependencies]
@@ -159,20 +166,22 @@ workspace = true
 [target.'cfg(windows)'.dependencies.windows]
 features = [
 	"Win32_Foundation",
+	"Win32_Networking_WinSock",
+	"Win32_NetworkManagement_IpHelper",
+	"Win32_Security",
 	"Win32_Storage_FileSystem",
 	"Win32_System_Environment",
 	"Win32_System_SystemServices",
-	"Win32_Security",
 	"Win32_System_Threading",
 ]
 workspace = true
 
 [features]
-default = ["os", "rustls-tls"]
+default = ["os", "network", "rustls-tls"]
 os = [
 	# include other features
 	"js",
-	"network",
+	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",
 
@@ -218,7 +227,7 @@ rustls-tls = [
 	"dep:rustls-native-certs",
 	"dep:webpki-roots",
 	"update-informer/rustls-tls",
-	"ureq/tls", # ureq 3 will has the feature rustls instead
+	"ureq/rustls",
 ]
 
 plugin = ["nu-parser/plugin", "os"]
@@ -226,8 +235,8 @@ sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.104.2" }
-nu-test-support = { path = "../nu-test-support", version = "0.104.2" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.108.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.108.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }

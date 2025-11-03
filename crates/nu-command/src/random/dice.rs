@@ -1,6 +1,7 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ListStream;
+use nu_protocol::{DeprecationEntry, DeprecationType, ListStream, ReportMode};
 use rand::random_range;
+use std::num::NonZeroUsize;
 
 #[derive(Clone)]
 pub struct RandomDice;
@@ -37,6 +38,16 @@ impl Command for RandomDice {
         vec!["generate", "die", "1-6"]
     }
 
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.107.0".to_owned()),
+            expected_removal: Some("0.108.0".to_owned()),
+            help: Some("Use `random dice` from std/random instead.".to_owned()),
+        }]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -47,7 +58,7 @@ impl Command for RandomDice {
         dice(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Roll 1 dice with 6 sides each",
@@ -70,8 +81,16 @@ fn dice(
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
 
-    let dice: usize = call.get_flag(engine_state, stack, "dice")?.unwrap_or(1);
-    let sides: usize = call.get_flag(engine_state, stack, "sides")?.unwrap_or(6);
+    let sides: NonZeroUsize = call
+        .get_flag(engine_state, stack, "sides")?
+        .unwrap_or_else(|| NonZeroUsize::new(6).expect("default sides must be non-zero"));
+
+    let dice: NonZeroUsize = call
+        .get_flag(engine_state, stack, "dice")?
+        .unwrap_or_else(|| NonZeroUsize::new(1).expect("default dice count must be non-zero"));
+
+    let sides = sides.get();
+    let dice = dice.get();
 
     let iter = (0..dice).map(move |_| Value::int(random_range(1..sides + 1) as i64, span));
 

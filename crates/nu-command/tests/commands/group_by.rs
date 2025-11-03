@@ -1,22 +1,22 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn groups() {
-    let sample = r#"
-                [[first_name, last_name, rusty_at, type];
-                 [Andrés, Robalino, "10/11/2013", A],
-                 [JT, Turner, "10/12/2013", B],
-                 [Yehuda, Katz, "10/11/2013", A]]
-            "#;
+    let sample = r#"[
+        [first_name, last_name, rusty_at, type];
+        [Andrés, Robalino, "10/11/2013", A],
+        [JT, Turner, "10/12/2013", B],
+        [Yehuda, Katz, "10/11/2013", A]
+    ]"#;
 
-    let actual = nu!(pipeline(&format!(
+    let actual = nu!(format!(
         r#"
-                {sample}
-                | group-by rusty_at
-                | get "10/11/2013"
-                | length
-            "#
-    )));
+            {sample}
+            | group-by rusty_at
+            | get "10/11/2013"
+            | length
+        "#
+    ));
 
     assert_eq!(actual.out, "2");
 }
@@ -44,11 +44,13 @@ fn errors_if_given_unknown_column_name() {
 }]
 "#;
 
-    let actual = nu!(pipeline(&format!(
-        r#"'{sample}'
-    | from json
-    | group-by {{|| get nu.releases.missing_column }}"#
-    )));
+    let actual = nu!(format!(
+        r#"
+            '{sample}'
+            | from json
+            | group-by {{|| get nu.releases.missing_column }}
+        "#
+    ));
     assert!(actual.err.contains("cannot find column"));
 }
 
@@ -61,16 +63,25 @@ fn errors_if_column_not_found() {
                  [Yehuda, Katz, "10/11/2013", A]]
             "#;
 
-    let actual = nu!(pipeline(&format!("{sample} | group-by ttype")));
+    let actual = nu!(format!("{sample} | group-by ttype"));
 
     assert!(actual.err.contains("did you mean 'type'"),);
 }
 
 #[test]
 fn group_by_on_empty_list_returns_empty_record() {
-    let actual = nu!("[[a b]; [1 2]] | where false | group-by a");
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by a | to nuon --raw");
+    let expected = r#"{}"#;
     assert!(actual.err.is_empty());
-    assert!(actual.out.contains("empty record"));
+    assert_eq!(actual.out, expected);
+}
+
+#[test]
+fn group_by_to_table_on_empty_list_returns_empty_list() {
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by --to-table a | to nuon --raw");
+    let expected = r#"[]"#;
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, expected);
 }
 
 #[test]

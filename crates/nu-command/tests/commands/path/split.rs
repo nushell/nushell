@@ -1,27 +1,21 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn splits_empty_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            echo '' | path split | is-empty
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"
+        echo '' | path split | is-empty
+    "#);
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn splits_correctly_single_path() {
-    let actual = nu!(
-        cwd: "tests", pipeline(
-        r#"
-            'home/viking/spam.txt'
-            | path split
-            | last
-        "#
-    ));
+    let actual = nu!(cwd: "tests", r#"
+        'home/viking/spam.txt'
+        | path split
+        | last
+    "#);
 
     assert_eq!(actual.out, "spam.txt");
 }

@@ -41,7 +41,7 @@ impl Command for RandomInt {
         integer(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Generate a non-negative random integer",
@@ -97,7 +97,7 @@ fn integer(
                         Bound::Unbounded => random_range(range.start()..=i64::MAX),
                     };
 
-                    Ok(PipelineData::Value(Value::int(value, span), None))
+                    Ok(PipelineData::value(Value::int(value, span), None))
                 }
                 Range::FloatRange(_) => Err(ShellError::UnsupportedInput {
                     msg: "float range".into(),
@@ -107,7 +107,7 @@ fn integer(
                 }),
             }
         }
-        None => Ok(PipelineData::Value(
+        None => Ok(PipelineData::value(
             Value::int(random_range(0..=i64::MAX), span),
             None,
         )),

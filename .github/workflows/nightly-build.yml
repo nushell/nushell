@@ -34,7 +34,7 @@ jobs:
       nightly_tag: ${{ steps.vars.outputs.nightly_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -46,7 +46,7 @@ jobs:
         uses: hustcer/setup-nu@v3
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.103.0
+          version: 0.105.1
 
       # Synchronize the main branch of nightly repo with the main branch of Nushell official repo
       - name: Prepare for Nightly Release
@@ -127,6 +127,7 @@ jobs:
         - armv7-unknown-linux-musleabihf
         - riscv64gc-unknown-linux-gnu
         - loongarch64-unknown-linux-gnu
+        - loongarch64-unknown-linux-musl
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
@@ -152,10 +153,12 @@ jobs:
           os: ubuntu-22.04
         - target: loongarch64-unknown-linux-gnu
           os: ubuntu-22.04
+        - target: loongarch64-unknown-linux-musl
+          os: ubuntu-22.04
 
     runs-on: ${{matrix.os}}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ref: main
         fetch-depth: 0
@@ -179,35 +182,21 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
+        cache: false
         rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
-      if: ${{ matrix.os != 'windows-11-arm' }}
       with:
-        version: 0.103.0
+        version: 0.105.1
 
     - name: Release Nu Binary
       id: nu
-      if: ${{ matrix.os != 'windows-11-arm' }}
       run: nu .github/workflows/release-pkg.nu
       env:
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
-
-    - name: Build Nu for Windows ARM64
-      id: nu0
-      shell: pwsh
-      if: ${{ matrix.os == 'windows-11-arm' }}
-      run: |
-        $env:OS = 'windows'
-        $env:REF = '${{ github.ref }}'
-        $env:TARGET = '${{ matrix.target }}'
-        cargo build --release --all --target aarch64-pc-windows-msvc
-        cp ./target/${{ matrix.target }}/release/nu.exe .
-        ./nu.exe -c 'version'
-        ./nu.exe ${{github.workspace}}/.github/workflows/release-pkg.nu
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
@@ -228,9 +217,7 @@ jobs:
         prerelease: true
         files: |
           ${{ steps.nu.outputs.msi }}
-          ${{ steps.nu0.outputs.msi }}
           ${{ steps.nu.outputs.archive }}
-          ${{ steps.nu0.outputs.archive }}
         tag_name: ${{ needs.prepare.outputs.nightly_tag }}
         name: ${{ needs.prepare.outputs.build_date }}-${{ needs.prepare.outputs.nightly_tag }}
       env:
@@ -269,14 +256,14 @@ jobs:
     needs: [release, sha256sum]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
 
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
         with:
-          version: 0.103.0
+          version: 0.105.1
 
       # Keep the last a few releases
       - name: Delete Older Releases

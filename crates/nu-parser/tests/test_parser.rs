@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    DeclId, ParseError, Signature, Span, SyntaxShape, Type,
+    DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
@@ -24,7 +24,7 @@ fn test_int(
 
     if let Some(err_pat) = expected_err {
         if let Some(parse_err) = err {
-            let act_err = format!("{:?}", parse_err);
+            let act_err = format!("{parse_err:?}");
             assert!(
                 act_err.contains(err_pat),
                 "{test_tag}: expected err to contain {err_pat}, but actual error was {act_err}"
@@ -271,6 +271,43 @@ pub fn parse_int_with_underscores() {
 }
 
 #[test]
+pub fn parse_filesize() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"95307.27MiB", true);
+
+    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(block.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.len(), 1);
+    let element = &pipeline.elements[0];
+    assert!(element.redirection.is_none());
+
+    let Expr::ValueWithUnit(value) = &element.expr.expr else {
+        panic!("should be a ValueWithUnit");
+    };
+
+    assert_eq!(value.expr.expr, Expr::Int(99_936_915_947));
+    assert_eq!(value.unit.item, Unit::Filesize(FilesizeUnit::B));
+}
+
+#[test]
+pub fn parse_non_utf8_fails() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    // Panic when parsing units was triggered by non-UTF8 characters
+    // due to bad handling via `String::from_utf8_lossy`
+    //
+    // See https://github.com/nushell/nushell/pull/16355
+    let _block = parse(&mut working_set, None, b"0\xffB", true);
+
+    // Asserting on the exact error doesn't make as much sense as
+    assert!(!working_set.parse_errors.is_empty());
+}
+
+#[test]
 pub fn parse_cell_path() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -462,9 +499,13 @@ pub fn parse_binary_with_invalid_octal_format() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let block = parse(&mut working_set, None, b"0b[90]", true);
+    let block = parse(&mut working_set, None, b"0o[90]", true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
@@ -482,7 +523,11 @@ pub fn parse_binary_with_multi_byte_char() {
     let contents = b"0x[\xEF\xBF\xBD]";
     let block = parse(&mut working_set, None, contents, true);
 
-    assert!(working_set.parse_errors.is_empty());
+    assert_eq!(working_set.parse_errors.len(), 1);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::InvalidBinaryString(_, _))
+    ));
     assert_eq!(block.len(), 1);
     let pipeline = &block.pipelines[0];
     assert_eq!(pipeline.len(), 1);
@@ -700,11 +745,14 @@ pub fn parse_attribute_block_check_spans() {
 
 #[test]
 pub fn parse_attributes_check_values() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     @echo "hello world"
@@ -730,12 +778,15 @@ pub fn parse_attributes_check_values() {
 
 #[test]
 pub fn parse_attributes_alias() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(Alias));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     alias "attr test" = attr echo
@@ -758,12 +809,15 @@ pub fn parse_attributes_alias() {
 
 #[test]
 pub fn parse_attributes_external_alias() {
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(Alias));
     working_set.add_decl(Box::new(AttrEcho));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = br#"
     alias "attr test" = ^echo
@@ -787,12 +841,15 @@ pub fn parse_attributes_external_alias() {
 #[test]
 pub fn parse_if_in_const_expression() {
     // https://github.com/nushell/nushell/issues/15321
-    let engine_state = EngineState::new();
+    let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     working_set.add_decl(Box::new(Const));
     working_set.add_decl(Box::new(Def));
     working_set.add_decl(Box::new(IfMocked));
+
+    let _ = engine_state.merge_delta(working_set.render());
+    let mut working_set = StateWorkingSet::new(&engine_state);
 
     let source = b"const foo = if t";
     let _ = parse(&mut working_set, None, source, false);
@@ -1614,6 +1671,46 @@ mod string {
             assert_eq!(subexprs[3], &Expr::String("bar".to_string()));
         }
 
+        /// PR with summary of the issue: https://github.com/nushell/nushell/pull/16235
+        /// Release Notes Mention: https://www.nushell.sh/blog/2025-07-23-nushell_0_106_0.html#regression-bare-word-interpolation-on-both-sides-does-not-work-toc
+        #[test]
+        pub fn parse_string_interpolation_bare_starting_and_ending_subexpr() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"(100 + 20 + 3)/bar/(300 + 20 + 1)",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty(),);
+
+            let [pipeline] = block.pipelines.as_slice() else {
+                panic!("expected 1 pipeline")
+            };
+            let [element] = pipeline.elements.as_slice() else {
+                panic!("expected 1 pipeline element")
+            };
+            assert!(element.redirection.is_none());
+
+            let Expr::StringInterpolation(expressions) = &element.expr.expr else {
+                panic!("Expected an `Expr::StringInterpolation`")
+            };
+            let subexprs: Vec<_> = expressions.iter().map(|e| &e.expr).collect();
+
+            let [
+                Expr::FullCellPath(..),
+                Expr::String(s),
+                Expr::FullCellPath(..),
+            ] = subexprs.as_slice()
+            else {
+                panic!("AST does not have the expected structure")
+            };
+            assert_eq!(s, "/bar/");
+        }
+
         #[test]
         pub fn parse_string_interpolation_bare_starting_subexpr_external_arg() {
             let engine_state = EngineState::new();
@@ -1710,12 +1807,13 @@ mod string {
         assert_eq!(pipeline.len(), 1);
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::ExternalCall(_, args) = &element.expr.expr {
-            if let [ExternalArgument::Regular(expr)] = args.as_ref() {
-                assert_eq!(expr.expr, Expr::RawString("text".into()));
-                return;
-            }
+        if let Expr::ExternalCall(_, args) = &element.expr.expr
+            && let [ExternalArgument::Regular(expr)] = args.as_ref()
+        {
+            assert_eq!(expr.expr, Expr::RawString("text".into()));
+            return;
         }
+
         panic!("wrong expression: {:?}", element.expr.expr)
     }
 }
@@ -2748,10 +2846,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{}foo = 1 |
+                r#"{prefix}foo = 1 |
                 # comment
-                dummy"#,
-                prefix
+                dummy"#
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2761,11 +2858,11 @@ mod input_types {
                     call.arguments[1].expr().unwrap()
                 }
                 Expr::BinaryOp(_, _, rhs) => rhs.as_ref(),
-                _ => panic!("Unexpected expression: {:?}", last_expr),
+                _ => panic!("Unexpected expression: {last_expr:?}"),
             };
             let block_id = match block_expr.expr {
                 Expr::Block(block_id) | Expr::Subexpression(block_id) => block_id,
-                _ => panic!("Unexpected expression: {:?}", block_expr),
+                _ => panic!("Unexpected expression: {block_expr:?}"),
             };
             let rhs_expr = working_set.get_block(block_id);
             assert_eq!(rhs_expr.pipelines.len(), 1);
@@ -3049,5 +3146,26 @@ mod record {
             working_set.parse_errors.first().map(|e| e.to_string()),
             Some("Invalid characters after closing delimiter".to_string())
         );
+    }
+
+    /// https://github.com/nushell/nushell/issues/16713
+    #[test]
+    fn garbage_span_of_incomplete_math_op() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        let block = parse(&mut working_set, None, b"$ a", false);
+        let pipeline_el_expr = &block
+            .pipelines
+            .first()
+            .unwrap()
+            .elements
+            .first()
+            .unwrap()
+            .expr
+            .expr;
+        let Expr::BinaryOp(_, op, rhs) = pipeline_el_expr else {
+            panic!("Expected Expr::BinaryOp, but found {pipeline_el_expr:?}");
+        };
+        assert_ne!(op.span, rhs.span)
     }
 }

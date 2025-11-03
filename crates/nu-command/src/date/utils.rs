@@ -248,6 +248,14 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
             description: "UNIX timestamp, the number of seconds since 1970-01-01",
         },
         FormatSpecification {
+            spec: "%J",
+            description: "Joined date format. Same as %Y%m%d.",
+        },
+        FormatSpecification {
+            spec: "%Q",
+            description: "Sequential time format. Same as %H%M%S.",
+        },
+        FormatSpecification {
             spec: "%t",
             description: "Literal tab (\\t).",
         },
@@ -264,10 +272,17 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
     let mut records = specifications
         .iter()
         .map(|s| {
+            // Handle custom format specifiers that aren't supported by chrono
+            let example = match s.spec {
+                "%J" => now.format("%Y%m%d").to_string(),
+                "%Q" => now.format("%H%M%S").to_string(),
+                _ => now.format(s.spec).to_string(),
+            };
+
             Value::record(
                 record! {
                     "Specification" => Value::string(s.spec, head),
-                    "Example" => Value::string(now.format(s.spec).to_string(), head),
+                    "Example" => Value::string(example, head),
                     "Description" => Value::string(s.description, head),
                 },
                 head,

@@ -19,7 +19,7 @@ use std::cmp;
 pub fn lev_distance(a: &str, b: &str, limit: usize) -> Option<usize> {
     let n = a.chars().count();
     let m = b.chars().count();
-    let min_dist = if n < m { m - n } else { n - m };
+    let min_dist = m.abs_diff(n);
 
     if min_dist > limit {
         return None;
@@ -76,7 +76,7 @@ pub fn lev_distance_with_substrings(a: &str, b: &str, limit: usize) -> Option<us
     // Check one isn't less than half the length of the other. If this is true then there is a
     // big difference in length.
     let big_len_diff = (n * 2) < m || (m * 2) < n;
-    let len_diff = if n < m { m - n } else { n - m };
+    let len_diff = m.abs_diff(n);
     let lev = lev_distance(a, b, limit + len_diff)?;
 
     // This is the crux, subtracting length difference means exact substring matches will now be 0

@@ -6,7 +6,7 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
 
 #[derive(Clone)]
@@ -25,14 +25,20 @@ impl PluginCommand for LazyCollect {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+            ])
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",
@@ -69,7 +75,7 @@ impl PluginCommand for LazyCollect {
                 let mut eager = lazy.collect(call.head)?;
                 // We don't want this converted back to a lazy frame
                 eager.from_lazy = true;
-                Ok(PipelineData::Value(
+                Ok(PipelineData::value(
                     eager
                         .cache(plugin, engine, call.head)?
                         .into_value(call.head),
@@ -94,7 +100,7 @@ impl PluginCommand for LazyCollect {
                 let df = NuDataFrame::from_cache_value(cv.value.clone())?;
 
                 // just return the dataframe, add to cache again to be safe
-                Ok(PipelineData::Value(df.into_value(call.head), None))
+                Ok(PipelineData::value(df.into_value(call.head), None))
             }
             _ => Err(cant_convert_err(
                 &value,

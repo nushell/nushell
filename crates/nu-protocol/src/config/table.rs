@@ -1,5 +1,7 @@
+use std::{num::NonZeroU16, time::Duration};
+
 use super::{config_update_string_enum, prelude::*};
-use crate as nu_protocol;
+use crate::{self as nu_protocol, ConfigError, FromValue};
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {
@@ -21,6 +23,7 @@ pub enum TableMode {
     AsciiRounded,
     BasicCompact,
     Single,
+    Double,
 }
 
 impl FromStr for TableMode {
@@ -46,8 +49,9 @@ impl FromStr for TableMode {
             "ascii_rounded" => Ok(Self::AsciiRounded),
             "basic_compact" => Ok(Self::BasicCompact),
             "single" => Ok(Self::Single),
+            "double" => Ok(Self::Double),
             _ => Err(
-                "'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact' or 'single'",
+                "'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact', 'single', or 'double'",
             ),
         }
     }
@@ -345,6 +349,8 @@ pub struct TableConfig {
     pub abbreviated_row_count: Option<usize>,
     pub footer_inheritance: bool,
     pub missing_value_symbol: String,
+    pub batch_duration: Duration,
+    pub stream_page_size: NonZeroU16,
 }
 
 impl IntoValue for TableConfig {
@@ -364,6 +370,8 @@ impl IntoValue for TableConfig {
             "abbreviated_row_count" => abbv_count,
             "footer_inheritance" => self.footer_inheritance.into_value(span),
             "missing_value_symbol" => self.missing_value_symbol.into_value(span),
+            "batch_duration" => self.batch_duration.into_value(span),
+            "stream_page_size" => self.stream_page_size.get().into_value(span),
         }
         .into_value(span)
     }
@@ -381,6 +389,8 @@ impl Default for TableConfig {
             abbreviated_row_count: None,
             footer_inheritance: false,
             missing_value_symbol: "❎".into(),
+            batch_duration: Duration::from_secs(1),
+            stream_page_size: const { NonZeroU16::new(1000).expect("Non zero integer") },
         }
     }
 }
@@ -422,6 +432,23 @@ impl UpdateFromValue for TableConfig {
                     Ok(val) => self.missing_value_symbol = val.to_string(),
                     Err(_) => errors.type_mismatch(path, Type::String, val),
                 },
+                "batch_duration" => {
+                    match Duration::from_value(val.clone()).map_err(ConfigError::from) {
+                        Ok(val) => self.batch_duration = val,
+                        Err(err) => errors.error(err),
+                    }
+                }
+                "stream_page_size" => {
+                    let Ok(n) = val.as_int() else {
+                        errors.type_mismatch(path, Type::Int, val);
+                        continue;
+                    };
+                    let Some(n) = u16::try_from(n).ok().and_then(NonZeroU16::new) else {
+                        errors.invalid_value(path, "a positive value", val);
+                        continue;
+                    };
+                    self.stream_page_size = n;
+                }
                 _ => errors.unknown_option(path, val),
             }
         }

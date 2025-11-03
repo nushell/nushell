@@ -75,7 +75,20 @@ impl ListStream {
     }
 
     /// Collect the values of a [`ListStream`] into a list [`Value`].
-    pub fn into_value(self) -> Value {
+    ///
+    /// If any of the values in the stream is a [Value::Error], its inner [ShellError] is returned.
+    pub fn into_value(self) -> Result<Value, ShellError> {
+        Ok(Value::list(
+            self.stream
+                .map(Value::unwrap_error)
+                .collect::<Result<_, _>>()?,
+            self.span,
+        ))
+    }
+
+    /// Collect the values of a [`ListStream`] into a [`Value::List`], preserving [Value::Error]
+    /// items for debugging purposes.
+    pub fn into_debug_value(self) -> Value {
         Value::list(self.stream.collect(), self.span)
     }
 
@@ -139,7 +152,7 @@ impl IntoIterator for ListStream {
 
 impl From<ListStream> for PipelineData {
     fn from(stream: ListStream) -> Self {
-        Self::ListStream(stream, None)
+        Self::list_stream(stream, None)
     }
 }
 

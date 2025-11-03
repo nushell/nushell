@@ -22,7 +22,7 @@ impl SimplePluginCommand for FromPlist {
         "Convert plist to Nushell values"
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: r#"'<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,18 +51,18 @@ impl SimplePluginCommand for FromPlist {
         match input {
             NuValue::String { val, .. } => {
                 let plist = plist::from_bytes(val.as_bytes())
-                    .map_err(|e| build_label_error(format!("{}", e), input.span()))?;
+                    .map_err(|e| build_label_error(format!("{e}"), input.span()))?;
                 let converted = convert_plist_value(&plist, call.head)?;
                 Ok(converted)
             }
             NuValue::Binary { val, .. } => {
                 let plist = plist::from_bytes(val)
-                    .map_err(|e| build_label_error(format!("{}", e), input.span()))?;
+                    .map_err(|e| build_label_error(format!("{e}"), input.span()))?;
                 let converted = convert_plist_value(&plist, call.head)?;
                 Ok(converted)
             }
             _ => Err(build_label_error(
-                format!("Invalid input, must be string not: {:?}", input),
+                format!("Invalid input, must be string not: {input:?}"),
                 call.head,
             )),
         }

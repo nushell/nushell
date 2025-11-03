@@ -1,6 +1,6 @@
 use crate::{
     PolarsPlugin,
-    values::{CustomValueSupport, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -49,11 +49,14 @@ impl PluginCommand for ConcatDF {
                 SyntaxShape::Any,
                 "The dataframes to concatenate",
             )
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_types(vec![
+                (Type::Any, PolarsPluginType::NuDataFrame.into()),
+                (Type::Any, PolarsPluginType::NuLazyFrame.into()),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Concatenates two dataframes with the dataframe in the pipeline.",

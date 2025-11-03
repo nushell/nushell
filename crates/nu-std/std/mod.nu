@@ -16,6 +16,7 @@ export module std/math
 export module std/xml
 export module std/config
 export module std/testing
+export module std/random
 
 # Load main dirs command and all subcommands
 export use std/dirs main

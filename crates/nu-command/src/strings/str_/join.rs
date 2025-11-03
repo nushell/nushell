@@ -60,7 +60,7 @@ impl Command for StrJoin {
         run(working_set.permanent(), call, input, separator)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a string from input",
@@ -103,7 +103,7 @@ fn run(
                 if first {
                     first = false;
                 } else if let Some(separator) = &separator {
-                    write!(buffer, "{}", separator).map_err(&from_io_error)?;
+                    write!(buffer, "{separator}").map_err(&from_io_error)?;
                 }
 
                 match value {
@@ -128,7 +128,7 @@ fn run(
         },
     );
 
-    Ok(PipelineData::ByteStream(output, metadata))
+    Ok(PipelineData::byte_stream(output, metadata))
 }
 
 #[cfg(test)]

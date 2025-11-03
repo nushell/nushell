@@ -8,6 +8,7 @@ use num_traits::ToPrimitive;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
+    little_endian: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -37,6 +38,12 @@ impl Command for FormatBits {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
+            .named(
+                "endian",
+                SyntaxShape::String,
+                "Byte encode endian. Only applies to int, filesize, duration and bool, as well as tables and records of those. Available options: native, little, big(default)",
+                Some('e'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -63,7 +70,7 @@ impl Command for FormatBits {
         format_bits(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
@@ -74,6 +81,16 @@ impl Command for FormatBits {
                 description: "convert an int into a string, padded to 8 places with 0s",
                 example: "1 | format bits",
                 result: Some(Value::string("00000001", Span::test_data())),
+            },
+            Example {
+                description: "convert an int into a string, padded to 8 places with 0s (big endian)",
+                example: "258 | format bits",
+                result: Some(Value::string("00000001 00000010", Span::test_data())),
+            },
+            Example {
+                description: "convert an int into a string, padded to 8 places with 0s (little endian)",
+                example: "258 | format bits --endian little",
+                result: Some(Value::string("00000010 00000001", Span::test_data())),
             },
             Example {
                 description: "convert a filesize value into a string, padded to 8 places with 0s",
@@ -113,12 +130,33 @@ fn format_bits(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     if let PipelineData::ByteStream(stream, metadata) = input {
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             byte_stream_to_bits(stream, head),
             metadata,
         ))
     } else {
-        let args = Arguments { cell_paths };
+        let endian = call.get_flag::<Spanned<String>>(engine_state, stack, "endian")?;
+
+        let little_endian = if let Some(endian) = endian {
+            match endian.item.as_str() {
+                "native" => cfg!(target_endian = "little"),
+                "little" => true,
+                "big" => false,
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "Endian must be one of native, little, big".to_string(),
+                        span: endian.span,
+                    });
+                }
+            }
+        } else {
+            false
+        };
+
+        let args = Arguments {
+            cell_paths,
+            little_endian,
+        };
         operate(action, args, input, call.head, engine_state.signals())
     }
 }
@@ -156,61 +194,77 @@ fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
     }
 }
 
-fn convert_to_smallest_number_type(num: i64, span: Span) -> Value {
+fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) -> Value {
     if let Some(v) = num.to_i8() {
-        let bytes = v.to_ne_bytes();
+        let bytes = v.to_ne_bytes(); // Endianness does not affect `i8`
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i16() {
-        let bytes = v.to_ne_bytes();
+        let bytes = if little_endian {
+            v.to_le_bytes()
+        } else {
+            v.to_be_bytes()
+        };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i32() {
-        let bytes = v.to_ne_bytes();
+        let bytes = if little_endian {
+            v.to_le_bytes()
+        } else {
+            v.to_be_bytes()
+        };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     } else {
-        let bytes = num.to_ne_bytes();
+        let bytes = if little_endian {
+            num.to_le_bytes()
+        } else {
+            num.to_be_bytes()
+        };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{:08b} ", ch));
+            raw_string.push_str(&format!("{ch:08b} "));
         }
         Value::string(raw_string.trim(), span)
     }
 }
 
-fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
             for ch in val {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }
-        Value::Int { val, .. } => convert_to_smallest_number_type(*val, span),
-        Value::Filesize { val, .. } => convert_to_smallest_number_type(val.get(), span),
-        Value::Duration { val, .. } => convert_to_smallest_number_type(*val, span),
+        Value::Int { val, .. } => convert_to_smallest_number_type(*val, span, args.little_endian),
+        Value::Filesize { val, .. } => {
+            convert_to_smallest_number_type(val.get(), span, args.little_endian)
+        }
+        Value::Duration { val, .. } => {
+            convert_to_smallest_number_type(*val, span, args.little_endian)
+        }
         Value::String { val, .. } => {
             let raw_bytes = val.as_bytes();
             let mut raw_string = "".to_string();
             for ch in raw_bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
+                raw_string.push_str(&format!("{ch:08b} "));
             }
             Value::string(raw_string.trim(), span)
         }
         Value::Bool { val, .. } => {
             let v = <i64 as From<bool>>::from(*val);
-            convert_to_smallest_number_type(v, span)
+            convert_to_smallest_number_type(v, span, args.little_endian)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),

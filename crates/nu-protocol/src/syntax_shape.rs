@@ -1,4 +1,4 @@
-use crate::{DeclId, Type};
+use crate::Type;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -28,9 +28,6 @@ pub enum SyntaxShape {
 
     /// A closure is allowed, eg `{|| start this thing}`
     Closure(Option<Vec<SyntaxShape>>),
-
-    /// A [`SyntaxShape`] with custom completion logic
-    CompleterWrapper(Box<SyntaxShape>, DeclId),
 
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
@@ -143,11 +140,10 @@ impl SyntaxShape {
 
         match self {
             SyntaxShape::Any => Type::Any,
-            SyntaxShape::Block => Type::Any,
+            SyntaxShape::Block => Type::Block,
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
-            SyntaxShape::CellPath => Type::Any,
-            SyntaxShape::CompleterWrapper(inner, _) => inner.to_type(),
+            SyntaxShape::CellPath => Type::CellPath,
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
@@ -170,7 +166,7 @@ impl SyntaxShape {
             SyntaxShape::MathExpression => Type::Any,
             SyntaxShape::Nothing => Type::Nothing,
             SyntaxShape::Number => Type::Number,
-            SyntaxShape::OneOf(_) => Type::Any,
+            SyntaxShape::OneOf(types) => Type::one_of(types.iter().map(SyntaxShape::to_type)),
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Range,
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
@@ -239,7 +235,11 @@ impl Display for SyntaxShape {
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
             SyntaxShape::Operator => write!(f, "operator"),
-            SyntaxShape::RowCondition => write!(f, "condition"),
+            SyntaxShape::RowCondition => write!(
+                f,
+                "oneof<condition, {}>",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any]))
+            ),
             SyntaxShape::MathExpression => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
@@ -248,16 +248,16 @@ impl Display for SyntaxShape {
             SyntaxShape::ExternalArgument => write!(f, "external-argument"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
-                write!(f, "oneof<")?;
-                if let Some((last, rest)) = list.split_last() {
-                    for ty in rest {
-                        write!(f, "{ty}, ")?;
-                    }
-                    write!(f, "{last}")?;
+                write!(f, "oneof")?;
+                let [first, rest @ ..] = &**list else {
+                    return Ok(());
+                };
+                write!(f, "<{first}")?;
+                for t in rest {
+                    write!(f, ", {t}")?;
                 }
-                write!(f, ">")
+                f.write_str(">")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
         }

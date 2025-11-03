@@ -55,7 +55,7 @@ impl Command for Try {
         unreachable!();
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Try to run a division by zero",

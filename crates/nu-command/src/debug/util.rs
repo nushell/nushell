@@ -1,4 +1,4 @@
-use nu_protocol::{DataSource, PipelineMetadata, Record, Span, Value};
+use nu_protocol::{DataSource, IntoValue, PipelineData, PipelineMetadata, Record, Span, Value};
 
 pub fn extend_record_with_metadata(
     mut record: Record,
@@ -8,6 +8,7 @@ pub fn extend_record_with_metadata(
     if let Some(PipelineMetadata {
         data_source,
         content_type,
+        custom,
     }) = metadata
     {
         match data_source {
@@ -24,11 +25,18 @@ pub fn extend_record_with_metadata(
         if let Some(content_type) = content_type {
             record.push("content_type", Value::string(content_type, head));
         }
+        for (key, value) in custom {
+            record.push(key, value.clone());
+        }
     };
 
     record
 }
 
-pub fn build_metadata_record(metadata: Option<&PipelineMetadata>, head: Span) -> Record {
-    extend_record_with_metadata(Record::new(), metadata, head)
+pub fn build_metadata_record(pipeline: &PipelineData, head: Span) -> Record {
+    let mut record = Record::new();
+    if let Some(span) = pipeline.span() {
+        record.insert("span", span.into_value(head));
+    }
+    extend_record_with_metadata(record, pipeline.metadata().as_ref(), head)
 }

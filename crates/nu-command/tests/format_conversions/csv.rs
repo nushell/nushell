@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_to_csv_text_and_from_csv_text_back_into_table() {
@@ -24,19 +24,16 @@ fn table_to_csv_text() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open csv_text_sample.txt
-                | lines
-                | str trim
-                | split column "," a b c d origin
-                | last 1
-                | to csv
-                | lines
-                | get 1
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open csv_text_sample.txt
+            | lines
+            | str trim
+            | split column "," a b c d origin
+            | last 1
+            | to csv
+            | lines
+            | get 1
+        "#);
 
         assert!(
             actual
@@ -58,17 +55,14 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open csv_text_sample.txt
-                | lines
-                | str trim
-                | split column "," a b c d origin
-                | last 1
-                | to csv --noheaders
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open csv_text_sample.txt
+            | lines
+            | str trim
+            | split column "," a b c d origin
+            | last 1
+            | to csv --noheaders
+        "#);
 
         assert!(
             actual
@@ -76,6 +70,15 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
                 .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
         );
     })
+}
+
+#[test]
+fn table_to_csv_float_doesnt_become_int() {
+    let actual = nu!(r#"
+        [[a]; [1.0]] | to csv | from csv | get 0.a | describe
+    "#);
+
+    assert_eq!(actual.out, "float")
 }
 
 #[test]
@@ -92,14 +95,11 @@ fn infers_types() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_cuatro_mosqueteros.csv
-                | where rusty_luck > 0
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_cuatro_mosqueteros.csv
+            | where rusty_luck > 0
+            | length
+        "#);
 
         assert_eq!(actual.out, "4");
     })
@@ -118,15 +118,12 @@ fn from_csv_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -145,15 +142,12 @@ fn from_csv_text_with_separator_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator ";"
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator ";"
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -172,15 +166,12 @@ fn from_csv_text_with_tab_separator_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator (char tab)
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator (char tab)
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -203,15 +194,12 @@ fn from_csv_text_with_comments_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r##"
-                open los_tres_caballeros.txt
-                | from csv --comment "#"
-                | get rusty_luck
-                | length
-            "##
-        ));
+        let actual = nu!(cwd: dirs.test(), r##"
+            open los_tres_caballeros.txt
+            | from csv --comment "#"
+            | get rusty_luck
+            | length
+        "##);
 
         assert_eq!(actual.out, "3");
     })
@@ -230,15 +218,12 @@ fn from_csv_text_with_custom_quotes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --quote "'"
-                | first
-                | get first_name
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --quote "'"
+            | first
+            | get first_name
+        "#);
 
         assert_eq!(actual.out, "And'rés");
     })
@@ -257,15 +242,12 @@ fn from_csv_text_with_custom_escapes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r"
-                open los_tres_caballeros.txt
-                | from csv --escape '\'
-                | first
-                | get first_name
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), r"
+            open los_tres_caballeros.txt
+            | from csv --escape '\'
+            | first
+            | get first_name
+        ");
 
         assert_eq!(actual.out, "And\"rés");
     })
@@ -283,15 +265,12 @@ fn from_csv_text_skipping_headers_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_amigos.txt
-                | from csv --noheaders
-                | get column2
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_amigos.txt
+            | from csv --noheaders
+            | get column2
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -310,16 +289,13 @@ fn from_csv_text_with_missing_columns_to_table() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --flexible
-                | get -i rusty_luck
-                | compact
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --flexible
+            | get -o rusty_luck
+            | compact
+            | length
+        "#);
 
         assert_eq!(actual.out, "2");
     })
@@ -338,13 +314,10 @@ fn from_csv_text_with_multiple_char_separator() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator "li"
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator "li"
+        "#);
 
         assert!(
             actual
@@ -367,13 +340,10 @@ fn from_csv_text_with_wrong_type_separator() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator ('123' | into int)
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator ('123' | into int)
+        "#);
 
         assert!(actual.err.contains("can't convert int to string"));
     })
@@ -381,35 +351,39 @@ fn from_csv_text_with_wrong_type_separator() {
 
 #[test]
 fn table_with_record_error() {
-    let actual = nu!(pipeline(
-        r#"
-            [[a b]; [1 2] [3 {a: 1 b: 2}]]
-            | to csv
-        "#
-    ));
+    let actual = nu!(r#"
+        [[a b]; [1 2] [3 {a: 1 b: 2}]]
+        | to csv
+    "#);
 
     assert!(actual.err.contains("can't convert"))
 }
 
 #[test]
-fn list_not_table_error() {
-    let actual = nu!(pipeline(
-        r#"
-            [{a: 1 b: 2} {a: 3 b: 4} 1]
-            | to csv
-        "#
-    ));
+fn list_not_table_parse_time_error() {
+    let actual = nu!(r#"
+        [{a: 1 b: 2} {a: 3 b: 4} 1]
+        | to csv
+    "#);
+
+    assert!(actual.err.contains("parser::input_type_mismatch"))
+}
+
+#[test]
+fn list_not_table_runtime_error() {
+    let actual = nu!(r#"
+        echo [{a: 1 b: 2} {a: 3 b: 4} 1]
+        | to csv
+    "#);
 
     assert!(actual.err.contains("Input type not supported"))
 }
 
 #[test]
 fn string_to_csv_error() {
-    let actual = nu!(pipeline(
-        r#"
-            'qwe' | to csv
-        "#
-    ));
+    let actual = nu!(r#"
+        'qwe' | to csv
+    "#);
 
     assert!(actual.err.contains("command doesn't support"))
 }
@@ -427,15 +401,12 @@ fn parses_csv_with_unicode_sep() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator "003B"
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator "003B"
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -454,15 +425,12 @@ fn parses_csv_with_unicode_x1f_sep() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.txt
-                | from csv --separator "001F"
-                | get rusty_luck
-                | length
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            open los_tres_caballeros.txt
+            | from csv --separator "001F"
+            | get rusty_luck
+            | length
+        "#);
 
         assert_eq!(actual.out, "3");
     })
@@ -470,20 +438,16 @@ fn parses_csv_with_unicode_x1f_sep() {
 
 #[test]
 fn from_csv_test_flexible_extra_vals() {
-    let actual = nu!(pipeline(
-        r#"
-          echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
-        "#
-    ));
+    let actual = nu!(r#"
+      echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
+    "#);
     assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
 fn from_csv_test_flexible_missing_vals() {
-    let actual = nu!(pipeline(
-        r#"
-          echo "a,b\n1" | from csv --flexible | first | values | to nuon
-        "#
-    ));
+    let actual = nu!(r#"
+      echo "a,b\n1" | from csv --flexible | first | values | to nuon
+    "#);
     assert_eq!(actual.out, "[1]");
 }

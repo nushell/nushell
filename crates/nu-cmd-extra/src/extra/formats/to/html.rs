@@ -109,16 +109,24 @@ impl Command for ToHtml {
                 "produce a color table of all available themes",
                 Some('l'),
             )
+            .switch("raw", "do not escape html tags", Some('r'))
             .category(Category::Formats)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs an  HTML string representing the contents of this table",
+                description: "Outputs an HTML string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to html",
                 result: Some(Value::test_string(
                     r#"<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
+                )),
+            },
+            Example {
+                description: "Outputs an HTML string using a record of xml data",
+                example: r#"{tag: a attributes: { style: "color: red" } content: ["hello!"] } | to xml | to html --raw"#,
+                result: Some(Value::test_string(
+                    r#"<html><style>body { background-color:white;color:black; }</style><body><a style="color: red">hello!</a></body></html>"#,
                 )),
             },
             Example {
@@ -188,7 +196,7 @@ fn get_theme_from_asset_file(
         Some(t) => t,
         None => {
             return Err(ShellError::TypeMismatch {
-                err_message: format!("Unknown HTML theme '{}'", theme_name),
+                err_message: format!("Unknown HTML theme '{theme_name}'"),
                 span: theme_span,
             });
         }
@@ -254,6 +262,7 @@ fn to_html(
     let dark = call.has_flag(engine_state, stack, "dark")?;
     let partial = call.has_flag(engine_state, stack, "partial")?;
     let list = call.has_flag(engine_state, stack, "list")?;
+    let raw = call.has_flag(engine_state, stack, "raw")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = &stack.get_config(engine_state);
 
@@ -301,7 +310,7 @@ fn to_html(
                 .get("foreground")
                 .expect("Error getting foreground color")
         )
-        .unwrap();
+        .ok();
     } else {
         write!(
             &mut output_string,
@@ -313,21 +322,21 @@ fn to_html(
                 .get("foreground")
                 .expect("Error getting foreground color")
         )
-        .unwrap();
+        .ok();
     }
 
     let inner_value = match vec_of_values.len() {
         0 => String::default(),
         1 => match headers {
-            Some(headers) => html_table(vec_of_values, headers, config),
+            Some(headers) => html_table(vec_of_values, headers, raw, config),
             None => {
                 let value = &vec_of_values[0];
-                html_value(value.clone(), config)
+                html_value(value.clone(), raw, config)
             }
         },
         _ => match headers {
-            Some(headers) => html_table(vec_of_values, headers, config),
-            None => html_list(vec_of_values, config),
+            Some(headers) => html_table(vec_of_values, headers, raw, config),
+            None => html_list(vec_of_values, raw, config),
         },
     };
 
@@ -351,6 +360,7 @@ fn to_html(
     let metadata = PipelineMetadata {
         data_source: nu_protocol::DataSource::None,
         content_type: Some(mime::TEXT_HTML_UTF_8.to_string()),
+        ..Default::default()
     };
 
     Ok(Value::string(output_string, head).into_pipeline_data_with_metadata(metadata))
@@ -391,23 +401,23 @@ fn theme_demo(span: Span) -> PipelineData {
         .collect();
     Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
         data_source: DataSource::HtmlThemes,
-        content_type: None,
+        ..Default::default()
     })
 }
 
-fn html_list(list: Vec<Value>, config: &Config) -> String {
+fn html_list(list: Vec<Value>, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
     output_string.push_str("<ol>");
     for value in list {
         output_string.push_str("<li>");
-        output_string.push_str(&html_value(value, config));
+        output_string.push_str(&html_value(value, raw, config));
         output_string.push_str("</li>");
     }
     output_string.push_str("</ol>");
     output_string
 }
 
-fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> String {
+fn html_table(table: Vec<Value>, headers: Vec<String>, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
 
     output_string.push_str("<table>");
@@ -430,7 +440,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
                     .cloned()
                     .unwrap_or_else(|| Value::nothing(span));
                 output_string.push_str("<td>");
-                output_string.push_str(&html_value(data, config));
+                output_string.push_str(&html_value(data, raw, config));
                 output_string.push_str("</td>");
             }
             output_string.push_str("</tr>");
@@ -441,7 +451,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string
 }
 
-fn html_value(value: Value, config: &Config) -> String {
+fn html_value(value: Value, raw: bool, config: &Config) -> String {
     let mut output_string = String::new();
     match value {
         Value::Binary { val, .. } => {
@@ -450,11 +460,22 @@ fn html_value(value: Value, config: &Config) -> String {
             output_string.push_str(&output);
             output_string.push_str("</pre>");
         }
-        other => output_string.push_str(
-            &v_htmlescape::escape(&other.to_abbreviated_string(config))
-                .to_string()
-                .replace('\n', "<br>"),
-        ),
+        other => {
+            if raw {
+                output_string.push_str(
+                    &other
+                        .to_abbreviated_string(config)
+                        .to_string()
+                        .replace('\n', "<br>"),
+                )
+            } else {
+                output_string.push_str(
+                    &v_htmlescape::escape(&other.to_abbreviated_string(config))
+                        .to_string()
+                        .replace('\n', "<br>"),
+                )
+            }
+        }
     }
     output_string
 }
@@ -717,9 +738,10 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
+        use nu_command::ToXml;
 
-        test_examples(ToHtml {})
+        test_examples_with_commands(ToHtml {}, &[&ToXml])
     }
 
     #[test]
@@ -774,8 +796,7 @@ mod tests {
         for key in required_keys {
             assert!(
                 theme_map.contains_key(key),
-                "Expected theme to contain key '{}'",
-                key
+                "Expected theme to contain key '{key}'"
             );
         }
     }
@@ -792,15 +813,13 @@ mod tests {
         if let Err(err) = result {
             assert!(
                 matches!(err, ShellError::TypeMismatch { .. }),
-                "Expected TypeMismatch error, got: {:?}",
-                err
+                "Expected TypeMismatch error, got: {err:?}"
             );
 
             if let ShellError::TypeMismatch { err_message, span } = err {
                 assert!(
                     err_message.contains("doesnt-exist"),
-                    "Error message should mention theme name, got: {}",
-                    err_message
+                    "Error message should mention theme name, got: {err_message}"
                 );
                 assert_eq!(span.start, 0);
                 assert_eq!(span.end, 13);

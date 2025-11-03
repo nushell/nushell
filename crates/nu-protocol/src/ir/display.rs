@@ -429,7 +429,7 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::Variable(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
-                write!(f, "{}", variable)
+                write!(f, "{variable}")
             }
             Pattern::Or(patterns) => {
                 for (index, pattern) in patterns.iter().enumerate() {
@@ -449,7 +449,7 @@ impl fmt::Display for FmtPattern<'_> {
             }
             Pattern::Rest(var_id) => {
                 let variable = FmtVar::new(self.engine_state, *var_id);
-                write!(f, "..{}", variable)
+                write!(f, "..{variable}")
             }
             Pattern::IgnoreRest => f.write_str(".."),
             Pattern::IgnoreValue => f.write_str("_"),

@@ -25,16 +25,12 @@ jobs:
         # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 22.04 is closer to EOL (June 2027)
-        #
-        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
-        # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
-        # removed and we're only building the `polars` plugin instead
-        platform: [windows-latest, macos-13, ubuntu-22.04]
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v5
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
@@ -62,7 +58,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v5
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
@@ -91,13 +87,29 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v5
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
 
       - name: Install Nushell
         run: cargo install --path . --locked --force
+
+      - name: Upload Nushell build (Ubuntu and macOS)
+        uses: actions/upload-artifact@v5
+        if: runner.os != 'Windows'
+        with:
+          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
+          path: "~/.cargo/bin/nu"
+          retention-days: 14
+
+      - name: Upload Nushell build (Windows)
+        uses: actions/upload-artifact@v5
+        if: runner.os == 'Windows'
+        with:
+          name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
+          path: 'C:\Users\runneradmin\.cargo\bin\nu.exe'
+          retention-days: 14
 
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
@@ -106,7 +118,7 @@ jobs:
         run: nu .github/workflows/check-msrv.nu
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
@@ -133,16 +145,12 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
-        # instead of 14 GB) which is too little for us right now.
-        #
-        # Failure occurring with clippy for rust 1.77.2
-        platform: [windows-latest, macos-13, ubuntu-22.04]
+        platform: [windows-latest, macos-latest, ubuntu-22.04]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v5
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
@@ -183,7 +191,7 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v5
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0

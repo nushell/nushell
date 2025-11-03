@@ -54,7 +54,7 @@ impl Command for Let {
         unreachable!()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Set a variable to a value",

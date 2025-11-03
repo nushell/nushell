@@ -51,7 +51,7 @@ impl Command for ErrorMake {
         Err(make_other_error(&arg, throw_span))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Create a simple custom error",
@@ -229,7 +229,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
             error: "invalid error format.".into(),
             msg: "`$.label.start` should be smaller than `$.label.end`".into(),
             span: Some(label_span),
-            help: Some(format!("{} > {}", span_start, span_end)),
+            help: Some(format!("{span_start} > {span_end}")),
             inner: vec![],
         };
     }

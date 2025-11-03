@@ -49,11 +49,15 @@ impl Command for FromCsv {
                 None,
             )
             .switch("no-infer", "no field type inferencing", None)
-            .named(
-                "trim",
-                SyntaxShape::String,
-                "drop leading and trailing whitespaces around headers names and/or field values",
-                Some('t'),
+            .param(
+                Flag::new("trim")
+                    .short('t')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "drop leading and trailing whitespaces around headers names and/or field \
+                         values",
+                    )
+                    .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
             .category(Category::Formats)
     }
@@ -72,7 +76,7 @@ impl Command for FromCsv {
         from_csv(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert comma-separated data to a table",
@@ -203,6 +207,7 @@ mod test {
 
     use super::*;
 
+    use crate::Reject;
     use crate::{Metadata, MetadataSet};
 
     #[test]
@@ -221,6 +226,7 @@ mod test {
             working_set.add_decl(Box::new(FromCsv {}));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
+            working_set.add_decl(Box::new(Reject {}));
 
             working_set.render()
         };
@@ -229,7 +235,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | $in"#;
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

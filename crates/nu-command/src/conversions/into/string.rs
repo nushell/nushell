@@ -38,6 +38,7 @@ impl Command for IntoString {
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
                 (Type::Duration, Type::String),
+                (Type::CellPath, Type::String),
                 (Type::Range, Type::String),
                 (
                     Type::List(Box::new(Type::Any)),
@@ -84,7 +85,7 @@ impl Command for IntoString {
         string_helper(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "convert int to string and append three decimal places",
@@ -141,6 +142,11 @@ impl Command for IntoString {
                 example: "9day | into string",
                 result: Some(Value::test_string("1wk 2day")),
             },
+            Example {
+                description: "convert cell-path to string",
+                example: "$.name | into string",
+                result: Some(Value::test_string("$.name")),
+            },
         ]
     }
 }
@@ -154,13 +160,13 @@ fn string_helper(
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     let group_digits = call.has_flag(engine_state, stack, "group-digits")?;
-    if let Some(decimal_val) = decimals_value {
-        if decimal_val.is_negative() {
-            return Err(ShellError::TypeMismatch {
-                err_message: "Cannot accept negative integers for decimals arguments".to_string(),
-                span: head,
-            });
-        }
+    if let Some(decimal_val) = decimals_value
+        && decimal_val.is_negative()
+    {
+        return Err(ShellError::TypeMismatch {
+            err_message: "Cannot accept negative integers for decimals arguments".to_string(),
+            span: head,
+        });
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -170,7 +176,7 @@ fn string_helper(
         // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
         // to binary
         if stream.type_().is_string_coercible() {
-            Ok(PipelineData::ByteStream(
+            Ok(PipelineData::byte_stream(
                 stream.with_type(ByteStreamType::String),
                 metadata,
             ))
@@ -217,6 +223,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val, span),
         Value::Glob { val, .. } => Value::string(val, span),
+        Value::CellPath { val, .. } => Value::string(val.to_string(), span),
         Value::Filesize { val, .. } => {
             if group_digits {
                 let decimal_value = digits.unwrap_or(0) as usize;

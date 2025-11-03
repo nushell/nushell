@@ -1,12 +1,14 @@
+use std::sync::Arc;
+
 use crate::PolarsPlugin;
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{CustomValueSupport, PolarsPluginObject};
+use crate::values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
+use polars::prelude::{PlSmallStr, Selector};
 
 #[derive(Clone)]
 pub struct LazyExplode;
@@ -31,18 +33,22 @@ impl PluginCommand for LazyExplode {
             )
             .input_output_types(vec![
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
                 ),
             ])
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Explode the specified dataframe",
@@ -158,12 +164,19 @@ pub(crate) fn explode_lazy(
     let columns = call
         .positional
         .iter()
-        .map(|e| e.as_str().map(|s| s.to_string()))
-        .collect::<Result<Vec<String>, ShellError>>()?;
+        .map(|param| param.as_str().map(|s| s.to_string()))
+        .map(|s_result| s_result.map(|ref s| PlSmallStr::from_str(s)))
+        .collect::<Result<Vec<PlSmallStr>, ShellError>>()?;
 
-    let exploded = lazy
-        .to_polars()
-        .explode(columns.iter().map(AsRef::as_ref).collect::<Vec<&str>>());
+    // todo - refactor to add selector support
+    let columns = Arc::from(columns);
+
+    let selector = Selector::ByName {
+        names: columns,
+        strict: true,
+    };
+
+    let exploded = lazy.to_polars().explode(selector);
     let lazy = NuLazyFrame::from(exploded);
 
     lazy.to_pipeline_data(plugin, engine, call.head)

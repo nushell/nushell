@@ -40,7 +40,7 @@ impl Command for PluginCommand {
         Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "plugin add nu_plugin_inc",

@@ -561,7 +561,7 @@ pub fn lookup_style(s: &str) -> Style {
         "grey85" | "xterm_grey85" => Color::Fixed(253).normal(),
         "grey89" | "xterm_grey89" => Color::Fixed(254).normal(),
         "grey93" | "xterm_grey93" => Color::Fixed(255).normal(),
-        _ => Color::White.normal(),
+        _ => Color::Default.normal(),
     }
 }
 

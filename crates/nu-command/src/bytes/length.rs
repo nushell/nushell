@@ -49,7 +49,7 @@ impl Command for BytesLen {
         operate(length, arg, input, call.head, engine_state.signals())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return the length of a binary",

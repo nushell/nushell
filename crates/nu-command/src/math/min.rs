@@ -58,7 +58,7 @@ impl Command for MathMin {
         run_with_function(call, input, minimum)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the minimum of a list of numbers",

@@ -1,7 +1,7 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn http_patch_is_success() {
@@ -9,15 +9,7 @@ fn http_patch_is_success() {
 
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http patch {url} "foo"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http patch {url} "foo""#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -28,15 +20,7 @@ fn http_patch_is_success_pipeline() {
 
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        "foo" | http patch {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#""foo" | http patch {url}"#, url = server.url()));
 
     assert!(actual.out.is_empty())
 }
@@ -47,15 +31,7 @@ fn http_patch_failed_due_to_server_error() {
 
     let _mock = server.mock("PATCH", "/").with_status(400).create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http patch {url} "body"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http patch {url} "body""#, url = server.url()));
 
     assert!(actual.err.contains("Bad request (400)"))
 }
@@ -66,15 +42,7 @@ fn http_patch_failed_due_to_missing_body() {
 
     let _mock = server.mock("PATCH", "/").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http patch {url}
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http patch {url}"#, url = server.url()));
 
     assert!(
         actual
@@ -89,15 +57,7 @@ fn http_patch_failed_due_to_unexpected_body() {
 
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
 
-    let actual = nu!(pipeline(
-        format!(
-            r#"
-        http patch {url} "bar"
-        "#,
-            url = server.url()
-        )
-        .as_str()
-    ));
+    let actual = nu!(format!(r#"http patch {url} "bar""#, url = server.url()));
 
     assert!(actual.err.contains("Cannot make request"))
 }
@@ -113,8 +73,9 @@ fn http_patch_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!("http patch {url}/foo patchbody", url = server.url()).as_str()
+    let actual = nu!(format!(
+        "http patch {url}/foo patchbody",
+        url = server.url()
     ));
 
     assert_eq!(&actual.out, "bar");
@@ -131,12 +92,9 @@ fn http_patch_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http patch --redirect-mode manual {url}/foo patchbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http patch --redirect-mode manual {url}/foo patchbody",
+        url = server.url()
     ));
 
     assert_eq!(&actual.out, "foo");
@@ -153,12 +111,9 @@ fn http_patch_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http patch --redirect-mode error {url}/foo patchbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http patch --redirect-mode error {url}/foo patchbody",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::network_failure"));
@@ -178,12 +133,9 @@ fn http_patch_timeout() {
         })
         .create();
 
-    let actual = nu!(pipeline(
-        format!(
-            "http patch --max-time 100ms {url} patchbody",
-            url = server.url()
-        )
-        .as_str()
+    let actual = nu!(format!(
+        "http patch --max-time 100ms {url} patchbody",
+        url = server.url()
     ));
 
     assert!(&actual.err.contains("nu::shell::io::timed_out"));

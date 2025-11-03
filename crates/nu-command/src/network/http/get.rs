@@ -1,11 +1,12 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    RequestFlags, RequestMetadata, check_response_redirection, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
-use super::client::HttpBody;
+use super::client::RedirectMode;
 
 #[derive(Clone)]
 pub struct HttpGet;
@@ -16,7 +17,7 @@ impl Command for HttpGet {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http get")
+        let sig = Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -68,14 +69,20 @@ impl Command for HttpGet {
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
-            .named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -102,7 +109,7 @@ impl Command for HttpGet {
         run_get(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get content from example.com",
@@ -124,6 +131,21 @@ impl Command for HttpGet {
                 example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Get the response status code",
+                example: r#"http get https://www.example.com | metadata | get http_response.status"#,
+                result: None,
+            },
+            Example {
+                description: "Check response status while streaming",
+                example: r#"http get --allow-errors https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
+                result: None,
+            },
+            Example {
+                description: "Get from Docker daemon via Unix socket",
+                example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
+                result: None,
+            },
         ]
     }
 }
@@ -139,9 +161,10 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    unix_socket: Option<Spanned<String>>,
 }
 
-fn run_get(
+pub fn run_get(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
@@ -158,6 +181,7 @@ fn run_get(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -174,21 +198,22 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.get(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
-
-    let response = send_request(
-        engine_state,
-        request.clone(),
-        HttpBody::None,
-        None,
-        call.head,
-        engine_state.signals(),
-    );
+    let (response, request_headers) =
+        send_request_no_body(request, call.head, engine_state.signals());
 
     let request_flags = RequestFlags {
         raw: args.raw,
@@ -196,15 +221,20 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
+    let response = response?;
+
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

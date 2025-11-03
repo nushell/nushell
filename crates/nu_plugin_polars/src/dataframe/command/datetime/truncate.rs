@@ -9,8 +9,7 @@ use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
 use chrono::DateTime;
@@ -34,8 +33,8 @@ impl PluginCommand for Truncate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(
-                Type::Custom("expression".into()),
-                Type::Custom("expression".into()),
+                PolarsPluginType::NuExpression.into(),
+                PolarsPluginType::NuExpression.into(),
             )])
             .required(
                 "every",
@@ -45,7 +44,7 @@ impl PluginCommand for Truncate {
             .category(Category::Custom("expression".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Truncate a series of dates by period length",
             example: r#"seq date -b 2025-01-01 --periods 4 --increment 6wk -o "%Y-%m-%d %H:%M:%S" | polars into-df | polars as-datetime "%F %H:%M:%S" --naive | polars select datetime (polars col datetime | polars truncate 5d37m | polars as truncated)"#,

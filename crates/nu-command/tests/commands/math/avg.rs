@@ -1,15 +1,12 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn can_average_numbers() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-             open sgml_description.json
-             | get glossary.GlossDiv.GlossList.GlossEntry.Sections
-             | math avg
-         "#
-    ));
+    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+         open sgml_description.json
+         | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+         | math avg
+     "#);
 
     assert_eq!(actual.out, "101.5")
 }
@@ -38,5 +35,5 @@ fn cannot_average_infinite_range() {
 #[test]
 fn const_avg() {
     let actual = nu!("const AVG = [1 3 5] | math avg; $AVG");
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual.out, "3.0");
 }

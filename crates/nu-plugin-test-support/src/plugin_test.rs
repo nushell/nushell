@@ -137,10 +137,9 @@ impl PluginTest {
 
         // Serialize custom values in the input
         let source = self.source.clone();
-        let input = if matches!(input, PipelineData::ByteStream(..)) {
-            input
-        } else {
-            input.map(
+        let input = match input {
+            input @ PipelineData::ByteStream(..) => input,
+            input => input.map(
                 move |mut value| {
                     let result = PluginCustomValue::serialize_custom_values_in(&mut value)
                         // Make sure to mark them with the source so they pass correctly, too.
@@ -153,16 +152,16 @@ impl PluginTest {
                     }
                 },
                 &Signals::empty(),
-            )?
+            )?,
         };
 
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
-        let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
-        if matches!(data, PipelineData::ByteStream(..)) {
-            Ok(data)
-        } else {
-            data.map(
+        let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)
+            .map(|p| p.body)?;
+        match data {
+            data @ PipelineData::ByteStream(..) => Ok(data),
+            data => data.map(
                 |mut value| {
                     // Make sure to deserialize custom values
                     let result = PluginCustomValueWithSource::remove_source_in(&mut value)
@@ -173,7 +172,7 @@ impl PluginTest {
                     }
                 },
                 &Signals::empty(),
-            )
+            ),
         }
     }
 
@@ -194,7 +193,7 @@ impl PluginTest {
     /// # }
     /// ```
     pub fn eval(&mut self, nu_source: &str) -> Result<PipelineData, ShellError> {
-        self.eval_with(nu_source, PipelineData::Empty)
+        self.eval_with(nu_source, PipelineData::empty())
     }
 
     /// Test a list of plugin examples. Prints an error for each failing example.
@@ -276,11 +275,11 @@ impl PluginTest {
                                         )?;
 
                                         (
-                                            format!("{:#?}", expectation_base),
-                                            format!("{:#?}", value_base),
+                                            format!("{expectation_base:#?}"),
+                                            format!("{value_base:#?}"),
                                         )
                                     }
-                                    _ => (format!("{:#?}", expectation), format!("{:#?}", value)),
+                                    _ => (format!("{expectation:#?}"), format!("{value:#?}")),
                                 };
 
                             let diff = diff_by_line(&expectation_formatted, &value_formatted);

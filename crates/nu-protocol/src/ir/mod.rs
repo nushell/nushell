@@ -1,5 +1,5 @@
 use crate::{
-    BlockId, DeclId, Filesize, RegId, Span, Value, VarId,
+    BlockId, DeclId, Filesize, RegId, ShellError, Span, Value, VarId,
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
 };
@@ -381,6 +381,20 @@ impl Instruction {
             _ => return Err(target_index),
         }
         Ok(())
+    }
+
+    /// Check for an interrupt before certain instructions
+    pub fn check_interrupt(
+        &self,
+        engine_state: &EngineState,
+        span: &Span,
+    ) -> Result<(), ShellError> {
+        match self {
+            Instruction::Jump { .. } | Instruction::Return { .. } => {
+                engine_state.signals().check(span)
+            }
+            _ => Ok(()),
+        }
     }
 }
 

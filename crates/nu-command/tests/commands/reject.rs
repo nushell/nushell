@@ -1,21 +1,19 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn regular_columns() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [
-                [first_name, last_name, rusty_at, type];
-
-                [Andrés Robalino '10/11/2013' A]
-                [JT Turner '10/12/2013' B]
-                [Yehuda Katz '10/11/2013' A]
-            ]
-            | reject type first_name
-            | columns
-            | str join ", "
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [
+            [first_name, last_name, rusty_at, type];
+    
+            [Andrés Robalino '10/11/2013' A]
+            [JT Turner '10/12/2013' B]
+            [Yehuda Katz '10/11/2013' A]
+        ]
+        | reject type first_name
+        | columns
+        | str join ", "
+    "#);
 
     assert_eq!(actual.out, "last_name, rusty_at");
 }
@@ -29,52 +27,48 @@ fn skip_cell_rejection() {
 
 #[test]
 fn complex_nested_columns() {
-    let actual = nu!(pipeline(
-        r#"
-            {
-                "nu": {
-                    "committers": [
-                        {"name": "Andrés N. Robalino"},
-                        {"name": "JT Turner"},
-                        {"name": "Yehuda Katz"}
-                    ],
-                    "releases": [
-                        {"version": "0.2"}
-                        {"version": "0.8"},
-                        {"version": "0.9999999"}
-                    ],
-                    "0xATYKARNU": [
-                        ["Th", "e", " "],
-                        ["BIG", " ", "UnO"],
-                        ["punto", "cero"]
-                    ]
-                }
+    let actual = nu!(r#"
+        {
+            "nu": {
+                "committers": [
+                    {"name": "Andrés N. Robalino"},
+                    {"name": "JT Turner"},
+                    {"name": "Yehuda Katz"}
+                ],
+                "releases": [
+                    {"version": "0.2"}
+                    {"version": "0.8"},
+                    {"version": "0.9999999"}
+                ],
+                "0xATYKARNU": [
+                    ["Th", "e", " "],
+                    ["BIG", " ", "UnO"],
+                    ["punto", "cero"]
+                ]
             }
-            | reject nu."0xATYKARNU" nu.committers
-            | get nu
-            | columns
-            | str join ", "
-        "#,
-    ));
+        }
+        | reject nu."0xATYKARNU" nu.committers
+        | get nu
+        | columns
+        | str join ", "
+    "#);
 
     assert_eq!(actual.out, "releases");
 }
 
 #[test]
 fn ignores_duplicate_columns_rejected() {
-    let actual = nu!(pipeline(
-        r#"
-            echo [
-                ["first name", "last name"];
-
-                [Andrés Robalino]
-                [Andrés Jnth]
-            ]
-            | reject "first name" "first name"
-            | columns
-            | str join ", "
-        "#
-    ));
+    let actual = nu!(r#"
+        echo [
+            ["first name", "last name"];
+    
+            [Andrés Robalino]
+            [Andrés Jnth]
+        ]
+        | reject "first name" "first name"
+        | columns
+        | str join ", "
+    "#);
 
     assert_eq!(actual.out, "last name");
 }
@@ -174,14 +168,14 @@ fn reject_multiple_rows_descending() {
 
 #[test]
 fn test_ignore_errors_flag() {
-    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -i | to nuon");
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 
 #[test]
 fn test_ignore_errors_flag_var() {
     let actual =
-        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -i | to nuon");
+        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -o | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }
 

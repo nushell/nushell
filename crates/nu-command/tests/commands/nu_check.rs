@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
 
 #[test]
 fn parse_script_success() {
@@ -16,12 +16,9 @@ fn parse_script_success() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check script.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check script.nu
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -41,12 +38,9 @@ fn parse_script_with_wrong_type() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --debug --as-module script.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --debug --as-module script.nu
+        ");
 
         assert!(actual.err.contains("Failed to parse content"));
     })
@@ -65,12 +59,9 @@ fn parse_script_failure() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --debug script.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --debug script.nu
+        ");
 
         assert!(actual.err.contains("Unexpected end of code"));
     })
@@ -94,12 +85,9 @@ fn parse_module_success() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --as-module foo.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --as-module foo.nu
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -123,12 +111,9 @@ fn parse_module_with_wrong_type() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --debug foo.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --debug foo.nu
+        ");
 
         assert!(actual.err.contains("Failed to parse content"));
     })
@@ -151,12 +136,9 @@ fn parse_module_failure() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --debug --as-module foo.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --debug --as-module foo.nu
+        ");
 
         assert!(actual.err.contains("Unexpected end of code"));
     })
@@ -165,12 +147,9 @@ fn parse_module_failure() {
 #[test]
 fn file_not_exist() {
     Playground::setup("nu_check_test_7", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --as-module foo.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --as-module foo.nu
+        ");
 
         assert!(actual.err.contains("nu::shell::io::file_not_found"));
     })
@@ -188,12 +167,9 @@ fn parse_module_success_2() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check --as-module foo.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check --as-module foo.nu
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -213,12 +189,9 @@ fn parse_script_success_with_raw_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open script.nu | nu-check
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open script.nu | nu-check
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -242,12 +215,9 @@ fn parse_module_success_with_raw_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open foo.nu | nu-check --as-module
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open foo.nu | nu-check --as-module
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -256,12 +226,9 @@ fn parse_module_success_with_raw_stream() {
 #[test]
 fn parse_string_as_script_success() {
     Playground::setup("nu_check_test_13", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                echo $'two(char nl)lines' | nu-check
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            echo $'two(char nl)lines' | nu-check
+        "#);
 
         assert!(actual.err.is_empty());
     })
@@ -270,12 +237,9 @@ fn parse_string_as_script_success() {
 #[test]
 fn parse_string_as_script() {
     Playground::setup("nu_check_test_14", |dirs, _sandbox| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                echo $'two(char nl)lines' | nu-check --debug --as-module
-            "#
-        ));
+        let actual = nu!(cwd: dirs.test(), r#"
+            echo $'two(char nl)lines' | nu-check --debug --as-module
+        "#);
 
         println!("the output is {}", actual.err);
         assert!(actual.err.contains("Failed to parse content"));
@@ -300,12 +264,9 @@ fn parse_module_success_with_internal_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open foo.nu | lines | nu-check --as-module
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open foo.nu | lines | nu-check --as-module
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -349,12 +310,9 @@ fn parse_script_success_with_complex_internal_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | lines | nu-check
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | lines | nu-check
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -398,12 +356,9 @@ fn parse_script_failure_with_complex_internal_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | lines | nu-check
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | lines | nu-check
+        ");
 
         assert_eq!(actual.out, "false".to_string());
     })
@@ -447,12 +402,9 @@ fn parse_script_success_with_complex_external_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | nu-check
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | nu-check
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -496,12 +448,9 @@ fn parse_module_success_with_complex_external_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | nu-check --debug --as-module
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | nu-check --debug --as-module
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -545,12 +494,9 @@ fn parse_with_flag_success_for_complex_external_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | nu-check --debug
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | nu-check --debug
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -594,12 +540,9 @@ fn parse_with_flag_failure_for_complex_external_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | nu-check --debug
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | nu-check --debug
+        ");
 
         assert!(actual.err.contains("Failed to parse content"));
     })
@@ -643,12 +586,9 @@ fn parse_with_flag_failure_for_complex_list_stream() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open grep.nu | lines | nu-check --debug
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            open grep.nu | lines | nu-check --debug
+        ");
 
         assert!(actual.err.contains("Failed to parse content"));
     })
@@ -680,12 +620,9 @@ fn parse_script_with_nested_scripts_success() {
                 "#,
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                nu-check lol/lol.nu
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            nu-check lol/lol.nu
+        ");
 
         assert_eq!(actual.out, "true");
     })
@@ -709,13 +646,10 @@ fn nu_check_respects_file_pwd() {
                 "#,
             )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                source-env lol/lol.nu;
-                $env.RETURN
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            source-env lol/lol.nu;
+            $env.RETURN
+        ");
 
         assert_eq!(actual.out, "true");
     })
@@ -739,7 +673,7 @@ fn nu_check_module_dir() {
                 "#,
             )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline( "nu-check lol"));
+        let actual = nu!(cwd: dirs.test(), "nu-check lol");
 
         assert_eq!(actual.out, "true");
     })

@@ -216,6 +216,14 @@ pub enum CompileError {
     },
 
     #[error("{msg}")]
+    #[diagnostic(code(nu::compile::not_in_a_try))]
+    NotInATry {
+        msg: String,
+        #[label("can't be used outside of a try block")]
+        span: Option<Span>,
+    },
+
+    #[error("{msg}")]
     #[diagnostic(code(nu::compile::not_in_a_loop))]
     NotInALoop {
         msg: String,

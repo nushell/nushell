@@ -12,7 +12,7 @@ use nu_protocol::{
 /// ```rust
 /// # use nu_engine::command_prelude::*;
 /// # use nu_cmd_base::WrapCall;
-/// # fn do_command_logic(call: WrapCall) -> Result<PipelineData, ShellError> { Ok(PipelineData::Empty) }
+/// # fn do_command_logic(call: WrapCall) -> Result<PipelineData, ShellError> { Ok(PipelineData::empty()) }
 ///
 /// # struct Command {}
 /// # impl Command {

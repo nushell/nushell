@@ -1,18 +1,11 @@
 use miette::{Diagnostic, LabeledSpan};
-use nu_cmd_lang::{Alias, Def};
 use nu_parser::parse;
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-
-use nu_cmd_lang::AttrDeprecated;
+use nu_protocol::engine::StateWorkingSet;
 
 #[test]
 pub fn test_deprecated_attribute() {
-    let engine_state = EngineState::new();
+    let engine_state = nu_cmd_lang::create_default_context();
     let mut working_set = StateWorkingSet::new(&engine_state);
-
-    working_set.add_decl(Box::new(Def));
-    working_set.add_decl(Box::new(Alias));
-    working_set.add_decl(Box::new(AttrDeprecated));
 
     // test deprecation with no message
     let source = br#"
@@ -54,12 +47,8 @@ pub fn test_deprecated_attribute() {
 
 #[test]
 pub fn test_deprecated_attribute_flag() {
-    let engine_state = EngineState::new();
+    let engine_state = nu_cmd_lang::create_default_context();
     let mut working_set = StateWorkingSet::new(&engine_state);
-
-    working_set.add_decl(Box::new(Def));
-    working_set.add_decl(Box::new(Alias));
-    working_set.add_decl(Box::new(AttrDeprecated));
 
     let source = br#"
     @deprecated "Use foo instead of bar" --flag bar
@@ -90,12 +79,8 @@ pub fn test_deprecated_attribute_flag() {
 
 #[test]
 pub fn test_deprecated_attribute_since_remove() {
-    let engine_state = EngineState::new();
+    let engine_state = nu_cmd_lang::create_default_context();
     let mut working_set = StateWorkingSet::new(&engine_state);
-
-    working_set.add_decl(Box::new(Def));
-    working_set.add_decl(Box::new(Alias));
-    working_set.add_decl(Box::new(AttrDeprecated));
 
     let source = br#"
     @deprecated --since 0.10000.0 --remove 1.0

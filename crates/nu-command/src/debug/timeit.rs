@@ -61,7 +61,7 @@ This command will bubble up any errors encountered when running the closure. The
         Ok(output.into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Time a closure containing one command",

@@ -65,7 +65,7 @@ There are 4 `key_type` variants:
     media - dedicated media keys (play, pause, tracknext ...)
     other - keys not falling under previous categories (up, down, backspace, enter ...)"#
     }
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Listen for a keyboard shortcut and find out how nu receives it",
             example: "input listen --types [key]",
@@ -208,7 +208,7 @@ impl EventTypeFilter {
 
     fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
         ShellError::UnsupportedInput {
-            msg: format!("{} is not a valid event type", val),
+            msg: format!("{val} is not a valid event type"),
             input: "value originates from here".into(),
             msg_span: head,
             input_span: val_span,

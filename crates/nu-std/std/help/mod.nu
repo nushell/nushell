@@ -54,7 +54,9 @@ def get-all-operators [] {
         [Comparison, has, Has, 'Checks if a list contains a value, a string contains another, or if a record has a key.', 80]
         [Comparison, not-has, NotHas, 'Checks if a list does not contains a value, a string does not contains another, or if a record does not have a key.', 80]
         [Comparison, starts-with, StartsWith, 'Checks if a string starts with another.', 80]
+        [Comparison, not-starts-with, NotStartsWith, 'Checks if a string does not start with another.', 80]
         [Comparison, ends-with, EndsWith, 'Checks if a string ends with another.', 80]
+        [Comparison, not-ends-with, NotEndsWith, 'Checks if a string does not end with another.', 80]
         [Math, +, Add, 'Adds two values.', 90]
         [Math, -, Subtract, 'Subtracts two values.', 90]
         [Math, *, Multiply, 'Multiplies two values.', 95]
@@ -109,7 +111,7 @@ def "nu-complete main-help" [] {
 }
 
 def "nu-complete list-externs" [] {
-    scope commands | where is_extern == true | select name description | rename value description
+    scope commands | where type == "external" | select name description | rename value description
 }
 
 def build-help-header [
@@ -126,7 +128,7 @@ def build-help-header [
 }
 
 def build-module-page [module: record] {
-    let description = (if not ($module.description? | is-empty) {[
+    let description = (if ($module.description? | is-not-empty) {[
         $module.description
         ""
     ]} else { [] })
@@ -136,7 +138,7 @@ def build-module-page [module: record] {
         ""
     ]
 
-    let commands = (if not ($module.commands? | is-empty) {[
+    let commands = (if ($module.commands? | is-not-empty) {[
         (build-help-header -n "Exported commands")
         $"    (
             $module.commands | each {|command|
@@ -147,7 +149,7 @@ def build-module-page [module: record] {
         ""
     ]} else { [] })
 
-    let aliases = (if not ($module.aliases? | is-empty) {[
+    let aliases = (if ($module.aliases? | is-not-empty) {[
         (build-help-header -n "Exported aliases")
         $"    ($module.aliases | str join ', ')"
         ""
@@ -255,9 +257,9 @@ export def modules [
 ] {
     let modules = (scope modules)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $modules | find $find --columns [name description]
-    } else if not ($module | is-empty) {
+    } else if ($module | is-not-empty) {
         let found_module = ($modules | where name == ($module | str join " "))
 
         if ($found_module | is-empty) {
@@ -271,7 +273,7 @@ export def modules [
 }
 
 def build-alias-page [alias: record] {
-    let description = (if not ($alias.description? | is-empty) {[
+    let description = (if ($alias.description? | is-not-empty) {[
         $alias.description
         ""
     ]} else { [] })
@@ -361,9 +363,9 @@ export def aliases [
 ] {
     let aliases = (scope aliases | sort-by name)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $aliases | find $find --columns [name description]
-    } else if not ($alias | is-empty) {
+    } else if ($alias | is-not-empty) {
         let found_alias = ($aliases | where name == ($alias | str join " "))
 
         if ($found_alias | is-empty) {
@@ -377,7 +379,7 @@ export def aliases [
 }
 
 def build-extern-page [extern: record] {
-    let description = (if not ($extern.description? | is-empty) {[
+    let description = (if ($extern.description? | is-not-empty) {[
         $extern.description
         ""
     ]} else { [] })
@@ -397,15 +399,15 @@ export def externs [
 ] {
     let externs = (
         scope commands
-        | where is_extern == true
-        | select name module_name description
+        | where type == "external"
+        | select name description
         | sort-by name
         | str trim
     )
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $externs | find $find --columns [name description]
-    } else if not ($extern | is-empty) {
+    } else if ($extern | is-not-empty) {
         let found_extern = ($externs | where name == ($extern | str join " "))
 
         if ($found_extern | is-empty) {
@@ -469,9 +471,9 @@ export def operators [
 ] {
     let operators = (get-all-operators)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         $operators | find $find --columns [type name]
-    } else if not ($operator | is-empty) {
+    } else if ($operator | is-not-empty) {
         let found_operator = ($operators | where name == ($operator | str join " "))
 
         if ($found_operator | is-empty) {
@@ -541,25 +543,20 @@ def get-command-extensions [command: string] {
 }
 
 def build-command-page [command: record] {
-    let description = (if not ($command.description? | is-empty) {[
+    let description = (if ($command.description? | is-not-empty) {[
         $command.description
     ]} else { [] })
-    let extra_description = (if not ($command.extra_description? | is-empty) {[
+    let extra_description = (if ($command.extra_description? | is-not-empty) {[
         ""
         $command.extra_description
     ]} else { [] })
 
-    let search_terms = (if not ($command.search_terms? | is-empty) {[
+    let search_terms = (if ($command.search_terms? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Search terms') ($command.search_terms)"
     ]} else { [] })
 
-    let module = (if not ($command.module_name? | is-empty) {[
-        ""
-        $"(build-help-header -n 'Module') ($command.module_name)"
-    ]} else { [] })
-
-    let category = (if not ($command.category? | is-empty) {[
+    let category = (if ($command.category? | is-not-empty) {[
         ""
         $"(build-help-header -n 'Category') ($command.category)"
     ]} else { [] })
@@ -568,46 +565,24 @@ def build-command-page [command: record] {
         ""
         "This command:"
     ] | append (
-        if ($command.creates_scope) {
-            $"- (ansi cyan)does create(ansi reset) a scope."
-        } else {
-            $"- (ansi cyan)does not create(ansi reset) a scope."
-        }
-    ) | append (
-        if ($command.type == "built-in") {
-            $"- (ansi cyan)is(ansi reset) a built-in command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a built-in command."
-        }
-    ) | append (
-        if ($command.is_sub) {
-            $"- (ansi cyan)is(ansi reset) a subcommand."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a subcommand."
-        }
-    ) | append (
-        if ($command.type == "plugin") {
-            $"- (ansi cyan)is part(ansi reset) of a plugin."
-        } else {
-            $"- (ansi cyan)is not part(ansi reset) of a plugin."
-        }
-    ) | append (
-        if ($command.type == "custom") {
-            $"- (ansi cyan)is(ansi reset) a custom command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a custom command."
-        }
-    ) | append (
-        if ($command.type == "keyword") {
-            $"- (ansi cyan)is(ansi reset) a keyword."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a keyword."
-        }
+      {
+        "Creates scope" : $command.creates_scope,
+        "Is built-in" : ($command.type == "built-in"),
+        "Is const" : $command.is_const,
+        "Is a subcommand" : $command.is_sub,
+        "Is a part of a plugin": ($command.type == "plugin"),
+        "Is a custom command": ($command.type == "custom"),
+        "Is a keyword": ($command.type == "keyword"),
+      }
+      | transpose name value
+      | update value { if $in { "2705" } else { "274c" } | char --unicode $in }
+      | transpose -dr
+      | table
     ))
 
     let signatures = ($command.signatures | transpose | get column1)
 
-    let cli_usage = (if not ($signatures | is-empty) {
+    let cli_usage = (if ($signatures | is-not-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
         let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
@@ -618,7 +593,7 @@ def build-command-page [command: record] {
             (build-help-header -n "Usage")
             ([
                 $"  > ($command.name) "
-                (if not ($flags | is-empty) { "{flags} " } else "")
+                (if ($flags | is-not-empty) { "{flags} " } else "")
                 ($positionals | each {|param|
                     $"<($param.parameter_name)> "
                 })
@@ -628,14 +603,14 @@ def build-command-page [command: record] {
     } else { [] })
 
     let subcommands = (scope commands | where name =~ $"^($command.name) " | select name description)
-    let subcommands = (if not ($subcommands | is-empty) {[
+    let subcommands = (if ($subcommands | is-not-empty) {[
         (build-help-header "Subcommands")
         ($subcommands | each {|subcommand |
             $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.description)"
         } | str join "\n")
     ]} else { [] })
 
-    let rest = (if not ($signatures | is-empty) {
+    let rest = (if ($signatures | is-not-empty) {
         let parameters = ($signatures | get 0 | where parameter_type != input and parameter_type != output)
 
         let positionals = ($parameters | where parameter_type == positional and parameter_type != rest)
@@ -661,7 +636,7 @@ def build-command-page [command: record] {
                         $" - ($flag.description)"
                     }),
                     (if ($flag.parameter_default | is-empty) { "" } else {
-                        $" \(default: ($flag.parameter_default)\)"
+                        $" \(default: ($flag.parameter_default | if ($in | describe -d).type == string { debug -v } else {})\)"
                     }),
                 ] | str join ""
             } | str join "\n")
@@ -721,17 +696,19 @@ def build-command-page [command: record] {
       } else {}
     )
 
-    let examples = (if not ($command.examples | is-empty) {[
+    let examples = (if ($command.examples | is-not-empty) {[
         ""
         (build-help-header -n "Examples")
         ($command.examples | each {|example| [
             $"  ($example.description)"
             $"  > ($example.example | nu-highlight)"
-            (if not ($example.result | is-empty) {
+            (if ($example.result | is-not-empty) {
                 $example.result
                 | table -e
                 | to text
-                | if ($example.result | describe) == "binary" { str join } else { lines }
+                | str trim --right
+                | lines
+                | skip until { is-not-empty }
                 | each {|line|
                     $"  ($line)"
                 }
@@ -745,7 +722,6 @@ def build-command-page [command: record] {
         $description
         $extra_description
         $search_terms
-        $module
         $category
         $this
         $cli_usage
@@ -762,10 +738,10 @@ def scope-commands [
 ] {
     let commands = (scope commands | sort-by name)
 
-    if not ($find | is-empty) {
+    if ($find | is-not-empty) {
         # TODO: impl find for external commands
         $commands | find $find --columns [name description search_terms] | select name category description signatures search_terms
-    } else if not ($command | is-empty) {
+    } else if ($command | is-not-empty) {
         let target_command = ($command | str join " ")
         let found_command = ($commands | where name == $target_command)
 
@@ -782,9 +758,13 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " "
+    let target_command = $command | str join " " | str replace "^" ""
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
-    ^($env.NU_HELPER? | default "man") $target_command
+    if $env.NU_HELPER? == "--help" {
+        run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}
+    } else {
+        ^($env.NU_HELPER? | default "man") $target_command
+    }
 }
 
 # Show help on commands.
@@ -807,6 +787,11 @@ def pretty-cmd [] {
 # Display help information about different parts of Nushell.
 #
 # `help word` searches for "word" in commands, aliases and modules, in that order.
+# If not found as internal to nushell, you can set `$env.NU_HELPER` to a program
+# (default: man) and "word" will be passed as the first argument.
+# Alternatively, you can set `$env.NU_HELPER` to `--help` and it will run "word" as
+# an external and pass `--help` as the last argument (this could cause unintended
+# behaviour if it doesn't support the flag, use it carefully).
 #
 # Examples:
 #   show help for single command, alias, or module
@@ -850,13 +835,13 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
     let target_item = ($item | str join " ")
 
     let commands = (try { scope-commands $target_item --find $find })
-    if not ($commands | is-empty) { return $commands }
+    if ($commands | is-not-empty) { return $commands }
 
     let aliases = (try { aliases $target_item --find $find })
-    if not ($aliases | is-empty) { return $aliases }
+    if ($aliases | is-not-empty) { return $aliases }
 
     let modules = (try { modules $target_item --find $find })
-    if not ($modules | is-empty) { return $modules }
+    if ($modules | is-not-empty) { return $modules }
 
     if ($find | is-not-empty) {
         print -e $"No help results found mentioning: ($find)"

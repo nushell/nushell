@@ -13,8 +13,9 @@ use nu_protocol::{
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
-    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, default_emacs_keybindings,
-    default_vi_insert_keybindings, default_vi_normal_keybindings,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, TextObject, TextObjectScope,
+    TextObjectType, TraversalDirection, default_emacs_keybindings, default_vi_insert_keybindings,
+    default_vi_normal_keybindings,
 };
 use std::sync::Arc;
 
@@ -28,6 +29,7 @@ const DEFAULT_COMPLETION_MENU: &str = r#"
       columns: 4
       col_width: 20
       col_padding: 2
+      tab_traversal: "horizontal"
   }
   style: {
       text: green,
@@ -159,7 +161,7 @@ pub(crate) fn add_menus(
             engine_state.merge_delta(delta)?;
 
             let mut temp_stack = Stack::new().collect_value();
-            let input = PipelineData::Empty;
+            let input = PipelineData::empty();
             menu_eval_results.push(eval_block::<WithoutDebug>(
                 &engine_state,
                 &mut temp_stack,
@@ -171,7 +173,7 @@ pub(crate) fn add_menus(
 
     let new_engine_state_ref = Arc::new(engine_state);
 
-    for res in menu_eval_results.into_iter() {
+    for res in menu_eval_results.into_iter().map(|p| p.body) {
         if let PipelineData::Value(value, None) = res {
             line_editor = add_menu(
                 line_editor,
@@ -284,6 +286,23 @@ pub(crate) fn add_columnar_menu(
                 let col_padding = col_padding.as_int()?;
                 columnar_menu.with_column_padding(col_padding as usize)
             }
+            Err(_) => columnar_menu,
+        };
+
+        columnar_menu = match extract_value("tab_traversal", val, span) {
+            Ok(tab_traversal) => match tab_traversal.coerce_str()?.as_ref() {
+                "vertical" => columnar_menu.with_traversal_direction(TraversalDirection::Vertical),
+                "horizontal" => {
+                    columnar_menu.with_traversal_direction(TraversalDirection::Horizontal)
+                }
+                str => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "'horizontal' or 'vertical'".into(),
+                        actual: format!("'{str}'"),
+                        span: tab_traversal.span(),
+                    });
+                }
+            },
             Err(_) => columnar_menu,
         };
     }
@@ -1047,6 +1066,10 @@ fn event_from_record(
             ReedlineEvent::ExecuteHostCommand(cmd.to_expanded_string("", config))
         }
         "openeditor" => ReedlineEvent::OpenEditor,
+        "vichangemode" => {
+            let mode = extract_value("mode", record, span)?;
+            ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
+        }
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline event".into(),
@@ -1172,6 +1195,7 @@ fn edit_from_record(
         "cutfromlinestart" => EditCommand::CutFromLineStart,
         "cuttoend" => EditCommand::CutToEnd,
         "cuttolineend" => EditCommand::CutToLineEnd,
+        "killline" => EditCommand::KillLine,
         "cutwordleft" => EditCommand::CutWordLeft,
         "cutbigwordleft" => EditCommand::CutBigWordLeft,
         "cutwordright" => EditCommand::CutWordRight,
@@ -1284,20 +1308,40 @@ fn edit_from_record(
         "copyselectionsystem" => EditCommand::CopySelectionSystem,
         #[cfg(feature = "system-clipboard")]
         "pastesystem" => EditCommand::PasteSystem,
-        "cutinside" => {
+        "cutinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::CutInside { left, right }
+            EditCommand::CutInsidePair { left, right }
         }
-        "yankinside" => {
+        "copyinsidepair" => {
             let value = extract_value("left", record, span)?;
             let left = extract_char(value)?;
             let value = extract_value("right", record, span)?;
             let right = extract_char(value)?;
-            EditCommand::YankInside { left, right }
+            EditCommand::CopyInsidePair { left, right }
         }
+        "cutaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CutAroundPair { left, right }
+        }
+        "copyaroundpair" => {
+            let value = extract_value("left", record, span)?;
+            let left = extract_char(value)?;
+            let value = extract_value("right", record, span)?;
+            let right = extract_char(value)?;
+            EditCommand::CopyAroundPair { left, right }
+        }
+        "copytextobject" => EditCommand::CopyTextObject {
+            text_object: parse_text_object(record, config, span)?,
+        },
+        "cuttextobject" => EditCommand::CutTextObject {
+            text_object: parse_text_object(record, config, span)?,
+        },
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline EditCommand".into(),
@@ -1328,6 +1372,48 @@ fn extract_char(value: &Value) -> Result<char, ShellError> {
             span: value.span(),
         })
     }
+}
+
+fn parse_text_object(
+    record: &Record,
+    config: &Config,
+    span: Span,
+) -> Result<TextObject, ShellError> {
+    let scope_value = extract_value("scope", record, span)?;
+    let scope_str = scope_value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase();
+    let scope = match scope_str.as_str() {
+        "inner" => TextObjectScope::Inner,
+        "around" => TextObjectScope::Around,
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "'inner' or 'around'".into(),
+                actual: format!("'{str}'"),
+                span: scope_value.span(),
+            });
+        }
+    };
+
+    let type_value = extract_value("object_type", record, span)?;
+    let type_str = type_value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase();
+    let object_type = match type_str.as_str() {
+        "word" => TextObjectType::Word,
+        "bigword" => TextObjectType::BigWord,
+        "brackets" | "bracket" => TextObjectType::Brackets,
+        "quote" | "quotes" => TextObjectType::Quote,
+        str => {
+            return Err(ShellError::InvalidValue {
+                valid: "'word', 'bigword', 'brackets', or 'quote'".into(),
+                actual: format!("'{str}'"),
+                span: type_value.span(),
+            });
+        }
+    };
+
+    Ok(TextObject { scope, object_type })
 }
 
 #[cfg(test)]

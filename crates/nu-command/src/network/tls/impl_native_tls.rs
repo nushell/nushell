@@ -1,16 +1,12 @@
 use nu_protocol::ShellError;
-use ureq::TlsConnector;
+use ureq::tls::{TlsConfig, TlsProvider};
 
-#[doc = include_str!("./tls.rustdoc.md")]
-pub fn tls(allow_insecure: bool) -> Result<impl TlsConnector, ShellError> {
-    native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Failed to build network tls: {}", e),
-            msg: String::new(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })
+#[doc = include_str!("./tls_config.rustdoc.md")]
+pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
+    // The impl for rustls has the option to use other root certificates.
+    // This is kind ob unnecessary for the native tls, as we expect to run with an OS.
+    Ok(TlsConfig::builder()
+        .provider(TlsProvider::NativeTls)
+        .disable_verification(allow_insecure)
+        .build())
 }

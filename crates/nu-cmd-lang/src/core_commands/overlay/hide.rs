@@ -86,16 +86,21 @@ impl Command for OverlayHide {
             vec![]
         };
 
+        // also restore env vars which has been hidden
+        let env_vars_to_restore = stack.get_hidden_env_vars(&overlay_name.item, engine_state);
         stack.remove_overlay(&overlay_name.item);
+        for (name, val) in env_vars_to_restore {
+            stack.add_env_var(name, val);
+        }
 
         for (name, val) in env_vars_to_keep {
             stack.add_env_var(name, val);
         }
-
+        stack.update_config(engine_state)?;
         Ok(PipelineData::empty())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Keep a custom command after hiding the overlay",

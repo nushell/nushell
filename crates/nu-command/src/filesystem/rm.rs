@@ -68,7 +68,7 @@ impl Command for Rm {
         rm(engine_state, stack, call)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         let mut examples = vec![Example {
             description: "Delete, or move a file to the trash (based on the 'always_trash' config option)",
             example: "rm file.txt",
@@ -143,14 +143,13 @@ fn rm(
     });
 
     for (idx, path) in paths.clone().into_iter().enumerate() {
-        if let Some(ref home) = home {
-            if expand_path_with(path.item.as_ref(), &currentdir_path, path.item.is_expand())
+        if let Some(ref home) = home
+            && expand_path_with(path.item.as_ref(), &currentdir_path, path.item.is_expand())
                 .to_string_lossy()
                 .as_ref()
                 == home.as_str()
-            {
-                unique_argument_check = Some(path.span);
-            }
+        {
+            unique_argument_check = Some(path.span);
         }
         let corrected_path = Spanned {
             item: match path.item {
@@ -339,7 +338,7 @@ fn rm(
                 inner: vec![],
             });
         } else if !confirmed {
-            return Ok(PipelineData::Empty);
+            return Ok(PipelineData::empty());
         }
     }
 
@@ -454,7 +453,7 @@ fn rm(
     });
 
     for result in iter {
-        engine_state.signals().check(call.head)?;
+        engine_state.signals().check(&call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),

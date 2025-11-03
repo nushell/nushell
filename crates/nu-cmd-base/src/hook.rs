@@ -1,11 +1,11 @@
 use miette::Result;
-use nu_engine::{eval_block, eval_block_with_early_return};
+use nu_engine::{eval_block, eval_block_with_early_return, redirect_env};
 use nu_parser::parse;
 use nu_protocol::{
     PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
-    cli_error::{report_parse_error, report_shell_error},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
+    report_error::{report_parse_error, report_shell_error},
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -119,7 +119,7 @@ pub fn eval_hook(
                 })
                 .collect();
 
-            match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body) {
                 Ok(pipeline_data) => {
                     output = pipeline_data;
                 }
@@ -239,7 +239,9 @@ pub fn eval_hook(
                             })
                             .collect();
 
-                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input) {
+                        match eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+                            .map(|p| p.body)
+                        {
                             Ok(pipeline_data) => {
                                 output = pipeline_data;
                             }
@@ -318,26 +320,15 @@ fn run_hook(
         &mut callee_stack,
         block,
         input,
-    )?;
+    )?
+    .body;
 
     if let PipelineData::Value(Value::Error { error, .. }, _) = pipeline_data {
         return Err(*error);
     }
 
     // If all went fine, preserve the environment of the called block
-    let caller_env_vars = stack.get_env_var_names(engine_state);
+    redirect_env(engine_state, stack, &callee_stack);
 
-    // remove env vars that are present in the caller but not in the callee
-    // (the callee hid them)
-    for var in caller_env_vars.iter() {
-        if !callee_stack.has_env_var(engine_state, var) {
-            stack.remove_env_var(engine_state, var);
-        }
-    }
-
-    // add new env vars from callee to caller
-    for (var, value) in callee_stack.get_stack_env_vars() {
-        stack.add_env_var(var, value);
-    }
     Ok(pipeline_data)
 }

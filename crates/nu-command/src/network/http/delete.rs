@@ -1,9 +1,13 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    HttpBody, RequestFlags, check_response_redirection, http_client, http_parse_redirect_mode,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    HttpBody, RequestFlags, RequestMetadata, check_response_redirection, http_client,
+    http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    send_request_no_body,
 };
 use nu_engine::command_prelude::*;
+
+use super::client::RedirectMode;
 
 #[derive(Clone)]
 pub struct HttpDelete;
@@ -14,7 +18,7 @@ impl Command for HttpDelete {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http delete")
+        let sig = Signature::build("http delete")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -72,14 +76,21 @@ impl Command for HttpDelete {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -104,7 +115,7 @@ impl Command for HttpDelete {
         run_delete(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "http delete from example.com",
@@ -148,7 +159,7 @@ impl Command for HttpDelete {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: HttpBody,
+    data: Option<HttpBody>,
     content_type: Option<String>,
     raw: bool,
     insecure: bool,
@@ -158,6 +169,7 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    unix_socket: Option<Spanned<String>>,
 }
 
 fn run_delete(
@@ -168,13 +180,13 @@ fn run_delete(
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
         .get_flag::<Value>(engine_state, stack, "data")?
-        .map(|v| (HttpBody::Value(v), None))
+        .map(|v| (Some(HttpBody::Value(v)), None))
         .unwrap_or_else(|| match input {
-            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::Value(v, metadata) => (Some(HttpBody::Value(v)), metadata),
             PipelineData::ByteStream(byte_stream, metadata) => {
-                (HttpBody::ByteStream(byte_stream), metadata)
+                (Some(HttpBody::ByteStream(byte_stream)), metadata)
             }
-            _ => (HttpBody::None, None),
+            _ => (None, None),
         });
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
@@ -193,6 +205,7 @@ fn run_delete(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
 
     helper(engine_state, stack, call, args)
@@ -210,37 +223,57 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.delete(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
+    let (response, request_headers) = match args.data {
+        None => send_request_no_body(request, call.head, engine_state.signals()),
 
-    let response = send_request(
-        engine_state,
-        request.clone(),
-        args.data,
-        args.content_type,
-        call.head,
-        engine_state.signals(),
-    );
+        Some(body) => send_request(
+            engine_state,
+            // Nushell allows sending body via delete method, but not via get.
+            // We should probably unify the behaviour here.
+            //
+            // Sending body with DELETE goes against the spec, but might be useful in some cases,
+            // see [force_send_body] documentation.
+            request.force_send_body(),
+            body,
+            args.content_type,
+            span,
+            engine_state.signals(),
+        ),
+    };
 
     let request_flags = RequestFlags {
         raw: args.raw,
         full: args.full,
         allow_errors: args.allow_errors,
     };
+    let response = response?;
 
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,
-        span,
-        &requested_url,
-        request_flags,
+        RequestMetadata {
+            requested_url: &requested_url,
+            span,
+            headers: request_headers,
+            redirect_mode,
+            flags: request_flags,
+        },
         response,
-        request,
     )
 }
 

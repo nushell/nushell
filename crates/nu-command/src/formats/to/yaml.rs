@@ -24,7 +24,7 @@ impl Command for ToYaml {
         "Convert table into .yaml/.yml text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs a YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yaml"#,
@@ -70,7 +70,7 @@ impl Command for ToYml {
         "Convert table into .yaml/.yml text."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs a YAML string representing the contents of this table",
             example: r#"[[foo bar]; ["1" "2"]] | to yml"#,
@@ -233,14 +233,14 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = "{a: 1 b: 2} | to yaml  | metadata | get content_type";
+        let cmd = "{a: 1 b: 2} | to yaml  | metadata | get content_type | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("content_type" => Value::test_string("application/yaml"))),
+            Value::test_string("application/yaml"),
             result.expect("There should be a result")
         );
     }

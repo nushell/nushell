@@ -44,6 +44,77 @@ fn loop_try_break_should_be_successful() {
 }
 
 #[test]
+fn loop_try_break_should_pop_error_handlers() {
+    let output = nu!(r#"
+    do {
+        loop {
+            try {
+                break
+            } catch {
+                print 'jumped to catch block'
+                return
+            }
+        }
+        error make -u {msg: "success"}
+    }
+    "#);
+
+    assert!(!output.status.success(), "error was caught");
+    assert!(output.err.contains("success"));
+}
+
+#[test]
+fn loop_nested_try_break_should_pop_error_handlers() {
+    let output = nu!(r#"
+    do {
+        loop {
+            try {
+                try {
+                    break
+                } catch {
+                    print 'jumped to inner catch block'
+                    return
+                }
+            } catch {
+                print 'jumped to outer catch block'
+                return
+            }
+        }
+        error make -u {msg: "success"}
+    }
+    "#);
+
+    assert!(!output.status.success(), "error was caught");
+    assert!(output.err.contains("success"));
+}
+
+#[test]
+fn loop_try_continue_should_pop_error_handlers() {
+    let output = nu!(r#"
+    do {
+        mut error = false
+
+        loop {
+            if $error {
+                error make -u {msg: "success"}
+            }
+
+            try {
+                $error = true
+                continue
+            } catch {
+                print 'jumped to catch block'
+                return
+            }
+        }
+    }
+    "#);
+
+    assert!(!output.status.success(), "error was caught");
+    assert!(output.err.contains("success"));
+}
+
+#[test]
 fn loop_catch_break_should_show_failed() {
     let output = nu!("loop {
             try { invalid 1;

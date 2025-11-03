@@ -1,5 +1,11 @@
+use std::{borrow::Cow, ops::Deref};
+
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{ListStream, Signals};
+use nu_protocol::{
+    ListStream, ReportMode, ShellWarning, Signals,
+    ast::{Expr, Expression},
+    report_shell_warning,
+};
 
 #[derive(Clone)]
 pub struct Default;
@@ -32,6 +38,11 @@ impl Command for Default {
             .category(Category::Filters)
     }
 
+    // FIXME remove once deprecation warning is no longer needed
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn description(&self) -> &str {
         "Sets a default value if a row's column is missing or null."
     }
@@ -46,18 +57,23 @@ impl Command for Default {
         let default_value: Value = call.req(engine_state, stack, 0)?;
         let columns: Vec<String> = call.rest(engine_state, stack, 1)?;
         let empty = call.has_flag(engine_state, stack, "empty")?;
+
+        // FIXME for deprecation of closure passed via variable
+        let default_value_expr = call.positional_nth(stack, 0);
+        let default_value =
+            DefaultValue::new(engine_state, stack, default_value, default_value_expr);
+
         default(
-            engine_state,
-            stack,
             call,
             input,
             default_value,
             empty,
             columns,
+            engine_state.signals(),
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Give a default 'target' column to all file entries",
@@ -66,7 +82,7 @@ impl Command for Default {
             },
             Example {
                 description: "Get the env value of `MY_ENV` with a default value 'abc' if not present",
-                example: "$env | get --ignore-errors MY_ENV | default 'abc'",
+                example: "$env | get --optional MY_ENV | default 'abc'",
                 result: Some(Value::test_string("abc")),
             },
             Example {
@@ -134,22 +150,20 @@ impl Command for Default {
 }
 
 fn default(
-    engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-    default_value: Value,
+    mut default_value: DefaultValue,
     default_when_empty: bool,
     columns: Vec<String>,
+    signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let input_span = input.span().unwrap_or(call.head);
-    let mut default_value = DefaultValue::new(engine_state, stack, default_value);
     let metadata = input.metadata();
 
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
     if !columns.is_empty() {
-        if matches!(input, PipelineData::Value(Value::Record { .. }, _)) {
+        if let PipelineData::Value(Value::Record { .. }, _) = input {
             let record = input.into_value(input_span)?.into_record()?;
             fill_record(
                 record,
@@ -184,7 +198,7 @@ fn default(
                         item
                     }
                 })
-                .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
+                .into_pipeline_data_with_metadata(head, signals.clone(), metadata))
         // If columns are given, but input does not use columns, return an error
         } else {
             Err(ShellError::PipelineMismatch {
@@ -199,7 +213,7 @@ fn default(
         || (default_when_empty
             && matches!(input, PipelineData::Value(ref value, _) if value.is_empty()))
     {
-        default_value.pipeline_data()
+        default_value.single_run_pipeline_data()
     } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
         let PipelineData::ListStream(ls, metadata) = input else {
             unreachable!()
@@ -207,13 +221,13 @@ fn default(
         let span = ls.span();
         let mut stream = ls.into_inner().peekable();
         if stream.peek().is_none() {
-            return default_value.pipeline_data();
+            return default_value.single_run_pipeline_data();
         }
 
         // stream's internal state already preserves the original signals config, so if this
         // Signals::empty list stream gets interrupted it will be caught by the underlying iterator
         let ls = ListStream::new(stream, span, Signals::empty());
-        Ok(PipelineData::ListStream(ls, metadata))
+        Ok(PipelineData::list_stream(ls, metadata))
     // Otherwise, return the input as is
     } else {
         Ok(input)
@@ -222,17 +236,29 @@ fn default(
 
 /// A wrapper around the default value to handle closures and caching values
 enum DefaultValue {
-    Uncalculated(Spanned<ClosureEval>),
+    Uncalculated(Box<Spanned<ClosureEval>>),
     Calculated(Value),
 }
 
 impl DefaultValue {
-    fn new(engine_state: &EngineState, stack: &Stack, value: Value) -> Self {
+    fn new(
+        engine_state: &EngineState,
+        stack: &Stack,
+        value: Value,
+        expr: Option<&Expression>,
+    ) -> Self {
         let span = value.span();
+
+        // FIXME temporary workaround to warn people of breaking change from #15654
+        let value = match closure_variable_warning(engine_state, value, expr) {
+            Ok(val) => val,
+            Err(default_value) => return default_value,
+        };
+
         match value {
             Value::Closure { val, .. } => {
                 let closure_eval = ClosureEval::new(engine_state, stack, *val);
-                DefaultValue::Uncalculated(closure_eval.into_spanned(span))
+                DefaultValue::Uncalculated(Box::new(closure_eval.into_spanned(span)))
             }
             _ => DefaultValue::Calculated(value),
         }
@@ -243,7 +269,7 @@ impl DefaultValue {
             DefaultValue::Uncalculated(closure) => {
                 let value = closure
                     .item
-                    .run_with_input(PipelineData::Empty)?
+                    .run_with_input(PipelineData::empty())?
                     .into_value(closure.span)?;
                 *self = DefaultValue::Calculated(value.clone());
                 Ok(value)
@@ -252,8 +278,14 @@ impl DefaultValue {
         }
     }
 
-    fn pipeline_data(&mut self) -> Result<PipelineData, ShellError> {
-        self.value().map(|x| x.into_pipeline_data())
+    /// Used when we know the value won't need to be cached to allow streaming.
+    fn single_run_pipeline_data(self) -> Result<PipelineData, ShellError> {
+        match self {
+            DefaultValue::Uncalculated(mut closure) => {
+                closure.item.run_with_input(PipelineData::empty())
+            }
+            DefaultValue::Calculated(val) => Ok(val.into_pipeline_data()),
+        }
     }
 }
 
@@ -275,6 +307,55 @@ fn fill_record(
         }
     }
     Ok(Value::record(record, span))
+}
+
+fn closure_variable_warning(
+    engine_state: &EngineState,
+    value: Value,
+    value_expr: Option<&Expression>,
+) -> Result<Value, DefaultValue> {
+    // only warn if we are passed a closure inside a variable
+    let from_variable = matches!(
+        value_expr,
+        Some(Expression {
+            expr: Expr::FullCellPath(_),
+            ..
+        })
+    );
+
+    let span = value.span();
+    match (&value, from_variable) {
+        // this is a closure from inside a variable
+        (Value::Closure { .. }, true) => {
+            let span_contents = String::from_utf8_lossy(engine_state.get_span_contents(span));
+            let carapace_suggestion = "re-run carapace init with version v1.3.3 or later\nor, change this to `{ $carapace_completer }`";
+            let label = match span_contents {
+                Cow::Borrowed("$carapace_completer") => carapace_suggestion.to_string(),
+                Cow::Owned(s) if s.deref() == "$carapace_completer" => {
+                    carapace_suggestion.to_string()
+                }
+                _ => format!("change this to {{ {span_contents} }}").to_string(),
+            };
+
+            report_shell_warning(
+                engine_state,
+                &ShellWarning::Deprecated {
+                    dep_type: "Behavior".to_string(),
+                    label,
+                    span,
+                    help: Some(
+                        r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
+In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
+                    ),
+                    report_mode: ReportMode::FirstUse,
+                },
+            );
+
+            // bypass the normal DefaultValue::new logic
+            Err(DefaultValue::Calculated(value))
+        }
+        _ => Ok(value),
+    }
 }
 
 #[cfg(test)]

@@ -1,22 +1,16 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn removes_duplicate_rows() {
-    let sample = r#"
-                    [[first_name , last_name, rusty_at, type];
-                     [Andrés     , Robalino, "10/11/2013", A],
-                     [Afonso     , Turner, "10/12/2013", B],
-                     [Yehuda     , Katz, "10/11/2013", A],
-                     [JT         , Turner, "11/12/2011", O]]
-            "#;
+    let sample = r#"[
+        [first_name , last_name, rusty_at, type];
+        [Andrés     , Robalino, "10/11/2013", A],
+        [Afonso     , Turner, "10/12/2013", B],
+        [Yehuda     , Katz, "10/11/2013", A],
+        [JT         , Turner, "11/12/2011", O]
+    ]"#;
 
-    let actual = nu!(pipeline(&format!(
-        "
-                {sample}
-                | uniq-by last_name
-                | length
-            "
-    )));
+    let actual = nu!(format!("{sample} | uniq-by last_name | length"));
 
     assert_eq!(actual.out, "3");
 }
@@ -31,61 +25,51 @@ fn uniq_when_keys_out_of_order() {
 
 #[test]
 fn uniq_counting() {
-    let actual = nu!(pipeline(
-        r#"
-            ["A", "B", "A"]
-            | wrap item
-            | uniq-by item --count
-            | flatten
-            | where item == A
-            | get count
-            | get 0
-        "#
-    ));
+    let actual = nu!(r#"
+        ["A", "B", "A"]
+        | wrap item
+        | uniq-by item --count
+        | flatten
+        | where item == A
+        | get count
+        | get 0
+    "#);
     assert_eq!(actual.out, "2");
 
-    let actual = nu!(pipeline(
-        r#"
-            ["A", "B", "A"]
-            | wrap item
-            | uniq-by item --count
-            | flatten
-            | where item == B
-            | get count
-            | get 0
-        "#
-    ));
+    let actual = nu!(r#"
+        ["A", "B", "A"]
+        | wrap item
+        | uniq-by item --count
+        | flatten
+        | where item == B
+        | get count
+        | get 0
+    "#);
     assert_eq!(actual.out, "1");
 }
 
 #[test]
 fn uniq_unique() {
-    let actual = nu!(pipeline(
-        "
-            echo [1 2 3 4 1 5]
-            | wrap item
-            | uniq-by item --unique
-            | get item
-        "
-    ));
+    let actual = nu!("
+        echo [1 2 3 4 1 5]
+        | wrap item
+        | uniq-by item --unique
+        | get item
+    ");
     let expected = nu!("[2 3 4 5]");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table() {
-    let actual = nu!(pipeline(
-        "
-            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
-            | uniq-by fruit
-        "
-    ));
+    let actual = nu!("
+        [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+        | uniq-by fruit
+    ");
 
-    let expected = nu!(pipeline(
-        "
-        echo [[fruit day]; [apple monday] [Apple friday] [pear monday] [orange tuesday]]
-        "
-    ));
+    let expected = nu!("
+    echo [[fruit day]; [apple monday] [Apple friday] [pear monday] [orange tuesday]]
+    ");
     print!("{}", actual.out);
     print!("{}", expected.out);
     assert_eq!(actual.out, expected.out);
@@ -100,61 +84,53 @@ fn uniq_by_empty() {
 
 #[test]
 fn uniq_by_multiple_columns() {
-    let actual = nu!(pipeline(
-        "
-            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
-            | uniq-by fruit day
-        "
-    ));
+    let actual = nu!("
+        [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+        | uniq-by fruit day
+    ");
 
-    let expected = nu!(pipeline(
-        "
-        echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
-        "
-    ));
+    let expected = nu!("
+    echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
+    ");
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn table_with_ignore_case() {
-    let actual = nu!(pipeline(
-        r#"
-            [[origin, people];
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Martin', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'Bitoque', carbs: 100}]
-                    ]
-                )],
-            ] | uniq-by people -i
-        "#
-    ));
+    let actual = nu!(r#"
+        [[origin, people];
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Martin', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'Bitoque', carbs: 100}]
+                ]
+            )],
+        ] | uniq-by people -i
+    "#);
 
-    let expected = nu!(pipeline(
-        r#"
-        echo [[origin, people];
-                [World, (
-                    [[name, meal];
-                        ['Geremias', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-                [World, (
-                    [[name, meal];
-                        ['Martin', {plate: 'bitoque', carbs: 100}]
-                    ]
-                )],
-            ]
-        "#
-    ));
+    let expected = nu!(r#"
+    echo [[origin, people];
+            [World, (
+                [[name, meal];
+                    ['Geremias', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+            [World, (
+                [[name, meal];
+                    ['Martin', {plate: 'bitoque', carbs: 100}]
+                ]
+            )],
+        ]
+    "#);
 
     assert_eq!(actual.out, expected.out);
 }

@@ -33,7 +33,7 @@ impl PluginCommand for CollectBytes {
             .category(Category::Experimental)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "[a b] | example collect-bytes",
             description: "collect strings into one stream",
@@ -48,7 +48,7 @@ impl PluginCommand for CollectBytes {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        Ok(PipelineData::ByteStream(
+        Ok(PipelineData::byte_stream(
             ByteStream::from_result_iter(
                 input.into_iter().map(Value::coerce_into_binary),
                 call.head,

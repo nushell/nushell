@@ -37,6 +37,7 @@ use std::{
     io::{self, Stdout},
     result,
 };
+use unicode_width::UnicodeWidthStr;
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
@@ -434,10 +435,10 @@ fn run_command(
             let view_cfg = create_view_config(pager);
 
             let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
-            if let Some(view) = view_stack.curr_view.take() {
-                if view.stackable {
-                    view_stack.stack.push(view);
-                }
+            if let Some(view) = view_stack.curr_view.take()
+                && view.stackable
+            {
+                view_stack.stack.push(view);
             }
 
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
@@ -450,14 +451,14 @@ fn run_command(
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     if pager.cmd_buf.is_cmd_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.cmd_buf.buf_cmd2.len() + 1) as u16;
+        let next_pos = (pager.cmd_buf.buf_cmd2.width() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.search_buf.buf_cmd_input.len() + 1) as u16;
+        let next_pos = (pager.search_buf.buf_cmd_input.width() + 1) as u16;
         // 1 skips a ':' char
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
@@ -487,10 +488,9 @@ fn create_status_bar(report: Report) -> StatusBar {
 }
 
 fn report_msg_style(report: &Report, config: &ExploreConfig, style: NuStyle) -> NuStyle {
-    if matches!(report.level, Severity::Info) {
-        style
-    } else {
-        report_level_style(report.level, config)
+    match report.level {
+        Severity::Info => style,
+        _ => report_level_style(report.level, config),
     }
 }
 
@@ -558,7 +558,8 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, config: &
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, config: &ExploreConfig) {
     let mut input = pager.cmd_buf.buf_cmd2.as_str();
-    if input.len() > area.width as usize + 1 {
+    // UnicodeWidthStr::width is a best guess
+    if input.width() > area.width as usize + 1 {
         // in such case we take last max_cmd_len chars
         let take_bytes = input
             .chars()
@@ -591,7 +592,8 @@ fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style
         if let Some(p) = text.find(&pager.search_buf.buf_cmd_input) {
             let p = covert_bytes_to_chars(&text, p);
 
-            let w = pager.search_buf.buf_cmd_input.len() as u16;
+            // this width is a best guess
+            let w = pager.search_buf.buf_cmd_input.width() as u16;
             let area = Rect::new(e.area.x + p as u16, e.area.y, w, 1);
 
             f.render_widget(highlight_block.clone(), area);
@@ -795,12 +797,12 @@ fn search_input_key_event(
         KeyCode::Esc => {
             buf.buf_cmd_input.clear();
 
-            if let Some(view) = view {
-                if !buf.buf_cmd.is_empty() {
-                    let data = view.collect_data().into_iter().map(|(text, _)| text);
-                    buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
-                    buf.search_index = 0;
-                }
+            if let Some(view) = view
+                && !buf.buf_cmd.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                buf.search_index = 0;
             }
 
             buf.is_search_input = false;
@@ -820,17 +822,16 @@ fn search_input_key_event(
             } else {
                 buf.buf_cmd_input.pop();
 
-                if let Some(view) = view {
-                    if !buf.buf_cmd_input.is_empty() {
-                        let data = view.collect_data().into_iter().map(|(text, _)| text);
-                        buf.search_results =
-                            search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
-                        buf.search_index = 0;
+                if let Some(view) = view
+                    && !buf.buf_cmd_input.is_empty()
+                {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                    buf.search_index = 0;
 
-                        if !buf.search_results.is_empty() {
-                            let pos = buf.search_results[buf.search_index];
-                            view.show_data(pos);
-                        }
+                    if !buf.search_results.is_empty() {
+                        let pos = buf.search_results[buf.search_index];
+                        view.show_data(pos);
                     }
                 }
             }
@@ -840,16 +841,16 @@ fn search_input_key_event(
         KeyCode::Char(c) => {
             buf.buf_cmd_input.push(*c);
 
-            if let Some(view) = view {
-                if !buf.buf_cmd_input.is_empty() {
-                    let data = view.collect_data().into_iter().map(|(text, _)| text);
-                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
-                    buf.search_index = 0;
+            if let Some(view) = view
+                && !buf.buf_cmd_input.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                buf.search_index = 0;
 
-                    if !buf.search_results.is_empty() {
-                        let pos = buf.search_results[buf.search_index];
-                        view.show_data(pos);
-                    }
+                if !buf.search_results.is_empty() {
+                    let pos = buf.search_results[buf.search_index];
+                    view.show_data(pos);
                 }
             }
 

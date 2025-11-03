@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::{EmptyFile, FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn shows_error_for_command_not_found() {
@@ -222,7 +223,7 @@ fn subexpression_does_not_implicitly_capture() {
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
 
     #[test]
     fn takes_rows_of_nu_value_strings() {
@@ -232,16 +233,13 @@ mod it_evaluation {
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
 
-            let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
+            let actual = nu!(cwd: dirs.test(), "
                 ls
                 | sort-by name
                 | get name
                 | each { |it| nu --testbin cococo $it }
                 | get 1
-                "
-            ));
+                ");
 
             assert_eq!(actual.out, "jt_likes_cake.txt");
         })
@@ -258,15 +256,12 @@ mod it_evaluation {
                 ",
             )]);
 
-            let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
+            let actual = nu!(cwd: dirs.test(), "
                 open nu_candies.txt
                 | lines
                 | each { |it| nu --testbin chop $it}
                 | get 1
-                "
-            ));
+                ");
 
             assert_eq!(actual.out, "AndrásWithKitKat");
         })
@@ -290,13 +285,10 @@ mod it_evaluation {
                 "#,
             )]);
 
-            let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
-                    open sample.toml
-                    | nu --testbin cococo $in.nu_party_venue
-                "
-            ));
+            let actual = nu!(cwd: dirs.test(), "
+                open sample.toml
+                | nu --testbin cococo $in.nu_party_venue
+            ");
 
             assert_eq!(actual.out, "zion");
         })
@@ -305,30 +297,25 @@ mod it_evaluation {
 
 mod stdin_evaluation {
     use super::nu;
-    use nu_test_support::pipeline;
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
-        let actual = nu!(pipeline(
-            r#"
-                nu --testbin nonu "where's the nuline?" | length
-            "#
-        ));
+        let actual = nu!(r#"
+            nu --testbin nonu "where's the nuline?" | length
+        "#);
 
         assert_eq!(actual.err, "");
     }
 
     #[test]
     fn does_not_block_indefinitely() {
-        let stdout = nu!(pipeline(
-            "
-                ( nu --testbin iecho yes
-                | nu --testbin chop
-                | nu --testbin chop
-                | lines
-                | first )
-            "
-        ))
+        let stdout = nu!("
+            ( nu --testbin iecho yes
+            | nu --testbin chop
+            | nu --testbin chop
+            | lines
+            | first )
+        ")
         .out;
 
         assert_eq!(stdout, "y");
@@ -338,7 +325,7 @@ mod stdin_evaluation {
 mod external_words {
     use super::nu;
     use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
 
     #[test]
     fn relaxed_external_words() {
@@ -389,11 +376,9 @@ mod external_words {
             )]);
 
             let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                &format!("
-                    nu --testbin meow {nu_path_argument} | from toml | get nu_party_venue
-                ")
-            ));
+                cwd: dirs.test(),
+                format!("nu --testbin meow {nu_path_argument} | from toml | get nu_party_venue")
+            );
 
             assert_eq!(actual.out, "zion");
         })
@@ -505,7 +490,7 @@ mod tilde_expansion {
 mod external_command_arguments {
     use super::nu;
     use nu_test_support::fs::Stub::EmptyFile;
-    use nu_test_support::{pipeline, playground::Playground};
+    use nu_test_support::playground::Playground;
     #[test]
     fn expands_table_of_primitives_to_positional_arguments() {
         Playground::setup(
@@ -517,12 +502,9 @@ mod external_command_arguments {
                     EmptyFile("ferris_not_here.txt"),
                 ]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
+                let actual = nu!(cwd: dirs.test(), "
                     nu --testbin cococo ...(ls | get name)
-                "
-                ));
+                ");
 
                 assert_eq!(
                     actual.out,
@@ -543,12 +525,9 @@ mod external_command_arguments {
                     EmptyFile("ferris_not_here.txt"),
                 ]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                "
+                let actual = nu!(cwd: dirs.test(), "
                     nu --testbin cococo (ls | sort-by name | get name).1
-                "
-                ));
+                ");
 
                 assert_eq!(actual.out, "ferris_not_here.txt");
             },
@@ -565,12 +544,9 @@ mod external_command_arguments {
 
                 sandbox.with_files(&[EmptyFile("cd/jt_likes_cake.txt")]);
 
-                let actual = nu!(
-                cwd: dirs.test(), pipeline(
-                r#"
+                let actual = nu!(cwd: dirs.test(), r#"
                     nu --testbin cococo $"(pwd)/cd"
-                "#
-                ));
+                "#);
 
                 assert!(actual.out.contains("cd"));
             },
@@ -728,4 +704,31 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
             .err
             .contains("The 'and' operator does not work on values of type 'string'")
     )
+}
+
+// FIXME: ignore these cases for now, the value inside a pipeline
+// makes all previous exit status untracked.
+// #[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 10)]
+// #[case("nu --testbin fail 20 | 10 | nu --testbin fail", 20)]
+// #[case("30 | nu --testbin fail | nu --testbin fail 30", 1)]
+#[rstest]
+#[case("nu --testbin fail | print aa", 1)]
+#[case("nu --testbin nonu a | print bb", 0)]
+#[case("nu --testbin fail 30 | nu --testbin nonu a | print aa", 30)]
+#[case("print aa | print cc | nu --testbin fail 40", 40)]
+#[case("nu --testbin fail 20 | print aa | nu --testbin fail", 1)]
+#[case("nu --testbin fail | print aa | nu --testbin fail 20", 20)]
+#[case("let x = nu --testbin fail 20 | into int", 20)]
+fn pipefail_feature(#[case] inp: &str, #[case] expect_code: i32) {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        inp
+    );
+    assert_eq!(
+        actual
+            .status
+            .code()
+            .expect("exit_status should not be none"),
+        expect_code
+    );
 }

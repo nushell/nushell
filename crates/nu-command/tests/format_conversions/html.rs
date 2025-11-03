@@ -1,12 +1,10 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
 fn out_html_simple() {
-    let actual = nu!(pipeline(
-        r#"
-            echo 3 | to html
-        "#
-    ));
+    let actual = nu!(r#"
+        echo 3 | to html
+    "#);
 
     assert_eq!(
         actual.out,
@@ -63,7 +61,7 @@ fn test_cd_html_color_flag_dark_false() {
 #[ignore]
 fn test_no_color_flag() {
     // TODO replace with something potentially more stable, otherwise this test needs to be
-    // manuallly updated when ever the help output changes
+    // manually updated when ever the help output changes
     let actual = nu!(r#"
                 cd --help | to html --no-color
             "#);

@@ -58,7 +58,7 @@ impl Command for MathMax {
         run_with_function(call, input, maximum)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Find the maximum of a list of numbers",

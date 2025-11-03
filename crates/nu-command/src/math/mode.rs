@@ -85,7 +85,7 @@ impl Command for MathMode {
         run_with_function(call, input, mode)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the mode(s) of a list of numbers",

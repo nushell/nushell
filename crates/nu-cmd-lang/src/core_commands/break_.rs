@@ -45,7 +45,7 @@ impl Command for Break {
         unreachable!()
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Break out of a loop",
             example: r#"loop { break }"#,

@@ -1,4 +1,4 @@
-use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue, PolarsPluginType};
 
 use super::NuWhen;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
@@ -20,7 +20,7 @@ impl CustomValue for NuWhenCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuWhen".into()
+        PolarsPluginType::NuWhen.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

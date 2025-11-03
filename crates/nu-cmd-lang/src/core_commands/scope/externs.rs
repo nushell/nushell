@@ -32,7 +32,7 @@ impl Command for ScopeExterns {
         Ok(Value::list(scope_data.collect_externs(head), head).into_pipeline_data())
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Show the known externals in the current scope",
             example: "scope externs",

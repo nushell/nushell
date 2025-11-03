@@ -106,7 +106,7 @@ impl Command for NuCheck {
                         Err(err) => return Err(err),
                     };
 
-                    let result = if as_module || path.is_dir() {
+                    if as_module || path.is_dir() {
                         parse_file_or_dir_module(
                             path.to_string_lossy().as_bytes(),
                             &mut working_set,
@@ -120,9 +120,7 @@ impl Command for NuCheck {
                         working_set.files = FileStack::with_file(path.clone());
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
                         // The working set is not merged, so no need to pop the file from the stack.
-                    };
-
-                    result
+                    }
                 } else {
                     Err(ShellError::GenericError {
                         error: "Failed to execute command".into(),
@@ -136,7 +134,7 @@ impl Command for NuCheck {
         }
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Parse a input file as script(Default)",
@@ -236,10 +234,10 @@ fn check_parse(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::value(Value::bool(true, call_head), None))
     }
 }
 
@@ -291,10 +289,10 @@ fn parse_file_or_dir_module(
                 inner: vec![],
             })
         } else {
-            Ok(PipelineData::Value(Value::bool(false, call_head), None))
+            Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::bool(true, call_head), None))
+        Ok(PipelineData::value(Value::bool(true, call_head), None))
     }
 }
 

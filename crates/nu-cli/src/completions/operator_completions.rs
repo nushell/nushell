@@ -61,7 +61,9 @@ fn number_comparison_ops() -> Vec<OperatorItem> {
                 Comparison::RegexMatch
                     | Comparison::NotRegexMatch
                     | Comparison::StartsWith
+                    | Comparison::NotStartsWith
                     | Comparison::EndsWith
+                    | Comparison::NotEndsWith
                     | Comparison::Has
                     | Comparison::NotHas
             )
@@ -229,7 +231,7 @@ impl Completer for OperatorCompletion<'_> {
             Type::Any => match &self.left_hand_side.expr {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
-                    if matches!(path.head.expr, Expr::Garbage) {
+                    if let Expr::Garbage = path.head.expr {
                         return vec![];
                     }
                     let value =

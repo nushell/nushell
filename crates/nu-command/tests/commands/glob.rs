@@ -153,8 +153,7 @@ fn glob_files_in_parent(
 
         let actual = nu!(
             cwd: working_directory,
-            r#"glob {} | sort | str join " ""#,
-            glob
+            format!(r#"glob {glob} | sort | str join " ""#)
         );
 
         let mut expected: Vec<String> = vec![];
@@ -170,7 +169,7 @@ fn glob_files_in_parent(
         let expected = expected
             .join(" ")
             .replace('/', std::path::MAIN_SEPARATOR_STR);
-        assert_eq!(actual.out, expected, "\n  test: {}", tag);
+        assert_eq!(actual.out, expected, "\n  test: {tag}");
     });
 }
 

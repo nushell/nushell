@@ -302,3 +302,17 @@ def universal-return_value_only [] {
     kv drop --universal $key
     rm $env.NU_UNIVERSAL_KV_PATH
 }
+
+@test
+def simple-local-set-table [] {
+    if ('sqlite' not-in (version).features) { return }
+
+    let key = (random uuid)
+
+    kv set -t foo $key 42
+    let actual = (kv get -t foo $key)
+    let expected = 42
+    assert equal $actual $expected
+
+    kv drop -t foo $key | ignore
+}

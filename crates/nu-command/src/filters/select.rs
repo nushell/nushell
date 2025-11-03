@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineIterator, ast::PathMember, casing::Casing};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
+    casing::Casing,
+};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -19,8 +22,18 @@ impl Command for Select {
                 (Type::List(Box::new(Type::Any)), Type::Any),
             ])
             .switch(
+                "optional",
+                "make all cell path members optional (returns `null` for missing values)",
+                Some('o'),
+            )
+            .switch(
+                "ignore-case",
+                "make all cell path members case insensitive",
+                None,
+            )
+            .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional)",
+                "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
             )
             .rest(
@@ -100,19 +113,40 @@ produce a table, a list will produce a list, and a record will produce a record.
                 }
             }
         }
-        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?
+            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         let span = call.head;
 
-        if ignore_errors {
+        if optional {
             for cell_path in &mut new_columns {
                 cell_path.make_optional();
+            }
+        }
+
+        if ignore_case {
+            for cell_path in &mut new_columns {
+                cell_path.make_insensitive();
             }
         }
 
         select(engine_state, span, new_columns, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("ignore-errors".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.106.0".into()),
+            expected_removal: None,
+            help: Some(
+                "This flag has been renamed to `--optional (-o)` to better reflect its behavior."
+                    .into(),
+            ),
+        }]
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Select a column in a table",
@@ -120,6 +154,18 @@ produce a table, a list will produce a list, and a record will produce a record.
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_string("a")
                 })])),
+            },
+            Example {
+                description: "Select a column even if some rows are missing that column",
+                example: "[{a: a0 b: b0} {b: b1}] | select -o a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_string("a0")
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_nothing()
+                    }),
+                ])),
             },
             Example {
                 description: "Select a field in a record",

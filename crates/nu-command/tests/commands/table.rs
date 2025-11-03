@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{nu, nu_repl_code};
 
 #[test]
 fn table_0() {
@@ -449,11 +449,11 @@ fn table_expand_record_1() {
 
 #[test]
 fn table_expand_record_2() {
-    let structure = "{\
-        field1: [ a, b, c ],\
-        field2: [ 123, 234, 345 ],\
-        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
-        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
+    let structure = "{
+        field1: [ a, b, c ],
+        field2: [ 123, 234, 345 ],
+        field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],
+        field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }
     }";
     let actual = nu!(format!("{structure} | table --width=80 --expand"));
 
@@ -497,7 +497,7 @@ fn table_expand_record_2() {
 #[cfg(not(windows))]
 fn external_with_too_much_stdout_should_not_hang_nu() {
     use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::pipeline;
+
     use nu_test_support::playground::Playground;
     Playground::setup("external with too much stdout", |dirs, sandbox| {
         let bytes: usize = 81920;
@@ -507,12 +507,9 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         }
         sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                cat a_large_file.txt | table --width=80
-            "
-        ));
+        let actual = nu!(cwd: dirs.test(), "
+            cat a_large_file.txt | table --width=80
+        ");
 
         assert_eq!(actual.out, large_file_body);
     })
@@ -663,18 +660,15 @@ fn test_expand_big_0() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --width=80 --expand"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --width=80 --expand");
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────╮",
             "│                  │ ╭───────────────┬───────────────────────────────────────╮ │",
-            "│ package          │ │               │ ╭───┬───────────────────────────────╮ │ │",
-            "│                  │ │ authors       │ │ 0 │ The Nushell Project           │ │ │",
-            "│                  │ │               │ │   │ Developers                    │ │ │",
-            "│                  │ │               │ ╰───┴───────────────────────────────╯ │ │",
+            "│ package          │ │               │ ╭───┬──────────────────────╮          │ │",
+            "│                  │ │ authors       │ │ 0 │ The Nushell Project  │          │ │",
+            "│                  │ │               │ │   │ Developers           │          │ │",
+            "│                  │ │               │ ╰───┴──────────────────────╯          │ │",
             "│                  │ │ default-run   │ nu                                    │ │",
             "│                  │ │ description   │ A new type of shell                   │ │",
             "│                  │ │ documentation │ https://www.nushell.sh/book/          │ │",
@@ -852,12 +846,11 @@ fn test_expand_big_0() {
             "╰──────────────────┴───────────────────────────────────────────────────────────╯",
         ]);
 
+        _print_lines(&actual.out, 80);
+
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=120"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=120");
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────╮",
@@ -1045,12 +1038,11 @@ fn test_expand_big_0() {
             "╰──────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────╯",
         ]);
 
+        _print_lines(&actual.out, 120);
+
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=60"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=60");
 
         _print_lines(&actual.out, 60);
 
@@ -1188,19 +1180,19 @@ fn test_expand_big_0() {
             "│                  │ │ time          │ 0.3.12            │ │",
             "│                  │ ╰───────────────┴───────────────────╯ │",
             "│ target           │ {record 3 fields}                     │",
-            "│                  │ ╭───────────────────┬───────────────╮ │",
-            "│ dev-dependencies │ │ nu-test-support   │ {record 2     │ │",
-            "│                  │ │                   │ fields}       │ │",
-            "│                  │ │ tempfile          │ 3.2.0         │ │",
-            "│                  │ │ assert_cmd        │ 2.0.2         │ │",
-            "│                  │ │ criterion         │ 0.4           │ │",
-            "│                  │ │ pretty_assertions │ 1.0.0         │ │",
-            "│                  │ │ serial_test       │ 0.10.0        │ │",
-            "│                  │ │ hamcrest2         │ 0.3.0         │ │",
-            "│                  │ │ rstest            │ {record 2     │ │",
-            "│                  │ │                   │ fields}       │ │",
-            "│                  │ │ itertools         │ 0.10.3        │ │",
-            "│                  │ ╰───────────────────┴───────────────╯ │",
+            "│                  │ ╭─────────────────────┬─────────────╮ │",
+            "│ dev-dependencies │ │ nu-test-support     │ {record 2   │ │",
+            "│                  │ │                     │ fields}     │ │",
+            "│                  │ │ tempfile            │ 3.2.0       │ │",
+            "│                  │ │ assert_cmd          │ 2.0.2       │ │",
+            "│                  │ │ criterion           │ 0.4         │ │",
+            "│                  │ │ pretty_assertions   │ 1.0.0       │ │",
+            "│                  │ │ serial_test         │ 0.10.0      │ │",
+            "│                  │ │ hamcrest2           │ 0.3.0       │ │",
+            "│                  │ │ rstest              │ {record 2   │ │",
+            "│                  │ │                     │ fields}     │ │",
+            "│                  │ │ itertools           │ 0.10.3      │ │",
+            "│                  │ ╰─────────────────────┴─────────────╯ │",
             "│                  │ ╭─────────────────────┬─────────────╮ │",
             "│ features         │ │                     │ ╭───┬─────╮ │ │",
             "│                  │ │ plugin              │ │ 0 │ nu- │ │ │",
@@ -1313,10 +1305,7 @@ fn test_expand_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand --width=40"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --expand --width=40");
 
         _print_lines(&actual.out, 40);
 
@@ -1389,7 +1378,7 @@ fn test_expand_big_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_0() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "datetime": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cell-path": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "default", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "default", "filesize": null, "duration": "default", "datetime": null, "range": "default", "float": "default", "string": "default", "nothing": "default", "binary": "default", "cell-path": "default", "row_index": "green_bold", "record": "default", "list": "default", "block": "default", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 141", nu_value.trim()));
 
@@ -1476,27 +1465,27 @@ fn table_expande_with_no_header_internally_0() {
             "│                    │ │                                  │ │ vi_normal │ underscore │                                                    │ │",
             "│                    │ │                                  │ ╰───────────┴────────────╯                                                    │ │",
             "│                    │ │                                  │ ╭────────────────────────────┬────────────────────╮                           │ │",
-            "│                    │ │ color_config                     │ │ separator                  │ white              │                           │ │",
+            "│                    │ │ color_config                     │ │ separator                  │ default            │                           │ │",
             "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                           │ │",
             "│                    │ │                                  │ │ leading_trailing_space_bg  │ │ attr │ n │       │                           │ │",
             "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                           │ │",
             "│                    │ │                                  │ │ header                     │ green_bold         │                           │ │",
             "│                    │ │                                  │ │ empty                      │ blue               │                           │ │",
             "│                    │ │                                  │ │ bool                       │                    │                           │ │",
-            "│                    │ │                                  │ │ int                        │ white              │                           │ │",
+            "│                    │ │                                  │ │ int                        │ default            │                           │ │",
             "│                    │ │                                  │ │ filesize                   │                    │                           │ │",
-            "│                    │ │                                  │ │ duration                   │ white              │                           │ │",
+            "│                    │ │                                  │ │ duration                   │ default            │                           │ │",
             "│                    │ │                                  │ │ datetime                   │                    │                           │ │",
-            "│                    │ │                                  │ │ range                      │ white              │                           │ │",
-            "│                    │ │                                  │ │ float                      │ white              │                           │ │",
-            "│                    │ │                                  │ │ string                     │ white              │                           │ │",
-            "│                    │ │                                  │ │ nothing                    │ white              │                           │ │",
-            "│                    │ │                                  │ │ binary                     │ white              │                           │ │",
-            "│                    │ │                                  │ │ cell-path                  │ white              │                           │ │",
+            "│                    │ │                                  │ │ range                      │ default            │                           │ │",
+            "│                    │ │                                  │ │ float                      │ default            │                           │ │",
+            "│                    │ │                                  │ │ string                     │ default            │                           │ │",
+            "│                    │ │                                  │ │ nothing                    │ default            │                           │ │",
+            "│                    │ │                                  │ │ binary                     │ default            │                           │ │",
+            "│                    │ │                                  │ │ cell-path                  │ default            │                           │ │",
             "│                    │ │                                  │ │ row_index                  │ green_bold         │                           │ │",
-            "│                    │ │                                  │ │ record                     │ white              │                           │ │",
-            "│                    │ │                                  │ │ list                       │ white              │                           │ │",
-            "│                    │ │                                  │ │ block                      │ white              │                           │ │",
+            "│                    │ │                                  │ │ record                     │ default            │                           │ │",
+            "│                    │ │                                  │ │ list                       │ default            │                           │ │",
+            "│                    │ │                                  │ │ block                      │ default            │                           │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                           │ │",
             "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                           │ │",
             "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                           │ │",
@@ -1866,7 +1855,7 @@ fn table_expande_with_no_header_internally_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_1() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "datetime": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cell-path": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "default", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "default", "filesize": null, "duration": "default", "datetime": null, "range": "default", "float": "default", "string": "default", "nothing": "default", "binary": "default", "cell-path": "default", "row_index": "green_bold", "record": "default", "list": "default", "block": "default", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 136", nu_value.trim()));
 
@@ -1953,27 +1942,27 @@ fn table_expande_with_no_header_internally_1() {
             "│                    │ │                                  │ │ vi_normal │ underscore │                                               │ │",
             "│                    │ │                                  │ ╰───────────┴────────────╯                                               │ │",
             "│                    │ │                                  │ ╭────────────────────────────┬────────────────────╮                      │ │",
-            "│                    │ │ color_config                     │ │ separator                  │ white              │                      │ │",
+            "│                    │ │ color_config                     │ │ separator                  │ default            │                      │ │",
             "│                    │ │                                  │ │                            │ ╭──────┬───╮       │                      │ │",
             "│                    │ │                                  │ │ leading_trailing_space_bg  │ │ attr │ n │       │                      │ │",
             "│                    │ │                                  │ │                            │ ╰──────┴───╯       │                      │ │",
             "│                    │ │                                  │ │ header                     │ green_bold         │                      │ │",
             "│                    │ │                                  │ │ empty                      │ blue               │                      │ │",
             "│                    │ │                                  │ │ bool                       │                    │                      │ │",
-            "│                    │ │                                  │ │ int                        │ white              │                      │ │",
+            "│                    │ │                                  │ │ int                        │ default            │                      │ │",
             "│                    │ │                                  │ │ filesize                   │                    │                      │ │",
-            "│                    │ │                                  │ │ duration                   │ white              │                      │ │",
+            "│                    │ │                                  │ │ duration                   │ default            │                      │ │",
             "│                    │ │                                  │ │ datetime                   │                    │                      │ │",
-            "│                    │ │                                  │ │ range                      │ white              │                      │ │",
-            "│                    │ │                                  │ │ float                      │ white              │                      │ │",
-            "│                    │ │                                  │ │ string                     │ white              │                      │ │",
-            "│                    │ │                                  │ │ nothing                    │ white              │                      │ │",
-            "│                    │ │                                  │ │ binary                     │ white              │                      │ │",
-            "│                    │ │                                  │ │ cell-path                  │ white              │                      │ │",
+            "│                    │ │                                  │ │ range                      │ default            │                      │ │",
+            "│                    │ │                                  │ │ float                      │ default            │                      │ │",
+            "│                    │ │                                  │ │ string                     │ default            │                      │ │",
+            "│                    │ │                                  │ │ nothing                    │ default            │                      │ │",
+            "│                    │ │                                  │ │ binary                     │ default            │                      │ │",
+            "│                    │ │                                  │ │ cell-path                  │ default            │                      │ │",
             "│                    │ │                                  │ │ row_index                  │ green_bold         │                      │ │",
-            "│                    │ │                                  │ │ record                     │ white              │                      │ │",
-            "│                    │ │                                  │ │ list                       │ white              │                      │ │",
-            "│                    │ │                                  │ │ block                      │ white              │                      │ │",
+            "│                    │ │                                  │ │ record                     │ default            │                      │ │",
+            "│                    │ │                                  │ │ list                       │ default            │                      │ │",
+            "│                    │ │                                  │ │ block                      │ default            │                      │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                      │ │",
             "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                      │ │",
             "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                      │ │",
@@ -2245,7 +2234,7 @@ fn table_expande_with_no_header_internally_1() {
 
 #[test]
 fn big_table_expanded_with_padding_0() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "datetime": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cell-path": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "default", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "default", "filesize": null, "duration": "default", "datetime": null, "range": "default", "float": "default", "string": "default", "nothing": "default", "binary": "default", "cell-path": "default", "row_index": "green_bold", "record": "default", "list": "default", "block": "default", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!(
         "$env.config.table.padding = {{ left: 2, right: 3 }}; {} | table --expand --width 141",
@@ -2345,27 +2334,27 @@ fn big_table_expanded_with_padding_0() {
             "│                       │  │                                     │  │  vi_normal   │  underscore   │                                    │   │",
             "│                       │  │                                     │  ╰──────────────┴───────────────╯                                    │   │",
             "│                       │  │                                     │  ╭───────────────────────────────┬───────────────────────────────╮   │   │",
-            "│                       │  │  color_config                       │  │  separator                    │  white                        │   │   │",
+            "│                       │  │  color_config                       │  │  separator                    │  default                      │   │   │",
             "│                       │  │                                     │  │                               │  ╭─────────┬──────╮           │   │   │",
             "│                       │  │                                     │  │  leading_trailing_space_bg    │  │  attr   │  n   │           │   │   │",
             "│                       │  │                                     │  │                               │  ╰─────────┴──────╯           │   │   │",
             "│                       │  │                                     │  │  header                       │  green_bold                   │   │   │",
             "│                       │  │                                     │  │  empty                        │  blue                         │   │   │",
             "│                       │  │                                     │  │  bool                         │                               │   │   │",
-            "│                       │  │                                     │  │  int                          │  white                        │   │   │",
+            "│                       │  │                                     │  │  int                          │  default                      │   │   │",
             "│                       │  │                                     │  │  filesize                     │                               │   │   │",
-            "│                       │  │                                     │  │  duration                     │  white                        │   │   │",
+            "│                       │  │                                     │  │  duration                     │  default                      │   │   │",
             "│                       │  │                                     │  │  datetime                     │                               │   │   │",
-            "│                       │  │                                     │  │  range                        │  white                        │   │   │",
-            "│                       │  │                                     │  │  float                        │  white                        │   │   │",
-            "│                       │  │                                     │  │  string                       │  white                        │   │   │",
-            "│                       │  │                                     │  │  nothing                      │  white                        │   │   │",
-            "│                       │  │                                     │  │  binary                       │  white                        │   │   │",
-            "│                       │  │                                     │  │  cell-path                    │  white                        │   │   │",
+            "│                       │  │                                     │  │  range                        │  default                      │   │   │",
+            "│                       │  │                                     │  │  float                        │  default                      │   │   │",
+            "│                       │  │                                     │  │  string                       │  default                      │   │   │",
+            "│                       │  │                                     │  │  nothing                      │  default                      │   │   │",
+            "│                       │  │                                     │  │  binary                       │  default                      │   │   │",
+            "│                       │  │                                     │  │  cell-path                    │  default                      │   │   │",
             "│                       │  │                                     │  │  row_index                    │  green_bold                   │   │   │",
-            "│                       │  │                                     │  │  record                       │  white                        │   │   │",
-            "│                       │  │                                     │  │  list                         │  white                        │   │   │",
-            "│                       │  │                                     │  │  block                        │  white                        │   │   │",
+            "│                       │  │                                     │  │  record                       │  default                      │   │   │",
+            "│                       │  │                                     │  │  list                         │  default                      │   │   │",
+            "│                       │  │                                     │  │  block                        │  default                      │   │   │",
             "│                       │  │                                     │  │  hints                        │  dark_gray                    │   │   │",
             "│                       │  │                                     │  │                               │  ╭───────┬──────────╮         │   │   │",
             "│                       │  │                                     │  │  search_result                │  │  fg   │  white   │         │   │   │",
@@ -2589,10 +2578,7 @@ fn test_collapse_big_0() {
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --width=80 --collapse"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --width=80 --collapse");
 
         _print_lines(&actual.out, 80);
 
@@ -2624,11 +2610,10 @@ fn test_collapse_big_0() {
             "│                  ├───────────────┼──────────┬───────────┬────────────────────┤",
             "│                  │ metadata      │ binstall │ pkg-url   │ { repo }/releases/ │",
             "│                  │               │          │           │ download/{ v       │",
-            "│                  │               │          │           │ ersion             │",
-            "│                  │               │          │           │  }/{ name }-{ vers │",
-            "│                  │               │          │           │ ion }-             │",
-            "│                  │               │          │           │ { target }.{       │",
-            "│                  │               │          │           │  archive-format }  │",
+            "│                  │               │          │           │ ersion }/{ name }- │",
+            "│                  │               │          │           │ { version }-       │",
+            "│                  │               │          │           │ { target }.{ archi │",
+            "│                  │               │          │           │ ve-format }        │",
             "│                  │               │          ├───────────┼────────────────────┤",
             "│                  │               │          │ pkg-fmt   │ tgz                │",
             "│                  │               │          ├───────────┼────────────────────┤",
@@ -2779,10 +2764,7 @@ fn test_collapse_big_0() {
 
         assert_eq!(actual.out, expected);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "open sample.toml | table --collapse --width=160"
-        ));
+        let actual = nu!(cwd: dirs.test(), "open sample.toml | table --collapse --width=160");
 
         _print_lines(&actual.out, 111);
 
@@ -3334,7 +3316,7 @@ fn table_collapse_padding_zero() {
 #[test]
 fn table_leading_trailing_space_bg() {
     let actual = nu!(
-        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80"#
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'default' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80"#
     );
     assert_eq!(
         actual.out,
@@ -3345,7 +3327,7 @@ fn table_leading_trailing_space_bg() {
 #[test]
 fn table_leading_trailing_space_bg_expand() {
     let actual = nu!(
-        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80 --expand"#
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'default' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80 --expand"#
     );
     assert_eq!(
         actual.out,
@@ -3631,19 +3613,19 @@ fn table_list() {
     let actual = nu!("table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("ls | table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("table --list --theme basic");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
     );
 }
 
@@ -3695,11 +3677,10 @@ fn table_footer_inheritance() {
         field0: [ [ y1, y2, y3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
         field1: [ a, b, c ],\
         field2: [ 123, 234, 345 ],\
-        field3: {},\
+        field3: {table1},\
         field4: {{ f1: 1, f2: 3, f3: {{ f1: f1, f2: f2, f3: f3 }} }},\
         field5: [ [ x1, x2, x3 ]; [ 1 2 3 ] [ 79 79 79 ] [ {{ f1: 'a string', f2: 1000 }}, 1, 2 ] ],\
-    }}",
-        table1
+    }}"
     );
     let actual = nu!(format!(
         "$env.config.table.footer_inheritance = true; {structure} | table --width=80 --expand"
@@ -3837,7 +3818,7 @@ fn table_colors() {
     ));
     assert_eq!(
         actual.out,
-        "\u{1b}[37m╭───┬───╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[37m│\u{1b}[0m \u{1b}[37m1\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[37m│\u{1b}[0m \u{1b}[37m2\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰───┴───╯\u{1b}[0m"
+        "\u{1b}[39m╭───┬───╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32ma\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m1\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32mb\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m2\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴───╯\u{1b}[0m"
     );
 
     let actual = nu!(concat!(
@@ -3852,13 +3833,13 @@ fn table_empty_colors() {
     let actual = nu!("$env.config.use_ansi_coloring = true; []");
     assert_eq!(
         actual.out,
-        "\u{1b}[37m╭────────────╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰────────────╯\u{1b}[0m"
+        "\u{1b}[39m╭────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty list\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰────────────╯\u{1b}[0m"
     );
 
     let actual = nu!("$env.config.use_ansi_coloring = true; {}");
     assert_eq!(
         actual.out,
-        "\u{1b}[37m╭──────────────╮\u{1b}[0m\u{1b}[37m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[37m│\u{1b}[0m\u{1b}[37m╰──────────────╯\u{1b}[0m"
+        "\u{1b}[39m╭──────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[2mempty record\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰──────────────╯\u{1b}[0m"
     );
 
     let actual = nu!("$env.config.use_ansi_coloring = false; []");
@@ -3954,4 +3935,86 @@ fn table_missing_value_custom() {
          │ 2 │ NULL │\
          ╰───┴──────╯",
     )
+}
+
+#[test]
+fn configure_batch_duration() {
+    let expected_default = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#).out
+    );
+
+    let expected_two_sec = "\
+        ╭───┬─────────────╮\
+        │ 0 │ after 1 sec │\
+        │ 1 │ after 2 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 2 │ after 3 sec │\
+        │ 3 │ after 4 sec │\
+        ╰───┴─────────────╯\
+        ╭───┬─────────────╮\
+        │ 4 │ after 5 sec │\
+        │ 5 │ after 6 sec │\
+        ╰───┴─────────────╯";
+
+    assert_eq!(
+        expected_two_sec,
+        nu!(r#"$env.config.table.batch_duration = 2sec
+        1..=6 | each {|i| sleep 1sec; $i | into string | $"after ($in) sec"}"#)
+        .out
+    );
+}
+
+#[test]
+fn configure_stream_size() {
+    let expected_default = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_default,
+        nu!(r#"1..4 | each {"item " + ($in | into string)}"#).out
+    );
+
+    let expected_size_2 = "\
+        ╭───┬────────╮\
+        │ 0 │ item 1 │\
+        │ 1 │ item 2 │\
+        ╰───┴────────╯\
+        ╭───┬────────╮\
+        │ 2 │ item 3 │\
+        │ 3 │ item 4 │\
+        ╰───┴────────╯";
+
+    assert_eq!(
+        expected_size_2,
+        nu!(r#"$env.config.table.stream_page_size = 2
+        1..4 | each {"item " + ($in | into string)}"#)
+        .out
+    );
 }

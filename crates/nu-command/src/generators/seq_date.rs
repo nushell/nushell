@@ -62,7 +62,7 @@ impl Command for SeqDate {
             .category(Category::Generators)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Return a list of the next 10 days in the YYYY-MM-DD format",
@@ -200,21 +200,24 @@ impl Command for SeqDate {
         let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end-date")?;
 
         let increment = match call.get_flag::<Value>(engine_state, stack, "increment")? {
-            Some(increment) => match increment {
-                Value::Int { val, internal_span } => Some(
-                    val.checked_mul(NANOSECONDS_IN_DAY)
-                        .ok_or_else(|| ShellError::GenericError {
-                            error: "increment is too large".into(),
-                            msg: "increment is too large".into(),
-                            span: Some(internal_span),
-                            help: None,
-                            inner: vec![],
-                        })?
-                        .into_spanned(internal_span),
-                ),
-                Value::Duration { val, internal_span } => Some(val.into_spanned(internal_span)),
-                _ => None,
-            },
+            Some(increment) => {
+                let span = increment.span();
+                match increment {
+                    Value::Int { val, .. } => Some(
+                        val.checked_mul(NANOSECONDS_IN_DAY)
+                            .ok_or_else(|| ShellError::GenericError {
+                                error: "increment is too large".into(),
+                                msg: "increment is too large".into(),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            })?
+                            .into_spanned(span),
+                    ),
+                    Value::Duration { val, .. } => Some(val.into_spanned(span)),
+                    _ => None,
+                }
+            }
             None => None,
         };
 

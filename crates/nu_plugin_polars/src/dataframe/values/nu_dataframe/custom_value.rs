@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     Cacheable, PolarsPlugin,
-    values::{CustomValueSupport, PolarsPluginCustomValue},
+    values::{CustomValueSupport, PolarsPluginCustomValue, PolarsPluginType},
 };
 
 use super::NuDataFrame;
@@ -27,7 +27,7 @@ impl CustomValue for NuDataFrameCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuDataFrame".into()
+        PolarsPluginType::NuDataFrame.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

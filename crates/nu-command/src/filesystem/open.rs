@@ -1,5 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
+use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
@@ -104,8 +105,17 @@ impl Command for Open {
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-            for path in
-                nu_engine::glob_from(&path, &cwd, call_span, None, engine_state.signals().clone())
+            let matches: Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send> =
+                if is_windows_device_path(Path::new(&path.item.to_string())) {
+                    Box::new(vec![Ok(PathBuf::from(path.item.to_string()))].into_iter())
+                } else {
+                    nu_engine::glob_from(
+                        &path,
+                        &cwd,
+                        call_span,
+                        None,
+                        engine_state.signals().clone(),
+                    )
                     .map_err(|err| match err {
                         ShellError::Io(mut err) => {
                             err.kind = err.kind.not_found_as(NotFound::File);
@@ -115,7 +125,8 @@ impl Command for Open {
                         _ => err,
                     })?
                     .1
-            {
+                };
+            for path in matches {
                 let path = path?;
                 let path = Path::new(&path);
 
@@ -176,11 +187,11 @@ impl Command for Open {
                         .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
 
                     // No content_type by default - Is added later if no converter is found
-                    let stream = PipelineData::ByteStream(
+                    let stream = PipelineData::byte_stream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type: None,
+                            ..Default::default()
                         }),
                     );
 
@@ -198,7 +209,7 @@ impl Command for Open {
                     let converter = exts_opt.and_then(|exts| {
                         exts.iter().find_map(|ext| {
                             engine_state
-                                .find_decl(format!("from {}", ext).as_bytes(), &[])
+                                .find_decl(format!("from {ext}").as_bytes(), &[])
                                 .map(|id| (id, ext.to_string()))
                         })
                     });
@@ -237,6 +248,7 @@ impl Command for Open {
                                 stream.set_metadata(Some(PipelineMetadata {
                                     data_source: DataSource::FilePath(path.to_path_buf()),
                                     content_type,
+                                    ..Default::default()
                                 }));
                             output.push(stream_with_content_type);
                         }
@@ -246,7 +258,7 @@ impl Command for Open {
         }
 
         if output.is_empty() {
-            Ok(PipelineData::Empty)
+            Ok(PipelineData::empty())
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {
@@ -257,7 +269,7 @@ impl Command for Open {
         }
     }
 
-    fn examples(&self) -> Vec<nu_protocol::Example> {
+    fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
                 description: "Open a file, with structure (based on file extension or SQLite database header)",
@@ -314,7 +326,7 @@ fn extract_extensions(filename: &str) -> Vec<String> {
         if current_extension.is_empty() {
             current_extension.push_str(part);
         } else {
-            current_extension = format!("{}.{}", part, current_extension);
+            current_extension = format!("{part}.{current_extension}");
         }
         extensions.push(current_extension.clone());
     }

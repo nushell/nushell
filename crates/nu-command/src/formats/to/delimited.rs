@@ -50,7 +50,7 @@ fn make_unsupported_input_error(
 ) -> ShellError {
     ShellError::UnsupportedInput {
         msg: "expected table or record".to_string(),
-        input: format!("input type: {}", r#type),
+        input: format!("input type: {type}"),
         msg_span: head,
         input_span: span,
     }
@@ -132,7 +132,7 @@ pub fn to_delimited_data(
                 Value::Record { val, .. } => val.columns().cloned().collect(),
                 _ => return Err(make_unsupported_input_error(value.get_type(), head, span)),
             };
-            input = PipelineData::Value(value, metadata.clone());
+            input = PipelineData::value(value, metadata.clone());
             columns
         }
     };
@@ -181,5 +181,5 @@ pub fn to_delimited_data(
         },
     );
 
-    Ok(PipelineData::ByteStream(stream, metadata))
+    Ok(PipelineData::byte_stream(stream, metadata))
 }

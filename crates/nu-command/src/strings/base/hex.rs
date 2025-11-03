@@ -18,7 +18,7 @@ impl Command for DecodeHex {
         "Hex decode a value."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Decode arbitrary binary data",
@@ -79,7 +79,7 @@ impl Command for EncodeHex {
         "Hex encode a binary value or a string."
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Encode a binary value",

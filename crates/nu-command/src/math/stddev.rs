@@ -91,7 +91,7 @@ impl Command for MathStddev {
         run_with_function(call, input, compute_stddev(sample))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Compute the standard deviation of a list of numbers",

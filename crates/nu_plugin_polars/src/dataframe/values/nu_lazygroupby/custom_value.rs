@@ -1,4 +1,4 @@
-use crate::values::{CustomValueSupport, PolarsPluginCustomValue};
+use crate::values::{CustomValueSupport, PolarsPluginCustomValue, PolarsPluginType};
 
 use super::NuLazyGroupBy;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
@@ -19,7 +19,7 @@ impl CustomValue for NuLazyGroupByCustomValue {
     }
 
     fn type_name(&self) -> String {
-        "NuLazyGroupBy".into()
+        PolarsPluginType::NuLazyGroupBy.type_name().to_string()
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {

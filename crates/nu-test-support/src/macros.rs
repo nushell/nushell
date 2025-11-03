@@ -51,7 +51,7 @@
 /// ```
 #[macro_export]
 macro_rules! nu {
-    // In the `@options` phase, we restucture all the
+    // In the `@options` phase, we restructure all the
     // `$field_1: $value_1, $field_2: $value_2, ...`
     // pairs to a structure like
     // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.
@@ -89,7 +89,7 @@ macro_rules! nu {
         // Here we parse the options into a `NuOpts` struct
         let opts = nu!(@nu_opts $($options)*);
         // and format the `$path` using the `$part`s
-        let path = nu!(@format_path $path, $($part),*);
+        let path = $path;
         // Then finally we go to the `@main` phase, where the actual work is done.
         nu!(@main opts, path)
     }};
@@ -103,15 +103,6 @@ macro_rules! nu {
             ..Default::default()
         }
     };
-
-    // Helper to format `$path`.
-    (@format_path $path:expr $(,)?) => {
-        // When there are no `$part`s, do not format anything
-        $path
-    };
-    (@format_path $path:expr, $($part:expr),* $(,)?) => {{
-        format!($path, $( $part ),*)
-    }};
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
@@ -127,7 +118,7 @@ macro_rules! nu {
 
 #[macro_export]
 macro_rules! nu_with_std {
-    // In the `@options` phase, we restucture all the
+    // In the `@options` phase, we restructure all the
     // `$field_1: $value_1, $field_2: $value_2, ...`
     // pairs to a structure like
     // `@options[ $field_1 => $value_1 ; $field_2 => $value_2 ; ... ]`.
@@ -247,6 +238,7 @@ pub struct NuOpts {
     pub cwd: Option<AbsolutePathBuf>,
     pub locale: Option<String>,
     pub envs: Option<Vec<(String, String)>>,
+    pub experimental: Option<Vec<String>>,
     pub collapse_output: Option<bool>,
     // Note: At the time this was added, passing in a file path was more convenient. However,
     // passing in file contents seems like a better API - consider this when adding new uses of
@@ -262,7 +254,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     let mut paths = crate::shell_os_paths();
     paths.insert(0, test_bins.into());
 
-    let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
+    let commands = commands.as_ref();
 
     let paths_joined = match std::env::join_paths(paths) {
         Ok(all) => all,
@@ -290,18 +282,20 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         None => command.arg("--no-config-file"),
     };
 
+    if let Some(experimental_opts) = opts.experimental {
+        let opts = format!("[{}]", experimental_opts.join(","));
+        command.arg(format!("--experimental-options={opts}"));
+    }
+
     if !with_std {
         command.arg("--no-std-lib");
     }
     // Use plain errors to help make error text matching more consistent
-    command.args(["--error-style", "plain"]);
-    command
-        .arg(format!("-c {}", escape_quote_string(&commands)))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    command.args(["--error-style", "plain", "--commands", commands]);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     // Uncomment to debug the command being run:
-    // println!("=== command\n{command:?}\n");
+    // println!("=== command\n{command:#?}\n");
 
     let process = match command.spawn() {
         Ok(child) => child,
@@ -321,7 +315,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         out.into_owned()
     };
 
-    println!("=== stderr\n{}", err);
+    println!("=== stderr\n{err}");
 
     Outcome::new(out, err.into_owned(), output.status)
 }
@@ -397,7 +391,7 @@ where
         .spawn()
     {
         Ok(child) => child,
-        Err(why) => panic!("Can't run test {}", why),
+        Err(why) => panic!("Can't run test {why}"),
     };
 
     let output = process
@@ -407,7 +401,7 @@ where
     let out = collapse_output(&String::from_utf8_lossy(&output.stdout));
     let err = String::from_utf8_lossy(&output.stderr);
 
-    println!("=== stderr\n{}", err);
+    println!("=== stderr\n{err}");
 
     Outcome::new(out, err.into_owned(), output.status)
 }

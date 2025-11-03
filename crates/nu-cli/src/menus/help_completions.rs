@@ -1,4 +1,4 @@
-use nu_engine::documentation::{HelpStyle, get_flags_section};
+use nu_engine::documentation::{FormatterValue, HelpStyle, get_flags_section};
 use nu_protocol::{Config, engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
@@ -66,8 +66,11 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(&sig, &help_style, |v| {
-                        v.to_parsable_string(", ", &self.config)
+                    long_desc.push_str(&get_flags_section(&sig, &help_style, |v| match v {
+                        FormatterValue::DefaultValue(value) => {
+                            value.to_parsable_string(", ", &self.config)
+                        }
+                        FormatterValue::CodeString(text) => text.to_string(),
                     }))
                 }
 
@@ -137,7 +140,7 @@ mod test {
     use rstest::rstest;
 
     #[rstest]
-    #[case("who", 5, 8, &["whoami"])]
+    #[case("who", 5, 8, &["whoami", "each"])]
     #[case("hash", 1, 5, &["hash", "hash md5", "hash sha256"])]
     #[case("into f", 0, 6, &["into float", "into filesize"])]
     #[case("into nonexistent", 0, 16, &[])]

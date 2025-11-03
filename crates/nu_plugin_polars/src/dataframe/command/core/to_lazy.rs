@@ -1,6 +1,6 @@
 use crate::{Cacheable, PolarsPlugin, dataframe::values::NuSchema, values::CustomValueSupport};
 
-use crate::values::{NuDataFrame, NuLazyFrame};
+use crate::values::{NuDataFrame, NuLazyFrame, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -32,11 +32,11 @@ impl PluginCommand for ToLazyFrame {
                 r#"Polars Schema in format [{name: str}]."#,
                 Some('s'),
             )
-            .input_output_type(Type::Any, Type::Custom("dataframe".into()))
+            .input_output_type(Type::Any, PolarsPluginType::NuLazyFrame.into())
             .category(Category::Custom("lazyframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Takes a table and creates a lazyframe",
@@ -85,7 +85,7 @@ impl PluginCommand for ToLazyFrame {
         let mut lazy = NuLazyFrame::from_dataframe(df);
         // We don't want this converted back to an eager dataframe at some point
         lazy.from_eager = false;
-        Ok(PipelineData::Value(
+        Ok(PipelineData::value(
             lazy.cache(plugin, engine, call.head)?.into_value(call.head),
             None,
         ))

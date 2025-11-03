@@ -23,7 +23,7 @@ pub fn run_command_with_value(
         });
     }
 
-    let pipeline = PipelineData::Value(input.clone(), None);
+    let pipeline = PipelineData::value(input.clone(), None);
     let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
         Err(ShellError::GenericError {
@@ -115,5 +115,5 @@ fn eval_source2(
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
     );
-    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body)
 }

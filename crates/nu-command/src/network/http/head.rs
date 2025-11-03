@@ -1,11 +1,13 @@
-use super::client::HttpBody;
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response_headers,
-    request_set_timeout, send_request,
+    check_response_redirection, extract_response_headers, handle_response_status, headers_to_nu,
+    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+
+use super::client::RedirectMode;
 
 #[derive(Clone)]
 pub struct HttpHead;
@@ -16,7 +18,7 @@ impl Command for HttpHead {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http head")
+        let sig = Signature::build("http head")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -52,14 +54,21 @@ impl Command for HttpHead {
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
-            ).named(
-                "redirect-mode",
-                SyntaxShape::String,
-                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('R')
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -84,7 +93,7 @@ impl Command for HttpHead {
         run_head(engine_state, stack, call, input)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get headers from example.com",
@@ -118,6 +127,7 @@ struct Arguments {
     password: Option<String>,
     timeout: Option<Value>,
     redirect: Option<Spanned<String>>,
+    unix_socket: Option<Spanned<String>>,
 }
 
 fn run_head(
@@ -134,13 +144,13 @@ fn run_head(
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
 
     helper(engine_state, stack, call, args, engine_state.signals())
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
-// The Option<String> return a possible file extension which can be used in AutoConvert commands
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -152,23 +162,26 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.head(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(
-        engine_state,
-        request,
-        HttpBody::None,
-        None,
-        call.head,
-        signals,
-    );
+    let (response, _request_headers) = send_request_no_body(request, call.head, signals);
+    let response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
-    request_handle_response_headers(span, response)
+    handle_response_status(&response, redirect_mode, &requested_url, span, false)?;
+    headers_to_nu(&extract_response_headers(&response), span)
 }
 
 #[cfg(test)]

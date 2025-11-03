@@ -153,6 +153,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Ast,
             Debug,
             DebugEnv,
+            DebugExperimentalOptions,
             DebugInfo,
             DebugProfile,
             Explain,
@@ -170,7 +171,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         #[cfg(all(feature = "os", windows))]
-        bind_command! { RegistryQuery }
+        bind_command! { Registry, RegistryQuery }
 
         #[cfg(all(
             feature = "os",
@@ -188,6 +189,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Strings
         bind_command! {
+            Ansi,
+            AnsiLink,
+            AnsiStrip,
             Char,
             Decode,
             Encode,
@@ -199,7 +203,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
+            Detect,
             DetectColumns,
+            DetectType,
             Parse,
             Split,
             SplitChars,
@@ -250,9 +256,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         #[cfg(feature = "os")]
         bind_command! {
-            Ansi,
-            AnsiLink,
-            AnsiStrip,
             Clear,
             Du,
             Input,

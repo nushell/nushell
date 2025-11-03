@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
-use nu_utils::{get_default_config, get_default_env};
+use nu_utils::ConfigFileKind;
 use std::{
     fmt::Write,
     hint::black_box,
@@ -139,6 +139,30 @@ fn bench_load_standard_lib() -> impl IntoBenchmarks {
     })]
 }
 
+/// Load all modules of standard library into the engine through a general `use`.
+fn bench_load_use_standard_lib() -> impl IntoBenchmarks {
+    [benchmark_fn("load_use_standard_lib", move |b| {
+        // We need additional commands like `format number` for the standard library
+        let engine = nu_cmd_extra::add_extra_command_context(setup_engine());
+        let commands = Spanned {
+            item: "use std".into(),
+            span: Span::unknown(),
+        };
+        b.iter(move || {
+            let mut engine = engine.clone();
+            let mut stack = Stack::new();
+            let _ = load_standard_library(&mut engine);
+            evaluate_commands(
+                &commands,
+                &mut engine,
+                &mut stack,
+                PipelineData::empty(),
+                Default::default(),
+            )
+        })
+    })]
+}
+
 fn create_flat_record_string(n: usize) -> String {
     let mut s = String::from("let record = { ");
     for i in 0..n {
@@ -199,7 +223,7 @@ fn bench_record_nested_access(n: usize) -> impl IntoBenchmarks {
     let nested_access = ".col".repeat(n);
     bench_command(
         format!("record_nested_access_{n}"),
-        format!("$record{} | ignore", nested_access),
+        format!("$record{nested_access} | ignore"),
         stack,
         engine,
     )
@@ -319,15 +343,16 @@ fn bench_eval_par_each(n: usize) -> impl IntoBenchmarks {
     let stack = Stack::new();
     bench_command(
         format!("eval_par_each_{n}"),
-        format!("(1..{}) | par-each -t 2 {{|_| 1 }} | ignore", n),
+        format!("(1..{n}) | par-each -t 2 {{|_| 1 }} | ignore"),
         stack,
         engine,
     )
 }
 
 fn bench_eval_default_config() -> impl IntoBenchmarks {
-    let default_env = get_default_config().as_bytes().to_vec();
-    let fname = "default_config.nu".to_string();
+    let kind = ConfigFileKind::Config;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_config",
         fname,
@@ -338,8 +363,9 @@ fn bench_eval_default_config() -> impl IntoBenchmarks {
 }
 
 fn bench_eval_default_env() -> impl IntoBenchmarks {
-    let default_env = get_default_env().as_bytes().to_vec();
-    let fname = "default_env.nu".to_string();
+    let kind = ConfigFileKind::Env;
+    let default_env = kind.default().as_bytes().to_vec();
+    let fname = kind.default_path().to_string();
     bench_eval_source(
         "eval_default_env",
         fname,
@@ -357,7 +383,7 @@ fn encode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"json").unwrap());
 
     [benchmark_fn(
-        format!("encode_json_{}_{}", row_cnt, col_cnt),
+        format!("encode_json_{row_cnt}_{col_cnt}"),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -377,7 +403,7 @@ fn encode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     let encoder = Rc::new(EncodingType::try_from_bytes(b"msgpack").unwrap());
 
     [benchmark_fn(
-        format!("encode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("encode_msgpack_{row_cnt}_{col_cnt}"),
         move |b| {
             let encoder = encoder.clone();
             let test_data = test_data.clone();
@@ -399,7 +425,7 @@ fn decode_json(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        format!("decode_json_{}_{}", row_cnt, col_cnt),
+        format!("decode_json_{row_cnt}_{col_cnt}"),
         move |b| {
             let res = res.clone();
             b.iter(move || {
@@ -422,7 +448,7 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     encoder.encode(&test_data, &mut res).unwrap();
 
     [benchmark_fn(
-        format!("decode_msgpack_{}_{}", row_cnt, col_cnt),
+        format!("decode_msgpack_{row_cnt}_{col_cnt}"),
         move |b| {
             let res = res.clone();
             b.iter(move || {
@@ -437,6 +463,7 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
 
 tango_benchmarks!(
     bench_load_standard_lib(),
+    bench_load_use_standard_lib(),
     // Data types
     // Record
     bench_record_create(1),

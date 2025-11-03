@@ -3,7 +3,6 @@ use crate::{
     ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
     VarId, VirtualPathId,
     ast::Block,
-    cli_error::ReportLog,
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
@@ -11,6 +10,7 @@ use crate::{
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
+    report_error::ReportLog,
     shell_error::io::IoError,
 };
 use fancy_regex::Regex;
@@ -46,6 +46,8 @@ pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
     pub cursor_pos: usize,
+    /// Immediately accept the buffer on the next loop.
+    pub accept: bool,
 }
 
 pub struct IsDebugging(AtomicBool);
@@ -113,6 +115,7 @@ pub struct EngineState {
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
+    pub is_lsp: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -185,6 +188,7 @@ impl EngineState {
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
+                accept: false,
             })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
@@ -200,6 +204,7 @@ impl EngineState {
             ))),
             is_interactive: false,
             is_login: false,
+            is_lsp: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
@@ -483,10 +488,10 @@ impl EngineState {
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(name) {
-                    return Some(val);
-                }
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(val) = env_vars.get(name)
+            {
+                return Some(val);
             }
         }
 
@@ -500,10 +505,10 @@ impl EngineState {
     pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name)) {
-                    return Some((v.0, v.1));
-                }
+            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
+                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
+            {
+                return Some((v.0, v.1));
             }
         }
 
@@ -635,10 +640,10 @@ impl EngineState {
         for overlay_frame in self.active_overlays(removed_overlays).rev() {
             visibility.append(&overlay_frame.visibility);
 
-            if let Some(decl_id) = overlay_frame.get_decl(name) {
-                if visibility.is_decl_id_visible(&decl_id) {
-                    return Some(decl_id);
-                }
+            if let Some(decl_id) = overlay_frame.get_decl(name)
+                && visibility.is_decl_id_visible(&decl_id)
+            {
+                return Some(decl_id);
             }
         }
 
@@ -766,6 +771,30 @@ impl EngineState {
             }
         }
         &[0u8; 0]
+    }
+
+    /// If the span's content starts with the given prefix, return two subspans
+    /// corresponding to this prefix, and the rest of the content.
+    pub fn span_match_prefix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
+        let contents = self.get_span_contents(span);
+
+        if contents.starts_with(prefix) {
+            span.split_at(prefix.len())
+        } else {
+            None
+        }
+    }
+
+    /// If the span's content ends with the given postfix, return two subspans
+    /// corresponding to the rest of the content, and this postfix.
+    pub fn span_match_postfix(&self, span: Span, prefix: &[u8]) -> Option<(Span, Span)> {
+        let contents = self.get_span_contents(span);
+
+        if contents.ends_with(prefix) {
+            span.split_at(span.len() - prefix.len())
+        } else {
+            None
+        }
     }
 
     /// Get the global config from the engine state.
@@ -1008,10 +1037,7 @@ impl EngineState {
         cwd.into_os_string()
             .into_string()
             .map_err(|err| ShellError::NonUtf8Custom {
-                msg: format!(
-                    "The current working directory is not a valid utf-8 string: {:?}",
-                    err
-                ),
+                msg: format!("The current working directory is not a valid utf-8 string: {err:?}"),
                 span: Span::unknown(),
             })
     }
@@ -1032,7 +1058,7 @@ impl EngineState {
     pub fn activate_debugger(
         &self,
         debugger: Box<dyn Debugger>,
-    ) -> Result<(), PoisonDebuggerError> {
+    ) -> Result<(), PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         *locked_debugger = debugger;
         locked_debugger.activate();
@@ -1040,7 +1066,7 @@ impl EngineState {
         Ok(())
     }
 
-    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError<'_>> {
         let mut locked_debugger = self.debugger.lock()?;
         locked_debugger.deactivate();
         let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));
@@ -1057,6 +1083,7 @@ impl EngineState {
             self.repl_state = Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
+                accept: false,
             }));
         }
         if Mutex::is_poisoned(&self.jobs) {

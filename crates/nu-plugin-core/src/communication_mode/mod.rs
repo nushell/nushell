@@ -3,6 +3,7 @@ use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use nu_protocol::ShellError;
+#[cfg(feature = "local-socket")] // unused without that feature
 use nu_protocol::shell_error::io::IoError;
 
 #[cfg(feature = "local-socket")]

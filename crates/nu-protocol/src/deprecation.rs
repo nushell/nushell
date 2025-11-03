@@ -7,9 +7,10 @@ use crate::{self as nu_protocol, ReportMode, Span};
 
 /// A entry which indicates that some part of, or all of, a command is deprecated
 ///
-/// Commands can implement [`Command::deprecation_info`] to return deprecation entries,
-/// which will cause a parse-time warning. Additionally, custom commands can use the
-/// @deprecated attribute to add a `DeprecationEntry`.
+/// Commands can implement [`Command::deprecation_info`](crate::engine::Command::deprecation_info)
+/// to return deprecation entries, which will cause a parse-time warning.
+/// Additionally, custom commands can use the `@deprecated` attribute to add a
+/// `DeprecationEntry`.
 #[derive(FromValue)]
 pub struct DeprecationEntry {
     /// The type of deprecation
@@ -87,7 +88,15 @@ impl DeprecationEntry {
     fn check(&self, call: &Call) -> bool {
         match &self.ty {
             DeprecationType::Command => true,
-            DeprecationType::Flag(flag) => call.get_named_arg(flag).is_some(),
+            DeprecationType::Flag(flag) => {
+                // Make sure we don't accidentally have dashes in the flag
+                debug_assert!(
+                    !flag.starts_with('-'),
+                    "DeprecationEntry for {flag} should not include dashes in the flag name!"
+                );
+
+                call.get_named_arg(flag).is_some()
+            }
         }
     }
 
@@ -133,7 +142,7 @@ impl DeprecationEntry {
         let label = self.label(command_name);
         let span = self.span(call);
         let report_mode = self.report_mode;
-        Some(ParseWarning::DeprecationWarning {
+        Some(ParseWarning::Deprecated {
             dep_type,
             label,
             span,

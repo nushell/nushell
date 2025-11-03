@@ -41,8 +41,18 @@ If multiple cell paths are given, this will produce a list of values."#
             )
             .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
+                "optional",
+                "make all cell path members optional (returns `null` for missing values)",
+                Some('o'),
+            )
+            .switch(
+                "ignore-case",
+                "make all cell path members case insensitive",
+                None,
+            )
+            .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional)",
+                "ignore missing data (make all cell path members optional) (deprecated)",
                 Some('i'),
             )
             .switch(
@@ -54,7 +64,7 @@ If multiple cell paths are given, this will produce a list of values."#
             .category(Category::Filters)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Get an item from a list",
@@ -66,6 +76,30 @@ If multiple cell paths are given, this will produce a list of values."#
                 example: "[{A: A0}] | get A",
                 result: Some(Value::list(
                     vec![Value::test_string("A0")],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Get a column from a table where some rows don't have that column, using optional cell-path syntax",
+                example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get A?",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A0"),
+                        Value::test_nothing(),
+                        Value::test_string("A2"),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Get a column from a table where some rows don't have that column, using the optional flag",
+                example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get -o A",
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("A0"),
+                        Value::test_nothing(),
+                        Value::test_string("A2"),
+                    ],
                     Span::test_data(),
                 )),
             },
@@ -85,8 +119,13 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
             Example {
-                description: "Getting Path/PATH in a case insensitive way",
-                example: "$env | get paTH!",
+                description: "Getting environment variables in a case insensitive way, using case insensitive cell-path syntax",
+                example: "$env | get home! path!",
+                result: None,
+            },
+            Example {
+                description: "Getting environment variables in a case insensitive way, using the '--ignore-case' flag",
+                example: "$env | get --ignore-case home path",
                 result: None,
             },
             Example {
@@ -109,13 +148,16 @@ If multiple cell paths are given, this will produce a list of values."#
     ) -> Result<PipelineData, ShellError> {
         let cell_path: CellPath = call.req_const(working_set, 0)?;
         let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
-        let ignore_errors = call.has_flag_const(working_set, "ignore-errors")?;
+        let optional = call.has_flag_const(working_set, "optional")?
+            || call.has_flag_const(working_set, "ignore-errors")?;
+        let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
-            ignore_errors,
+            optional,
+            ignore_case,
             working_set.permanent().signals().clone(),
             call.head,
         )
@@ -131,13 +173,16 @@ If multiple cell paths are given, this will produce a list of values."#
     ) -> Result<PipelineData, ShellError> {
         let cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let optional = call.has_flag(engine_state, stack, "optional")?
+            || call.has_flag(engine_state, stack, "ignore-errors")?;
+        let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
         let metadata = input.metadata();
         action(
             input,
             cell_path,
             rest,
-            ignore_errors,
+            optional,
+            ignore_case,
             engine_state.signals().clone(),
             call.head,
         )
@@ -152,6 +197,13 @@ If multiple cell paths are given, this will produce a list of values."#
                 since: Some("0.105.0".into()),
                 expected_removal: None,
                 help: Some("Cell-paths are now case-sensitive by default.\nTo access fields case-insensitively, add `!` after the relevant path member.".into())
+            },
+            DeprecationEntry {
+                ty: DeprecationType::Flag("ignore-errors".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.106.0".into()),
+                expected_removal: None,
+                help: Some("This flag has been renamed to `--optional (-o)` to better reflect its behavior.".into())
             }
         ]
     }
@@ -161,29 +213,27 @@ fn action(
     input: PipelineData,
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
-    ignore_errors: bool,
+    optional: bool,
+    ignore_case: bool,
     signals: Signals,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if ignore_errors {
+    if optional {
         cell_path.make_optional();
         for path in &mut rest {
             path.make_optional();
         }
     }
 
-    match input {
-        PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: span }),
-        // Allow chaining of get -i
-        PipelineData::Value(val @ Value::Nothing { .. }, ..) if !ignore_errors => {
-            return Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "table or record".into(),
-                wrong_type: "nothing".into(),
-                dst_span: span,
-                src_span: val.span(),
-            });
+    if ignore_case {
+        cell_path.make_insensitive();
+        for path in &mut rest {
+            path.make_insensitive();
         }
-        _ => (),
+    }
+
+    if let PipelineData::Empty = input {
+        return Err(ShellError::PipelineEmpty { dst_span: span });
     }
 
     if rest.is_empty() {

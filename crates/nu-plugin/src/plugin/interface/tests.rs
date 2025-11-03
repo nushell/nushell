@@ -583,7 +583,7 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
 fn manager_prepare_pipeline_data_deserializes_custom_values() -> Result<(), ShellError> {
     let manager = TestCase::new().engine();
 
-    let data = manager.prepare_pipeline_data(PipelineData::Value(
+    let data = manager.prepare_pipeline_data(PipelineData::value(
         Value::test_custom_value(Box::new(test_plugin_custom_value())),
         None,
     ))?;
@@ -690,7 +690,7 @@ fn interface_write_response_with_value() -> Result<(), ShellError> {
     let test = TestCase::new();
     let interface = test.engine().interface_for_context(33);
     interface
-        .write_response(Ok::<_, ShellError>(PipelineData::Value(
+        .write_response(Ok::<_, ShellError>(PipelineData::value(
             Value::test_int(6),
             None,
         )))?
@@ -901,9 +901,9 @@ fn interface_get_plugin_config() -> Result<(), ShellError> {
 
     start_fake_plugin_call_responder(manager, 2, |id| {
         if id == 0 {
-            EngineCallResponse::PipelineData(PipelineData::Empty)
+            EngineCallResponse::PipelineData(PipelineData::empty())
         } else {
-            EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+            EngineCallResponse::PipelineData(PipelineData::value(Value::test_int(2), None))
         }
     });
 
@@ -1038,7 +1038,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let interface = manager.interface_for_context(0);
 
     start_fake_plugin_call_responder(manager, 1, |_| {
-        EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+        EngineCallResponse::PipelineData(PipelineData::value(Value::test_int(2), None))
     });
 
     let result = interface
@@ -1051,7 +1051,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
                 span: Span::test_data(),
             },
             vec![Value::test_string("test")],
-            PipelineData::Empty,
+            PipelineData::empty(),
             true,
             false,
         )?
@@ -1100,7 +1100,7 @@ fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), Shel
     let interface = TestCase::new().engine().get_interface();
 
     let data = interface.prepare_pipeline_data(
-        PipelineData::Value(
+        PipelineData::value(
             Value::test_custom_value(Box::new(expected_test_custom_value())),
             None,
         ),

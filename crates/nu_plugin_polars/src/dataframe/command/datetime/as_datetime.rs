@@ -1,5 +1,7 @@
 use crate::{
     PolarsPlugin,
+    command::datetime::timezone_from_str,
+    dataframe::values::str_to_time_unit,
     values::{
         Column, CustomValueSupport, NuDataFrame, NuExpression, NuLazyFrame, NuSchema,
         PolarsPluginObject, PolarsPluginType, cant_convert_err,
@@ -11,12 +13,12 @@ use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Value,
 };
 use polars::prelude::{
     DataType, Expr, Field, IntoSeries, LiteralValue, PlSmallStr, Schema, StringMethods,
-    StrptimeOptions, TimeUnit, col,
+    StrptimeOptions, TimeUnit, TimeZone, col,
 };
 
 #[derive(Clone)]
@@ -52,12 +54,16 @@ impl PluginCommand for AsDateTime {
         Signature::build(self.name())
             .input_output_types(vec![
                 (
-                    Type::Custom("dataframe".into()),
-                    Type::Custom("dataframe".into()),
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
                 ),
                 (
-                    Type::Custom("expression".into()),
-                    Type::Custom("expression".into()),
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
                 ),
             ])
             .required("format", SyntaxShape::String, "formatting date time string")
@@ -74,9 +80,11 @@ impl PluginCommand for AsDateTime {
                     Used only when input is a lazyframe or expression and ignored otherwise"#,
                 Some('a'),
             )            .category(Category::Custom("dataframe".into()))
+            .named("time-unit", SyntaxShape::String, "time unit for the output datetime. One of: ns, us, ms. Default is ns", None)
+            .named("time-zone", SyntaxShape::String, "time zone for the output datetime. E.g. 'UTC', 'America/New_York'",  None)
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Converts string to datetime",
@@ -253,7 +261,14 @@ fn command(
     let format: String = call.req(0)?;
     let not_exact = call.has_flag("not-exact")?;
     let tz_aware = !call.has_flag("naive")?;
-
+    let time_unit: Option<TimeUnit> = call
+        .get_flag::<Spanned<String>>("time-unit")?
+        .map(|s| str_to_time_unit(&s.item, s.span))
+        .transpose()?;
+    let time_zone: Option<TimeZone> = call
+        .get_flag::<Spanned<String>>("time-zone")?
+        .map(|s| timezone_from_str(&s.item, Some(s.span)))
+        .transpose()?;
     let value = input.into_value(call.head)?;
 
     let options = StrptimeOptions {
@@ -264,16 +279,20 @@ fn command(
     };
 
     let ambiguous = match call.get_flag::<Value>("ambiguous")? {
-        Some(Value::String { val, internal_span }) => match val.as_str() {
-            "raise" | "earliest" | "latest" => Ok(val),
-            _ => Err(ShellError::GenericError {
-                error: "Invalid argument value".into(),
-                msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                span: Some(internal_span),
-                help: None,
-                inner: vec![],
-            }),
-        },
+        Some(v @ Value::String { .. }) => {
+            let span = v.span();
+            let val = v.into_string()?;
+            match val.as_str() {
+                "raise" | "earliest" | "latest" => Ok(val),
+                _ => Err(ShellError::GenericError {
+                    error: "Invalid argument value".into(),
+                    msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }),
+            }
+        }
         Some(Value::Nothing { .. }) => Ok("null".into()),
         Some(_) => unreachable!("Argument only accepts string or null."),
         None => Ok("raise".into()),
@@ -281,19 +300,25 @@ fn command(
     .map_err(LabeledError::from)?;
 
     match PolarsPluginObject::try_from_value(plugin, &value)? {
-        PolarsPluginObject::NuLazyFrame(lazy) => {
-            command_lazy(plugin, engine, call, lazy, options, ambiguous)
-        }
-        PolarsPluginObject::NuDataFrame(df) => {
-            command_eager(plugin, engine, call, df, options, tz_aware)
-        }
+        PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(
+            plugin,
+            engine,
+            call,
+            LazyParams::new(lazy, options, ambiguous, time_unit, time_zone),
+        ),
+        PolarsPluginObject::NuDataFrame(df) => command_eager(
+            plugin,
+            engine,
+            call,
+            EagerParams::new(df, options, tz_aware, time_unit, time_zone),
+        ),
         PolarsPluginObject::NuExpression(expr) => {
             let res: NuExpression = expr
                 .into_polars()
                 .str()
                 .to_datetime(
-                    None,
-                    None,
+                    time_unit,
+                    time_zone,
                     options,
                     Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
                         PlSmallStr::from_string(ambiguous),
@@ -313,19 +338,49 @@ fn command(
     }
 }
 
+struct LazyParams {
+    lazy: NuLazyFrame,
+    options: StrptimeOptions,
+    ambiguous: String,
+    time_unit: Option<TimeUnit>,
+    time_zone: Option<TimeZone>,
+}
+
+impl LazyParams {
+    fn new(
+        lazy: NuLazyFrame,
+        options: StrptimeOptions,
+        ambiguous: String,
+        time_unit: Option<TimeUnit>,
+        time_zone: Option<TimeZone>,
+    ) -> Self {
+        Self {
+            lazy,
+            options,
+            ambiguous,
+            time_unit,
+            time_zone,
+        }
+    }
+}
+
 fn command_lazy(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    lazy: NuLazyFrame,
-    options: StrptimeOptions,
-    ambiguous: String,
+    LazyParams {
+        lazy,
+        options,
+        ambiguous,
+        time_unit,
+        time_zone,
+    }: LazyParams,
 ) -> Result<PipelineData, ShellError> {
     NuLazyFrame::new(
         false,
         lazy.to_polars().select([col("*").str().to_datetime(
-            None,
-            None,
+            time_unit,
+            time_zone,
             options,
             Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
                 PlSmallStr::from_string(ambiguous),
@@ -335,13 +390,43 @@ fn command_lazy(
     .to_pipeline_data(plugin, engine, call.head)
 }
 
+struct EagerParams {
+    df: NuDataFrame,
+    options: StrptimeOptions,
+    tz_aware: bool,
+    time_unit: Option<TimeUnit>,
+    time_zone: Option<TimeZone>,
+}
+
+impl EagerParams {
+    fn new(
+        df: NuDataFrame,
+        options: StrptimeOptions,
+        tz_aware: bool,
+        time_unit: Option<TimeUnit>,
+        time_zone: Option<TimeZone>,
+    ) -> Self {
+        Self {
+            df,
+            options,
+            tz_aware,
+            time_unit,
+            time_zone,
+        }
+    }
+}
+
 fn command_eager(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    df: NuDataFrame,
-    options: StrptimeOptions,
-    tz_aware: bool,
+    EagerParams {
+        df,
+        options,
+        tz_aware,
+        time_unit,
+        time_zone,
+    }: EagerParams,
 ) -> Result<PipelineData, ShellError> {
     let format = if let Some(format) = options.format {
         format.to_string()
@@ -362,18 +447,19 @@ fn command_eager(
     let res = if not_exact {
         casted.as_datetime_not_exact(
             Some(format.as_str()),
-            TimeUnit::Nanoseconds,
+            time_unit.unwrap_or(TimeUnit::Nanoseconds),
             tz_aware,
-            None,
+            time_zone.as_ref(),
             &Default::default(),
+            true,
         )
     } else {
         casted.as_datetime(
             Some(format.as_str()),
-            TimeUnit::Nanoseconds,
+            time_unit.unwrap_or(TimeUnit::Nanoseconds),
             false,
             tz_aware,
-            None,
+            time_zone.as_ref(),
             &Default::default(),
         )
     };

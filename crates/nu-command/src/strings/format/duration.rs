@@ -117,7 +117,7 @@ impl Command for FormatDuration {
         )
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Convert µs duration to the requested second duration as a string",
@@ -155,9 +155,9 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
                         &arg.format_value.item
                     };
                     if d.fract() == 0.0 {
-                        Value::string(format!("{} {}", d, unit), inner_span)
+                        Value::string(format!("{d} {unit}"), inner_span)
                     } else {
-                        Value::string(format!("{:.float_precision$} {}", d, unit), inner_span)
+                        Value::string(format!("{d:.float_precision$} {unit}"), inner_span)
                     }
                 }
                 Err(e) => Value::error(e, inner_span),

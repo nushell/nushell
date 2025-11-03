@@ -33,6 +33,12 @@ impl Command for MetadataSet {
                 "Assign content type metadata to the input",
                 Some('c'),
             )
+            .named(
+                "merge",
+                SyntaxShape::Record(vec![]),
+                "Merge arbitrary metadata fields",
+                Some('m'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -48,6 +54,7 @@ impl Command for MetadataSet {
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
+        let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -60,17 +67,35 @@ impl Command for MetadataSet {
             metadata.content_type = Some(content_type);
         }
 
+        if let Some(merge) = merge {
+            let custom_record = merge.as_record()?;
+            for (key, value) in custom_record {
+                metadata.custom.insert(key.clone(), value.clone());
+            }
+        }
+
         match (ds_fp, ds_ls) {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
             (None, true) => metadata.data_source = DataSource::Ls,
-            (Some(_), true) => (), // TODO: error here
+            (Some(_), true) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "cannot use `--datasource-filepath`".into(),
+                    left_span: call
+                        .get_flag_span(stack, "datasource-filepath")
+                        .expect("has flag"),
+                    right_message: "with `--datasource-ls`".into(),
+                    right_span: call
+                        .get_flag_span(stack, "datasource-ls")
+                        .expect("has flag"),
+                });
+            }
             (None, false) => (),
         }
 
         Ok(input.set_metadata(Some(metadata)))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Set the metadata of a table literal",
@@ -79,15 +104,18 @@ impl Command for MetadataSet {
             },
             Example {
                 description: "Set the metadata of a file path",
-                example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates' | metadata",
+                example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
                 result: None,
             },
             Example {
-                description: "Set the metadata of a file path",
-                example: "'crates' | metadata set --content-type text/plain | metadata",
-                result: Some(Value::test_record(record! {
-                    "content_type" => Value::test_string("text/plain"),
-                })),
+                description: "Set the content type metadata",
+                example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
+                result: Some(Value::test_string("text/plain")),
+            },
+            Example {
+                description: "Set custom metadata",
+                example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
+                result: Some(Value::test_string("value")),
             },
         ]
     }

@@ -42,7 +42,7 @@ impl Command for FormatDate {
         vec!["fmt", "strftime"]
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",
@@ -100,11 +100,16 @@ impl Command for FormatDate {
         let list = call.has_flag(engine_state, stack, "list")?;
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
+        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
+
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
         let locale = if let Some(loc) = engine_state
             .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| engine_state.get_env_var("LC_ALL"))
             .or_else(|| engine_state.get_env_var("LC_TIME"))
+            .or_else(|| engine_state.get_env_var("LANG"))
         {
             let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
             locale_str.try_into().unwrap_or(Locale::en_US)
@@ -129,11 +134,16 @@ impl Command for FormatDate {
         let list = call.has_flag_const(working_set, "list")?;
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
 
+        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
+        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
+
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
         let locale = if let Some(loc) = working_set
             .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| working_set.get_env_var("LC_ALL"))
             .or_else(|| working_set.get_env_var("LC_TIME"))
+            .or_else(|| working_set.get_env_var("LANG"))
         {
             let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
             locale_str.try_into().unwrap_or(Locale::en_US)
@@ -160,14 +170,14 @@ fn run(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     if list {
-        return Ok(PipelineData::Value(
+        return Ok(PipelineData::value(
             generate_strftime_list(head, false),
             None,
         ));
     }
 
     // This doesn't match explicit nulls
-    if matches!(input, PipelineData::Empty) {
+    if let PipelineData::Empty = input {
         return Err(ShellError::PipelineEmpty { dst_span: head });
     }
     input.map(
@@ -189,7 +199,11 @@ where
     Tz::Offset: Display,
 {
     let mut formatter_buf = String::new();
-    let format = date_time.format_localized(formatter, locale);
+    // Handle custom format specifiers for compact formats
+    let processed_formatter = formatter
+        .replace("%J", "%Y%m%d") // %J for joined date (YYYYMMDD)
+        .replace("%Q", "%H%M%S"); // %Q for sequential time (HHMMSS)
+    let format = date_time.format_localized(&processed_formatter, locale);
 
     match formatter_buf.write_fmt(format_args!("{format}")) {
         Ok(_) => Value::string(formatter_buf, span),

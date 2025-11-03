@@ -36,12 +36,19 @@ impl Command for StorCreate {
         vec!["sqlite", "storing", "table"]
     }
 
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Create an in-memory sqlite database with specified table name, column names, and column data types",
-            example: "stor create --table-name nudb --columns {bool1: bool, int1: int, float1: float, str1: str, datetime1: datetime}",
-            result: None,
-        }]
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Create an in-memory sqlite database with specified table name, column names, and column data types",
+                example: "stor create --table-name nudb --columns {bool1: bool, int1: int, float1: float, str1: str, datetime1: datetime}",
+                result: None,
+            },
+            Example {
+                description: "Create an in-memory sqlite database with a json column",
+                example: "stor create --table-name files_with_md --columns {file: str, metadata: jsonb}",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -81,33 +88,38 @@ fn process(
     if let Ok(conn) = db.open_connection() {
         match columns {
             Some(record) => {
-                let mut create_stmt = format!("CREATE TABLE {} ( ", new_table_name);
+                let mut create_stmt = format!("CREATE TABLE {new_table_name} ( ");
                 for (column_name, column_datatype) in record {
-                    match column_datatype.coerce_str()?.as_ref() {
+                    match column_datatype.coerce_str()?.to_lowercase().as_ref() {
                         "int" => {
-                            create_stmt.push_str(&format!("{} INTEGER, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} INTEGER, "));
                         }
                         "float" => {
-                            create_stmt.push_str(&format!("{} REAL, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} REAL, "));
                         }
                         "str" => {
-                            create_stmt.push_str(&format!("{} VARCHAR(255), ", column_name));
+                            create_stmt.push_str(&format!("{column_name} VARCHAR(255), "));
                         }
 
                         "bool" => {
-                            create_stmt.push_str(&format!("{} BOOLEAN, ", column_name));
+                            create_stmt.push_str(&format!("{column_name} BOOLEAN, "));
                         }
                         "datetime" => {
                             create_stmt.push_str(&format!(
-                                "{} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), ",
-                                column_name
+                                "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
                             ));
+                        }
+                        "json" => {
+                            create_stmt.push_str(&format!("{column_name} JSON, "));
+                        }
+                        "jsonb" => {
+                            create_stmt.push_str(&format!("{column_name} JSONB, "));
                         }
 
                         _ => {
                             return Err(ShellError::UnsupportedInput {
-                                msg: "unsupported column data type".into(),
-                                input: format!("{:?}", column_datatype),
+                                msg: "Unsupported column data type. Please use: int, float, str, bool, datetime, json, jsonb".into(),
+                                input: format!("{column_datatype:?}"),
                                 msg_span: column_datatype.span(),
                                 input_span: column_datatype.span(),
                             });

@@ -79,3 +79,45 @@ def recurse-example-closure [] {
 
     assert equal $out $expected
 }
+
+@test
+def only-example-list [] {
+  let out = [5] | only
+  assert equal $out 5
+}
+
+@test
+def only-example-table [] {
+  let out = [{name: foo, id: 5}] | only name
+  assert equal $out foo
+}
+
+@test
+def only-more-than-one-list [] {
+  try {
+    [1 2 3] | only
+    assert false
+  } catch {|err|
+    assert ($err.msg has "expected only one")
+  }
+}
+
+@test
+def only-more-than-one-table [] {
+  try {
+    [[name, id]; [foo bar] [5 6]] | only foo
+    assert false
+  } catch {|err|
+    assert ($err.msg has "expected only one")
+  }
+}
+
+@test
+def only-none [] {
+  try {
+    [] | only
+    assert false
+  } catch {|err|
+    (assert ($err.msg has "non-empty"))
+  }
+}

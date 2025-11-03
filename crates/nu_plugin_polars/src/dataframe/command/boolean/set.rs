@@ -1,11 +1,13 @@
-use crate::{PolarsPlugin, missing_flag_error, values::CustomValueSupport};
+use crate::{
+    PolarsPlugin, missing_flag_error,
+    values::{CustomValueSupport, PolarsPluginType},
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use polars::prelude::{ChunkSet, DataType, IntoSeries};
 
@@ -32,14 +34,20 @@ impl PluginCommand for SetSeries {
                 "mask indicating insertions",
                 Some('m'),
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
-    fn examples(&self) -> Vec<Example> {
+    fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Shifts the values by a given period",
             example: r#"let s = ([1 2 2 3 3] | polars into-df | polars shift 2);
