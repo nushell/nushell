@@ -23,16 +23,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
-    execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
-};
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
+    crossterm::{
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+        execute,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    },
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
@@ -362,7 +362,7 @@ fn run_app_loop(
             if key.code == KeyCode::Char('q')
                 && key
                     .modifiers
-                    .contains(crossterm::event::KeyModifiers::CONTROL)
+                    .contains(ratatui::crossterm::event::KeyModifiers::CONTROL)
             {
                 return Ok(());
             }
