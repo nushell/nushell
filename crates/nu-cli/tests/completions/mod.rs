@@ -2922,15 +2922,13 @@ fn flag_filepath_completions() {
     let test_dir_path = test_dir.path();
 
     // Create test files in the temp directory
-    std::fs::write(test_dir_path.join("socket1.sock"), "")
-        .expect("Failed to create socket1.sock");
-    std::fs::write(test_dir_path.join("socket2.sock"), "")
-        .expect("Failed to create socket2.sock");
+    std::fs::write(test_dir_path.join("socket1.sock"), "").expect("Failed to create socket1.sock");
+    std::fs::write(test_dir_path.join("socket2.sock"), "").expect("Failed to create socket2.sock");
     std::fs::create_dir(test_dir_path.join("subdir")).expect("Failed to create subdir");
 
     // Create engine with temp directory as working directory
-    let test_dir_abs = AbsolutePathBuf::try_from(test_dir_path)
-        .expect("Failed to create absolute path");
+    let test_dir_abs =
+        AbsolutePathBuf::try_from(test_dir_path).expect("Failed to create absolute path");
     let (_dir, _dir_str, engine, stack) = new_engine_helper(test_dir_abs);
 
     // Instantiate a new completer
