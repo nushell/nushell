@@ -1,8 +1,8 @@
 use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, RequestMetadata, http_client, http_parse_url,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request_no_body,
+    RedirectMode, RequestFlags, RequestMetadata, expand_unix_socket_path, http_client,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -158,7 +158,8 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = RedirectMode::Follow;
 
-    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+    let cwd = engine_state.cwd(None)?;
+    let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
     let client = http_client(
         args.insecure,

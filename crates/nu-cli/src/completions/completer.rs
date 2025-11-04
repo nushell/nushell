@@ -7,7 +7,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Span, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Span, SyntaxShape, Type, Value,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
         RedirectionTarget, Traverse,
@@ -431,7 +431,7 @@ impl NuCompleter {
                                             )
                                         })
                                     });
-                                    flag.and_then(|f| f.completion)
+                                    flag.and_then(|f| f.completion.clone())
                                 }
                             }
                             // For positional arguments, check PositionalArg
@@ -575,6 +575,31 @@ impl NuCompleter {
                                 if prefix.starts_with(b"-") =>
                             {
                                 flag_completion_helper()
+                            }
+                            // flag values - check SyntaxShape for file/directory completion
+                            Argument::Named((name, short, _value)) => {
+                                // Try to find the flag definition
+                                let flag = signature.get_long_flag(&name.item).or_else(|| {
+                                    short.as_ref().and_then(|s| {
+                                        signature
+                                            .get_short_flag(s.item.chars().next().unwrap_or('_'))
+                                    })
+                                });
+                                // Check if the flag's arg type suggests file/directory completion
+                                if let Some(flag) = flag {
+                                    match flag.arg {
+                                        Some(SyntaxShape::Filepath)
+                                        | Some(SyntaxShape::GlobPattern) => {
+                                            self.process_completion(&mut FileCompletion, &ctx)
+                                        }
+                                        Some(SyntaxShape::Directory) => {
+                                            self.process_completion(&mut DirectoryCompletion, &ctx)
+                                        }
+                                        _ => vec![],
+                                    }
+                                } else {
+                                    vec![]
+                                }
                             }
                             // only when `strip` == false
                             Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),

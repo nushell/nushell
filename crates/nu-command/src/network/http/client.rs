@@ -10,12 +10,13 @@ use http::StatusCode;
 use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
+use nu_path::expand_path_with;
 use nu_protocol::{ByteStream, LabeledError, PipelineMetadata, Signals, shell_error::io::IoError};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
     io::Cursor,
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
@@ -87,6 +88,15 @@ pub fn add_unix_socket_flag(sig: Signature) -> Signature {
         "Connect to the specified Unix socket instead of using TCP",
         Some('U'),
     )
+}
+
+/// Helper function to expand the unix socket path with tilde expansion.
+/// Returns None if no unix socket path was provided.
+pub fn expand_unix_socket_path(
+    unix_socket: Option<Spanned<String>>,
+    cwd: impl AsRef<Path>,
+) -> Option<PathBuf> {
+    unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
 }
 
 pub fn http_client(
