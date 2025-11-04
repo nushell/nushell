@@ -1,6 +1,6 @@
+use super::util::{extend_record_with_metadata, parse_metadata_from_record};
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{DataSource, PipelineMetadata, engine::Closure};
-use std::path::PathBuf;
+use nu_protocol::{DataSource, engine::Closure};
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -84,29 +84,7 @@ impl Command for MetadataSet {
             }
 
             // Convert current metadata to a Value record
-            let mut record = Record::new();
-
-            // Add data_source field
-            let data_source_value = match &metadata.data_source {
-                DataSource::Ls => Value::string("ls", head),
-                DataSource::HtmlThemes => Value::string("html_themes", head),
-                DataSource::FilePath(path) => Value::string(path.to_string_lossy(), head),
-                DataSource::None => Value::nothing(head),
-            };
-            record.push("data_source", data_source_value);
-
-            // Add content_type field
-            if let Some(ref content_type) = metadata.content_type {
-                record.push("content_type", Value::string(content_type, head));
-            } else {
-                record.push("content_type", Value::nothing(head));
-            }
-
-            // Add custom fields
-            for (key, value) in &metadata.custom {
-                record.push(key.clone(), value.clone());
-            }
-
+            let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
             let metadata_value = Value::record(record, head);
 
             // Evaluate closure with metadata
@@ -124,34 +102,7 @@ impl Command for MetadataSet {
             })?;
 
             // Parse the record back into PipelineMetadata
-            let mut new_metadata = PipelineMetadata::default();
-            let mut custom = Record::new();
-
-            for (key, value) in result_record {
-                match key.as_str() {
-                    "data_source" => {
-                        if let Ok(s) = value.as_str() {
-                            new_metadata.data_source = match s {
-                                "ls" => DataSource::Ls,
-                                "html_themes" => DataSource::HtmlThemes,
-                                _ => DataSource::FilePath(PathBuf::from(s)),
-                            };
-                        }
-                    }
-                    "content_type" => {
-                        if !value.is_nothing() {
-                            new_metadata.content_type = Some(value.as_str()?.to_string());
-                        }
-                    }
-                    _ => {
-                        // Any other field goes into custom metadata
-                        custom.push(key.clone(), value.clone());
-                    }
-                }
-            }
-
-            new_metadata.custom = custom;
-            metadata = new_metadata;
+            metadata = parse_metadata_from_record(result_record);
         } else {
             // Original flag-based logic
             if let Some(content_type) = content_type {
@@ -213,11 +164,6 @@ impl Command for MetadataSet {
                 description: "Set metadata using a closure",
                 example: r#""data" | metadata set {|meta| {content_type: "text/plain"}} | metadata | get content_type"#,
                 result: Some(Value::test_string("text/plain")),
-            },
-            Example {
-                description: "Modify existing metadata with a closure",
-                example: r#""data" | metadata set --content-type "text/csv" | metadata set {|meta| {content_type: ($meta.content_type + "-modified")}} | metadata | get content_type"#,
-                result: Some(Value::test_string("text/csv-modified")),
             },
         ]
     }

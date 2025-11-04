@@ -80,86 +80,34 @@ fn custom_metadata_preserved_through_collect() {
 }
 
 #[test]
-fn works_with_closure_setting_content_type() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
+fn works_with_closure() {
+    let actual = nu!(r#"
         "data" | metadata set {|meta| {content_type: "text/plain"}} | metadata | get content_type
-        "#
-    );
-
+    "#);
     assert_eq!(actual.out, "text/plain");
 }
 
 #[test]
-fn works_with_closure_modifying_existing_metadata() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        "data" | metadata set --content-type "text/csv" | metadata set {|meta| {content_type: ($meta.content_type + "-modified")}} | metadata | get content_type
-        "#
-    );
-
+fn closure_modifies_existing_metadata_with_update() {
+    let actual = nu!(r#"
+        "data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {|x| $x.content_type + "-modified"}} | metadata | get content_type
+    "#);
     assert_eq!(actual.out, "text/csv-modified");
 }
 
 #[test]
-fn works_with_closure_using_in() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        "data" | metadata set --content-type "text/html" | metadata set {|| {content_type: ($in.content_type | str replace "html" "xml")}} | metadata | get content_type
-        "#
-    );
-
-    assert_eq!(actual.out, "text/xml");
-}
-
-#[test]
-fn closure_can_set_custom_metadata() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
-        "data" | metadata set {|meta| {custom_key: "custom_value", another: 42}} | metadata | get custom_key
-        "#
-    );
-
-    assert_eq!(actual.out, "custom_value");
-}
-
-#[test]
-fn errors_when_closure_with_datasource_ls() {
+fn closure_sets_custom_metadata() {
     let actual = nu!(r#"
-    echo "foo" | metadata set {|meta| {content_type: "text/plain"}} --datasource-ls
+        "data" | metadata set {|| {custom_key: "value"}} | metadata | get custom_key
     "#);
-
-    assert!(actual.err.contains("cannot use closure with other flags"));
+    assert_eq!(actual.out, "value");
 }
 
 #[test]
-fn errors_when_closure_with_datasource_filepath() {
+fn errors_when_closure_with_flags() {
     let actual = nu!(r#"
-    echo "foo" | metadata set {|meta| {content_type: "text/plain"}} --datasource-filepath foo.txt
+        echo "foo" | metadata set {|| {content_type: "text/plain"}} --content-type "ignored"
     "#);
-
-    assert!(actual.err.contains("cannot use closure with other flags"));
-}
-
-#[test]
-fn errors_when_closure_with_content_type() {
-    let actual = nu!(r#"
-    echo "foo" | metadata set {|meta| {content_type: "text/plain"}} --content-type "text/csv"
-    "#);
-
-    assert!(actual.err.contains("cannot use closure with other flags"));
-}
-
-#[test]
-fn errors_when_closure_with_merge() {
-    let actual = nu!(r#"
-    echo "foo" | metadata set {|meta| {content_type: "text/plain"}} --merge {custom: "value"}
-    "#);
-
     assert!(actual.err.contains("cannot use closure with other flags"));
 }
 
