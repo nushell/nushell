@@ -2914,23 +2914,40 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
 
 #[test]
 fn flag_filepath_completions() {
-    // Create a new engine
-    let (dir, _, engine, stack) = new_engine();
+    use support::completions_helpers::new_engine_helper;
 
-    // Create test files in the directory
-    let _ = std::fs::write(dir.join("socket1.sock"), "");
-    let _ = std::fs::write(dir.join("socket2.sock"), "");
-    let _ = std::fs::create_dir(dir.join("subdir"));
+    // Create a temporary directory with random name (outside repo)
+    let random_suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let test_dir = std::env::temp_dir().join(format!("nushell_test_flag_filepath_{}", random_suffix));
+
+    // Clean up if it somehow exists
+    let _ = std::fs::remove_dir_all(&test_dir);
+
+    // Create the test directory
+    std::fs::create_dir_all(&test_dir).expect("Failed to create test dir");
+
+    // Create test files in the temp directory
+    std::fs::write(test_dir.join("socket1.sock"), "").expect("Failed to create socket1.sock");
+    std::fs::write(test_dir.join("socket2.sock"), "").expect("Failed to create socket2.sock");
+    std::fs::create_dir(test_dir.join("subdir")).expect("Failed to create subdir");
+
+    // Create engine with temp directory as working directory
+    let test_dir_abs = AbsolutePathBuf::try_from(test_dir.clone())
+        .expect("Failed to create absolute path");
+    let (_dir, _dir_str, engine, stack) = new_engine_helper(test_dir_abs.clone());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     // Test --unix-socket flag completion with long flag
-    let suggestions = completer.complete("http get --unix-socket ./s", 27);
-    eprintln!("Suggestions: {:?}", suggestions.iter().map(|s| &s.value).collect::<Vec<_>>());
+    let suggestions = completer.complete("http get --unix-socket ./s", 26);
     assert!(
         suggestions.iter().any(|s| s.value.contains("socket1.sock")),
-        "Should suggest socket1.sock. Got: {:?}", suggestions.iter().map(|s| &s.value).collect::<Vec<_>>()
+        "Should suggest socket1.sock. Got: {:?}",
+        suggestions.iter().map(|s| &s.value).collect::<Vec<_>>()
     );
     assert!(
         suggestions.iter().any(|s| s.value.contains("socket2.sock")),
@@ -2945,9 +2962,12 @@ fn flag_filepath_completions() {
     );
 
     // Test that directories are also suggested
-    let suggestions = completer.complete("http get --unix-socket ./sub", 29);
+    let suggestions = completer.complete("http get --unix-socket ./sub", 28);
     assert!(
         suggestions.iter().any(|s| s.value.contains("subdir")),
         "Should suggest subdir"
     );
+
+    // Cleanup temp directory
+    let _ = std::fs::remove_dir_all(&test_dir);
 }

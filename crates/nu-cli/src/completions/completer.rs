@@ -590,9 +590,8 @@ impl NuCompleter {
                                 // Try to find the flag definition
                                 let flag = signature.get_long_flag(&name.item).or_else(|| {
                                     short.as_ref().and_then(|s| {
-                                        signature.get_short_flag(
-                                            s.item.chars().next().unwrap_or('_')
-                                        )
+                                        let ch = s.item.chars().next().unwrap_or('_');
+                                        signature.get_short_flag(ch)
                                     })
                                 });
 
