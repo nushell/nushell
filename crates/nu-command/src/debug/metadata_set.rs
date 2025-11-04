@@ -1,5 +1,6 @@
-use nu_engine::command_prelude::*;
-use nu_protocol::DataSource;
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_protocol::{DataSource, PipelineMetadata, engine::Closure};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -16,6 +17,11 @@ impl Command for MetadataSet {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata set")
             .input_output_types(vec![(Type::Any, Type::Any)])
+            .optional(
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Record(vec![])])),
+                "A closure that receives the current metadata and returns a new metadata record. Cannot be used with other flags.",
+            )
             .switch(
                 "datasource-ls",
                 "Assign the DataSource::Ls metadata to the input",
@@ -51,6 +57,7 @@ impl Command for MetadataSet {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
@@ -63,33 +70,118 @@ impl Command for MetadataSet {
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
         };
 
-        if let Some(content_type) = content_type {
-            metadata.content_type = Some(content_type);
-        }
-
-        if let Some(merge) = merge {
-            let custom_record = merge.as_record()?;
-            for (key, value) in custom_record {
-                metadata.custom.insert(key.clone(), value.clone());
-            }
-        }
-
-        match (ds_fp, ds_ls) {
-            (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
-            (None, true) => metadata.data_source = DataSource::Ls,
-            (Some(_), true) => {
-                return Err(ShellError::IncompatibleParameters {
-                    left_message: "cannot use `--datasource-filepath`".into(),
-                    left_span: call
-                        .get_flag_span(stack, "datasource-filepath")
-                        .expect("has flag"),
-                    right_message: "with `--datasource-ls`".into(),
-                    right_span: call
-                        .get_flag_span(stack, "datasource-ls")
-                        .expect("has flag"),
+        // If closure is provided, it's mutually exclusive with all flags
+        if let Some(closure) = closure {
+            // Check if any flags are set
+            if ds_fp.is_some() || ds_ls || content_type.is_some() || merge.is_some() {
+                return Err(ShellError::GenericError {
+                    error: "Incompatible parameters".into(),
+                    msg: "cannot use closure with other flags".into(),
+                    span: Some(head),
+                    help: Some("Use either the closure parameter or flags, not both".into()),
+                    inner: vec![],
                 });
             }
-            (None, false) => (),
+
+            // Convert current metadata to a Value record
+            let mut record = Record::new();
+
+            // Add data_source field
+            let data_source_value = match &metadata.data_source {
+                DataSource::Ls => Value::string("ls", head),
+                DataSource::HtmlThemes => Value::string("html_themes", head),
+                DataSource::FilePath(path) => Value::string(path.to_string_lossy(), head),
+                DataSource::None => Value::nothing(head),
+            };
+            record.push("data_source", data_source_value);
+
+            // Add content_type field
+            if let Some(ref content_type) = metadata.content_type {
+                record.push("content_type", Value::string(content_type, head));
+            } else {
+                record.push("content_type", Value::nothing(head));
+            }
+
+            // Add custom fields
+            for (key, value) in &metadata.custom {
+                record.push(key.clone(), value.clone());
+            }
+
+            let metadata_value = Value::record(record, head);
+
+            // Evaluate closure with metadata
+            let result = ClosureEvalOnce::new(engine_state, stack, closure)
+                .run_with_value(metadata_value)?
+                .into_value(head)?;
+
+            // Validate result is a record
+            let result_record = result.as_record().map_err(|err| ShellError::GenericError {
+                error: "Closure must return a record".into(),
+                msg: format!("got {}", result.get_type()),
+                span: Some(head),
+                help: Some("The closure should return a record with metadata fields".into()),
+                inner: vec![err],
+            })?;
+
+            // Parse the record back into PipelineMetadata
+            let mut new_metadata = PipelineMetadata::default();
+            let mut custom = Record::new();
+
+            for (key, value) in result_record {
+                match key.as_str() {
+                    "data_source" => {
+                        if let Ok(s) = value.as_str() {
+                            new_metadata.data_source = match s {
+                                "ls" => DataSource::Ls,
+                                "html_themes" => DataSource::HtmlThemes,
+                                _ => DataSource::FilePath(PathBuf::from(s)),
+                            };
+                        }
+                    }
+                    "content_type" => {
+                        if !value.is_nothing() {
+                            new_metadata.content_type = Some(value.as_str()?.to_string());
+                        }
+                    }
+                    _ => {
+                        // Any other field goes into custom metadata
+                        custom.push(key.clone(), value.clone());
+                    }
+                }
+            }
+
+            new_metadata.custom = custom;
+            metadata = new_metadata;
+        } else {
+            // Original flag-based logic
+            if let Some(content_type) = content_type {
+                metadata.content_type = Some(content_type);
+            }
+
+            if let Some(merge) = merge {
+                let custom_record = merge.as_record()?;
+                for (key, value) in custom_record {
+                    metadata.custom.insert(key.clone(), value.clone());
+                }
+            }
+
+            match (ds_fp, ds_ls) {
+                (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
+                (None, true) => metadata.data_source = DataSource::Ls,
+                (Some(_), true) => {
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: "cannot use `--datasource-filepath`".into(),
+                        left_span: call
+                            .get_flag_span(stack, "datasource-filepath")
+                            .expect("has flag"),
+                        right_message: "with `--datasource-ls`".into(),
+                        right_span: call
+                            .get_flag_span(stack, "datasource-ls")
+                            .expect("has flag"),
+                    });
+                }
+                (None, false) => (),
+            }
         }
 
         Ok(input.set_metadata(Some(metadata)))
@@ -116,6 +208,16 @@ impl Command for MetadataSet {
                 description: "Set custom metadata",
                 example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
                 result: Some(Value::test_string("value")),
+            },
+            Example {
+                description: "Set metadata using a closure",
+                example: r#""data" | metadata set {|meta| {content_type: "text/plain"}} | metadata | get content_type"#,
+                result: Some(Value::test_string("text/plain")),
+            },
+            Example {
+                description: "Modify existing metadata with a closure",
+                example: r#""data" | metadata set --content-type "text/csv" | metadata set {|meta| {content_type: ($meta.content_type + "-modified")}} | metadata | get content_type"#,
+                result: Some(Value::test_string("text/csv-modified")),
             },
         ]
     }
