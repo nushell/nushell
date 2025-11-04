@@ -195,8 +195,6 @@ struct PositionalArguments<'a> {
     arguments: &'a [Argument],
     /// expression of current argument
     expr: &'a Expression,
-    /// completer for argument value
-    value_completion: &'a mut ArgValueDynamicCompletion<'a>,
 }
 
 impl Context<'_> {
@@ -594,6 +592,9 @@ impl NuCompleter {
                                             arg_type: ArgType::Flag(Cow::from(
                                                 name.as_ref().item.as_str(),
                                             )),
+                                            // flag value doesn't need to fallback, just fill a
+                                            // temp value false.
+                                            need_fallback: &mut false,
                                         };
                                         self.process_completion(&mut flag_value_completion, &ctx)
                                     }
@@ -608,18 +609,27 @@ impl NuCompleter {
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
                                 positional_arg_indices.push(arg_idx);
+                                let mut dynamic_completion_need_fallback = false;
                                 let mut positional_value_completion = ArgValueDynamicCompletion {
                                     decl_id: call.decl_id,
                                     arg_type: ArgType::Positional(arg_idx),
+                                    need_fallback: &mut dynamic_completion_need_fallback,
                                 };
-                                let mut need_fallback = suggestions.is_empty();
+
+                                let mut need_fallback =
+                                    suggestions.is_empty() || dynamic_completion_need_fallback;
+                                // try argument dynamic completion defined by Command first.
+                                let value_completion_result =
+                                    self.process_completion(&mut positional_value_completion, &ctx);
+                                if !value_completion_result.is_empty() {
+                                    return value_completion_result;
+                                }
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {
                                         command_head,
                                         positional_arg_indices,
                                         arguments: &call.arguments,
                                         expr,
-                                        value_completion: &mut positional_value_completion,
                                     },
                                     pos,
                                     &ctx,
@@ -755,7 +765,6 @@ impl NuCompleter {
             positional_arg_indices,
             arguments,
             expr,
-            value_completion,
         } = argument_info;
         // special commands
         match command_head {
@@ -859,12 +868,6 @@ impl NuCompleter {
                 return self.process_completion(&mut completer, ctx);
             }
             _ => (),
-        }
-
-        // try argument dynamic completion defined by Command first.
-        let value_completion_result = self.process_completion(value_completion, ctx);
-        if !value_completion_result.is_empty() {
-            return value_completion_result;
         }
 
         // general positional arguments

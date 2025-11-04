@@ -10,9 +10,11 @@ use reedline::Suggestion;
 pub struct ArgValueDynamicCompletion<'a> {
     pub decl_id: DeclId,
     pub arg_type: ArgType<'a>,
+    pub need_fallback: &'a mut bool,
 }
 
 impl<'a> Completer for ArgValueDynamicCompletion<'a> {
+    // TODO: move the logic of `argument_completion_helper` here.
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -44,12 +46,19 @@ impl<'a> Completer for ArgValueDynamicCompletion<'a> {
 
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
-        if let Some(items) = decl
-            .get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type)
-            .unwrap_or_default()
-        {
-            for i in items {
-                add_suggestion(i);
+        match decl.get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type) {
+            Ok(Some(items)) => {
+                for i in items {
+                    add_suggestion(i)
+                }
+            }
+            Ok(None) => *self.need_fallback = true,
+            Err(e) => {
+                log::error!(
+                    "error on fetching dynamic suggestion on {} with {:?}: {e}",
+                    decl.name(),
+                    self.arg_type
+                );
             }
         }
         matcher.results()
