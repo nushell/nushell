@@ -70,9 +70,8 @@ impl Command for MetadataSet {
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
         };
 
-        // If closure is provided, it's mutually exclusive with all flags
+        // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
-            // Check if any flags are set
             if ds_fp.is_some() || ds_ls || content_type.is_some() || merge.is_some() {
                 return Err(ShellError::GenericError {
                     error: "Incompatible parameters".into(),
@@ -83,16 +82,13 @@ impl Command for MetadataSet {
                 });
             }
 
-            // Convert current metadata to a Value record
             let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
             let metadata_value = Value::record(record, head);
 
-            // Evaluate closure with metadata
             let result = ClosureEvalOnce::new(engine_state, stack, closure)
                 .run_with_value(metadata_value)?
                 .into_value(head)?;
 
-            // Validate result is a record
             let result_record = result.as_record().map_err(|err| ShellError::GenericError {
                 error: "Closure must return a record".into(),
                 msg: format!("got {}", result.get_type()),
@@ -101,38 +97,38 @@ impl Command for MetadataSet {
                 inner: vec![err],
             })?;
 
-            // Parse the record back into PipelineMetadata
             metadata = parse_metadata_from_record(result_record);
-        } else {
-            // Original flag-based logic
-            if let Some(content_type) = content_type {
-                metadata.content_type = Some(content_type);
-            }
+            return Ok(input.set_metadata(Some(metadata)));
+        }
 
-            if let Some(merge) = merge {
-                let custom_record = merge.as_record()?;
-                for (key, value) in custom_record {
-                    metadata.custom.insert(key.clone(), value.clone());
-                }
-            }
+        // Flag-based metadata modification
+        if let Some(content_type) = content_type {
+            metadata.content_type = Some(content_type);
+        }
 
-            match (ds_fp, ds_ls) {
-                (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
-                (None, true) => metadata.data_source = DataSource::Ls,
-                (Some(_), true) => {
-                    return Err(ShellError::IncompatibleParameters {
-                        left_message: "cannot use `--datasource-filepath`".into(),
-                        left_span: call
-                            .get_flag_span(stack, "datasource-filepath")
-                            .expect("has flag"),
-                        right_message: "with `--datasource-ls`".into(),
-                        right_span: call
-                            .get_flag_span(stack, "datasource-ls")
-                            .expect("has flag"),
-                    });
-                }
-                (None, false) => (),
+        if let Some(merge) = merge {
+            let custom_record = merge.as_record()?;
+            for (key, value) in custom_record {
+                metadata.custom.insert(key.clone(), value.clone());
             }
+        }
+
+        match (ds_fp, ds_ls) {
+            (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
+            (None, true) => metadata.data_source = DataSource::Ls,
+            (Some(_), true) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "cannot use `--datasource-filepath`".into(),
+                    left_span: call
+                        .get_flag_span(stack, "datasource-filepath")
+                        .expect("has flag"),
+                    right_message: "with `--datasource-ls`".into(),
+                    right_span: call
+                        .get_flag_span(stack, "datasource-ls")
+                        .expect("has flag"),
+                });
+            }
+            (None, false) => (),
         }
 
         Ok(input.set_metadata(Some(metadata)))

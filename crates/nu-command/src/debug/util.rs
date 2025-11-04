@@ -50,7 +50,9 @@ pub fn parse_metadata_from_record(record: &Record) -> PipelineMetadata {
                 }
             }
             "content_type" => {
-                if !value.is_nothing() && let Ok(s) = value.as_str() {
+                if !value.is_nothing()
+                    && let Ok(s) = value.as_str()
+                {
                     metadata.content_type = Some(s.to_string());
                 }
             }
