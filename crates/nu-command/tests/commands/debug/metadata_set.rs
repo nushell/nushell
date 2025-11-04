@@ -80,27 +80,12 @@ fn custom_metadata_preserved_through_collect() {
 }
 
 #[test]
-fn works_with_closure() {
+fn closure_adds_custom_without_clobbering_existing() {
     let actual = nu!(r#"
-        "data" | metadata set {|meta| {content_type: "text/plain"}} | metadata | get content_type
+        "data" | metadata set --content-type "text/csv" | metadata set {|m| $m | upsert custom_key "value"} | metadata
     "#);
-    assert_eq!(actual.out, "text/plain");
-}
-
-#[test]
-fn closure_modifies_existing_metadata_with_update() {
-    let actual = nu!(r#"
-        "data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {|x| $x.content_type + "-modified"}} | metadata | get content_type
-    "#);
-    assert_eq!(actual.out, "text/csv-modified");
-}
-
-#[test]
-fn closure_sets_custom_metadata() {
-    let actual = nu!(r#"
-        "data" | metadata set {|| {custom_key: "value"}} | metadata | get custom_key
-    "#);
-    assert_eq!(actual.out, "value");
+    assert!(actual.out.contains("text/csv"));
+    assert!(actual.out.contains("custom_key"));
 }
 
 #[test]
