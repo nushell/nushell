@@ -15,7 +15,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_test_support::fs;
-use reedline::{Completer, Suggestion};
+use reedline::{Completer, Span, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -270,6 +270,25 @@ fn customcompletions_no_sort() {
     let suggestions = completer.complete("my-command foo", 14);
     let expected: Vec<_> = vec!["zzzfoo", "foo", "abcfoo"];
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn custom_completions_override_span() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command b";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
 }
 
 #[rstest]
@@ -795,6 +814,20 @@ fn external_completer_fallback() {
         fs::fixtures().join("external_completions"),
     );
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn external_completer_override_span() {
+    let block = "{|spans| [{ value: blech, span: { start: 1, end: 10 } }]}";
+    let input = "foo b";
+
+    let suggestions = run_external_completion(block, input);
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`

@@ -936,6 +936,24 @@ pub fn map_value_completions<'a>(
                             _ => None,
                         };
                     }
+                    "span" => {
+                        if let Value::Record { val: span, .. } = value {
+                            let start = span
+                                .get("start")
+                                .and_then(|val| val.as_int().ok())
+                                .and_then(|x| usize::try_from(x).ok());
+                            let end = span
+                                .get("end")
+                                .and_then(|val| val.as_int().ok())
+                                .and_then(|x| usize::try_from(x).ok());
+                            if let (Some(start), Some(end)) = (start, end) {
+                                suggestion.span = reedline::Span {
+                                    start: start.min(end),
+                                    end,
+                                };
+                            }
+                        }
+                    }
                     _ => (),
                 }
             });
