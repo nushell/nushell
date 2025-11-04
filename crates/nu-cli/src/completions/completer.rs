@@ -558,8 +558,17 @@ impl NuCompleter {
                     }
 
                     // normal arguments completion
-                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
+                    let (new_span, prefix) = match arg {
+                        Argument::Named(_) => strip_placeholder_with_rsplit(
+                            working_set,
+                            &span,
+                            |b| *b == b'=' || *b == b' ',
+                            strip,
+                        ),
+                        _ => strip_placeholder_if_any(working_set, &span, strip),
+                    };
                     let ctx = Context::new(working_set, new_span, prefix, offset);
+
                     let flag_completion_helper = || {
                         let mut flag_completions = FlagCompletion {
                             decl_id: call.decl_id,
@@ -581,10 +590,12 @@ impl NuCompleter {
                                 // Try to find the flag definition
                                 let flag = signature.get_long_flag(&name.item).or_else(|| {
                                     short.as_ref().and_then(|s| {
-                                        signature
-                                            .get_short_flag(s.item.chars().next().unwrap_or('_'))
+                                        signature.get_short_flag(
+                                            s.item.chars().next().unwrap_or('_')
+                                        )
                                     })
                                 });
+
                                 // Check if the flag's arg type suggests file/directory completion
                                 if let Some(flag) = flag {
                                     match flag.arg {

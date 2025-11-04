@@ -2911,3 +2911,43 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
 }
+
+#[test]
+fn flag_filepath_completions() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+
+    // Create test files in the directory
+    let _ = std::fs::write(dir.join("socket1.sock"), "");
+    let _ = std::fs::write(dir.join("socket2.sock"), "");
+    let _ = std::fs::create_dir(dir.join("subdir"));
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test --unix-socket flag completion with long flag
+    let suggestions = completer.complete("http get --unix-socket ./s", 27);
+    eprintln!("Suggestions: {:?}", suggestions.iter().map(|s| &s.value).collect::<Vec<_>>());
+    assert!(
+        suggestions.iter().any(|s| s.value.contains("socket1.sock")),
+        "Should suggest socket1.sock. Got: {:?}", suggestions.iter().map(|s| &s.value).collect::<Vec<_>>()
+    );
+    assert!(
+        suggestions.iter().any(|s| s.value.contains("socket2.sock")),
+        "Should suggest socket2.sock"
+    );
+
+    // Test --unix-socket flag completion with short flag
+    let suggestions = completer.complete("http get -U ./s", 15);
+    assert!(
+        suggestions.iter().any(|s| s.value.contains("socket1.sock")),
+        "Should suggest socket1.sock for short flag"
+    );
+
+    // Test that directories are also suggested
+    let suggestions = completer.complete("http get --unix-socket ./sub", 29);
+    assert!(
+        suggestions.iter().any(|s| s.value.contains("subdir")),
+        "Should suggest subdir"
+    );
+}
