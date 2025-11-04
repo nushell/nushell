@@ -83,7 +83,7 @@ impl Command for MetadataSet {
             }
 
             let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
-            let metadata_value = Value::record(record, head);
+            let metadata_value = record.into_value(head);
 
             let result = ClosureEvalOnce::new(engine_state, stack, closure)
                 .run_with_value(metadata_value)?
@@ -158,8 +158,8 @@ impl Command for MetadataSet {
             },
             Example {
                 description: "Set metadata using a closure",
-                example: r#""data" | metadata set {|meta| {content_type: "text/plain"}} | metadata | get content_type"#,
-                result: Some(Value::test_string("text/plain")),
+                example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
+                result: Some(Value::test_string("text/csv-processed")),
             },
         ]
     }
