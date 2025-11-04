@@ -568,7 +568,6 @@ impl NuCompleter {
                         _ => strip_placeholder_if_any(working_set, &span, strip),
                     };
                     let ctx = Context::new(working_set, new_span, prefix, offset);
-
                     let flag_completion_helper = || {
                         let mut flag_completions = FlagCompletion {
                             decl_id: call.decl_id,
@@ -585,9 +584,7 @@ impl NuCompleter {
                             {
                                 flag_completion_helper()
                             }
-                            // flag values - check SyntaxShape for file/directory completion
                             Argument::Named((name, short, _value)) => {
-                                // Try to find the flag definition
                                 let flag = signature.get_long_flag(&name.item).or_else(|| {
                                     short.as_ref().and_then(|s| {
                                         let ch = s.item.chars().next().unwrap_or('_');
@@ -595,7 +592,6 @@ impl NuCompleter {
                                     })
                                 });
 
-                                // Check if the flag's arg type suggests file/directory completion
                                 if let Some(flag) = flag {
                                     match flag.arg {
                                         Some(SyntaxShape::Filepath)

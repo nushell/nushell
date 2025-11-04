@@ -90,8 +90,7 @@ pub fn add_unix_socket_flag(sig: Signature) -> Signature {
     )
 }
 
-/// Helper function to expand the unix socket path with tilde expansion.
-/// Returns None if no unix socket path was provided.
+/// Expands unix socket path including tilde expansion.
 pub fn expand_unix_socket_path(
     unix_socket: Option<Spanned<String>>,
     cwd: impl AsRef<Path>,

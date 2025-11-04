@@ -2917,48 +2917,31 @@ fn flag_filepath_completions() {
     use support::completions_helpers::new_engine_helper;
     use tempfile::tempdir;
 
-    // Create a temporary directory (automatically cleaned up when it goes out of scope)
-    let test_dir = tempdir().expect("Failed to create temp dir");
+    let test_dir = tempdir().unwrap();
     let test_dir_path = test_dir.path();
 
-    // Create test files in the temp directory
-    std::fs::write(test_dir_path.join("socket1.sock"), "").expect("Failed to create socket1.sock");
-    std::fs::write(test_dir_path.join("socket2.sock"), "").expect("Failed to create socket2.sock");
-    std::fs::create_dir(test_dir_path.join("subdir")).expect("Failed to create subdir");
+    std::fs::write(test_dir_path.join("socket1.sock"), "").unwrap();
+    std::fs::write(test_dir_path.join("socket2.sock"), "").unwrap();
+    std::fs::create_dir(test_dir_path.join("subdir")).unwrap();
 
-    // Create engine with temp directory as working directory
-    let test_dir_abs =
-        AbsolutePathBuf::try_from(test_dir_path).expect("Failed to create absolute path");
+    let test_dir_abs = AbsolutePathBuf::try_from(test_dir_path).unwrap();
     let (_dir, _dir_str, engine, stack) = new_engine_helper(test_dir_abs);
-
-    // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    // Test --unix-socket flag completion with long flag
+    // Long flag
     let suggestions = completer.complete("http get --unix-socket ./s", 26);
     assert!(
         suggestions.iter().any(|s| s.value.contains("socket1.sock")),
-        "Should suggest socket1.sock. Got: {:?}",
+        "expected socket files, got: {:?}",
         suggestions.iter().map(|s| &s.value).collect::<Vec<_>>()
     );
-    assert!(
-        suggestions.iter().any(|s| s.value.contains("socket2.sock")),
-        "Should suggest socket2.sock"
-    );
+    assert!(suggestions.iter().any(|s| s.value.contains("socket2.sock")));
 
-    // Test --unix-socket flag completion with short flag
+    // Short flag
     let suggestions = completer.complete("http get -U ./s", 15);
-    assert!(
-        suggestions.iter().any(|s| s.value.contains("socket1.sock")),
-        "Should suggest socket1.sock for short flag"
-    );
+    assert!(suggestions.iter().any(|s| s.value.contains("socket1.sock")));
 
-    // Test that directories are also suggested
+    // Directories
     let suggestions = completer.complete("http get --unix-socket ./sub", 28);
-    assert!(
-        suggestions.iter().any(|s| s.value.contains("subdir")),
-        "Should suggest subdir"
-    );
-
-    // Temp directory is automatically cleaned up when test_dir goes out of scope
+    assert!(suggestions.iter().any(|s| s.value.contains("subdir")));
 }
