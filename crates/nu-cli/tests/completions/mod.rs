@@ -272,6 +272,25 @@ fn customcompletions_no_sort() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn custom_completions_override_span() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
+        def my-command [arg: sring@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command b";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
+}
+
 #[rstest]
 /// Fallback to file completions if custom completer returns null
 #[case::fallback(r#"
@@ -800,7 +819,7 @@ fn external_completer_fallback() {
 #[test]
 fn external_completer_override_span() {
     let block = "{|spans| [{ value: blech, span: { start: 1, end: 10 } }]}";
-    let input = "foo test";
+    let input = "foo b";
 
     let suggestions = run_external_completion(block, input);
     let expected = vec![Suggestion {
