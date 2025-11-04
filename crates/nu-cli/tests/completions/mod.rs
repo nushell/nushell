@@ -2915,29 +2915,23 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
 #[test]
 fn flag_filepath_completions() {
     use support::completions_helpers::new_engine_helper;
+    use tempfile::tempdir;
 
-    // Create a temporary directory with random name (outside repo)
-    let random_suffix = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let test_dir = std::env::temp_dir().join(format!("nushell_test_flag_filepath_{}", random_suffix));
-
-    // Clean up if it somehow exists
-    let _ = std::fs::remove_dir_all(&test_dir);
-
-    // Create the test directory
-    std::fs::create_dir_all(&test_dir).expect("Failed to create test dir");
+    // Create a temporary directory (automatically cleaned up when it goes out of scope)
+    let test_dir = tempdir().expect("Failed to create temp dir");
+    let test_dir_path = test_dir.path();
 
     // Create test files in the temp directory
-    std::fs::write(test_dir.join("socket1.sock"), "").expect("Failed to create socket1.sock");
-    std::fs::write(test_dir.join("socket2.sock"), "").expect("Failed to create socket2.sock");
-    std::fs::create_dir(test_dir.join("subdir")).expect("Failed to create subdir");
+    std::fs::write(test_dir_path.join("socket1.sock"), "")
+        .expect("Failed to create socket1.sock");
+    std::fs::write(test_dir_path.join("socket2.sock"), "")
+        .expect("Failed to create socket2.sock");
+    std::fs::create_dir(test_dir_path.join("subdir")).expect("Failed to create subdir");
 
     // Create engine with temp directory as working directory
-    let test_dir_abs = AbsolutePathBuf::try_from(test_dir.clone())
+    let test_dir_abs = AbsolutePathBuf::try_from(test_dir_path)
         .expect("Failed to create absolute path");
-    let (_dir, _dir_str, engine, stack) = new_engine_helper(test_dir_abs.clone());
+    let (_dir, _dir_str, engine, stack) = new_engine_helper(test_dir_abs);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -2968,6 +2962,5 @@ fn flag_filepath_completions() {
         "Should suggest subdir"
     );
 
-    // Cleanup temp directory
-    let _ = std::fs::remove_dir_all(&test_dir);
+    // Temp directory is automatically cleaned up when test_dir goes out of scope
 }
