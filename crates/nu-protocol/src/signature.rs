@@ -806,6 +806,9 @@ impl Signature {
 
     /// Find the matching long flag
     pub fn get_long_flag(&self, name: &str) -> Option<Flag> {
+        if name.is_empty() {
+            return None;
+        }
         for flag in &self.named {
             if flag.long == name {
                 return Some(flag.clone());

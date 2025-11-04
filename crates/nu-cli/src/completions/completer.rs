@@ -396,10 +396,12 @@ impl NuCompleter {
         // unfinished argument completion for commands
         match &element_expression.expr {
             Expr::Call(call) => {
+                let signature = working_set.get_decl(call.decl_id).signature();
                 // NOTE: the argument to complete is not necessarily the last one
                 // for lsp completion, we don't trim the text,
                 // so that `def`s after pos can be completed
                 let mut positional_arg_indices = Vec::new();
+
                 for (arg_idx, arg) in call.arguments.iter().enumerate() {
                     let span = arg.span();
 
@@ -410,8 +412,6 @@ impl NuCompleter {
                         }
                         continue;
                     }
-
-                    let signature = working_set.get_decl(call.decl_id).signature();
 
                     // Get custom completion from PositionalArg or Flag
                     let completion = {
