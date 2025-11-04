@@ -277,7 +277,7 @@ fn custom_completions_override_span() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"
         def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
-        def my-command [arg: sring@comp] {}"#;
+        def my-command [arg: string@comp] {}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
