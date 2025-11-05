@@ -1318,24 +1318,12 @@ pub fn parse_internal_call(
                 ArgumentParsingLevel::FirstK { k } if k <= positional_idx => {
                     Expression::garbage(working_set, spans[spans_idx])
                 }
-                _ => {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &spans[..end],
-                        &mut spans_idx,
-                        &positional.shape,
-                    );
-                    if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                        working_set.error(ParseError::TypeMismatch(
-                            positional.shape.to_type(),
-                            arg.ty,
-                            arg.span,
-                        ));
-                        Expression::garbage(working_set, arg.span)
-                    } else {
-                        arg
-                    }
-                }
+                _ => parse_multispan_value(
+                    working_set,
+                    &spans[..end],
+                    &mut spans_idx,
+                    &positional.shape,
+                )
             };
 
             // HACK: try-catch's signature defines the catch block as a Closure, even though it's
