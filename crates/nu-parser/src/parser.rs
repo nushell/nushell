@@ -1009,8 +1009,7 @@ pub struct ParsedInternalCall {
     pub call_kind: CallKind,
 }
 
-/// Sometimes the arguments of an internal command need to be parsed
-/// in dedicated functions, e.g. `parse_module`/`parse_use`.
+/// Sometimes the arguments of an internal command need to be parsed in dedicated functions, e.g. `parse_module`.
 /// If so, `parse_internal_call` should be called with the appropriate parsing level to avoid repetition.
 ///
 /// Defaults to `ArgumentParsingLevel::Full`

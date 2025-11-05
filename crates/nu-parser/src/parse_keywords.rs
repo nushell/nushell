@@ -2411,6 +2411,8 @@ pub fn parse_module(
         Type::Block,
     );
 
+    // NOTE: Command `module`/`export module` has only 1 flag `-h/--help` which is handled outside of this function
+    // if more flags added in the future, then this needs to be updated to something like `set_kth_positional`
     call.set_kth_argument(1, Argument::Positional(block_expr));
 
     (
