@@ -208,6 +208,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr, _)
+                | AggExpr::Item { input: expr, .. }
                 | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
                 AggExpr::Quantile {
                     expr,
@@ -430,6 +431,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             record! {
                 "expr" => Value::string("data_type_function", span),
                 "value" => Value::string(format!("{func:?}"), span),
+            },
+            span,
+        )),
+        Expr::Element => Ok(Value::record(
+            record! {
+                "expr" => Value::string("element", span),
             },
             span,
         )),
