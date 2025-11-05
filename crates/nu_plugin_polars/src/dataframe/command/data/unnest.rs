@@ -142,10 +142,10 @@ fn command_eager(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let cols = call.rest::<String>(0)?;
-    let seperator = call.get_flag::<String>("separator")?;
+    let separator = call.get_flag::<String>("separator")?;
     let polars = df.to_polars();
     let result: NuDataFrame = polars
-        .unnest(cols, seperator.as_deref())
+        .unnest(cols, separator.as_deref())
         .map_err(|e| ShellError::GenericError {
             error: format!("Error unnesting dataframe: {e}"),
             msg: "".into(),
@@ -164,11 +164,11 @@ fn command_lazy(
     df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let cols = call.rest::<String>(0)?;
-    let seperator = call.get_flag::<String>("separator")?.map(PlSmallStr::from);
+    let separator = call.get_flag::<String>("separator")?.map(PlSmallStr::from);
 
     let polars = df.to_polars();
     // todo - allow selectors to be passed in here
-    let result: NuLazyFrame = polars.unnest(polars::prelude::cols(cols), seperator).into();
+    let result: NuLazyFrame = polars.unnest(polars::prelude::cols(cols), separator).into();
     result.to_pipeline_data(plugin, engine, call.head)
 }
 
