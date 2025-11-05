@@ -1323,7 +1323,7 @@ pub fn parse_internal_call(
                     &spans[..end],
                     &mut spans_idx,
                     &positional.shape,
-                )
+                ),
             };
 
             // HACK: try-catch's signature defines the catch block as a Closure, even though it's
