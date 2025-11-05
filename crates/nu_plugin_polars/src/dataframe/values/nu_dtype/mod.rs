@@ -3,6 +3,7 @@ pub mod custom_value;
 use custom_value::NuDataTypeCustomValue;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::prelude::{DataType, Field, TimeUnit, UnknownKind};
+use polars_compute::decimal::DEC128_MAX_PREC;
 use uuid::Uuid;
 
 use crate::{Cacheable, PolarsPlugin, command::datetime::timezone_from_str};
@@ -242,17 +243,16 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
                 })?
                 .trim();
             let precision = match next {
-                "*" => None, // infer
-                _ => Some(
-                    next.parse::<usize>()
-                        .map_err(|e| ShellError::GenericError {
-                            error: "Invalid polars data type".into(),
-                            msg: format!("Error in parsing decimal precision: {e}"),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![],
-                        })?,
-                ),
+                "*" => DEC128_MAX_PREC,
+                _ => next
+                    .parse::<usize>()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Invalid polars data type".into(),
+                        msg: format!("Error in parsing decimal precision: {e}"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    })?,
             };
 
             let next = split
@@ -273,16 +273,13 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
                     help: None,
                     inner: vec![],
                 }),
-                _ => next
-                    .parse::<usize>()
-                    .map(Some)
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Invalid polars data type".into(),
-                        msg: format!("Error in parsing decimal precision: {e}"),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
+                _ => next.parse::<usize>().map_err(|e| ShellError::GenericError {
+                    error: "Invalid polars data type".into(),
+                    msg: format!("Error in parsing decimal precision: {e}"),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }),
             }?;
             Ok(DataType::Decimal(precision, scale))
         }

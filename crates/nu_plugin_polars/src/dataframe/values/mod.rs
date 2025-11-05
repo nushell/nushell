@@ -449,6 +449,7 @@ pub trait CustomValueSupport: Cacheable {
 #[cfg(test)]
 mod test {
     use polars::prelude::{DataType, TimeUnit, UnknownKind};
+    use polars_compute::decimal::DEC128_MAX_PREC;
 
     use crate::command::datetime::timezone_utc;
 
@@ -596,7 +597,7 @@ mod test {
     fn test_dtype_str_schema_decimal() {
         let dtype = "decimal<7,2>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Decimal(Some(7usize), Some(2usize));
+        let expected = DataType::Decimal(7usize, 2usize);
         assert_eq!(schema, expected);
 
         // "*" is not a permitted value for scale
@@ -606,7 +607,7 @@ mod test {
 
         let dtype = "decimal<*,2>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Decimal(None, Some(2usize));
+        let expected = DataType::Decimal(DEC128_MAX_PREC, 2usize);
         assert_eq!(schema, expected);
     }
 
@@ -629,12 +630,12 @@ mod test {
 
         let dtype = "list<decimal<7,2>>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::List(Box::new(DataType::Decimal(Some(7usize), Some(2usize))));
+        let expected = DataType::List(Box::new(DataType::Decimal(7usize, 2usize)));
         assert_eq!(schema, expected);
 
         let dtype = "list<decimal<*,2>>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::List(Box::new(DataType::Decimal(None, Some(2usize))));
+        let expected = DataType::List(Box::new(DataType::Decimal(DEC128_MAX_PREC, 2usize)));
         assert_eq!(schema, expected);
 
         let dtype = "list<decimal<7,*>>";

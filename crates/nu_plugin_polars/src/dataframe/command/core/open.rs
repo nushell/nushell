@@ -20,11 +20,11 @@ use polars::{
     lazy::frame::LazyJsonLineReader,
     prelude::{
         CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
-        LazyFrame, ParquetReader, PlSmallStr, ScanArgsIpc, ScanArgsParquet, SerReader,
+        LazyFrame, ParquetReader, PlSmallStr, ScanArgsParquet, SerReader, UnifiedScanArgs,
     },
 };
 
-use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions};
+use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions, ipc::IpcScanOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -332,17 +332,17 @@ fn from_arrow(
     hive_options: HiveOptions,
 ) -> Result<Value, ShellError> {
     if !is_eager {
-        let args = ScanArgsIpc {
-            n_rows: None,
+        let args = UnifiedScanArgs {
             cache: true,
             rechunk: false,
             row_index: None,
             cloud_options: resource.cloud_options,
             include_file_paths: None,
             hive_options,
+            ..Default::default()
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, args)
+        let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, IpcScanOptions, args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
                 msg: format!("{e:?}"),
