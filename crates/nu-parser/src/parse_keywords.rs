@@ -2500,7 +2500,7 @@ pub fn parse_use(
         }
     };
 
-    let import_pattern_expr = parse_import_pattern(working_set, args_spans);
+    let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = match &import_pattern_expr {
         Expression {
@@ -2720,7 +2720,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
         }
     };
 
-    let import_pattern_expr = parse_import_pattern(working_set, args_spans);
+    let import_pattern_expr = parse_import_pattern(working_set, call.positional_iter(), args_spans);
 
     let import_pattern = if let Expression {
         expr: Expr::ImportPattern(import_pattern),

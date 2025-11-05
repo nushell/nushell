@@ -3474,8 +3474,12 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
-pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let Some(head_span) = spans.first() else {
+pub fn parse_import_pattern<'a>(
+    working_set: &mut StateWorkingSet,
+    mut arg_iter: impl Iterator<Item = &'a Expression>,
+    spans: &[Span],
+) -> Expression {
+    let Some(head_expr) = arg_iter.next() else {
         working_set.error(ParseError::WrongImportPattern(
             "needs at least one component of import pattern".to_string(),
             Span::concat(spans),
@@ -3483,9 +3487,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         return garbage(working_set, Span::concat(spans));
     };
 
-    let head_expr = parse_value(working_set, *head_span, &SyntaxShape::Any);
-
-    let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
+    let (maybe_module_id, head_name) = match eval_constant(working_set, head_expr) {
         Ok(Value::Nothing { .. }) => {
             return Expression::new(
                 working_set,
@@ -3511,91 +3513,105 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         head: ImportPatternHead {
             name: head_name,
             id: maybe_module_id,
-            span: *head_span,
+            span: head_expr.span,
         },
         members: vec![],
         hidden: HashSet::new(),
         constants: vec![],
     };
 
-    if spans.len() > 1 {
-        let mut leaf_member_span = None;
+    let mut leaf_member_expr: Option<(&str, Span)> = None;
 
-        for tail_span in spans[1..].iter() {
-            if let Some(prev_span) = leaf_member_span {
-                let what = if working_set.get_span_contents(prev_span) == b"*" {
-                    "glob"
-                } else {
-                    "list"
-                };
-                working_set.error(ParseError::WrongImportPattern(
-                    format!("{what} member can be only at the end of an import pattern"),
-                    prev_span,
-                ));
-                return Expression::new(
-                    working_set,
-                    Expr::ImportPattern(Box::new(import_pattern)),
-                    prev_span,
-                    Type::List(Box::new(Type::String)),
-                );
-            }
+    // TODO: box pattern syntax is experimental @rust v1.89.0
+    let handle_list_items =
+        |items: &Vec<ListItem>,
+         span,
+         working_set: &mut StateWorkingSet<'_>,
+         import_pattern: &mut ImportPattern,
+         leaf_member_expr: &mut Option<(&str, Span)>| {
+            let mut output = vec![];
 
-            let tail = working_set.get_span_contents(*tail_span);
-
-            if tail == b"*" {
-                import_pattern
-                    .members
-                    .push(ImportPatternMember::Glob { span: *tail_span });
-
-                leaf_member_span = Some(*tail_span);
-            } else if tail.starts_with(b"[") {
-                let result = parse_list_expression(working_set, *tail_span, &SyntaxShape::String);
-
-                let mut output = vec![];
-
-                if let Expression {
-                    expr: Expr::List(list),
-                    ..
-                } = result
-                {
-                    for item in list {
-                        match item {
-                            ListItem::Item(expr) => {
-                                let contents = working_set.get_span_contents(expr.span);
-                                output.push((trim_quotes(contents).to_vec(), expr.span));
-                            }
-                            ListItem::Spread(_, spread) => {
-                                working_set.error(ParseError::WrongImportPattern(
-                                    "cannot spread in an import pattern".into(),
-                                    spread.span,
-                                ))
-                            }
+            for item in items.iter() {
+                match item {
+                    ListItem::Item(expr) => {
+                        if let Some(name) = expr.as_string() {
+                            output.push((name.as_bytes().to_vec(), expr.span));
                         }
                     }
+                    ListItem::Spread(_, spread) => {
+                        working_set.error(ParseError::WrongImportPattern(
+                            "cannot spread in an import pattern".into(),
+                            spread.span,
+                        ))
+                    }
+                }
+            }
 
+            import_pattern
+                .members
+                .push(ImportPatternMember::List { names: output });
+
+            *leaf_member_expr = Some(("list", span));
+        };
+
+    for tail_expr in arg_iter {
+        if let Some((what, prev_span)) = leaf_member_expr {
+            working_set.error(ParseError::WrongImportPattern(
+                format!("{what} member can be only at the end of an import pattern"),
+                prev_span,
+            ));
+            return Expression::new(
+                working_set,
+                Expr::ImportPattern(Box::new(import_pattern)),
+                prev_span,
+                Type::List(Box::new(Type::String)),
+            );
+        }
+
+        match &tail_expr.expr {
+            Expr::String(name) => {
+                let span = tail_expr.span;
+                if name == "*" {
                     import_pattern
                         .members
-                        .push(ImportPatternMember::List { names: output });
+                        .push(ImportPatternMember::Glob { span });
+
+                    leaf_member_expr = Some(("glob", span));
                 } else {
-                    working_set.error(ParseError::ExportNotFound(result.span));
-                    return Expression::new(
+                    import_pattern.members.push(ImportPatternMember::Name {
+                        name: name.as_bytes().to_vec(),
+                        span,
+                    });
+                }
+            }
+            Expr::FullCellPath(fcp) => {
+                if let Expr::List(items) = &fcp.head.expr {
+                    handle_list_items(
+                        items,
+                        fcp.head.span,
                         working_set,
-                        Expr::ImportPattern(Box::new(import_pattern)),
-                        Span::concat(spans),
-                        Type::List(Box::new(Type::String)),
+                        &mut import_pattern,
+                        &mut leaf_member_expr,
                     );
                 }
-
-                leaf_member_span = Some(*tail_span);
-            } else {
-                let tail = trim_quotes(tail);
-
-                import_pattern.members.push(ImportPatternMember::Name {
-                    name: tail.to_vec(),
-                    span: *tail_span,
-                });
             }
-        }
+            Expr::List(items) => {
+                handle_list_items(
+                    items,
+                    tail_expr.span,
+                    working_set,
+                    &mut import_pattern,
+                    &mut leaf_member_expr,
+                );
+            }
+            _ => {
+                working_set.error(ParseError::WrongImportPattern(
+                    "Wrong type of import pattern, only String and List<String> are allowed."
+                        .into(),
+                    tail_expr.span,
+                ));
+            }
+        };
     }
 
     Expression::new(
