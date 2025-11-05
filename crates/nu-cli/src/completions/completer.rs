@@ -7,7 +7,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Span, SyntaxShape, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Span, Type, Value,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
         RedirectionTarget, Traverse,
@@ -431,7 +431,7 @@ impl NuCompleter {
                                             )
                                         })
                                     });
-                                    flag.and_then(|f| f.completion.clone())
+                                    flag.and_then(|f| f.completion)
                                 }
                             }
                             // For positional arguments, check PositionalArg
@@ -558,15 +558,7 @@ impl NuCompleter {
                     }
 
                     // normal arguments completion
-                    let (new_span, prefix) = match arg {
-                        Argument::Named(_) => strip_placeholder_with_rsplit(
-                            working_set,
-                            &span,
-                            |b| *b == b'=' || *b == b' ',
-                            strip,
-                        ),
-                        _ => strip_placeholder_if_any(working_set, &span, strip),
-                    };
+                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     let flag_completion_helper = || {
                         let mut flag_completions = FlagCompletion {
@@ -583,29 +575,6 @@ impl NuCompleter {
                                 if prefix.starts_with(b"-") =>
                             {
                                 flag_completion_helper()
-                            }
-                            Argument::Named((name, short, _value)) => {
-                                let flag = signature.get_long_flag(&name.item).or_else(|| {
-                                    short.as_ref().and_then(|s| {
-                                        let ch = s.item.chars().next().unwrap_or('_');
-                                        signature.get_short_flag(ch)
-                                    })
-                                });
-
-                                if let Some(flag) = flag {
-                                    match flag.arg {
-                                        Some(SyntaxShape::Filepath)
-                                        | Some(SyntaxShape::GlobPattern) => {
-                                            self.process_completion(&mut FileCompletion, &ctx)
-                                        }
-                                        Some(SyntaxShape::Directory) => {
-                                            self.process_completion(&mut DirectoryCompletion, &ctx)
-                                        }
-                                        _ => vec![],
-                                    }
-                                } else {
-                                    vec![]
-                                }
                             }
                             // only when `strip` == false
                             Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
