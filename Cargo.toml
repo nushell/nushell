@@ -169,7 +169,7 @@ strip-ansi-escapes = "0.2.1"
 strum = "0.26"
 strum_macros = "0.27"
 syn = "2.0"
-sysinfo = "0.36"
+sysinfo = "0.37.2"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.23"
 thiserror = "2.0.12"
