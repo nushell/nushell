@@ -22,6 +22,13 @@ pkg-fmt = "tgz"
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-fmt = "zip"
 
+[package.metadata.winresource]
+LegalCopyright = "Copyright © 2019-2025 The Nushell Project Developers"
+FileDescription = "A new type of shell"
+FileVersion = "0.108.1"
+ProductVersion = "0.108.1"
+ProductName = "Nushell"
+
 [workspace]
 members = [
   "crates/nu_plugin_custom_values",

@@ -9,9 +9,6 @@ fn main() {
     {
         println!("cargo:rerun-if-changed=assets/nu_logo.ico");
         let mut res = winresource::WindowsResource::new();
-        res.set("ProductName", "Nushell");
-        res.set("FileDescription", "Nushell");
-        res.set("LegalCopyright", "Copyright (C) 2025");
         res.set_icon("assets/nu_logo.ico");
         res.compile()
             .expect("Failed to run the Windows resource compiler (rc.exe)");
