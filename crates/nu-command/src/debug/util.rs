@@ -1,4 +1,5 @@
 use nu_protocol::{DataSource, IntoValue, PipelineData, PipelineMetadata, Record, Span, Value};
+use std::path::PathBuf;
 
 pub fn extend_record_with_metadata(
     mut record: Record,
@@ -31,6 +32,42 @@ pub fn extend_record_with_metadata(
     };
 
     record
+}
+
+pub fn parse_metadata_from_record(record: &Record) -> PipelineMetadata {
+    let mut metadata = PipelineMetadata::default();
+    let mut custom = Record::new();
+
+    for (key, value) in record {
+        match key.as_str() {
+            "source" => {
+                if let Ok(s) = value.as_str() {
+                    metadata.data_source = match s {
+                        "ls" => DataSource::Ls,
+                        "into html --list" => DataSource::HtmlThemes,
+                        _ => DataSource::FilePath(PathBuf::from(s)),
+                    };
+                }
+            }
+            "content_type" => {
+                if !value.is_nothing()
+                    && let Ok(s) = value.as_str()
+                {
+                    metadata.content_type = Some(s.to_string());
+                }
+            }
+            "span" => {
+                // Skip span field - it's metadata about the value, not pipeline metadata
+            }
+            _ => {
+                // Any other field goes into custom metadata
+                custom.push(key.clone(), value.clone());
+            }
+        }
+    }
+
+    metadata.custom = custom;
+    metadata
 }
 
 pub fn build_metadata_record(pipeline: &PipelineData, head: Span) -> Record {

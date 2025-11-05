@@ -1,5 +1,6 @@
-use nu_engine::command_prelude::*;
-use nu_protocol::DataSource;
+use super::util::{extend_record_with_metadata, parse_metadata_from_record};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_protocol::{DataSource, engine::Closure};
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -16,6 +17,11 @@ impl Command for MetadataSet {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata set")
             .input_output_types(vec![(Type::Any, Type::Any)])
+            .optional(
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Record(vec![])])),
+                "A closure that receives the current metadata and returns a new metadata record. Cannot be used with other flags.",
+            )
             .switch(
                 "datasource-ls",
                 "Assign the DataSource::Ls metadata to the input",
@@ -51,6 +57,7 @@ impl Command for MetadataSet {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
@@ -63,6 +70,38 @@ impl Command for MetadataSet {
             PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
         };
 
+        // Handle closure parameter - mutually exclusive with flags
+        if let Some(closure) = closure {
+            if ds_fp.is_some() || ds_ls || content_type.is_some() || merge.is_some() {
+                return Err(ShellError::GenericError {
+                    error: "Incompatible parameters".into(),
+                    msg: "cannot use closure with other flags".into(),
+                    span: Some(head),
+                    help: Some("Use either the closure parameter or flags, not both".into()),
+                    inner: vec![],
+                });
+            }
+
+            let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
+            let metadata_value = record.into_value(head);
+
+            let result = ClosureEvalOnce::new(engine_state, stack, closure)
+                .run_with_value(metadata_value)?
+                .into_value(head)?;
+
+            let result_record = result.as_record().map_err(|err| ShellError::GenericError {
+                error: "Closure must return a record".into(),
+                msg: format!("got {}", result.get_type()),
+                span: Some(head),
+                help: Some("The closure should return a record with metadata fields".into()),
+                inner: vec![err],
+            })?;
+
+            metadata = parse_metadata_from_record(result_record);
+            return Ok(input.set_metadata(Some(metadata)));
+        }
+
+        // Flag-based metadata modification
         if let Some(content_type) = content_type {
             metadata.content_type = Some(content_type);
         }
@@ -116,6 +155,11 @@ impl Command for MetadataSet {
                 description: "Set custom metadata",
                 example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
                 result: Some(Value::test_string("value")),
+            },
+            Example {
+                description: "Set metadata using a closure",
+                example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
+                result: Some(Value::test_string("text/csv-processed")),
             },
         ]
     }
