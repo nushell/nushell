@@ -309,12 +309,12 @@ fn test_light() {
 
     assert_eq!(
         create_table(vec![row(4); 1], true, theme::light()),
-        concat!(" 0   1   2   3 ")
+        " 0   1   2   3 "
     );
 
     assert_eq!(
         create_table(vec![row(4); 1], false, theme::light()),
-        concat!(" 0   1   2   3 ")
+        " 0   1   2   3 "
     );
 
     assert_eq!(
@@ -339,12 +339,12 @@ fn test_none() {
 
     assert_eq!(
         create_table(vec![row(4); 1], true, theme::none()),
-        concat!(" 0   1   2   3 ")
+        " 0   1   2   3 "
     );
 
     assert_eq!(
         create_table(vec![row(4); 1], false, theme::none()),
-        concat!(" 0   1   2   3 ")
+        " 0   1   2   3 "
     );
 
     assert_eq!(

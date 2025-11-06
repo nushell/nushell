@@ -1,11 +1,17 @@
-use fancy_regex::{NoExpand, Regex};
+use fancy_regex::{Captures, NoExpand, Regex};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
-use nu_engine::command_prelude::*;
+use nu_engine::{ClosureEval, command_prelude::*};
+use std::sync::Arc;
+
+enum ReplacementValue {
+    String(Arc<Spanned<String>>),
+    Closure(Box<Spanned<ClosureEval>>),
+}
 
 struct Arguments {
     all: bool,
     find: Spanned<String>,
-    replace: Spanned<String>,
+    replace: ReplacementValue,
     cell_paths: Option<Vec<CellPath>>,
     literal_replace: bool,
     no_regex: bool,
@@ -39,7 +45,10 @@ impl Command for StrReplace {
                 ),
             ])
             .required("find", SyntaxShape::String, "The pattern to find.")
-            .required("replace", SyntaxShape::String, "The replacement string.")
+            .required("replace",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Closure(None)]),
+                "The replacement string, or a closure that generates it."
+            )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -69,6 +78,16 @@ impl Command for StrReplace {
         "Find and replace text."
     }
 
+    fn extra_description(&self) -> &str {
+        r#"The pattern to find can be a substring (default) or a regular expression (with `--regex`).
+
+The replacement can be a a string, possibly containing references to numbered (`$1` etc) or
+named capture groups (`$name`), or it can be closure that is invoked for each match.
+In the latter case, the closure is invoked with the entire match as its input and any capture
+groups as its argument. It must return a string that will be used as a replacement for the match.
+"#
+    }
+
     fn search_terms(&self) -> Vec<&str> {
         vec!["search", "shift", "switch", "regex"]
     }
@@ -85,7 +104,22 @@ impl Command for StrReplace {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let find: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
+        let replace = match call.req(engine_state, stack, 1)? {
+            Value::Closure {
+                val, internal_span, ..
+            } => Ok(ReplacementValue::Closure(Box::new(
+                ClosureEval::new(engine_state, stack, *val).into_spanned(internal_span),
+            ))),
+            Value::String {
+                val, internal_span, ..
+            } => Ok(ReplacementValue::String(Arc::new(
+                val.into_spanned(internal_span),
+            ))),
+            val => Err(ShellError::TypeMismatch {
+                err_message: "unsupported replacement value type".to_string(),
+                span: val.span(),
+            }),
+        }?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let literal_replace = call.has_flag(engine_state, stack, "no-expand")?;
@@ -123,7 +157,7 @@ impl Command for StrReplace {
         let args = Arguments {
             all: call.has_flag_const(working_set, "all")?,
             find,
-            replace,
+            replace: ReplacementValue::String(Arc::new(replace)),
             cell_paths,
             literal_replace,
             no_regex,
@@ -210,11 +244,16 @@ impl Command for StrReplace {
                     "non-matching line\none line\nanother line\n",
                 )),
             },
+            Example {
+                description: "Find and replace backslash escape sequences using a closure",
+                example: r#"'string: \"abc\" backslash: \\ newline:\nend' | str replace -a -r '\\(.)' {|char| if $char == "n" { "\n" } else { $char } }"#,
+                result: Some(Value::test_string(
+                    "string: \"abc\" backslash: \\ newline:\nend",
+                )),
+            },
         ]
     }
 }
-
-struct FindReplace<'a>(&'a str, &'a str);
 
 fn action(
     input: &Value,
@@ -231,13 +270,41 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val, .. } => {
-            let FindReplace(find_str, replace_str) = FindReplace(&find.item, &replace.item);
+            let find_str: &str = &find.item;
             if *no_regex {
                 // just use regular string replacement vs regular expressions
-                if *all {
-                    Value::string(val.replace(find_str, replace_str), head)
-                } else {
-                    Value::string(val.replacen(find_str, replace_str, 1), head)
+                let replace_str: Result<Arc<Spanned<String>>, (ShellError, Span)> = match replace {
+                    ReplacementValue::String(replace_str) => Ok(replace_str.clone()),
+                    ReplacementValue::Closure(closure) => {
+                        // find_str is fixed, so we need to run the closure only once
+                        let mut closure_eval = closure.item.clone();
+                        let span = closure.span;
+                        let result: Result<Value, ShellError> = closure_eval
+                            .run_with_value(Value::string(find.item.clone(), find.span))
+                            .and_then(|result| result.into_value(span));
+                        match result {
+                            Ok(Value::String { val, .. }) => Ok(Arc::new(val.into_spanned(span))),
+                            Ok(res) => Err((
+                                ShellError::RuntimeTypeMismatch {
+                                    expected: Type::String,
+                                    actual: res.get_type(),
+                                    span: res.span(),
+                                },
+                                span,
+                            )),
+                            Err(error) => Err((error, span)),
+                        }
+                    }
+                };
+                match replace_str {
+                    Ok(replace_str) => {
+                        if *all {
+                            Value::string(val.replace(find_str, &replace_str.item), head)
+                        } else {
+                            Value::string(val.replacen(find_str, &replace_str.item, 1), head)
+                        }
+                    }
+                    Err((error, span)) => Value::error(error, span),
                 }
             } else {
                 // use regular expressions to replace strings
@@ -248,15 +315,15 @@ fn action(
                 let regex_string = flags.to_string() + find_str;
                 let regex = Regex::new(&regex_string);
 
-                match regex {
-                    Ok(re) => {
+                match (regex, replace) {
+                    (Ok(re), ReplacementValue::String(replace_str)) => {
                         if *all {
                             Value::string(
                                 {
                                     if *literal_replace {
-                                        re.replace_all(val, NoExpand(replace_str)).to_string()
+                                        re.replace_all(val, NoExpand(&replace_str.item)).to_string()
                                     } else {
-                                        re.replace_all(val, replace_str).to_string()
+                                        re.replace_all(val, &replace_str.item).to_string()
                                     }
                                 },
                                 head,
@@ -265,16 +332,65 @@ fn action(
                             Value::string(
                                 {
                                     if *literal_replace {
-                                        re.replace(val, NoExpand(replace_str)).to_string()
+                                        re.replace(val, NoExpand(&replace_str.item)).to_string()
                                     } else {
-                                        re.replace(val, replace_str).to_string()
+                                        re.replace(val, &replace_str.item).to_string()
                                     }
                                 },
                                 head,
                             )
                         }
                     }
-                    Err(e) => Value::error(
+                    (Ok(re), ReplacementValue::Closure(closure)) => {
+                        let span = closure.span;
+                        // TODO: We only need to clone the evaluator here because
+                        //       operate() doesn't allow us to have a mutable reference
+                        //       to Arguments. Would it be worth the effort to change operate()
+                        //       and all commands that use it?
+                        let mut closure_eval = closure.item.clone();
+                        let mut first_error: Option<ShellError> = None;
+                        let replacer = |caps: &Captures| {
+                            for capture in caps.iter().skip(1) {
+                                let arg = match capture {
+                                    Some(m) => Value::string(m.as_str().to_string(), head),
+                                    None => Value::nothing(head),
+                                };
+                                closure_eval.add_arg(arg);
+                            }
+                            let value = match caps.get(0) {
+                                Some(m) => Value::string(m.as_str().to_string(), head),
+                                None => Value::nothing(head),
+                            };
+                            let result: Result<Value, ShellError> = closure_eval
+                                .run_with_input(PipelineData::value(value, None))
+                                .and_then(|result| result.into_value(span));
+                            match result {
+                                Ok(Value::String { val, .. }) => val.to_string(),
+                                Ok(res) => {
+                                    first_error = Some(ShellError::RuntimeTypeMismatch {
+                                        expected: Type::String,
+                                        actual: res.get_type(),
+                                        span: res.span(),
+                                    });
+                                    "".to_string()
+                                }
+                                Err(e) => {
+                                    first_error = Some(e);
+                                    "".to_string()
+                                }
+                            }
+                        };
+                        let result = if *all {
+                            Value::string(re.replace_all(val, replacer).to_string(), head)
+                        } else {
+                            Value::string(re.replace(val, replacer).to_string(), head)
+                        };
+                        match first_error {
+                            None => result,
+                            Some(error) => Value::error(error, span),
+                        }
+                    }
+                    (Err(e), _) => Value::error(
                         ShellError::IncorrectValue {
                             msg: format!("Regex error: {e}"),
                             val_span: find.span,
@@ -323,7 +439,7 @@ mod tests {
 
         let options = Arguments {
             find: test_spanned_string("Cargo.(.+)"),
-            replace: test_spanned_string("Carga.$1"),
+            replace: ReplacementValue::String(Arc::new(test_spanned_string("Carga.$1"))),
             cell_paths: None,
             literal_replace: false,
             all: false,

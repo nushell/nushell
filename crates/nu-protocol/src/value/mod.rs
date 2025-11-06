@@ -806,28 +806,11 @@ impl Value {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
             Value::List { vals, .. } => {
-                let mut ty = None;
-                for val in vals {
-                    let val_ty = val.get_type();
-                    match &ty {
-                        Some(x) => {
-                            if &val_ty != x {
-                                if x.is_numeric() && val_ty.is_numeric() {
-                                    ty = Some(Type::Number)
-                                } else {
-                                    ty = Some(Type::Any);
-                                    break;
-                                }
-                            }
-                        }
-                        None => ty = Some(val_ty),
-                    }
-                }
+                let ty = Type::supertype_of(vals.iter().map(Value::get_type)).unwrap_or(Type::Any);
 
                 match ty {
-                    Some(Type::Record(columns)) => Type::Table(columns),
-                    Some(ty) => Type::List(Box::new(ty)),
-                    None => Type::List(Box::new(Type::Any)),
+                    Type::Record(columns) => Type::Table(columns),
+                    ty => Type::list(ty),
                 }
             }
             Value::Nothing { .. } => Type::Nothing,
@@ -864,6 +847,7 @@ impl Value {
         // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
         match (self, other) {
             (_, Type::Any) => true,
+            (val, Type::OneOf(types)) => types.iter().any(|t| val.is_subtype_of(t)),
 
             // `Type` allocation for scalar types is trivial
             (
@@ -4421,7 +4405,9 @@ mod tests {
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
                 list_of_ints_and_floats_and_bools.get_type(),
-                Type::List(Box::new(Type::Any))
+                Type::List(Box::new(Type::OneOf(
+                    vec![Type::Number, Type::Bool].into_boxed_slice()
+                )))
             );
             assert_eq!(
                 list_of_ints_and_floats.get_type(),

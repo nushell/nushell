@@ -152,9 +152,12 @@ fn record_subtyping_works() -> TestResult {
     "list<list<record<a: int>>>"
 )]
 // [ list, table supertype ]
-#[case("let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];", "list<table<a: int>>")]
-// disjoint element types: any
-#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<any>")]
+#[case(
+    "let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];",
+    "list<list<record<a: int>>>"
+)]
+// disjoint element types: empty element supertype
+#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<list<record>>")]
 // `bar: int` and `bar: number` are widened to table<bar: number>
 #[case(
     "let n: number = 1; let foo = [ [bar]; [1], [$n] ];",
@@ -165,8 +168,8 @@ fn record_subtyping_works() -> TestResult {
     "let foo = [ [item]; [ {a: 1} ], [ {a: 1, b: 1 } ] ];",
     "table<item: record<a: int>>"
 )]
-// disjoint table values: any
-#[case("let foo = [ [bar]; [1], [true] ];", "table<bar: any>")]
+// disjoint table values: oneof
+#[case("let foo = [ [bar]; [1], [true] ];", "table<bar: oneof<int, bool>>")]
 #[test]
 fn collection_supertype_inference(
     #[case] assignment: &str,

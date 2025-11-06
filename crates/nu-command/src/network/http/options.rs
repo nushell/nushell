@@ -1,3 +1,4 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     RedirectMode, RequestFlags, RequestMetadata, http_client, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
@@ -14,7 +15,7 @@ impl Command for HttpOptions {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http options")
+        let sig = Signature::build("http options")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -57,7 +58,9 @@ impl Command for HttpOptions {
                 Some('e'),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -121,6 +124,7 @@ struct Arguments {
     password: Option<String>,
     timeout: Option<Value>,
     allow_errors: bool,
+    unix_socket: Option<Spanned<String>>,
 }
 
 fn run_get(
@@ -137,6 +141,7 @@ fn run_get(
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -152,7 +157,16 @@ fn helper(
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = RedirectMode::Follow;
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.options(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

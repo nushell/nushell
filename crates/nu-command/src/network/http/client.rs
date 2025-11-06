@@ -26,6 +26,8 @@ use ureq::{
 };
 use url::Url;
 
+use crate::network::http::unix_socket::UnixSocketConnector;
+
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
 type Response = http::Response<Body>;
@@ -77,9 +79,20 @@ impl RedirectMode {
     pub(crate) const MODES: &[&str] = &["follow", "error", "manual"];
 }
 
+/// Helper function to add the --unix-socket flag to command signatures.
+pub fn add_unix_socket_flag(sig: Signature) -> Signature {
+    sig.named(
+        "unix-socket",
+        SyntaxShape::Filepath,
+        "Connect to the specified Unix socket instead of using TCP",
+        Some('U'),
+    )
+}
+
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
+    unix_socket_path: Option<PathBuf>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
@@ -100,6 +113,18 @@ pub fn http_client(
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
+
+    if let Some(socket_path) = unix_socket_path {
+        // Use custom Unix socket connector
+        use ureq::unversioned::resolver::DefaultResolver;
+
+        let connector = UnixSocketConnector::new(socket_path);
+        let config = config_builder.build();
+        let resolver = DefaultResolver::default();
+
+        return Ok(ureq::Agent::with_parts(config, connector, resolver));
+    }
+
     Ok(ureq::Agent::new_with_config(config_builder.build()))
 }
 

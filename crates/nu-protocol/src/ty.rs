@@ -7,6 +7,7 @@ use strum_macros::EnumIter;
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
+    /// Top type, supertype of all types
     Any,
     Binary,
     Block,
@@ -23,7 +24,10 @@ pub enum Type {
     List(Box<Type>),
     #[default]
     Nothing,
+    /// Supertype of Int and Float. Equivalent to `oneof<int, float>`
     Number,
+    /// Supertype of all types it contains.
+    OneOf(Box<[Type]>),
     Range,
     Record(Box<[(String, Type)]>),
     String,
@@ -34,6 +38,10 @@ pub enum Type {
 impl Type {
     pub fn list(inner: Type) -> Self {
         Self::List(Box::new(inner))
+    }
+
+    pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
+        Self::OneOf(types.into_iter().collect())
     }
 
     pub fn record() -> Self {
@@ -73,11 +81,15 @@ impl Type {
 
         match (self, other) {
             (t, u) if t == u => true,
-            (Type::Float, Type::Number) => true,
-            (Type::Int, Type::Number) => true,
-            (Type::Glob, Type::String) => true,
-            (Type::String, Type::Glob) => true,
             (_, Type::Any) => true,
+            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
+            // use them with variables, without having to explicitly convert them into cell-paths
+            (Type::String | Type::Int, Type::CellPath) => true,
+            (Type::OneOf(oneof), Type::CellPath) => {
+                oneof.iter().all(|t| t.is_subtype_of(&Type::CellPath))
+            }
+            (Type::Float | Type::Int, Type::Number) => true,
+            (Type::Glob, Type::String) | (Type::String, Type::Glob) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
@@ -89,19 +101,123 @@ impl Type {
             (Type::List(this), Type::Table(that)) => {
                 matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
             }
+            (Type::OneOf(this), that @ Type::OneOf(_)) => {
+                this.iter().all(|t| t.is_subtype_of(that))
+            }
+            (this, Type::OneOf(that)) => that.iter().any(|t| this.is_subtype_of(t)),
             _ => false,
         }
     }
 
     /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
     pub fn widen(self, other: Type) -> Type {
-        if self.is_subtype_of(&other) {
-            other
-        } else if other.is_subtype_of(&self) {
-            self
-        } else {
-            Type::Any
+        /// Returns supertype of arguments without creating a `oneof`, or falling back to `any`
+        /// (unless one or both of the arguments are `any`)
+        fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
+            Ok(match (lhs, rhs) {
+                (lhs, rhs) if lhs == rhs => lhs,
+                (Type::Any, _) | (_, Type::Any) => Type::Any,
+                // (int, int) and (float, float) cases are already handled by the first match arm
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Number,
+
+                (Type::Glob, Type::String) | (Type::String, Type::Glob) => Type::String,
+                (Type::Record(this), Type::Record(that)) => {
+                    Type::Record(widen_collection(this, that))
+                }
+                (Type::Table(this), Type::Table(that)) => Type::Table(widen_collection(this, that)),
+                (Type::List(list_item), Type::Table(table))
+                | (Type::Table(table), Type::List(list_item)) => {
+                    let item = match *list_item {
+                        Type::Record(record) => Type::Record(widen_collection(record, table)),
+                        list_item => Type::one_of([list_item, Type::Record(table)]),
+                    };
+                    Type::List(Box::new(item))
+                }
+                (Type::List(lhs), Type::List(rhs)) => Type::list(lhs.widen(*rhs)),
+                (t, u) => return Err((t, u)),
+            })
         }
+        fn widen_collection(
+            lhs: Box<[(String, Type)]>,
+            rhs: Box<[(String, Type)]>,
+        ) -> Box<[(String, Type)]> {
+            if lhs.is_empty() || rhs.is_empty() {
+                return [].into();
+            }
+            let (small, big) = match lhs.len() <= rhs.len() {
+                true => (lhs, rhs),
+                false => (rhs, lhs),
+            };
+            small
+                .into_iter()
+                .filter_map(|(col, typ)| {
+                    big.iter()
+                        .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
+                        .map(|b_typ| (col, typ, b_typ))
+                })
+                .map(|(col, t, u)| (col, t.widen(u)))
+                .collect()
+        }
+
+        fn oneof_add(oneof: &mut Vec<Type>, mut t: Type) {
+            if oneof.contains(&t) {
+                return;
+            }
+
+            for one in oneof.iter_mut() {
+                match flat_widen(std::mem::replace(one, Type::Any), t) {
+                    Ok(one_t) => {
+                        *one = one_t;
+                        return;
+                    }
+                    Err((one_, t_)) => {
+                        *one = one_;
+                        t = t_;
+                    }
+                }
+            }
+
+            oneof.push(t);
+        }
+
+        let tu = match flat_widen(self, other) {
+            Ok(t) => return t,
+            Err(tu) => tu,
+        };
+
+        match tu {
+            (Type::OneOf(ts), Type::OneOf(us)) => {
+                let (big, small) = match ts.len() >= us.len() {
+                    true => (ts, us),
+                    false => (us, ts),
+                };
+                let mut out = big.into_vec();
+                for t in small.into_iter() {
+                    oneof_add(&mut out, t);
+                }
+                Type::one_of(out)
+            }
+            (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => {
+                let mut out = oneof.into_vec();
+                oneof_add(&mut out, t);
+                Type::one_of(out)
+            }
+            (this, other) => Type::one_of([this, other]),
+        }
+    }
+
+    /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
+    pub fn supertype_of(it: impl IntoIterator<Item = Type>) -> Option<Self> {
+        let mut it = it.into_iter();
+        it.next().and_then(|head| {
+            it.try_fold(head, |acc, e| match acc.widen(e) {
+                Type::Any => None,
+                r => Some(r),
+            })
+        })
     }
 
     pub fn is_numeric(&self) -> bool {
@@ -138,6 +254,7 @@ impl Type {
             Type::Filesize => SyntaxShape::Filesize,
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
+            Type::OneOf(types) => SyntaxShape::OneOf(types.iter().map(Type::to_shape).collect()),
             Type::Nothing => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
@@ -168,6 +285,7 @@ impl Type {
             Type::List(_) => String::from("list"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
+            Type::OneOf(_) => String::from("oneof"),
             Type::String => String::from("string"),
             Type::Any => String::from("any"),
             Type::Error => String::from("error"),
@@ -224,6 +342,17 @@ impl Display for Type {
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
+            Type::OneOf(types) => {
+                write!(f, "oneof")?;
+                let [first, rest @ ..] = &**types else {
+                    return Ok(());
+                };
+                write!(f, "<{first}")?;
+                for t in rest {
+                    write!(f, ", {t}")?;
+                }
+                f.write_str(">")
+            }
             Type::String => write!(f, "string"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),

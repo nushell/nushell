@@ -963,10 +963,10 @@ mod tests {
         let mut duplicates = Vec::new();
 
         for ansi in CODE_LIST.iter() {
-            if let Some(name) = ansi.short_name {
-                if !seen.insert(name) {
-                    duplicates.push(name);
-                }
+            if let Some(name) = ansi.short_name
+                && !seen.insert(name)
+            {
+                duplicates.push(name);
             }
         }
 

@@ -1,3 +1,4 @@
+use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     RequestFlags, RequestMetadata, check_response_redirection, http_client,
     http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
@@ -16,7 +17,7 @@ impl Command for HttpGet {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("http get")
+        let sig = Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
@@ -79,7 +80,9 @@ impl Command for HttpGet {
                     .completion(Completion::new_list(RedirectMode::MODES)),
             )
             .filter()
-            .category(Category::Network)
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
     }
 
     fn description(&self) -> &str {
@@ -138,6 +141,11 @@ impl Command for HttpGet {
                 example: r#"http get --allow-errors https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
+            Example {
+                description: "Get from Docker daemon via Unix socket",
+                example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
+                result: None,
+            },
         ]
     }
 }
@@ -153,6 +161,7 @@ struct Arguments {
     full: bool,
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
+    unix_socket: Option<Spanned<String>>,
 }
 
 pub fn run_get(
@@ -172,6 +181,7 @@ pub fn run_get(
         full: call.has_flag(engine_state, stack, "full")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -188,7 +198,15 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
+    let unix_socket_path = args.unix_socket.map(|s| std::path::PathBuf::from(s.item));
+
+    let client = http_client(
+        args.insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
     let mut request = client.get(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

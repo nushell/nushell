@@ -312,6 +312,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_double_dots_outside_curly() {
+        assert_eq!(
+            str_expand("..{a,b}..", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("..a.."), Span::test_data(),),
+                    Value::string(String::from("..b.."), Span::test_data(),)
+                ],
+                Span::test_data(),
+            )
+        );
+    }
+
+    #[test]
     fn test_outer_single_item() {
         assert_eq!(
             str_expand("{W{x,y}}", Span::test_data(), Span::test_data()),

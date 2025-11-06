@@ -96,7 +96,7 @@ jobs:
         run: cargo install --path . --locked --force
 
       - name: Upload Nushell build (Ubuntu and macOS)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: runner.os != 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
@@ -104,7 +104,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Nushell build (Windows)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: runner.os == 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"

@@ -134,14 +134,28 @@ fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
     };
 
     match value {
-        Value::Float { val, .. } => match precision {
-            Some(precision_number) => Value::float(
-                (val * ((10_f64).powf(precision_number as f64))).round()
-                    / (10_f64).powf(precision_number as f64),
-                span,
-            ),
-            None => Value::int(val.round() as i64, span),
-        },
+        Value::Float { val, .. } => {
+            if !val.is_finite() {
+                return Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "cannot round non-finite number".into(),
+                        input: "value originates from here".into(),
+                        msg_span: span,
+                        input_span: span,
+                    },
+                    span,
+                );
+            }
+
+            match precision {
+                Some(precision_number) => Value::float(
+                    (val * ((10_f64).powf(precision_number as f64))).round()
+                        / (10_f64).powf(precision_number as f64),
+                    span,
+                ),
+                None => Value::int(val.round() as i64, span),
+            }
+        }
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {

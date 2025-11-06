@@ -78,3 +78,29 @@ fn custom_metadata_preserved_through_collect() {
 
     assert_eq!(actual.out, "custom_value");
 }
+
+#[test]
+fn closure_adds_custom_without_clobbering_existing() {
+    let actual = nu!(r#"
+        "data" | metadata set --content-type "text/csv" | metadata set {|m| $m | upsert custom_key "value"} | metadata
+    "#);
+    assert!(actual.out.contains("text/csv"));
+    assert!(actual.out.contains("custom_key"));
+}
+
+#[test]
+fn errors_when_closure_with_flags() {
+    let actual = nu!(r#"
+        echo "foo" | metadata set {|| {content_type: "text/plain"}} --content-type "ignored"
+    "#);
+    assert!(actual.err.contains("cannot use closure with other flags"));
+}
+
+#[test]
+fn errors_when_closure_returns_non_record() {
+    let actual = nu!(r#"
+    echo "foo" | metadata set {|meta| "not a record"}
+    "#);
+
+    assert!(actual.err.contains("Closure must return a record"));
+}

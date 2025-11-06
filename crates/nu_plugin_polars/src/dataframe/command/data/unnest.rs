@@ -2,7 +2,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
-use polars::df;
+use polars::{df, prelude::PlSmallStr};
 
 use crate::{
     PolarsPlugin,
@@ -27,6 +27,12 @@ impl PluginCommand for UnnestDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "optional separator to use when creating new column names",
+                Some('s'),
+            )
             .rest("cols", SyntaxShape::String, "columns to unnest")
             .input_output_types(vec![
                 (
@@ -83,6 +89,25 @@ impl PluginCommand for UnnestDF {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Unnest with a custom separator",
+                example: r#"[[id person]; [1 {name: "Bob", age: 36}] [2 {name: "Betty", age: 63}]] 
+                    | polars into-df -s {id: i64, person: {name: str, age: u8}} 
+                    | polars unnest person -s "_"
+                    | polars get id person_name person_age
+                    | polars sort-by id"#,
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "id" => [1, 2],
+                            "person_name" => ["Bob", "Betty"],
+                            "person_age" => [36, 63]
+                        )
+                        .expect("Should be able to create a simple dataframe"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
@@ -117,9 +142,10 @@ fn command_eager(
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let cols = call.rest::<String>(0)?;
+    let separator = call.get_flag::<String>("separator")?;
     let polars = df.to_polars();
     let result: NuDataFrame = polars
-        .unnest(cols)
+        .unnest(cols, separator.as_deref())
         .map_err(|e| ShellError::GenericError {
             error: format!("Error unnesting dataframe: {e}"),
             msg: "".into(),
@@ -138,10 +164,11 @@ fn command_lazy(
     df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let cols = call.rest::<String>(0)?;
+    let separator = call.get_flag::<String>("separator")?.map(PlSmallStr::from);
 
     let polars = df.to_polars();
     // todo - allow selectors to be passed in here
-    let result: NuLazyFrame = polars.unnest(polars::prelude::cols(cols)).into();
+    let result: NuLazyFrame = polars.unnest(polars::prelude::cols(cols), separator).into();
     result.to_pipeline_data(plugin, engine, call.head)
 }
 

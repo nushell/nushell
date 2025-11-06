@@ -310,7 +310,7 @@ fn to_html(
                 .get("foreground")
                 .expect("Error getting foreground color")
         )
-        .unwrap();
+        .ok();
     } else {
         write!(
             &mut output_string,
@@ -322,7 +322,7 @@ fn to_html(
                 .get("foreground")
                 .expect("Error getting foreground color")
         )
-        .unwrap();
+        .ok();
     }
 
     let inner_value = match vec_of_values.len() {
