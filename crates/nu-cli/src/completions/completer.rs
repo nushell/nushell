@@ -583,6 +583,7 @@ impl NuCompleter {
                                         flag_completion_helper()
                                     }
                                     Some(_) => {
+                                        // TODO: add a test to flag value completion in nu-lsp/src/completion.rs
                                         // Completed flag value.
                                         // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
                                         // to make a user friendly completion items.
@@ -630,7 +631,7 @@ impl NuCompleter {
                                     return value_completion_result;
                                 }
                                 let mut need_fallback =
-                                    suggestions.is_empty() || dynamic_completion_need_fallback;
+                                    suggestions.is_empty() && dynamic_completion_need_fallback;
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {
                                         command_head,

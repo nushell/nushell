@@ -1,5 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
+use nu_protocol::engine::ArgType;
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 

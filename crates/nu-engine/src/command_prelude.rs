@@ -5,7 +5,7 @@ pub use nu_protocol::{
     PositionalArg, Record, ShellError, ShellWarning, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
     ast::CellPath,
-    engine::{ArgType, Call, Command, EngineState, Stack, StateWorkingSet},
+    engine::{Call, Command, EngineState, Stack, StateWorkingSet},
     record,
     shell_error::{io::*, job::*},
 };
