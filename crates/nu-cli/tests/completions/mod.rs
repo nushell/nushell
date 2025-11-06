@@ -295,12 +295,8 @@ fn custom_completions_override_span() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "my-command b";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    let expected = vec![Suggestion {
-        value: "blech".to_string(),
-        span: Span::new(1, 10),
-        ..Default::default()
-    }];
-    assert_eq!(expected, suggestions);
+    match_suggestions(&vec!["blech"], &suggestions);
+    assert_eq!(Span::new(1, 10), suggestions[0].span);
 }
 
 #[rstest]
