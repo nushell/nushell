@@ -576,7 +576,14 @@ impl NuCompleter {
                             Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
                                 match val {
                                     None => flag_completion_helper(),
+                                    // Completed from flag name itself.
+                                    Some(_)
+                                        if val.as_ref().is_none_or(|e| !e.span.contains(pos)) =>
+                                    {
+                                        flag_completion_helper()
+                                    }
                                     Some(_) => {
+                                        // Completed flag value.
                                         // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
                                         // to make a user friendly completion items.
                                         let (new_span, prefix) = strip_placeholder_with_rsplit(
@@ -616,14 +623,14 @@ impl NuCompleter {
                                     need_fallback: &mut dynamic_completion_need_fallback,
                                 };
 
-                                let mut need_fallback =
-                                    suggestions.is_empty() || dynamic_completion_need_fallback;
                                 // try argument dynamic completion defined by Command first.
                                 let value_completion_result =
                                     self.process_completion(&mut positional_value_completion, &ctx);
                                 if !value_completion_result.is_empty() {
                                     return value_completion_result;
                                 }
+                                let mut need_fallback =
+                                    suggestions.is_empty() || dynamic_completion_need_fallback;
                                 let results = self.argument_completion_helper(
                                     PositionalArguments {
                                         command_head,

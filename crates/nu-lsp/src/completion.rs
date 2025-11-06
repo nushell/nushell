@@ -440,6 +440,9 @@ mod tests {
             }
         }
     ]))]
+    // #[case::command_basic("command.nu", (16, 17), None, serde_json::json!([
+    //     { "label": "into int --endian", "detail": DETAIL_STR, "kind": 2 }
+    // ]))]
     #[case::command_fallback("command.nu", (13, 9), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 }
     ]))]
