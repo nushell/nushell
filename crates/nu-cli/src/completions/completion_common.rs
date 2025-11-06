@@ -65,7 +65,7 @@ fn complete_rec(
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let mut matcher = NuMatcher::new(prefix, options);
+    let mut matcher = NuMatcher::new(prefix, options, true);
 
     let mut exact_match = None;
     // Only relevant for case insensitive matching

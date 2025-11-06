@@ -54,7 +54,7 @@ impl Completer for CellPathCompletion<'_> {
             end: span.end - offset,
         };
 
-        let mut matcher = NuMatcher::new(prefix_str, options);
+        let mut matcher = NuMatcher::new(prefix_str, options, true);
         let path_members = self
             .full_cell_path
             .tail

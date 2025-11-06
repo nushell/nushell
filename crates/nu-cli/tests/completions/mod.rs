@@ -268,8 +268,20 @@ fn customcompletions_no_sort() {
         &["zzzfoo", "foo", "not matched", "abcfoo"],
     );
     let suggestions = completer.complete("my-command foo", 14);
-    let expected: Vec<_> = vec!["zzzfoo", "foo", "abcfoo"];
-    match_suggestions(&expected, &suggestions);
+    let expected_items = vec!["zzzfoo", "foo", "abcfoo"];
+    let expected_inds = vec![
+        Some(vec![3, 4, 5]),
+        Some(vec![0, 1, 2]),
+        Some(vec![3, 4, 5]),
+    ];
+    match_suggestions(&expected_items, &suggestions);
+    assert_eq!(
+        expected_inds,
+        suggestions
+            .iter()
+            .map(|s| s.match_indices.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
 /// Fallback to file completions if custom completer returns null

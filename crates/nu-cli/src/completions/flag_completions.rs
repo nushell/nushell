@@ -22,7 +22,7 @@ impl Completer for FlagCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options);
+        let mut matcher = NuMatcher::new(prefix, options, true);
         let mut add_suggestion = |value: String, description: String| {
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {

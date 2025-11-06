@@ -742,6 +742,23 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    /// Apply a function to all commands. The function accepts a command name and its DeclId
+    pub fn traverse_commands(&self, mut f: impl FnMut(&[u8], DeclId)) {
+        for scope_frame in self.delta.scope.iter().rev() {
+            for overlay_id in scope_frame.active_overlays.iter().rev() {
+                let overlay_frame = scope_frame.get_overlay(*overlay_id);
+
+                for (name, decl_id) in &overlay_frame.decls {
+                    if overlay_frame.visibility.is_decl_id_visible(decl_id) {
+                        f(name, *decl_id);
+                    }
+                }
+            }
+        }
+
+        self.permanent_state.traverse_commands(f);
+    }
+
     pub fn find_commands_by_predicate(
         &self,
         mut predicate: impl FnMut(&[u8]) -> bool,
@@ -749,32 +766,21 @@ impl<'a> StateWorkingSet<'a> {
     ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
-        for scope_frame in self.delta.scope.iter().rev() {
-            for overlay_id in scope_frame.active_overlays.iter().rev() {
-                let overlay_frame = scope_frame.get_overlay(*overlay_id);
-
-                for (name, decl_id) in &overlay_frame.decls {
-                    if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
-                        let command = self.get_decl(*decl_id);
-                        if ignore_deprecated && command.signature().category == Category::Removed {
-                            continue;
-                        }
-                        output.push((
-                            *decl_id,
-                            name.clone(),
-                            Some(command.description().to_string()),
-                            command.command_type(),
-                        ));
-                    }
-                }
+        self.traverse_commands(|name, decl_id| {
+            if !predicate(name) {
+                return;
             }
-        }
-
-        let mut permanent = self
-            .permanent_state
-            .find_commands_by_predicate(predicate, ignore_deprecated);
-
-        output.append(&mut permanent);
+            let command = self.get_decl(decl_id);
+            if ignore_deprecated && command.signature().category == Category::Removed {
+                return;
+            }
+            output.push((
+                decl_id,
+                name.to_vec(),
+                Some(command.description().to_string()),
+                command.command_type(),
+            ));
+        });
 
         output
     }

@@ -257,7 +257,7 @@ impl Completer for OperatorCompletion<'_> {
             });
         }
 
-        let mut matcher = NuMatcher::new(prefix, options);
+        let mut matcher = NuMatcher::new(prefix, options, true);
         for OperatorItem {
             symbols,
             description,
