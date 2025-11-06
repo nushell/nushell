@@ -222,10 +222,8 @@ impl Call {
         self.parser_info.insert(name, val)
     }
 
-    pub fn set_kth_argument(&mut self, k: usize, arg: Argument) {
-        if k < self.arguments.len() {
-            self.arguments[k] = arg;
-        }
+    pub fn set_kth_argument(&mut self, k: usize, arg: Argument) -> bool {
+        self.arguments.get_mut(k).map(|a| *a = arg).is_some()
     }
 
     pub fn get_flag_expr(&self, flag_name: &str) -> Option<&Expression> {

@@ -2413,7 +2413,12 @@ pub fn parse_module(
 
     // NOTE: Command `module`/`export module` has only 1 flag `-h/--help` which is handled outside of this function
     // if more flags added in the future, then this needs to be updated to something like `set_kth_positional`
-    call.set_kth_argument(1, Argument::Positional(block_expr));
+    if !call.set_kth_argument(1, Argument::Positional(block_expr)) {
+        working_set.error(ParseError::InternalError(
+            "Failed to set the block argument".into(),
+            block_expr_span,
+        ));
+    }
 
     (
         Pipeline::from_vec(vec![Expression::new(
