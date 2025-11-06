@@ -165,7 +165,7 @@ impl<T> NuMatcher<'_, T> {
             State::Fuzzy {
                 matcher,
                 atom,
-                matches: items,
+                matches,
             } => {
                 let mut haystack_buf = Vec::new();
                 let haystack_utf32 = Utf32Str::new(haystack, &mut haystack_buf);
@@ -178,7 +178,7 @@ impl<T> NuMatcher<'_, T> {
                     })
                     .collect();
                 if let Some(item) = item {
-                    items.push(FuzzyMatch {
+                    matches.push(FuzzyMatch {
                         item,
                         haystack: haystack.to_string(),
                         score,
@@ -240,7 +240,7 @@ impl<T> NuMatcher<'_, T> {
                 .into_iter()
                 .map(|mat| (mat.item, mat.match_indices))
                 .collect::<Vec<_>>(),
-            State::Fuzzy { matches: items, .. } => items
+            State::Fuzzy { matches, .. } => matches
                 .into_iter()
                 .map(|mat| (mat.item, mat.match_indices))
                 .collect::<Vec<_>>(),

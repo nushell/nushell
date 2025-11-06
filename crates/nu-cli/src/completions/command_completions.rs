@@ -5,7 +5,7 @@ use crate::{
     completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    Span,
+    Category, Span,
     engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -115,6 +115,9 @@ impl Completer for CommandCompletion {
             working_set.traverse_commands(|name, decl_id| {
                 let name = String::from_utf8_lossy(name);
                 let command = working_set.get_decl(decl_id);
+                if command.signature().category == Category::Removed {
+                    return;
+                }
                 let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: name.to_string(),
