@@ -22,8 +22,9 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ByteStreamType, Config, DeclId, LabeledError, PipelineData, PipelineMetadata, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Span, Spanned, Value,
+    ByteStreamType, Config, DeclId, DynamicSemanticSuggestion, LabeledError, PipelineData,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
+    Value,
     ast::Operator,
     casing::Casing,
     engine::{ArgType, Closure},
@@ -401,7 +402,7 @@ pub enum PluginCallResponse<D> {
     Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),
-    CompletionItems(Option<Vec<String>>),
+    CompletionItems(Option<Vec<DynamicSemanticSuggestion>>),
     PipelineData(D),
 }
 

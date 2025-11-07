@@ -49,7 +49,8 @@ impl<'a> Completer for ArgValueDynamicCompletion<'a> {
         match decl.get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type) {
             Ok(Some(items)) => {
                 for i in items {
-                    add_suggestion(i)
+                    let suggestion = SemanticSuggestion::from_dynamic_suggestion(i, span, None);
+                    add_suggestion(suggestion)
                 }
             }
             Ok(None) => *self.need_fallback = true,

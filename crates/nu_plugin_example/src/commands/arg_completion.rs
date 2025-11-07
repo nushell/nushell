@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::DynamicSemanticSuggestion;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, engine::ArgType,
 };
@@ -56,7 +57,7 @@ impl PluginCommand for ArgCompletion {
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<String>> {
+    ) -> Option<Vec<DynamicSemanticSuggestion>> {
         match arg_type {
             ArgType::Flag(flag_name) => {
                 // let's generate it dynamically.

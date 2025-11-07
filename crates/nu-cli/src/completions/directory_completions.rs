@@ -3,13 +3,13 @@ use crate::completions::{
     completion_common::{AdjustView, adjust_if_intermediate, complete_item},
 };
 use nu_protocol::{
-    Span,
+    Span, SuggestionKind,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::{SemanticSuggestion, SuggestionKind, completion_common::FileSuggestion};
+use super::{SemanticSuggestion, completion_common::FileSuggestion};
 
 pub struct DirectoryCompletion;
 

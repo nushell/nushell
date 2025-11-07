@@ -18,7 +18,7 @@ mod variable_completions;
 
 pub use arg_value_dynamic_completion::ArgValueDynamicCompletion;
 pub use attribute_completions::{AttributableCompletion, AttributeCompletion};
-pub use base::{Completer, SemanticSuggestion, SuggestionKind};
+pub use base::{Completer, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
 pub use command_completions::CommandCompletion;
 pub use completer::NuCompleter;
@@ -29,6 +29,7 @@ pub use dotnu_completions::DotNuCompletion;
 pub use exportable_completions::ExportableCompletion;
 pub use file_completions::FileCompletion;
 pub use flag_completions::FlagCompletion;
+pub use nu_protocol::SuggestionKind;
 pub use operator_completions::OperatorCompletion;
 pub use static_completions::StaticCompletion;
 pub use variable_completions::VariableCompletion;

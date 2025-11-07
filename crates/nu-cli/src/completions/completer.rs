@@ -2,13 +2,12 @@ use crate::completions::{
     ArgValueDynamicCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
     DotNuCompletion, ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion,
-    VariableCompletion,
-    base::{SemanticSuggestion, SuggestionKind},
+    VariableCompletion, base::SemanticSuggestion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::{parse, parse_module_file_or_dir};
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Span, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Span, SuggestionKind, Type, Value,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
         RedirectionTarget, Traverse,

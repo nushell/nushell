@@ -1,6 +1,6 @@
 use crate::completions::CompletionOptions;
 use nu_protocol::{
-    DeclId, Span,
+    DeclId, DynamicSemanticSuggestion, DynamicSuggestion, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -25,18 +25,25 @@ pub struct SemanticSuggestion {
     pub kind: Option<SuggestionKind>,
 }
 
-// TODO: think about name: maybe suggestion context?
-#[derive(Clone, Debug, PartialEq)]
-pub enum SuggestionKind {
-    Command(nu_protocol::engine::CommandType, Option<DeclId>),
-    Value(nu_protocol::Type),
-    CellPath,
-    Directory,
-    File,
-    Flag,
-    Module,
-    Operator,
-    Variable,
+impl SemanticSuggestion {
+    pub fn from_dynamic_suggestion(
+        suggestion: DynamicSemanticSuggestion,
+        span: Span,
+        style: Option<nu_ansi_term::Style>,
+    ) -> Self {
+        SemanticSuggestion {
+            suggestion: Suggestion {
+                value: suggestion.suggestion.value,
+                description: suggestion.suggestion.description,
+                extra: suggestion.suggestion.extra,
+                append_whitespace: suggestion.suggestion.append_whitespace,
+                match_indices: suggestion.suggestion.match_indices,
+                style,
+                span,
+            },
+            kind: suggestion.kind,
+        }
+    }
 }
 
 impl From<Suggestion> for SemanticSuggestion {

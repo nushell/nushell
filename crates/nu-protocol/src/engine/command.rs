@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    Alias, BlockId, DeprecationEntry, Example, OutDest, PipelineData, ShellError, Signature, Value,
-    engine::Call,
+    Alias, BlockId, DeprecationEntry, DynamicSemanticSuggestion, Example, OutDest, PipelineData,
+    ShellError, Signature, Value, engine::Call,
 };
 use std::{borrow::Cow, fmt::Display};
 
@@ -23,7 +25,7 @@ impl<'a> Display for ArgType<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandType {
     Builtin,
     Custom,
@@ -167,7 +169,7 @@ pub trait Command: Send + Sync + CommandClone {
         engine_state: &EngineState,
         stack: &mut Stack,
         arg_type: &ArgType,
-    ) -> Result<Option<Vec<String>>, ShellError> {
+    ) -> Result<Option<Vec<DynamicSemanticSuggestion>>, ShellError> {
         Ok(None)
     }
 

@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
+use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    ShellError, Span, Value,
+    ShellError, Span, SuggestionKind, Value,
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,

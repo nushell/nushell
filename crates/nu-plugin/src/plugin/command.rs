@@ -1,3 +1,4 @@
+use nu_protocol::DynamicSemanticSuggestion;
 use nu_protocol::{
     Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
     Signature, Value, engine::ArgType,
