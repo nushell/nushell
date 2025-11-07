@@ -2974,7 +2974,7 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
     vec!["`かなbar`", "かなfoo"],
     vec![vec![1], vec![0]]
 )]
-fn reedline_match_indices(
+fn suggestion_match_indices(
     #[case] matcher_algo: &str,
     #[case] options: &str,
     #[case] pattern: &str,
