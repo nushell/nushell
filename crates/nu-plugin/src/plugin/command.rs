@@ -153,14 +153,20 @@ pub trait PluginCommand: Sync {
     ) -> Result<PipelineData, LabeledError>;
 
     #[allow(unused_variables)]
-    /// Get completion items for `flag_name`.
+    /// Get completion items for `arg_type`.
     ///
-    /// It's useful when you want to get auto completion items of a flag.
+    /// It's useful when you want to get auto completion items of a flag or positional argument
+    /// dynamically.
+    ///
+    /// The implementation can returns 3 types of return values:
+    /// - None: I couldn't find any suggestions, please fall back to default completions
+    /// - Some(vec![]): there are no suggestions
+    /// - Some(vec![item1, item2]): item1 and item2 are available
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        flag_value: ArgType,
+        arg_type: ArgType,
     ) -> Option<Vec<DynamicSemanticSuggestion>> {
         None
     }
@@ -306,6 +312,11 @@ pub trait SimplePluginCommand: Sync {
     ///
     /// It's useful when you want to get auto completion items of a flag or positional argument
     /// dynamically.
+    ///
+    /// The implementation can returns 3 types of return values:
+    /// - None: I couldn't find any suggestions, please fall back to default completions
+    /// - Some(vec![]): there are no suggestions
+    /// - Some(vec![item1, item2]): item1 and item2 are available
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,

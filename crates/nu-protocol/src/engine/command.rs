@@ -163,6 +163,15 @@ pub trait Command: Send + Sync + CommandClone {
     }
 
     // engine_state and stack are required to get completion from plugin.
+    /// Get completion items for `arg_type`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag or positional argument
+    /// dynamically.
+    ///
+    /// The implementation can returns 3 types of return values:
+    /// - None: I couldn't find any suggestions, please fall back to default completions
+    /// - Some(vec![]): there are no suggestions
+    /// - Some(vec![item1, item2]): item1 and item2 are available
     #[allow(unused_variables)]
     fn get_dynamic_completion(
         &self,
