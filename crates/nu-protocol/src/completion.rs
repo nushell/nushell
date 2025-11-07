@@ -3,6 +3,15 @@ use crate::Type;
 use crate::engine::CommandType;
 use serde::{Deserialize, Serialize};
 
+// A simple semantics suggestion just like nu_cli::SemanticSuggestion, but it
+// derives `Serialize` and `Deserialize`, so plugins are allowed to use it
+// to provide dynamic completion items.
+//
+// Why define a new one rather than put `nu_cli::SemanticSuggestion` here?
+//
+// If bringing `nu_cli::SemanticSuggestion` here, it brings reedline::Suggestion too,
+// then it requires this crates depends on `reedline`, this is not good because
+// protocol should not rely on a cli relative interface.
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone)]
 pub struct DynamicSemanticSuggestion {
     pub suggestion: DynamicSuggestion,
@@ -50,13 +59,4 @@ pub enum SuggestionKind {
     Module,
     Operator,
     Variable,
-}
-
-impl From<DynamicSuggestion> for DynamicSemanticSuggestion {
-    fn from(suggestion: DynamicSuggestion) -> Self {
-        Self {
-            suggestion,
-            ..Default::default()
-        }
-    }
 }
