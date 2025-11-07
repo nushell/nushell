@@ -5,7 +5,6 @@ use nu_protocol::{
     DeclId, Span,
     engine::{ArgType, Stack, StateWorkingSet},
 };
-use reedline::Suggestion;
 
 pub struct ArgValueDynamicCompletion<'a> {
     pub decl_id: DeclId,
@@ -28,29 +27,21 @@ impl<'a> Completer for ArgValueDynamicCompletion<'a> {
         // if user input `--foo abc`, then the `prefix` here is abc.
         // the name of flag is saved in `self.flag_name`.
         let mut matcher = NuMatcher::new(prefix, options);
-        let mut add_suggestion = |value: String| {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value,
-                    description: None,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
-                    append_whitespace: true,
-                    ..Suggestion::default()
-                },
-                kind: None,
-            });
-        };
 
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
         match decl.get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type) {
             Ok(Some(items)) => {
                 for i in items {
-                    let suggestion = SemanticSuggestion::from_dynamic_suggestion(i, span, None);
-                    add_suggestion(suggestion)
+                    let suggestion = SemanticSuggestion::from_dynamic_suggestion(
+                        i,
+                        reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        None,
+                    );
+                    matcher.add_semantic_suggestion(suggestion);
                 }
             }
             Ok(None) => *self.need_fallback = true,
