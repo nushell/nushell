@@ -2952,3 +2952,54 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
 }
+
+#[rstest]
+#[case::substring(
+    "substring", "😏foo かなfoo abfoo", "f",
+    vec!["abfoo", "かなfoo", "😏foo"],
+    vec![vec![2], vec![2], vec![1]]
+)]
+#[case::fuzzy(
+    "fuzzy", "😏foo かなfoo abfoo", "f",
+    vec!["😏foo", "abfoo", "かなfoo"],
+    vec![vec![1], vec![2], vec![2]]
+)]
+#[case::substring_unicode_with_quotes(
+    "substring", "かなfoo '`かなbar`'", "な",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![2], vec![1]]
+)]
+#[case::prefix_unicode_with_quotes(
+    "prefix", "かなfoo '`かなbar`'", "か",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![1], vec![0]]
+)]
+fn reedline_match_indices(
+    #[case] matcher_algo: &str,
+    #[case] options: &str,
+    #[case] pattern: &str,
+    #[case] expected_values: Vec<&str>,
+    #[case] expected_indices: Vec<Vec<usize>>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    let config = format!("$env.config.completions.algorithm = '{matcher_algo}'");
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let input = format!("def foo [a: string@[{options}]] {{}}; foo {pattern}");
+    let suggestions = completer.complete(&input, input.len());
+
+    assert_eq!(suggestions.len(), expected_values.len());
+    assert_eq!(suggestions.len(), expected_indices.len());
+
+    for ((value, indices), sugg) in expected_values
+        .iter()
+        .zip(expected_indices.into_iter())
+        .zip(suggestions.iter())
+    {
+        assert_eq!(*value, sugg.value);
+        assert_eq!(Some(indices), sugg.match_indices);
+    }
+}
