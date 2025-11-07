@@ -1110,4 +1110,21 @@ mod test {
         let none = None;
         assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
     }
+
+    #[test]
+    fn test_expand_unix_socket_path() {
+        let cwd = std::env::current_dir().unwrap();
+
+        // None returns None
+        assert!(expand_unix_socket_path(None, &cwd).is_none());
+
+        // Tilde gets expanded
+        let with_tilde = Some(Spanned {
+            item: "~/socket.sock".to_string(),
+            span: Span::test_data(),
+        });
+        let expanded = expand_unix_socket_path(with_tilde, &cwd).unwrap();
+        assert!(expanded.is_absolute());
+        assert!(!expanded.to_string_lossy().contains('~'));
+    }
 }
