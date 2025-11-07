@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::DynamicSemanticSuggestion;
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, engine::ArgType,
+    Category, DynamicSemanticSuggestion, Example, LabeledError, PipelineData, Signature,
+    SyntaxShape, engine::ArgType,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -69,7 +69,7 @@ impl PluginCommand for ArgCompletion {
                 match flag_name.as_ref() {
                     "flag" => Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| s.to_string())
+                            .map(|s| s.to_string().into())
                             .collect(),
                     ),
                     _ => None,
@@ -86,13 +86,13 @@ impl PluginCommand for ArgCompletion {
                 if index == 0 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg0:{s}"))
+                            .map(|s| format!("arg0:{s}").into())
                             .collect(),
                     )
                 } else if index == 1 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg1:{s}"))
+                            .map(|s| format!("arg1:{s}").into())
                             .collect(),
                     )
                 } else {

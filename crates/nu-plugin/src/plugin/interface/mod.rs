@@ -11,8 +11,9 @@ use nu_plugin_protocol::{
     PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    Config, DeclId, DynamicSemanticSuggestion, Handler, HandlerGuard, Handlers, LabeledError,
+    PipelineData, PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span,
+    Spanned, Value,
     engine::{Closure, Sequence},
 };
 use nu_utils::SharedCow;
@@ -485,7 +486,7 @@ impl EngineInterface {
     /// Write a call response of completion items.
     pub(crate) fn write_completion_items(
         &self,
-        items: Option<Vec<String>>,
+        items: Option<Vec<DynamicSemanticSuggestion>>,
     ) -> Result<(), ShellError> {
         let response = PluginCallResponse::CompletionItems(items);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;

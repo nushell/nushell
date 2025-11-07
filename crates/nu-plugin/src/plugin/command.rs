@@ -1,7 +1,6 @@
-use nu_protocol::DynamicSemanticSuggestion;
 use nu_protocol::{
-    Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
-    Signature, Value, engine::ArgType,
+    DynamicSemanticSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
+    PluginSignature, ShellError, Signature, Value, engine::ArgType,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -162,7 +161,7 @@ pub trait PluginCommand: Sync {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         flag_value: ArgType,
-    ) -> Option<Vec<String>> {
+    ) -> Option<Vec<DynamicSemanticSuggestion>> {
         None
     }
 }
@@ -312,7 +311,7 @@ pub trait SimplePluginCommand: Sync {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<String>> {
+    ) -> Option<Vec<DynamicSemanticSuggestion>> {
         None
     }
 }
@@ -371,7 +370,7 @@ where
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<String>> {
+    ) -> Option<Vec<DynamicSemanticSuggestion>> {
         <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, arg_type)
     }
 }
