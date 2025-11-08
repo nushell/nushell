@@ -576,7 +576,7 @@ impl NuCompleter {
                                 match val {
                                     None => flag_completion_helper(),
                                     // Completed from flag name itself.
-                                    Some(val) if val.span.contains(pos) => flag_completion_helper(),
+                                    Some(val) if !val.span.contains(pos) => flag_completion_helper(),
                                     Some(_) => {
                                         // TODO: add a test to flag value completion in nu-lsp/src/completion.rs
                                         //
