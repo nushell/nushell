@@ -11,14 +11,17 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing, engine::Sequence,
+    CustomValue, IntoSpanned, ListStream, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, SignalAction, Signals, Span, Spanned, Value,
+    ast::Operator,
+    casing::Casing,
+    engine::{Job, Jobs, Sequence, ThreadJob},
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{BTreeMap, btree_map},
     path::Path,
-    sync::{Arc, OnceLock, mpsc},
+    sync::{Arc, Mutex, OnceLock, mpsc},
 };
 
 use crate::{
@@ -121,6 +124,12 @@ struct PluginCallState {
     ),
     /// Number of streams that still need to be read from the plugin call response
     remaining_streams_to_read: i32,
+    /// The unique ID for this plugin call
+    call_id: usize,
+    /// The name of the plugin that owns this call
+    plugin_name: Arc<str>,
+    /// The jobs table for cleaning up background jobs
+    jobs: Arc<Mutex<Jobs>>,
 }
 
 impl Drop for PluginCallState {
@@ -129,6 +138,16 @@ impl Drop for PluginCallState {
         for value in self.keep_plugin_custom_values.1.try_iter() {
             log::trace!("Dropping custom value that was kept: {value:?}");
             drop(value);
+        }
+
+        // Clean up any background jobs spawned during this plugin call
+        let tag = format!("plugin:{}:{}", self.plugin_name, self.call_id);
+        if let Ok(mut jobs_guard) = self.jobs.lock() {
+            if let Err(err) = jobs_guard.kill_by_tag(&tag) {
+                log::warn!("Failed to kill jobs for {tag}: {err}");
+            }
+        } else {
+            log::warn!("Failed to acquire jobs lock to clean up jobs for {tag}");
         }
     }
 }
@@ -306,6 +325,7 @@ impl PluginInterfaceManager {
                     keep_plugin_custom_values_tx: Some(state.keep_plugin_custom_values.0.clone()),
                     entered_foreground: false,
                     span: state.span,
+                    call_id: None, // No call_id for background engine call handler
                 };
 
                 let handler = move || {
@@ -724,6 +744,7 @@ impl PluginInterface {
             keep_plugin_custom_values_tx: Some(keep_plugin_custom_values.0.clone()),
             entered_foreground: false,
             span: call.span(),
+            call_id: Some(id),
         };
 
         // Prepare the call with the state.
@@ -753,6 +774,11 @@ impl PluginInterface {
         let dont_send_response =
             matches!(call, PluginCall::CustomValueOp(_, CustomValueOp::Dropped));
 
+        // Get the jobs table from context, if available
+        let jobs = context
+            .map(|c| c.jobs())
+            .unwrap_or_else(|| Arc::new(Mutex::new(Jobs::default())));
+
         // Register the subscription to the response, and the context
         self.state
             .plugin_call_subscription_sender
@@ -766,6 +792,9 @@ impl PluginInterface {
                     span: call.span(),
                     keep_plugin_custom_values,
                     remaining_streams_to_read: 0,
+                    call_id: id,
+                    plugin_name: self.state.source.identity.name().into(),
+                    jobs,
                 },
             ))
             .map_err(|_| {
@@ -1201,6 +1230,8 @@ pub struct CurrentCallState {
     entered_foreground: bool,
     /// The span that caused the plugin call.
     span: Option<Span>,
+    /// The unique ID for this plugin call, used for tagging jobs.
+    pub(crate) call_id: Option<usize>,
 }
 
 impl CurrentCallState {
@@ -1364,6 +1395,85 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+        EngineCall::EvalClosureCloned {
+            closure,
+            positional,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        } => {
+            let span = closure.span;
+            let signals = context.signals().clone();
+
+            // Create a thread job for this evaluation
+            let (sender, _receiver) = mpsc::channel();
+            let plugin_identity = context.plugin_identity();
+            let tag = if let Some(call_id) = state.call_id {
+                format!("plugin:{}:{}", plugin_identity.name(), call_id)
+            } else {
+                format!("plugin:{}", plugin_identity.name())
+            };
+            let job = ThreadJob::new(signals.clone(), Some(tag), sender);
+
+            // Add the job to the engine's job table
+            let jobs = context.jobs();
+            let job_id = {
+                let mut jobs_guard = jobs.lock().expect("jobs mutex poisoned");
+                jobs_guard.add_job(Job::Thread(job.clone()))
+            };
+
+            // Clone the context with the job set to enable concurrent evaluation
+            let owned_context = context.boxed_with_job(job);
+
+            // Create channel for streaming results from worker thread
+            let (tx, rx) = std::sync::mpsc::channel();
+
+            // Spawn worker thread to evaluate closure
+            std::thread::spawn(move || {
+                let result = owned_context.eval_closure(
+                    closure,
+                    positional,
+                    input,
+                    redirect_stdout,
+                    redirect_stderr,
+                );
+
+                // Stream PipelineData values through channel
+                match result {
+                    Ok(pipeline_data) => {
+                        // Send each value from the pipeline
+                        for value in pipeline_data.into_iter() {
+                            if tx.send(Ok(value)).is_err() {
+                                break; // Receiver dropped
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        // Send error as a value
+                        let _ = tx.send(Err(err));
+                    }
+                }
+
+                // Clean up job when done
+                let mut jobs_guard = jobs.lock().expect("jobs mutex poisoned");
+                jobs_guard.remove_job(job_id);
+            });
+
+            // Create iterator that pulls from channel (non-blocking return!)
+            let iter = std::iter::from_fn(move || {
+                match rx.recv() {
+                    Ok(Ok(value)) => Some(value),
+                    Ok(Err(err)) => Some(Value::error(err, span)),
+                    Err(_) => None, // Channel closed, end of stream
+                }
+            });
+
+            // Return ListStream immediately without blocking
+            let stream = ListStream::new(iter, span, signals);
+            Ok(EngineCallResponse::PipelineData(PipelineData::ListStream(
+                stream, None,
+            )))
+        }
         EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {
             if let Some(decl_id) = decl_id {
                 EngineCallResponse::Identifier(decl_id)
