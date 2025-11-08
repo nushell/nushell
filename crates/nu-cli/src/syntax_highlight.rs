@@ -60,7 +60,7 @@ pub(crate) fn highlight_syntax(
     );
 
     for (raw_span, flat_shape) in &shapes {
-        // NOTE: Currently we expand aliaes while flattening for tasks such as completion
+        // NOTE: Currently we expand aliases while flattening for tasks such as completion
         // https://github.com/nushell/nushell/issues/16944
         let span = if let FlatShape::External(alias_span) = flat_shape {
             alias_span
