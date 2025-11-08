@@ -14,11 +14,11 @@ impl PluginCommand for ArgCompletion {
     type Plugin = ExamplePlugin;
 
     fn name(&self) -> &str {
-        "example flag-completion"
+        "example arg-completion"
     }
 
     fn description(&self) -> &str {
-        "It's a demo for flag completion, you can try to type `example flag-completion -f <tab>`to see what it returns"
+        "It's a demo for arg completion, you can try to type `example arg-completion -f <tab>`to see what it returns"
     }
 
     fn signature(&self) -> Signature {
@@ -67,7 +67,7 @@ impl PluginCommand for ArgCompletion {
                     .expect("time should go forward")
                     .as_secs();
                 match flag_name.as_ref() {
-                    "flag" => Some(
+                    "future-timestamp" => Some(
                         (since_the_epoch..since_the_epoch + 10)
                             .map(|s| s.to_string().into())
                             .collect(),

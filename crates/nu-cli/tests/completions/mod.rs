@@ -195,6 +195,35 @@ fn variables_single_dash_argument_with_flagcompletion(mut completer: NuCompleter
 }
 
 #[rstest]
+fn variables_double_dash_argument_with_flag_value_completion(mut completer: NuCompleter) {
+    let suggestions = completer.complete("fake-cmd --flag ", 16);
+    let expected: Vec<_> = vec!["flag:0", "flag:1", "flag:2"];
+    // dbg!(&expected, &suggestions);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn variables_single_dash_argument_with_flag_value_completion(mut completer: NuCompleter) {
+    let suggestions = completer.complete("fake-cmd arg0:0 -f ", 19);
+    let expected: Vec<_> = vec!["flag:0", "flag:1", "flag:2"];
+    // dbg!(&expected, &suggestions);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn variables_argument_with_pos_value_completion(mut completer: NuCompleter) {
+    let suggestions = completer.complete("fake-cmd ", 9);
+    let expected: Vec<_> = vec!["arg0:0"];
+    // dbg!(&expected, &suggestions);
+    match_suggestions(&expected, &suggestions);
+
+    let suggestions = completer.complete("fake-cmd arg0:0 ", 16);
+    let expected: Vec<_> = vec!["arg1:0", "arg1:1"];
+    // dbg!(&expected, &suggestions);
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
 fn variables_command_with_commandcompletion(mut completer_strings: NuCompleter) {
     let suggestions = completer_strings.complete("my-c ", 4);
     let expected: Vec<_> = vec!["my-command"];
