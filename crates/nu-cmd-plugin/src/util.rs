@@ -3,7 +3,10 @@ use nu_engine::{command_prelude::*, current_dir};
 use nu_protocol::{
     PluginRegistryFile,
     engine::StateWorkingSet,
-    shell_error::{self, io::{IoError, IoErrorExt, NotFound}},
+    shell_error::{
+        self,
+        io::{IoError, IoErrorExt, NotFound},
+    },
 };
 use std::{
     fs::{self, File},
