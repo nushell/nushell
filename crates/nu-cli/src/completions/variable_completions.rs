@@ -21,7 +21,7 @@ impl Completer for VariableCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options);
+        let mut matcher = NuMatcher::new(prefix, options, true);
         let current_span = reedline::Span {
             start: span.start - offset,
             end: span.end - offset,
@@ -70,6 +70,6 @@ impl Completer for VariableCompletion {
             });
         }
 
-        matcher.results()
+        matcher.suggestion_results()
     }
 }

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::{
     SuggestionKind,
     completions::{Completer, CompletionOptions},
 };
 use nu_protocol::{
-    Span,
+    Category, Span,
     engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -25,10 +25,10 @@ impl CommandCompletion {
         &self,
         working_set: &StateWorkingSet,
         sugg_span: reedline::Span,
-        matched_internal: impl Fn(&str) -> bool,
-        matcher: &mut NuMatcher<String>,
-    ) -> HashMap<String, SemanticSuggestion> {
-        let mut suggs = HashMap::new();
+        internal_suggs: HashSet<String>,
+        mut matcher: NuMatcher<SemanticSuggestion>,
+    ) -> Vec<SemanticSuggestion> {
+        let mut external_commands = HashSet::new();
 
         let paths = working_set.permanent_state.get_env_var_insensitive("path");
 
@@ -46,30 +46,32 @@ impl CommandCompletion {
                             .completions
                             .external
                             .max_results
-                            <= suggs.len() as i64
+                            <= external_commands.len() as i64
                         {
                             break;
                         }
                         let Ok(name) = item.file_name().into_string() else {
                             continue;
                         };
-                        let value = if matched_internal(&name) {
+                        // If there's an internal command with the same name, adds ^cmd to the
+                        // matcher so that both the internal and external command are included
+                        let value = if internal_suggs.contains(&name) {
                             format!("^{name}")
                         } else {
                             name.clone()
                         };
-                        if suggs.contains_key(&value) {
+                        if external_commands.contains(&value) {
                             continue;
                         }
                         // TODO: check name matching before a relative heavy IO involved
                         // `is_executable` for performance consideration, should avoid
                         // duplicated `match_aux` call for matched items in the future
-                        if matcher.matches(&name) && is_executable::is_executable(item.path()) {
-                            // If there's an internal command with the same name, adds ^cmd to the
-                            // matcher so that both the internal and external command are included
-                            matcher.add(&name, value.clone());
-                            suggs.insert(
-                                value.clone(),
+                        if matcher.check_match(&name).is_some()
+                            && is_executable::is_executable(item.path())
+                        {
+                            external_commands.insert(value.clone());
+                            matcher.add(
+                                name,
                                 SemanticSuggestion {
                                     suggestion: Suggestion {
                                         value,
@@ -89,7 +91,7 @@ impl CommandCompletion {
             }
         }
 
-        suggs
+        matcher.suggestion_results()
     }
 }
 
@@ -103,57 +105,49 @@ impl Completer for CommandCompletion {
         offset: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut matcher = NuMatcher::new(prefix, options);
+        let mut res = Vec::new();
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
-        let mut internal_suggs = HashMap::new();
+        let mut internal_suggs = HashSet::new();
         if self.internals {
-            let filtered_commands = working_set.find_commands_by_predicate(
-                |name| {
-                    let name = String::from_utf8_lossy(name);
-                    matcher.add(&name, name.to_string())
-                },
-                true,
-            );
-            for (decl_id, name, description, typ) in filtered_commands {
-                let name = String::from_utf8_lossy(&name);
-                internal_suggs.insert(
-                    name.to_string(),
-                    SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: name.to_string(),
-                            description,
-                            span: sugg_span,
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        kind: Some(SuggestionKind::Command(typ, Some(decl_id))),
+            let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
+            working_set.traverse_commands(|name, decl_id| {
+                let name = String::from_utf8_lossy(name);
+                let command = working_set.get_decl(decl_id);
+                if command.signature().category == Category::Removed {
+                    return;
+                }
+                let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: name.to_string(),
+                        description: Some(command.description().to_string()),
+                        span: sugg_span,
+                        append_whitespace: true,
+                        ..Suggestion::default()
                     },
-                );
-            }
+                    kind: Some(SuggestionKind::Command(
+                        command.command_type(),
+                        Some(decl_id),
+                    )),
+                });
+                if matched {
+                    internal_suggs.insert(name.to_string());
+                }
+            });
+            res.extend(matcher.suggestion_results());
         }
 
-        let mut external_suggs = if self.externals {
-            self.external_command_completion(
+        if self.externals {
+            let external_suggs = self.external_command_completion(
                 working_set,
                 sugg_span,
-                |name| internal_suggs.contains_key(name),
-                &mut matcher,
-            )
-        } else {
-            HashMap::new()
-        };
-
-        let mut res = Vec::new();
-        for cmd_name in matcher.results() {
-            if let Some(sugg) = internal_suggs
-                .remove(&cmd_name)
-                .or_else(|| external_suggs.remove(&cmd_name))
-            {
-                res.push(sugg);
-            }
+                internal_suggs,
+                NuMatcher::new(prefix, options, true),
+            );
+            res.extend(external_suggs);
         }
+
         res
     }
 }

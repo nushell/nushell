@@ -1,12 +1,12 @@
 use crate::{
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module,
-    ModuleId, OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value,
-    VarId, VirtualPathId,
+    BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, CommandType, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame,
-        Stack, StateDelta, Variable, Visibility,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame, Stack,
+        StateDelta, Variable, Visibility,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -753,31 +753,15 @@ impl EngineState {
         None
     }
 
-    pub fn find_commands_by_predicate(
-        &self,
-        mut predicate: impl FnMut(&[u8]) -> bool,
-        ignore_deprecated: bool,
-    ) -> Vec<(DeclId, Vec<u8>, Option<String>, CommandType)> {
-        let mut output = vec![];
-
+    /// Apply a function to all commands. The function accepts a command name and its DeclId
+    pub fn traverse_commands(&self, mut f: impl FnMut(&[u8], DeclId)) {
         for overlay_frame in self.active_overlays(&[]).rev() {
             for (name, decl_id) in &overlay_frame.decls {
-                if overlay_frame.visibility.is_decl_id_visible(decl_id) && predicate(name) {
-                    let command = self.get_decl(*decl_id);
-                    if ignore_deprecated && command.signature().category == Category::Removed {
-                        continue;
-                    }
-                    output.push((
-                        *decl_id,
-                        name.clone(),
-                        Some(command.description().to_string()),
-                        command.command_type(),
-                    ));
+                if overlay_frame.visibility.is_decl_id_visible(decl_id) {
+                    f(name, *decl_id);
                 }
             }
         }
-
-        output
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {

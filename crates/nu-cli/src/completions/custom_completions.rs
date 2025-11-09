@@ -152,19 +152,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             }
         };
 
-        let mut matcher = NuMatcher::new(prefix, &completion_options);
+        let mut matcher = NuMatcher::new(prefix, &completion_options, should_sort);
 
-        if should_sort {
-            for sugg in suggestions {
-                matcher.add_semantic_suggestion(sugg);
-            }
-            matcher.results()
-        } else {
-            suggestions
-                .into_iter()
-                .filter(|sugg| matcher.matches(&sugg.suggestion.value))
-                .collect()
+        for sugg in suggestions {
+            matcher.add_semantic_suggestion(sugg);
         }
+        matcher.suggestion_results()
     }
 }
 

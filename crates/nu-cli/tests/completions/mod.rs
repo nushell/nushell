@@ -268,8 +268,20 @@ fn customcompletions_no_sort() {
         &["zzzfoo", "foo", "not matched", "abcfoo"],
     );
     let suggestions = completer.complete("my-command foo", 14);
-    let expected: Vec<_> = vec!["zzzfoo", "foo", "abcfoo"];
-    match_suggestions(&expected, &suggestions);
+    let expected_items = vec!["zzzfoo", "foo", "abcfoo"];
+    let expected_inds = vec![
+        Some(vec![3, 4, 5]),
+        Some(vec![0, 1, 2]),
+        Some(vec![3, 4, 5]),
+    ];
+    match_suggestions(&expected_items, &suggestions);
+    assert_eq!(
+        expected_inds,
+        suggestions
+            .iter()
+            .map(|s| s.match_indices.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -283,12 +295,8 @@ fn custom_completions_override_span() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "my-command b";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    let expected = vec![Suggestion {
-        value: "blech".to_string(),
-        span: Span::new(1, 10),
-        ..Default::default()
-    }];
-    assert_eq!(expected, suggestions);
+    match_suggestions(&vec!["blech"], &suggestions);
+    assert_eq!(Span::new(1, 10), suggestions[0].span);
 }
 
 #[rstest]
@@ -2943,4 +2951,55 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete("mut foo = [(date now)]; $foo.0 =", 32);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+#[case::substring(
+    "substring", "😏foo かなfoo abfoo", "f",
+    vec!["abfoo", "かなfoo", "😏foo"],
+    vec![vec![2], vec![2], vec![1]]
+)]
+#[case::fuzzy(
+    "fuzzy", "😏foo かなfoo abfoo", "f",
+    vec!["😏foo", "abfoo", "かなfoo"],
+    vec![vec![1], vec![2], vec![2]]
+)]
+#[case::substring_unicode_with_quotes(
+    "substring", "かなfoo '`かなbar`'", "な",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![2], vec![1]]
+)]
+#[case::prefix_unicode_with_quotes(
+    "prefix", "かなfoo '`かなbar`'", "か",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![1], vec![0]]
+)]
+fn suggestion_match_indices(
+    #[case] matcher_algo: &str,
+    #[case] options: &str,
+    #[case] pattern: &str,
+    #[case] expected_values: Vec<&str>,
+    #[case] expected_indices: Vec<Vec<usize>>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    let config = format!("$env.config.completions.algorithm = '{matcher_algo}'");
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let input = format!("def foo [a: string@[{options}]] {{}}; foo {pattern}");
+    let suggestions = completer.complete(&input, input.len());
+
+    assert_eq!(suggestions.len(), expected_values.len());
+    assert_eq!(suggestions.len(), expected_indices.len());
+
+    for ((value, indices), sugg) in expected_values
+        .iter()
+        .zip(expected_indices.into_iter())
+        .zip(suggestions.iter())
+    {
+        assert_eq!(*value, sugg.value);
+        assert_eq!(Some(indices), sugg.match_indices);
+    }
 }
