@@ -46,15 +46,36 @@ impl Command for FakeCmd {
             ArgType::Positional(index) => {
                 // be careful: Don't include any spaces for values.
                 if *index == 0 {
-                    Some((0..1).map(|s| format!("arg0:{s}").into()).collect())
+                    Some(
+                        (0..1)
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg0:{s}"),
+                                ..Default::default()
+                            })
+                            .collect(),
+                    )
                 } else if *index == 1 {
-                    Some((0..2).map(|s| format!("arg1:{s}").into()).collect())
+                    Some(
+                        (0..2)
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg1:{s}"),
+                                ..Default::default()
+                            })
+                            .collect(),
+                    )
                 } else {
                     None
                 }
             }
             ArgType::Flag(flag_name) => match flag_name.as_ref() {
-                "flag" => Some((0..3).map(|s| format!("flag:{s}").into()).collect()),
+                "flag" => Some(
+                    (0..3)
+                        .map(|s| DynamicSuggestion {
+                            value: format!("flag:{s}"),
+                            ..Default::default()
+                        })
+                        .collect(),
+                ),
                 _ => None,
             },
         })
