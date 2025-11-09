@@ -1807,12 +1807,13 @@ mod string {
         assert_eq!(pipeline.len(), 1);
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::ExternalCall(_, args) = &element.expr.expr {
-            if let [ExternalArgument::Regular(expr)] = args.as_ref() {
-                assert_eq!(expr.expr, Expr::RawString("text".into()));
-                return;
-            }
+        if let Expr::ExternalCall(_, args) = &element.expr.expr
+            && let [ExternalArgument::Regular(expr)] = args.as_ref()
+        {
+            assert_eq!(expr.expr, Expr::RawString("text".into()));
+            return;
         }
+
         panic!("wrong expression: {:?}", element.expr.expr)
     }
 }

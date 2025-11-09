@@ -182,6 +182,7 @@ pub struct OverlayFrame {
     pub predecls: HashMap<Vec<u8>, DeclId>, // temporary storage for predeclarations
     pub decls: HashMap<Vec<u8>, DeclId>,
     pub modules: HashMap<Vec<u8>, ModuleId>,
+    pub shadowed_vars: Vec<VarId>,
     pub visibility: Visibility,
     pub origin: ModuleId, // The original module the overlay was created from
     pub prefixed: bool,   // Whether the overlay has definitions prefixed with its name
@@ -194,6 +195,7 @@ impl OverlayFrame {
             predecls: HashMap::new(),
             decls: HashMap::new(),
             modules: HashMap::new(),
+            shadowed_vars: Vec::new(),
             visibility: Visibility::new(),
             origin,
             prefixed,
@@ -209,7 +211,11 @@ impl OverlayFrame {
     }
 
     pub fn insert_variable(&mut self, name: Vec<u8>, variable_id: VarId) -> Option<VarId> {
-        self.vars.insert(name, variable_id)
+        let res = self.vars.insert(name, variable_id);
+        if let Some(old_id) = res {
+            self.shadowed_vars.push(old_id);
+        }
+        res
     }
 
     pub fn get_decl(&self, name: &[u8]) -> Option<DeclId> {

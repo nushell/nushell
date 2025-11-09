@@ -1127,9 +1127,6 @@ fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
 #[cfg(not(unix))]
 fn set_pgrp_from_enter_foreground(_pgrp: i64) -> Result<(), ShellError> {
     Err(ShellError::NushellFailed {
-        msg: concat!(
-            "EnterForeground asked plugin to join process group, but this is not supported on non UNIX platforms.",
-        )
-        .into(),
+        msg: "EnterForeground asked plugin to join process group, but this is not supported on non UNIX platforms.".to_string(),
     })
 }

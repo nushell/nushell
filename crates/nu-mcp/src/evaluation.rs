@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Range, sync::Arc};
+use std::{ops::Range, sync::Arc};
 
 use crate::shell_error_to_mcp_error;
 use moka::sync::Cache;
@@ -138,13 +138,18 @@ impl Evaluator {
     ) -> Result<PipelineBuffer, McpError> {
         let span = pipeline_execution_data.span();
         // todo - this bystream use case won't work
-        if let PipelineData::ByteStream(_stream, ..) = pipeline_execution_data.body {
-            // Copy ByteStreams directly
-            // stream.print(false)
-            Err(McpError::internal_error(
-                Cow::from("ByteStream output is not supported"),
-                None,
-            ))
+        if let PipelineData::ByteStream(stream, ..) = pipeline_execution_data.body {
+            let mut buffer: Vec<u8> = Vec::new();
+            stream
+                .write_to(&mut buffer)
+                .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+            let buffer_len = buffer.len();
+
+            Ok(PipelineBuffer {
+                buffer,
+                pages: vec![Page::new(0..buffer_len, 1)],
+                total: 1,
+            })
         } else {
             let config = engine_state.get_config();
 

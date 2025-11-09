@@ -15,7 +15,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_test_support::fs;
-use reedline::{Completer, Suggestion};
+use reedline::{Completer, Span, Suggestion};
 use rstest::{fixture, rstest};
 use support::{
     completions_helpers::{
@@ -297,95 +297,96 @@ fn customcompletions_no_sort() {
         &["zzzfoo", "foo", "not matched", "abcfoo"],
     );
     let suggestions = completer.complete("my-command foo", 14);
-    let expected: Vec<_> = vec!["zzzfoo", "foo", "abcfoo"];
-    match_suggestions(&expected, &suggestions);
+    let expected_items = vec!["zzzfoo", "foo", "abcfoo"];
+    let expected_inds = vec![
+        Some(vec![3, 4, 5]),
+        Some(vec![0, 1, 2]),
+        Some(vec![3, 4, 5]),
+    ];
+    match_suggestions(&expected_items, &suggestions);
+    assert_eq!(
+        expected_inds,
+        suggestions
+            .iter()
+            .map(|s| s.match_indices.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
-/// Fallback to file completions if custom completer returns null
 #[test]
-fn customcompletions_fallback() {
+fn custom_completions_override_span() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"
-        def comp [] { null }
+        def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
         def my-command [arg: string@comp] {}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "my-command test";
+    let completion_str = "my-command b";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
-    match_suggestions_by_string(&expected, &suggestions);
+    match_suggestions(&vec!["blech"], &suggestions);
+    assert_eq!(Span::new(1, 10), suggestions[0].span);
 }
 
+#[rstest]
+/// Fallback to file completions if custom completer returns null
+#[case::fallback(r#"
+    def comp [] { null }
+    def my-command [arg: string@comp] {}"#,
+    "my-command test", None,
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b")]
+)]
 /// Custom function arguments mixed with subcommands
-#[test]
-fn custom_arguments_and_subcommands() {
-    let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
-        def foo [i: directory] {}
-        def "foo test bar" [] {}"#;
-    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "foo test";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    // including both subcommand and directory completions
-    let expected = [
-        folder("test_a"),
-        file("test_a_symlink"),
-        folder("test_b"),
-        "foo test bar".into(),
-    ];
-    match_suggestions_by_string(&expected, &suggestions);
-}
-
-/// Custom function flags mixed with subcommands
-#[test]
-fn custom_flags_and_subcommands() {
-    let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
-        def foo [--test: directory] {}
-        def "foo --test bar" [] {}"#;
-    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
-
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "foo --test";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    // including both flag and directory completions
-    let expected: Vec<_> = vec!["--test", "foo --test bar"];
-    match_suggestions(&expected, &suggestions);
-}
-
+#[case::arguments_and_subcommands(r#"
+    def foo [i: directory] {}
+    def "foo test bar" [] {}"#,
+    "foo test", None,
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo test bar".into()]
+)]
 /// If argument type is something like int/string, complete only subcommands
-#[test]
-fn custom_arguments_vs_subcommands() {
+#[case::arguments_vs_subcommands(r#"
+    def foo [i: string] {}
+    def "foo test bar" [] {}"#,
+    "foo test", None,
+    vec!["foo test bar".into()]
+)]
+/// Custom function flags mixed with subcommands
+#[case::flags_and_subcommands(r#"
+    def foo [--test: directory] {}
+    def "foo --test bar" [] {}"#,
+    "foo --test", None,
+    vec!["--test".into(), "foo --test bar".into()]
+)]
+#[case::defined_inline(
+    "",
+    "export def say [
+    animal: string@[cat dog]
+    ] { }; say ", None,
+    vec!["cat".into(), "dog".into()]
+)]
+#[case::short_flags(
+    "def foo [-A, -B: string@[cat dog] ] {}",
+    "foo -B ", None,
+    vec!["cat".into(), "dog".into()]
+)]
+#[case::flag_name_vs_value(
+    "def foo [-A, -B: string@[cat dog] ] {}",
+    "foo -B cat", Some("foo -B".len()),
+    vec!["-B".into()]
+)]
+fn custom_completions(
+    #[case] command: &str,
+    #[case] input: &str,
+    #[case] pos: Option<usize>,
+    #[case] expected: Vec<String>,
+) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
-        def foo [i: string] {}
-        def "foo test bar" [] {}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "foo test";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    // including only subcommand completions
-    let expected: Vec<_> = vec!["foo test bar"];
-    match_suggestions(&expected, &suggestions);
-}
-
-#[test]
-fn custom_completions_defined_inline() {
-    let (_, _, engine, stack) = new_engine();
-
-    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "def animals [] { [cat dog] }
-export def say [
-  animal: string@animals
-] { }; say ";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    // including only subcommand completions
-    let expected: Vec<_> = vec!["cat", "dog"];
-    match_suggestions(&expected, &suggestions);
+    // `pos` defaults to `input.len()` if set to None
+    let suggestions = completer.complete(input, pos.unwrap_or(input.len()));
+    match_suggestions_by_string(&expected, &suggestions);
 }
 
 #[test]
@@ -850,6 +851,20 @@ fn external_completer_fallback() {
         fs::fixtures().join("external_completions"),
     );
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn external_completer_override_span() {
+    let block = "{|spans| [{ value: blech, span: { start: 1, end: 10 } }]}";
+    let input = "foo b";
+
+    let suggestions = run_external_completion(block, input);
+    let expected = vec![Suggestion {
+        value: "blech".to_string(),
+        span: Span::new(1, 10),
+        ..Default::default()
+    }];
+    assert_eq!(expected, suggestions);
 }
 
 /// Fallback to external completions for flags of `sudo`
@@ -2965,4 +2980,55 @@ fn type_inferenced_operator_completions(mut custom_completer: NuCompleter) {
     let suggestions = custom_completer.complete("mut foo = [(date now)]; $foo.0 =", 32);
     let expected: Vec<_> = vec!["=", "=="];
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+#[case::substring(
+    "substring", "😏foo かなfoo abfoo", "f",
+    vec!["abfoo", "かなfoo", "😏foo"],
+    vec![vec![2], vec![2], vec![1]]
+)]
+#[case::fuzzy(
+    "fuzzy", "😏foo かなfoo abfoo", "f",
+    vec!["😏foo", "abfoo", "かなfoo"],
+    vec![vec![1], vec![2], vec![2]]
+)]
+#[case::substring_unicode_with_quotes(
+    "substring", "かなfoo '`かなbar`'", "な",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![2], vec![1]]
+)]
+#[case::prefix_unicode_with_quotes(
+    "prefix", "かなfoo '`かなbar`'", "か",
+    vec!["`かなbar`", "かなfoo"],
+    vec![vec![1], vec![0]]
+)]
+fn suggestion_match_indices(
+    #[case] matcher_algo: &str,
+    #[case] options: &str,
+    #[case] pattern: &str,
+    #[case] expected_values: Vec<&str>,
+    #[case] expected_indices: Vec<Vec<usize>>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    let config = format!("$env.config.completions.algorithm = '{matcher_algo}'");
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let input = format!("def foo [a: string@[{options}]] {{}}; foo {pattern}");
+    let suggestions = completer.complete(&input, input.len());
+
+    assert_eq!(suggestions.len(), expected_values.len());
+    assert_eq!(suggestions.len(), expected_indices.len());
+
+    for ((value, indices), sugg) in expected_values
+        .iter()
+        .zip(expected_indices.into_iter())
+        .zip(suggestions.iter())
+    {
+        assert_eq!(*value, sugg.value);
+        assert_eq!(Some(indices), sugg.match_indices);
+    }
 }

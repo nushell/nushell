@@ -179,8 +179,9 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
             | polars::prelude::AggExpr::Std(e, _)
-            | polars::prelude::AggExpr::Var(e, _) => get_col_name(e.as_ref()),
-            polars::prelude::AggExpr::Quantile { expr, .. } => get_col_name(expr.as_ref()),
+            | polars::prelude::AggExpr::Var(e, _)
+            | polars::prelude::AggExpr::Item { input: e, .. }
+            | polars::prelude::AggExpr::Quantile { expr: e, .. } => get_col_name(e.as_ref()),
         },
         Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
@@ -203,6 +204,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Field(_)
         | Expr::Alias(_, _)
         | Expr::DataTypeFunction(_)
+        | Expr::Element
         | Expr::Eval { .. } => None,
     }
 }

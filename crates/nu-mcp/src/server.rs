@@ -89,10 +89,9 @@ By default all available commands will be returned. To find a specific command b
     polars open file.parquet | polars select name status | polars save file2
     ```
 
-    **Important**: If it is available, use ripgrep - `rg` - exclusively when you need to locate a file or a code reference,
-    other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`
-    - List files by name: `rg --files | rg <filename>`
-    - List files that contain a regex: `rg '<regex>' -l`
+    **Important**: The `glob` command should be used exclusively when you need to locate a file or a code reference,
+    other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`. 
+    Use command_help tool to learn more about the `glob` command.
 
     **Important**: Each shell command runs in its own process. Things like directory changes or
     sourcing files do not persist between tool calls. So you may need to repeat them each time by

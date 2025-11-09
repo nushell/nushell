@@ -55,7 +55,7 @@ impl Completer for DotNuCompletion {
 
         // Add std virtual paths first
         if self.std_virtual_path {
-            let mut matcher = NuMatcher::new(&prefix, options);
+            let mut matcher = NuMatcher::new(&prefix, options, true);
             // Where we have '/' in the prefix, e.g. use std/l
             if let Some((base_dir, _)) = prefix.as_ref().rsplit_once("/") {
                 let base_dir = surround_remove(base_dir);
@@ -87,7 +87,13 @@ impl Completer for DotNuCompletion {
                     );
                 }
             }
-            completions.extend(matcher.results());
+            completions.extend(
+                matcher
+                    .results()
+                    .into_iter()
+                    .map(|(s, _)| s)
+                    .collect::<Vec<_>>(),
+            );
         }
 
         // Fetch the files

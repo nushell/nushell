@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 version = "0.108.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -21,6 +21,13 @@ pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-fmt = "zip"
+
+[package.metadata.winresource]
+LegalCopyright = "Copyright © 2019-2025 The Nushell Project Developers"
+FileDescription = "A new type of shell"
+FileVersion = "0.108.1"
+ProductVersion = "0.108.1"
+ProductName = "Nushell"
 
 [workspace]
 members = [
@@ -80,7 +87,7 @@ chrono = { default-features = false, version = "0.4.34" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.10"
 crossbeam-channel = "0.5.8"
-crossterm = "0.28.1"
+crossterm = "0.29.0"
 csv = "1.3"
 ctrlc = "3.4"
 devicons = "0.6.12"
@@ -169,7 +176,7 @@ strip-ansi-escapes = "0.2.1"
 strum = "0.26"
 strum_macros = "0.27"
 syn = "2.0"
-sysinfo = "0.36"
+sysinfo = "0.37.2"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.23"
 thiserror = "2.0.12"
