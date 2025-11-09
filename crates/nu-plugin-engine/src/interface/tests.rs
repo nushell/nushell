@@ -15,8 +15,9 @@ use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
-    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, DynamicSuggestion, IntoInterruptiblePipelineData,
+    IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
+    Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,
@@ -1127,19 +1128,36 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
 
     start_fake_plugin_call_responder(manager, 2, move |_| {
         vec![ReceivedPluginCallMessage::Response(
-            PluginCallResponse::CompletionItems(Some(vec!["aa".to_string().into()])),
+            PluginCallResponse::CompletionItems(Some(vec![DynamicSuggestion {
+                value: "aa".to_string().into(),
+                ..Default::default()
+            }])),
         )]
     });
     let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
         arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
     })?;
-    assert_eq!(Some(vec!["aa".to_string().into()]), result);
+
+    assert_eq!(
+        Some(vec![DynamicSuggestion {
+            value: "aa".to_string().into(),
+            ..Default::default()
+        }]),
+        result
+    );
     let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
         arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
     })?;
-    assert_eq!(Some(vec!["aa".to_string().into()]), result);
+
+    assert_eq!(
+        Some(vec![DynamicSuggestion {
+            value: "aa".to_string().into(),
+            ..Default::default()
+        }]),
+        result
+    );
     Ok(())
 }
 
