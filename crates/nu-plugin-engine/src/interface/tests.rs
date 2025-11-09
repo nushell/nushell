@@ -1129,7 +1129,7 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     start_fake_plugin_call_responder(manager, 2, move |_| {
         vec![ReceivedPluginCallMessage::Response(
             PluginCallResponse::CompletionItems(Some(vec![DynamicSuggestion {
-                value: "aa".to_string().into(),
+                value: "aa".to_string(),
                 ..Default::default()
             }])),
         )]
@@ -1141,7 +1141,7 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
 
     assert_eq!(
         Some(vec![DynamicSuggestion {
-            value: "aa".to_string().into(),
+            value: "aa".to_string(),
             ..Default::default()
         }]),
         result
@@ -1153,7 +1153,7 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
 
     assert_eq!(
         Some(vec![DynamicSuggestion {
-            value: "aa".to_string().into(),
+            value: "aa".to_string(),
             ..Default::default()
         }]),
         result
