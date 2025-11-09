@@ -1,6 +1,6 @@
 use crate::completions::CompletionOptions;
 use nu_protocol::{
-    DynamicSemanticSuggestion, Span, SuggestionKind,
+    DynamicSuggestion, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -27,17 +27,17 @@ pub struct SemanticSuggestion {
 
 impl SemanticSuggestion {
     pub fn from_dynamic_suggestion(
-        suggestion: DynamicSemanticSuggestion,
+        suggestion: DynamicSuggestion,
         span: reedline::Span,
         style: Option<nu_ansi_term::Style>,
     ) -> Self {
         SemanticSuggestion {
             suggestion: Suggestion {
-                value: suggestion.suggestion.value,
-                description: suggestion.suggestion.description,
-                extra: suggestion.suggestion.extra,
-                append_whitespace: suggestion.suggestion.append_whitespace,
-                match_indices: suggestion.suggestion.match_indices,
+                value: suggestion.value,
+                description: suggestion.description,
+                extra: suggestion.extra,
+                append_whitespace: suggestion.append_whitespace,
+                match_indices: suggestion.match_indices,
                 style,
                 span,
             },

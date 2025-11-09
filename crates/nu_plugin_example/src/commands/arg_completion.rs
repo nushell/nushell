@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, DynamicSemanticSuggestion, Example, LabeledError, PipelineData, Signature,
-    SyntaxShape, engine::ArgType,
+    Category, DynamicSuggestion, Example, LabeledError, PipelineData, Signature, SyntaxShape,
+    engine::ArgType,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,7 +57,7 @@ impl PluginCommand for ArgCompletion {
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<DynamicSemanticSuggestion>> {
+    ) -> Option<Vec<DynamicSuggestion>> {
         match arg_type {
             ArgType::Flag(flag_name) => {
                 // let's generate it dynamically.
@@ -69,7 +69,10 @@ impl PluginCommand for ArgCompletion {
                 match flag_name.as_ref() {
                     "future-timestamp" => Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| s.to_string().into())
+                            .map(|s| DynamicSuggestion {
+                                value: s.to_string(),
+                                ..Default::default()
+                            })
                             .collect(),
                     ),
                     _ => None,
@@ -86,13 +89,19 @@ impl PluginCommand for ArgCompletion {
                 if index == 0 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg0:{s}").into())
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg0:{s}"),
+                                ..Default::default()
+                            })
                             .collect(),
                     )
                 } else if index == 1 {
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
-                            .map(|s| format!("arg1:{s}").into())
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg1:{s}"),
+                                ..Default::default()
+                            })
                             .collect(),
                     )
                 } else {

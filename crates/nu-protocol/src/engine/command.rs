@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    Alias, BlockId, DeprecationEntry, DynamicSemanticSuggestion, Example, OutDest, PipelineData,
+    Alias, BlockId, DeprecationEntry, DynamicSuggestion, Example, OutDest, PipelineData,
     ShellError, Signature, Value, engine::Call,
 };
 use std::{borrow::Cow, fmt::Display};
@@ -178,7 +178,7 @@ pub trait Command: Send + Sync + CommandClone {
         engine_state: &EngineState,
         stack: &mut Stack,
         arg_type: &ArgType,
-    ) -> Result<Option<Vec<DynamicSemanticSuggestion>>, ShellError> {
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(None)
     }
 

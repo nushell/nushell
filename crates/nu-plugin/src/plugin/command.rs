@@ -1,5 +1,5 @@
 use nu_protocol::{
-    DynamicSemanticSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
+    DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
     PluginSignature, ShellError, Signature, Value, engine::ArgType,
 };
 
@@ -167,7 +167,7 @@ pub trait PluginCommand: Sync {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<DynamicSemanticSuggestion>> {
+    ) -> Option<Vec<DynamicSuggestion>> {
         None
     }
 }
@@ -322,7 +322,7 @@ pub trait SimplePluginCommand: Sync {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<DynamicSemanticSuggestion>> {
+    ) -> Option<Vec<DynamicSuggestion>> {
         None
     }
 }
@@ -381,7 +381,7 @@ where
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         arg_type: ArgType,
-    ) -> Option<Vec<DynamicSemanticSuggestion>> {
+    ) -> Option<Vec<DynamicSuggestion>> {
         <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, arg_type)
     }
 }

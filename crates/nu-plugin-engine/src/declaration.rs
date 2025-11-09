@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
-use nu_protocol::DynamicSemanticSuggestion;
+use nu_protocol::DynamicSuggestion;
 use nu_protocol::engine::ArgType;
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
@@ -131,7 +131,7 @@ impl Command for PluginDeclaration {
         engine_state: &EngineState,
         stack: &mut Stack,
         arg_type: &ArgType,
-    ) -> Result<Option<Vec<DynamicSemanticSuggestion>>, ShellError> {
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         // Get the engine config
         let engine_config = stack.get_config(engine_state);
 

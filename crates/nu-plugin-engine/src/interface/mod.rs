@@ -11,9 +11,9 @@ use nu_plugin_protocol::{
     PluginInput, PluginOption, PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    CustomValue, DynamicSemanticSuggestion, IntoSpanned, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator,
-    casing::Casing, engine::Sequence,
+    CustomValue, DynamicSuggestion, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
+    engine::Sequence,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -973,7 +973,7 @@ impl PluginInterface {
     pub fn get_dynamic_completion(
         &self,
         info: GetCompletionInfo,
-    ) -> Result<Option<Vec<DynamicSemanticSuggestion>>, ShellError> {
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         match self.plugin_call(PluginCall::GetCompletion(info), None)? {
             PluginCallResponse::CompletionItems(items) => Ok(items),
             PluginCallResponse::Error(err) => Err(err.into()),

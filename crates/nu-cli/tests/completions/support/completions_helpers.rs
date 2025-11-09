@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
-    DynamicSemanticSuggestion, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    DynamicSuggestion, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
     debugger::WithoutDebug,
     engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
@@ -41,7 +41,7 @@ impl Command for FakeCmd {
         _engine_state: &EngineState,
         _stack: &mut Stack,
         arg_type: &ArgType,
-    ) -> Result<Option<Vec<DynamicSemanticSuggestion>>, ShellError> {
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(match arg_type {
             ArgType::Positional(index) => {
                 // be careful: Don't include any spaces for values.
