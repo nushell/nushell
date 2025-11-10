@@ -548,7 +548,7 @@ impl NuCompleter {
                                         new_span.end = new_span
                                             .end
                                             .saturating_sub(raw_prefix.len() - prefix.len())
-                                            .min(span.start);
+                                            .max(span.start);
 
                                         let ctx =
                                             Context::new(working_set, new_span, prefix, offset);
