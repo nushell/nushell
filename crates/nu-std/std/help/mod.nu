@@ -132,11 +132,16 @@ def highlight-description [] {
     if (config use-colors) {
         str replace -ar '(?<!`)`([^`]+)`(?!`)' {
             str trim -c '`'
-            | try {
-                nu-highlight --reject-garbage
-                | str replace -a (ansi rst) $"(ansi rst)(ansi i)"
-            } catch {
-                $"(ansi d)($in)(ansi rst_d)"
+            | do {||
+                let $input = $in
+
+                try {
+                    $input
+                    | nu-highlight --reject-garbage
+                    | str replace -a (ansi rst) $"(ansi rst)(ansi i)"
+                } catch {
+                    $"(ansi d)($input)(ansi rst_d)"
+                }
             }
             | $"(ansi i)($in)(ansi rst_i)"
         }
