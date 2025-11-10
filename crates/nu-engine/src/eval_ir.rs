@@ -4,9 +4,6 @@ use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -15,11 +12,14 @@ use nu_protocol::{
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
+    DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
+    PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature,
+    Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
 use crate::{
-    ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+    convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return, ENV_CONVERSIONS,
 };
 
 pub fn eval_ir_block<D: DebugContext>(
@@ -354,12 +354,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
-            let res = {
-                let stack = &mut ctx
-                    .stack
-                    .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.body.drain_to_out_dests(ctx.engine_state, stack)?
-            };
+            let res = drain_if_end(ctx, data)?;
             ctx.put_reg(*src, PipelineExecutionData::from(res));
             Ok(Continue)
         }
@@ -1601,6 +1596,29 @@ fn drain(
     }
     #[cfg(not(feature = "os"))]
     Ok(Continue)
+}
+
+/// Helper for drainIfEnd behavior
+fn drain_if_end(
+    ctx: &mut EvalContext<'_>,
+    data: PipelineExecutionData,
+) -> Result<PipelineData, ShellError> {
+    let stack = &mut ctx
+        .stack
+        .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+    let (body, exit) = (data.body, data.exit);
+    let result = body.drain_to_out_dests(ctx.engine_state, stack)?;
+
+    let pipefail = nu_experimental::PIPE_FAIL.get();
+    if !pipefail {
+        return Ok(result);
+    }
+    #[cfg(feature = "os")]
+    {
+        check_exit_status_future(exit).map(|_| result)
+    }
+    #[cfg(not(feature = "os"))]
+    Ok(result)
 }
 
 enum RedirectionStream {
