@@ -372,7 +372,7 @@ fn custom_completions_override_span() {
 )]
 #[case::short_flag_value(r#"
     def foo [-t: directory] {}"#,
-    &format!("foo --test directory_completion{MAIN_SEPARATOR}"), None,
+    &format!("foo -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
 )]
 #[case::defined_inline(

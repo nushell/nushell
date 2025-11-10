@@ -443,8 +443,14 @@ mod tests {
     #[case::command_fallback("command.nu", (13, 9), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 }
     ]))]
-    #[case::command_fallback("command.nu", (15, 17), None, serde_json::json!([
+    #[case::short_flag_name("command.nu", (15, 17), None, serde_json::json!([
         { "label": "-e", "detail": "byte encode endian, available options: native(default), little, big", "kind": 5 }
+    ]))]
+    #[case::short_flag_value("command.nu", (15, 20), None, serde_json::json!([
+        { "label": "big", "kind": 12 }
+    ]))]
+    #[case::long_flag_name("command.nu", (15, 30), None, serde_json::json!([
+        { "label": "--endian", "detail": "byte encode endian, available options: native(default), little, big", "kind": 5 }
     ]))]
     #[case::fallback_file_path("fallback.nu", (5, 4), None, serde_json::json!([
         {
