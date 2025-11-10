@@ -357,6 +357,24 @@ fn custom_completions_override_span() {
     "foo --test", None,
     vec!["--test".into(), "foo --test bar".into()]
 )]
+/// Flag value completion for directories
+#[case::flag_value_and_subcommands(r#"
+    def foo [--test: directory] {}
+    def "foo --test test" [] {}"#,
+    "foo --test test", None,
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo --test test".into()]
+)]
+// Directory only
+#[case::flag_value_respect_to_type(r#"
+    def foo [--test: directory] {}"#,
+    "foo --test directory_completion/", None,
+    vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+)]
+#[case::short_flag_value(r#"
+    def foo [-t: directory] {}"#,
+    "foo -t directory_completion/", None,
+    vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+)]
 #[case::defined_inline(
     "",
     "export def say [
