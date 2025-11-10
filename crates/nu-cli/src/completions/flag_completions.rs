@@ -1,8 +1,8 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind, completion_options::NuMatcher,
+    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
 };
 use nu_protocol::{
-    DeclId, Span,
+    DeclId, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

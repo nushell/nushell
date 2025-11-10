@@ -3,6 +3,7 @@
 mod alias;
 pub mod ast;
 pub mod casing;
+mod completion;
 pub mod config;
 pub mod debugger;
 mod deprecation;
@@ -30,6 +31,7 @@ mod value;
 
 pub use alias::*;
 pub use ast::unit::*;
+pub use completion::*;
 pub use config::*;
 pub use deprecation::*;
 pub use did_you_mean::did_you_mean;

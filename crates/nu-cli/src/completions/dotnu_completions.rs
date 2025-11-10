@@ -1,10 +1,10 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, SuggestionKind,
-    completion_common::FileSuggestion, completion_options::NuMatcher,
+    Completer, CompletionOptions, SemanticSuggestion, completion_common::FileSuggestion,
+    completion_options::NuMatcher,
 };
 use nu_path::expand_tilde;
 use nu_protocol::{
-    Span,
+    Span, SuggestionKind,
     engine::{Stack, StateWorkingSet, VirtualPath},
 };
 use reedline::Suggestion;

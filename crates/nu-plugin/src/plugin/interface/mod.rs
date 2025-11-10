@@ -6,13 +6,13 @@ use nu_plugin_core::{
     util::{Waitable, WaitableMut},
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
-    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
-    PluginOutput, ProtocolInfo,
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall,
+    GetCompletionInfo, Ordering, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
+    PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, LabeledError, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
     engine::{Closure, Sequence},
 };
 use nu_utils::SharedCow;
@@ -40,6 +40,10 @@ pub enum ReceivedPluginCall {
     Run {
         engine: EngineInterface,
         call: CallInfo<PipelineData>,
+    },
+    GetCompletion {
+        engine: EngineInterface,
+        info: GetCompletionInfo,
     },
     CustomValueOp {
         engine: EngineInterface,
@@ -321,6 +325,12 @@ impl InterfaceManager for EngineInterfaceManager {
                             op,
                         })
                     }
+                    PluginCall::GetCompletion(info) => {
+                        self.send_plugin_call(ReceivedPluginCall::GetCompletion {
+                            engine: interface,
+                            info,
+                        })
+                    }
                 }
             }
             PluginInput::Goodbye => {
@@ -468,6 +478,16 @@ impl EngineInterface {
         signature: Vec<PluginSignature>,
     ) -> Result<(), ShellError> {
         let response = PluginCallResponse::Signature(signature);
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
+        self.flush()
+    }
+
+    /// Write a call response of completion items.
+    pub(crate) fn write_completion_items(
+        &self,
+        items: Option<Vec<DynamicSuggestion>>,
+    ) -> Result<(), ShellError> {
+        let response = PluginCallResponse::CompletionItems(items);
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }

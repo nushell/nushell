@@ -1,11 +1,31 @@
+use serde::{Deserialize, Serialize};
+
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
-    Alias, BlockId, DeprecationEntry, Example, OutDest, PipelineData, ShellError, Signature, Value,
-    engine::Call,
+    Alias, BlockId, DeprecationEntry, DynamicSuggestion, Example, OutDest, PipelineData,
+    ShellError, Signature, Value, engine::Call,
 };
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArgType<'a> {
+    Flag(Cow<'a, str>),
+    Positional(usize),
+}
+
+impl<'a> Display for ArgType<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArgType::Flag(flag_name) => match flag_name {
+                Cow::Borrowed(v) => write!(f, "{v}"),
+                Cow::Owned(v) => write!(f, "{v}"),
+            },
+            ArgType::Positional(idx) => write!(f, "{idx}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandType {
     Builtin,
     Custom,
@@ -140,6 +160,26 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
+    }
+
+    // engine_state and stack are required to get completion from plugin.
+    /// Get completion items for `arg_type`.
+    ///
+    /// It's useful when you want to get auto completion items of a flag or positional argument
+    /// dynamically.
+    ///
+    /// The implementation can returns 3 types of return values:
+    /// - None: I couldn't find any suggestions, please fall back to default completions
+    /// - Some(vec![]): there are no suggestions
+    /// - Some(vec![item1, item2]): item1 and item2 are available
+    #[allow(unused_variables)]
+    fn get_dynamic_completion(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        arg_type: &ArgType,
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
+        Ok(None)
     }
 
     /// Return true if the AST nodes for the arguments are required for IR evaluation. This is

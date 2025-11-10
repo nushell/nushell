@@ -1,10 +1,7 @@
 use super::{SemanticSuggestion, completion_options::NuMatcher};
-use crate::{
-    SuggestionKind,
-    completions::{Completer, CompletionOptions},
-};
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
-    Span,
+    Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

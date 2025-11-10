@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
+use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

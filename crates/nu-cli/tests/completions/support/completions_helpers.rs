@@ -2,9 +2,9 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
-    PipelineData, ShellError, Span, Value,
+    DynamicSuggestion, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -12,6 +12,83 @@ use std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+}
+
+// A fake cmd for testing.
+#[derive(Clone)]
+struct FakeCmd;
+
+impl Command for FakeCmd {
+    fn name(&self) -> &str {
+        "fake-cmd"
+    }
+    fn description(&self) -> &str {
+        "a fake cmd completion for testing"
+    }
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .optional("second", SyntaxShape::String, "optional second")
+            .required("first", SyntaxShape::String, "required integer value")
+            .named(
+                "flag",
+                SyntaxShape::Int,
+                "example flag which support auto completion",
+                Some('f'),
+            )
+    }
+    fn get_dynamic_completion(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        arg_type: &ArgType,
+    ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
+        Ok(match arg_type {
+            ArgType::Positional(index) => {
+                // be careful: Don't include any spaces for values.
+                if *index == 0 {
+                    Some(
+                        (0..1)
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg0:{s}"),
+                                ..Default::default()
+                            })
+                            .collect(),
+                    )
+                } else if *index == 1 {
+                    Some(
+                        (0..2)
+                            .map(|s| DynamicSuggestion {
+                                value: format!("arg1:{s}"),
+                                ..Default::default()
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            }
+            ArgType::Flag(flag_name) => match flag_name.as_ref() {
+                "flag" => Some(
+                    (0..3)
+                        .map(|s| DynamicSuggestion {
+                            value: format!("flag:{s}"),
+                            ..Default::default()
+                        })
+                        .collect(),
+                ),
+                _ => None,
+            },
+        })
+    }
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &nu_protocol::engine::Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Ok(PipelineData::Empty)
+    }
 }
 
 pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, EngineState, Stack) {
@@ -63,6 +140,11 @@ pub fn new_engine_helper(pwd: AbsolutePathBuf) -> (AbsolutePathBuf, String, Engi
     let merge_result = engine_state.merge_env(&mut stack);
     assert!(merge_result.is_ok());
 
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(FakeCmd));
+    let delta = working_set.render();
+    let merge_result = engine_state.merge_delta(delta);
+    assert!(merge_result.is_ok());
     (pwd, pwd_str, engine_state, stack)
 }
 
