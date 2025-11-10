@@ -12,3 +12,5 @@ def "config n foo bar" [
 }
 
 config n # don't panic!
+
+'1' | into int -e big --endian big

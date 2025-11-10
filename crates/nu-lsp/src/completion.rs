@@ -443,6 +443,9 @@ mod tests {
     #[case::command_fallback("command.nu", (13, 9), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 }
     ]))]
+    #[case::command_fallback("command.nu", (15, 17), None, serde_json::json!([
+        { "label": "-e", "detail": "byte encode endian, available options: native(default), little, big", "kind": 5 }
+    ]))]
     #[case::fallback_file_path("fallback.nu", (5, 4), None, serde_json::json!([
         {
             "label": "cell_path.nu",

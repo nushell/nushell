@@ -490,32 +490,6 @@ impl NuCompleter {
                             }
                         }
                     } else if let Some(command_wide_completer) = signature.complete {
-                        let flag_completions = {
-                            let (new_span, prefix) =
-                                strip_placeholder_if_any(working_set, &span, strip);
-                            let ctx = Context::new(working_set, new_span, prefix, offset);
-                            let flag_completion_helper = || {
-                                let mut flag_completions = FlagCompletion {
-                                    decl_id: call.decl_id,
-                                };
-                                self.process_completion(&mut flag_completions, &ctx)
-                            };
-
-                            match arg {
-                                // flags
-                                Argument::Named(_) | Argument::Unknown(_)
-                                    if prefix.starts_with(b"-") =>
-                                {
-                                    flag_completion_helper()
-                                }
-                                // only when `strip` == false
-                                Argument::Positional(_) if prefix == b"-" => {
-                                    flag_completion_helper()
-                                }
-                                _ => vec![],
-                            }
-                        };
-
                         let completion = match command_wide_completer {
                             CommandWideCompleter::Command(decl_id) => {
                                 CommandWideCompletion::command(
@@ -545,14 +519,16 @@ impl NuCompleter {
                             let ctx = Context::new(working_set, span, b"", offset);
                             let results = self.process_completion(&mut completion, &ctx);
 
-                            // Prioritize flag completions above everything else
-                            let flags_length = flag_completions.len();
-                            suggestions.splice(0..0, flag_completions);
-
                             // Prioritize external results over (sub)commands
-                            suggestions.splice(flags_length..flags_length, results);
+                            suggestions.splice(0..0, results);
 
-                            if !completion.need_fallback {
+                            let arg_prefix = working_set.get_span_contents(span);
+                            // Still need internal flag name completions,
+                            // but not flag value completions
+                            if !(completion.need_fallback
+                                || (arg_prefix.starts_with(b"-")
+                                    && !matches!(arg, Argument::Named((_, _, Some(val))) if val.span.contains(pos))))
+                            {
                                 return suggestions;
                             }
                         }
@@ -561,7 +537,7 @@ impl NuCompleter {
                     // normal arguments completion
                     let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
-                    let flag_completion_helper = || {
+                    let flag_completion_helper = |ctx: Context| {
                         let mut flag_completions = FlagCompletion {
                             decl_id: call.decl_id,
                         };
@@ -574,15 +550,25 @@ impl NuCompleter {
                             // flags
                             Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
                                 match val {
-                                    None => flag_completion_helper(),
+                                    None => flag_completion_helper(ctx),
                                     // It's required because it's edge case of lsp completion for
                                     // flag name itself.
                                     Some(val) if !val.span.contains(pos) => {
-                                        flag_completion_helper()
+                                        // Span/prefix calibration
+                                        let mut new_span = Span::new(span.start, val.span.start);
+                                        let raw_prefix = working_set.get_span_contents(new_span);
+                                        let prefix = raw_prefix.trim_ascii_end();
+                                        let prefix = prefix.strip_suffix(b"=").unwrap_or(prefix);
+                                        new_span.end = new_span
+                                            .end
+                                            .saturating_sub(raw_prefix.len() - prefix.len())
+                                            .min(span.start);
+
+                                        let ctx =
+                                            Context::new(working_set, new_span, prefix, offset);
+                                        flag_completion_helper(ctx)
                                     }
                                     Some(_) => {
-                                        // TODO: add a test to flag value completion in nu-lsp/src/completion.rs
-                                        //
                                         // Completed flag value.
                                         // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
                                         // to make a user friendly completion items.
@@ -608,10 +594,12 @@ impl NuCompleter {
                                 }
                             }
                             Argument::Unknown(_) if prefix.starts_with(b"-") => {
-                                flag_completion_helper()
+                                flag_completion_helper(ctx)
                             }
                             // only when `strip` == false
-                            Argument::Positional(_) if prefix == b"-" => flag_completion_helper(),
+                            Argument::Positional(_) if prefix == b"-" => {
+                                flag_completion_helper(ctx)
+                            }
                             // complete according to expression type and command head
                             Argument::Positional(expr) => {
                                 let command_head = working_set.get_decl(call.decl_id).name();
