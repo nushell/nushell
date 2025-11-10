@@ -1,16 +1,15 @@
 use crate::completions::{
-    ArgValueDynamicCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, ExportableCompletion, FileCompletion, FlagCompletion, OperatorCompletion,
-    VariableCompletion, base::SemanticSuggestion,
+    ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
+    CommandCompletion, Completer, CompletionOptions, CustomCompletion, FileCompletion,
+    FlagCompletion, OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
-use nu_parser::{parse, parse_module_file_or_dir};
+use nu_parser::parse;
 use nu_protocol::{
     CommandWideCompleter, Completion, GetSpan, Span, SuggestionKind, Type, Value,
     ast::{
-        Argument, Block, Expr, Expression, FindMapResult, ListItem, PipelineRedirection,
-        RedirectionTarget, Traverse,
+        Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
+        Traverse,
     },
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
@@ -177,27 +176,15 @@ pub struct NuCompleter {
 }
 
 /// Common arguments required for Completer
-struct Context<'a> {
-    working_set: &'a StateWorkingSet<'a>,
-    span: Span,
-    prefix: &'a [u8],
-    offset: usize,
-}
-
-/// For argument completion
-struct PositionalArguments<'a> {
-    /// command name
-    command_head: &'a str,
-    /// indices of positional arguments
-    positional_arg_indices: Vec<usize>,
-    /// argument list
-    arguments: &'a [Argument],
-    /// expression of current argument
-    expr: &'a Expression,
+pub(crate) struct Context<'a> {
+    pub working_set: &'a StateWorkingSet<'a>,
+    pub span: Span,
+    pub prefix: &'a [u8],
+    pub offset: usize,
 }
 
 impl Context<'_> {
-    fn new<'a>(
+    pub(crate) fn new<'a>(
         working_set: &'a StateWorkingSet,
         span: Span,
         prefix: &'a [u8],
@@ -401,7 +388,7 @@ impl NuCompleter {
                 // NOTE: the argument to complete is not necessarily the last one
                 // for lsp completion, we don't trim the text,
                 // so that `def`s after pos can be completed
-                let mut positional_arg_indices = Vec::new();
+                let mut positional_arg_index = 0;
 
                 for (arg_idx, arg) in call.arguments.iter().enumerate() {
                     let span = arg.span();
@@ -409,7 +396,7 @@ impl NuCompleter {
                     if !span.contains(pos) {
                         match arg {
                             Argument::Named(_) => (),
-                            _ => positional_arg_indices.push(arg_idx),
+                            _ => positional_arg_index += 1,
                         }
                         continue;
                     }
@@ -438,9 +425,8 @@ impl NuCompleter {
                             // For positional arguments, check PositionalArg
                             Argument::Positional(_) => {
                                 // Find the right positional argument by index
-                                let arg_pos = positional_arg_indices.len();
                                 signature
-                                    .get_positional(arg_pos)
+                                    .get_positional(positional_arg_index)
                                     .and_then(|pos_arg| pos_arg.completion.clone())
                             }
                             _ => None,
@@ -534,7 +520,7 @@ impl NuCompleter {
                         }
                     }
 
-                    // normal arguments completion
+                    // Normal argument completion
                     let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
                     let ctx = Context::new(working_set, new_span, prefix, offset);
                     let flag_completion_helper = |ctx: Context| {
@@ -580,14 +566,17 @@ impl NuCompleter {
                                         );
                                         let ctx =
                                             Context::new(working_set, new_span, prefix, offset);
-                                        let mut flag_value_completion = ArgValueDynamicCompletion {
-                                            decl_id: call.decl_id,
+                                        let mut flag_value_completion = ArgValueCompletion {
                                             arg_type: ArgType::Flag(Cow::from(
                                                 name.as_ref().item.as_str(),
                                             )),
                                             // flag value doesn't need to fallback, just fill a
                                             // temp value false.
                                             need_fallback: &mut false,
+                                            completer: self,
+                                            call,
+                                            arg_idx,
+                                            pos,
                                         };
                                         self.process_completion(&mut flag_value_completion, &ctx)
                                     }
@@ -601,39 +590,27 @@ impl NuCompleter {
                                 flag_completion_helper(ctx)
                             }
                             // complete according to expression type and command head
-                            Argument::Positional(expr) => {
-                                let command_head = working_set.get_decl(call.decl_id).name();
-                                positional_arg_indices.push(arg_idx);
-                                let mut dynamic_completion_need_fallback = false;
-                                let mut positional_value_completion = ArgValueDynamicCompletion {
-                                    decl_id: call.decl_id,
-                                    arg_type: ArgType::Positional(arg_idx),
-                                    need_fallback: &mut dynamic_completion_need_fallback,
+                            Argument::Positional(_) => {
+                                positional_arg_index += 1;
+                                let mut need_fallback = suggestions.is_empty();
+                                let mut positional_value_completion = ArgValueCompletion {
+                                    arg_type: ArgType::Positional(positional_arg_index - 1),
+                                    need_fallback: &mut need_fallback,
+                                    completer: self,
+                                    call,
+                                    arg_idx,
+                                    pos,
                                 };
 
                                 // try argument dynamic completion defined by Command first.
-                                let value_completion_result =
+                                let results =
                                     self.process_completion(&mut positional_value_completion, &ctx);
-                                if !value_completion_result.is_empty() {
-                                    return value_completion_result;
-                                }
-                                let mut need_fallback =
-                                    suggestions.is_empty() && dynamic_completion_need_fallback;
-                                let results = self.argument_completion_helper(
-                                    PositionalArguments {
-                                        command_head,
-                                        positional_arg_indices,
-                                        arguments: &call.arguments,
-                                        expr,
-                                    },
-                                    pos,
-                                    &ctx,
-                                    &mut need_fallback,
-                                );
+
                                 // for those arguments that don't need any fallback, return early
-                                if !need_fallback && suggestions.is_empty() {
+                                if suggestions.is_empty() && !need_fallback {
                                     return results;
                                 }
+
                                 results
                             }
                             _ => vec![],
@@ -748,139 +725,8 @@ impl NuCompleter {
         self.process_completion(&mut command_completions, &ctx)
     }
 
-    fn argument_completion_helper(
-        &self,
-        argument_info: PositionalArguments,
-        pos: usize,
-        ctx: &Context,
-        need_fallback: &mut bool,
-    ) -> Vec<SemanticSuggestion> {
-        let PositionalArguments {
-            command_head,
-            positional_arg_indices,
-            arguments,
-            expr,
-        } = argument_info;
-        // special commands
-        match command_head {
-            // complete module file/directory
-            "use" | "export use" | "overlay use" | "source-env"
-                if positional_arg_indices.len() <= 1 =>
-            {
-                *need_fallback = false;
-
-                return self.process_completion(
-                    &mut DotNuCompletion {
-                        std_virtual_path: command_head != "source-env",
-                    },
-                    ctx,
-                );
-            }
-            // NOTE: if module file already specified,
-            // should parse it to get modules/commands/consts to complete
-            "use" | "export use" => {
-                *need_fallback = false;
-
-                let Some(Argument::Positional(Expression {
-                    expr: Expr::String(module_name),
-                    span,
-                    ..
-                })) = positional_arg_indices
-                    .first()
-                    .and_then(|i| arguments.get(*i))
-                else {
-                    return vec![];
-                };
-                let module_name = module_name.as_bytes();
-                let (module_id, temp_working_set) = match ctx.working_set.find_module(module_name) {
-                    Some(module_id) => (module_id, None),
-                    None => {
-                        let mut temp_working_set =
-                            StateWorkingSet::new(ctx.working_set.permanent_state);
-                        let Some(module_id) = parse_module_file_or_dir(
-                            &mut temp_working_set,
-                            module_name,
-                            *span,
-                            None,
-                        ) else {
-                            return vec![];
-                        };
-                        (module_id, Some(temp_working_set))
-                    }
-                };
-                let mut exportable_completion = ExportableCompletion {
-                    module_id,
-                    temp_working_set,
-                };
-                let mut complete_on_list_items = |items: &[ListItem]| -> Vec<SemanticSuggestion> {
-                    for item in items {
-                        let span = item.expr().span;
-                        if span.contains(pos) {
-                            let offset = span.start.saturating_sub(ctx.span.start);
-                            let end_offset =
-                                ctx.prefix.len().min(pos.min(span.end) - ctx.span.start + 1);
-                            let new_ctx = Context::new(
-                                ctx.working_set,
-                                Span::new(span.start, ctx.span.end.min(span.end)),
-                                ctx.prefix.get(offset..end_offset).unwrap_or_default(),
-                                ctx.offset,
-                            );
-                            return self.process_completion(&mut exportable_completion, &new_ctx);
-                        }
-                    }
-                    vec![]
-                };
-
-                match &expr.expr {
-                    Expr::String(_) => {
-                        return self.process_completion(&mut exportable_completion, ctx);
-                    }
-                    Expr::FullCellPath(fcp) => match &fcp.head.expr {
-                        Expr::List(items) => {
-                            return complete_on_list_items(items);
-                        }
-                        _ => return vec![],
-                    },
-                    _ => return vec![],
-                }
-            }
-            "which" => {
-                *need_fallback = false;
-
-                let mut completer = CommandCompletion {
-                    internals: true,
-                    externals: true,
-                };
-                return self.process_completion(&mut completer, ctx);
-            }
-            "attr complete" => {
-                *need_fallback = false;
-
-                let mut completer = CommandCompletion {
-                    internals: true,
-                    externals: false,
-                };
-                return self.process_completion(&mut completer, ctx);
-            }
-            _ => (),
-        }
-
-        // general positional arguments
-        let file_completion_helper = || self.process_completion(&mut FileCompletion, ctx);
-        match &expr.expr {
-            Expr::Directory(_, _) => {
-                *need_fallback = false;
-                self.process_completion(&mut DirectoryCompletion, ctx)
-            }
-            Expr::Filepath(_, _) | Expr::GlobPattern(_, _) => file_completion_helper(),
-            // fallback to file completion if necessary
-            _ if *need_fallback => file_completion_helper(),
-            _ => vec![],
-        }
-    }
-
     // Process the completion for a given completer
-    fn process_completion<T: Completer>(
+    pub(crate) fn process_completion<T: Completer>(
         &self,
         completer: &mut T,
         ctx: &Context,
