@@ -647,6 +647,24 @@ fn performance_nested_lists() -> TestResult {
 }
 
 #[test]
+fn performance_nested_modules() -> TestResult {
+    // Parser used to be exponential on deeply nested modules
+    // TODO: Add a timeout
+    fail_test(
+        r#"
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+module foo { module foo { module foo { module foo {
+ use bar.nu }}}}}}}}}}}}}}}}}}}}}}}}}}}}"#,
+        "module bar.nu not found",
+    )
+}
+
+#[test]
 fn unary_not_1() -> TestResult {
     run_test(r#"not false"#, "true")
 }
