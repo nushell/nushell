@@ -26,7 +26,7 @@ impl<'a> Completer for ArgValueDynamicCompletion<'a> {
         // the `prefix` is the value of a flag
         // if user input `--foo abc`, then the `prefix` here is abc.
         // the name of flag is saved in `self.flag_name`.
-        let mut matcher = NuMatcher::new(prefix, options);
+        let mut matcher = NuMatcher::new(prefix, options, true);
 
         let decl = working_set.get_decl(self.decl_id);
         let mut stack = stack.to_owned();
@@ -53,6 +53,6 @@ impl<'a> Completer for ArgValueDynamicCompletion<'a> {
                 );
             }
         }
-        matcher.results()
+        matcher.suggestion_results()
     }
 }
