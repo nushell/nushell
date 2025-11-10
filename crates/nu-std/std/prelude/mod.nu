@@ -9,7 +9,8 @@ export def banner [
 let foreground = $env.config.color_config?.banner_foreground? | default "attr_normal"
 let highlight1 = $env.config.color_config?.banner_highlight1? | default "green"
 let highlight2 = $env.config.color_config?.banner_highlight2? | default "purple"
-let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
+let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00
+          | update millisecond { 0 } | update microsecond { 0 } | update nanosecond { 0 })
 let ver = (version)
 let startup_time = $"(ansi $highlight1)(ansi attr_bold)Startup Time: (ansi reset)(ansi $foreground)($nu.startup-time)(ansi reset)"
 
