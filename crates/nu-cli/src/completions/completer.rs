@@ -6,7 +6,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::parse;
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Span, SuggestionKind, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Signature, Span, SuggestionKind, Type, Value,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
         Traverse,
@@ -393,6 +393,7 @@ impl NuCompleter {
                 for (arg_idx, arg) in call.arguments.iter().enumerate() {
                     let span = arg.span();
 
+                    // Skip arguments before the cursor
                     if !span.contains(pos) {
                         match arg {
                             Argument::Named(_) => (),
@@ -401,221 +402,199 @@ impl NuCompleter {
                         continue;
                     }
 
-                    // Get custom completion from PositionalArg or Flag
-                    let completion = {
-                        // Check PositionalArg or Flag from Signature
-                        match arg {
-                            // For named arguments, check Flag
-                            Argument::Named((name, short, value)) => {
-                                if value.as_ref().is_none_or(|e| !e.span.contains(pos)) {
-                                    None
-                                } else {
-                                    // If we're completing the value of the flag,
-                                    // search for the matching custom completion decl_id (long or short)
-                                    let flag = signature.get_long_flag(&name.item).or_else(|| {
-                                        short.as_ref().and_then(|s| {
-                                            signature.get_short_flag(
-                                                s.item.chars().next().unwrap_or('_'),
-                                            )
-                                        })
-                                    });
-                                    flag.and_then(|f| f.completion)
-                                }
-                            }
-                            // For positional arguments, check PositionalArg
-                            Argument::Positional(_) => {
-                                // Find the right positional argument by index
-                                signature
-                                    .get_positional(positional_arg_index)
-                                    .and_then(|pos_arg| pos_arg.completion.clone())
-                            }
-                            _ => None,
-                        }
+                    // Context defaults to the whole argument, needs adjustments for specific situations
+                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
+                    let mut ctx = Context::new(working_set, new_span, prefix, offset);
+                    let flag_completion_helper = |mut ctx: Context| {
+                        let mut flag_completions = FlagCompletion {
+                            decl_id: call.decl_id,
+                        };
+                        let mut res = self.process_completion(&mut flag_completions, &ctx);
+                        // for external command wrappers, which are parsed as internal calls
+                        // also try command-wide completion for flags
+                        res.extend(
+                            self.command_wide_completion_helper(
+                                &signature,
+                                element_expression,
+                                &mut ctx,
+                                strip,
+                            )
+                            .1,
+                        );
+                        res
                     };
 
-                    if let Some(completion) = completion {
-                        // for `--foo ..a|` and `--foo=..a|` (`|` represents the cursor), the
-                        // arg span should be trimmed:
-                        // - split the given span with `predicate` (b == '=' || b == ' '), and
-                        //   take the rightmost part:
-                        //   - "--foo ..a" => ["--foo", "..a"] => "..a"
-                        //   - "--foo=..a" => ["--foo", "..a"] => "..a"
-                        // - strip placeholder (`a`) if present
-                        let (new_span, prefix) = match arg {
-                            Argument::Named(_) => strip_placeholder_with_rsplit(
+                    // Basically 2 kinds of argument completions for now:
+                    // 1. Flag name: 2 sources combined:
+                    //    * Signature based internal flags
+                    //    * Command-wide external flags
+                    // 2. Flag value/positional: try the followings in order:
+                    //    1. Custom completion
+                    //    2. Command-wide completion
+                    //    3. Dynamic completion defined in trait `Command`
+                    //    4. Type-based default completion
+                    //    5. Fallback(file) completion
+                    match arg {
+                        // Flag value completion
+                        Argument::Named((name, short, Some(val))) if val.span.contains(pos) => {
+                            // If we're completing the value of the flag,
+                            // search for the matching custom completion decl_id (long or short)
+                            let flag = signature.get_long_flag(&name.item).or_else(|| {
+                                short.as_ref().and_then(|s| {
+                                    signature.get_short_flag(s.item.chars().next().unwrap_or('_'))
+                                })
+                            });
+
+                            // for `--foo ..a|` and `--foo=..a|` (`|` represents the cursor), the
+                            // arg span should be trimmed:
+                            // - split the given span with `predicate` (b == '=' || b == ' '), and
+                            //   take the rightmost part:
+                            //   - "--foo ..a" => ["--foo", "..a"] => "..a"
+                            //   - "--foo=..a" => ["--foo", "..a"] => "..a"
+                            // - strip placeholder (`a`) if present
+                            let (new_span, prefix) = strip_placeholder_with_rsplit(
                                 working_set,
                                 &span,
                                 |b| *b == b'=' || *b == b' ',
                                 strip,
-                            ),
-                            _ => strip_placeholder_if_any(working_set, &span, strip),
-                        };
+                            );
+                            let mut ctx = Context::new(working_set, new_span, prefix, offset);
 
-                        let ctx = Context::new(working_set, new_span, prefix, offset);
-
-                        match completion {
-                            Completion::Command(decl_id) => {
-                                let mut completer = CustomCompletion::new(
-                                    decl_id,
-                                    prefix_str.into(),
-                                    pos - offset,
-                                    FileCompletion,
+                            // Prioritize custom completion results over everything else
+                            if let Some(custom_completer) = flag.and_then(|f| f.completion) {
+                                suggestions.splice(
+                                    0..0,
+                                    self.custom_completion_helper(
+                                        custom_completer,
+                                        prefix_str,
+                                        &ctx,
+                                        pos,
+                                    ),
                                 );
-                                // Prioritize argument completions over (sub)commands
-                                suggestions
-                                    .splice(0..0, self.process_completion(&mut completer, &ctx));
-                                break;
-                            }
-                            Completion::List(list) => {
-                                let mut completer = StaticCompletion::new(list);
-                                // Prioritize argument completions over (sub)commands
-                                suggestions
-                                    .splice(0..0, self.process_completion(&mut completer, &ctx));
-                                // We don't want to fallback to file completion here
+                                // Fallback completion is already handled in `CustomCompletion`
                                 return suggestions;
                             }
-                        }
-                    } else if let Some(command_wide_completer) = signature.complete {
-                        let completion = match command_wide_completer {
-                            CommandWideCompleter::Command(decl_id) => {
-                                CommandWideCompletion::command(
-                                    working_set,
-                                    decl_id,
+
+                            // Try command-wide completion if specified by attributes
+                            let (need_fallback, command_wide_res) = self
+                                .command_wide_completion_helper(
+                                    &signature,
                                     element_expression,
+                                    &mut ctx,
                                     strip,
-                                )
+                                );
+                            suggestions.splice(0..0, command_wide_res);
+                            if !need_fallback {
+                                return suggestions;
                             }
-                            CommandWideCompleter::External => self
-                                .engine_state
-                                .get_config()
-                                .completions
-                                .external
-                                .completer
-                                .as_ref()
-                                .map(|closure| {
-                                    CommandWideCompletion::closure(
-                                        closure,
-                                        element_expression,
-                                        strip,
-                                    )
-                                }),
-                        };
 
-                        if let Some(mut completion) = completion {
-                            let ctx = Context::new(working_set, span, b"", offset);
-                            let results = self.process_completion(&mut completion, &ctx);
+                            let mut flag_value_completion = ArgValueCompletion {
+                                arg_type: ArgType::Flag(Cow::from(name.as_ref().item.as_str())),
+                                // flag value doesn't need to fallback, just fill a
+                                // temp value false.
+                                need_fallback: &mut false,
+                                completer: self,
+                                call,
+                                arg_idx,
+                                pos,
+                            };
+                            suggestions.splice(
+                                0..0,
+                                self.process_completion(&mut flag_value_completion, &ctx),
+                            );
+                        }
+                        // Flag name completion
+                        Argument::Named((_, _, None)) => {
+                            suggestions.splice(0..0, flag_completion_helper(ctx));
+                        }
+                        // Edge case of lsp completion where the cursor is at the flag name,
+                        // with a flag value next to it.
+                        Argument::Named((_, _, Some(val))) => {
+                            // Span/prefix calibration
+                            let mut new_span = Span::new(span.start, val.span.start);
+                            let raw_prefix = working_set.get_span_contents(new_span);
+                            let prefix = raw_prefix.trim_ascii_end();
+                            let mut prefix = prefix.strip_suffix(b"=").unwrap_or(prefix);
+                            new_span.end = new_span
+                                .end
+                                .saturating_sub(raw_prefix.len() - prefix.len())
+                                .max(span.start);
 
-                            // Prioritize external results over (sub)commands
-                            suggestions.splice(0..0, results);
+                            // Currently never reachable
+                            if strip {
+                                new_span.end = new_span.end.saturating_sub(1).max(span.start);
+                                prefix = prefix[..prefix.len() - 1].as_ref();
+                            }
 
-                            let arg_prefix = working_set.get_span_contents(span);
-                            // Still need internal flag name completions,
-                            // but not flag value completions
-                            if !(completion.need_fallback
-                                || (arg_prefix.starts_with(b"-")
-                                    && !matches!(arg, Argument::Named((_, _, Some(val))) if val.span.contains(pos))))
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
+                            suggestions.splice(0..0, flag_completion_helper(ctx));
+                        }
+                        Argument::Unknown(_) if prefix.starts_with(b"-") => {
+                            suggestions.splice(0..0, flag_completion_helper(ctx));
+                        }
+                        // only when `strip` == false
+                        Argument::Positional(_) if prefix == b"-" => {
+                            suggestions.splice(0..0, flag_completion_helper(ctx));
+                        }
+                        Argument::Positional(_) => {
+                            // Prioritize custom completion results over everything else
+                            if let Some(custom_completer) = signature
+                                // For positional arguments, check PositionalArg
+                                // Find the right positional argument by index
+                                .get_positional(positional_arg_index)
+                                .and_then(|pos_arg| pos_arg.completion.clone())
                             {
+                                suggestions.splice(
+                                    0..0,
+                                    self.custom_completion_helper(
+                                        custom_completer,
+                                        prefix_str,
+                                        &ctx,
+                                        pos,
+                                    ),
+                                );
+                                // Fallback completion is already handled in `CustomCompletion`
+                                return suggestions;
+                            }
+
+                            // Try command-wide completion if specified by attributes
+                            let (need_fallback, command_wide_res) = self
+                                .command_wide_completion_helper(
+                                    &signature,
+                                    element_expression,
+                                    &mut ctx,
+                                    strip,
+                                );
+                            suggestions.splice(0..0, command_wide_res);
+                            if !need_fallback {
+                                return suggestions;
+                            }
+
+                            positional_arg_index += 1;
+
+                            // Default argument value completion
+                            let mut need_fallback = suggestions.is_empty();
+                            let mut positional_value_completion = ArgValueCompletion {
+                                arg_type: ArgType::Positional(positional_arg_index - 1),
+                                need_fallback: &mut need_fallback,
+                                completer: self,
+                                call,
+                                arg_idx,
+                                pos,
+                            };
+
+                            suggestions.splice(
+                                0..0,
+                                self.process_completion(&mut positional_value_completion, &ctx),
+                            );
+                            // for those arguments that don't need any fallback, return early
+                            if !need_fallback {
                                 return suggestions;
                             }
                         }
+                        _ => (),
                     }
 
-                    // Normal argument completion
-                    let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
-                    let ctx = Context::new(working_set, new_span, prefix, offset);
-                    let flag_completion_helper = |ctx: Context| {
-                        let mut flag_completions = FlagCompletion {
-                            decl_id: call.decl_id,
-                        };
-                        self.process_completion(&mut flag_completions, &ctx)
-                    };
-                    // Prioritize argument completions over (sub)commands
-                    suggestions.splice(
-                        0..0,
-                        match arg {
-                            // flags
-                            Argument::Named((name, _, val)) if prefix.starts_with(b"-") => {
-                                match val {
-                                    None => flag_completion_helper(ctx),
-                                    // It's required because it's edge case of lsp completion for
-                                    // flag name itself.
-                                    Some(val) if !val.span.contains(pos) => {
-                                        // Span/prefix calibration
-                                        let mut new_span = Span::new(span.start, val.span.start);
-                                        let raw_prefix = working_set.get_span_contents(new_span);
-                                        let prefix = raw_prefix.trim_ascii_end();
-                                        let prefix = prefix.strip_suffix(b"=").unwrap_or(prefix);
-                                        new_span.end = new_span
-                                            .end
-                                            .saturating_sub(raw_prefix.len() - prefix.len())
-                                            .max(span.start);
-
-                                        let ctx =
-                                            Context::new(working_set, new_span, prefix, offset);
-                                        flag_completion_helper(ctx)
-                                    }
-                                    Some(_) => {
-                                        // Completed flag value.
-                                        // strip from `--foo ..a|` and `--foo=..a|` to `..a`, and also remove the place holder.
-                                        // to make a user friendly completion items.
-                                        let (new_span, prefix) = strip_placeholder_with_rsplit(
-                                            working_set,
-                                            &span,
-                                            |b| *b == b'=' || *b == b' ',
-                                            strip,
-                                        );
-                                        let ctx =
-                                            Context::new(working_set, new_span, prefix, offset);
-                                        let mut flag_value_completion = ArgValueCompletion {
-                                            arg_type: ArgType::Flag(Cow::from(
-                                                name.as_ref().item.as_str(),
-                                            )),
-                                            // flag value doesn't need to fallback, just fill a
-                                            // temp value false.
-                                            need_fallback: &mut false,
-                                            completer: self,
-                                            call,
-                                            arg_idx,
-                                            pos,
-                                        };
-                                        self.process_completion(&mut flag_value_completion, &ctx)
-                                    }
-                                }
-                            }
-                            Argument::Unknown(_) if prefix.starts_with(b"-") => {
-                                flag_completion_helper(ctx)
-                            }
-                            // only when `strip` == false
-                            Argument::Positional(_) if prefix == b"-" => {
-                                flag_completion_helper(ctx)
-                            }
-                            // complete according to expression type and command head
-                            Argument::Positional(_) => {
-                                positional_arg_index += 1;
-                                let mut need_fallback = suggestions.is_empty();
-                                let mut positional_value_completion = ArgValueCompletion {
-                                    arg_type: ArgType::Positional(positional_arg_index - 1),
-                                    need_fallback: &mut need_fallback,
-                                    completer: self,
-                                    call,
-                                    arg_idx,
-                                    pos,
-                                };
-
-                                // try argument dynamic completion defined by Command first.
-                                let results =
-                                    self.process_completion(&mut positional_value_completion, &ctx);
-
-                                // for those arguments that don't need any fallback, return early
-                                if suggestions.is_empty() && !need_fallback {
-                                    return results;
-                                }
-
-                                results
-                            }
-                            _ => vec![],
-                        },
-                    );
                     break;
                 }
             }
@@ -723,6 +702,59 @@ impl NuCompleter {
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
         self.process_completion(&mut command_completions, &ctx)
+    }
+
+    fn custom_completion_helper(
+        &self,
+        custom_completion: Completion,
+        input: &str,
+        ctx: &Context,
+        pos: usize,
+    ) -> Vec<SemanticSuggestion> {
+        match custom_completion {
+            Completion::Command(decl_id) => {
+                let mut completer =
+                    CustomCompletion::new(decl_id, input.into(), pos - ctx.offset, FileCompletion);
+                self.process_completion(&mut completer, ctx)
+            }
+            Completion::List(list) => {
+                let mut completer = StaticCompletion::new(list);
+                self.process_completion(&mut completer, ctx)
+            }
+        }
+    }
+
+    fn command_wide_completion_helper(
+        &self,
+        signature: &Signature,
+        element_expression: &Expression,
+        ctx: &mut Context,
+        strip: bool,
+    ) -> (bool, Vec<SemanticSuggestion>) {
+        let completion = match signature.complete {
+            Some(CommandWideCompleter::Command(decl_id)) => {
+                CommandWideCompletion::command(ctx.working_set, decl_id, element_expression, strip)
+            }
+            Some(CommandWideCompleter::External) => self
+                .engine_state
+                .get_config()
+                .completions
+                .external
+                .completer
+                .as_ref()
+                .map(|closure| CommandWideCompletion::closure(closure, element_expression, strip)),
+            None => None,
+        };
+
+        if let Some(mut completion) = completion {
+            ctx.prefix = b"";
+            (
+                completion.need_fallback,
+                self.process_completion(&mut completion, ctx),
+            )
+        } else {
+            (true, vec![])
+        }
     }
 
     // Process the completion for a given completer
