@@ -305,46 +305,53 @@ fn custom_completions_override_span() {
     def comp [] { null }
     def my-command [arg: string@comp] {}"#,
     "my-command test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b")]
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b")],
+    4
 )]
 /// Custom function arguments mixed with subcommands
 #[case::arguments_and_subcommands(r#"
     def foo [i: directory] {}
     def "foo test bar" [] {}"#,
     "foo test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo test bar".into()]
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo test bar".into()],
+    8
 )]
 /// If argument type is something like int/string, complete only subcommands
 #[case::arguments_vs_subcommands(r#"
     def foo [i: string] {}
     def "foo test bar" [] {}"#,
     "foo test", None,
-    vec!["foo test bar".into()]
+    vec!["foo test bar".into()],
+    8
 )]
 /// Custom function flags mixed with subcommands
 #[case::flags_and_subcommands(r#"
     def foo [--test: directory] {}
     def "foo --test bar" [] {}"#,
     "foo --test", None,
-    vec!["--test".into(), "foo --test bar".into()]
+    vec!["--test".into(), "foo --test bar".into()],
+    10
 )]
 /// Flag value completion for directories
 #[case::flag_value_and_subcommands(r#"
     def foo [--test: directory] {}
     def "foo --test test" [] {}"#,
     "foo --test test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo --test test".into()]
+    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo --test test".into()],
+    "foo --test test".len()
 )]
 // Directory only
 #[case::flag_value_respect_to_type(r#"
     def foo [--test: directory] {}"#,
-    &format!("foo --test directory_completion{MAIN_SEPARATOR}"), None,
+    &format!("foo --test=directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+    format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
 #[case::short_flag_value(r#"
     def foo [-t: directory] {}"#,
     &format!("foo -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+    format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
 #[case::mixed_positional_and_flag1(r#"
     def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
@@ -353,47 +360,59 @@ fn custom_completions_override_span() {
         folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder")),
         file(format!("directory_completion{MAIN_SEPARATOR}mod.nu"))
     ],
+    format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
 #[case::mixed_positional_and_flag2(r#"
     def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
     &format!("foo --path bar baz directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+    format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
 #[case::mixed_positional_and_flag3(r#"
     def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
     &format!("foo --path bar baz qux -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
+    format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
 #[case::defined_inline(
     "",
     "export def say [
     animal: string@[cat dog]
     ] { }; say ", None,
-    vec!["cat".into(), "dog".into()]
+    vec!["cat".into(), "dog".into()],
+    0
 )]
 #[case::short_flags(
     "def foo [-A, -B: string@[cat dog] ] {}",
     "foo -B ", None,
-    vec!["cat".into(), "dog".into()]
+    vec!["cat".into(), "dog".into()],
+    0
 )]
 #[case::flag_name_vs_value(
     "def foo [-A, -B: string@[cat dog] ] {}",
     "foo -B cat", Some("foo -B".len()),
-    vec!["-B".into()]
+    vec!["-B".into()],
+    2
 )]
 fn command_argument_completions(
     #[case] command: &str,
     #[case] input: &str,
     #[case] pos: Option<usize>,
     #[case] expected: Vec<String>,
+    #[case] span_size: usize,
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // `pos` defaults to `input.len()` if set to None
-    let suggestions = completer.complete(input, pos.unwrap_or(input.len()));
+    let span_end = pos.unwrap_or(input.len());
+    let suggestions = completer.complete(input, span_end);
     match_suggestions_by_string(&expected, &suggestions);
+
+    let last_res = suggestions.last().unwrap();
+    assert_eq!(last_res.span.start, span_end - span_size);
+    assert_eq!(last_res.span.end, span_end);
 }
 
 #[test]
