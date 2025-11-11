@@ -570,12 +570,11 @@ impl NuCompleter {
                                 return suggestions;
                             }
 
-                            positional_arg_index += 1;
-
                             // Default argument value completion
                             let mut need_fallback = suggestions.is_empty();
                             let mut positional_value_completion = ArgValueCompletion {
-                                arg_type: ArgType::Positional(positional_arg_index - 1),
+                                // arg_type: ArgType::Positional(positional_arg_index - 1),
+                                arg_type: ArgType::Positional(positional_arg_index),
                                 need_fallback: &mut need_fallback,
                                 completer: self,
                                 call,
