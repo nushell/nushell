@@ -949,6 +949,41 @@ fn command_wide_completion_custom() {
 }
 
 #[test]
+fn command_wide_completion_custom_fallback() {
+    // Create a new engine with PWD
+    let pwd = fs::fixtures();
+    let (_, _, mut engine, mut stack) = new_engine_helper(pwd.clone());
+
+    let config_code = r#"
+        let external_completer = {|spans|
+            $spans
+        }
+
+        $env.config.completions.external = {
+            enable: true
+            max_results: 100
+            completer: $external_completer
+        }
+
+        def "nu-complete foo" [spans: list] { null }
+
+        @complete "nu-complete foo"
+        def --wrapped "foo" [...rest] {}
+    "#;
+    assert!(support::merge_input(config_code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let sample = /* lang=nu */ r#"
+        foo bar completions"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec![folder("completions")];
+    match_suggestions_by_string(&expected, &suggestions);
+}
+
+#[test]
 fn parameter_completion_overrides_command_wide_completion() {
     let mut completer = custom_completer();
 

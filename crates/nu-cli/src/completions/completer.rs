@@ -388,8 +388,9 @@ impl NuCompleter {
                             decl_id: call.decl_id,
                         };
                         let mut res = self.process_completion(&mut flag_completions, &ctx);
-                        // for external command wrappers, which are parsed as internal calls
-                        // also try command-wide completion for flags
+                        // For external command wrappers, which are parsed as internal calls,
+                        // also try command-wide completion for flag names
+                        // TODO: duplication?
                         let command_wide_ctx = Context::new(working_set, span, b"", offset);
                         res.extend(
                             self.command_wide_completion_helper(
@@ -416,14 +417,6 @@ impl NuCompleter {
                     match arg {
                         // Flag value completion
                         Argument::Named((name, short, Some(val))) if val.span.contains(pos) => {
-                            // If we're completing the value of the flag,
-                            // search for the matching custom completion decl_id (long or short)
-                            let flag = signature.get_long_flag(&name.item).or_else(|| {
-                                short.as_ref().and_then(|s| {
-                                    signature.get_short_flag(s.item.chars().next().unwrap_or('_'))
-                                })
-                            });
-
                             // for `--foo ..a|` and `--foo=..a|` (`|` represents the cursor), the
                             // arg span should be trimmed:
                             // - split the given span with `predicate` (b == '=' || b == ' '), and
@@ -444,6 +437,13 @@ impl NuCompleter {
                                 offset,
                             );
 
+                            // If we're completing the value of the flag,
+                            // search for the matching custom completion decl_id (long or short)
+                            let flag = signature.get_long_flag(&name.item).or_else(|| {
+                                short.as_ref().and_then(|s| {
+                                    signature.get_short_flag(s.item.chars().next().unwrap_or('_'))
+                                })
+                            });
                             // Prioritize custom completion results over everything else
                             if let Some(custom_completer) = flag.and_then(|f| f.completion) {
                                 suggestions.splice(
@@ -739,10 +739,8 @@ impl NuCompleter {
         };
 
         if let Some(mut completion) = completion {
-            (
-                completion.need_fallback,
-                self.process_completion(&mut completion, ctx),
-            )
+            let res = self.process_completion(&mut completion, ctx);
+            (completion.need_fallback, res)
         } else {
             (true, vec![])
         }
