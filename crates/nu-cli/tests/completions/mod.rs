@@ -948,35 +948,39 @@ fn command_wide_completion_custom() {
     match_suggestions(&expected, &suggestions);
 }
 
-#[test]
-fn command_wide_completion_custom_fallback() {
+#[rstest]
+#[case::custom(
+    r#"def "nu-complete foo" [spans: list] { null }
+
+    @complete "nu-complete foo""#
+)]
+#[case::external(
+    r#"
+    let external_completer = {|spans| null }
+
+    $env.config.completions.external = {
+        enable: true
+        max_results: 100
+        completer: $external_completer
+    }
+
+    @complete external"#
+)]
+fn command_wide_completion_fallback(#[case] code: &str) {
     // Create a new engine with PWD
     let pwd = fs::fixtures();
     let (_, _, mut engine, mut stack) = new_engine_helper(pwd.clone());
 
-    let config_code = r#"
-        let external_completer = {|spans|
-            $spans
-        }
-
-        $env.config.completions.external = {
-            enable: true
-            max_results: 100
-            completer: $external_completer
-        }
-
-        def "nu-complete foo" [spans: list] { null }
-
-        @complete "nu-complete foo"
-        def --wrapped "foo" [...rest] {}
-    "#;
+    let config_code = format!(
+        r#"{code}
+        def --wrapped "foo" [...rest] {{}} "#
+    );
     assert!(support::merge_input(config_code.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let sample = /* lang=nu */ r#"
-        foo bar completions"#;
+    let sample = /* lang=nu */ r#"foo bar completions"#;
 
     let suggestions = completer.complete(sample, sample.len());
     let expected = vec![folder("completions")];
