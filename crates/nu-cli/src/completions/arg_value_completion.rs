@@ -16,7 +16,7 @@ use nu_protocol::{
 pub struct ArgValueCompletion<'a> {
     pub call: &'a Call,
     pub arg_type: ArgType<'a>,
-    pub need_fallback: &'a mut bool,
+    pub need_fallback: bool,
     pub completer: &'a NuCompleter,
     pub arg_idx: usize,
     pub pos: usize,
@@ -81,8 +81,6 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                 "use" | "export use" | "overlay use" | "source-env"
                     if positional_arg_index == 0 =>
                 {
-                    *self.need_fallback = false;
-
                     return self.completer.process_completion(
                         &mut DotNuCompletion {
                             std_virtual_path: command_head != "source-env",
@@ -93,8 +91,6 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                 // NOTE: if module file already specified,
                 // should parse it to get modules/commands/consts to complete
                 "use" | "export use" => {
-                    *self.need_fallback = false;
-
                     let Some((module_name, span)) = self.call.arguments.iter().find_map(|arg| {
                         if let Argument::Positional(Expression {
                             expr: Expr::String(module_name),
@@ -166,8 +162,6 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                     };
                 }
                 "which" => {
-                    *self.need_fallback = false;
-
                     let mut completer = CommandCompletion {
                         internals: true,
                         externals: true,
@@ -175,8 +169,6 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                     return self.completer.process_completion(&mut completer, &ctx);
                 }
                 "attr complete" => {
-                    *self.need_fallback = false;
-
                     let mut completer = CommandCompletion {
                         internals: true,
                         externals: false,
@@ -191,14 +183,12 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         let file_completion_helper =
             || self.completer.process_completion(&mut FileCompletion, &ctx);
         match expr {
-            Some(Expr::Directory(_, _)) => {
-                *self.need_fallback = false;
-                self.completer
-                    .process_completion(&mut DirectoryCompletion, &ctx)
-            }
+            Some(Expr::Directory(_, _)) => self
+                .completer
+                .process_completion(&mut DirectoryCompletion, &ctx),
             Some(Expr::Filepath(_, _)) | Some(Expr::GlobPattern(_, _)) => file_completion_helper(),
             // fallback to file completion if necessary
-            _ if *self.need_fallback => file_completion_helper(),
+            _ if self.need_fallback => file_completion_helper(),
             _ => vec![],
         }
     }

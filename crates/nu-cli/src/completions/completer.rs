@@ -492,7 +492,7 @@ impl NuCompleter {
                                 arg_type: ArgType::Flag(Cow::from(name.as_ref().item.as_str())),
                                 // flag value doesn't need to fallback, just fill a
                                 // temp value false.
-                                need_fallback: &mut false,
+                                need_fallback: false,
                                 completer: self,
                                 call,
                                 arg_idx,
@@ -502,6 +502,7 @@ impl NuCompleter {
                                 0..0,
                                 self.process_completion(&mut flag_value_completion, &ctx),
                             );
+                            return suggestions;
                         }
                         // Flag name completion
                         Argument::Named((_, _, None)) => {
@@ -571,11 +572,10 @@ impl NuCompleter {
                             }
 
                             // Default argument value completion
-                            let mut need_fallback = suggestions.is_empty();
                             let mut positional_value_completion = ArgValueCompletion {
                                 // arg_type: ArgType::Positional(positional_arg_index - 1),
                                 arg_type: ArgType::Positional(positional_arg_index),
-                                need_fallback: &mut need_fallback,
+                                need_fallback: suggestions.is_empty(),
                                 completer: self,
                                 call,
                                 arg_idx,
@@ -586,10 +586,7 @@ impl NuCompleter {
                                 0..0,
                                 self.process_completion(&mut positional_value_completion, &ctx),
                             );
-                            // for those arguments that don't need any fallback, return early
-                            if !need_fallback {
-                                return suggestions;
-                            }
+                            return suggestions;
                         }
                         _ => (),
                     }
