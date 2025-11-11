@@ -147,28 +147,6 @@ fn strip_placeholder_if_any<'a>(
     (new_span, prefix)
 }
 
-/// Given a span with noise,
-/// 1. Call `rsplit` to get the last token
-/// 2. Strip the last placeholder from the token
-fn strip_placeholder_with_rsplit<'a>(
-    working_set: &'a StateWorkingSet,
-    span: &Span,
-    predicate: impl FnMut(&u8) -> bool,
-    strip: bool,
-) -> (Span, &'a [u8]) {
-    let span_content = working_set.get_span_contents(*span);
-    let mut prefix = span_content
-        .rsplit(predicate)
-        .next()
-        .unwrap_or(span_content);
-    let start = span.end.saturating_sub(prefix.len());
-    if strip && !prefix.is_empty() {
-        prefix = &prefix[..prefix.len() - 1];
-    }
-    let end = start + prefix.len();
-    (Span::new(start, end), prefix)
-}
-
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
@@ -404,19 +382,20 @@ impl NuCompleter {
 
                     // Context defaults to the whole argument, needs adjustments for specific situations
                     let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
-                    let mut ctx = Context::new(working_set, new_span, prefix, offset);
-                    let flag_completion_helper = |mut ctx: Context| {
+                    let ctx = Context::new(working_set, new_span, prefix, offset);
+                    let flag_completion_helper = |ctx: Context| {
                         let mut flag_completions = FlagCompletion {
                             decl_id: call.decl_id,
                         };
                         let mut res = self.process_completion(&mut flag_completions, &ctx);
                         // for external command wrappers, which are parsed as internal calls
                         // also try command-wide completion for flags
+                        let command_wide_ctx = Context::new(working_set, span, b"", offset);
                         res.extend(
                             self.command_wide_completion_helper(
                                 &signature,
                                 element_expression,
-                                &mut ctx,
+                                &command_wide_ctx,
                                 strip,
                             )
                             .1,
@@ -452,13 +431,18 @@ impl NuCompleter {
                             //   - "--foo ..a" => ["--foo", "..a"] => "..a"
                             //   - "--foo=..a" => ["--foo", "..a"] => "..a"
                             // - strip placeholder (`a`) if present
-                            let (new_span, prefix) = strip_placeholder_with_rsplit(
+                            let prefix = prefix
+                                .rsplit(|b| *b == b'=' || *b == b' ')
+                                .next()
+                                .unwrap_or(prefix);
+                            let new_start = new_span.end.saturating_sub(prefix.len());
+
+                            let ctx = Context::new(
                                 working_set,
-                                &span,
-                                |b| *b == b'=' || *b == b' ',
-                                strip,
+                                Span::new(new_start, new_span.end),
+                                prefix,
+                                offset,
                             );
-                            let mut ctx = Context::new(working_set, new_span, prefix, offset);
 
                             // Prioritize custom completion results over everything else
                             if let Some(custom_completer) = flag.and_then(|f| f.completion) {
@@ -476,11 +460,22 @@ impl NuCompleter {
                             }
 
                             // Try command-wide completion if specified by attributes
+                            // NOTE: `CommandWideCompletion` takes raw span
+                            let command_wide_span = Span::new(
+                                new_start,
+                                if strip {
+                                    new_span.end + 1
+                                } else {
+                                    new_span.end
+                                },
+                            );
+                            let command_wide_ctx =
+                                Context::new(working_set, command_wide_span, b"", offset);
                             let (need_fallback, command_wide_res) = self
                                 .command_wide_completion_helper(
                                     &signature,
                                     element_expression,
-                                    &mut ctx,
+                                    &command_wide_ctx,
                                     strip,
                                 );
                             suggestions.splice(0..0, command_wide_res);
@@ -559,11 +554,12 @@ impl NuCompleter {
                             }
 
                             // Try command-wide completion if specified by attributes
+                            let command_wide_ctx = Context::new(working_set, span, b"", offset);
                             let (need_fallback, command_wide_res) = self
                                 .command_wide_completion_helper(
                                     &signature,
                                     element_expression,
-                                    &mut ctx,
+                                    &command_wide_ctx,
                                     strip,
                                 );
                             suggestions.splice(0..0, command_wide_res);
@@ -724,7 +720,7 @@ impl NuCompleter {
         &self,
         signature: &Signature,
         element_expression: &Expression,
-        ctx: &mut Context,
+        ctx: &Context,
         strip: bool,
     ) -> (bool, Vec<SemanticSuggestion>) {
         let completion = match signature.complete {
@@ -743,7 +739,6 @@ impl NuCompleter {
         };
 
         if let Some(mut completion) = completion {
-            ctx.prefix = b"";
             (
                 completion.need_fallback,
                 self.process_completion(&mut completion, ctx),

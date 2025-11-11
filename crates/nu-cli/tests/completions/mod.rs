@@ -985,6 +985,29 @@ fn command_wide_completion_flag_completion() {
     let suggestions = completer.complete(sample, sample.len());
     let expected = vec!["--flag", "--switch", "-f", "-s", "--with", "--external"];
     match_suggestions(&expected, &suggestions);
+
+    let span = suggestions[0].span;
+    assert_eq!(span.start, sample.len() - 1);
+    assert_eq!(span.end, sample.len());
+
+    // flag value completion
+    let input_for_flag_value = format!("{sample}-flag ");
+    let suggestions = completer.complete(&input_for_flag_value, input_for_flag_value.len());
+    let expected = vec!["command", "wide", "--with", "--external"];
+    match_suggestions(&expected, &suggestions);
+
+    let span = suggestions[0].span;
+    assert_eq!(span.start, input_for_flag_value.len());
+    assert_eq!(span.end, input_for_flag_value.len());
+
+    let input_for_flag_value = format!("{sample}-flag=wi");
+    let suggestions = completer.complete(&input_for_flag_value, input_for_flag_value.len());
+    let expected = vec!["wide"];
+    match_suggestions(&expected, &suggestions);
+
+    let span = suggestions[0].span;
+    assert_eq!(span.start, input_for_flag_value.len() - 2);
+    assert_eq!(span.end, input_for_flag_value.len());
 }
 
 #[test]
