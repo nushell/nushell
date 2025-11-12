@@ -460,15 +460,8 @@ impl NuCompleter {
                             }
 
                             // Try command-wide completion if specified by attributes
-                            // NOTE: `CommandWideCompletion` takes raw span
-                            let command_wide_span = Span::new(
-                                new_start,
-                                if strip {
-                                    new_span.end + 1
-                                } else {
-                                    new_span.end
-                                },
-                            );
+                            // NOTE: `CommandWideCompletion` handles placeholder stripping internally
+                            let command_wide_span = Span::new(new_start, span.end);
                             let command_wide_ctx =
                                 Context::new(working_set, command_wide_span, b"", offset);
                             let (need_fallback, command_wide_res) = self

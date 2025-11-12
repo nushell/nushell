@@ -490,6 +490,32 @@ mod tests {
             "kind": 14
         }])
     )]
+    #[case::command_wide_custom(
+        "command.nu", (23, 5),
+        None,
+        serde_json::json!([{
+            "label": "baz",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 23, "character": 4 }, "end": { "line": 23, "character": 7 } },
+                "newText": "baz"
+            },
+            "kind": 12
+        }])
+    )]
+    #[case::command_wide_external(
+        "command.nu", (28, 8),
+        Some("$env.config.completions.external.completer = {|spans| ['text']}"),
+        serde_json::json!([{
+            "label": "text",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 28, "character": 8 }, "end": { "line": 28, "character": 8 } },
+                "newText": "text"
+            },
+            "kind": 12
+        }])
+    )]
     fn completion_single_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),
