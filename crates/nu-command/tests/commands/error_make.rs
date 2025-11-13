@@ -39,6 +39,28 @@ fn error_start_bigger_than_end_should_fail() {
 }
 
 #[test]
+fn url_works() {
+    let actual = nu!("
+        error make {
+            msg: bar
+            url: 'https://example.com'
+        }
+    ");
+    assert!(actual.err.contains("https://example.com"));
+}
+
+#[test]
+fn code_works() {
+    let actual = nu!("
+        error make {
+            msg: bar
+            code: 'foo::bar'
+        }
+    ");
+    assert!(actual.err.contains("diagnostic code: foo::bar"));
+}
+
+#[test]
 fn check_help_line() {
     let actual = nu!("error make {msg:foo help: `Custom help line`}");
 
