@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, DynamicCompletionCall, DynamicSuggestion, Example, LabeledError, PipelineData,
-    Signature, SyntaxShape, engine::ArgType,
+    Signature, Span, SyntaxShape, engine::ArgType,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -56,7 +56,7 @@ impl PluginCommand for ArgCompletion {
         &self,
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
-        _call: &DynamicCompletionCall,
+        call: &DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         match arg_type {
@@ -86,12 +86,19 @@ impl PluginCommand for ArgCompletion {
                     .duration_since(UNIX_EPOCH)
                     .expect("time should go forward")
                     .as_secs();
+                let head = call.call.span();
                 // be careful: Don't include any spaces for values.
                 if index == 0 {
+                    // Just for fun :-)
+                    // assign span to head will replace the input buffer
+                    // to value `s`.
+                    // Try to play with `example arg-completion <tab>` then select
+                    // one item.
                     Some(
                         (since_the_epoch..since_the_epoch + 10)
                             .map(|s| DynamicSuggestion {
-                                value: format!("arg0:{s}"),
+                                value: s.to_string(),
+                                span: Some(Span::new(head.start, head.end)),
                                 ..Default::default()
                             })
                             .collect(),

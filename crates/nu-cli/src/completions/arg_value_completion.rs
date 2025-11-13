@@ -49,11 +49,12 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         ) {
             Ok(Some(items)) => {
                 for i in items {
+                    let result_span = i.span.unwrap_or(span);
                     let suggestion = SemanticSuggestion::from_dynamic_suggestion(
                         i,
                         reedline::Span {
-                            start: span.start - offset,
-                            end: span.end - offset,
+                            start: result_span.start - offset,
+                            end: result_span.end - offset,
                         },
                         None,
                     );

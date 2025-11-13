@@ -1,7 +1,4 @@
-use crate::DeclId;
-use crate::Type;
-use crate::ast;
-use crate::engine::CommandType;
+use crate::{DeclId, Span, Type, ast, engine::CommandType};
 use serde::{Deserialize, Serialize};
 
 /// A simple semantics suggestion just like nu_cli::SemanticSuggestion, but it
@@ -28,6 +25,8 @@ pub struct DynamicSuggestion {
     /// Indices of the graphemes in the suggestion that matched the typed text.
     /// Useful if using fuzzy matching.
     pub match_indices: Option<Vec<usize>>,
+    /// Replacement span in the buffer, if any.
+    pub span: Option<Span>,
     pub kind: Option<SuggestionKind>,
 }
 
@@ -40,6 +39,7 @@ impl Default for DynamicSuggestion {
             extra: None,
             match_indices: None,
             kind: None,
+            span: None,
         }
     }
 }
@@ -57,10 +57,14 @@ pub enum SuggestionKind {
     Variable,
 }
 
+/// A simple wrapper for [`ast::Call`] which contains additional context about completion.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DynamicCompletionCall {
+    /// the real call, which is generated during parse time.
     pub call: ast::Call,
+    /// Indicates if there is a placeholder in input buffer.
     pub strip: bool,
+    /// The position of input buffer, which is useful to find placeholder from arguments.
     pub pos: usize,
 }
 

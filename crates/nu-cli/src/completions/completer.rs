@@ -571,6 +571,7 @@ impl NuCompleter {
                                 call,
                                 arg_idx,
                                 pos,
+                                strip,
                             };
 
                             suggestions.splice(
