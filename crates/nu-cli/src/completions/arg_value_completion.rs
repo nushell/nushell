@@ -8,7 +8,7 @@ use crate::{
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    Span,
+    DynamicCompletionCall, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, Stack, StateWorkingSet},
 };
@@ -20,6 +20,7 @@ pub struct ArgValueCompletion<'a> {
     pub completer: &'a NuCompleter,
     pub arg_idx: usize,
     pub pos: usize,
+    pub strip: bool,
 }
 
 impl<'a> Completer for ArgValueCompletion<'a> {
@@ -38,7 +39,14 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         let decl = working_set.get_decl(self.call.decl_id);
         let mut stack = stack.to_owned();
 
-        match decl.get_dynamic_completion(working_set.permanent_state, &mut stack, &self.arg_type) {
+        let dynamic_completion_call =
+            DynamicCompletionCall::from_ast_call(self.call.clone(), self.strip, self.pos);
+        match decl.get_dynamic_completion(
+            working_set.permanent_state,
+            &mut stack,
+            &dynamic_completion_call,
+            &self.arg_type,
+        ) {
             Ok(Some(items)) => {
                 for i in items {
                     let suggestion = SemanticSuggestion::from_dynamic_suggestion(
