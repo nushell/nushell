@@ -1,6 +1,6 @@
 use nu_protocol::{
-    DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
-    PluginSignature, ShellError, Signature, Value, engine::ArgType,
+    DynamicCompletionCall, DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData,
+    PluginExample, PluginSignature, ShellError, Signature, Value, engine::ArgType,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -166,6 +166,7 @@ pub trait PluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
+        call: &DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
@@ -321,6 +322,7 @@ pub trait SimplePluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
+        call: &DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
@@ -380,9 +382,10 @@ where
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
+        call: &DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
-        <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, arg_type)
+        <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, call, arg_type)
     }
 }
 

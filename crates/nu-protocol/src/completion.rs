@@ -1,5 +1,6 @@
 use crate::DeclId;
 use crate::Type;
+use crate::ast;
 use crate::engine::CommandType;
 use serde::{Deserialize, Serialize};
 
@@ -54,4 +55,17 @@ pub enum SuggestionKind {
     Module,
     Operator,
     Variable,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicCompletionCall {
+    pub call: ast::Call,
+    pub strip: bool,
+    pub pos: usize,
+}
+
+impl DynamicCompletionCall {
+    pub fn from_ast_call(call: ast::Call, strip: bool, pos: usize) -> Self {
+        Self { call, strip, pos }
+    }
 }

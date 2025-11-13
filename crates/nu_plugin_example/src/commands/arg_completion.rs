@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, DynamicSuggestion, Example, LabeledError, PipelineData, Signature, SyntaxShape,
-    engine::ArgType,
+    Category, DynamicCompletionCall, DynamicSuggestion, Example, LabeledError, PipelineData,
+    Signature, SyntaxShape, engine::ArgType,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -56,6 +56,7 @@ impl PluginCommand for ArgCompletion {
         &self,
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
+        _call: &DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         match arg_type {

@@ -22,9 +22,9 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
-    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
-    Value,
+    ByteStreamType, Config, DeclId, DynamicCompletionCall, DynamicSuggestion, LabeledError,
+    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction,
+    Span, Spanned, Value,
     ast::Operator,
     casing::Casing,
     engine::{ArgType, Closure},
@@ -84,6 +84,8 @@ pub struct GetCompletionInfo {
     pub name: String,
     /// The flag name to get completion items.
     pub arg_type: GetCompletionArgType,
+    /// Information about the invocation.
+    pub call: DynamicCompletionCall,
 }
 
 impl<D> CallInfo<D> {

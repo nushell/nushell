@@ -362,6 +362,7 @@ impl NuCompleter {
         // unfinished argument completion for commands
         match &element_expression.expr {
             Expr::Call(call) => {
+                log::info!("call: {call:?}");
                 let signature = working_set.get_decl(call.decl_id).signature();
                 // NOTE: the argument to complete is not necessarily the last one
                 // for lsp completion, we don't trim the text,
@@ -579,7 +580,6 @@ impl NuCompleter {
                         }
                         _ => (),
                     }
-
                     break;
                 }
             }
