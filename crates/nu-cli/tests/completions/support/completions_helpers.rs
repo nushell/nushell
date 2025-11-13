@@ -41,7 +41,7 @@ impl Command for FakeCmd {
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
-        call: &DynamicCompletionCall,
+        _call: &DynamicCompletionCall,
         arg_type: &ArgType,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(match arg_type {

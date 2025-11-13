@@ -15,15 +15,16 @@ use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, DynamicSuggestion, IntoInterruptiblePipelineData,
-    IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
-    Signals, Span, Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, DynamicCompletionCall, DynamicSuggestion, Id,
+    IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata,
+    PluginSignature, ShellError, Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     sync::{Arc, mpsc},
     time::Duration,
 };
@@ -1137,6 +1138,16 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
         arg_type: nu_plugin_protocol::GetCompletionArgType::Flag("test_flag".to_string()),
+        call: DynamicCompletionCall {
+            call: nu_protocol::ast::Call {
+                decl_id: Id::new(3),
+                head: Span::unknown(),
+                arguments: vec![],
+                parser_info: HashMap::new(),
+            },
+            pos: 0,
+            strip: true,
+        },
     })?;
 
     assert_eq!(
@@ -1149,6 +1160,16 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
     let result = interface.get_dynamic_completion(GetCompletionInfo {
         name: "test".to_string(),
         arg_type: nu_plugin_protocol::GetCompletionArgType::Positional(1),
+        call: DynamicCompletionCall {
+            call: nu_protocol::ast::Call {
+                decl_id: Id::new(3),
+                head: Span::unknown(),
+                arguments: vec![],
+                parser_info: HashMap::new(),
+            },
+            pos: 0,
+            strip: true,
+        },
     })?;
 
     assert_eq!(
