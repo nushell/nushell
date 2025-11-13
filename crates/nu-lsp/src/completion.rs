@@ -443,6 +443,29 @@ mod tests {
     #[case::command_fallback("command.nu", (13, 9), None, serde_json::json!([
         { "label": "config n foo bar", "detail": DETAIL_STR, "kind": 2 }
     ]))]
+    #[case::short_flag_name("command.nu", (15, 17), None, serde_json::json!([
+        {
+            "label": "-e",
+            "detail": "byte encode endian, available options: native(default), little, big",
+            "textEdit": {
+                "newText": "-e ",
+                "range": { "start": { "character": 15, "line": 15 }, "end": { "character": 17, "line": 15 } }
+            },
+            "kind": 5 }
+    ]))]
+    #[case::short_flag_value("command.nu", (15, 20), None, serde_json::json!([
+        { "label": "big", "kind": 12 }
+    ]))]
+    #[case::long_flag_name("command.nu", (15, 30), None, serde_json::json!([
+        {
+            "label": "--endian",
+            "detail": "byte encode endian, available options: native(default), little, big",
+            "textEdit": {
+                "newText": "--endian ",
+                "range": { "start": { "character": 22, "line": 15 }, "end": { "character": 30, "line": 15 } }
+            },
+            "kind": 5 }
+    ]))]
     #[case::fallback_file_path("fallback.nu", (5, 4), None, serde_json::json!([
         {
             "label": "cell_path.nu",
@@ -465,6 +488,32 @@ mod tests {
                 "newText": "alias ${1:name} = ${2:initial_value}"
             },
             "kind": 14
+        }])
+    )]
+    #[case::command_wide_custom(
+        "command.nu", (23, 5),
+        None,
+        serde_json::json!([{
+            "label": "baz",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 23, "character": 4 }, "end": { "line": 23, "character": 7 } },
+                "newText": "baz"
+            },
+            "kind": 12
+        }])
+    )]
+    #[case::command_wide_external(
+        "command.nu", (28, 8),
+        Some("$env.config.completions.external.completer = {|spans| ['text']}"),
+        serde_json::json!([{
+            "label": "text",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 28, "character": 8 }, "end": { "line": 28, "character": 8 } },
+                "newText": "text"
+            },
+            "kind": 12
         }])
     )]
     fn completion_single_request(

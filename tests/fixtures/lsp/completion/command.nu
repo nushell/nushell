@@ -12,3 +12,18 @@ def "config n foo bar" [
 }
 
 config n # don't panic!
+
+'1' | into int -e big --endian big
+
+# command-wide completion
+def "nu-complete foo" [spans: list] { [($spans | last)] }
+
+@complete "nu-complete foo"
+def --wrapped "foo" [...rest] { }
+
+foo bar baz
+
+@complete external
+def --wrapped bar [...rest] { }
+
+bar baz  qux
