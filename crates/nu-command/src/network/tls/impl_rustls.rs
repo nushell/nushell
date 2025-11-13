@@ -103,9 +103,9 @@ pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
             let certs = RootCerts::PlatformVerifier;
 
             // Use native cert store instead of platform verifier on Android, as we cannot use the
-            // `platform-android-verifier-android` crate properly as we don't build a proper 
+            // `platform-android-verifier-android` crate properly as we don't build a proper
             // android app but rather just a binary that is executed in termux.
-            // Otherwise this guide would be really relevant: 
+            // Otherwise this guide would be really relevant:
             // https://github.com/rustls/rustls-platform-verifier/blob/1099f161bfc5e3ac7f90aad88b1bf788e72906cb/README.md#android
             #[cfg(all(feature = "os", target_os = "android"))]
             let certs = native_certs();
@@ -125,10 +125,10 @@ pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
 }
 
 /// Load certificates from the platform certificate store.
-/// 
-/// This method of loading certs is discouraged by the rustls team, see 
+///
+/// This method of loading certs is discouraged by the rustls team, see
 /// [here](https://github.com/rustls/rustls-native-certs).
-/// However this impl still works and is expected to work, especially for platforms that not 
+/// However this impl still works and is expected to work, especially for platforms that not
 /// properly support `rustls-platform-verifier`.
 #[cfg(feature = "os")]
 pub fn native_certs() -> RootCerts {
