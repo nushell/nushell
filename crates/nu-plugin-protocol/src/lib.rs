@@ -22,9 +22,9 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ByteStreamType, Config, DeclId, DynamicCompletionCall, DynamicSuggestion, LabeledError,
-    PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction,
-    Span, Spanned, Value,
+    ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
+    Value, ast,
     ast::Operator,
     casing::Casing,
     engine::{ArgType, Closure},
@@ -75,6 +75,18 @@ impl<'a> From<GetCompletionArgType> for ArgType<'a> {
             GetCompletionArgType::Positional(idx) => ArgType::Positional(idx),
         }
     }
+}
+
+/// A simple wrapper for [`ast::Call`] which contains additional context about completion.
+/// It's used in plugin side.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicCompletionCall {
+    /// the real call, which is generated during parse time.
+    pub call: ast::Call,
+    /// Indicates if there is a placeholder in input buffer.
+    pub strip: bool,
+    /// The position in input buffer, which is useful to find placeholder from arguments.
+    pub pos: usize,
 }
 
 /// Information about `get_dynamic_completion` of a plugin call invocation.

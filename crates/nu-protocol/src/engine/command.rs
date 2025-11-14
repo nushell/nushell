@@ -177,7 +177,7 @@ pub trait Command: Send + Sync + CommandClone {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        call: &DynamicCompletionCallRef,
+        call: DynamicCompletionCallRef,
         arg_type: &ArgType,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(None)

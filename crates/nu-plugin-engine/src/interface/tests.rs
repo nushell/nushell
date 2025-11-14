@@ -8,16 +8,16 @@ use crate::{
 use nu_engine::command_prelude::IoError;
 use nu_plugin_core::{Interface, InterfaceManager, interface_test_util::TestCase};
 use nu_plugin_protocol::{
-    ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallResponse, EvaluatedCall,
-    GetCompletionInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId,
+    ByteStreamInfo, CallInfo, CustomValueOp, DynamicCompletionCall, EngineCall, EngineCallResponse,
+    EvaluatedCall, GetCompletionInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId,
     PluginCallResponse, PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo,
     StreamData, StreamMessage,
     test_util::{expected_test_custom_value, test_plugin_custom_value},
 };
 use nu_protocol::{
-    BlockId, ByteStreamType, CustomValue, DynamicCompletionCall, DynamicSuggestion, Id,
-    IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata,
-    PluginSignature, ShellError, Signals, Span, Spanned, Value,
+    BlockId, ByteStreamType, CustomValue, DynamicSuggestion, Id, IntoInterruptiblePipelineData,
+    IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
+    Signals, Span, Spanned, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,

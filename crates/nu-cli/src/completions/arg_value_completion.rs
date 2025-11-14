@@ -40,14 +40,14 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         let mut stack = stack.to_owned();
 
         let dynamic_completion_call = DynamicCompletionCallRef {
-            call: &self.call,
+            call: self.call,
             strip: self.strip,
             pos: self.pos,
         };
         match decl.get_dynamic_completion(
             working_set.permanent_state,
             &mut stack,
-            &dynamic_completion_call,
+            dynamic_completion_call,
             &self.arg_type,
         ) {
             Ok(Some(items)) => {

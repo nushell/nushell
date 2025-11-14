@@ -1,7 +1,9 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
-use nu_plugin_protocol::{CallInfo, EvaluatedCall, GetCompletionArgType, GetCompletionInfo};
+use nu_plugin_protocol::{
+    CallInfo, DynamicCompletionCall, EvaluatedCall, GetCompletionArgType, GetCompletionInfo,
+};
 use nu_protocol::engine::ArgType;
-use nu_protocol::{DynamicCompletionCall, DynamicCompletionCallRef, DynamicSuggestion};
+use nu_protocol::{DynamicCompletionCallRef, DynamicSuggestion};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
 
@@ -130,7 +132,7 @@ impl Command for PluginDeclaration {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        call: &DynamicCompletionCallRef,
+        call: DynamicCompletionCallRef,
         arg_type: &ArgType,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         // Get the engine config

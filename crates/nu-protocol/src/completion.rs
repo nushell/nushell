@@ -58,6 +58,7 @@ pub enum SuggestionKind {
 }
 
 /// A simple wrapper for [`ast::Call`] which contains additional context about completion.
+/// It's used only at nushell side, to avoid unnecessary clone.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicCompletionCallRef<'a> {
     /// the real call, which is generated during parse time.
@@ -65,12 +66,5 @@ pub struct DynamicCompletionCallRef<'a> {
     /// Indicates if there is a placeholder in input buffer.
     pub strip: bool,
     /// The position in input buffer, which is useful to find placeholder from arguments.
-    pub pos: usize,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DynamicCompletionCall {
-    pub call: ast::Call,
-    pub strip: bool,
     pub pos: usize,
 }

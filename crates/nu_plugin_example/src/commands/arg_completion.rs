@@ -1,7 +1,7 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_plugin::{DynamicCompletionCall, EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, DynamicCompletionCall, DynamicSuggestion, Example, LabeledError, PipelineData,
-    Signature, Span, SyntaxShape, engine::ArgType,
+    Category, DynamicSuggestion, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape,
+    engine::ArgType,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 

@@ -1,9 +1,9 @@
 use nu_protocol::{
-    DynamicCompletionCall, DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData,
-    PluginExample, PluginSignature, ShellError, Signature, Value, engine::ArgType,
+    DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
+    PluginSignature, ShellError, Signature, Value, engine::ArgType,
 };
 
-use crate::{EngineInterface, EvaluatedCall, Plugin};
+use crate::{DynamicCompletionCall, EngineInterface, EvaluatedCall, Plugin};
 
 /// The API for a Nushell plugin command
 ///
