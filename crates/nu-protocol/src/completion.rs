@@ -64,7 +64,7 @@ pub struct DynamicCompletionCall {
     pub call: ast::Call,
     /// Indicates if there is a placeholder in input buffer.
     pub strip: bool,
-    /// The position of input buffer, which is useful to find placeholder from arguments.
+    /// The position in input buffer, which is useful to find placeholder from arguments.
     pub pos: usize,
 }
 
