@@ -56,7 +56,7 @@ impl PluginCommand for ArgCompletion {
         &self,
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
-        call: &DynamicCompletionCall,
+        call: DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         match arg_type {

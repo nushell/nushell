@@ -130,7 +130,7 @@ impl Command for PluginDeclaration {
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        call: &DynamicCompletionCall,
+        call: DynamicCompletionCall,
         arg_type: &ArgType,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         // Get the engine config

@@ -166,7 +166,7 @@ pub trait PluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        call: &DynamicCompletionCall,
+        call: DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
@@ -322,7 +322,7 @@ pub trait SimplePluginCommand: Sync {
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        call: &DynamicCompletionCall,
+        call: DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
@@ -382,7 +382,7 @@ where
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
-        call: &DynamicCompletionCall,
+        call: DynamicCompletionCall,
         arg_type: ArgType,
     ) -> Option<Vec<DynamicSuggestion>> {
         <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, call, arg_type)
