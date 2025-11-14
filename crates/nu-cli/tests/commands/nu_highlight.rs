@@ -16,7 +16,7 @@ fn nu_highlight_where_row_condition() {
 fn nu_highlight_aliased_external_resolved() {
     let actual = nu!(r#"$env.config.highlight_resolved_externals = true
         $env.config.color_config.shape_external_resolved = '#ffffff'
-        alias fff = ^sleep
+        alias fff = ^rustc
         ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external_resolved)"#);
 
     assert_eq!(actual.out, "true");
