@@ -6553,7 +6553,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.43.0"
-source = "git+https://github.com/nushell/reedline?branch=main#e28d49c99d6464c39d110458620d5e0bf56756f4"
+source = "git+https://github.com/nushell/reedline?branch=main#7888dbf7ed519dd8d0cab6146130e3c59c42324d"
 dependencies = [
  "arboard",
  "chrono",
@@ -6568,6 +6568,7 @@ dependencies = [
  "strum",
  "strum_macros 0.26.4",
  "thiserror 2.0.12",
+ "unicase",
  "unicode-segmentation",
  "unicode-width 0.2.0",
 ]
