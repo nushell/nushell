@@ -8,7 +8,7 @@ use crate::{
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    DynamicCompletionCall, Span,
+    DynamicCompletionCallRef, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, Stack, StateWorkingSet},
 };
@@ -39,12 +39,15 @@ impl<'a> Completer for ArgValueCompletion<'a> {
         let decl = working_set.get_decl(self.call.decl_id);
         let mut stack = stack.to_owned();
 
-        let dynamic_completion_call =
-            DynamicCompletionCall::from_ast_call(self.call.clone(), self.strip, self.pos);
+        let dynamic_completion_call = DynamicCompletionCallRef {
+            call: &self.call,
+            strip: self.strip,
+            pos: self.pos,
+        };
         match decl.get_dynamic_completion(
             working_set.permanent_state,
             &mut stack,
-            dynamic_completion_call,
+            &dynamic_completion_call,
             &self.arg_type,
         ) {
             Ok(Some(items)) => {

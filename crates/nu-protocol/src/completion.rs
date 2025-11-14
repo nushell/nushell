@@ -58,18 +58,19 @@ pub enum SuggestionKind {
 }
 
 /// A simple wrapper for [`ast::Call`] which contains additional context about completion.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DynamicCompletionCall {
+#[derive(Clone, Debug, PartialEq)]
+pub struct DynamicCompletionCallRef<'a> {
     /// the real call, which is generated during parse time.
-    pub call: ast::Call,
+    pub call: &'a ast::Call,
     /// Indicates if there is a placeholder in input buffer.
     pub strip: bool,
     /// The position in input buffer, which is useful to find placeholder from arguments.
     pub pos: usize,
 }
 
-impl DynamicCompletionCall {
-    pub fn from_ast_call(call: ast::Call, strip: bool, pos: usize) -> Self {
-        Self { call, strip, pos }
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicCompletionCall {
+    pub call: ast::Call,
+    pub strip: bool,
+    pub pos: usize,
 }
