@@ -88,7 +88,6 @@ impl Completer for DotNuCompletion {
                         suggestion: Suggestion {
                             value: path.into(),
                             span: reedline_span,
-                            append_whitespace: true,
                             ..Suggestion::default()
                         },
                         kind: Some(SuggestionKind::Module),
