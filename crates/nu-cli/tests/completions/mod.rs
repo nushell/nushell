@@ -690,8 +690,8 @@ fn dotnu_completions() {
     match_suggestions(&expected, &suggestions);
 
     // Test use completion
-    expected.insert(7, "std-rfc");
-    expected.insert(7, "std");
+    expected.insert(0, "std-rfc");
+    expected.insert(0, "std");
     let completion_str = "use ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
@@ -721,6 +721,28 @@ fn dotnu_completions() {
     let dir_content = read_dir(expand_tilde("~")).unwrap();
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_dir_content_for_dotnu(dir_content, &suggestions);
+}
+
+// https://github.com/nushell/nushell/issues/17021
+#[test]
+fn module_name_completions() {
+    let (_, _, mut engine, mut stack) = new_dotnu_engine();
+    let code = r#"module "🤔🐘" {
+       # module comment
+       # another comment
+    }"#;
+    assert!(support::merge_input(code.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "use 🤔";
+
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["🤔🐘"], &suggestions);
+
+    assert_eq!(
+        suggestions[0].description,
+        Some("# module comment\n# another comment".into())
+    );
 }
 
 #[test]
