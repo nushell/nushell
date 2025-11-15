@@ -40,8 +40,6 @@ impl Completer for DotNuCompletion {
         }
 
         for (module_name_bytes, module_id) in modules_map.into_iter() {
-            // let module_id = ModuleId::new(module_idx);
-            // let module = working_set.get_module(*module_id);
             let module_name = String::from_utf8_lossy(module_name_bytes);
 
             let description = working_set.get_module_comments(*module_id).map(|spans| {
@@ -141,20 +139,6 @@ impl Completer for DotNuCompletion {
             stack,
         ));
 
-        let into_suggestion = |x: &FileSuggestion| SemanticSuggestion {
-            suggestion: Suggestion {
-                value: x.path.to_string(),
-                style: x.style,
-                span: reedline::Span {
-                    start: x.span.start - offset,
-                    end: x.span.end - offset,
-                },
-                append_whitespace: !x.is_dir,
-                ..Suggestion::default()
-            },
-            kind: Some(SuggestionKind::Module),
-        };
-
         all_results.extend(
             // Put files atop
             module_file_results
@@ -167,7 +151,16 @@ impl Completer for DotNuCompletion {
                 })
                 // or directories
                 .chain(module_file_results.iter().filter(|it| it.is_dir))
-                .map(into_suggestion)
+                .map(|x: &FileSuggestion| SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: x.path.to_string(),
+                        style: x.style,
+                        span: reedline_span,
+                        append_whitespace: !x.is_dir,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Module),
+                })
                 .collect::<Vec<_>>(),
         );
 
