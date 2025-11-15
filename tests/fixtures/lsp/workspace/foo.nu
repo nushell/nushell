@@ -21,4 +21,16 @@ export module cst_mod {
       export const var_name = "const value"
     }
   }
+
+  @category foo
+  export  def module_attribute_foo [] { }
+
+  @complete external
+  export extern module_attribute_baz []
 }
+
+@category foo
+export def block_attribute_foo [] { }
+
+@complete external
+export extern block_attribute_baz []

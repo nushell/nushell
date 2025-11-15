@@ -1953,6 +1953,9 @@ fn attributable_completions() {
 
     // Match results
     match_suggestions(&expected, &suggestions);
+
+    // Append space set to true
+    assert!(suggestions[0].append_whitespace);
 }
 
 #[test]

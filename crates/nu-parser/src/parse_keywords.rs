@@ -1407,7 +1407,6 @@ fn warp_export_call(
         }
         Some(Expr::AttributeBlock(ab)) => {
             if let Expr::Call(def_call) = &mut ab.item.expr {
-                def_call.head = Span::concat(&spans[0..=1]);
                 def_call.decl_id = export_decl_id;
                 return true;
             }

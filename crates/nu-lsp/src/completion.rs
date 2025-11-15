@@ -516,6 +516,19 @@ mod tests {
             "kind": 12
         }])
     )]
+    #[case::attributable_command_with_snippet(
+        "command.nu", (21, 0),
+        None,
+        serde_json::json!([{
+            "label": "def",
+            "labelDetails": { "description": "keyword" },
+            "textEdit": {
+                "range": { "start": { "line": 21, "character": 0 }, "end": { "line": 21, "character": 0 } },
+                "newText": "def ${1:def_name} ${2:params} ${3:block}"
+            },
+            "kind": 14
+        }])
+    )]
     fn completion_single_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),
