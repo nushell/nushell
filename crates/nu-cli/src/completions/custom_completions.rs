@@ -2,7 +2,7 @@ use crate::completions::{
     Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
     completer::map_value_completions,
 };
-use nu_engine::eval_call;
+use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
 use nu_protocol::{
     BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
@@ -10,7 +10,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use super::completion_options::NuMatcher;
 
@@ -240,7 +240,17 @@ impl<'a> Completer for CommandWideCompletion<'a> {
             new_span = Span::new(span.start, span.end.saturating_sub(1));
         }
 
-        let block = working_set.get_block(self.block_id);
+        let mut block = working_set.get_block(self.block_id).clone();
+
+        // LSP completion where custom def is parsed but not compiled
+        if block.ir_block.is_none()
+            && let Ok(ir_block) = compile(working_set, &block)
+        {
+            let mut new_block = (*block).clone();
+            new_block.ir_block = Some(ir_block);
+            block = Arc::new(new_block);
+        }
+
         let mut callee_stack = stack.captures_to_stack_preserve_out_dest(self.captures.clone());
 
         if let Some(pos_arg) = block.signature.required_positional.first()
@@ -262,7 +272,7 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         let result = nu_engine::eval_block::<WithoutDebug>(
             &engine_state,
             &mut callee_stack,
-            block,
+            &block,
             PipelineData::empty(),
         )
         .map(|p| p.body);

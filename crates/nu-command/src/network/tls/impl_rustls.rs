@@ -99,8 +99,16 @@ pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
     let crypto_provider = CRYPTO_PROVIDER.get()?;
     let config = match allow_insecure {
         false => {
-            #[cfg(feature = "os")]
+            #[cfg(all(feature = "os", not(target_os = "android")))]
             let certs = RootCerts::PlatformVerifier;
+
+            // Use native cert store instead of platform verifier on Android, as we cannot use the
+            // `platform-android-verifier-android` crate properly as we don't build a proper
+            // android app but rather just a binary that is executed in termux.
+            // Otherwise this guide would be really relevant:
+            // https://github.com/rustls/rustls-platform-verifier/blob/1099f161bfc5e3ac7f90aad88b1bf788e72906cb/README.md#android
+            #[cfg(all(feature = "os", target_os = "android"))]
+            let certs = native_certs();
 
             #[cfg(not(feature = "os"))]
             let certs = RootCerts::WebPki;
@@ -114,4 +122,37 @@ pub fn tls_config(allow_insecure: bool) -> Result<TlsConfig, ShellError> {
     };
 
     Ok(config)
+}
+
+/// Load certificates from the platform certificate store.
+///
+/// This method of loading certs is discouraged by the rustls team, see
+/// [here](https://github.com/rustls/rustls-native-certs).
+/// However this impl still works and is expected to work, especially for platforms that not
+/// properly support `rustls-platform-verifier`.
+#[cfg(feature = "os")]
+pub fn native_certs() -> RootCerts {
+    use rustls_native_certs::CertificateResult;
+    use ureq::tls::Certificate;
+
+    let CertificateResult { certs, errors, .. } = rustls_native_certs::load_native_certs();
+
+    // We only assert that we had no errors in a debug build.
+    // We don't want to crash release builds when they encounter an error,
+    // users rather have a broken http client than a crashing shell.
+    debug_assert!(
+        errors.is_empty(),
+        "encountered errors while loading tls certificates"
+    );
+
+    // This sadly copies the certs around but we cannot get the `CertificateDer<'static>` as
+    // `&'static [u8]`.
+    // Also internally is `ureq` loading the certificates into the `CertificateDer` format, oh well.
+    let certs: Vec<_> = certs
+        .into_iter()
+        .map(|cert| Certificate::from_der(&cert).to_owned())
+        .collect();
+    let certs = Arc::new(certs);
+
+    RootCerts::Specific(certs)
 }

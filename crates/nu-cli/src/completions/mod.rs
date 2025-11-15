@@ -1,4 +1,4 @@
-mod arg_value_dynamic_completion;
+mod arg_value_completion;
 mod attribute_completions;
 mod base;
 mod cell_path_completions;
@@ -16,7 +16,7 @@ mod operator_completions;
 mod static_completions;
 mod variable_completions;
 
-pub use arg_value_dynamic_completion::ArgValueDynamicCompletion;
+pub use arg_value_completion::ArgValueCompletion;
 pub use attribute_completions::{AttributableCompletion, AttributeCompletion};
 pub use base::{Completer, SemanticSuggestion};
 pub use cell_path_completions::CellPathCompletion;
