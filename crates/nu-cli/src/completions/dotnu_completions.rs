@@ -40,8 +40,7 @@ impl Completer for DotNuCompletion {
         }
 
         for (module_name_bytes, module_id) in modules_map.into_iter() {
-            let module_name = String::from_utf8_lossy(module_name_bytes);
-
+            let value = String::from_utf8_lossy(module_name_bytes).to_string();
             let description = working_set.get_module_comments(*module_id).map(|spans| {
                 spans
                     .iter()
@@ -52,7 +51,7 @@ impl Completer for DotNuCompletion {
 
             matcher.add_semantic_suggestion(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: module_name.to_string(),
+                    value,
                     description,
                     span: reedline_span,
                     append_whitespace: true,
@@ -122,10 +121,8 @@ impl Completer for DotNuCompletion {
             search_dirs.insert(cwd.into_std_path_buf());
         }
 
-        let mut module_file_results = Vec::new();
-
         // Fetch the files
-        module_file_results.extend(complete_item(
+        let module_file_results = complete_item(
             false,
             span,
             prefix.as_ref(),
@@ -136,7 +133,7 @@ impl Completer for DotNuCompletion {
             options,
             working_set.permanent_state,
             stack,
-        ));
+        );
 
         all_results.extend(
             // Put files atop
