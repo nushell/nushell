@@ -225,7 +225,10 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let Spanned {
+        item: (requested_url, _),
+        span: request_span,
+    } = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let cwd = engine_state.cwd(None)?;
@@ -247,6 +250,7 @@ fn helper(
     let (response, request_headers) = send_request(
         engine_state,
         request,
+        request_span,
         args.data,
         args.content_type,
         call.head,

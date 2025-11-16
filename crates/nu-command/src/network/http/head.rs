@@ -160,7 +160,10 @@ fn helper(
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let Spanned {
+        item: (requested_url, _),
+        span: request_span,
+    } = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let cwd = engine_state.cwd(None)?;
@@ -179,7 +182,8 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let (response, _request_headers) = send_request_no_body(request, call.head, signals);
+    let (response, _request_headers) =
+        send_request_no_body(request, request_span, call.head, signals);
     let response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
     handle_response_status(&response, redirect_mode, &requested_url, span, false)?;

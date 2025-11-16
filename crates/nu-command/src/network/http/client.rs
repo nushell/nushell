@@ -157,7 +157,8 @@ pub fn http_parse_url(
     call: &Call,
     span: Span,
     raw_url: Value,
-) -> Result<(String, Url), ShellError> {
+) -> Result<Spanned<(String, Url)>, ShellError> {
+    let url_span = raw_url.span();
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
         requested_url = format!("http://localhost{requested_url}");
@@ -177,7 +178,7 @@ pub fn http_parse_url(
         }
     };
 
-    Ok((requested_url, url))
+    Ok((requested_url, url).into_spanned(url_span))
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
