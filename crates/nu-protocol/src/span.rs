@@ -54,7 +54,7 @@ impl<T> Spanned<T> {
     }
 }
 
-impl<'a, T> Spanned<&'a T>
+impl<T> Spanned<&T>
 where
     T: ToOwned + ?Sized,
 {
