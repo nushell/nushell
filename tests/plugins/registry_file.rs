@@ -161,8 +161,7 @@ fn plugin_add_creates_missing_parent_directories() {
 
         // Verify the plugin file was created with correct contents
         let contents = PluginRegistryFile::read_from(
-            File::open(dirs.test().join(nested_path))
-                .expect("failed to open plugin file"),
+            File::open(dirs.test().join(nested_path)).expect("failed to open plugin file"),
             None,
         )
         .expect("failed to read plugin file");
