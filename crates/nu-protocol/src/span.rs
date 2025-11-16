@@ -2,7 +2,7 @@
 use crate::{IntoValue, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
+use std::{fmt, ops::Deref};
 
 pub trait GetSpan {
     fn get_span(&self, span_id: SpanId) -> Span;
@@ -67,6 +67,21 @@ impl<T, E> Spanned<Result<T, E>> {
                 span: _,
             } => Err(err),
         }
+    }
+}
+
+// With both Display and Into<SourceSpan> implemented on Spanned, we can use Spanned<String> in an
+// error in one field instead of splitting it into two fields
+
+impl<T: fmt::Display> fmt::Display for Spanned<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.item, f)
+    }
+}
+
+impl<T> From<Spanned<T>> for SourceSpan {
+    fn from(value: Spanned<T>) -> Self {
+        value.span.into()
     }
 }
 
