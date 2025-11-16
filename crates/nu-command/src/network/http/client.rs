@@ -305,7 +305,7 @@ pub fn request_add_authorization_header<B>(
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),
-    RequestError(String, Box<Error>),
+    RequestError(Spanned<String>, Box<Error>),
 }
 
 impl From<ShellError> for ShellErrorOrRequestError {
@@ -322,13 +322,24 @@ pub enum HttpBody {
 
 pub fn send_request_no_body(
     request: RequestBuilder<WithoutBody>,
+    request_span: Span,
     span: Span,
     signals: &Signals,
 ) -> (Result<Response, ShellError>, Headers) {
     let headers = extract_request_headers(&request);
-    let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
-    let result = send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
-        .map_err(|e| request_error_to_shell_error(span, e));
+    let request_url = request
+        .uri_ref()
+        .cloned()
+        .unwrap_or_default()
+        .to_string()
+        .into_spanned(request_span);
+    let result = send_cancellable_request(
+        request_url.as_str(),
+        Box::new(|| request.call()),
+        span,
+        signals,
+    )
+    .map_err(|e| request_error_to_shell_error(span, e));
 
     (result, headers.unwrap_or_default())
 }
@@ -337,13 +348,19 @@ pub fn send_request_no_body(
 pub fn send_request(
     engine_state: &EngineState,
     request: RequestBuilder<WithBody>,
+    request_span: Span,
     body: HttpBody,
     content_type: Option<String>,
     span: Span,
     signals: &Signals,
 ) -> (Result<Response, ShellError>, Headers) {
     let mut request_headers = Headers::new();
-    let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
+    let request_url = request
+        .uri_ref()
+        .cloned()
+        .unwrap_or_default()
+        .to_string()
+        .into_spanned(request_span);
     // hard code serialize_types to false because closures probably shouldn't be
     // deserialized for send_request but it's required by send_json_request
     let serialize_types = false;
@@ -357,7 +374,7 @@ pub fn send_request(
             if let Some(h) = extract_request_headers(&req) {
                 request_headers = h;
             }
-            send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
+            send_cancellable_request_bytes(request_url.as_str(), req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
             let body_type = BodyType::from(content_type);
@@ -377,19 +394,19 @@ pub fn send_request(
             match body_type {
                 BodyType::Json => send_json_request(
                     engine_state,
-                    &request_url,
+                    request_url.as_str(),
                     body,
                     req,
                     span,
                     signals,
                     serialize_types,
                 ),
-                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
+                BodyType::Form => send_form_request(request_url.as_str(), body, req, span, signals),
                 BodyType::Multipart => {
-                    send_multipart_request(&request_url, body, req, span, signals)
+                    send_multipart_request(request_url.as_str(), body, req, span, signals)
                 }
                 BodyType::Unknown(_) => {
-                    send_default_request(&request_url, body, req, span, signals)
+                    send_default_request(request_url.as_str(), body, req, span, signals)
                 }
             }
         }
@@ -402,7 +419,7 @@ pub fn send_request(
 
 fn send_json_request(
     engine_state: &EngineState,
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -446,7 +463,7 @@ fn send_json_request(
 }
 
 fn send_form_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -499,7 +516,7 @@ fn send_form_request(
 }
 
 fn send_multipart_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -553,7 +570,7 @@ fn send_multipart_request(
 }
 
 fn send_default_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -578,7 +595,7 @@ fn send_default_request(
 // Helper method used to make blocking HTTP request calls cancellable with ctrl+c
 // ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
 fn send_cancellable_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
     span: Span,
     signals: &Signals,
@@ -605,7 +622,7 @@ fn send_cancellable_request(
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(result) => {
                 return result.map_err(|e| {
-                    ShellErrorOrRequestError::RequestError(request_url.to_string(), Box::new(e))
+                    ShellErrorOrRequestError::RequestError(request_url.to_owned(), Box::new(e))
                 });
             }
             Err(RecvTimeoutError::Timeout) => continue,
@@ -617,16 +634,17 @@ fn send_cancellable_request(
 // Helper method used to make blocking HTTP request calls cancellable with ctrl+c
 // ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
 fn send_cancellable_request_bytes(
-    request_url: &str,
+    request_url: Spanned<&str>,
     request: ureq::RequestBuilder<WithBody>,
     byte_stream: ByteStream,
     span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let (tx, rx) = mpsc::channel::<Result<Response, ShellErrorOrRequestError>>();
-    let request_url_string = request_url.to_string();
+    let request_url = request_url.to_owned();
 
     // Make the blocking request on a background thread...
+    // This could use scoped threads.
     std::thread::Builder::new()
         .name("HTTP requester".to_string())
         .spawn(move || {
@@ -645,7 +663,7 @@ fn send_cancellable_request_bytes(
                     request
                         .send(SendBody::from_owned_reader(reader))
                         .map_err(|e| {
-                            ShellErrorOrRequestError::RequestError(request_url_string, Box::new(e))
+                            ShellErrorOrRequestError::RequestError(request_url, Box::new(e))
                         })
                 });
 
@@ -788,8 +806,13 @@ fn handle_status_error(span: Span, requested_url: &str, status: StatusCode) -> S
     }
 }
 
-fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+fn handle_response_error(
+    span: Span,
+    requested_url: Spanned<&str>,
+    response_err: Error,
+) -> ShellError {
     match response_err {
+        // TODO: move errors here into ShellError::Network instead
         Error::ConnectionFailed => ShellError::NetworkFailure {
             msg: format!(
                 "Cannot make request to {requested_url}, there was an error establishing a connection.",
@@ -804,9 +827,7 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
         Error::Other(error) => match error.downcast::<LookupError>() {
             // TODO: use better span here
-            Ok(error) => {
-                lookup_error_to_shell_error(*error, span, requested_url.into_spanned(span))
-            }
+            Ok(error) => lookup_error_to_shell_error(*error, span, requested_url),
             Err(error) => ShellError::Network(NetworkError::Generic {
                 msg: error.to_string(),
                 span,
@@ -1126,7 +1147,7 @@ pub(crate) fn request_error_to_shell_error(span: Span, e: ShellErrorOrRequestErr
     match e {
         ShellErrorOrRequestError::ShellError(e) => e,
         ShellErrorOrRequestError::RequestError(requested_url, e) => {
-            handle_response_error(span, &requested_url, *e)
+            handle_response_error(span, requested_url.as_str(), *e)
         }
     }
 }
