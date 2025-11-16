@@ -223,6 +223,9 @@ impl Command for GroupBy {
         [storm, rs, "2021"]
     ]
     | group-by lang | update cells { reject lang }"#,
+                #[cfg(test)] // Cannot test this example, it requires the nu-cmd-extra crate.
+                result: None,
+                #[cfg(not(test))]
                 result: Some(Value::test_record(record! {
                         "rb" => Value::test_list(vec![Value::test_record(record! {
                                         "name" => Value::test_string("andres"),
