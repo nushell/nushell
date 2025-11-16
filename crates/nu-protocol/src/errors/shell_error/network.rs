@@ -1,7 +1,7 @@
 use miette::{Diagnostic, LabeledSpan};
 use thiserror::Error;
 
-use crate::{Span, Spanned};
+use crate::{ShellError, Span, Spanned};
 
 #[derive(Debug, Clone, PartialEq, Error, Diagnostic)]
 pub enum NetworkError {
@@ -44,7 +44,7 @@ impl Diagnostic for DnsError {
     }
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        Some(Box::new(format!("While querying {}", self.query)))
+        Some(Box::new(format!("While querying \"{}\"", self.query)))
     }
 }
 
@@ -77,4 +77,10 @@ pub enum DnsErrorKind {
     #[error("Non recoverable failure in name resolution")]
     #[diagnostic(code(nu::shell::network::dns::fail))]
     Fail,
+}
+
+impl From<DnsError> for ShellError {
+    fn from(value: DnsError) -> Self {
+        ShellError::Network(NetworkError::Dns(value))
+    }
 }

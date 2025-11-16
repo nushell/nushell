@@ -815,7 +815,7 @@ pub enum ShellError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Network(network::NetworkError),
+    Network(#[from] network::NetworkError),
 
     /// Help text for this command could not be found.
     ///
