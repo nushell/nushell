@@ -54,14 +54,15 @@ devicons = { workspace = true }
 dialoguer = { workspace = true, default-features = false, features = [
 	"fuzzy-select",
 ] }
-fuzzy-matcher = { workspace = true }
 digest = { workspace = true, default-features = false }
+dns-lookup = { workspace = true }
 dtparse = { workspace = true }
 encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
-http = {workspace = true}
+fuzzy-matcher = { workspace = true }
+http = { workspace = true }
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
