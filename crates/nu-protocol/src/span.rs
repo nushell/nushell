@@ -67,6 +67,19 @@ where
     }
 }
 
+impl<T> Spanned<T>
+where
+    T: AsRef<str>,
+{
+    /// Span the value as a string slice.
+    pub fn as_str(&self) -> Spanned<&str> {
+        Spanned {
+            item: self.item.as_ref(),
+            span: self.span,
+        }
+    }
+}
+
 impl<T, E> Spanned<Result<T, E>> {
     /// Move the `Result` to the outside, resulting in a spanned `Ok` or unspanned `Err`.
     pub fn transpose(self) -> Result<Spanned<T>, E> {
