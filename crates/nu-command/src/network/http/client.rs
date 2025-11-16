@@ -1,21 +1,34 @@
 use crate::{
     formats::value_to_json_value,
-    network::{http::timeout_extractor_reader::UreqTimeoutExtractorReader, tls::tls_config},
+    network::{
+        http::{
+            resolver::{DnsLookupResolver, LookupError},
+            timeout_extractor_reader::UreqTimeoutExtractorReader,
+        },
+        tls::tls_config,
+    },
 };
 use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
 };
+use dns_lookup::LookupErrorKind;
 use http::StatusCode;
 use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
-use nu_protocol::{ByteStream, LabeledError, PipelineMetadata, Signals, shell_error::io::IoError};
+use nu_protocol::{
+    ByteStream, LabeledError, PipelineMetadata, Signals,
+    shell_error::{
+        io::IoError,
+        network::{DnsError, DnsErrorKind, NetworkError},
+    },
+};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
-    io::Cursor,
+    io::{self, Cursor},
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -24,6 +37,7 @@ use std::{
 use ureq::{
     Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
+    unversioned::transport::DefaultConnector,
 };
 use url::Url;
 
@@ -122,19 +136,21 @@ pub fn http_client(
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
+    let config = config_builder.build();
 
     if let Some(socket_path) = unix_socket_path {
         // Use custom Unix socket connector
         use ureq::unversioned::resolver::DefaultResolver;
 
         let connector = UnixSocketConnector::new(socket_path);
-        let config = config_builder.build();
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
-    Ok(ureq::Agent::new_with_config(config_builder.build()))
+    let connector = DefaultConnector::default();
+    let resolver = DnsLookupResolver;
+    Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
 
 pub fn http_parse_url(
@@ -786,10 +802,52 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
             None,
         )),
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
+        Error::Other(error) => match error.downcast::<LookupError>() {
+            // TODO: use better span here
+            Ok(error) => {
+                lookup_error_to_shell_error(*error, span, requested_url.into_spanned(span))
+            }
+            Err(error) => ShellError::Network(NetworkError::Generic {
+                msg: error.to_string(),
+                span,
+            }),
+        },
         e => ShellError::NetworkFailure {
             msg: e.to_string(),
             span,
         },
+    }
+}
+
+fn lookup_error_to_shell_error(error: LookupError, span: Span, query: Spanned<&str>) -> ShellError {
+    let dns_error = |kind| {
+        ShellError::from(DnsError {
+            kind,
+            span,
+            query: query.to_owned(),
+        })
+    };
+
+    let generic_error = |msg: &str| {
+        ShellError::Network(NetworkError::Generic {
+            msg: msg.into(),
+            span,
+        })
+    };
+
+    match error.0.kind() {
+        LookupErrorKind::Again => dns_error(DnsErrorKind::Again),
+        LookupErrorKind::NoName => dns_error(DnsErrorKind::NoName),
+        LookupErrorKind::NoData => dns_error(DnsErrorKind::NoData),
+        LookupErrorKind::Fail => dns_error(DnsErrorKind::Fail),
+        LookupErrorKind::Badflags => generic_error("Invalid flags for DNS lookup"),
+        LookupErrorKind::Family => generic_error("Address family not supported for DNS lookup"),
+        LookupErrorKind::Socktype => generic_error("Socket type not supported for DNS lookup"),
+        LookupErrorKind::Service => generic_error("Service not supported for this socket type"),
+        LookupErrorKind::Memory => unimplemented!(), // We don't handle out of memory gracefully anywhere else.
+        LookupErrorKind::System | LookupErrorKind::Unknown | LookupErrorKind::IO => {
+            IoError::new(io::Error::from(error.0), span, Some(query.item.into())).into()
+        }
     }
 }
 
