@@ -54,6 +54,19 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<'a, T> Spanned<&'a T>
+where
+    T: ToOwned + ?Sized,
+{
+    /// Map the spanned to hold an owned value.
+    pub fn to_owned(&self) -> Spanned<T::Owned> {
+        Spanned {
+            item: self.item.to_owned(),
+            span: self.span,
+        }
+    }
+}
+
 impl<T, E> Spanned<Result<T, E>> {
     /// Move the `Result` to the outside, resulting in a spanned `Ok` or unspanned `Err`.
     pub fn transpose(self) -> Result<Spanned<T>, E> {
