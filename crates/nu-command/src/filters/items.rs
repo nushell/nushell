@@ -27,7 +27,7 @@ impl Command for Items {
     }
 
     fn extra_description(&self) -> &str {
-        "This is a the fusion of `columns`, `values` and `each`."
+        "This is a fusion of `columns`, `values` and `each`."
     }
 
     fn run(
