@@ -97,6 +97,7 @@ These columns will be automatically turned back into nu objects when read direct
 struct Table {
     conn: rusqlite::Connection,
     table_name: String,
+    span: Span,
 }
 
 impl Table {
@@ -123,7 +124,11 @@ impl Table {
         // create the sqlite database table
         let conn = open_sqlite_db(&db_path, span)?;
 
-        Ok(Self { conn, table_name })
+        Ok(Self {
+            conn,
+            table_name,
+            span,
+        })
     }
 
     pub fn name(&self) -> &String {
@@ -135,7 +140,7 @@ impl Table {
         record: &Record,
     ) -> Result<rusqlite::Transaction<'_>, nu_protocol::ShellError> {
         let first_row_null = record.values().any(Value::is_nothing);
-        let columns = get_columns_with_sqlite_types(record)?;
+        let columns = get_columns_with_sqlite_types(record, self.span)?;
 
         let table_exists_query = format!(
             "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';",
@@ -148,7 +153,7 @@ impl Table {
             .map_err(|err| ShellError::GenericError {
                 error: format!("{err:#?}"),
                 msg: format!("{err:#?}"),
-                span: None,
+                span: Some(self.span),
                 help: None,
                 inner: Vec::new(),
             })?;
@@ -179,7 +184,7 @@ If this is undesirable, you can create the table first with your desired schema.
                 .map_err(|err| ShellError::GenericError {
                     error: "Failed to create table".into(),
                     msg: err.to_string(),
-                    span: None,
+                    span: Some(self.span),
                     help: None,
                     inner: Vec::new(),
                 })?;
@@ -190,7 +195,7 @@ If this is undesirable, you can create the table first with your desired schema.
             .map_err(|err| ShellError::GenericError {
                 error: "Failed to open transaction".into(),
                 msg: err.to_string(),
-                span: None,
+                span: Some(self.span),
                 help: None,
                 inner: Vec::new(),
             })
@@ -340,7 +345,7 @@ fn insert_value(
                 .map_err(|e| ShellError::GenericError {
                     error: "Failed to execute SQLite statement".into(),
                     msg: e.to_string(),
-                    span: None,
+                    span: Some(call_span),
                     help: None,
                     inner: Vec::new(),
                 })?;
@@ -350,7 +355,7 @@ fn insert_value(
         val => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record".into(),
             wrong_type: val.get_type().to_string(),
-            dst_span: Span::unknown(),
+            dst_span: call_span,
             src_span: val.span(),
         }),
     }
@@ -362,7 +367,7 @@ fn insert_value(
 // REAL. The value is a floating point value, stored as an 8-byte IEEE floating point number.
 // TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
 // BLOB. The value is a blob of data, stored exactly as it was input.
-fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
+fn nu_value_to_sqlite_type(val: &Value, dst_span: Span) -> Result<&'static str, ShellError> {
     match val.get_type() {
         Type::String => Ok("TEXT"),
         Type::Int => Ok("INTEGER"),
@@ -392,7 +397,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Glob => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "sql".into(),
             wrong_type: val.get_type().to_string(),
-            dst_span: Span::unknown(),
+            dst_span,
             src_span: val.span(),
         }),
     }
@@ -400,6 +405,7 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
 
 fn get_columns_with_sqlite_types(
     record: &Record,
+    dst_span: Span,
 ) -> Result<Vec<(String, &'static str)>, ShellError> {
     let mut columns: Vec<(String, &'static str)> = vec![];
 
@@ -409,7 +415,7 @@ fn get_columns_with_sqlite_types(
             .map(|name| (format!("`{}`", name.0), name.1))
             .any(|(name, _)| name == *c)
         {
-            columns.push((format!("`{c}`"), nu_value_to_sqlite_type(v)?));
+            columns.push((format!("`{c}`"), nu_value_to_sqlite_type(v, dst_span)?));
         }
     }
 
