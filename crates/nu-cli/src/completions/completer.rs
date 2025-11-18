@@ -408,7 +408,7 @@ impl NuCompleter {
                     // 1. Flag name: 2 sources combined:
                     //    * Signature based internal flags
                     //    * Command-wide external flags
-                    // 2. Flag value/positional: try the followings in order:
+                    // 2. Flag value/positional: try the following in order:
                     //    1. Custom completion
                     //    2. Command-wide completion
                     //    3. Dynamic completion defined in trait `Command`
