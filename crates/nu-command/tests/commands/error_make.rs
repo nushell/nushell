@@ -12,9 +12,35 @@ fn error_label_works() {
 }
 
 #[test]
+fn error_labels_list_works() {
+    let actual = nu!("error make {msg:foo labels:[{text:unseen} {text:hidden}]}");
+
+    assert!(
+        actual
+            .err
+            .contains("label at line 1, columns 1 to 10: unseen")
+    );
+    assert!(
+        actual
+            .err
+            .contains("label at line 1, columns 1 to 10: hidden")
+    );
+}
+
+#[test]
+fn error_labels_works() {
+    let actual = nu!("error make {msg:foo labels:{text:unseen}}");
+
+    assert!(
+        actual
+            .err
+            .contains("label at line 1, columns 1 to 10: unseen")
+    );
+}
+
+#[test]
 fn no_span_if_unspanned() {
     let actual = nu!("error make -u {msg:foo label:{text:unseen}}");
-
     assert!(!actual.err.contains("unseen"));
 }
 
@@ -39,18 +65,22 @@ fn error_start_bigger_than_end_should_fail() {
 }
 
 #[test]
-fn url_works() {
+fn error_url_works() {
     let actual = nu!("
         error make {
             msg: bar
             url: 'https://example.com'
         }
     ");
-    assert!(actual.err.contains("https://example.com"));
+    assert!(
+        actual
+            .err
+            .contains("For more details, see:\nhttps://example.com")
+    );
 }
 
 #[test]
-fn code_works() {
+fn error_code_works() {
     let actual = nu!("
         error make {
             msg: bar
@@ -58,6 +88,40 @@ fn code_works() {
         }
     ");
     assert!(actual.err.contains("diagnostic code: foo::bar"));
+}
+
+#[test]
+fn error_check_deep() {
+    let actual = nu!("
+        error make {
+            msg: foo
+            inner: [{msg:bar}]
+        }
+    ");
+
+    assert!(actual.err.contains("Error: bar"));
+    assert!(actual.err.contains("Error: foo"));
+}
+
+#[test]
+fn error_chained() {
+    let actual = nu!("
+        try {
+            error make {
+                msg: foo
+                inner: [{msg:bar}]
+            }
+        } catch {|e|
+            error make {
+                msg: baz
+                inner: ($e.json | from json).inner
+            }
+        }
+    ");
+
+    assert!(!actual.err.contains("Error: foo"));
+    assert!(actual.err.contains("Error: baz"));
+    assert!(actual.err.contains("Error: bar"));
 }
 
 #[test]
