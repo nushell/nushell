@@ -95,17 +95,12 @@ pub(crate) fn modify_plugin_file(
 
     // Save the modified file on success
     // First, ensure the parent directory exists
-    if let Some(parent_dir) = plugin_registry_file_path.parent()
-        && !parent_dir.exists()
-    {
+    if let Some(parent_dir) = plugin_registry_file_path.parent() {
         fs::create_dir_all(parent_dir).map_err(|err| {
-            IoError::new_with_additional_context(
+            IoError::new(
                 err.not_found_as(NotFound::Directory),
                 file_span,
                 parent_dir.to_path_buf(),
-                "Cannot create plugin config directory. \
-                Ensure the parent path is accessible and you have write permissions"
-                    .to_string(),
             )
         })?;
     }
