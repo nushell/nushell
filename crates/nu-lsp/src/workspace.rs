@@ -1082,6 +1082,21 @@ mod tests {
         "workspace/baz.nu", (10, 7),
         serde_json::json!([make_highlight(10, 4, 10, 12), make_highlight(11, 1, 11, 8)])
     )]
+    // Regression tests for https://github.com/nushell/nushell/pull/16696
+    #[case::export_def_with_attributes(
+        "workspace/foo.nu", (25, 3),
+        serde_json::json!([
+            make_highlight(0, 0, 0, 10),
+            make_highlight(6, 0, 6, 11),
+            make_highlight(10, 4, 10, 14),
+            make_highlight(25, 2, 25, 13),
+            make_highlight(32, 0, 32, 10),
+        ])
+    )]
+    #[case::export_extern_with_attributes(
+        "workspace/foo.nu", (28, 3),
+        serde_json::json!([make_highlight(28, 2, 28, 15), make_highlight(35, 0, 35, 13)])
+    )]
     fn document_highlight_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),

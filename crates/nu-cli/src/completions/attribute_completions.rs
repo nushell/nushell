@@ -70,10 +70,14 @@ impl Completer for AttributableCompletion {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                    append_whitespace: false,
+                    append_whitespace: true,
                     ..Default::default()
                 },
-                kind: Some(SuggestionKind::Command(cmd.command_type(), None)),
+                kind: Some(SuggestionKind::Command(
+                    cmd.command_type(),
+                    // for snippet completion in LSP
+                    working_set.find_decl(s.as_bytes()),
+                )),
             });
         }
 
