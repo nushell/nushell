@@ -35,16 +35,15 @@ structure. (`*`) indicates a required key:
 
   * `msg: string` (`*`)
   * `code: string`
-  * `label: oneof<table, record>`
-  * `labels: table`
+  * `labels: oneof<table, record>`
   * `help: string`
   * `url: string`
   * `inner: table`
 
-The `label` and `labels` keys allow for placing arrows to points in the code,
-optionally using `span` to find it (see `metadata`). `labels` must be a table,
-while `label` can either be be a single record or a table. They have the
-following record structure:
+The `labels` key allow for placing arrows to points in the code, optionally
+using `span` to choose where it points (see `metadata`). `label` can be a table
+(list of records) or a single record. There is an example of both in the
+examples. Each record has the following structure:
 
   * `text: string` (`*`)
   * `span: record<start: int end: int>`
@@ -90,8 +89,8 @@ example below."#
         error make {
             msg: "this is fishy"
             code: "my::error"  # optional error type to use
-            label: {  # optional, can be a list of these records as well for multiple labels.
-                text: "fish right here"  # Required if $.label exists
+            labels: {  # optional, a table or single record
+                text: "fish right here"  # Required if $.labels exists
                 # use (metadata $var).span to get the {start: x end: y} of the variable
                 span: (metadata $x).span  # optional
             }
@@ -115,11 +114,12 @@ example below."#
 }
 
 // Most of the parsing happens with FromValue
-#[derive(Debug, Default, Clone, FromValue)]
+#[derive(Debug, Default, Clone, FromValue, IntoValue)]
 struct Error {
     msg: String,
-    labels: Option<Vec<Label>>,
-    label: Option<Value>,
+    labels: Option<Labels>,
+    // TODO: Deprecate and clean up the parsing
+    label: Option<Labels>,
     inner: Option<Vec<Value>>,
     help: Option<String>,
     url: Option<String>,
@@ -127,10 +127,50 @@ struct Error {
 }
 
 // Labels are parse separately because they could be vectors or single values.
-#[derive(Debug, Default, Clone, FromValue)]
+#[derive(Debug, Default, Clone, FromValue, IntoValue)]
 struct Label {
     text: String,
     span: Option<Span>,
+}
+
+// Optional list or singleton label
+#[derive(Debug, Default, Clone, IntoValue)]
+struct Labels {
+    list: Vec<Label>,
+}
+
+impl Error {
+    pub fn combined_labels(&self, span: Option<Span>) -> Vec<Label> {
+        let included = [
+            self.labels.clone().unwrap_or_default().list,
+            self.label.clone().unwrap_or_default().list,
+        ]
+        .concat();
+        if included.is_empty() {
+            vec![Label {
+                text: "originates from here".into(),
+                span,
+            }]
+        } else {
+            included
+        }
+    }
+}
+
+impl FromValue for Labels {
+    fn from_value(v: Value) -> std::result::Result<Self, ShellError> {
+        match v.get_type() {
+            Type::Record(_) => match Label::from_value(v) {
+                Ok(o) => Ok(Self { list: vec![o] }),
+                Err(o) => Err(o),
+            },
+            Type::Table(_) => match Vec::<Label>::from_value(v) {
+                Ok(o) => Ok(Self { list: o }),
+                Err(o) => Err(o),
+            },
+            _ => Ok(Self { list: vec![] }),
+        }
+    }
 }
 
 fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
@@ -138,36 +178,27 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
         Err(e) => e,
         Ok(v) => {
             // Main error that will be returned
-            let mut error = LabeledError::new(v.msg);
-            // Vec<Result<Label, ShellError>>
-            let mut labels = Vec::new();
-            if let Some(lab) = v.label {
-                if let Ok(multi) = lab.as_list() {
-                    for l in multi {
-                        labels.push(Label::from_value(l.clone()));
-                    }
-                } else {
-                    labels.push(Label::from_value(lab.clone()))
-                }
-            } else {
-                labels.push(Ok(Label {
-                    text: "originates from here".into(),
-                    span: throw_span,
-                }))
-            }
-            labels.extend(v.labels.unwrap_or_default().iter().map(|l| Ok(l.clone())));
+            let mut error = LabeledError::new(v.msg.clone());
             if let Some(ts) = throw_span {
-                for label in labels {
-                    match label {
-                        Ok(lab) => error = error.with_label(lab.text, lab.span.unwrap_or(ts)),
-                        Err(e) => return e,
-                    }
+                for label in v.combined_labels(throw_span) {
+                    error = error.with_label(label.text, label.span.unwrap_or(ts));
                 }
             }
             // Recurse into the inner errors
             for inner in v.inner.unwrap_or_default() {
                 error = error.with_inner(make_other_error(&inner, Some(inner.span())));
             }
+            // TODO: This could be enabled before `label` is set to be deprecated
+            // if !v.label.unwrap_or_default().list.is_empty() {
+            //     error = error.with_inner(make_other_error(
+            //         &Error {
+            //             msg: "`label` is going to be deprecated. Use `labels` instead.".into(),
+            //             ..Error::default()
+            //         }
+            //         .into_value(value.span()),
+            //         throw_span,
+            //     ));
+            // };
             error.code = v.code;
             error.help = v.help;
             error.url = v.url;
