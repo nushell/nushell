@@ -424,18 +424,12 @@ impl NuCompleter {
                             //   - "--foo ..a" => ["--foo", "..a"] => "..a"
                             //   - "--foo=..a" => ["--foo", "..a"] => "..a"
                             // - strip placeholder (`a`) if present
-                            let prefix = prefix
-                                .rsplit(|b| *b == b'=' || *b == b' ')
-                                .next()
-                                .unwrap_or(prefix);
-                            let new_start = new_span.end.saturating_sub(prefix.len());
-
-                            let ctx = Context::new(
-                                working_set,
-                                Span::new(new_start, new_span.end),
-                                prefix,
-                                offset,
-                            );
+                            let mut new_span = val.span;
+                            if strip {
+                                new_span.end = new_span.end.saturating_sub(1);
+                            }
+                            let prefix = working_set.get_span_contents(new_span);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
 
                             // If we're completing the value of the flag,
                             // search for the matching custom completion decl_id (long or short)
@@ -452,7 +446,7 @@ impl NuCompleter {
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
-                                        pos,
+                                        if strip { pos } else { pos + 1 },
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`
@@ -461,9 +455,7 @@ impl NuCompleter {
 
                             // Try command-wide completion if specified by attributes
                             // NOTE: `CommandWideCompletion` handles placeholder stripping internally
-                            let command_wide_span = Span::new(new_start, span.end);
-                            let command_wide_ctx =
-                                Context::new(working_set, command_wide_span, b"", offset);
+                            let command_wide_ctx = Context::new(working_set, val.span, b"", offset);
                             let (need_fallback, command_wide_res) = self
                                 .command_wide_completion_helper(
                                     &signature,
@@ -539,7 +531,7 @@ impl NuCompleter {
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
-                                        pos,
+                                        if strip { pos } else { pos + 1 },
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`

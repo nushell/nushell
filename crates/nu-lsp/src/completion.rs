@@ -529,6 +529,32 @@ mod tests {
             "kind": 14
         }])
     )]
+    #[case::custom_completion_with_position_and_span(
+        "custom.nu", (13, 15),
+        None,
+        serde_json::json!([{
+            "label": "foo",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 13, "character": 14 }, "end": { "line": 13, "character": 15 } },
+                "newText": "foo"
+            },
+            "kind": 12
+        }])
+    )]
+    #[case::custom_completion_with_position_and_span_on_fallback(
+        "custom.nu", (13, 17),
+        None,
+        serde_json::json!([{
+            "label": "foo",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 13, "character": 16 }, "end": { "line": 13, "character": 17 } },
+                "newText": "foo"
+            },
+            "kind": 12
+        }])
+    )]
     fn completion_single_request(
         #[case] filename: &str,
         #[case] cursor_position: (u32, u32),
