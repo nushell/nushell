@@ -1,5 +1,5 @@
 use super::{ShellError, shell_error::io::IoError};
-use crate::Span;
+use crate::{Record, Span};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -251,5 +251,18 @@ impl From<ShellError> for LabeledError {
 impl From<IoError> for LabeledError {
     fn from(err: IoError) -> Self {
         LabeledError::from_diagnostic(&err)
+    }
+}
+
+impl From<Record> for LabeledError {
+    fn from(_err: Record) -> Self {
+        Self {
+            msg: "foo".into(),
+            labels: vec![].into(),
+            code: None,
+            url: None,
+            help: None,
+            inner: vec![].into(),
+        }
     }
 }

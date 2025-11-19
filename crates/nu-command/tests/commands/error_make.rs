@@ -1,5 +1,18 @@
 use nu_test_support::nu;
 
+// Required columns present
+#[test]
+fn error_make_empty() {
+    let actual = nu!("error make {}");
+    assert!(actual.err.contains("Cannot find column 'msg'"));
+}
+
+#[test]
+fn error_make_no_label_text() {
+    let actual = nu!("error make {msg: a label: {span: {start: 1 end: 1}}}");
+    assert!(actual.err.contains("Cannot find column 'text'"));
+}
+
 #[test]
 fn error_label_works() {
     let actual = nu!("error make {msg:foo label:{text:unseen}}");
@@ -28,17 +41,6 @@ fn error_labels_list_works() {
 }
 
 #[test]
-fn error_labels_works() {
-    let actual = nu!("error make {msg:foo labels:{text:unseen}}");
-
-    assert!(
-        actual
-            .err
-            .contains("label at line 1, columns 1 to 10: unseen")
-    );
-}
-
-#[test]
 fn no_span_if_unspanned() {
     let actual = nu!("error make -u {msg:foo label:{text:unseen}}");
     assert!(!actual.err.contains("unseen"));
@@ -56,12 +58,8 @@ fn error_start_bigger_than_end_should_fail() {
         }
     ");
 
-    assert!(actual.err.contains("invalid error format"));
-    assert!(
-        actual
-            .err
-            .contains("`$.label.start` should be smaller than `$.label.end`")
-    );
+    assert!(actual.err.contains("Unable to parse Span."));
+    assert!(actual.err.contains("`end` must not be less than `start`"));
 }
 
 #[test]
