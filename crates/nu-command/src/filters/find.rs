@@ -56,6 +56,11 @@ impl Command for Find {
                 Some('n'),
             )
             .switch("invert", "invert the match", Some('v'))
+            .switch(
+                "rfind",
+                "search from the end of the string and only return the first match",
+                Some('R'),
+            )
             .rest("rest", SyntaxShape::Any, "Terms to search.")
             .category(Category::Filters)
     }
@@ -213,7 +218,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find in a multi-line string",
-                example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find "ue""#,
+                example: "'Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue' | find ue",
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
@@ -228,9 +233,16 @@ impl Command for Find {
             },
             Example {
                 description: "Find in a multi-line string without splitting the input into a list of lines",
-                example: r#""Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue" | find --multiline "ue""#,
+                example: "'Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue' | find --multiline ue",
                 result: Some(Value::test_string(
                     "\u{1b}[39mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Find and highlight the last occurrence in a string",
+                example: r#"'hello world hello' | find --rfind hello"#,
+                result: Some(Value::test_string(
+                    "\u{1b}[39mhello world \u{1b}[0m\u{1b}[41;39mhello\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
             },
         ]
@@ -290,6 +302,9 @@ struct MatchPattern {
     /// return the values that aren't a match instead
     invert: bool,
 
+    /// search from the end (find last occurrence)
+    rfind: bool,
+
     /// style of the non-highlighted string sections
     string_style: Style,
 
@@ -310,6 +325,7 @@ fn get_match_pattern_from_arguments(
 
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let highlight = !call.has_flag(engine_state, stack, "no-highlight")?;
+    let rfind = call.has_flag(engine_state, stack, "rfind")?;
 
     let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
 
@@ -392,6 +408,7 @@ fn get_match_pattern_from_arguments(
         ignore_case,
         invert,
         highlight,
+        rfind,
         string_style,
         highlight_style,
     })
@@ -405,45 +422,67 @@ fn highlight_matches_in_string(pattern: &MatchPattern, val: String) -> String {
     }
 
     let stripped_val = nu_utils::strip_ansi_string_unlikely(val);
+
+    if pattern.rfind {
+        highlight_last_match(pattern, &stripped_val)
+    } else {
+        highlight_all_matches(pattern, &stripped_val)
+    }
+}
+
+fn highlight_last_match(pattern: &MatchPattern, text: &str) -> String {
+    // Find the last match using fold to avoid collecting all matches
+    let last_match = pattern.regex.find_iter(text).fold(None, |_, m| m.ok());
+
+    match last_match {
+        Some(m) => {
+            let start = m.start();
+            let end = m.end();
+            format!(
+                "{}{}{}",
+                pattern.string_style.paint(&text[..start]),
+                pattern.highlight_style.paint(&text[start..end]),
+                pattern.string_style.paint(&text[end..])
+            )
+        }
+        None => pattern.string_style.paint(text).to_string(),
+    }
+}
+
+fn highlight_all_matches(pattern: &MatchPattern, text: &str) -> String {
     let mut last_match_end = 0;
     let mut highlighted = String::new();
 
-    for cap in pattern.regex.captures_iter(stripped_val.as_ref()) {
-        match cap {
-            Ok(capture) => {
-                let start = match capture.get(0) {
-                    Some(acap) => acap.start(),
-                    None => 0,
-                };
-                let end = match capture.get(0) {
-                    Some(acap) => acap.end(),
-                    None => 0,
-                };
-                highlighted.push_str(
-                    &pattern
-                        .string_style
-                        .paint(&stripped_val[last_match_end..start])
-                        .to_string(),
-                );
-                highlighted.push_str(
-                    &pattern
-                        .highlight_style
-                        .paint(&stripped_val[start..end])
-                        .to_string(),
-                );
-                last_match_end = end;
-            }
-            Err(_e) => {
-                // in case of error, return the string with no highlight
-                return pattern.string_style.paint(&stripped_val).to_string();
-            }
-        }
+    for cap in pattern.regex.captures_iter(text) {
+        let capture = match cap {
+            Ok(capture) => capture,
+            Err(_) => return pattern.string_style.paint(text).to_string(),
+        };
+
+        let m = match capture.get(0) {
+            Some(m) => m,
+            None => continue,
+        };
+
+        highlighted.push_str(
+            &pattern
+                .string_style
+                .paint(&text[last_match_end..m.start()])
+                .to_string(),
+        );
+        highlighted.push_str(
+            &pattern
+                .highlight_style
+                .paint(&text[m.start()..m.end()])
+                .to_string(),
+        );
+        last_match_end = m.end();
     }
 
     highlighted.push_str(
         &pattern
             .string_style
-            .paint(&stripped_val[last_match_end..])
+            .paint(&text[last_match_end..])
             .to_string(),
     );
     highlighted
@@ -656,6 +695,7 @@ pub fn find_internal(
         ignore_case: true,
         highlight,
         invert: false,
+        rfind: false,
         string_style,
         highlight_style,
     };
