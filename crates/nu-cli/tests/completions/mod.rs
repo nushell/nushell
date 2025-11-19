@@ -418,11 +418,11 @@ fn command_argument_completions(
 #[rstest]
 #[case::list_flag_value1("foo --foo=", None, vec!["[bar]", "[baz]", "[foo]"], 0)]
 #[case::list_flag_value2("foo --foo=[f", None, vec!["[foo]"], 2)]
-#[case::list_flag_value3("foo --foo [f, ba", None, vec!["[f, bar]", "[f, baz]"], 6)]
-#[case::postional1("foo [f, ba", None, vec!["[f, bar]", "[f, baz]"], 6)]
-#[case::postional2("foo [f, ba", Some("foo [f".len()), vec!["[foo]"], 2)]
-#[case::postional3("foo --foo [] [f", None, vec!["[foo]"], 2)]
-fn custom_completion_for_list_typed_flag(
+#[case::list_flag_value3("foo --foo [f, b", None, vec!["[f, bar]", "[f, baz]"], 5)]
+#[case::positional1("foo [f, b", None, vec!["[f, bar]", "[f, baz]"], 5)]
+#[case::positional2("foo [f, b", Some("foo [f".len()), vec!["[foo]"], 2)]
+#[case::positional3("foo --foo [] [f", None, vec!["[foo]"], 2)]
+fn custom_completion_for_list_typed_argument(
     #[case] input: &str,
     #[case] pos: Option<usize>,
     #[case] expected: Vec<&str>,
