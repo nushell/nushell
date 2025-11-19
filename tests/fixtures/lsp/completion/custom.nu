@@ -9,6 +9,6 @@ def comp_with_span [context, pos] {
   }]
 }
 
-def cust_command [...rest: string@comp_with_span] { }
+def cust_command [--foo: string@comp_with_span, ...rest: string@comp_with_span] { }
 
-cust_command foo  foo
+cust_command foo  foo --foo foo
