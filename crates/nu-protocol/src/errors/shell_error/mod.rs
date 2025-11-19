@@ -13,6 +13,7 @@ pub mod bridge;
 pub mod io;
 pub mod job;
 pub mod location;
+pub mod network;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
@@ -811,6 +812,10 @@ pub enum ShellError {
         #[label("{msg}")]
         span: Span,
     },
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Network(#[from] network::NetworkError),
 
     /// Help text for this command could not be found.
     ///

@@ -7,6 +7,7 @@ mod options;
 mod patch;
 mod post;
 mod put;
+mod resolver;
 mod timeout_extractor_reader;
 mod unix_socket;
 

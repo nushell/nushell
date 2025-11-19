@@ -1,21 +1,34 @@
 use crate::{
     formats::value_to_json_value,
-    network::{http::timeout_extractor_reader::UreqTimeoutExtractorReader, tls::tls_config},
+    network::{
+        http::{
+            resolver::{DnsLookupResolver, LookupError},
+            timeout_extractor_reader::UreqTimeoutExtractorReader,
+        },
+        tls::tls_config,
+    },
 };
 use base64::{
     Engine, alphabet,
     engine::{GeneralPurpose, general_purpose::PAD},
 };
+use dns_lookup::LookupErrorKind;
 use http::StatusCode;
 use log::error;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
-use nu_protocol::{ByteStream, LabeledError, PipelineMetadata, Signals, shell_error::io::IoError};
+use nu_protocol::{
+    ByteStream, LabeledError, PipelineMetadata, Signals,
+    shell_error::{
+        io::IoError,
+        network::{DnsError, DnsErrorKind, NetworkError},
+    },
+};
 use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
-    io::Cursor,
+    io::{self, Cursor},
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -24,6 +37,7 @@ use std::{
 use ureq::{
     Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
+    unversioned::transport::DefaultConnector,
 };
 use url::Url;
 
@@ -122,26 +136,29 @@ pub fn http_client(
     };
 
     config_builder = config_builder.tls_config(tls_config(allow_insecure)?);
+    let config = config_builder.build();
 
     if let Some(socket_path) = unix_socket_path {
         // Use custom Unix socket connector
         use ureq::unversioned::resolver::DefaultResolver;
 
         let connector = UnixSocketConnector::new(socket_path);
-        let config = config_builder.build();
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
-    Ok(ureq::Agent::new_with_config(config_builder.build()))
+    let connector = DefaultConnector::default();
+    let resolver = DnsLookupResolver;
+    Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
 
 pub fn http_parse_url(
     call: &Call,
     span: Span,
     raw_url: Value,
-) -> Result<(String, Url), ShellError> {
+) -> Result<Spanned<(String, Url)>, ShellError> {
+    let url_span = raw_url.span();
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
         requested_url = format!("http://localhost{requested_url}");
@@ -161,7 +178,7 @@ pub fn http_parse_url(
         }
     };
 
-    Ok((requested_url, url))
+    Ok((requested_url, url).into_spanned(url_span))
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -289,7 +306,7 @@ pub fn request_add_authorization_header<B>(
 #[allow(clippy::large_enum_variant)]
 pub enum ShellErrorOrRequestError {
     ShellError(ShellError),
-    RequestError(String, Box<Error>),
+    RequestError(Spanned<String>, Box<Error>),
 }
 
 impl From<ShellError> for ShellErrorOrRequestError {
@@ -306,13 +323,24 @@ pub enum HttpBody {
 
 pub fn send_request_no_body(
     request: RequestBuilder<WithoutBody>,
+    request_span: Span,
     span: Span,
     signals: &Signals,
 ) -> (Result<Response, ShellError>, Headers) {
     let headers = extract_request_headers(&request);
-    let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
-    let result = send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
-        .map_err(|e| request_error_to_shell_error(span, e));
+    let request_url = request
+        .uri_ref()
+        .cloned()
+        .unwrap_or_default()
+        .to_string()
+        .into_spanned(request_span);
+    let result = send_cancellable_request(
+        request_url.as_str(),
+        Box::new(|| request.call()),
+        span,
+        signals,
+    )
+    .map_err(|e| request_error_to_shell_error(span, e));
 
     (result, headers.unwrap_or_default())
 }
@@ -321,13 +349,19 @@ pub fn send_request_no_body(
 pub fn send_request(
     engine_state: &EngineState,
     request: RequestBuilder<WithBody>,
+    request_span: Span,
     body: HttpBody,
     content_type: Option<String>,
     span: Span,
     signals: &Signals,
 ) -> (Result<Response, ShellError>, Headers) {
     let mut request_headers = Headers::new();
-    let request_url = request.uri_ref().cloned().unwrap_or_default().to_string();
+    let request_url = request
+        .uri_ref()
+        .cloned()
+        .unwrap_or_default()
+        .to_string()
+        .into_spanned(request_span);
     // hard code serialize_types to false because closures probably shouldn't be
     // deserialized for send_request but it's required by send_json_request
     let serialize_types = false;
@@ -341,7 +375,7 @@ pub fn send_request(
             if let Some(h) = extract_request_headers(&req) {
                 request_headers = h;
             }
-            send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
+            send_cancellable_request_bytes(request_url.as_str(), req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
             let body_type = BodyType::from(content_type);
@@ -361,19 +395,19 @@ pub fn send_request(
             match body_type {
                 BodyType::Json => send_json_request(
                     engine_state,
-                    &request_url,
+                    request_url.as_str(),
                     body,
                     req,
                     span,
                     signals,
                     serialize_types,
                 ),
-                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
+                BodyType::Form => send_form_request(request_url.as_str(), body, req, span, signals),
                 BodyType::Multipart => {
-                    send_multipart_request(&request_url, body, req, span, signals)
+                    send_multipart_request(request_url.as_str(), body, req, span, signals)
                 }
                 BodyType::Unknown(_) => {
-                    send_default_request(&request_url, body, req, span, signals)
+                    send_default_request(request_url.as_str(), body, req, span, signals)
                 }
             }
         }
@@ -386,7 +420,7 @@ pub fn send_request(
 
 fn send_json_request(
     engine_state: &EngineState,
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -430,7 +464,7 @@ fn send_json_request(
 }
 
 fn send_form_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -483,7 +517,7 @@ fn send_form_request(
 }
 
 fn send_multipart_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -537,7 +571,7 @@ fn send_multipart_request(
 }
 
 fn send_default_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
     span: Span,
@@ -562,7 +596,7 @@ fn send_default_request(
 // Helper method used to make blocking HTTP request calls cancellable with ctrl+c
 // ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
 fn send_cancellable_request(
-    request_url: &str,
+    request_url: Spanned<&str>,
     request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
     span: Span,
     signals: &Signals,
@@ -589,7 +623,7 @@ fn send_cancellable_request(
         match rx.recv_timeout(Duration::from_millis(100)) {
             Ok(result) => {
                 return result.map_err(|e| {
-                    ShellErrorOrRequestError::RequestError(request_url.to_string(), Box::new(e))
+                    ShellErrorOrRequestError::RequestError(request_url.to_owned(), Box::new(e))
                 });
             }
             Err(RecvTimeoutError::Timeout) => continue,
@@ -601,16 +635,17 @@ fn send_cancellable_request(
 // Helper method used to make blocking HTTP request calls cancellable with ctrl+c
 // ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
 fn send_cancellable_request_bytes(
-    request_url: &str,
+    request_url: Spanned<&str>,
     request: ureq::RequestBuilder<WithBody>,
     byte_stream: ByteStream,
     span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let (tx, rx) = mpsc::channel::<Result<Response, ShellErrorOrRequestError>>();
-    let request_url_string = request_url.to_string();
+    let request_url = request_url.to_owned();
 
     // Make the blocking request on a background thread...
+    // This could use scoped threads.
     std::thread::Builder::new()
         .name("HTTP requester".to_string())
         .spawn(move || {
@@ -629,7 +664,7 @@ fn send_cancellable_request_bytes(
                     request
                         .send(SendBody::from_owned_reader(reader))
                         .map_err(|e| {
-                            ShellErrorOrRequestError::RequestError(request_url_string, Box::new(e))
+                            ShellErrorOrRequestError::RequestError(request_url, Box::new(e))
                         })
                 });
 
@@ -772,8 +807,13 @@ fn handle_status_error(span: Span, requested_url: &str, status: StatusCode) -> S
     }
 }
 
-fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
+fn handle_response_error(
+    span: Span,
+    requested_url: Spanned<&str>,
+    response_err: Error,
+) -> ShellError {
     match response_err {
+        // TODO: move errors here into ShellError::Network instead
         Error::ConnectionFailed => ShellError::NetworkFailure {
             msg: format!(
                 "Cannot make request to {requested_url}, there was an error establishing a connection.",
@@ -786,10 +826,50 @@ fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -
             None,
         )),
         Error::Io(error) => ShellError::Io(IoError::new(error, span, None)),
+        Error::Other(error) => match error.downcast::<LookupError>() {
+            // TODO: use better span here
+            Ok(error) => lookup_error_to_shell_error(*error, span, requested_url),
+            Err(error) => ShellError::Network(NetworkError::Generic {
+                msg: error.to_string(),
+                span,
+            }),
+        },
         e => ShellError::NetworkFailure {
             msg: e.to_string(),
             span,
         },
+    }
+}
+
+fn lookup_error_to_shell_error(error: LookupError, span: Span, query: Spanned<&str>) -> ShellError {
+    let dns_error = |kind| {
+        ShellError::from(DnsError {
+            kind,
+            span,
+            query: query.to_owned(),
+        })
+    };
+
+    let generic_error = |msg: &str| {
+        ShellError::Network(NetworkError::Generic {
+            msg: msg.into(),
+            span,
+        })
+    };
+
+    match error.0.kind() {
+        LookupErrorKind::Again => dns_error(DnsErrorKind::Again),
+        LookupErrorKind::NoName => dns_error(DnsErrorKind::NoName),
+        LookupErrorKind::NoData => dns_error(DnsErrorKind::NoData),
+        LookupErrorKind::Fail => dns_error(DnsErrorKind::Fail),
+        LookupErrorKind::Badflags => generic_error("Invalid flags for DNS lookup"),
+        LookupErrorKind::Family => generic_error("Address family not supported for DNS lookup"),
+        LookupErrorKind::Socktype => generic_error("Socket type not supported for DNS lookup"),
+        LookupErrorKind::Service => generic_error("Service not supported for this socket type"),
+        LookupErrorKind::Memory => unimplemented!(), // We don't handle out of memory gracefully anywhere else.
+        LookupErrorKind::System | LookupErrorKind::Unknown | LookupErrorKind::IO => {
+            IoError::new(io::Error::from(error.0), span, Some(query.item.into())).into()
+        }
     }
 }
 
@@ -1068,7 +1148,7 @@ pub(crate) fn request_error_to_shell_error(span: Span, e: ShellErrorOrRequestErr
     match e {
         ShellErrorOrRequestError::ShellError(e) => e,
         ShellErrorOrRequestError::RequestError(requested_url, e) => {
-            handle_response_error(span, &requested_url, *e)
+            handle_response_error(span, requested_url.as_str(), *e)
         }
     }
 }

@@ -220,7 +220,10 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let Spanned {
+        item: (requested_url, _),
+        span: request_span,
+    } = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
     let cwd = engine_state.cwd(None)?;
@@ -239,7 +242,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
     let (response, request_headers) = match args.data {
-        None => send_request_no_body(request, call.head, engine_state.signals()),
+        None => send_request_no_body(request, request_span, call.head, engine_state.signals()),
 
         Some(body) => send_request(
             engine_state,
@@ -249,6 +252,7 @@ fn helper(
             // Sending body with DELETE goes against the spec, but might be useful in some cases,
             // see [force_send_body] documentation.
             request.force_send_body(),
+            request_span,
             body,
             args.content_type,
             span,

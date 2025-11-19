@@ -155,7 +155,10 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let Spanned {
+        item: (requested_url, _),
+        span: request_span,
+    } = http_parse_url(call, span, args.url)?;
     let redirect_mode = RedirectMode::Follow;
 
     let cwd = engine_state.cwd(None)?;
@@ -175,7 +178,7 @@ fn helper(
     request = request_add_custom_headers(args.headers, request)?;
 
     let (response, request_headers) =
-        send_request_no_body(request, call.head, engine_state.signals());
+        send_request_no_body(request, request_span, call.head, engine_state.signals());
 
     let response = response?;
 
