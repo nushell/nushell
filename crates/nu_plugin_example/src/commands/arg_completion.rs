@@ -52,12 +52,14 @@ impl PluginCommand for ArgCompletion {
         Ok(PipelineData::empty())
     }
 
+    #[expect(deprecated, reason = "internal usage")]
     fn get_dynamic_completion(
         &self,
         _plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: DynamicCompletionCall,
         arg_type: ArgType,
+        _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Option<Vec<DynamicSuggestion>> {
         match arg_type {
             ArgType::Flag(flag_name) => {

@@ -49,6 +49,8 @@ impl<'a> Completer for ArgValueCompletion<'a> {
             &mut stack,
             dynamic_completion_call,
             &self.arg_type,
+            #[expect(deprecated, reason = "internal usage")]
+            nu_protocol::engine::ExperimentalMarker,
         ) {
             Ok(Some(items)) => {
                 for i in items {

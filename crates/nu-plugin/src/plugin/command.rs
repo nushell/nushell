@@ -162,12 +162,14 @@ pub trait PluginCommand: Sync {
     /// - None: I couldn't find any suggestions, please fall back to default completions
     /// - Some(vec![]): there are no suggestions
     /// - Some(vec![item1, item2]): item1 and item2 are available
+    #[expect(deprecated, reason = "forwarding experimental status")]
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: DynamicCompletionCall,
         arg_type: ArgType,
+        _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
     }
@@ -308,7 +310,6 @@ pub trait SimplePluginCommand: Sync {
         input: &Value,
     ) -> Result<Value, LabeledError>;
 
-    #[allow(unused_variables)]
     /// Get completion items for `arg_type`.
     ///
     /// It's useful when you want to get auto completion items of a flag or positional argument
@@ -318,12 +319,15 @@ pub trait SimplePluginCommand: Sync {
     /// - None: I couldn't find any suggestions, please fall back to default completions
     /// - Some(vec![]): there are no suggestions
     /// - Some(vec![item1, item2]): item1 and item2 are available
+    #[allow(unused_variables)]
+    #[expect(deprecated, reason = "forwarding experimental status")]
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: DynamicCompletionCall,
         arg_type: ArgType,
+        _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Option<Vec<DynamicSuggestion>> {
         None
     }
@@ -378,14 +382,23 @@ where
     }
 
     #[allow(unused_variables)]
+    #[allow(deprecated, reason = "internal usage")]
     fn get_dynamic_completion(
         &self,
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: DynamicCompletionCall,
         arg_type: ArgType,
+        experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Option<Vec<DynamicSuggestion>> {
-        <Self as SimplePluginCommand>::get_dynamic_completion(self, plugin, engine, call, arg_type)
+        <Self as SimplePluginCommand>::get_dynamic_completion(
+            self,
+            plugin,
+            engine,
+            call,
+            arg_type,
+            experimental,
+        )
     }
 }
 

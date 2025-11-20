@@ -550,7 +550,14 @@ where
                 } = get_dynamic_completion_info;
                 let items = if let Some(command) = commands.get(&name) {
                     let arg_type = arg_type.into();
-                    command.get_dynamic_completion(plugin, &engine, call, arg_type)
+                    command.get_dynamic_completion(
+                        plugin,
+                        &engine,
+                        call,
+                        arg_type,
+                        #[expect(deprecated, reason = "internal usage")]
+                        nu_protocol::engine::ExperimentalMarker,
+                    )
                 } else {
                     None
                 };

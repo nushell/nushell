@@ -173,12 +173,14 @@ pub trait Command: Send + Sync + CommandClone {
     /// - Some(vec![]): there are no suggestions
     /// - Some(vec![item1, item2]): item1 and item2 are available
     #[allow(unused_variables)]
+    #[expect(deprecated)]
     fn get_dynamic_completion(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: DynamicCompletionCallRef,
         arg_type: &ArgType,
+        _experimental: ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(None)
     }
@@ -208,3 +210,11 @@ impl Clone for Box<dyn Command> {
         self.clone_box()
     }
 }
+
+/// Marker type for tagging [`Command`] methods as experimental.
+///
+/// Add this marker as a parameter to a method to make implementors see a deprecation warning when
+/// they implement it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[deprecated(note = "this method is very experimental, likely to change")]
+pub struct ExperimentalMarker;

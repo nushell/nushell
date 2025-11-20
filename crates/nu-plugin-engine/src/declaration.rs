@@ -128,12 +128,14 @@ impl Command for PluginDeclaration {
         Some(&self.source.identity)
     }
 
+    #[expect(deprecated, reason = "internal usage")]
     fn get_dynamic_completion(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         call: DynamicCompletionCallRef,
         arg_type: &ArgType,
+        _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         // Get the engine config
         let engine_config = stack.get_config(engine_state);
