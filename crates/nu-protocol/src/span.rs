@@ -1,5 +1,5 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
-use crate::{IntoValue, SpanId, Value, record};
+use crate::{FromValue, IntoValue, ShellError, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref};
@@ -325,6 +325,51 @@ impl IntoValue for Span {
             "end" => Value::int(self.end as i64, self),
         };
         record.into_value(span)
+    }
+}
+
+impl FromValue for Span {
+    fn from_value(value: Value) -> Result<Self, ShellError> {
+        let rec = value.as_record();
+        match rec {
+            Ok(val) => {
+                let Some(pre_start) = val.get("start") else {
+                    return Err(ShellError::GenericError {
+                        error: "Unable to parse Span.".into(),
+                        msg: "`start` must be an `int`".into(),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![],
+                    });
+                };
+                let Some(pre_end) = val.get("end") else {
+                    return Err(ShellError::GenericError {
+                        error: "Unable to parse Span.".into(),
+                        msg: "`end` must be an `int`".into(),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![],
+                    });
+                };
+                let start = pre_start.as_int()? as usize;
+                let end = pre_end.as_int()? as usize;
+                if start <= end {
+                    Ok(Self::new(start, end))
+                } else {
+                    Err(ShellError::GenericError {
+                        error: "Unable to parse Span.".into(),
+                        msg: "`end` must not be less than `start`".into(),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![],
+                    })
+                }
+            }
+            _ => Err(ShellError::TypeMismatch {
+                err_message: "Must be a record".into(),
+                span: value.span(),
+            }),
+        }
     }
 }
 
