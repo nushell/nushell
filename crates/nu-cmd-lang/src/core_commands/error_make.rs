@@ -126,19 +126,6 @@ struct Error {
     code: Option<String>,
 }
 
-// Labels are parse separately because they could be vectors or single values.
-#[derive(Debug, Default, Clone, FromValue, IntoValue)]
-struct Label {
-    text: String,
-    span: Option<Span>,
-}
-
-// Optional list or singleton label
-#[derive(Debug, Default, Clone, IntoValue)]
-struct Labels {
-    list: Vec<Label>,
-}
-
 impl Error {
     pub fn combined_labels(&self, span: Option<Span>) -> Vec<Label> {
         let included = [
@@ -157,6 +144,19 @@ impl Error {
     }
 }
 
+// Labels are parse separately because they could be vectors or single values.
+#[derive(Debug, Default, Clone, FromValue, IntoValue)]
+struct Label {
+    text: String,
+    span: Option<Span>,
+}
+
+// Optional list or singleton label
+#[derive(Debug, Default, Clone, IntoValue)]
+struct Labels {
+    list: Vec<Label>,
+}
+
 impl FromValue for Labels {
     fn from_value(v: Value) -> std::result::Result<Self, ShellError> {
         match v.get_type() {
@@ -168,7 +168,12 @@ impl FromValue for Labels {
                 Ok(o) => Ok(Self { list: o }),
                 Err(o) => Err(o),
             },
-            _ => Ok(Self { list: vec![] }),
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
         }
     }
 }

@@ -123,6 +123,20 @@ fn error_chained() {
 }
 
 #[test]
+fn error_bad_label() {
+    let actual = nu!("
+        error make {
+            msg: foo
+            inner: [{msg:bar}]
+            labels: foobar
+        }
+    ");
+
+    assert!(!actual.err.contains("Error: foo"));
+    assert!(actual.err.contains("can't convert string to Labels"));
+}
+
+#[test]
 fn check_help_line() {
     let actual = nu!("error make {msg:foo help: `Custom help line`}");
 
