@@ -220,7 +220,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             };
 
             if group_digits {
-                let parts: Vec<&str> = val_str.split(get_system_locale().decimal()).collect();
+                let parts: Vec<&str> = val_str.split('.').collect();
                 let int_part = parts[0];
                 let frac_part = if parts.len() > 1 { parts[1] } else { "" };
 
