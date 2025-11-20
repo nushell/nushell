@@ -2,7 +2,8 @@ use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
-    DynamicSuggestion, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    DynamicCompletionCallRef, DynamicSuggestion, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Value,
     debugger::WithoutDebug,
     engine::{ArgType, Command, EngineState, Stack, StateWorkingSet},
 };
@@ -36,11 +37,15 @@ impl Command for FakeCmd {
                 Some('f'),
             )
     }
+
+    #[expect(deprecated, reason = "example usage")]
     fn get_dynamic_completion(
         &self,
         _engine_state: &EngineState,
         _stack: &mut Stack,
+        _call: DynamicCompletionCallRef,
         arg_type: &ArgType,
+        _experimental: nu_protocol::engine::ExperimentalMarker,
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         Ok(match arg_type {
             ArgType::Positional(index) => {

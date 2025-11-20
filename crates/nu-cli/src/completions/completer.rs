@@ -485,6 +485,7 @@ impl NuCompleter {
                                 call,
                                 arg_idx,
                                 pos,
+                                strip,
                             };
                             suggestions.splice(
                                 0..0,
@@ -569,6 +570,7 @@ impl NuCompleter {
                                 call,
                                 arg_idx,
                                 pos,
+                                strip,
                             };
 
                             suggestions.splice(
@@ -579,7 +581,6 @@ impl NuCompleter {
                         }
                         _ => (),
                     }
-
                     break;
                 }
             }
