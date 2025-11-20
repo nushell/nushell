@@ -1,18 +1,126 @@
-use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
-    completer::map_value_completions,
-};
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion};
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
 use nu_protocol::{
-    BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
+    BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, SuggestionKind, Type,
+    Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
+use reedline::Suggestion;
 use std::{collections::HashMap, sync::Arc};
 
 use super::completion_options::NuMatcher;
+
+fn map_value_completions<'a>(
+    list: impl Iterator<Item = &'a Value>,
+    span: Span,
+    offset: usize,
+) -> Vec<SemanticSuggestion> {
+    list.filter_map(move |x| {
+        // Match for string values
+        if let Ok(s) = x.coerce_string() {
+            return Some(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: s,
+                    span: reedline::Span {
+                        start: span.start - offset,
+                        end: span.end - offset,
+                    },
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Value(x.get_type())),
+            });
+        }
+
+        // Match for record values
+        if let Ok(record) = x.as_record() {
+            let mut suggestion = Suggestion {
+                value: String::from(""), // Initialize with empty string
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                ..Suggestion::default()
+            };
+            let mut value_type = Type::String;
+
+            // Iterate the cols looking for `value` and `description`
+            record.iter().for_each(|(key, value)| {
+                match key.as_str() {
+                    "value" => {
+                        value_type = value.get_type();
+                        // Convert the value to string
+                        if let Ok(val_str) = value.coerce_string() {
+                            // Update the suggestion value
+                            suggestion.value = val_str;
+                        }
+                    }
+                    "description" => {
+                        // Convert the value to string
+                        if let Ok(desc_str) = value.coerce_string() {
+                            // Update the suggestion value
+                            suggestion.description = Some(desc_str);
+                        }
+                    }
+                    "style" => {
+                        // Convert the value to string
+                        suggestion.style = match value {
+                            Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+                            Value::Record { .. } => Some(color_record_to_nustyle(value)),
+                            _ => None,
+                        };
+                    }
+                    "span" => {
+                        if let Value::Record { val: span, .. } = value {
+                            let start = span
+                                .get("start")
+                                .and_then(|val| val.as_int().ok())
+                                .and_then(|x| usize::try_from(x).ok());
+                            let end = span
+                                .get("end")
+                                .and_then(|val| val.as_int().ok())
+                                .and_then(|x| usize::try_from(x).ok());
+                            // TODO: error on invalid spans?
+                            match (start, end) {
+                                (Some(start), Some(end)) => {
+                                    suggestion.span = reedline::Span {
+                                        start: start.min(end),
+                                        end,
+                                    };
+                                }
+                                (Some(start), None) => {
+                                    suggestion.span.start = start.min(suggestion.span.end);
+                                }
+                                (None, Some(end)) => {
+                                    suggestion.span.end = end.max(suggestion.span.start);
+                                }
+                                _ => (),
+                            }
+                            if let (Some(start), Some(end)) = (start, end) {
+                                suggestion.span = reedline::Span {
+                                    start: start.min(end),
+                                    end,
+                                };
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            });
+
+            return Some(SemanticSuggestion {
+                suggestion,
+                kind: Some(SuggestionKind::Value(value_type)),
+            });
+        }
+
+        None
+    })
+    .collect()
+}
 
 pub struct CustomCompletion<T: Completer> {
     decl_id: DeclId,
