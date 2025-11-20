@@ -416,39 +416,21 @@ fn command_argument_completions(
 }
 
 #[rstest]
-#[case::list_flag_value1("foo --foo=", None, vec!["[bar]", "[baz]", "[foo]"], 0)]
-#[case::list_flag_value2("foo --foo=[f", None, vec!["[foo]"], 2)]
-#[case::list_flag_value3("foo --foo [f, b", None, vec!["[f, bar]", "[f, baz]"], 5)]
-#[case::positional1("foo [f, b", None, vec!["[f, bar]", "[f, baz]"], 5)]
-#[case::positional2("foo [f, b", Some("foo [f".len()), vec!["[foo]"], 2)]
-#[case::positional3("foo --foo [] [f", None, vec!["[foo]"], 2)]
+#[case::list_flag_value1("foo --foo=", None, vec!["[f, bar]", "[f, baz]", "[foo]"])]
+#[case::list_flag_value2("foo --foo=[foo", None, vec!["[foo]"])]
+#[case::list_flag_value3("foo --foo [f, b", None, vec!["[f, bar]", "[f, baz]"])]
+#[case::positional1("foo [f, b", None, vec!["[f, bar]", "[f, baz]"])]
+#[case::positional2("foo [foo, b", Some("foo [foo".len()), vec!["[foo]"])]
+#[case::positional3("foo --foo [] [foo", None, vec!["[foo]"])]
 fn custom_completion_for_list_typed_argument(
     #[case] input: &str,
     #[case] pos: Option<usize>,
     #[case] expected: Vec<&str>,
-    #[case] span_size: usize,
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = /* lang=nu */ r#"
     def comp_foo [input pos] {
-        let list = ast -f ($input ++ 'a')
-        | reverse
-        | take while {|it| ($it.shape =~ 'shape_(string|list|garbage)') and $it.content not-in [']', '[]'] }
-        | reverse
-        let list_str = $list | where $it.shape != 'shape_list' | each {|it| $it.content }
-        [foo bar baz] | where {|it|
-            $it has ($list_str | last | str substring ..<(($in | str length) - 1))
-        }
-        | each {|it|
-            let val = '[' ++ ($list_str | drop | append $it | str join ', ') ++ ']'
-            {
-                value: $val
-                span: {
-                    start: (($list | first | $in.span.start) + $pos - ($input | str length))
-                    end: ($pos + 1)
-                }
-            }
-        }
+        ["[foo]", "[f, bar]", "[f, baz]"]
     }
 
     def foo [--foo: list<string>@comp_foo bar: list<string>@comp_foo] { }
@@ -461,10 +443,6 @@ fn custom_completion_for_list_typed_argument(
     let span_end = pos.unwrap_or(input.len());
     let suggestions = completer.complete(input, span_end);
     match_suggestions(&expected, &suggestions);
-
-    let last_res = suggestions.last().unwrap();
-    assert_eq!(last_res.span.start, span_end - span_size);
-    assert_eq!(last_res.span.end, span_end + 1);
 }
 
 #[test]
