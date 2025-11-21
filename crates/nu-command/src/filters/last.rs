@@ -111,7 +111,9 @@ impl Command for Last {
                     if let Some(last) = buf.pop_back() {
                         Ok(last.into_pipeline_data())
                     } else {
-                        Err(ShellError::AccessEmptyContent { span: head })
+                        // There are no values, so return nothing instead of an error so
+                        // that users can pipe this through 'default' if they want to.
+                        Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                     }
                 } else {
                     Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
@@ -125,7 +127,9 @@ impl Command for Last {
                             if let Some(v) = vals.pop() {
                                 Ok(v.into_pipeline_data())
                             } else {
-                                Err(ShellError::AccessEmptyContent { span: head })
+                                // There are no values, so return nothing instead of an error so
+                                // that users can pipe this through 'default' if they want to.
+                                Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                             }
                         } else {
                             let i = vals.len().saturating_sub(rows);
@@ -138,7 +142,9 @@ impl Command for Last {
                             if let Some(val) = val.pop() {
                                 Ok(Value::int(val.into(), span).into_pipeline_data())
                             } else {
-                                Err(ShellError::AccessEmptyContent { span: head })
+                                // There are no values, so return nothing instead of an error so
+                                // that users can pipe this through 'default' if they want to.
+                                Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                             }
                         } else {
                             let i = val.len().saturating_sub(rows);
@@ -178,7 +184,10 @@ impl Command for Last {
                                             Value::int(buf[0] as i64, head).into_pipeline_data()
                                         );
                                     } else {
-                                        return Err(ShellError::AccessEmptyContent { span: head });
+                                        // There are no values, so return nothing instead of an error so
+                                        // that users can pipe this through 'default' if they want to.
+                                        return Ok(Value::nothing(head)
+                                            .into_pipeline_data_with_metadata(metadata));
                                     }
                                 } else {
                                     return Ok(Value::binary(buf, head).into_pipeline_data());
