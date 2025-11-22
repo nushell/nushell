@@ -424,6 +424,36 @@ fn command_argument_completions(
     assert_eq!(last_res.span.end, span_end);
 }
 
+#[rstest]
+#[case::list_flag_value1("foo --foo=", None, vec!["[f, bar]", "[f, baz]", "[foo]"])]
+#[case::list_flag_value2("foo --foo=[foo", None, vec!["[foo]"])]
+#[case::list_flag_value3("foo --foo [f, b", None, vec!["[f, bar]", "[f, baz]"])]
+#[case::positional1("foo [f, b", None, vec!["[f, bar]", "[f, baz]"])]
+#[case::positional2("foo [foo, b", Some("foo [foo".len()), vec!["[foo]"])]
+#[case::positional3("foo --foo [] [foo", None, vec!["[foo]"])]
+fn custom_completion_for_list_typed_argument(
+    #[case] input: &str,
+    #[case] pos: Option<usize>,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = /* lang=nu */ r#"
+    def comp_foo [input pos] {
+        ["[foo]", "[f, bar]", "[f, baz]"]
+    }
+
+    def foo [--foo: list<string>@comp_foo bar: list<string>@comp_foo] { }
+    "#;
+
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // `pos` defaults to `input.len()` if set to None
+    let span_end = pos.unwrap_or(input.len());
+    let suggestions = completer.complete(input, span_end);
+    match_suggestions(&expected, &suggestions);
+}
+
 #[test]
 fn list_completions_defined_inline() {
     let (_, _, engine, stack) = new_engine();

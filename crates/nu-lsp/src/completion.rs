@@ -491,8 +491,7 @@ mod tests {
         }])
     )]
     #[case::command_wide_custom(
-        "command.nu", (23, 5),
-        None,
+        "command.nu", (23, 5), None,
         serde_json::json!([{
             "label": "baz",
             "labelDetails": { "description": "string" },
@@ -517,8 +516,7 @@ mod tests {
         }])
     )]
     #[case::attributable_command_with_snippet(
-        "command.nu", (21, 0),
-        None,
+        "command.nu", (21, 0), None,
         serde_json::json!([{
             "label": "def",
             "labelDetails": { "description": "keyword" },
@@ -527,6 +525,42 @@ mod tests {
                 "newText": "def ${1:def_name} ${2:params} ${3:block}"
             },
             "kind": 14
+        }])
+    )]
+    #[case::custom_completion_with_position_and_span(
+        "custom.nu", (13, 15), None,
+        serde_json::json!([{
+            "label": "foo",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 13, "character": 14 }, "end": { "line": 13, "character": 15 } },
+                "newText": "foo"
+            },
+            "kind": 12
+        }])
+    )]
+    #[case::custom_completion_with_position_and_span_on_fallback(
+        "custom.nu", (13, 17), None,
+        serde_json::json!([{
+            "label": "foo",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 13, "character": 16 }, "end": { "line": 13, "character": 17 } },
+                "newText": "foo"
+            },
+            "kind": 12
+        }])
+    )]
+    #[case::custom_completion_with_position_and_span_on_flag_value(
+        "custom.nu", (13, 30), None,
+        serde_json::json!([{
+            "label": "foo",
+            "labelDetails": { "description": "string" },
+            "textEdit": {
+                "range": { "start": { "line": 13, "character": 29 }, "end": { "line": 13, "character": 30 } },
+                "newText": "foo"
+            },
+            "kind": 12
         }])
     )]
     fn completion_single_request(
