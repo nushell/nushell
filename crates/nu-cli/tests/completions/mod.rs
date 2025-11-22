@@ -284,19 +284,28 @@ fn customcompletions_no_sort() {
     );
 }
 
-#[test]
-fn custom_completions_override_span() {
+#[rstest]
+#[case("{ start: 1, end: 10 }", (1, 10))]
+#[case("{ end: 20 }", (11, 20))]
+#[case("{ start: 0 }", (0, 12))]
+fn custom_completions_override_span(
+    #[case] span_string: &str,
+    #[case] expected_span: (usize, usize),
+) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
-        def comp [] { [{ value: blech, span: { start: 1, end: 10 } }] }
-        def my-command [arg: string@comp] {}"#;
+    let command = format!(
+        r#"
+        def comp [] {{ [{{ value: blech, span: {span_string} }}] }}
+        def my-command [arg: string@comp] {{}}"#
+    );
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "my-command b";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["blech"], &suggestions);
-    assert_eq!(Span::new(1, 10), suggestions[0].span);
+    let (start, end) = expected_span;
+    assert_eq!(Span::new(start, end), suggestions[0].span);
 }
 
 #[rstest]
@@ -901,15 +910,22 @@ fn external_completer_fallback() {
     match_suggestions(&expected, &suggestions);
 }
 
-#[test]
-fn external_completer_override_span() {
-    let block = "{|spans| [{ value: blech, span: { start: 1, end: 10 } }]}";
+#[rstest]
+#[case("{ start: 1, end: 10 }", (1, 10))]
+#[case("{ end: 20 }", (4, 20))]
+#[case("{ start: 0 }", (0, 5))]
+fn external_completer_override_span(
+    #[case] span_string: &str,
+    #[case] expected_span: (usize, usize),
+) {
+    let block = format!("{{|spans| [{{ value: blech, span: {span_string} }}]}}");
     let input = "foo b";
 
-    let suggestions = run_external_completion(block, input);
+    let suggestions = run_external_completion(&block, input);
+    let (start, end) = expected_span;
     let expected = vec![Suggestion {
         value: "blech".to_string(),
-        span: Span::new(1, 10),
+        span: Span::new(start, end),
         ..Default::default()
     }];
     assert_eq!(expected, suggestions);
