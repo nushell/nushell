@@ -98,30 +98,6 @@ When updating a specific index, the closure will instead be run once. The first 
                     Value::test_int(3),
                 ])),
             },
-            Example {
-                description: "Use an optional cell path to update a column that may not exist in all rows",
-                example: "[{a: 1, b: 2}, {b: 3}, {a: 4, b: 5}] | update a? 10",
-                result: Some(Value::test_list(vec![
-                    Value::test_record(record! {
-                        "a" => Value::test_int(10),
-                        "b" => Value::test_int(2),
-                    }),
-                    Value::test_record(record! {
-                        "b" => Value::test_int(3),
-                    }),
-                    Value::test_record(record! {
-                        "a" => Value::test_int(10),
-                        "b" => Value::test_int(5),
-                    }),
-                ])),
-            },
-            Example {
-                description: "Use an optional cell path to skip updating a value that doesn't exist",
-                example: "{a: 1} | update b? 2",
-                result: Some(Value::test_record(record! {
-                    "a" => Value::test_int(1),
-                })),
-            },
         ]
     }
 }
@@ -163,41 +139,7 @@ fn update(
                     }
                 }
             } else {
-                // Check if the path is optional
-                let is_optional = is_cell_path_optional(&cell_path.members);
-
-                // For tables we need to handle optional paths specially
-                if is_optional {
-                    match (&cell_path.members.first(), &mut value) {
-                        (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                            // For each record in the table, only update if the path exists
-                            for val in vals {
-                                if let Ok(value_at_path) = val.follow_cell_path(&cell_path.members)
-                                    && !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-                                        // Path exists, do the update
-                                        val.update_data_at_cell_path(
-                                            &cell_path.members,
-                                            replacement.clone(),
-                                        )?;
-                                    }
-                            }
-                        }
-                        _ => {
-                            // For single values, check if path exists
-                            if let Ok(value_at_path) = value.follow_cell_path(&cell_path.members)
-                                && !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-                                    // Path exists, do the update
-                                    value.update_data_at_cell_path(
-                                        &cell_path.members,
-                                        replacement,
-                                    )?;
-                                }
-                        }
-                    }
-                } else {
-                    // Path is not optional
-                    value.update_data_at_cell_path(&cell_path.members, replacement)?;
-                }
+                value.update_data_at_cell_path(&cell_path.members, replacement)?;
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
@@ -239,19 +181,6 @@ fn update(
                         true,
                     )?;
                 } else {
-                    // Check if the path is optional and doesn't exist
-                    if is_cell_path_optional(path)
-                        && let Ok(value_at_path) = value.follow_cell_path(path)
-                            && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-                                return Ok(pre_elems
-                                    .into_iter()
-                                    .chain(stream)
-                                    .into_pipeline_data_with_metadata(
-                                        head,
-                                        engine_state.signals().clone(),
-                                        metadata,
-                                    ));
-                            }
                     value.update_data_at_cell_path(path, replacement)?;
                 }
 
@@ -283,15 +212,7 @@ fn update(
 
                 Ok(PipelineData::list_stream(stream, metadata))
             } else {
-                let is_optional = is_cell_path_optional(&cell_path.members);
                 let stream = stream.map(move |mut value| {
-                    // Check if the path is optional and doesn't exist
-                    if is_optional
-                        && let Ok(value_at_path) = value.follow_cell_path(&cell_path.members)
-                            && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-                                return value;
-                            }
-
                     if let Err(e) =
                         value.update_data_at_cell_path(&cell_path.members, replacement.clone())
                     {
@@ -315,13 +236,6 @@ fn update(
     }
 }
 
-fn is_cell_path_optional(cell_path: &[PathMember]) -> bool {
-    cell_path.iter().any(|member| match member {
-        PathMember::String { optional, .. } => *optional,
-        PathMember::Int { optional, .. } => *optional,
-    })
-}
-
 fn update_value_by_closure(
     value: &mut Value,
     closure: &mut ClosureEval,
@@ -330,11 +244,6 @@ fn update_value_by_closure(
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path)?;
-
-    // If the cell path is optional and the value doesn't exist, skip the update
-    if is_cell_path_optional(cell_path) && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-        return Ok(());
-    }
 
     let arg = if first_path_member_int {
         value_at_path.as_ref()
@@ -358,11 +267,6 @@ fn update_single_value_by_closure(
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path)?;
-
-    // If the cell path is optional and the value doesn't exist, skip the update
-    if is_cell_path_optional(cell_path) && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
-        return Ok(());
-    }
 
     let arg = if first_path_member_int {
         value_at_path.as_ref()
