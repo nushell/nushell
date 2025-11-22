@@ -99,12 +99,6 @@ fn map_value_completions<'a>(
                                 }
                                 _ => (),
                             }
-                            if let (Some(start), Some(end)) = (start, end) {
-                                suggestion.span = reedline::Span {
-                                    start: start.min(end),
-                                    end,
-                                };
-                            }
                         }
                     }
                     _ => (),
