@@ -173,28 +173,25 @@ fn update(
                             // For each record in the table, only update if the path exists
                             for val in vals {
                                 if let Ok(value_at_path) = val.follow_cell_path(&cell_path.members)
-                                {
-                                    if !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+                                    && !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
                                         // Path exists, do the update
                                         val.update_data_at_cell_path(
                                             &cell_path.members,
                                             replacement.clone(),
                                         )?;
                                     }
-                                }
                             }
                         }
                         _ => {
                             // For single values, check if path exists
-                            if let Ok(value_at_path) = value.follow_cell_path(&cell_path.members) {
-                                if !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+                            if let Ok(value_at_path) = value.follow_cell_path(&cell_path.members)
+                                && !matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
                                     // Path exists, do the update
                                     value.update_data_at_cell_path(
                                         &cell_path.members,
                                         replacement,
                                     )?;
                                 }
-                            }
                         }
                     }
                 } else {
@@ -243,9 +240,9 @@ fn update(
                     )?;
                 } else {
                     // Check if the path is optional and doesn't exist
-                    if is_cell_path_optional(path) {
-                        if let Ok(value_at_path) = value.follow_cell_path(path) {
-                            if matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+                    if is_cell_path_optional(path)
+                        && let Ok(value_at_path) = value.follow_cell_path(path)
+                            && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
                                 return Ok(pre_elems
                                     .into_iter()
                                     .chain(stream)
@@ -255,8 +252,6 @@ fn update(
                                         metadata,
                                     ));
                             }
-                        }
-                    }
                     value.update_data_at_cell_path(path, replacement)?;
                 }
 
@@ -291,13 +286,11 @@ fn update(
                 let is_optional = is_cell_path_optional(&cell_path.members);
                 let stream = stream.map(move |mut value| {
                     // Check if the path is optional and doesn't exist
-                    if is_optional {
-                        if let Ok(value_at_path) = value.follow_cell_path(&cell_path.members) {
-                            if matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+                    if is_optional
+                        && let Ok(value_at_path) = value.follow_cell_path(&cell_path.members)
+                            && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
                                 return value;
                             }
-                        }
-                    }
 
                     if let Err(e) =
                         value.update_data_at_cell_path(&cell_path.members, replacement.clone())
