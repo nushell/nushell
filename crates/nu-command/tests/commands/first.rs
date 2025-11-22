@@ -98,10 +98,10 @@ fn errors_on_negative_rows() {
 }
 
 #[test]
-fn errors_on_empty_list_when_no_rows_given() {
-    let actual = nu!("[] | first");
+fn does_not_error_on_empty_list_when_no_rows_given() {
+    let actual = nu!("[] | first | describe");
 
-    assert!(actual.err.contains("index too large"));
+    assert!(actual.out.contains("nothing"));
 }
 
 #[test]

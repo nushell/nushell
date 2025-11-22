@@ -115,7 +115,9 @@ fn first_helper(
                         if let Some(val) = vals.first_mut() {
                             Ok(std::mem::take(val).into_pipeline_data())
                         } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         vals.truncate(rows);
@@ -127,7 +129,9 @@ fn first_helper(
                         if let Some(&val) = val.first() {
                             Ok(Value::int(val.into(), span).into_pipeline_data())
                         } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         val.truncate(rows);
@@ -140,7 +144,9 @@ fn first_helper(
                         if let Some(v) = iter.next() {
                             Ok(v.into_pipeline_data())
                         } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
@@ -165,7 +171,9 @@ fn first_helper(
                 if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
                 } else {
-                    Err(ShellError::AccessEmptyContent { span: head })
+                    // There are no values, so return nothing instead of an error so
+                    // that users can pipe this through 'default' if they want to.
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
             } else {
                 Ok(PipelineData::list_stream(

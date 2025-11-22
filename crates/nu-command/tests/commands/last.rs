@@ -97,8 +97,22 @@ fn fail_on_non_iterator() {
 }
 
 #[test]
-fn errors_on_empty_list_when_no_rows_given() {
+fn does_not_error_on_empty_list_when_no_rows_given() {
+    let actual = nu!("[] | last | describe");
+
+    assert!(actual.out.contains("nothing"));
+}
+
+#[test]
+fn returns_nothing_on_empty_list_when_no_rows_given() {
     let actual = nu!("[] | last");
 
-    assert!(actual.err.contains("index too large"));
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn returns_d_on_empty_list_when_no_rows_given_with_default() {
+    let actual = nu!("[a b] | where $it == 'c' | last | default 'd'");
+
+    assert_eq!(actual.out, "d");
 }
