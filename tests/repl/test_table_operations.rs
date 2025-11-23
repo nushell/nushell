@@ -227,7 +227,7 @@ fn split_row() -> TestResult {
 #[test]
 fn split_column() -> TestResult {
     run_test(
-        r#""hello world" | split column " " | get "column1".0"#,
+        r#""hello world" | split column " " | get "column0".0"#,
         "hello",
     )
 }
