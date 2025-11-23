@@ -25,9 +25,9 @@ impl Command for Headers {
                 description: "Sets the column names for a table created by `split column`",
                 example: r#""a b c|1 2 3" | split row "|" | split column " " | headers"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" => Value::test_string("1"),
-                    "b" => Value::test_string("2"),
-                    "c" => Value::test_string("3"),
+                    "a" => Value::test_string("0"),
+                    "b" => Value::test_string("1"),
+                    "c" => Value::test_string("2"),
                 })])),
             },
             Example {
@@ -35,14 +35,14 @@ impl Command for Headers {
                 example: r#""a b c|1 2 3|1 2 3 4" | split row "|" | split column " " | headers"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "a" => Value::test_string("1"),
-                        "b" => Value::test_string("2"),
-                        "c" => Value::test_string("3"),
+                        "a" => Value::test_string("0"),
+                        "b" => Value::test_string("1"),
+                        "c" => Value::test_string("2"),
                     }),
                     Value::test_record(record! {
-                        "a" => Value::test_string("1"),
-                        "b" => Value::test_string("2"),
-                        "c" => Value::test_string("3"),
+                        "a" => Value::test_string("0"),
+                        "b" => Value::test_string("1"),
+                        "c" => Value::test_string("2"),
                     }),
                 ])),
             },

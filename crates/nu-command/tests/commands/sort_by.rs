@@ -8,10 +8,10 @@ fn by_column() {
         | skip 1
         | first 4
         | split column "="
-        | sort-by column1
+        | sort-by column0
         | skip 1
         | first
-        | get column1
+        | get column0
         | str trim
     "#);
 
@@ -29,7 +29,7 @@ fn by_invalid_column() {
         | sort-by ColumnThatDoesNotExist
         | skip 1
         | first
-        | get column1
+        | get column0
         | str trim
     "#);
 
