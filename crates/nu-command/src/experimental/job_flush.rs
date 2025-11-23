@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::FilterTag;
 
 #[derive(Clone)]
 pub struct JobFlush;
@@ -22,6 +23,12 @@ If a message is received while this command is executing, it may also be discard
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job flush")
             .category(Category::Experimental)
+            .named(
+                "tag",
+                SyntaxShape::Int,
+                "Clear messages with this tag",
+                None,
+            )
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
@@ -33,17 +40,30 @@ If a message is received while this command is executing, it may also be discard
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let tag_arg: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "tag")?;
+        if let Some(tag) = tag_arg
+            && tag.item < 0
+        {
+            return Err(ShellError::NeedsPositiveValue { span: tag.span });
+        }
+
+        let tag_arg = tag_arg.map(|it| it.item as FilterTag);
+
         let mut mailbox = engine_state
             .current_job
             .mailbox
             .lock()
             .expect("failed to acquire lock");
 
-        mailbox.clear();
+        if tag_arg.is_some() {
+            while mailbox.try_recv(tag_arg).is_ok() {}
+        } else {
+            mailbox.clear();
+        }
 
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
