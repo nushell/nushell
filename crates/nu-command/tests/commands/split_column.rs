@@ -25,7 +25,7 @@ fn to_column() {
             | lines
             | str trim
             | split column ","
-            | get column2
+            | get column1
         "#);
 
         assert!(actual.out.contains("shipper"));
@@ -35,7 +35,7 @@ fn to_column() {
             | lines
             | str trim
             | split column -n 3 ","
-            | get column3
+            | get column2
         "#);
 
         assert!(actual.out.contains("tariff_item,name,origin"));
@@ -45,7 +45,7 @@ fn to_column() {
             | lines
             | str trim
             | split column --regex '\s*,\s*'
-            | get column2
+            | get column1
         ");
 
         assert!(actual.out.contains("shipper"));
