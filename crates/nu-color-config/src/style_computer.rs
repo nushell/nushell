@@ -71,7 +71,11 @@ impl<'a> StyleComputer<'a> {
                         }
                     }
                     Err(err) => {
-                        report_shell_error(self.engine_state, &err);
+                        report_shell_error(
+                            &self.stack.get_config(self.engine_state),
+                            self.engine_state,
+                            &err,
+                        );
                         Style::default()
                     }
                 }

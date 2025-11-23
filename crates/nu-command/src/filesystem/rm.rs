@@ -457,7 +457,7 @@ fn rm(
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),
-            Err(err) => report_shell_error(engine_state, &err),
+            Err(err) => report_shell_error(&stack.get_config(engine_state), engine_state, &err),
         }
     }
 

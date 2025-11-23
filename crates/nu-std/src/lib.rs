@@ -183,7 +183,7 @@ use std/prelude *
         working_set.files.pop();
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(&working_set, err);
+            report_parse_error(working_set.get_config(), &working_set, err);
         }
 
         (block, working_set.render())

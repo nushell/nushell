@@ -105,7 +105,7 @@ impl Command for JobSpawn {
                     .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
                         if !job_state.signals().interrupted() {
-                            report_shell_error(&job_state, &err);
+                            report_shell_error(job_state.get_config(), &job_state, &err);
                         }
                     });
 
