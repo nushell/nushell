@@ -533,7 +533,7 @@ mod tests {
             "label": "foo",
             "labelDetails": { "description": "string" },
             "textEdit": {
-                "range": { "start": { "line": 13, "character": 14 }, "end": { "line": 13, "character": 15 } },
+                "range": { "start": { "line": 13, "character": 15 }, "end": { "line": 13, "character": 16 } },
                 "newText": "foo"
             },
             "kind": 12

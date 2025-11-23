@@ -106,14 +106,11 @@ fn map_value_completions<'a>(
 }
 
 fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
-    let Some(val) = span.get(field) else {
-        return None;
-    };
-    let Ok(int_val) = val.as_int() else {
+    let Ok(val) = span.get(field)?.as_int() else {
         log::error!("Expected span field {field} to be int");
         return None;
     };
-    let Ok(val) = usize::try_from(int_val) else {
+    let Ok(val) = usize::try_from(val) else {
         log::error!("Couldn't convert span {field} to usize");
         return None;
     };
