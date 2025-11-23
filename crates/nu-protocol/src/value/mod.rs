@@ -2624,6 +2624,21 @@ impl PartialEq for Value {
     }
 }
 
+fn checked_duration_operation<F>(a: i64, b: i64, op: F, span: Span) -> Result<Value, ShellError>
+where
+    F: Fn(i64, i64) -> Option<i64>,
+{
+    if let Some(val) = op(a, b) {
+        Ok(Value::duration(val, span))
+    } else {
+        Err(ShellError::OperatorOverflow {
+            msg: "operation overflowed".to_owned(),
+            span,
+            help: None,
+        })
+    }
+}
+
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
@@ -2673,15 +2688,7 @@ impl Value {
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::duration(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "add operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
+                checked_duration_operation(*lhs, *rhs, i64::checked_add, span)
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = *lhs + *rhs {
@@ -2762,15 +2769,7 @@ impl Value {
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_sub(*rhs) {
-                    Ok(Value::duration(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
+                checked_duration_operation(*lhs, *rhs, i64::checked_sub, span)
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = *lhs - *rhs {
@@ -2872,10 +2871,10 @@ impl Value {
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::duration(*lhs * *rhs, span))
+                checked_duration_operation(*lhs, *rhs, i64::checked_mul, span)
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::duration(*lhs * *rhs, span))
+                checked_duration_operation(*lhs, *rhs, i64::checked_mul, span)
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 Ok(Value::duration((*lhs as f64 * *rhs) as i64, span))
